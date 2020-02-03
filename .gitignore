@@ -1,3 +1,4 @@
-data
-lit
+data/
+lit/
+tests/
 lib/p\200\".tif
