@@ -1,0 +1,36 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/lqc/Documents/research/nwc/hand/lib/find_inlets/src/find_inlets_hr.cpp
+cstdlib
+-
+cstdio
+-
+string
+-
+iostream
+-
+vector
+-
+algorithm
+-
+unordered_set
+-
+gdal.h
+-
+gdal_priv.h
+-
+ogr_spatialref.h
+-
+float.h
+-
+ogr_core.h
+-
+ogr_srs_api.h
+-
+
