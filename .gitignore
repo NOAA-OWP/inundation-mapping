@@ -2,10 +2,7 @@ data/
 lit/
 tests/
 lib/p\200\".tif
-<<<<<<< HEAD
-=======
 lib/find_inlets/find_inlets_hr
 lib/find_inlets/find_inlets_mr
 lib/TauDEM
 lib/taudem
->>>>>>> 70148d4b4337468c429eea93034c6d4763456e53
