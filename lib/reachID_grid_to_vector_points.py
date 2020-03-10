@@ -30,7 +30,7 @@ indices = np.nonzero(a != band.GetNoDataValue())
 srs = osgeo.osr.SpatialReference()
 srs.ImportFromWkt(r.GetProjection())
 
-driver = osgeo.ogr.GetDriverByName('ESRI Shapefile')
+driver = osgeo.ogr.GetDriverByName('GPKG')
 shapeData = driver.CreateDataSource(outputFileName)
 
 layer = shapeData.CreateLayer('ogr_pts', srs, osgeo.ogr.wkbPoint)
@@ -56,7 +56,7 @@ for y_index,x_index in zip(*indices):
     # feature.SetFID(i)
     if writeOption == 'reachID':
         feature.SetField("id",reachID)
-    elif writeOption == 'featureID':
+    elif (writeOption == 'featureID') | writeOption == 'pixelID':
         feature.SetField("id",i)
     layer.CreateFeature(feature)
 
