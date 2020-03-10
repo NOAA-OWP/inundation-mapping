@@ -51,7 +51,7 @@ EQUALS = =
 CMAKE_SOURCE_DIR = /home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/lqc/Documents/research/nwc/hand/foss_fim/find_inlets/build
+CMAKE_BINARY_DIR = /home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -124,9 +124,9 @@ install/local/fast: install/local
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles /home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles /home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles 0
 .PHONY : all
 
 # The main clean target

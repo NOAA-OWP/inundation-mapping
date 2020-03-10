@@ -19,15 +19,16 @@ import numpy.ma as ma
 from math import sqrt
 import shutil
 import netCDF4 as NET
+import tqdm
 
-def Shapefile_Attribute_Reader(catchmentshp, flowlineshp):
+def Shapefile_Attribute_Reader(catchmentgpkg, flowlinegpkg):
     """Find the shared COMID/FEATURE between flowline feature class
     and catchment feature class and read some flowline attributes
     needed to calculate channel hydraulic properties
     """
     # Read catchment shapefile
-    driver = ogr.GetDriverByName("ESRI Shapefile")
-    dataSource = driver.Open(catchmentshp, 0)
+    driver = ogr.GetDriverByName("GPKG")
+    dataSource = driver.Open(catchmentgpkg, 0)
     layer = dataSource.GetLayer()
     # Get catchment FEATUREID list
     catchment_COMID = []
@@ -37,7 +38,7 @@ def Shapefile_Attribute_Reader(catchmentshp, flowlineshp):
     flowline_COMID = []
     RiverLength_dic = {}
     Slope_dic = {}
-    dataSource = driver.Open(flowlineshp, 0)
+    dataSource = driver.Open(flowlinegpkg, 0)
     layer = dataSource.GetLayer()
     for flowline in layer:
         flowline_COMID.append(flowline.GetField("COMID"))
@@ -50,7 +51,7 @@ def Shapefile_Attribute_Reader(catchmentshp, flowlineshp):
     return COMIDlist, RiverLength_dic, Slope_dic
 
 
-def HANDClipper(catchmentRaster,catchmentshp, flowlineshp, handtif,
+def HANDClipper(catchmentRaster,catchmentgpkg, flowlinegpkg, handtif,
                 COMIDlist, RiverLength_dic, Slope_dic,
                 Hmax, dh, roughness, range_sh, vari_comid,
                 vari_length, vari_slope, vari_roughness,
@@ -67,12 +68,22 @@ def HANDClipper(catchmentRaster,catchmentshp, flowlineshp, handtif,
     if not os.path.exists(catchmentFolder):
         os.mkdir(catchmentFolder)
     # Read catchment shapefile
-    inDriver = ogr.GetDriverByName("ESRI Shapefile")
-    inDataSource = inDriver.Open(catchmentshp, 0)
+    inDriver = ogr.GetDriverByName("GPKG")
+    inDataSource = inDriver.Open(catchmentgpkg, 0)
     inLayer = inDataSource.GetLayer()
     spatialRef = inLayer.GetSpatialRef()
     j = 0
-    for i in range(0, inLayer.GetFeatureCount()):
+
+    # get feature indices
+    if inLayer.GetFeature(0) is None:
+        # gpkg files are 1-indexed
+        featureRange = range(1, inLayer.GetFeatureCount()+1)
+    else:
+        # shp files are 0-indexed
+        featureRange = range(0, inLayer.GetFeatureCount())
+
+    for i in tqdm.tqdm(featureRange):
+
         # Get an input catchment feature
         inFeature = inLayer.GetFeature(i)
         COMID = inFeature.GetField('FeatureID')
@@ -82,8 +93,8 @@ def HANDClipper(catchmentRaster,catchmentshp, flowlineshp, handtif,
             vari_slope[j] = Slope_dic[str(COMID)]
             vari_roughness[j] = roughness
             # Set individual catchment shapefile path
-            outShapefile = os.path.join(catchmentFolder, str(COMID)+".shp")
-            outDriver = ogr.GetDriverByName("ESRI Shapefile")
+            outShapefile = os.path.join(catchmentFolder, str(COMID)+".gpkg")
+            outDriver = ogr.GetDriverByName("GPKG")
             # Remove output shapefile if it already exists
             if os.path.exists(outShapefile):
                 outDriver.DeleteDataSource(outShapefile)
@@ -123,7 +134,7 @@ def HANDClipper(catchmentRaster,catchmentshp, flowlineshp, handtif,
             if os.path.exists(dts_masked_file):
                 os.remove(dts_masked_file)
 
-            command_dd = "gdal_calc.py -A {0} -B {1} --calc='A*(B=={2})+((B!={2})*{3})' --NoDataValue={3} --outfile={4}".format(dtsdir,catchmentRaster,COMID,-32768,dts_masked_file)
+            command_dd = "gdal_calc.py --quiet -A {0} -B {1} --calc='A*(B=={2})+((B!={2})*{3})' --NoDataValue={3} --outfile={4}".format(dtsdir,catchmentRaster,COMID,-32768,dts_masked_file)
 
             os.system(command_dd)
 
@@ -134,7 +145,7 @@ def HANDClipper(catchmentRaster,catchmentshp, flowlineshp, handtif,
                 os.remove(dts_out_file)
 
             # Clip HAND raster with single catchment polygon boundary
-            command_dd = "gdalwarp -te " + str(extent[0]) + " " + \
+            command_dd = "gdalwarp -q -te " + str(extent[0]) + " " + \
                          str(extent[2]) + " " + str(extent[1]) + " " + \
                          str(extent[3]) + " -dstnodata -32768 " + dts_masked_file + \
                          " " + dts_out_file
@@ -267,15 +278,16 @@ def HR_Q_Calculation(WAlist, WPlist, Slope, roughness):
 
 
 def main():
-    catchmentshp = str(sys.argv[2])
-    flowlineshp = str(sys.argv[4])
+
+    catchmentgpkg = str(sys.argv[2])
+    flowlinegpkg = str(sys.argv[4])
     handtif = str(sys.argv[6])
     nefcdf_name = str(sys.argv[8])
     catchmentRaster = str(sys.argv[10])
     Hmax = 25
     dh = 0.3048
     roughness = 0.05
-    COMIDlist, RiverLength_dic, Slope_dic = Shapefile_Attribute_Reader(catchmentshp, flowlineshp)
+    COMIDlist, RiverLength_dic, Slope_dic = Shapefile_Attribute_Reader(catchmentgpkg, flowlinegpkg)
     netcdf_file = NET.Dataset(nefcdf_name,"w",format='NETCDF4')
     range_sh = int(np.ceil(Hmax/dh))
     dim_comid = netcdf_file.createDimension('COMID',len(COMIDlist))
@@ -305,7 +317,7 @@ def main():
     vari_discharge.units = 'cubic meters per second'
     for j in np.arange(0, Hmax, dh):
         vari_sh[int(np.round(j/dh))] = j
-    HANDClipper(catchmentRaster,catchmentshp, flowlineshp, handtif,
+    HANDClipper(catchmentRaster,catchmentgpkg, flowlinegpkg, handtif,
                 COMIDlist, RiverLength_dic, Slope_dic,
                 Hmax, dh, roughness, range_sh, vari_comid,
                 vari_length, vari_slope, vari_roughness,

@@ -16,11 +16,10 @@ read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($
 echo "Complete"
 Tcount
 
-## BURN REACH IDENTIFIERS ##
-echo -e $startDiv"Burn Reach Identifiers"$stopDiv
+## RASTERIZE REACH IDENTIFIERS ##
+echo -e $startDiv"Rasterize Reach Identifiers"$stopDiv
 date -u
 Tstart
-rm -f $outputDataDir/flows_grid_reaches.tif
 gdal_rasterize -ot Int32 -l 'flows' -a 'COMID' -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -a_nodata 0 -init 0 -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $inputFlows $outputDataDir/flows_grid_reaches.tif \
 && [ $? -ne 0 ] && echo "ERROR burning reach identifiers" && exit 1
 Tcount
@@ -41,20 +40,20 @@ $libDir/reachID_grid_to_vector_points.py $outputDataDir/flows_grid_reaches.tif $
 && [ $? -ne 0 ] && echo "ERROR Vectorizing Pixel Centroids" && exit 1
 Tcount
 
-## BURN PIXEL IDENTIFIERS ##
-echo -e $startDiv"Burn Pixel Identifiers"$stopDiv
+## RASTERIZE PIXEL IDENTIFIERS ##
+echo -e $startDiv"Rasterize Pixel Identifiers"$stopDiv
 date -u
 Tstart
 gdal_rasterize -ot Int32 -a 'id' -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/flows_points_pixels.gpkg $outputDataDir/flows_grid_pixels.tif \
 && [ $? -ne 0 ] && echo "ERROR burning pixel identifiers" && exit 1
 Tcount
 
-## BURN REACH BOOLEAN (1 & 0) ##
-echo -e $startDiv"Burn Reach Boolean"$stopDiv
+## RASTERIZE REACH BOOLEAN (1 & 0) ##
+echo -e $startDiv"Rasterize Reach Boolean"$stopDiv
 date -u
 Tstart
 gdal_calc.py --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/flows_grid_reaches.tif --calc="A>0" --outfile="$outputDataDir/flows_grid_boolean.tif" --NoDataValue=0 \
-&& [ $? -ne 0 ] && echo "ERROR Burning Reach Booleans" && exit 1
+&& [ $? -ne 0 ] && echo "ERROR Rasterizeing Reach Booleans" && exit 1
 gdal_edit.py -unsetnodata $outputDataDir/flows_grid_boolean.tif
 Tcount
 
@@ -67,12 +66,12 @@ Tcount
 # echo "Complete"
 # Tcount
 
-# ## BURN HEADWATER VECTOR POINTS ##
-# echo -e $startDiv"Burning Headwater Vector Points"$stopDiv
+# ## RASTERIZE HEADWATER VECTOR POINTS ##
+# echo -e $startDiv"Rasterizeing Headwater Vector Points"$stopDiv
 # date -u
 # Tstart
 # gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/headwater_points.gpkg $outputDataDir/headwater_points.tif \
-# && [ $? -ne 0 ] && echo "ERROR Burning Headwater Vector Points" && exit 1
+# && [ $? -ne 0 ] && echo "ERROR Rasterizeing Headwater Vector Points" && exit 1
 # Tcount
 
 ## BURN NEGATIVE ELEVATIONS STREAMS ##
@@ -83,12 +82,21 @@ gdal_calc.py --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
 && [ $? -ne 0 ] && echo "ERROR Dropping Thalweg Elevations" && exit 1
 Tcount
 
+## MASK BURNED DEM FOR STREAMS ONLY ###
+echo -e $startDiv"Mask Burned DEM for Thalweg Only"$stopDiv
+date -u
+Tstart
+gdal_calc.py --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/dem_burned.tif -B $outputDataDir/flows_grid_boolean.tif --calc="(A*(B>0))+($ndv*(B<1))" --outfile="$outputDataDir/dem_burned_flows.tif" --NoDataValue=$ndv \
+&& [ $? -ne 0 ] && echo "ERROR Masking Burned DEM for Thalweg Only" && exit 1
+Tcount
+
 ## PIT REMOVE DEM ##
 echo -e $startDiv"Pit remove burned DEM"$stopDiv
 date -u
 Tstart
-$libDir/fill_and_resolve_flats.py $outputDataDir/dem_burned.tif $outputDataDir/dem_burned_filled.tif \
-&& [ $? -ne 0 ] && echo "ERROR Pit removing burned DEM" && exit 1
+# rd_depression_filling -g $outputDataDir/dem_burned.tif $outputDataDir/dem_burned_filled.tif
+$libDir/fill_and_resolve_flats.py $outputDataDir/dem_burned_flows.tif $outputDataDir/dem_burned_flows_filled.tif
+# && [ $? -ne 0 ] && echo "ERROR Pit removing burned DEM" && exit 1
 # mpiexec -n $ncores $taudemDir/pitremove -z $outputDataDir/dem_burned.tif -fel $outputDataDir/dem_burned_filled.tif \
 Tcount
 
@@ -96,23 +104,15 @@ Tcount
 echo -e $startDiv"D8 Flow Directions on Filled Burned DEM"$stopDiv
 date -u
 Tstart
-mpiexec -n $ncores $taudemDir/d8flowdir -fel $outputDataDir/dem_burned_filled.tif -p $outputDataDir/flowdir_d8_burned.tif -sd8 $outputDataDir/slopes_d8.tif \
+mpiexec -n $ncores $taudemDir/d8flowdir -fel $outputDataDir/dem_burned_flows_filled.tif -p $outputDataDir/flowdir_d8_flows.tif -sd8 $outputDataDir/slopes_d8_flows.tif \
 && [ $? -ne 0 ] && echo "ERROR D8 Flow Directions on Filled Burned DEM" && exit 1
-Tcount
-
-## MASK D8 FLOW DIR FOR STREAMS ONLY ###
-echo -e $startDiv"Mask D8 Flow Directions for Thalweg Only"$stopDiv
-date -u
-Tstart
-gdal_calc.py --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/flowdir_d8_burned.tif -B $outputDataDir/flows_grid_boolean.tif --calc="A/B" --outfile="$outputDataDir/flowdir_d8_burned_flows.tif" --NoDataValue=0 \
-&& [ $? -ne 0 ] && echo "ERROR Masking D8 Flow Directions for Thalweg Only" && exit 1
 Tcount
 
 ## FLOW CONDITION STREAMS ##
 echo -e $startDiv"Flow Condition Thalweg"$stopDiv
 date -u
 Tstart
-$taudemDir/flowdircond -p $outputDataDir/flowdir_d8_burned_flows.tif -z $inputDEM -zfdc $outputDataDir/dem_thalwegCond.tif \
+$taudemDir/flowdircond -p $outputDataDir/flowdir_d8_flows.tif -z $inputDEM -zfdc $outputDataDir/dem_thalwegCond.tif \
 && [ $? -ne 0 ] && echo "ERROR Flow Conditioning Thalweg" && exit 1
 Tcount
 
@@ -120,9 +120,11 @@ Tcount
 echo -e $startDiv"Pit remove thalweg conditioned DEM"$stopDiv
 date -u
 Tstart
-$libDir/fill_and_resolve_flats.py $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif \
-&& [ $? -ne 0 ] && echo "ERROR Pit removing thalweg conditioned DEM" && exit 1
-# mpiexec -n $ncores $taudemDir/pitremove -z $outputDataDir/dem_thalwegCond.tif -fel $outputDataDir/dem_thalwegCond_filled.tif \
+$libDir/fill_and_resolve_flats.py $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif
+# rd_depression_filling -g $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif
+# && [ $? -ne 0 ] && echo "ERROR Pit removing thalweg conditioned DEM" && exit 1
+# mpiexec -n $ncores $taudemDir/pitremove -z $outputDataDir/dem_thalwegCond_filled.tif -fel $outputDataDir/dem_thalwegCond_filled.tif
+# $libDir/fill_and_resolve_flats.py $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif
 Tcount
 
 ## D8 FLOW DIR THALWEG COND DEM ##

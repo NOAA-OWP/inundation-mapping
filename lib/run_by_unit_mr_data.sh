@@ -20,7 +20,6 @@ Tcount
 echo -e $startDiv"Burn Reach Identifiers"$stopDiv
 date -u
 Tstart
-rm -f $outputDataDir/flows_grid_reaches.tif
 gdal_rasterize -ot Int32 -l 'flows' -a 'COMID' -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -a_nodata 0 -init 0 -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $inputFlows $outputDataDir/flows_grid_reaches.tif \
 && [ $? -ne 0 ] && echo "ERROR burning reach identifiers" && exit 1
 Tcount
@@ -87,8 +86,9 @@ Tcount
 echo -e $startDiv"Pit remove burned DEM"$stopDiv
 date -u
 Tstart
-$libDir/fill_and_resolve_flats.py $outputDataDir/dem_burned.tif $outputDataDir/dem_burned_filled.tif \
-&& [ $? -ne 0 ] && echo "ERROR Pit removing burned DEM" && exit 1
+# rd_depression_filling -g $outputDataDir/dem_burned.tif $outputDataDir/dem_burned_filled.tif
+$libDir/fill_and_resolve_flats.py $outputDataDir/dem_burned.tif $outputDataDir/dem_burned_filled.tif
+# && [ $? -ne 0 ] && echo "ERROR Pit removing burned DEM" && exit 1
 # mpiexec -n $ncores $taudemDir/pitremove -z $outputDataDir/dem_burned.tif -fel $outputDataDir/dem_burned_filled.tif \
 Tcount
 
@@ -120,9 +120,11 @@ Tcount
 echo -e $startDiv"Pit remove thalweg conditioned DEM"$stopDiv
 date -u
 Tstart
-$libDir/fill_and_resolve_flats.py $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif \
-&& [ $? -ne 0 ] && echo "ERROR Pit removing thalweg conditioned DEM" && exit 1
-# mpiexec -n $ncores $taudemDir/pitremove -z $outputDataDir/dem_thalwegCond.tif -fel $outputDataDir/dem_thalwegCond_filled.tif \
+$libDir/fill_and_resolve_flats.py $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif
+# rd_depression_filling -g $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif
+# && [ $? -ne 0 ] && echo "ERROR Pit removing thalweg conditioned DEM" && exit 1
+# mpiexec -n $ncores $taudemDir/pitremove -z $outputDataDir/dem_thalwegCond_filled.tif -fel $outputDataDir/dem_thalwegCond_filled.tif
+# $libDir/fill_and_resolve_flats.py $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif
 Tcount
 
 ## D8 FLOW DIR THALWEG COND DEM ##
