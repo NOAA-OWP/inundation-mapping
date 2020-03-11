@@ -1,4 +1,4 @@
-data/
+data
 lit/
 tests/
 lib/p\200\".tif
@@ -6,3 +6,6 @@ lib/find_inlets/find_inlets_hr
 lib/find_inlets/find_inlets_mr
 lib/TauDEM
 lib/taudem
+lib/.nfs00000007001b100400000003
+
+
