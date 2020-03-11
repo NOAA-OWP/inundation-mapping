@@ -56,7 +56,7 @@ for y_index,x_index in zip(*indices):
     # feature.SetFID(i)
     if writeOption == 'reachID':
         feature.SetField("id",reachID)
-    elif (writeOption == 'featureID') | writeOption == 'pixelID':
+    elif (writeOption == 'featureID') |( writeOption == 'pixelID'):
         feature.SetField("id",i)
     layer.CreateFeature(feature)
 
