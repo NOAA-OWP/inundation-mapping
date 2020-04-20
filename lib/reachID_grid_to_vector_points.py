@@ -24,7 +24,8 @@ band = r.GetRasterBand(1)
 
 a = band.ReadAsArray().astype(np.float)
 
-indices = np.nonzero(a != band.GetNoDataValue())
+# indices = np.nonzero(a != band.GetNoDataValue())
+indices = np.nonzero(a >= 1)
 
 # Init the shapefile stuff..
 srs = osgeo.osr.SpatialReference()

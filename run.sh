@@ -11,14 +11,16 @@ logFile=$2
 source $envFile
 source $libDir/bash_functions.env
 
+logFile=$logDir/$2
+
 ## ECHO ENV AND RUN FILES ##
-echo -e "\n" | tee $dataDir/$logFile
-echo "Running "$envFile | tee -a $dataDir/$logFile
-echo -e "\n" | tee -a $dataDir/$logFile
-cat $envFile | tee -a $dataDir/$logFile
-echo -e "\n" | tee -a $dataDir/$logFile
-cat $libDir/run_by_unit_mr_data_PRE_MASKING.sh | tee -a $dataDir/$logFile
-echo -e "\n" | tee -a $dataDir/$logFile
+echo -e "\n" | tee $logFile
+echo "Running "$envFile | tee -a $logFile
+echo -e "\n" | tee -a $logFile
+cat $envFile | tee -a $logFile
+echo -e "\n" | tee -a $logFile
+cat $libDir/run_by_unit_nhd_v1.sh | tee -a $logFile
+echo -e "\n" | tee -a $logFile
 
 ## RUN ##
-source $libDir/run_by_unit_hr_data_post_masking.sh | tee -a $dataDir/$logFile
+source $libDir/run_by_unit_nhd_v1.sh | tee -a $logFile

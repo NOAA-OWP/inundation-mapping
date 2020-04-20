@@ -1,8 +1,0 @@
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/install.dir
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/list_install_components.dir
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/edit_cache.dir
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/find_inlets_hr.dir
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/find_inlets_mr.dir
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/rebuild_cache.dir
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/install/strip.dir
-/home/lqc/Documents/research/nwc/foss_fim/lib/find_inlets/CMakeFiles/install/local.dir

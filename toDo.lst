@@ -1,24 +1,22 @@
 toDo.lst
 
 # PENDING #
+** waterbodies/pits
+** memory optimize streamnet and rem.py
+** investigate not re-delineating and re-vectorizing streams
+** 
+** inunmap/libraries
+** adding layers to geopackage
+** run multiple units
+    ** hucCode file list
+    ** gis preprocessing
+    ** use national NHD+HR and WBD datasets
+    ** gnu parallel
+** implement D-inf
 ** run on VM
     ** nwcal-fim-dev1.nwc.nws.noaa.gov:/tmp/FOSS-FIM
     ** https://hub.docker.com/r/zwills/foss-fim
     ** https://pythonspeed.com/articles/docker-caching-model/
-** waterbodies
-** cross-walking function
-** implement D-inf
-** consider pits/waterbodies
-** run with seeding headwaters
-** consider netcdf src output format for inunmap and viz
-** inunmap functionality
-** split vectors
-** optimize src script: catchhydrogeo?, multi-process Hydraulic_Property_V2?
+
 
 \\nwcal-gis-fs1\Transfer\datasets\derived_data\nwm_v20_recurrence_flows\nwm_v20_recurrence_flows.nc
-
-
-# COMPLETE #
-** use gpkg files only
-** compile faster d8/dinf versions (used RICHDEM to fill and resolve flats)
-** run on NHDHR. Automate preprocessing
