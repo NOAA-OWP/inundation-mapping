@@ -1,8 +1,0 @@
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/install.dir
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/list_install_components.dir
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/edit_cache.dir
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/find_inlets_hr.dir
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/find_inlets_mr.dir
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/rebuild_cache.dir
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/install/strip.dir
-/home/lqc/Documents/research/nwc/hand/lib/find_inlets/build/CMakeFiles/install/local.dir

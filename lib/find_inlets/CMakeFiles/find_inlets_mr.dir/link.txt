@@ -1,1 +1,0 @@
-/usr/bin/c++      CMakeFiles/find_inlets_mr.dir/src/find_inlets.cpp.o  -o find_inlets_mr -rdynamic -lgdal 

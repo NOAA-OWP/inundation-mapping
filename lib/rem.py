@@ -10,8 +10,9 @@ from numba import njit
 import argparse
 
 
-def rel_dem(res_flat_dem, stream_px_ws, rem, basins=None,ndv=-9999):
-    """Creates a rasterized catchment mask, "ws_raster.tif", and a relative height DEM, "rel_dem.tif", based on the watersheds calculated for each stream pixel.
+def rel_dem(res_flat_dem, stream_px_ws, rem, basins=None,ndv=-9999,min_data_fileName=None):
+    """
+        Creates a rasterized catchment mask, "ws_raster.tif", and a relative height DEM, "rel_dem.tif", based on the watersheds calculated for each stream pixel.
 
         Parameters
         ----------
@@ -89,10 +90,12 @@ def rel_dem(res_flat_dem, stream_px_ws, rem, basins=None,ndv=-9999):
             Float array of minimum elevation values for each stream pixel watershed.
 
         """
-
+        # print(type(dict_arr[int(566)]))
         for idx, val in enumerate(values):
             if values[idx] > 0:
                 values[idx] = dict_arr[int(val)]
+
+        # print(type(values[0]))
 
         return values
 
@@ -104,11 +107,16 @@ def rel_dem(res_flat_dem, stream_px_ws, rem, basins=None,ndv=-9999):
 
     res_flat_df['keys'] = pd.Series(gage_flat)
 
+    # print(res_flat_df.dtypes)
+
     del gage_flat
 
     res_flat_max = np.max(res_flat_df['keys']) + 1
     gage_min_df = res_flat_df.groupby('keys').min().to_dict()['values']
     gage_flat = res_flat_df['keys'].values
+    gage_flat = gage_flat.astype(np.float32)
+    # print(gage_min_df)
+    # print(type(gage_min_df))
 
     del res_flat_df
     gc.collect()
@@ -122,18 +130,26 @@ def rel_dem(res_flat_dem, stream_px_ws, rem, basins=None,ndv=-9999):
         if gage_val > 0:
             gage_array[gage_val] = gage_min_df[gage_val]
 
-    del gage_min_df
+    del gage_min_df, res_flat_max
+    gc.collect()
 
     # Get minimum elevation values for each stream pixel watershed identifier
+    # print(type(gage_array[0]))
+    # print(type(gage_flat))
+    # print(type(gage_flat[0]))
     gage_values = get_values(gage_flat, gage_array)
-    del gage_flat
 
+    del gage_flat
     del gage_array
     gc.collect()
 
     # Reshape to 2d array
+    # print(gage_values.dtype)
     min_data = gage_values.reshape(res_flat_shape)
+    # print(min_data.dtype)
+
     del gage_values
+    gc.collect()
 
     meta.update(dtype=rasterio.float32)
     meta.update(nodata=ndv)
@@ -141,6 +157,11 @@ def rel_dem(res_flat_dem, stream_px_ws, rem, basins=None,ndv=-9999):
     # Reload stream pixel watershed for future nodata masking
     gage_rast = rasterio.open(stream_px_ws)
     gage_arr = gage_rast.read(1)
+
+    no_data_boolean = gage_arr == gage_rast.meta['nodata']
+
+    del gage_rast, gage_arr
+    gc.collect()
 
     rel_dem_path = rem
 
@@ -154,10 +175,20 @@ def rel_dem(res_flat_dem, stream_px_ws, rem, basins=None,ndv=-9999):
 
         # data = (res_flat_arr - min_data) / 100
         data = (res_flat_arr - min_data)
-        del res_flat, res_flat_arr, min_data
-        data[gage_arr == gage_rast.meta['nodata']] = ndv
-        del gage_rast, gage_arr
+        # del res_flat, res_flat_arr, min_data
+        # data[gage_arr == gage_rast.meta['nodata']] = ndv
+        data[no_data_boolean] = ndv
+        # del gage_rast, gage_arr
         out.write_band(1, data.astype(np.float32))
+
+    del data, res_flat_arr
+    gc.collect()
+
+    if min_data_fileName is not None:
+        with rasterio.open('min_data.tif', 'w', **meta) as out:
+            min_data[no_data_boolean] = ndv
+            out.write_band(1, min_data.astype(np.float32))
+
 
 if __name__ == '__main__':
 
@@ -168,7 +199,8 @@ if __name__ == '__main__':
     parser.add_argument('-w','--watersheds',help='Pixel based watersheds raster to use within project path',required=True)
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     parser.add_argument('-n','--ndv',help='Output REM raster No Data Value',required=True)
-
+    parser.add_argument('-m','--min',help='Output minumum data raster',required=False,default=None)
+    
     # extract to dictionary
     args = vars(parser.parse_args())
 
@@ -178,5 +210,6 @@ if __name__ == '__main__':
     rem = args['rem']
     basins = args['basins']
     ndv = args['ndv']
+    min_data_fileName = args['min']
 
-    rel_dem(res_flat_dem, stream_px_ws,rem, basins,ndv)
+    rel_dem(res_flat_dem, stream_px_ws,rem, basins,ndv,min_data_fileName)
