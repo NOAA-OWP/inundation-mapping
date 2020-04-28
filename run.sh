@@ -19,8 +19,8 @@ echo "Running "$envFile | tee -a $logFile
 echo -e "\n" | tee -a $logFile
 cat $envFile | tee -a $logFile
 echo -e "\n" | tee -a $logFile
-cat $libDir/run_by_unit_nhd_v1.sh | tee -a $logFile
+cat $libDir/run_by_unit.sh | tee -a $logFile
 echo -e "\n" | tee -a $logFile
 
 ## RUN ##
-source $libDir/run_by_unit_nhd_v1.sh | tee -a $logFile
+source $libDir/run_by_unit.sh | tee -a $logFile

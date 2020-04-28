@@ -1,22 +1,21 @@
 toDo.lst
 
-# PENDING #
 ** waterbodies/pits
 ** memory optimize streamnet and rem.py
 ** investigate not re-delineating and re-vectorizing streams
-** 
-** inunmap/libraries
-** adding layers to geopackage
-** run multiple units
-    ** hucCode file list
+** domain-wide unique HydroID's
+** inundation libraries: inunmap?
+** single geopackages with layers
+** unit tests for all python utilities
+** run multiple spatial processing units
+    ** hucCode file list / polygon
     ** gis preprocessing
     ** use national NHD+HR and WBD datasets
     ** gnu parallel
-** implement D-inf
+    ** intermediate file cleanup via whitelisting
+    ** identify predictors for CPU time and memory usage: Flowline features, WBD area?
+** D-inf?
 ** run on VM
     ** nwcal-fim-dev1.nwc.nws.noaa.gov:/tmp/FOSS-FIM
     ** https://hub.docker.com/r/zwills/foss-fim
     ** https://pythonspeed.com/articles/docker-caching-model/
-
-
-\\nwcal-gis-fs1\Transfer\datasets\derived_data\nwm_v20_recurrence_flows\nwm_v20_recurrence_flows.nc

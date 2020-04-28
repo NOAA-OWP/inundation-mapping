@@ -34,7 +34,7 @@ Tcount
 echo -e $startDiv"Get Vector Layers and Subset"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/demDerived_reaches.gpkgs ] && \
+[ ! -f $outputDataDir/demDerived_reaches.gpkg ] && \
 $libDir/snap_and_clip_to_nhd.py -d 120903 -p "$PROJ" -w $nwmDir/nwm_headwaters_proj.gpkg -s $inputDataDir/NHDPlusBurnLineEvent_1209.gpkg  -v $inputDataDir/NHDPlusFlowlineVAA_1209.gpkg -l $nwmDir/nwm_lakes_proj.gpkg -u $outputDataDir/wbd_projected.gpkg -c $outputDataDir/NHDPlusBurnLineEvent_clipped.gpkg -a $outputDataDir/nwm_lakes_proj_120903.gpkg -t $outputDataDir/nwm_headwaters_proj_120903.gpkg -m $nwmDir/nwm_catchments_proj.gpkg -n $outputDataDir/nwm_catchments_proj_120903.gpkg -e $outputDataDir/nhd_headwater_points.gpkg
 Tcount
 
