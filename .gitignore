@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 data
 lit/
 tests/
@@ -9,3 +10,7 @@ lib/taudem
 lib/.nfs00000007001b100400000003
 
 
+=======
+data/*
+tests/eval_1/*
+>>>>>>> 53399d415fa57b89ab0d6e19b31a44e1a701533f
