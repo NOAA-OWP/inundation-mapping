@@ -10,7 +10,7 @@ from shapely.strtree import STRtree
 from shapely.geometry import Point,MultiLineString,LineString,mapping
 
 def subset_vector_layers(hucCode,projection,nwm_headwaters_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
-    
+
     # loading files
     print("Loading files")
     hucUnitLength = len(str(hucCode))
@@ -23,11 +23,11 @@ def subset_vector_layers(hucCode,projection,nwm_headwaters_fileName,nhd_streams_
     nhd_streams_vaa = gpd.read_file(nhd_streams_vaa_fileName)
 
     # REPROJECT
-    print("Reprojecting")
-    nwm_headwaters = nwm_headwaters.to_crs(projection)
-    nhd_streams = nhd_streams.to_crs(projection)
-    nwm_lakes = nwm_lakes.to_crs(projection)
-    nwm_catchments = nwm_catchments.to_crs(projection)
+    # print("Reprojecting")
+    # nwm_headwaters = nwm_headwaters.to_crs(projection)
+    # nhd_streams = nhd_streams.to_crs(projection)
+    # nwm_lakes = nwm_lakes.to_crs(projection)
+    # nwm_catchments = nwm_catchments.to_crs(projection)
 
     # query nhd+HR streams for HUC code
     print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode))

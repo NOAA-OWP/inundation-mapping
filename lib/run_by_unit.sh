@@ -11,7 +11,7 @@ echo -e $startDiv"Get WBD"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/wbd.gpkg ] && \
-ogr2ogr -f GPKG $outputDataDir/wbd.gpkg $inputDataDir/NHD_H_1209_HU4_Shape/WBDHU6.shp -where "HUC6='120903'"
+ogr2ogr -f GPKG $outputDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC6='$hucNumber'"
 Tcount
 
 ## REPROJECT WBD ##
@@ -35,7 +35,7 @@ echo -e $startDiv"Get Vector Layers and Subset"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/demDerived_reaches.gpkg ] && \
-$libDir/snap_and_clip_to_nhd.py -d 120903 -p "$PROJ" -w $nwmDir/nwm_headwaters_proj.gpkg -s $inputDataDir/NHDPlusBurnLineEvent_1209.gpkg  -v $inputDataDir/NHDPlusFlowlineVAA_1209.gpkg -l $nwmDir/nwm_lakes_proj.gpkg -u $outputDataDir/wbd_projected.gpkg -c $outputDataDir/NHDPlusBurnLineEvent_clipped.gpkg -a $outputDataDir/nwm_lakes_proj_120903.gpkg -t $outputDataDir/nwm_headwaters_proj_120903.gpkg -m $nwmDir/nwm_catchments_proj.gpkg -n $outputDataDir/nwm_catchments_proj_120903.gpkg -e $outputDataDir/nhd_headwater_points.gpkg
+$libDir/snap_and_clip_to_nhd.py -d $hucNumber -p "$PROJ" -w $input_NWM_Headwaters -s $input_NHD_Flowlines  -v $input_NHD_VAA -l $input_NWM_Lakes -u $outputDataDir/wbd_projected.gpkg -c $outputDataDir/NHDPlusBurnLineEvent_subset.gpkg -a $outputDataDir/nwm_lakes_proj_subset.gpkg -t $outputDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputDataDir/nwm_catchments_proj_subset.gpkg -e $outputDataDir/nhd_headwater_points_subset.gpkg
 Tcount
 
 ## CLIP DEM ##
@@ -67,7 +67,7 @@ echo -e $startDiv"Rasterize Reach Boolean"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/flows_grid_boolean.tif ] && \
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/NHDPlusBurnLineEvent_clipped.gpkg $outputDataDir/flows_grid_boolean.tif
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/NHDPlusBurnLineEvent_subset.gpkg $outputDataDir/flows_grid_boolean.tif
 Tcount
 
 ## RASTERIZE NHD HEADWATERS (1 & 0) ##
@@ -75,15 +75,15 @@ echo -e $startDiv"Rasterize NHD Headwaters"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/headwaters.tif ] && \
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/nhd_headwater_points.gpkg $outputDataDir/headwaters.tif
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/nhd_headwater_points_subset.gpkg $outputDataDir/headwaters.tif
 Tcount
 
 ## RASTERIZE NWM CATCHMENTS ##
 echo -e $startDiv"Raster NWM Catchments"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/nwm_catchments_proj_120903.tif ] && \
-gdal_rasterize -ot Int32 -a feature_id -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/nwm_catchments_proj_120903.gpkg $outputDataDir/nwm_catchments_proj_120903.tif
+[ ! -f $outputDataDir/nwm_catchments_proj_subset.tif ] && \
+gdal_rasterize -ot Int32 -a feature_id -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/nwm_catchments_proj_subset.gpkg $outputDataDir/nwm_catchments_proj_subset.tif
 Tcount
 
 ## BURN NEGATIVE ELEVATIONS STREAMS ##
@@ -336,7 +336,7 @@ echo -e $startDiv"Getting majority counts"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/majority.geojson ] && \
-fio cat $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg | rio zonalstats -r $outputDataDir/nwm_catchments_proj_120903.tif --stats majority > $outputDataDir/majority.geojson
+fio cat $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg | rio zonalstats -r $outputDataDir/nwm_catchments_proj_subset.tif --stats majority > $outputDataDir/majority.geojson
 Tcount
 
 ## POST PROCESS HYDRAULIC PROPERTIES ##
