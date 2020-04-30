@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 data
 lit/
 tests/
@@ -14,3 +15,7 @@ lib/.nfs00000007001b100400000003
 data/*
 tests/eval_1/*
 >>>>>>> 53399d415fa57b89ab0d6e19b31a44e1a701533f
+=======
+data/*
+tests/eval_1/*
+>>>>>>> a821f75da8d66dcfb95a7d8e8ea0f0e632bb8061
