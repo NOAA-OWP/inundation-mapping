@@ -54,7 +54,7 @@ ogr2ogr -overwrite -progress -f GPKG $nwmDir/nwm_flows.gpkg $nwmDir/RouteLink_FL
 ogr2ogr -overwrite -progress -f GPKG -t_srs "$usgsProjection" $nwmDir/nwm_flows_proj.gpkg $nwmDir/nwm_flows.gpkg
 
 # project nwm headwater nodes
-ogr2ogr -overwrite -progress -f GPKG $nwmDir/nwm_headwaters_proj.gpkg $nwmDir/Headwater_Nodes_20190509.shp -nln nwm_headwaters
+ogr2ogr -overwrite -progress -f GPKG $nwmDir/nwm_headwaters.gpkg $nwmDir/Headwater_Nodes_20190509.shp -nln nwm_headwaters
 ogr2ogr -overwrite -progress -f GPKG -t_srs "$usgsProjection" $nwmDir/nwm_headwaters_proj.gpkg $nwmDir/nwm_headwaters.gpkg
 
 # project nwm lakes

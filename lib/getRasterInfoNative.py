@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8
 
 import gdal
@@ -83,31 +83,28 @@ lon2 = ext[2][0]
 lat1 = ext[2][1]
 lat2 = ext[0][1]
 
+# calculate cellsize
+resx = (ext[2][0] - ext[0][0])/cols
+resy = (ext[0][1] - ext[2][1])/rows
+
 # print out RasterInfos
-print fsize,
-print cols,
-print rows,
-print nodata,
+print(fsize,cols,rows,nodata,str(lon1),str(lat1),str(lon2),str(lat2),"{:.15f}".format(resx),"{:.15f}".format(resy))
 #print stats[0],
 #print stats[1],
 #print stats[2],
 #print stats[3],
 #print "\"" + str(lat1) + "," + str(lon1) + "," + str(lat2) + "," + str(lon2) + "\""
-print str(lon1),
-print str(lat1),
-print str(lon2),
-print str(lat2),
+# print str(lon1),
+# print str(lat1),
+# print str(lon2),
+# print str(lat2),
 
-# calculate cellsize
-resx = (ext[2][0] - ext[0][0])/cols
-resy = (ext[0][1] - ext[2][1])/rows
-
-if resx < 0.01: # unit is degree
-	print "%.15f"  % (resx),
-	print "%.15f" % (resy)
-else:
-	print "%.15f" % (resx),
-	print "%.15f" % (resy)
+# if resx < 0.01: # unit is degree
+# 	print "%.15f"  % (resx),
+# 	print "%.15f" % (resy)
+# else:
+# 	print "%.15f" % (resx),
+# 	print "%.15f" % (resy)
 
 # close dataset
 ds = None
