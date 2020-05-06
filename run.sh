@@ -30,11 +30,15 @@ echo -e "\n" | tee -a $logFile
 
 ## RUN ##
 source $libDir/run_by_unit.sh | tee -a $logFile
+#touch $outputDataDir/test.txt
 
 ## CHANGE PERMISSIONS OF OUTPUTS FOR DOCKER ##
-chown -R $user_id:$group_id $outputDataDir
-find $outputDataDir -type d -exec chmod 775 {} +
+#chown -R $user_id:$group_id $outputDataDir/*
+#echo $group_id $outputDataDir $logFile
+chgrp -R $group_id $outputDataDir/*
+#find $outputDataDir -type d -exec chmod 775 {} +
 find $outputDataDir -type f -exec chmod 664 {} +
 
-chown $user_id:$group_id $logFile
+#chown $user_id:$group_id $logFile
+chgrp $group_id $logFile
 chmod 664 $logFile
