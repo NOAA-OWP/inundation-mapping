@@ -33,23 +33,10 @@ RUN cd /home/projects/TauDEM_accelerated_flowDirections/taudem \
     && cmake .. \
     && make
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-## ADDING USER INFO ##
-ARG USER_ID
-ARG GROUP_ID
-
-RUN addgroup --gid $GROUP_ID user
-RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID user
-USER user
-=======
 ## adding environment variables for numba ##
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
->>>>>>> 3ef8fa47972411c3c4f3a80d95a2aaf57a6d0249
 
->>>>>>> a821f75da8d66dcfb95a7d8e8ea0f0e632bb8061
 ## Copy over project source code for production container only (untested still) ##
 # COPY . /home/projects/foss_fim
 
