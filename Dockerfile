@@ -5,7 +5,8 @@ FROM ubuntu:18.04
 RUN apt update
 RUN apt install -y git gdal-bin python python-gdal python-pip python-numpy \
                    python3-gdal libgdal-dev python3-pip python3-numpy \
-                   libspatialindex-dev mpich python3-rtree cmake
+                   libspatialindex-dev mpich python3-rtree cmake p7zip-full \
+                   unzip parallel
 RUN apt auto-remove
 
 ## install python 2&3 modules ##
@@ -36,6 +37,9 @@ RUN cd /home/projects/TauDEM_accelerated_flowDirections/taudem \
 ## adding environment variables for numba ##
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
+
+## Disables citation warning from GNU Parallel ##
+RUN yes "will cite" | parallel --citation
 
 ## Copy over project source code for production container only (untested still) ##
 # COPY . /home/projects/foss_fim

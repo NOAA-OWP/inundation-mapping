@@ -4,20 +4,25 @@
 # $2 = log fileName
 
 ## RENAME VARIABLES ##x
-envFile=$1
-logFile=$2
-if [ -z "$3" ]
+hucFile=$1
+envFile=$2
+logFile=$3
+if [ -z "$4" ]
   then
       user_id=0
   else
-      user_id=$3
+      user_id=$4
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $libDir/bash_functions.env
 
-logFile=$logDir/$2
+## Make output and data directories ##
+if [ ! -d "$outputDataDir" ]; then mkdir $outputDataDir ;fi
+if [ ! -d "$logDir" ]; then mkdir $logDir ;fi
+
+logFile=$logDir/$logFile
 
 ## ECHO ENV AND RUN FILES ##
 echo -e "\n" | tee $logFile
@@ -29,16 +34,14 @@ cat $libDir/run_by_unit.sh | tee -a $logFile
 echo -e "\n" | tee -a $logFile
 
 ## RUN ##
-source $libDir/run_by_unit.sh | tee -a $logFile
-#touch $outputDataDir/test.txt
+parallel --verbose -a $hucFile -j $maxJobs --progress --joblog $logFile $libDir/run_by_unit.sh 
 
 ## CHANGE PERMISSIONS OF OUTPUTS FOR DOCKER ##
-#chown -R $user_id:$group_id $outputDataDir/*
-#echo $group_id $outputDataDir $logFile
-chgrp -R $group_id $outputDataDir/*
-#find $outputDataDir -type d -exec chmod 775 {} +
+chgrp -R $group_id $outputDataDir
 find $outputDataDir -type f -exec chmod 664 {} +
 
-#chown $user_id:$group_id $logFile
+chgrp $group_id $logDir
+chmod 775 $logDir
+
 chgrp $group_id $logFile
 chmod 664 $logFile
