@@ -1,21 +1,52 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # usgsProjection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs'
 
 # works best
-usgsProjection="+proj=aea +datum=NAD83 +x_0=0.0 +y_0=0.0 +lon_0=96dW +lat_0=23dN +lat_1=29d30'N +lat_2=45d30'N +towgs84=-0.9956000824677655,1.901299877314078,0.5215002840524426,0.02591500053005733,0.009425998542707753,0.01159900118427752,-0.00062000005129903 +no_defs +units=m"
-nwmDir='/home/fernandoa/projects/foss_fim/data/nwm'
-outputDataDir='/home/fernandoa/projects/foss_fim/data/test2/inputs'
+PROJ="+proj=aea +datum=NAD83 +x_0=0.0 +y_0=0.0 +lon_0=96dW +lat_0=23dN +lat_1=29d30'N +lat_2=45d30'N +towgs84=-0.9956000824677655,1.901299877314078,0.5215002840524426,0.02591500053005733,0.009425998542707753,0.01159900118427752,-0.00062000005129903 +no_defs +units=m"
+#nwmDir='/home/fernandoa/projects/foss_fim/data/nwm'
+outputDataDir='/home/fernandoa/data/foss_fim/test4/inputs'
 
-NHD_HUC_downloadLink='https://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/'
+NHD_Raster_downloadLink='https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/'
 NHD_HUC_raster_prefix='NHDPLUS_H_'
 NHD_HUC_raster_postfix='_HU4_RASTER.7z'
-# NHD_HUC_gdb='NHDPLUS_H_0102_HU4_GDB.zip'
-huc4_download_list="1207 1209 1210"
+rasterExtraction_prefix='HRNHDPlusRasters'
+rasterExtraction_postfix='/elev_cm.tif'
 
-NHD_PLUS_ALL='https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/National/HighResolution/GDB/NHD_H_National_GDB.zip'
-OPTION_2='https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/National/HighResolution/GDB/NATIONAL_NHD_GDB.zip'
+NHD_Vector_downloadLink='https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/HU4/HighResolution/GDB/'
+NHD_HUC_vector_prefix='NHDPLUS_H_'
+NHD_HUC_vector_postfix='_HU4_GDB.zip'
+
+
+# NHD_HUC_gdb='NHDPLUS_H_0102_HU4_GDB.zip'
+huc4_download_list=$outputDataDir/download.txt
+huc4_download_vectors_list=$outputDataDir/download_vectors.csv
+huc6_run_list=$outputDataDir/run.txt
+
+#NHD_PLUS_ALL='https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/National/HighResolution/GDB/NHD_H_National_GDB.zip'
+#OPTION_2='https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/National/HighResolution/GDB/NATIONAL_NHD_GDB.zip'
 NHD_PLUS_WBD_ALL='https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/WBD/National/GDB/WBD_National_GDB.zip'
+
+# Download HUC4 Rasters
+while read i;
+	do 
+	wget -nc -c -P "$outputDataDir" "$NHD_Raster_downloadLink""$NHD_HUC_raster_prefix""$i""$NHD_HUC_raster_postfix"
+	7za x "$outputDataDir""/""$NHD_HUC_raster_prefix""$i""$NHD_HUC_raster_postfix" "$rasterExtraction_prefix""$i""$rasterExtraction_postfix" -o$outputDataDir
+done < $huc4_download_list
+
+# Download HUC4 Vectors
+while read i;
+	do
+	ii=$i
+	wget -c -nc -P "$outputDataDir" "$NHD_Raster_downloadLink""$NHD_HUC_vector_prefix""$ii""$NHD_HUC_vector_postfix"
+	yes N | 7za x "$outputDataDir""/""$NHD_HUC_vector_prefix""$ii""$NHD_HUC_vector_postfix" -o$outputDataDir
+	ogr2ogr -progress -overwrite -f GPKG $outputDataDir/NHDPlusFlowlineVAA_$ii.gpkg $NHD_HUC_vector_prefix"$ii"_HU4_GDB.gdb NHDPlusFlowlineVAA
+	ogr2ogr -progress -overwrite -f GPKG $outputDataDir/NHDPlusBurnLineEvent_$ii.gpkg $NHD_HUC_vector_prefix"$ii"_HU4_GDB.gdb NHDPlusBurnLineEvent
+    ogr2ogr -progress -overwrite -f GPKG -t_srs "$PROJ" $outputDataDir/NHDPlusBurnLineEvent_"$ii"_proj.gpkg $outputDataDir/NHDPlusBurnLineEvent_$ii.gpkg
+done < $huc4_download_vectors_list
+
+
+exit 1
 
 # download
 # wget -c -nc .....
