@@ -1,364 +1,339 @@
-#!/bin/bash
+#!/bin/bash -e
 
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
-## DELETING ALL FILES BUT INPUTS ##
-rm -rf $outputDataDir/*
+## SET OUTPUT DIRECTORY FOR UNIT ##
+hucNumber="$1"
+outputHucDataDir=$outputRunDataDir/$hucNumber
+mkdir $outputHucDataDir
+
+## SET VARIABLES AND FILE INPUTS ##
+hucUnitLength=${#hucNumber}
+huc4Identifier=${hucNumber:0:4}
+input_NHD_Flowlines=$inputDataDir/NHDPlusBurnLineEvent_"$huc4Identifier"_proj.gpkg
+input_NHD_VAA=$inputDataDir/NHDPlusFlowlineVAA_"$huc4Identifier".gpkg
+input_NHD_WBHD_layer=WBDHU$hucUnitLength
 
 ## GET WBD ##
-echo -e $startDiv"Get WBD"$stopDiv
+echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/wbd.gpkg ] && \
-ogr2ogr -f GPKG $outputDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC6='$hucNumber'"
+[ ! -f $outputHucDataDir/wbd.gpkg ] && \
+ogr2ogr -f GPKG $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'"
 Tcount
 
 ## REPROJECT WBD ##
-echo -e $startDiv"Reproject WBD"$stopDiv
+echo -e $startDiv"Reproject WBD $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/wbd_projected.gpkg ] && \
-ogr2ogr -t_srs "$PROJ" -f GPKG $outputDataDir/wbd_projected.gpkg $outputDataDir/wbd.gpkg
+[ ! -f $outputHucDataDir/wbd_projected.gpkg ] && \
+ogr2ogr -t_srs "$PROJ" -f GPKG $outputHucDataDir/wbd_projected.gpkg $outputHucDataDir/wbd.gpkg
 Tcount
 
 ## BUFFER WBD ##
-echo -e $startDiv"Buffer WBD"$stopDiv
+echo -e $startDiv"Buffer WBD $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/wbd_projected_buffered.gpkg ] && \
-ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, $bufferDistance) from 'WBDHU6'" $outputDataDir/wbd_projected_buffered.gpkg $outputDataDir/wbd_projected.gpkg
+[ ! -f $outputHucDataDir/wbd_projected_buffered.gpkg ] && \
+ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, $bufferDistance) from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_projected_buffered.gpkg $outputHucDataDir/wbd_projected.gpkg
 Tcount
 
 ## GET STREAMS ##
-echo -e $startDiv"Get Vector Layers and Subset"$stopDiv
+echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/demDerived_reaches.gpkg ] && \
-$libDir/snap_and_clip_to_nhd.py -d $hucNumber -p "$PROJ" -w $input_NWM_Headwaters -s $input_NHD_Flowlines  -v $input_NHD_VAA -l $input_NWM_Lakes -u $outputDataDir/wbd_projected.gpkg -c $outputDataDir/NHDPlusBurnLineEvent_subset.gpkg -a $outputDataDir/nwm_lakes_proj_subset.gpkg -t $outputDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputDataDir/nwm_catchments_proj_subset.gpkg -e $outputDataDir/nhd_headwater_points_subset.gpkg
+[ ! -f $outputHucDataDir/demDerived_reaches.gpkg ] && \
+$libDir/snap_and_clip_to_nhd.py -d $hucNumber -p "$PROJ" -w $input_NWM_Headwaters -s $input_NHD_Flowlines  -v $input_NHD_VAA -l $input_NWM_Lakes -u $outputHucDataDir/wbd_projected.gpkg -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg
 Tcount
 
 ## CLIP DEM ##
-echo -e $startDiv"Clip DEM"$stopDiv
+echo -e $startDiv"Clip DEM $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/dem.tif ] && \
-gdalwarp -cutline $outputDataDir/wbd_projected_buffered.gpkg -crop_to_cutline -ot Int32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $inputDataDir/mosaic.vrt $outputDataDir/dem.tif
+[ ! -f $outputHucDataDir/dem.tif ] && \
+gdalwarp -cutline $outputHucDataDir/wbd_projected_buffered.gpkg -crop_to_cutline -ot Int32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $inputMosaicVRT $outputHucDataDir/dem.tif
 Tcount
 
 ## GET RASTER METADATA
-echo -e $startDiv"Get DEM Metadata"$stopDiv
+echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
 Tstart
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputDataDir/dem.tif)
-echo "Complete"
+read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
 Tcount
 
 ## CONVERT TO METERS ##
-echo -e $startDiv"Convert DEM to Meters"$stopDiv
+echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/dem_meters.tif ] && \
-gdal_calc.py --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputDataDir/dem.tif --outfile="$outputDataDir/dem_meters.tif" --calc="((float32(A)*(float32(A)>$ndv))/100)+((float32(A)<=$ndv)*$ndv)" --NoDataValue=$ndv
+[ ! -f $outputHucDataDir/dem_meters.tif ] && \
+gdal_calc.py --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="((float32(A)*(float32(A)>$ndv))/100)+((float32(A)<=$ndv)*$ndv)" --NoDataValue=$ndv
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
-echo -e $startDiv"Rasterize Reach Boolean"$stopDiv
+echo -e $startDiv"Rasterize Reach Boolean $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/flows_grid_boolean.tif ] && \
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/NHDPlusBurnLineEvent_subset.gpkg $outputDataDir/flows_grid_boolean.tif
+[ ! -f $outputHucDataDir/flows_grid_boolean.tif ] && \
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg $outputHucDataDir/flows_grid_boolean.tif
 Tcount
 
 ## RASTERIZE NHD HEADWATERS (1 & 0) ##
-echo -e $startDiv"Rasterize NHD Headwaters"$stopDiv
+echo -e $startDiv"Rasterize NHD Headwaters $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/headwaters.tif ] && \
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/nhd_headwater_points_subset.gpkg $outputDataDir/headwaters.tif
+[ ! -f $outputHucDataDir/headwaters.tif ] && \
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nhd_headwater_points_subset.gpkg $outputHucDataDir/headwaters.tif
 Tcount
 
 ## RASTERIZE NWM CATCHMENTS ##
-echo -e $startDiv"Raster NWM Catchments"$stopDiv
+echo -e $startDiv"Raster NWM Catchments $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/nwm_catchments_proj_subset.tif ] && \
-gdal_rasterize -ot Int32 -a feature_id -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/nwm_catchments_proj_subset.gpkg $outputDataDir/nwm_catchments_proj_subset.tif
+[ ! -f $outputHucDataDir/nwm_catchments_proj_subset.tif ] && \
+gdal_rasterize -ot Int32 -a feature_id -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
 Tcount
 
 ## BURN NEGATIVE ELEVATIONS STREAMS ##
-echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units"$stopDiv
+echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/dem_burned.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/dem_meters.tif -B $outputDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputDataDir/dem_burned.tif" --NoDataValue=$ndv
+[ ! -f $outputHucDataDir/dem_burned.tif ] && \
+gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
-echo -e $startDiv"Pit remove Burned DEM"$stopDiv
+echo -e $startDiv"Pit remove Burned DEM $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/dem_burned_filled.tif ] && \
-rd_depression_filling $outputDataDir/dem_burned.tif $outputDataDir/dem_burned_filled.tif
+[ ! -f $outputHucDataDir/dem_burned_filled.tif ] && \
+rd_depression_filling $outputHucDataDir/dem_burned.tif $outputHucDataDir/dem_burned_filled.tif
 Tcount
 
 ## D8 FLOW DIR ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM"$stopDiv
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/flowdir_d8_burned_filled.tif ] && [ ! -f $outputDataDir/slopes_d8_burned_filled.tif ] && \
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputDataDir/dem_burned_filled.tif -p $outputDataDir/flowdir_d8_burned_filled.tif -sd8 $outputDataDir/slopes_d8_burned_filled.tif
+[ ! -f $outputHucDataDir/flowdir_d8_burned_filled.tif ] && [ ! -f $outputHucDataDir/slopes_d8_burned_filled.tif ] && \
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_burned_filled.tif -p $outputHucDataDir/flowdir_d8_burned_filled.tif -sd8 $outputHucDataDir/slopes_d8_burned_filled.tif
 Tcount
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
-echo -e $startDiv"Mask Burned DEM for Thalweg Only"$stopDiv
+echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/flowdir_d8_burned_filled_flows.tif ] && \
-gdal_calc.py --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/flowdir_d8_burned_filled.tif -B $outputDataDir/flows_grid_boolean.tif --calc="A/B" --outfile="$outputDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
+[ ! -f $outputHucDataDir/flowdir_d8_burned_filled_flows.tif ] && \
+gdal_calc.py --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/flowdir_d8_burned_filled.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A/B" --outfile="$outputHucDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
 Tcount
 
 ## FLOW CONDITION STREAMS ##
-echo -e $startDiv"Flow Condition Thalweg"$stopDiv
+echo -e $startDiv"Flow Condition Thalweg $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/dem_thalwegCond.tif ] && \
-$taudemDir/flowdircond -p $outputDataDir/flowdir_d8_burned_filled_flows.tif -z $outputDataDir/dem_meters.tif -zfdc $outputDataDir/dem_thalwegCond.tif
+[ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
+$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
 Tcount
-
-## FLOW CONDITION STREAMS ##
-# echo -e $startDiv"Flow Condition Thalweg - 2"$stopDiv
-# date -u
-# Tstart
-# [ ! -f $outputDataDir/dem_thalwegCond_filled.tif ] && \
-# $taudemDir/flowdircond -p $outputDataDir/flowdir_d8_burned_filled_flows.tif -z $outputDataDir/dem_burned_filled.tif -zfdc $outputDataDir/dem_thalwegCond_filled.tif
-# Tcount
-
-# ## PIT FILL THALWEG COND DEM ##
-# echo -e $startDiv"Pit remove thalweg conditioned DEM"$stopDiv
-# date -u
-# Tstart
-# [ ! -f $outputDataDir/dem_thalwegCond_filled.tif ] && \
-# rd_depression_filling $outputDataDir/dem_thalwegCond.tif $outputDataDir/dem_thalwegCond_filled.tif
-# Tcount
-
-# # D8 FLOW DIR THALWEG COND DEM ##
-# echo -e $startDiv"D8 on Filled Flows"$stopDiv
-# date -u
-# Tstart
-# [ ! -f $outputDataDir/flowdir_d8_thalwegCond_filled.tif ] && [ ! -f $outputDataDir/slopes_d8_burned_filled.tif ] && \
-# mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputDataDir/dem_thalwegCond_filled.tif -p $outputDataDir/flowdir_d8_thalwegCond_filled.tif -sd8 $outputDataDir/slopes_d8_thalwegCond_filled.tif
-# Tcount
 
 ## DINF FLOW DIR ##
 # echo -e $startDiv"DINF on Filled Thalweg Conditioned DEM"$stopDiv
 # date -u
 # Tstart
-# [ ! -f $outputDataDir/flowdir_dinf_thalwegCond.tif ] && \
-# mpiexec -n $ncores_fd $taudemDir2/dinfflowdir -fel $outputDataDir/dem_thalwegCond_filled.tif -ang $outputDataDir/flowdir_dinf_thalwegCond.tif -slp $outputDataDir/slopes_dinf.tif
+# [ ! -f $outputHucDataDir/flowdir_dinf_thalwegCond.tif] && \
+# mpiexec -n $ncores_fd $taudemDir2/dinfflowdir -fel $outputHucDataDir/dem_thalwegCond_filled.tif -ang $outputHucDataDir/flowdir_dinf_thalwegCond.tif -slp $outputHucDataDir/slopes_dinf.tif
 # Tcount
 
 ## D8 FLOW ACCUMULATIONS ##
-echo -e $startDiv"D8 Flow Accumulations"$stopDiv
+echo -e $startDiv"D8 Flow Accumulations $hucNumber"$stopDiv
 date -u
 Tstart
-$taudemDir/aread8 -p $outputDataDir/flowdir_d8_burned_filled.tif -ad8  $outputDataDir/flowaccum_d8_burned_filled.tif -wg  $outputDataDir/headwaters.tif -nc
+$taudemDir/aread8 -p $outputHucDataDir/flowdir_d8_burned_filled.tif -ad8  $outputHucDataDir/flowaccum_d8_burned_filled.tif -wg  $outputHucDataDir/headwaters.tif -nc
 Tcount
 
 # THRESHOLD ACCUMULATIONS ##
-echo -e $startDiv"Threshold Accumulations"$stopDiv
+echo -e $startDiv"Threshold Accumulations $hucNumber"$stopDiv
 date -u
 Tstart
-$taudemDir/threshold -ssa $outputDataDir/flowaccum_d8_burned_filled.tif -src  $outputDataDir/demDerived_streamPixels.tif -thresh 1
+$taudemDir/threshold -ssa $outputHucDataDir/flowaccum_d8_burned_filled.tif -src  $outputHucDataDir/demDerived_streamPixels.tif -thresh 1
 Tcount
 
 # STREAMNET FOR REACHES ##
-echo -e $startDiv"Stream Net for Reaches"$stopDiv
+echo -e $startDiv"Stream Net for Reaches $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/demDerived_reaches.gpkg ] && \
-$taudemDir/streamnet -p $outputDataDir/flowdir_d8_burned_filled.tif  -fel $outputDataDir/dem_thalwegCond.tif -ad8 $outputDataDir/flowaccum_d8_burned_filled.tif -src $outputDataDir/demDerived_streamPixels.tif -ord $outputDataDir/streamOrder.tif -tree $outputDataDir/treeFile.txt -coord $outputDataDir/coordFile.txt -w $outputDataDir/sn_catchments_reaches.tif -net $outputDataDir/demDerived_reaches.gpkg
+[ ! -f $outputHucDataDir/demDerived_reaches.gpkg ] && \
+$taudemDir/streamnet -p $outputHucDataDir/flowdir_d8_burned_filled.tif -fel $outputHucDataDir/dem_thalwegCond.tif -ad8 $outputHucDataDir/flowaccum_d8_burned_filled.tif -src $outputHucDataDir/demDerived_streamPixels.tif -ord $outputHucDataDir/streamOrder.tif -tree $outputHucDataDir/treeFile.txt -coord $outputHucDataDir/coordFile.txt -w $outputHucDataDir/sn_catchments_reaches.tif -net $outputHucDataDir/demDerived_reaches.gpkg
 Tcount
 
 ## SPLIT DERIVED REACHES ##
-echo -e $startDiv"Split Derived Reaches"$stopDiv
+echo -e $startDiv"Split Derived Reaches $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/demDerived_reaches_split.gpkg ] && \
-$libDir/split_flows.py $outputDataDir/demDerived_reaches.gpkg "$PROJ" $outputDataDir/dem_thalwegCond.tif $outputDataDir/demDerived_reaches_split.gpkg $outputDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $manning_n $slope_min
+[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ] && \
+$libDir/split_flows.py $outputHucDataDir/demDerived_reaches.gpkg "$PROJ" $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $manning_n $slope_min
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches"$stopDiv
+echo -e $startDiv"Gage Watershed for Reaches $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_d8_burned_filled.tif -gw $outputDataDir/gw_catchments_reaches.tif -o $outputDataDir/demDerived_reaches_split_points.gpkg -id $outputDataDir/idFile.txt
+[ ! -f $outputHucDataDir/gw_catchments_reaches.tif ] && \
+mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputHucDataDir/flowdir_d8_burned_filled.tif -gw $outputHucDataDir/gw_catchments_reaches.tif -o $outputHucDataDir/demDerived_reaches_split_points.gpkg -id $outputHucDataDir/idFile.txt
 Tcount
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
-echo -e $startDiv"Vectorize Pixel Centroids"$stopDiv
+echo -e $startDiv"Vectorize Pixel Centroids $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/flows_points_pixels.gpkg ] && \
-$libDir/reachID_grid_to_vector_points.py $outputDataDir/flows_grid_boolean.tif $outputDataDir/flows_points_pixels.gpkg featureID
+[ ! -f $outputHucDataDir/flows_points_pixels.gpkg ] && \
+$libDir/reachID_grid_to_vector_points.py $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/flows_points_pixels.gpkg featureID
 Tcount
 
 ## GAGE WATERSHED FOR PIXELS ##
-echo -e $startDiv"Gage Watershed for Pixels"$stopDiv
+echo -e $startDiv"Gage Watershed for Pixels $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_pixels.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_d8_burned_filled.tif -gw $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/flows_points_pixels.gpkg -id $outputDataDir/idFile.txt
+[ ! -f $outputHucDataDir/gw_catchments_pixels.tif ] && \
+mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputHucDataDir/flowdir_d8_burned_filled.tif -gw $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/flows_points_pixels.gpkg -id $outputHucDataDir/idFile.txt
 Tcount
 
 # D8 REM ##
-echo -e $startDiv"D8 REM"$stopDiv
+echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/rem.tif ] && \
-$libDir/rem.py -d $outputDataDir/dem_thalwegCond.tif -w $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/rem.tif -n $ndv
+[ ! -f $outputHucDataDir/rem.tif ] && \
+$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif 
 Tcount
 
 ## DINF DISTANCE DOWN ##
-# echo -e $startDiv"DINF Distance Down on Filled Thalweg Conditioned DEM"$stopDiv
+# echo -e $startDiv"DINF Distance Down on Filled Thalweg Conditioned DEM $hucNumber"$stopDiv
 # date -u
 # Tstart
-# [ ! -f $outputDataDir/flowdir_dinf_thalwegCond.tif ] && \
-# mpiexec -n $ncores_fd $taudemDir/dinfdistdown -ang $outputDataDir/flowdir_dinf_thalwegCond.tif -fel $outputDataDir/dem_thalwegCond_filled.tif -src $outputDataDir/demDerived_streamPixels.tif -dd $outputDataDir/rem.tif -m ave h
+# [ ! -f $outputHucDataDir/flowdir_dinf_thalwegCond.tif] && \
+# mpiexec -n $ncores_fd $taudemDir/dinfdistdown -ang $outputHucDataDir/flowdir_dinf_thalwegCond.tif -fel $outputHucDataDir/dem_thalwegCond_filled.tif -src $outputHucDataDir/demDerived_streamPixels.tif -dd $outputHucDataDir/rem.tif -m ave h
 # Tcount
 
 ## CLIP REM TO HUC ##
-echo -e $startDiv"Clip REM to HUC"$stopDiv
+echo -e $startDiv"Clip REM to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/rem_clipped.tif ] && \
-gdalwarp -cutline $outputDataDir/wbd_projected.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputDataDir/rem.tif $outputDataDir/rem_clipped.tif
+[ ! -f $outputHucDataDir/rem_clipped.tif ] && \
+gdalwarp -cutline $outputHucDataDir/wbd_projected.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputHucDataDir/rem.tif $outputHucDataDir/rem_clipped.tif
 Tcount
 
 ## BRING DISTANCE DOWN TO ZERO ##
-echo -e $startDiv"Zero out negative values in distance down grid"$stopDiv
+echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/rem_clipped_zeroed.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/rem_clipped.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputDataDir/"rem_clipped_zeroed.tif"
+[ ! -f $outputHucDataDir/rem_clipped_zeroed.tif ] && \
+gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed.tif"
 Tcount
 
 ## CLIP CM TO HUC ##
-echo -e $startDiv"Clip Catchmask to HUC"$stopDiv
+echo -e $startDiv"Clip Catchmask to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches_clipped.tif ] && \
-gdalwarp -r near -cutline $outputDataDir/wbd_projected.gpkg -crop_to_cutline -ot Int32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputDataDir/gw_catchments_reaches.tif $outputDataDir/gw_catchments_reaches_clipped.tif
+[ ! -f $outputHucDataDir/gw_catchments_reaches_clipped.tif ] && \
+gdalwarp -r near -cutline $outputHucDataDir/wbd_projected.gpkg -crop_to_cutline -ot Int32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputHucDataDir/gw_catchments_reaches.tif $outputHucDataDir/gw_catchments_reaches_clipped.tif
 Tcount
 
 ## POLYGONIZE REACH WATERSHEDS ##
-echo -e $startDiv"Polygonize Reach Watersheds"$stopDiv
+echo -e $startDiv"Polygonize Reach Watersheds $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches_clipped.gpkg ] && \
-gdal_polygonize.py -8 -f GPKG $outputDataDir/gw_catchments_reaches_clipped.tif $outputDataDir/gw_catchments_reaches_clipped.gpkg catchments HydroID
+[ ! -f $outputHucDataDir/gw_catchments_reaches_clipped.gpkg ] && \
+gdal_polygonize.py -8 -f GPKG $outputHucDataDir/gw_catchments_reaches_clipped.tif $outputHucDataDir/gw_catchments_reaches_clipped.gpkg catchments HydroID
 Tcount
 
 ## CLIP MODEL STREAMS TO HUC ##
-echo -e $startDiv"Clipping Model Streams to HUC"$stopDiv
+echo -e $startDiv"Clipping Model Streams to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/demDerived_reaches_split_clipped.gpkg ] && \
-ogr2ogr -progress -f GPKG -clipsrc $outputDataDir/wbd_projected.gpkg $outputDataDir/demDerived_reaches_split_clipped.gpkg $outputDataDir/demDerived_reaches_split.gpkg
+[ ! -f $outputHucDataDir/demDerived_reaches_split_clipped.gpkg ] && \
+ogr2ogr -progress -f GPKG -clipsrc $outputHucDataDir/wbd_projected.gpkg $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg
 Tcount
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
-echo -e $startDiv"Process catchments and model streams step 1"$stopDiv
+echo -e $startDiv"Process catchments and model streams step 1 $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg ] && \
-$libDir/filter_catchments_and_add_attributes.py $outputDataDir/gw_catchments_reaches_clipped.gpkg $outputDataDir/demDerived_reaches_split_clipped.gpkg $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg
+[ ! -f $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg ] && \
+$libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches_clipped.gpkg $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg
 Tcount
 
 ## GET RASTER METADATA ##
-echo -e $startDiv"Get Clipped Raster Metadata"$stopDiv
+echo -e $startDiv"Get Clipped Raster Metadata $hucNumber"$stopDiv
 date -u
 Tstart
-read fsize ncols nrows ndv_clipped xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputDataDir/gw_catchments_reaches_clipped.tif)
-echo "Complete"
+read fsize ncols nrows ndv_clipped xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/gw_catchments_reaches_clipped.tif)
 Tcount
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
-echo -e $startDiv"Rasterize filtered catchments"$stopDiv
+echo -e $startDiv"Rasterize filtered catchments $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.tif ] && \
-gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.tif
+[ ! -f $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif ] && \
+gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif
 Tcount
 
 ## CLIP SLOPE RASTER ##
-echo -e $startDiv"Clipping Slope Raster to HUC"$stopDiv
+echo -e $startDiv"Clipping Slope Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/slopes_d8_burned_filled_clipped.tif ] && \
-gdalwarp -r near -cutline $outputDataDir/wbd_projected.gpkg -crop_to_cutline -ot Float32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputDataDir/slopes_d8_burned_filled.tif $outputDataDir/slopes_d8_burned_filled_clipped.tif
+[ ! -f $outputHucDataDir/slopes_d8_burned_filled_clipped.tif ] && \
+gdalwarp -r near -cutline $outputHucDataDir/wbd_projected.gpkg -crop_to_cutline -ot Float32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputHucDataDir/slopes_d8_burned_filled.tif $outputHucDataDir/slopes_d8_burned_filled_clipped.tif
 Tcount
 
 ## MASK SLOPE RASTER ##
-echo -e $startDiv"Masking Slope Raster to HUC"$stopDiv
+echo -e $startDiv"Masking Slope Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/slopes_d8_burned_filled_clipped_masked.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/slopes_d8_burned_filled_clipped.tif -B $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputDataDir/"slopes_d8_burned_filled_clipped_masked.tif"
+[ ! -f $outputHucDataDir/slopes_d8_burned_filled_clipped_masked.tif ] && \
+gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/slopes_d8_burned_filled_clipped.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputHucDataDir/"slopes_d8_burned_filled_clipped_masked.tif"
 Tcount
 
 ## MASK REM RASTER ##
-echo -e $startDiv"Masking REM Raster to HUC"$stopDiv
+echo -e $startDiv"Masking REM Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/rem_clipped_zeroed_masked.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/rem_clipped_zeroed.tif -B $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*$ndv)" --NoDataValue=$ndv --outfile=$outputDataDir/"rem_clipped_zeroed_masked.tif"
+[ ! -f $outputHucDataDir/rem_clipped_zeroed_masked.tif ] && \
+gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed_masked.tif"
 Tcount
 
 ## MAKE CATCHMENT AND STAGE FILES ##
-echo -e $startDiv"Generate Catchment List and Stage List Files"$stopDiv
+echo -e $startDiv"Generate Catchment List and Stage List Files $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/make_stages_and_catchlist.py $outputDataDir/demDerived_reaches_split_clipped.gpkg $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputDataDir/stage.txt $outputDataDir/catchment_list.txt $stage_min_meters $stage_interval_meters $stage_max_meters
+$libDir/make_stages_and_catchlist.py $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputHucDataDir/stage.txt $outputHucDataDir/catchment_list.txt $stage_min_meters $stage_interval_meters $stage_max_meters
 Tcount
 
 ## HYDRAULIC PROPERTIES ##
-echo -e $startDiv"Hydraulic Properties"$stopDiv
+echo -e $startDiv"Hydraulic Properties $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/src_base.csv ] && \
-$taudemDir/catchhydrogeo -hand $outputDataDir/rem_clipped_zeroed_masked.tif -catch $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.tif -catchlist $outputDataDir/catchment_list.txt -slp $outputDataDir/slopes_d8_burned_filled_clipped_masked.tif -h $outputDataDir/stage.txt -table $outputDataDir/src_base.csv
+[ ! -f $outputHucDataDir/src_base.csv ] && \
+$taudemDir/catchhydrogeo -hand $outputHucDataDir/rem_clipped_zeroed_masked.tif -catch $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif -catchlist $outputHucDataDir/catchment_list.txt -slp $outputHucDataDir/slopes_d8_burned_filled_clipped_masked.tif -h $outputHucDataDir/stage.txt -table $outputHucDataDir/src_base.csv
 Tcount
 
 ## GET MAJORITY COUNTS ##
-echo -e $startDiv"Getting majority counts"$stopDiv
+echo -e $startDiv"Getting majority counts $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/majority.geojson ] && \
-fio cat $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg | rio zonalstats -r $outputDataDir/nwm_catchments_proj_subset.tif --stats majority > $outputDataDir/majority.geojson
+[ ! -f $outputHucDataDir/majority.geojson ] && \
+fio cat $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg | rio zonalstats -r $outputHucDataDir/nwm_catchments_proj_subset.tif --stats majority > $outputHucDataDir/majority.geojson
 Tcount
 
 ## POST PROCESS HYDRAULIC PROPERTIES ##
-echo -e $startDiv"Post Process Hydraulic Properties"$stopDiv
+echo -e $startDiv"Post Process Hydraulic Properties $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/src_full.csv ] && \
-$libDir/hydraulic_property_postprocess.py $outputDataDir/src_base.csv $manning_n $outputDataDir/src_full.csv
+[ ! -f $outputHucDataDir/src_full.csv ] && \
+$libDir/hydraulic_property_postprocess.py $outputHucDataDir/src_base.csv $manning_n $outputHucDataDir/src_full.csv
 Tcount
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
-echo -e $startDiv"Finalize catchments and model streams"$stopDiv
+echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches_clipped_addedAttributes_crosswalked.gpkg ] && \
-$libDir/add_crosswalk.py $outputDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputDataDir/demDerived_reaches_split_clipped.gpkg $outputDataDir/src_full.csv $outputDataDir/majority.geojson $outputDataDir/gw_catchments_reaches_clipped_addedAttributes_crosswalked.gpkg $outputDataDir/demDerived_reaches_split_clipped_addedAttributes_crosswalked.gpkg $outputDataDir/src_full_crosswalked.csv $outputDataDir/src.json $outputDataDir/crosswalk_table.csv
+[ ! -f $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes_crosswalked.gpkg ] && \
+$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/src_full.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_clipped_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv
 Tcount
-
-## INUNDATION LIBRARIES ##
-# echo -e $startDiv"Inundation Libraries"$stopDiv
-# date -u
-# Tstart
-# [ ! -f $outputDataDir/inundation_library.gpkg ] && \
-# echo "inundation library"
-# Tcount
