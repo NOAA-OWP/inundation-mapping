@@ -291,18 +291,18 @@ def manage_preprocessing(hucs_of_interest_file_path, path_to_saved_data_parent_d
         nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd_data_flag])
         
     # Pull and prepare NHD data.
-#    pool = Pool(3)
-#    pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    pool = Pool(3)
+    pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
     
     # Pull and prepare NWM data.
-    pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_preinputs_dir)
-#
-#    # Pull and prepare WBD data.
-#    wbd_directory = pull_and_prepare_wbd(path_to_saved_data_parent_dir, overwrite_wbd_geopackages_flag)
-#    
-#    # Create HUC list files.
-#    build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)
-#    
+#    pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_preinputs_dir)  # Commented out for now.
+
+    # Pull and prepare WBD data.
+    wbd_directory = pull_and_prepare_wbd(path_to_saved_data_parent_dir, overwrite_wbd_geopackages_flag)
+    
+    # Create HUC list files.
+    build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)
+
 
 if __name__ == '__main__':
     
