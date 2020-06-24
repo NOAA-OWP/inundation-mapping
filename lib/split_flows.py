@@ -1,157 +1,178 @@
 #!/usr/bin/env python3
 
+'''
+Script objectives:
+    1) split stream segments based on lake boundaries (defined with ID to avoid in croswalk)
+    2) split stream segments based on threshold distance
+    3) calculate channel slope, manning's n, and LengthKm, and Waterbody value
+    4) create unique ids (ideally globally) 
+    5) create vector points encoded with HydroID's
+'''
+
+import sys
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point, LineString, MultiPoint
 from raster import Raster
 import numpy as np
 import argparse
-import sys
 from tqdm import tqdm
 import time
 from os.path import isfile
 from os import remove
 from collections import OrderedDict
+import buildstreamtraversal
 
-flows_fileName = sys.argv[1]
-projection = sys.argv[2]
-dem_fileName = sys.argv[3]
-split_flows_fileName = sys.argv[4]
-split_points_fileName = sys.argv[5]
-maxLength = float(sys.argv[6])
-manning = float(sys.argv[7])
-slope_min = float(sys.argv[8])
+flows_fileName         = sys.argv[1] # $outputDataDir/demDerived_reaches.gpkg
+projection             = sys.argv[2]
+dem_fileName           = sys.argv[3] # $outputDataDir/dem_thalwegCond.tif
+split_flows_fileName   = sys.argv[4] # $outputDataDir/demDerived_reaches_split.gpkg 
+split_points_fileName  = sys.argv[5] # $outputDataDir/demDerived_reaches_split_points.gpkg
+maxLength              = float(sys.argv[6])
+manning                = float(sys.argv[7])
+slope_min              = float(sys.argv[8])
+huc8_filename          = sys.argv[9] # $outputDataDir/wbd8_projected.gpkg
+lakes_filename         = sys.argv[10] # $outputDataDir/nwm_lakes_proj_clp.gpkg
 
-# maxLength = 2000
 toMetersConversion = 1e-3
-# manning = 0.06
-# slope_min = 0.001
 
 print('Loading data ...')
 flows = gpd.read_file(flows_fileName)
+lakes = gpd.read_file(lakes_filename)
+WBD8 = gpd.read_file(huc8_filename)
 dem = Raster(dem_fileName)
 
-flows.to_crs(projection)
+WBD8 = WBD8.filter(items=['fossid', 'geometry'])
+WBD8 = WBD8.set_index('fossid')
 flows = flows.explode()
 
 split_flows = []
-split_points = OrderedDict()
-# all_link_no = []
-LengthKm = []
-hydroIDs_flows = []
 slopes = []
-hydroID_count = 1
+HYDROID = 'HydroID'
+split_endpoints = OrderedDict()
+# check for lake features
+if len(lakes) > 0:
+  print ('splitting stream segments at ' + str(len(lakes)) + ' waterbodies')
+  #create splits at lake boundaries
+  lakes = lakes.filter(items=['newID', 'geometry'])
+  lakes = lakes.set_index('newID')
+  flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
 
-for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
+print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
+for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):      
+#for i,lineString in enumerate(flows.geometry):      
+  # Reverse geometry order (necessary for BurnLines)
+  lineString = LineString(lineString.coords[::-1])
+  # Collect small reaches
+  if lineString.length < maxLength:
+      split_flows = split_flows + [lineString]
+      line_points = [point for point in zip(*lineString.coords.xy)]
+      
+      # Calculate channel slope
+      start_point = line_points[0]; end_point = line_points[-1]
+      start_elev = dem.sampleFromCoordinates(*start_point,returns='value')
+      end_elev = dem.sampleFromCoordinates(*end_point,returns='value')
+      slope = float(abs(start_elev - end_elev) / lineString.length)
+      if slope < slope_min:
+          slope = slope_min
+      slopes = slopes + [slope]
+      continue
 
-    if lineString.length < maxLength:
-        lineStringList = [lineString]
+  splitLength = lineString.length / np.ceil(lineString.length / maxLength)
 
-        split_flows = split_flows + lineStringList
-        LengthKm = LengthKm + [float(lineString.length * toMetersConversion)]
-        # all_link_no = all_link_no + [linkNO]
-        hydroIDs_flows = hydroIDs_flows + [hydroID_count]
+  cumulative_line = []
+  line_points = []
+  last_point = []
+  # linkNO = flows['LINKNO'][i]
 
-        line_points = [point for point in zip(*lineString.coords.xy)]
+  for point in zip(*lineString.coords.xy):
 
-        for point in line_points:
-            split_points[point] = hydroID_count
+      cumulative_line = cumulative_line + [point]
+      line_points = line_points + [point]
+      numberOfPoints_in_cumulative_line = len(cumulative_line)
 
-        hydroID_count += 1
+      if last_point:
+          cumulative_line = [last_point] + cumulative_line
+          numberOfPoints_in_cumulative_line = len(cumulative_line)
+      elif numberOfPoints_in_cumulative_line == 1:
+          continue
 
-        start_point = line_points[0]; end_point = line_points[-1]
+      cumulative_length = LineString(cumulative_line).length
 
-        start_elev = dem.sampleFromCoordinates(*start_point,returns='value')
-        end_elev = dem.sampleFromCoordinates(*end_point,returns='value')
-        slope = float(abs(start_elev - end_elev) / lineString.length)
+      if cumulative_length >= splitLength:
 
-        if slope < slope_min:
-            slope = slope_min
-        slopes = slopes + [slope]
+          splitLineString = LineString(cumulative_line)
+          split_flows = split_flows + [splitLineString]
+          
+          # Calculate channel slope
+          start_point = cumulative_line[0]; end_point = cumulative_line[-1]
+          start_elev = dem.sampleFromCoordinates(*start_point,returns='value')
+          end_elev = dem.sampleFromCoordinates(*end_point,returns='value')
+          slope = float(abs(start_elev - end_elev) / splitLineString.length)
+          if slope < slope_min:
+              slope = slope_min
+          slopes = slopes + [slope]
 
-        continue
+          last_point = end_point
 
-    splitLength = lineString.length / np.ceil(lineString.length / maxLength)
+          cumulative_line = []
+          line_points = []
 
-    cumulative_line = []
-    line_points = []
-    last_point = []
+  splitLineString = LineString(cumulative_line)
+  split_flows = split_flows + [splitLineString]
 
-    # linkNO = flows['LINKNO'][i]
+  # Calculate channel slope
+  start_point = cumulative_line[0]; end_point = cumulative_line[-1]
+  start_elev = dem.sampleFromCoordinates(*start_point,returns='value')
+  end_elev = dem.sampleFromCoordinates(*end_point,returns='value')
+  slope = float(abs(start_elev - end_elev) / splitLineString.length)
+  if slope < slope_min:
+      slope = slope_min
+  slopes = slopes + [slope]
+
+split_flows_gdf = gpd.GeoDataFrame({'ManningN' : [manning] * len(split_flows) ,
+                                    'S0' : slopes ,'geometry':split_flows}, crs=flows.crs, geometry='geometry')
+split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
+split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes, how='left', op='within')
+split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
+
+# Create Ids and Network Traversal Columns
+addattributes = buildstreamtraversal.BuildStreamTraversalColumns()
+tResults=None
+tResults = addattributes.execute(split_flows_gdf, WBD8, HYDROID)
+if tResults[0] == 'OK':
+    split_flows_gdf = tResults[1]
+    if split_flows_gdf.crs.to_string() != flows.crs.to_string():                        
+      split_flows_gdf = split_flows_gdf.to_crs(flows.crs.to_string())
+else:
+    print ('Error: Could not add network attributes to stream segments')
+
+# Get Outlet Point Only
+#outlet = OrderedDict()
+#for i,segment in split_flows_gdf.iterrows():
+#    outlet[segment.geometry.coords[-1]] = segment[HYDROID]
+
+#hydroIDs_points = [hidp for hidp in outlet.values()]
+#split_points = [Point(*point) for point in outlet]
+
+# Get all vertices
+split_points = OrderedDict()
+for row in split_flows_gdf[['geometry',HYDROID, 'NextDownID']].iterrows():     
+    lineString = row[1][0]
 
     for point in zip(*lineString.coords.xy):
-
-        cumulative_line = cumulative_line + [point]
-        line_points = line_points + [point]
-
-        numberOfPoints_in_cumulative_line = len(cumulative_line)
-
-        if last_point:
-            cumulative_line = [last_point] + cumulative_line
-            numberOfPoints_in_cumulative_line = len(cumulative_line)
-        elif numberOfPoints_in_cumulative_line == 1:
-            continue
-
-        cumulative_length = LineString(cumulative_line).length
-
-        if cumulative_length >= splitLength:
-
-            splitLineString = LineString(cumulative_line)
-            split_flows = split_flows + [splitLineString]
-            LengthKm = LengthKm + [float(splitLineString.length * toMetersConversion)]
-            # all_link_no = all_link_no + [linkNO]
-            hydroIDs_flows = hydroIDs_flows + [hydroID_count]
-
-            for point in cumulative_line:
-                split_points[point] = hydroID_count
-
-            hydroID_count += 1
-
-            start_point = cumulative_line[0]; end_point = cumulative_line[-1]
-
-            start_elev = dem.sampleFromCoordinates(*start_point,returns='value')
-            end_elev = dem.sampleFromCoordinates(*end_point,returns='value')
-            slope = float(abs(start_elev - end_elev) / splitLineString.length)
-
-            if slope < slope_min:
-                slope = slope_min
-
-            slopes = slopes + [slope]
-
-            last_point = end_point
-
-            cumulative_line = []
-            line_points = []
-
-    splitLineString = LineString(cumulative_line)
-    split_flows = split_flows + [splitLineString]
-    LengthKm = LengthKm + [float(splitLineString.length * toMetersConversion)]
-    # all_link_no = all_link_no + [linkNO]
-    hydroIDs_flows = hydroIDs_flows + [hydroID_count]
-
-    for point in cumulative_line:
-        split_points[point] = hydroID_count
-
-    start_point = cumulative_line[0]; end_point = cumulative_line[-1]
-
-    start_elev = dem.sampleFromCoordinates(*start_point,returns='value')
-    end_elev = dem.sampleFromCoordinates(*end_point,returns='value')
-    slope = float(abs(start_elev - end_elev) / splitLineString.length)
-
-    if slope < slope_min:
-        slope = slope_min
-    slopes = slopes + [slope]
-
-    hydroID_count += 1
+        if point in split_points:
+            if row[1][2] == split_points[point]:                               
+                pass
+            else:
+                split_points[point] = row[1][1]
+        else:
+            split_points[point] = row[1][1]
 
 hydroIDs_points = [hidp for hidp in split_points.values()]
 split_points = [Point(*point) for point in split_points]
 
-split_flows_gdf = gpd.GeoDataFrame({'HydroID' : hydroIDs_flows , 'LengthKm' : LengthKm , 'ManningN' : [manning] * len(split_flows) ,
-                                    'S0' : slopes ,'geometry':split_flows}, crs=flows.crs, geometry='geometry')
 split_points_gdf = gpd.GeoDataFrame({'id': hydroIDs_points , 'geometry':split_points}, crs=flows.crs, geometry='geometry')
-# print(split_flows_gdf)
-# print(split_flows_gdf.iloc[0,:])
 print('Writing outputs ...')
 
 if isfile(split_flows_fileName):
