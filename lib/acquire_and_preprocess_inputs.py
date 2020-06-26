@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jun  4 10:58:34 2020
-
-@author: bradford.bates
-"""
+#!/usr/bin/env python3
 
 import os
 import csv
