@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import argparse
 import csv
 import sys
 import shutil
@@ -166,10 +167,10 @@ def pull_and_prepare_nhd_data(args):
         huc = os.path.split(nhd_vector_extraction_parent)[1]  # Parse HUC.
         os.system("7za x {nhd_vector_extraction_path} -o{nhd_vector_extraction_parent}".format(nhd_vector_extraction_path=nhd_vector_extraction_path, nhd_vector_extraction_parent=nhd_vector_extraction_parent))
         
-    # -- Project and convert NHDPlusBurnLineEvent and NHDPlusFlowLineVAA vectors to geopackage -- #
-    for nhd_layer in ['NHDPlusBurnLineEvent', 'NHDPlusFlowlineVAA']:
-        output_gpkg = os.path.join(nhd_vector_extraction_parent, nhd_layer + huc + '.gpkg')
-        run_system_command(['ogr2ogr -overwrite -progress -f GPKG -t_srs "{projection}" {output_gpkg} {nhd_gdb} {nhd_layer}'.format(projection=PREP_PROJECTION, output_gpkg=output_gpkg, nhd_gdb=nhd_gdb, nhd_layer=nhd_layer)])  # Use list because function is configured for multiprocessing.
+        # -- Project and convert NHDPlusBurnLineEvent and NHDPlusFlowLineVAA vectors to geopackage -- #
+        for nhd_layer in ['NHDPlusBurnLineEvent', 'NHDPlusFlowlineVAA']:
+            output_gpkg = os.path.join(nhd_vector_extraction_parent, nhd_layer + huc + '.gpkg')
+            run_system_command(['ogr2ogr -overwrite -progress -f GPKG -t_srs "{projection}" {output_gpkg} {nhd_gdb} {nhd_layer}'.format(projection=PREP_PROJECTION, output_gpkg=output_gpkg, nhd_gdb=nhd_gdb, nhd_layer=nhd_layer)])  # Use list because function is configured for multiprocessing.
 
     # Delete unnecessary files.
     delete_file(nhd_vector_extraction_path.replace('.zip', '.jpg'))
@@ -234,7 +235,7 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
             f.write("%s\n" % item)
     
     
-def manage_preprocessing(hucs_of_interest_file_path, path_to_saved_data_parent_dir, path_to_preinputs_dir, overwrite_nhd_data_flag, overwrite_wbd_geopackages_flag):
+def manage_preprocessing(hucs_of_interest_file_path, path_to_saved_data_parent_dir, overwrite_nhd_data_flag=False, overwrite_wbd_geopackages_flag=False):
     """
     This functions manages the downloading and preprocessing of gridded and vector data for FIM production.
     
@@ -298,30 +299,15 @@ def manage_preprocessing(hucs_of_interest_file_path, path_to_saved_data_parent_d
 
 if __name__ == '__main__':
     
-    # Get input arguments from command line.
-    hucs_of_interest_file_path = sys.argv[1]
-    path_to_saved_data_parent_dir = sys.argv[2]  # The parent directory for all saved data.
-    path_to_preinputs_dir = sys.argv[3]
+    # Parse arguments.
+    parser = argparse.ArgumentParser(description='Acquires and preprocesses WBD and NHD data for use in fim_run.sh.')
+    parser.add_argument('-u','--hucs-of-interest-file-path',help='Path to a line-delimited file of HUC4s to acquire.',required=True)
+    parser.add_argument('-d', '--path-to-saved-data-parent_dir',help='The path to the inputs directory where acquired and preprocessed data will be stored. e.g. fim_share/foss_fim/data',required=True)
+    parser.add_argument('-n', '--overwrite-nhd-data-flag', help='Optional flag to overwrite NHDPlus Data',required=False,action='store_true')
+    parser.add_argument('-w', '--overwrite-wbd-geopackages-flag', help='Optional flag to overwrite WBD Data',required=False,action='store_true')
     
-    # Default flags to false.
-    overwrite_nhd_data_flag = False
-    overwrite_wbd_geopackages_flag = False
+    # Extract to dictionary and assign to variables.
+    args = vars(parser.parse_args())
     
-    # Parse arguments from user and determine if files need to be overwritten.
-    try: 
-        if sys.argv[4] == OVERWRITE_NHD: 
-            overwrite_nhd_data_flag = True
-        elif sys.argv[4] == OVERWRITE_WBD: 
-            overwrite_wbd_geopackages_flag = True
-        elif sys.argv[4] == OVERWRITE_ALL:
-            overwrite_nhd_data_flag, overwrite_wbd_geopackages_flag = True, True
-        else:
-            print()
-            print(Warning('Overwrite parameter not understood. Options are {OVERWRITE_NHD}, {OVERWRITE_WBD}, and {OVERWRITE_ALL}').format(OVERWRITE_NHD=OVERWRITE_NHD, OVERWRITE_WBD=OVERWRITE_WBD, OVERWRITE_ALL=OVERWRITE_ALL))
-            print()
-            sys.exit()
-    except IndexError:
-        pass
-    
-    manage_preprocessing(hucs_of_interest_file_path, path_to_saved_data_parent_dir, path_to_preinputs_dir, overwrite_nhd_data_flag, overwrite_wbd_geopackages_flag)
+    manage_preprocessing(**args)
             
