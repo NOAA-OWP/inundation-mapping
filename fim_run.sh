@@ -113,4 +113,7 @@ else
     fi
 fi
 
+# aggregate outputs
+bash /foss_fim/lib/aggregate_fim_outputs.sh $outputRunDataDir
 
+# insert data management module here

@@ -335,5 +335,5 @@ echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes_crosswalked.gpkg ] && \
-$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/src_full.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_clipped_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv
+$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/src_full.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_clipped_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv $outputHucDataDir/hydroTable.csv $outputHucDataDir/wbd8_clp.gpkg
 Tcount
