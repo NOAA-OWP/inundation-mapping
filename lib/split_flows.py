@@ -38,9 +38,12 @@ toMetersConversion = 1e-3
 
 print('Loading data ...')
 flows = gpd.read_file(flows_fileName)
-lakes = gpd.read_file(lakes_filename)
 WBD8 = gpd.read_file(huc8_filename)
 dem = Raster(dem_fileName)
+if isfile(lakes_filename):
+    lakes = gpd.read_file(lakes_filename)
+else:
+    lakes = None
 
 WBD8 = WBD8.filter(items=['fossid', 'geometry'])
 WBD8 = WBD8.set_index('fossid')
@@ -51,12 +54,13 @@ slopes = []
 HYDROID = 'HydroID'
 split_endpoints = OrderedDict()
 # check for lake features
-if len(lakes) > 0:
-  print ('splitting stream segments at ' + str(len(lakes)) + ' waterbodies')
-  #create splits at lake boundaries
-  lakes = lakes.filter(items=['newID', 'geometry'])
-  lakes = lakes.set_index('newID')
-  flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
+if lakes is not None:
+    if len(lakes) > 0: 
+      print ('splitting stream segments at ' + str(len(lakes)) + ' waterbodies')
+      #create splits at lake boundaries
+      lakes = lakes.filter(items=['newID', 'geometry'])
+      lakes = lakes.set_index('newID')
+      flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
 
 print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
 for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):      
@@ -133,7 +137,8 @@ for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
 split_flows_gdf = gpd.GeoDataFrame({'ManningN' : [manning] * len(split_flows) ,
                                     'S0' : slopes ,'geometry':split_flows}, crs=flows.crs, geometry='geometry')
 split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
-split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes, how='left', op='within')
+if lakes is not None:
+    split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes, how='left', op='within')
 split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
 
 # Create Ids and Network Traversal Columns

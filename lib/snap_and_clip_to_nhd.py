@@ -18,9 +18,8 @@ def subset_vector_layers(hucCode,projection,nwm_headwaters_fileName,nhd_streams_
     # find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_lakes = gpd.read_file(nwm_lakes_fileName, mask = wbd)
-    #nwm_lakes = nwm_lakes.loc[nwm_lakes.intersects(wbd.geometry[0]),:]
-    #nwm_lakes.reset_index(drop=True,inplace=True)
-    nwm_lakes.to_file(subset_nwm_lakes_fileName,driver=getDriver(subset_nwm_lakes_fileName),index=False)
+    if not nwm_lakes.empty:
+        nwm_lakes.to_file(subset_nwm_lakes_fileName,driver=getDriver(subset_nwm_lakes_fileName),index=False)
     del nwm_lakes
 
     # find intersecting nwm_catchments
