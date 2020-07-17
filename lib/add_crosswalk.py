@@ -48,8 +48,11 @@ output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discha
 output_hydro_table['fossid'] = output_hydro_table.loc[:,'HydroID'].apply(lambda x : str(x)[0:4])
 input_huc['fossid'] = input_huc['fossid'].astype(str)
 output_hydro_table = output_hydro_table.merge(input_huc.loc[:,['fossid','HUC8']],how='left',on='fossid')
+output_hydro_table = output_hydro_table.merge(input_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
+output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
 output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
 output_hydro_table.drop(columns='fossid',inplace=True)
+#output_hydro_table['discharge_cms'] = output_hydro_table['discharge_cms'].round(4)
 
 # make src json
 output_src_json = dict()
