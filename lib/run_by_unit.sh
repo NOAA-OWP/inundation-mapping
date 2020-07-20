@@ -67,7 +67,7 @@ echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_meters.tif ] && \
-gdal_calc.py --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="((float32(A)*(float32(A)>$ndv))/100)+((float32(A)<=$ndv)*$ndv)" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="((float32(A)*(float32(A)>$ndv))/100)+((float32(A)<=$ndv)*$ndv)" --NoDataValue=$ndv
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
@@ -99,7 +99,7 @@ echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumb
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
@@ -123,7 +123,7 @@ echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/flowdir_d8_burned_filled_flows.tif ] && \
-gdal_calc.py --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/flowdir_d8_burned_filled.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A/B" --outfile="$outputHucDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
+gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/flowdir_d8_burned_filled.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A/B" --outfile="$outputHucDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
 Tcount
 
 ## FLOW CONDITION STREAMS ##
@@ -225,7 +225,7 @@ echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$sto
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_clipped_zeroed.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed.tif"
 Tcount
 
 ## CLIP CM TO HUC ##
@@ -288,7 +288,7 @@ echo -e $startDiv"Masking Slope Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/slopes_d8_burned_filled_clipped_masked.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/slopes_d8_burned_filled_clipped.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputHucDataDir/"slopes_d8_burned_filled_clipped_masked.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/slopes_d8_burned_filled_clipped.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputHucDataDir/"slopes_d8_burned_filled_clipped_masked.tif"
 Tcount
 
 ## MASK REM RASTER ##
@@ -296,7 +296,7 @@ echo -e $startDiv"Masking REM Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_clipped_zeroed_masked.tif ] && \
-gdal_calc.py --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed_masked.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed_masked.tif"
 Tcount
 
 ## MAKE CATCHMENT AND STAGE FILES ##
