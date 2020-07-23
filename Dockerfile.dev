@@ -1,0 +1,89 @@
+## Temporary image to build the libraries and only save the needed artifacts
+FROM osgeo/gdal:ubuntu-full-latest AS builder
+WORKDIR /opt/builder
+ARG dataDir=/data
+ARG projectDir=/foss_fim
+ARG depDir=/dependencies
+ENV DEBIAN_FRONTEND noninteractive
+ENV taudemDir=$depDir/taudem/bin
+ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
+
+RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/* 
+
+RUN git clone https://github.com/dtarb/taudem.git
+RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accelerated_flowDirections
+
+RUN apt-get update && apt-get install -y cmake mpich \
+    libgtest-dev libboost-test-dev libnetcdf-dev && rm -rf /var/lib/apt/lists/* 
+# RUN apt-get update && apt-get install -y cmake mpich \
+#     libspatialindex-dev libgtest-dev libboost-test-dev libnetcdf-dev && rm -rf /var/lib/apt/lists/* 
+
+## Compile Main taudem repo ##
+RUN mkdir -p taudem/bin
+RUN cd taudem/src \
+    && make
+
+## Compile taudem repo with accelerated flow directions ##
+RUN cd taudem_accelerated_flowDirections/taudem \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+    && make
+
+RUN mkdir -p $taudemDir
+RUN mkdir -p $taudemDir2
+
+## Move needed binaries to the next stage of the image
+RUN cd taudem/bin && mv -t $taudemDir flowdircond aread8 threshold streamnet gagewatershed catchhydrogeo dinfdistdown
+RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
+
+
+
+
+
+
+
+
+# Base Image that has GDAL, PROJ, etc
+FROM osgeo/gdal:ubuntu-full-latest
+ARG dataDir=/data
+ARG projectDir=/foss_fim
+ARG depDir=/dependencies
+ENV inputDataDir=$dataDir/inputs
+ENV outputDataDir=$dataDir/outputs 
+ENV libDir=$projectDir/lib
+ENV taudemDir=$depDir/taudem/bin
+ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
+
+## ADDING FIM GROUP ##
+# ARG GroupID=1370800120
+# ARG GroupName=apd_dev
+ARG GroupID=1370800235
+ARG GroupName=fim
+RUN addgroup --gid $GroupID $GroupName
+ENV GID=$GroupID
+ENV GN=$GroupName
+
+RUN mkdir -p $depDir
+COPY --from=builder $depDir $depDir
+
+RUN apt update --fix-missing
+RUN apt install -y time mpich p7zip-full parallel python3-pip
+# RUN apt install -y time mpich libspatialindex-dev p7zip-full parallel python3-pip
+RUN apt auto-remove
+
+## adding environment variables for numba and python ##
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+ENV PYTHONUNBUFFERED=TRUE
+
+## ADD TO PATHS ##
+ENV PATH="$projectDir:${PATH}"
+
+## install python 3 modules ##
+RUN pip3 install numba pandas geopandas tqdm richdem rasterio rasterstats pygeos
+# RUN pip3 install numba pandas geopandas tqdm richdem Rtree rasterio rasterstats pygeos
+
+## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
+ADD ./lib/entrypoint.sh /
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
