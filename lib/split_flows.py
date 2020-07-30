@@ -63,6 +63,10 @@ if lakes is not None:
       flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
 
 print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
+
+# remove empty geometries
+flows = flows.loc[~flows.is_empty,:]
+
 for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):      
 #for i,lineString in enumerate(flows.geometry):      
   # Reverse geometry order (necessary for BurnLines)
