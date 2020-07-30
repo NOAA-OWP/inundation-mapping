@@ -8,12 +8,14 @@ import argparse
 from os.path import splitext
 from shapely.strtree import STRtree
 from shapely.geometry import Point,MultiLineString,LineString,mapping
+from derive_headwaters import findHeadWaterPoints 
 
-def subset_vector_layers(hucCode,projection,nwm_headwaters_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
+def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
 
     hucUnitLength = len(str(hucCode))
 
     wbd = gpd.read_file(wbd_fileName)
+    projection = wbd.crs
 
     # find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
@@ -37,9 +39,11 @@ def subset_vector_layers(hucCode,projection,nwm_headwaters_fileName,nhd_streams_
     nhd_streams = nhd_streams.explode()
 
     # find intersecting nwm_headwaters
-    print("Subsetting NWM Headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nwm_headwaters = gpd.read_file(nwm_headwaters_fileName, mask = wbd)
-    #nwm_headwaters = nwm_headwaters.loc[nwm_headwaters.intersects(wbd.geometry[0]),:]
+    print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+    nwm_streams = gpd.read_file(nwm_streams_fileName, mask = wbd)
+    nwm_headwaters = findHeadWaterPoints(nwm_streams)
+    nwm_headwaters = gpd.overlay(nwm_headwaters,wbd,how='intersection')
+    del nwm_streams
 
     # merge vaa and nhd streams
     print("Merging VAA into NHD streams",flush=True)
@@ -194,8 +198,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
     parser.add_argument('-d','--hucCode', help='DEM to use within project path', required=True,type=str)
-    parser.add_argument('-p','--projection', help='DEM to use within project path', required=True)
-    parser.add_argument('-w','--nwm-headwaters', help='DEM to use within project path', required=True)
+    parser.add_argument('-w','--nwm-streams', help='DEM to use within project path', required=True)
     parser.add_argument('-s','--nhd-streams',help='Basins polygons to use within project path',required=True)
     parser.add_argument('-v','--nhd-vaa',help='Basins polygons to use within project path',required=True)
     parser.add_argument('-l','--nwm-lakes', help='DEM to use within project path', required=True)
@@ -211,8 +214,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     hucCode = args['hucCode']
-    projection = args['projection']
-    nwm_headwaters_fileName = args['nwm_headwaters']
+    nwm_streams_fileName = args['nwm_streams']
     nhd_streams_fileName = args['nhd_streams']
     nhd_streams_vaa_fileName = args['nhd_vaa']
     nwm_lakes_fileName = args['nwm_lakes']
@@ -225,4 +227,4 @@ if __name__ == '__main__':
     subset_nhd_headwaters_fileName = args['subset_nhd_headwaters']
     dissolveLinks = args['dissolve_links']
 
-    subset_vector_layers(hucCode,projection,nwm_headwaters_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nhd_headwaters_fileName,dissolveLinks)
+    subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nhd_headwaters_fileName,dissolveLinks)

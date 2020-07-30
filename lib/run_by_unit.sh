@@ -37,7 +37,7 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/demDerived_reaches.shp ] && \
-$libDir/snap_and_clip_to_nhd.py -d $hucNumber -p "$PROJ" -w $input_NWM_Headwaters -s $input_NHD_Flowlines  -v $input_NHD_VAA -l $input_NWM_Lakes -u $outputHucDataDir/wbd.gpkg -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg
+$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -s $input_NHD_Flowlines -v $input_NHD_VAA -l $input_NWM_Lakes -u $outputHucDataDir/wbd.gpkg -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg
 Tcount
 
 ## Clip WBD8 ##
@@ -91,7 +91,7 @@ echo -e $startDiv"Raster NWM Catchments $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nwm_catchments_proj_subset.tif ] && \
-gdal_rasterize -ot Int32 -a feature_id -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
+gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
 Tcount
 
 ## BURN NEGATIVE ELEVATIONS STREAMS ##
