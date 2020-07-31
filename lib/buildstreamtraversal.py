@@ -46,6 +46,7 @@ class BuildStreamTraversalColumns(object):
                 modelstream = modelstream.join(stream_wbdjoin).drop(columns=['centroid'])
 
                 modelstream['seqID'] = (modelstream.groupby('HUC8id').cumcount(ascending=True)+1).astype('str').str.zfill(4)
+                modelstream = modelstream.loc[modelstream['HUC8id'].notna(),:]
                 modelstream = modelstream.assign(HYDROID= lambda x: x.HUC8id + x.seqID)
                 modelstream = modelstream.rename(columns={"HYDROID": HYDROID}).sort_values(HYDROID)
                 modelstream = modelstream.drop(columns=['HUC8id', 'seqID'])
@@ -89,7 +90,7 @@ class BuildStreamTraversalColumns(object):
                         else:
                             xy_dict[from_key] = len(xy_dict) + 1
                             modelstream.at[rows[0], FN_FROMNODE,] = xy_dict[from_key]
-    
+
                         # To Node
                         lastx = round(rows[1][0].coords.xy[0][-1], 7)
                         lasty = round(rows[1][0].coords.xy[1][-1], 7)
