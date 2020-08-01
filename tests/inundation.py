@@ -173,7 +173,20 @@ def inundate(
         except Exception as exc:
             __vprint("Exception {} for {}".format(exc,results[future]),not quiet)
         else:
+<<<<<<< HEAD
             __vprint("... {} complete".format(results[future]),not quiet)
+=======
+<<<<<<< HEAD
+
+            if results[future] is not None:
+                __vprint("... {} complete".format(results[future]),not quiet)
+            else:
+                __vprint("... complete",not quiet)
+
+=======
+            __vprint("... {} complete".format(results[future]),not quiet)
+>>>>>>> foss-fim-development
+>>>>>>> ffd-inundation
             inundation_rasters += [future.result()[0]]
             depth_rasters += [future.result()[1]]
             inundation_polys += [future.result()[2]]
@@ -461,7 +474,7 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                 try:
                     subset_hucs = open(subset_hucs).read().split('\n')
                 except FileNotFoundError:
-                    pass
+                    subset_hucs = [subset_hucs]
 
         # subsets HUCS
         subset_hucs_orig = subset_hucs.copy() ; subset_hucs = []
