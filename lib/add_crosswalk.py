@@ -19,7 +19,7 @@ output_crosswalk_fileName = sys.argv[9]
 output_hydro_table_fileName = sys.argv[10]
 input_huc_fileName = sys.argv[11]
 input_nwmflows_fileName = sys.argv[12]
-manning_n = float(sys.argv[13])
+mannings_json = sys.argv[13]
 
 input_catchments = gpd.read_file(input_catchments_fileName)
 input_flows = gpd.read_file(input_flows_fileName)
@@ -41,10 +41,11 @@ output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','f
 output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
 output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
-# mannings by stream order
-# mannings_dict = {1: 0.025, 2: 0.08, 3: 0.19, 4: 0.185, 5: 0.2, 6: 0.2, 7: 0.2, 8: 0.2, 9: 0.2, 10: 0.2, 11: 0.2, 12: 0.2, 13: 0.2, 14: 0.2}
-# output_flows['ManningN'] = output_flows['order_'].map(mannings_dict)
-output_flows['ManningN'] = manning_n
+# read in manning's n values
+with open(mannings_json, "r") as read_file:
+    mannings_dict = json.load(read_file)
+output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
+
 # calculate src_full
 input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object) #
 input_src_base['CatchId'] = input_src_base['CatchId'].astype(int)
