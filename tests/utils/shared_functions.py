@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-def compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area=None):
+def compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area=None, masked_count=None):
     """
     This generic function takes contingency table metrics as arguments and returns a dictionary of contingency table statistics.
     Much of the calculations below were taken from older Python files. This is evident in the inconsistent use of case.
@@ -25,15 +25,15 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     total_population = true_negatives + false_negatives + false_positives + true_positives
         
     # Basic stats.
-    percent_correct = (true_positives + true_negatives) / total_population
-    pod             = true_positives / (true_positives + false_negatives)
-    far             = false_positives / (true_positives + false_positives)
-    csi             = true_positives / (true_positives + false_positives + false_negatives)
-    bias            = (true_positives + false_positives) / (true_positives + false_negatives)
+#    Percent_correct = ((true_positives + true_negatives) / total_population) * 100
+#    pod             = true_positives / (true_positives + false_negatives)
+    FAR             = false_positives / (true_positives + false_positives)
+    CSI             = true_positives / (true_positives + false_positives + false_negatives)
+    BIAS            = (true_positives + false_positives) / (true_positives + false_negatives)
     
     # Compute equitable threat score (ETS) / Gilbert Score. 
     a_ref = ((true_positives + false_positives)*(true_positives + false_negatives)) / total_population
-    equitable_threat_score = (true_positives - a_ref) / (true_positives - a_ref + false_positives + false_negatives)
+    EQUITABLE_THREAT_SCORE = (true_positives - a_ref) / (true_positives - a_ref + false_positives + false_negatives)
 
     total_population = true_positives + false_positives + true_negatives + false_negatives
     TP_perc = (true_positives / total_population) * 100
@@ -52,21 +52,32 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     FP = float(false_positives)
     MCC = (TP*TN - FP*FN)/ np.sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN))
     
-    # This checks if a cell_area has been provided, thus making areal calculations possible.
-    multiplier = 10000
+    if masked_count != None:
+        total_pop_and_mask_pop = total_population + masked_count
+        masked_perc = (masked_count / total_pop_and_mask_pop) * 100
+    else:
+        masked_perc = None
     
-    if cell_area != None:
-        TP_area = (true_positives * cell_area) / (cell_area*multiplier)
-        FP_area = (false_positives * cell_area) / (cell_area*multiplier)
-        TN_area = (true_negatives * cell_area) / (cell_area*multiplier)
-        FN_area = (false_negatives * cell_area) / (cell_area*multiplier)
-        area = (total_population * cell_area) / (cell_area*multiplier)
+    # This checks if a cell_area has been provided, thus making areal calculations possible.
+    sq_km_converter = 1000000
         
-        predPositive_area = predPositive * cell_area
-        predNegative_area = predNegative * cell_area
-        obsPositive_area =  obsPositive * cell_area
-        obsNegative_area =  obsNegative * cell_area
+    if cell_area != None:
+        TP_area = (true_positives * cell_area) / sq_km_converter
+        FP_area = (false_positives * cell_area) / sq_km_converter
+        TN_area = (true_negatives * cell_area) / sq_km_converter
+        FN_area = (false_negatives * cell_area) / sq_km_converter
+        area = (total_population * cell_area) / sq_km_converter
+        
+        predPositive_area = (predPositive * cell_area) / sq_km_converter
+        predNegative_area = (predNegative * cell_area) / sq_km_converter
+        obsPositive_area =  (obsPositive * cell_area) / sq_km_converter
+        obsNegative_area =  (obsNegative * cell_area) / sq_km_converter
         positiveDiff_area = predPositive_area - obsPositive_area
+        
+        if masked_count != None:
+            masked_area = (masked_count * cell_area) / sq_km_converter
+        else:
+            masked_area = None
 
     # If no cell_area is provided, then the contingeny tables are likely not derived from areal analysis.
     else:
@@ -85,10 +96,10 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
         
     total_population = true_positives + false_positives + true_negatives + false_negatives
 
-    predPositive_perc = predPositive / total_population
-    predNegative_perc = predNegative / total_population
-    obsPositive_perc = obsPositive / total_population
-    obsNegative_perc = obsNegative / total_population
+    predPositive_perc = (predPositive / total_population) * 100
+    predNegative_perc = (predNegative / total_population) * 100
+    obsPositive_perc = (obsPositive / total_population) * 100
+    obsNegative_perc = (obsNegative / total_population) * 100
     
     positiveDiff_perc = predPositive_perc - obsPositive_perc
     
@@ -101,44 +112,54 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     Bal_ACC = np.mean([TPR,TNR])
     F1_score = (2*true_positives) / (2*true_positives + false_positives + false_negatives)
 
-    stats_dictionary = {'true_negatives': int(true_negatives),
-                        'false_negatives': int(false_negatives),
-                        'true_positives': int(true_positives),
-                        'false_positives': int(false_positives),
-                        'percent_correct': round(percent_correct, 3),
-                        'pod': round(pod, 3),
-                        'far': round(far, 3),
-                        'csi': round(csi, 3),
-                        'bias': round(bias, 3),
-                        'equitable_threat_score': round(equitable_threat_score, 3), 
+    stats_dictionary = {'true_negatives_count': int(true_negatives),
+                        'false_negatives_count': int(false_negatives),
+                        'true_positives_count': int(true_positives),
+                        'false_positives_count': int(false_positives),
+                        'contingency_tot_count': int(total_population),
+                        'cell_area_m2': cell_area,
+                        
+                        'TP_area_km2': TP_area,
+                        'FP_area_km2': FP_area,
+                        'TN_area_km2': TN_area,
+                        'FN_area_km2': FN_area,
+
+                        'contingency_tot_area_km2': area,
+                        'predPositive_area_km2': predPositive_area,
+                        'predNegative_area_km2': predNegative_area,
+                        'obsPositive_area_km2': obsPositive_area,
+                        'obsNegative_area_km2': obsNegative_area,
+                        'positiveDiff_area_km2': positiveDiff_area,
+
+                        'CSI': CSI,
+                        'FAR': FAR,
+                        'TPR': TPR,                        
+                        'TNR': TNR,                        
+                        
+                        'PPV': PPV,
+                        'NPV': NPV,
+                        'ACC': ACC,
+                        'Bal_ACC': Bal_ACC,
+                        'MCC': MCC,
+                        'EQUITABLE_THREAT_SCORE': EQUITABLE_THREAT_SCORE, 
+                        'PREVALENCE': prevalence,
+                        'BIAS': BIAS,
+                        'F1_SCORE': F1_score,
+
                         'TP_perc': TP_perc,
                         'FP_perc': FP_perc,
                         'TN_perc': TN_perc,
                         'FN_perc': FN_perc,
-                        'area': area,
-                        'prevalence': prevalence,
                         'predPositive_perc': predPositive_perc,
                         'predNegative_perc': predNegative_perc,
                         'obsPositive_perc': obsPositive_perc,
                         'obsNegative_perc': obsNegative_perc,
-                        'predPositive_area': predPositive_area,
-                        'predNegative_area': predNegative_area,
-                        'obsPositive_area': obsPositive_area,
-                        'obsNegative_area': obsNegative_area,
-                        'positiveDiff_area': positiveDiff_area,
                         'positiveDiff_perc': positiveDiff_perc,
-                        'PPV': PPV,
-                        'NPV': NPV,
-                        'TPR': TPR,
-                        'TNR': TNR,
-                        'ACC': ACC,
-                        'F1_score': F1_score,
-                        'Bal_ACC': Bal_ACC,
-                        'MCC': MCC,
-                        'TP_area': TP_area,
-                        'FP_area': FP_area,
-                        'TN_area': TN_area,
-                        'FN_area': FN_area,
+  
+                        'masked_count': int(masked_count),
+                        'masked_perc': masked_perc,
+                        'masked_area_km2': masked_area,
+                        
                         }
 
     return stats_dictionary
@@ -186,7 +207,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
               dst_crs = predicted_src.crs,
               dst_nodata = benchmark_src.nodata,
               dst_resolution = predicted_src.res,
-              resampling = Resampling.bilinear)
+              resampling = Resampling.nearest)
     
     predicted_array_raw = predicted_src.read(1)
     
@@ -230,7 +251,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                   dst_crs = predicted_src.crs,
                   dst_nodata = exclusion_src.nodata,
                   dst_resolution = predicted_src.res,
-                  resampling = Resampling.bilinear)
+                  resampling = Resampling.nearest)
                     
         # Perform mask.
         agreement_array = np.where(exclusion_array == 1, 4, agreement_array)
@@ -265,7 +286,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     contingency_table_dictionary.update({'total_area':{'true_negatives': int((agreement_array == 0).sum()),
                                                       'false_negatives': int((agreement_array == 1).sum()),
                                                       'false_positives': int((agreement_array == 2).sum()),
-                                                      'true_positives': int((agreement_array == 3).sum())
+                                                      'true_positives': int((agreement_array == 3).sum()),
+                                                      'masked_count': int((agreement_array == 4).sum())
                                                       }})                               
     
         
@@ -289,7 +311,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                   dst_crs = predicted_src.crs,
                   dst_nodata = layer_src.nodata,
                   dst_resolution = predicted_src.res,
-                  resampling = Resampling.bilinear)
+                  resampling = Resampling.nearest)
                     
             # Omit all areas that spatially disagree with the layer_array.
             layer_agreement_array = np.where(layer_array>0, agreement_array, 10)
@@ -306,7 +328,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             contingency_table_dictionary.update({layer_name:{'true_negatives': int((layer_agreement_array == 0).sum()),
                                                              'false_negatives': int((layer_agreement_array == 1).sum()),
                                                              'false_positives': int((layer_agreement_array == 2).sum()),
-                                                             'true_positives': int((layer_agreement_array == 3).sum())
+                                                             'true_positives': int((layer_agreement_array == 3).sum()),
+                                                             'masked_count': int((layer_agreement_array == 4).sum())
                                                               }})
             del layer_agreement_array
 

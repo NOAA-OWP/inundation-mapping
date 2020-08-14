@@ -14,9 +14,9 @@ from inundation import inundate
 
 TEST_CASES_DIR = r'/data/test_cases/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
-PRINTWORTHY_STATS = ['csi', 'pod', 'far', 'TNR', 'MCC', 'TP_area', 'FP_area', 'TN_area', 'FN_area', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc','area']
-GO_UP_STATS = ['csi', 'pod', 'MCC', 'TN_area', 'TP_area', 'TN_perc', 'TP_perc', 'percent_correct', 'TNR']
-GO_DOWN_STATS = ['far', 'FN_area', 'FP_area', 'FP_perc', 'FN_perc']
+PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
+GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
+GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc']
 OUTPUTS_DIR = os.environ['outputDataDir']
 
 ENDC = '\033[m'
@@ -90,9 +90,11 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
     """
     
     # Get cell size of benchmark raster.
-    raster = rasterio.open(benchmark_raster_path)
+    raster = rasterio.open(predicted_raster_path)
     t = raster.transform
-    cell_area = t[0]
+    cell_x = t[0]
+    cell_y = t[4]
+    cell_area = abs(cell_x*cell_y)
         
     additional_layers_dict = {}
     # Create path to additional_layer. Could put conditionals here to create path according to some version. Simply use stats_mode for now. Must be raster.
@@ -107,15 +109,16 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
     contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask=exclusion_mask)
     
     stats_dictionary = {}
-    
+        
     for stats_mode in contingency_table_dictionary:
         true_negatives = contingency_table_dictionary[stats_mode]['true_negatives']
         false_negatives = contingency_table_dictionary[stats_mode]['false_negatives']
         false_positives = contingency_table_dictionary[stats_mode]['false_positives']
         true_positives = contingency_table_dictionary[stats_mode]['true_positives']
+        masked_count = contingency_table_dictionary[stats_mode]['masked_count']
         
         # Produce statistics from continency table and assign to dictionary. cell_area argument optional (defaults to None). 
-        mode_stats_dictionary = compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area)
+        mode_stats_dictionary = compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area, masked_count)
         
         # Write the mode_stats_dictionary to the stats_csv.
         if stats_csv != None:
@@ -163,7 +166,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
     if os.path.exists(branch_test_case_dir_parent):
         shutil.rmtree(branch_test_case_dir_parent)
     
-    print("Running the alpha test for test_id: " + test_id + "...")
+    print("Running the alpha test for test_id: " + test_id + ", " + branch_name + "...")
     stats_modes_list = ['total_area']
     if run_structure_stats: stats_modes_list.append('structures')
     
@@ -389,7 +392,6 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                     print(WHITE_BOLD + stat_name + ENDC + "     " + color + (symbol + " {:5.2f}".format(abs(percent_change)) + " %").rjust(len(percent_change_header)), ENDC + "    " + color + ("{:12.3f}".format((difference))).rjust(len(difference_header)), ENDC + "    " + "{:15.3f}".format(current_version).rjust(len(current_version_header)) + "   " + "{:15.3f}".format(last_version).rjust(len(last_version_header)) + "  ")
             
             print()
-            print("Area units are square kilometers.")
         
             print()
             print()
