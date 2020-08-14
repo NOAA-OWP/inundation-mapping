@@ -1,5 +1,5 @@
 <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
-<qgis hasScaleBasedVisibilityFlag="0" maxScale="0" styleCategories="AllStyleCategories" version="3.12.0-București" minScale="1e+8">
+<qgis styleCategories="AllStyleCategories" version="3.10.5-A Coruña" minScale="1e+08" maxScale="0" hasScaleBasedVisibilityFlag="0">
   <flags>
     <Identifiable>1</Identifiable>
     <Removable>1</Removable>
@@ -12,7 +12,7 @@
     <property value="Value" key="identify/format"/>
   </customproperties>
   <pipe>
-    <rasterrenderer band="1" type="paletted" nodataColor="" opacity="1" alphaBand="-1">
+    <rasterrenderer type="paletted" opacity="1" alphaBand="-1" band="1">
       <rasterTransparency/>
       <minMaxOrigin>
         <limits>None</limits>
@@ -23,16 +23,16 @@
         <stdDevFactor>2</stdDevFactor>
       </minMaxOrigin>
       <colorPalette>
-        <paletteEntry alpha="255" value="0" color="#de9d0f" label="TN"/>
-        <paletteEntry alpha="255" value="1" color="#db5442" label="FN"/>
-        <paletteEntry alpha="255" value="2" color="#10a729" label="FP"/>
-        <paletteEntry alpha="255" value="3" color="#0024a9" label="TP"/>
-        <paletteEntry alpha="255" value="4" color="#000000" label="Waterbody mask"/>
+        <paletteEntry label="TN" value="0" alpha="255" color="#000000"/>
+        <paletteEntry label="FN" value="1" alpha="255" color="#fdae61"/>
+        <paletteEntry label="FP" value="2" alpha="255" color="#d7191c"/>
+        <paletteEntry label="TP" value="3" alpha="255" color="#2c7bb6"/>
+        <paletteEntry label="Waterbody mask" value="4" alpha="255" color="#b2b2b2"/>
       </colorPalette>
       <colorramp type="randomcolors" name="[source]"/>
     </rasterrenderer>
-    <brightnesscontrast contrast="0" brightness="0"/>
-    <huesaturation grayscaleMode="0" colorizeOn="0" colorizeRed="255" colorizeBlue="128" colorizeStrength="100" colorizeGreen="128" saturation="0"/>
+    <brightnesscontrast brightness="0" contrast="0"/>
+    <huesaturation colorizeBlue="128" colorizeRed="255" grayscaleMode="0" colorizeStrength="100" colorizeOn="0" saturation="0" colorizeGreen="128"/>
     <rasterresampler maxOversampling="2"/>
   </pipe>
   <blendMode>0</blendMode>
