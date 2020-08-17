@@ -13,7 +13,6 @@ import sys
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point, LineString, MultiPoint
-from raster import Raster
 import rasterio
 import numpy as np
 import argparse
