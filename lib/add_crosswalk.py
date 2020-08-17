@@ -31,6 +31,7 @@ input_majorities = input_majorities.rename(columns={'_majority' : 'feature_id'})
 input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
 input_majorities['feature_id'] = input_majorities['feature_id'].astype(int)
 
+input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
 relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
 relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
 
