@@ -15,7 +15,6 @@ input_NHD_Flowlines=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusBurnL
 input_NHD_VAA=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusFlowlineVAA"$huc4Identifier".gpkg
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
-input_NLD=$inputDataDir/nhdplus_vectors/"$huc4Identifier"_nld.gpkg
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -63,14 +62,6 @@ Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
 Tcount
 
-## RASTERIZE NLD POLYLINES
-echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_rasterize -l merge_nld_11010013_nad83 -3d -at -init $ndv -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $input_NLD $outputHucDataDir/nld_rasterized_elev.tif
-Tcount
-
 ## CONVERT TO METERS ##
 echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
 date -u
@@ -103,15 +94,6 @@ Tstart
 gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
 Tcount
 
-## Option 1 for burning levees
-## BURN LEVEES INTO DEM ##
-echo -e $startDiv"Burn nld levees into dem (convert nld to meters) $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/dem_meters_levees.tif ] && \
-gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters_levees.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
-Tcount
-
 ## BURN NEGATIVE ELEVATIONS STREAMS ##
 echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
 date -u
@@ -120,8 +102,6 @@ Tstart
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
 Tcount
 
-## Option 2 for burning levees
-
 ## PIT REMOVE BURNED DEM ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber"$stopDiv
 date -u
@@ -129,8 +109,6 @@ Tstart
 [ ! -f $outputHucDataDir/dem_burned_filled.tif ] && \
 rd_depression_filling $outputHucDataDir/dem_burned.tif $outputHucDataDir/dem_burned_filled.tif
 Tcount
-
-## Option 3 for burning levees
 
 ## D8 FLOW DIR ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber"$stopDiv
@@ -153,7 +131,7 @@ echo -e $startDiv"Flow Condition Thalweg $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
-$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters_levees.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
+$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
 Tcount
 
 ## DINF FLOW DIR ##
