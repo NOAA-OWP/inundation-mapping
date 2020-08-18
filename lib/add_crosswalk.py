@@ -9,7 +9,7 @@ import sys
 
 input_catchments_fileName = sys.argv[1]
 input_flows_fileName = sys.argv[2]
-input_src_fileName = sys.argv[3]
+input_srcbase_fileName = sys.argv[3]
 input_majorities_fileName = sys.argv[4]
 output_catchments_fileName = sys.argv[5]
 output_flows_fileName = sys.argv[6]
@@ -18,24 +18,58 @@ output_src_json_fileName = sys.argv[8]
 output_crosswalk_fileName = sys.argv[9]
 output_hydro_table_fileName = sys.argv[10]
 input_huc_fileName = sys.argv[11]
+input_nwmflows_fileName = sys.argv[12]
+mannings_json = sys.argv[13]
 
 input_catchments = gpd.read_file(input_catchments_fileName)
 input_flows = gpd.read_file(input_flows_fileName)
 input_huc = gpd.read_file(input_huc_fileName)
-input_src = pd.read_csv(input_src_fileName,dtype=object)
 input_majorities = gpd.read_file(input_majorities_fileName)
-input_huc = gpd.read_file(input_huc_fileName)
+input_nwmflows = gpd.read_file(input_nwmflows_fileName)
 
 input_majorities = input_majorities.rename(columns={'_majority' : 'feature_id'})
 input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
 input_majorities['feature_id'] = input_majorities['feature_id'].astype(int)
 
+input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
+relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
+relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
+
 # output_catchments = input_catchments.merge(input_flows.drop(['geometry'],axis=1),on='HydroID')
 output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
 output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
-output_src = input_src.rename(columns={'CatchId':'HydroID'})
+# read in manning's n values
+with open(mannings_json, "r") as read_file:
+    mannings_dict = json.load(read_file)
+output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
+
+# calculate src_full
+input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object) #
+input_src_base['CatchId'] = input_src_base['CatchId'].astype(int)
+
+input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID']],left_on='CatchId',right_on='HydroID')
+
+input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
+input_src_base = input_src_base.apply(pd.to_numeric,**{'errors' : 'coerce'})
+input_src_base['TopWidth (m)'] = input_src_base['SurfaceArea (m2)']/input_src_base['LENGTHKM']/1000
+input_src_base['WettedPerimeter (m)'] = input_src_base['BedArea (m2)']/input_src_base['LENGTHKM']/1000
+input_src_base['WetArea (m2)'] = input_src_base['Volume (m3)']/input_src_base['LENGTHKM']/1000
+input_src_base['HydraulicRadius (m)'] = input_src_base['WetArea (m2)']/input_src_base['WettedPerimeter (m)']
+input_src_base['HydraulicRadius (m)'].fillna(0, inplace=True)
+input_src_base['Discharge (m3s-1)'] = input_src_base['WetArea (m2)']* \
+pow(input_src_base['HydraulicRadius (m)'],2.0/3)* \
+pow(input_src_base['SLOPE'],0.5)/input_src_base['ManningN']
+
+# set nans to 0
+input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
+
+
+# output_src = input_src.rename(columns={'CatchId':'HydroID'})
+output_src = input_src_base.drop(columns=['CatchId'])
 output_src['HydroID'] = output_src['HydroID'].astype(int)
 output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
 
