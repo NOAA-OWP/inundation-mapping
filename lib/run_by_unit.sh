@@ -15,7 +15,7 @@ input_NHD_Flowlines=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusBurnL
 input_NHD_VAA=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusFlowLineVAA"$huc4Identifier".gpkg
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
-input_NLD=$inputDataDir/nhdplus_vectors/"$huc4Identifier"_nld.gpkg
+input_NLD=$inputDataDir/nld_vectors/"$huc4Identifier"_nld.gpkg
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -68,7 +68,7 @@ echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_rasterize -l merge_nld_11010013_nad83 -3d -at -init $ndv -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $input_NLD $outputHucDataDir/nld_rasterized_elev.tif
+gdal_rasterize -l nld_11010013_crs102039 -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $input_NLD $outputHucDataDir/nld_rasterized_elev.tif
 Tcount
 
 ## CONVERT TO METERS ##
@@ -109,7 +109,7 @@ echo -e $startDiv"Burn nld levees into dem (convert nld to meters) $hucNumber"$s
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_meters_levees.tif ] && \
-gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters_levees.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters_levees.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
 Tcount
 
 ## BURN NEGATIVE ELEVATIONS STREAMS ##
