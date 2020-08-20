@@ -71,7 +71,7 @@ RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
 RUN apt update --fix-missing
-RUN apt install -y time mpich p7zip-full parallel python3-pip libgeos-dev
+RUN apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1
 RUN apt auto-remove
 
 ## adding environment variables for numba and python ##
