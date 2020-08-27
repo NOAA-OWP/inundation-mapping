@@ -11,11 +11,12 @@ mkdir $outputHucDataDir
 ## SET VARIABLES AND FILE INPUTS ##
 hucUnitLength=${#hucNumber}
 huc4Identifier=${hucNumber:0:4}
+huc2Identifier=${hucNumber:0:2}
 input_NHD_Flowlines=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusBurnLineEvent"$huc4Identifier".gpkg
 input_NHD_VAA=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusFlowLineVAA"$huc4Identifier".gpkg
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
-input_NLD=$inputDataDir/nld_vectors/"$huc4Identifier"_nld.gpkg
+input_NLD=$inputDataDir/nld_vectors/huc2/nld_preprocessed_"$huc2Identifier".gpkg
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -63,12 +64,20 @@ Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
 Tcount
 
-## RASTERIZE NLD POLYLINES
+## RASTERIZE NLD POLYLINES ##
 echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_rasterize -l nld_11010013_crs102039 -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $input_NLD $outputHucDataDir/nld_rasterized_elev.tif
+gdal_rasterize -l nld_merged_filtered -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $input_NLD $outputHucDataDir/nld_rasterized_elev.tif
+Tcount
+
+## RASTERIZE NLD POLYLINES BOOLEAN (1 & 0) ##
+echo -e $startDiv"Rasterize Reach Boolean (0=Levee pixel)"$stopDiv
+date -u
+Tstart
+[ ! -f $outputHucDataDir/nld_rasterized_boolean.tif ] && \
+gdal_rasterize -l nld_11010013_crs102039 -burn 0 -at -init 1 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Int32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $input_NLD $outputHucDataDir/nld_rasterized_boolean.tif
 Tcount
 
 ## CONVERT TO METERS ##
@@ -117,7 +126,7 @@ echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumb
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters_levees.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
 Tcount
 
 ## Option 2 for burning levees
@@ -145,7 +154,7 @@ echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/flowdir_d8_burned_filled_flows.tif ] && \
-gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/flowdir_d8_burned_filled.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A/B" --outfile="$outputHucDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
+gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/flowdir_d8_burned_filled.tif -B $outputHucDataDir/flows_grid_boolean.tif -C $outputHucDataDir/nld_rasterized_boolean.tif --calc="(A/B)/C" --outfile="$outputHucDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
 Tcount
 
 ## FLOW CONDITION STREAMS ##
