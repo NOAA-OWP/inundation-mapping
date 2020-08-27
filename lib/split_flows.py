@@ -25,7 +25,7 @@ import buildstreamtraversal
 
 flows_fileName         = sys.argv[1] # $outputDataDir/demDerived_reaches.gpkg
 dem_fileName           = sys.argv[2] # $outputDataDir/dem_thalwegCond.tif
-split_flows_fileName   = sys.argv[3] # $outputDataDir/demDerived_reaches_split.gpkg 
+split_flows_fileName   = sys.argv[3] # $outputDataDir/demDerived_reaches_split.gpkg
 split_points_fileName  = sys.argv[4] # $outputDataDir/demDerived_reaches_split_points.gpkg
 maxLength              = float(sys.argv[5])
 slope_min              = float(sys.argv[6])
@@ -100,11 +100,11 @@ for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
     last_point_in_entire_lineString = list(zip(*lineString.coords.xy))[-1]
 
     for point in zip(*lineString.coords.xy):
-      
+
         cumulative_line = cumulative_line + [point]
         line_points = line_points + [point]
         numberOfPoints_in_cumulative_line = len(cumulative_line)
-      
+
         if last_point:
             cumulative_line = [last_point] + cumulative_line
             numberOfPoints_in_cumulative_line = len(cumulative_line)
@@ -128,7 +128,7 @@ for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
 
             last_point = end_point
 
-            if (last_point == last_point_in_entire_lineString): 
+            if (last_point == last_point_in_entire_lineString):
                 continue
 
             cumulative_line = []
@@ -149,7 +149,9 @@ split_flows_gdf = gpd.GeoDataFrame({'S0' : slopes ,'geometry':split_flows}, crs=
 split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
 if lakes is not None:
     split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes, how='left', op='within')
-split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
+    split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
+else:
+    split_flows_gdf['LakeID'] = -999
 
 # Create Ids and Network Traversal Columns
 addattributes = buildstreamtraversal.BuildStreamTraversalColumns()
