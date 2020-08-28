@@ -1,0 +1,7 @@
+*.pyc
+*.swp
+.nfs*
+__pycache__/
+config/**
+!config/*template*
+!config/symbology/
