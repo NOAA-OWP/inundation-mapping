@@ -152,7 +152,7 @@ Tcount
 echo -e $startDiv"D8 Slopes from DEM $hucNumber"$stopDiv
 date -u
 Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/flowdir_d8_burned_filled_temp.tif -sd8 $outputHucDataDir/slopes_d8_burned_filled.tif
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/flowdir_d8_burned_filled_temp.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
 # [rm -f $outputHucDataDir/flowdir_d8_burned_filled_temp.tif ] && [rm -f $outputHucDataDir/slopes_d8_burned_filled_temp.tif ]
 Tcount
 
@@ -302,7 +302,7 @@ echo -e $startDiv"Clipping Slope Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/slopes_d8_burned_filled_clipped.tif ] && \
-gdalwarp -r near -cutline $outputHucDataDir/wbd.gpkg -crop_to_cutline -ot Float32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputHucDataDir/slopes_d8_burned_filled.tif $outputHucDataDir/slopes_d8_burned_filled_clipped.tif
+gdalwarp -r near -cutline $outputHucDataDir/wbd.gpkg -crop_to_cutline -ot Float32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/slopes_d8_burned_filled_clipped.tif
 Tcount
 
 ## MASK SLOPE RASTER ##
