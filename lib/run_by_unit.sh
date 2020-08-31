@@ -11,11 +11,12 @@ mkdir $outputHucDataDir
 ## SET VARIABLES AND FILE INPUTS ##
 hucUnitLength=${#hucNumber}
 huc4Identifier=${hucNumber:0:4}
+huc2Identifier=${hucNumber:0:2}
 input_NHD_Flowlines=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusBurnLineEvent"$huc4Identifier".gpkg
 input_NHD_VAA=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusFlowLineVAA"$huc4Identifier".gpkg
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
-input_NLD=$inputDataDir/nld_vectors/"$huc4Identifier"_nld.gpkg
+input_NLD=$inputDataDir/nld_vectors/huc2/nld_preprocessed_"$huc2Identifier".gpkg
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -48,6 +49,13 @@ Tstart
 ogr2ogr -f GPKG -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8
 Tcount
 
+## Clip NLD ##
+echo -e $startDiv"Clip NLD"$stopDiv
+date -u
+Tstart
+ogr2ogr -f GPKG -nlt MULTILINESTRINGZ -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/nld_clp.gpkg $input_NLD nld_preprocessed
+Tcount
+
 ## CLIP DEM ##
 echo -e $startDiv"Clip DEM $hucNumber"$stopDiv
 date -u
@@ -63,12 +71,20 @@ Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
 Tcount
 
-## RASTERIZE NLD POLYLINES
+## RASTERIZE NLD POLYLINES ##
 echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_rasterize -l nld_11010013_crs102039 -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $input_NLD $outputHucDataDir/nld_rasterized_elev.tif
+gdal_rasterize -l nld_preprocessed -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_clp.gpkg $outputHucDataDir/nld_rasterized_elev.tif
+Tcount
+
+## RASTERIZE NLD POLYLINES BOOLEAN (1 & 0) ##
+echo -e $startDiv"Rasterize Reach Boolean (0=Levee pixel)"$stopDiv
+date -u
+Tstart
+[ ! -f $outputHucDataDir/nld_rasterized_boolean.tif ] && \
+gdal_rasterize -l nld_preprocessed -burn 0 -at -init 1 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Int32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_clp.gpkg $outputHucDataDir/nld_rasterized_boolean.tif
 Tcount
 
 ## CONVERT TO METERS ##
@@ -117,7 +133,7 @@ echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumb
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters_levees.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
 Tcount
 
 ## Option 2 for burning levees
