@@ -149,6 +149,8 @@ split_flows_gdf = gpd.GeoDataFrame({'S0' : slopes ,'geometry':split_flows}, crs=
 split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
 if lakes is not None:
     split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes, how='left', op='within')
+else:
+    split_flows_gdf['LakeID'] = -999
 split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
 
 # Create Ids and Network Traversal Columns
