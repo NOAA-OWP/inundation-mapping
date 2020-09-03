@@ -289,8 +289,6 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                       'true_positives': int((agreement_array == 3).sum()),
                                                       'masked_count': int((agreement_array == 4).sum())
                                                       }})                               
-    
-        
         
     # Parse through dictionary of other layers and create contingency table metrics for the desired area. Layer must be raster with same shape as agreement_raster.
     if additional_layers_dict != {}:
