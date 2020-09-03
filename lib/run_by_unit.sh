@@ -16,7 +16,7 @@ input_NHD_Flowlines=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusBurnL
 input_NHD_VAA=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusFlowLineVAA"$huc4Identifier".gpkg
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
-input_NLD=$inputDataDir/nld_vectors/huc2/nld_preprocessed_"$huc2Identifier".gpkg
+input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
