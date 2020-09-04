@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 def compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area=None, masked_count=None):
     """
     This generic function takes contingency table metrics as arguments and returns a dictionary of contingency table statistics.
@@ -27,19 +26,36 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     # Basic stats.
 #    Percent_correct = ((true_positives + true_negatives) / total_population) * 100
 #    pod             = true_positives / (true_positives + false_negatives)
-    FAR             = false_positives / (true_positives + false_positives)
-    CSI             = true_positives / (true_positives + false_positives + false_negatives)
-    BIAS            = (true_positives + false_positives) / (true_positives + false_negatives)
+    
+    try:
+        FAR = false_positives / (true_positives + false_positives)
+    except ZeroDivisionError:
+        FAR = "NA"
+        
+    try:
+        CSI = true_positives / (true_positives + false_positives + false_negatives)
+    except ZeroDivisionError:
+        CSI = "NA"
+    
+    try:
+        BIAS = (true_positives + false_positives) / (true_positives + false_negatives)
+    except ZeroDivisionError:
+        BIAS = "NA"
     
     # Compute equitable threat score (ETS) / Gilbert Score. 
-    a_ref = ((true_positives + false_positives)*(true_positives + false_negatives)) / total_population
-    EQUITABLE_THREAT_SCORE = (true_positives - a_ref) / (true_positives - a_ref + false_positives + false_negatives)
+    try:
+        a_ref = ((true_positives + false_positives)*(true_positives + false_negatives)) / total_population
+        EQUITABLE_THREAT_SCORE = (true_positives - a_ref) / (true_positives - a_ref + false_positives + false_negatives)
+    except ZeroDivisionError:
+        EQUITABLE_THREAT_SCORE = "NA"
 
-    total_population = true_positives + false_positives + true_negatives + false_negatives
-    TP_perc = (true_positives / total_population) * 100
-    FP_perc = (false_positives / total_population) * 100
-    TN_perc = (true_negatives / total_population) * 100
-    FN_perc = (false_negatives / total_population) * 100
+    if total_population == 0:
+        TP_perc, FP_perc, TN_perc, FN_perc = "NA", "NA", "NA", "NA"
+    else:
+        TP_perc = (true_positives / total_population) * 100
+        FP_perc = (false_positives / total_population) * 100
+        TN_perc = (true_negatives / total_population) * 100
+        FN_perc = (false_negatives / total_population) * 100
     
     predPositive = true_positives + false_positives
     predNegative = true_negatives + false_negatives
@@ -50,11 +66,17 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     TN = float(true_negatives)
     FN = float(false_negatives)
     FP = float(false_positives)
-    MCC = (TP*TN - FP*FN)/ np.sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN))
+    try:
+        MCC = (TP*TN - FP*FN)/ np.sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN))
+    except ZeroDivisionError:
+        MCC = "NA"
     
     if masked_count != None:
         total_pop_and_mask_pop = total_population + masked_count
-        masked_perc = (masked_count / total_pop_and_mask_pop) * 100
+        if total_pop_and_mask_pop == 0:
+            masked_perc = "NA"
+        else:
+            masked_perc = (masked_count / total_pop_and_mask_pop) * 100
     else:
         masked_perc = None
     
@@ -94,23 +116,56 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
         positiveDiff_area = None
         MCC = None
         
-    total_population = true_positives + false_positives + true_negatives + false_negatives
+    if total_population == 0:
+        predPositive_perc, predNegative_perc, obsPositive_perc, obsNegative_perc , positiveDiff_perc = "NA", "NA", "NA", "NA", "NA"
+    else:
+        predPositive_perc = (predPositive / total_population) * 100
+        predNegative_perc = (predNegative / total_population) * 100
+        obsPositive_perc = (obsPositive / total_population) * 100
+        obsNegative_perc = (obsNegative / total_population) * 100
+        
+        positiveDiff_perc = predPositive_perc - obsPositive_perc
+        
+    if total_population == 0:
+        prevalence = "NA"
+    else:
+        prevalence = (true_positives + false_negatives) / total_population
+    
+    try:
+        PPV = true_positives / predPositive
+    except ZeroDivisionError:
+        PPV = "NA"
+    
+    try:
+        NPV = true_negatives / predNegative
+    except ZeroDivisionError:
+        NPV = "NA"
+    
+    try:
+        TNR = true_negatives / obsNegative
+    except ZeroDivisionError:
+        TNR = "NA"
+        
+    try:
+        TPR = true_positives / obsPositive
+        
+    except ZeroDivisionError:
+        TPR = "NA"
 
-    predPositive_perc = (predPositive / total_population) * 100
-    predNegative_perc = (predNegative / total_population) * 100
-    obsPositive_perc = (obsPositive / total_population) * 100
-    obsNegative_perc = (obsNegative / total_population) * 100
+    try:
+        Bal_ACC = np.mean([TPR,TNR])
+    except TypeError:
+        Bal_ACC = "NA"
     
-    positiveDiff_perc = predPositive_perc - obsPositive_perc
+    if total_population == 0:
+        ACC = "NA"
+    else:
+        ACC = (true_positives + true_negatives) / total_population
     
-    prevalence = (true_positives + false_negatives) / total_population
-    PPV = true_positives / predPositive
-    NPV = true_negatives / predNegative
-    TPR = true_positives / obsPositive
-    TNR = true_negatives / obsNegative
-    ACC = (true_positives + true_negatives) / total_population
-    Bal_ACC = np.mean([TPR,TNR])
-    F1_score = (2*true_positives) / (2*true_positives + false_positives + false_negatives)
+    try:
+        F1_score = (2*true_positives) / (2*true_positives + false_positives + false_negatives)
+    except ZeroDivisionError:
+        F1_score = "NA"
 
     stats_dictionary = {'true_negatives_count': int(true_negatives),
                         'false_negatives_count': int(false_negatives),

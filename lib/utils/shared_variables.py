@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""
-Created on Thu Jun  4 11:00:02 2020
-
-@author: bradford.bates
-"""
-
 
 # Projections.
 #PREP_PROJECTION = "+proj=aea +datum=NAD83 +x_0=0.0 +y_0=0.0 +lon_0=96dW +lat_0=23dN +lat_1=29d30'N +lat_2=45d30'N +towgs84=-0.9956000824677655,1.901299877314078,0.5215002840524426,0.02591500053005733,0.009425998542707753,0.01159900118427752,-0.00062000005129903 +no_defs +units=m"

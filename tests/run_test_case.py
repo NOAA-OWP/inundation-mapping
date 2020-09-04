@@ -403,7 +403,6 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
             print()
                             
 
-
 if __name__ == '__main__':
     
     # Parse arguments.
