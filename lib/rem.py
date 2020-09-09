@@ -71,6 +71,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName):
         # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
          catchment_min_dict = make_catchment_min_dict(dem_window, catchment_min_dict, catchments_window)
 
+    # Open rem_rasterio_object for writing to rem_fileName.
     rem_rasterio_object = rasterio.open(rem_fileName,'w',**meta)
     
     for ji, window in dem_rasterio_object.block_windows(1):
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
     parser.add_argument('-d','--dem', help='DEM to use within project path', required=True)
     parser.add_argument('-w','--watersheds',help='Pixel based watersheds raster to use within project path',required=True)
+    parser.add_argument('-t','--thalweg',help='Thalweg raster to use within project path',required=True)
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     
     # extract to dictionary
@@ -104,5 +106,6 @@ if __name__ == '__main__':
     dem_fileName = args['dem']
     pixel_watersheds_fileName = args['watersheds']
     rem_fileName = args['rem']
+    thalweg_file_name = args['thalweg']
 
     rel_dem(dem_fileName, pixel_watersheds_fileName,rem_fileName)
