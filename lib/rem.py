@@ -20,35 +20,20 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName):
             File name of output relative elevation raster.
 
     """
-
-    dem_rasterio_object = rasterio.open(dem_fileName)
-    pixel_catchments_rasterio_object = rasterio.open(pixel_watersheds_fileName)
-    
-    meta = dem_rasterio_object.meta.copy()
-    meta['tiled'] = True
-    meta['compress'] = 'lzw'
     
     @njit
-    def make_catchment_min_dict(flat_dem,catchmentMinDict,flat_catchments):
-
+    def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments):
+  
         for i,cm in enumerate(flat_catchments):
-            if (cm in catchmentMinDict):
-                if (flat_dem[i] < catchmentMinDict[cm]):
-                    catchmentMinDict[cm] = flat_dem[i]
+            if (cm in catchment_min_dict):
+                if (flat_dem[i] < catchment_min_dict[cm]):
+                    catchment_min_dict[cm] = flat_dem[i]
             else:
-                catchmentMinDict[cm] = flat_dem[i]
+                catchment_min_dict[cm] = flat_dem[i]
 
-        return(catchmentMinDict)
+        return(catchment_min_dict)
     
-    catchmentMinDict = typed.Dict.empty(types.int32,types.float32)
-    
-    # get pixel sheds minimum dictionary
-    for ji, window in dem_rasterio_object.block_windows(1):
-         dem_window = dem_rasterio_object.read(1,window=window).ravel()
-         catchments_window = pixel_catchments_rasterio_object.read(1,window=window).ravel()
 
-         catchmentMinDict = make_catchment_min_dict(dem_window,catchmentMinDict,catchments_window)
-         
     # create rem_fileName grid 
     
     @njit
@@ -63,6 +48,29 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName):
 
         return(rem_window)
 
+
+    # -- Main Function Block -- #
+
+    # Open dem_fileName and pixel_watershed_fileName.
+    dem_rasterio_object = rasterio.open(dem_fileName)
+    pixel_catchments_rasterio_object = rasterio.open(pixel_watersheds_fileName)
+    
+    # Specify raster object metadata.
+    meta = dem_rasterio_object.meta.copy()
+    meta['tiled'] = True
+    meta['compress'] = 'lzw'
+    
+    # Initialize an empty dictionary to store the catchment minimums.
+    catchment_min_dict = typed.Dict.empty(types.int32,types.float32)
+    
+    # Update catchment_min_dict with pixel sheds minimum.
+    for ji, window in dem_rasterio_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
+         dem_window = dem_rasterio_object.read(1,window=window).ravel()  # Initialize dem_window.
+         catchments_window = pixel_catchments_rasterio_object.read(1,window=window).ravel()  # Initialize catchments_window.
+
+        # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
+         catchment_min_dict = make_catchment_min_dict(dem_window, catchment_min_dict, catchments_window)
+
     rem_rasterio_object = rasterio.open(rem_fileName,'w',**meta)
     
     for ji, window in dem_rasterio_object.block_windows(1):
@@ -71,7 +79,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName):
         dem_window = dem_window.ravel()
         catchments_window = pixel_catchments_rasterio_object.read(1,window=window).ravel()
         
-        rem_window = calculate_rem(dem_window,catchmentMinDict,catchments_window,meta['nodata'])
+        rem_window = calculate_rem(dem_window, catchment_min_dict, catchments_window, meta['nodata'])
         rem_window = rem_window.reshape(window_shape).astype(np.float32)
         
         rem_rasterio_object.write(rem_window, window=window, indexes=1)
@@ -79,7 +87,6 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName):
     dem_rasterio_object.close()
     pixel_catchments_rasterio_object.close()
     rem_rasterio_object.close()
-
 
 
 if __name__ == '__main__':
