@@ -64,7 +64,8 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
 
     # writeout nwm headwaters
     nwm_headwaters.reset_index(drop=True,inplace=True)
-    nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
+    if not nwm_headwaters.empty:
+        nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
     del nwm_headwaters
 
     # identify inflowing streams
