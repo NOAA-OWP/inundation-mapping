@@ -102,8 +102,11 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
         additional_layers_dict = {}
         for stats_mode in stats_modes_list:
             if stats_mode != 'total_area':
-                additional_layer_path = os.path.join(TEST_CASES_DIR, test_id, 'additional_layers', stats_mode, stats_mode + '.tif')
-                additional_layers_dict.update({stats_mode: additional_layer_path})
+                additional_layer_path = os.path.join(TEST_CASES_DIR, test_id, 'additional_layers', 'inclusion_areas', stats_mode + '.tif')
+                if os.path.exists(additional_layer_path):
+                    additional_layers_dict.update({stats_mode: additional_layer_path})
+                else:
+                    print("No " + stats_mode + " inclusion area found for " + test_id + ". Moving on with processing...")
     
     # Get contingency table from two rasters.
     contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask=exclusion_mask)
@@ -153,7 +156,7 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
     return difference_dict
     
 
-def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, run_structure_stats=False, archive_results=False, legacy_fim_run_dir=False, waterbody_mask_technique=''):
+def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, run_structure_stats=False, run_levee_stats=False, archive_results=False, legacy_fim_run_dir=False, waterbody_mask_technique=''):
         
     
     # Construct paths to development test results if not existent.
@@ -169,6 +172,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
     print("Running the alpha test for test_id: " + test_id + ", " + branch_name + "...")
     stats_modes_list = ['total_area']
     if run_structure_stats: stats_modes_list.append('structures')
+    if run_levee_stats: stats_modes_list.append('levees')
     
     if legacy_fim_run_dir:
         fim_run_parent = os.path.join(os.environ['HISTORICAL_FIM_RUN'], fim_run_dir)
@@ -399,7 +403,6 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
             print()
                             
 
-
 if __name__ == '__main__':
     
     # Parse arguments.
@@ -410,9 +413,10 @@ if __name__ == '__main__':
     parser.add_argument('-y', '--return-interval',help='The return interval to check. Options include: 100yr, 500yr',required=False,default=['10yr', '100yr', '500yr'])
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
     parser.add_argument('-s', '--run-structure-stats', help='Create contingency stats at structures.', required=False,action='store_true')
+    parser.add_argument('-l', '--run-levee-stats', help='Create contingency stats at leveed areas.', required=False,action='store_true')
     parser.add_argument('-a', '--archive-results', help='Automatically copy results to the "previous_version" archive for test_id. For admin use only.', required=False,action='store_true')
     parser.add_argument('-w', '--waterbody-mask-technique', help='Define the waterbody masking technique you would like to use. Options include: nhd_0, nhd_100, nhd_250, nhd_500, nwm_0, nwm_100, nwm_250, nwm_500. Format is: dataset_buffer. Buffer distance in meters.', required=False, default='nwm_0')
-#    parser.add_argument('-l','--legacy-fim-run-dir',help='If set, the -b argument name is redirected to historical fim_run output data dir.',required=False, action='store_true')
+
     
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

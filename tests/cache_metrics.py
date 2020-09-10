@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jul 10 13:10:51 2020
-
-@author: bradford.bates
-"""
+#!/usr/bin/env python3
 
 import os
 import argparse
