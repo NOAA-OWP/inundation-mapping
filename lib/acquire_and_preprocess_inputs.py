@@ -7,6 +7,7 @@ import sys
 import shutil
 from multiprocessing import Pool
 import geopandas as gp
+from urllib.error import HTTPError
 
 from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_URL_PREFIX,
@@ -227,9 +228,9 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     
     print("Building included HUC lists...")
     # Identify all saved NHDPlus Vectors.
-    nhd_plus_vector_dir = os.path.join(path_to_saved_data_parent_dir, NHDPLUS_VECTORS_DIRNAME)
+    nhd_plus_vector_dir = os.path.join(path_to_saved_data_parent_dir, NHDPLUS_RASTERS_DIRNAME)
     
-    huc4_list = os.listdir(nhd_plus_vector_dir)
+    huc4_list = [i[-4:] for i in os.listdir(nhd_plus_vector_dir)]
         
     huc6_list, huc8_list = [], []
     # Read WBD into dataframe.
@@ -338,8 +339,13 @@ def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, ov
         nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd])
         
     # Pull and prepare NHD data.
-    pool = Pool(num_workers)
-    pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    #pool = Pool(num_workers)
+    #pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    for huc in nhd_procs_list:
+        try:
+            pull_and_prepare_nhd_data(huc)
+        except HTTPError:
+            print("404 error for HUC4 {}".format(huc))
     
     # Pull and prepare NWM data.
     #pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_preinputs_dir,num_workers)  # Commented out for now.
