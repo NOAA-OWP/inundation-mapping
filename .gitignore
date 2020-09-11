@@ -5,3 +5,5 @@ __pycache__/
 config/**
 !config/*template*
 !config/symbology/
+*.zip
+manuscripts/owp_fim3/owp_fim3.[aux,pdf,log]
