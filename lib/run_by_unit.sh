@@ -67,7 +67,7 @@ echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_meters.tif ] && \
-gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="((float32(A)*(float32(A)>$ndv))/100)+((float32(A)<=$ndv)*$ndv)" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="A/100" --NoDataValue=$ndv
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
@@ -225,7 +225,7 @@ echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$sto
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_clipped_zeroed.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped.tif --calc="A*(A>=0)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed.tif"
 Tcount
 
 ## CLIP CM TO HUC ##
