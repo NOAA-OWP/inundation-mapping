@@ -1,9 +1,9 @@
 ### Cahaba: Flood Inundation Mapping for U.S. National Water Model
 
-For use with the U.S. National Water Model (NWM) produced by the National Oceanic and Atmospheric Administration's 
-(NOAA) National Weather Service (NWS) Office of Water Prediction (OWP). Takes forecast discharges and converts 
-to river stages via synthetic rating curves. Produces maps with a modification of the Height Above Nearest 
-Drainage (HAND) method.
+Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the 
+National Oceanic and Atmospheric Administration (NOAA) National Weather Service (NWS). Software enables inundation mapping 
+capability by generating Relative Elevation Models (REMs) and Synthetic Rating Curves (SRCs). Included in package are tests 
+to evaluate skill and computational efficiency as well as functions to generate inundation maps.
 
 ## Dependencies
 
