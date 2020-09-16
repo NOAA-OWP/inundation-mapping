@@ -88,6 +88,9 @@ export input_NWM_Lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
 export input_NWM_Catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
 export input_NWM_Flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
 
+## Input handling ##
+$libDir/check_huc_inputs.py -u "$hucList"
+
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then 
     rm -rf "$outputRunDataDir"
