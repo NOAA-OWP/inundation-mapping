@@ -28,6 +28,7 @@ Software is configurable via parameters found in config directory. Copy files be
 1. Run Docker Container : `docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <image_name>:<tag>`
 2. Acquire and Prepare Data : `/foss_fim/lib/acquire_and_preprocess_inputs.py -u <huc4s_to_process>`
     - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
+    - Please run `/foss_fim/lib/acquire_and_preprocess_inputs.py --help` for more information.
     - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 3. Produce Hydrofabric : `fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>`
     - `-u` can be a single huc, a series passed in quotes, or a line-deliminted file
@@ -48,7 +49,7 @@ Please see the issue tracker on Github for known issues and for getting help.
 
 ## Getting Involved
 
-NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabalities. Please contact Fernando Aristizabal (fernando.aristizabal@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
+NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Fernando Aristizabal (fernando.aristizabal@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
 ----
 
@@ -59,12 +60,12 @@ NOAA's National Water Center welcomes anyone to contribute to the Cahaba reposit
 ----
 
 ## Credits and References
-1. Office of Water Prediction [OWP](https://water.noaa.gov/)
-2. National Flood Interoperability Experiment [NFIE](https://web.corral.tacc.utexas.edu/nfiedata/)
+1. Office of Water Prediction [(OWP)](https://water.noaa.gov/)
+2. National Flood Interoperability Experiment [(NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
 3. Garousi‐Nejad, I., Tarboton, D. G.,Aboutalebi, M., & Torres‐Rua, A.(2019). Terrain analysis enhancements to the Height Above Nearest Drainage flood inundation mapping method. Water Resources Research, 55 , 7983–8009. https://doi.org/10.1029/2019WR0248375.
 4. Zheng, X., D.G. Tarboton, D.R. Maidment, Y.Y. Liu, and P. Passalacqua. 2018. “River Channel Geometry and Rating Curve Estimation Using Height above the Nearest Drainage.” Journal of the American Water Resources Association 54 (4): 785–806. https://doi.org/10.1111/1752-1688.12661.
 5. Barnes, Richard. 2016. RichDEM: Terrain Analysis Software. http://github.com/r-barnes/richdem
 6. [TauDEM](https://github.com/dtarb/TauDEM)
-7. Federal Emergency Management Agency (FEMA) Base Level Engineering [BLE](https://webapps.usgs.gov/infrm/estBFE/)
+7. Federal Emergency Management Agency (FEMA) Base Level Engineering [(BLE)](https://webapps.usgs.gov/infrm/estBFE/)
 8. Verdin, James; Verdin, Kristine; Mathis, Melissa; Magadzire, Tamuka; Kabuchanga, Eric; Woodbury, Mark; and Gadain, Hussein, 2016, A software tool for rapid flood inundation mapping: U.S. Geological Survey Open-File Report 2016–1038, 26 p., http://dx.doi.org/10.3133/ofr20161038.
 9. United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR). https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution 
