@@ -26,7 +26,9 @@ Software is configurable via parameters found in config directory. Copy files be
 ## Usage
 
 1. Run Docker Container : `docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <image_name>:<tag>`
-2. Acquire and Prepare Data : 
+2. Acquire and Prepare Data : `/foss_fim/lib/acquire_and_preprocess_inputs.py -u <huc4s_to_process>`
+    - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
+    - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 3. Produce Hydrofabric : `fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>`
     - `-u` can be a single huc, a series passed in quotes, or a line-deliminted file
         i. To run entire domain of available data use one of the `/data/inputs/included_huc[4,6,8].lst` files
@@ -65,3 +67,4 @@ NOAA's National Water Center welcomes anyone to contribute to the Cahaba reposit
 6. [TauDEM](https://github.com/dtarb/TauDEM)
 7. Federal Emergency Management Agency (FEMA) Base Level Engineering [BLE](https://webapps.usgs.gov/infrm/estBFE/)
 8. Verdin, James; Verdin, Kristine; Mathis, Melissa; Magadzire, Tamuka; Kabuchanga, Eric; Woodbury, Mark; and Gadain, Hussein, 2016, A software tool for rapid flood inundation mapping: U.S. Geological Survey Open-File Report 2016–1038, 26 p., http://dx.doi.org/10.3133/ofr20161038.
+9. United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR). https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution 
