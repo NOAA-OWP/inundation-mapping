@@ -67,7 +67,7 @@ echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_meters.tif ] && \
-gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="((float32(A)*(float32(A)>$ndv))/100)+((float32(A)<=$ndv)*$ndv)" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="A/100" --NoDataValue=$ndv
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
@@ -114,8 +114,8 @@ Tcount
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/flowdir_d8_burned_filled.tif ] && [ ! -f $outputHucDataDir/slopes_d8_burned_filled.tif ] && \
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_burned_filled.tif -p $outputHucDataDir/flowdir_d8_burned_filled.tif -sd8 $outputHucDataDir/slopes_d8_burned_filled.tif
+[ ! -f $outputHucDataDir/flowdir_d8_burned_filled.tif ] && \
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_burned_filled.tif -p $outputHucDataDir/flowdir_d8_burned_filled.tif
 Tcount
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
@@ -132,6 +132,13 @@ date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
 $taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
+Tcount
+
+## D8 SLOPES ##
+echo -e $startDiv"D8 Slopes from DEM $hucNumber"$stopDiv
+date -u
+Tstart
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_meters.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
 Tcount
 
 ## DINF FLOW DIR ##
@@ -225,7 +232,7 @@ echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$sto
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_clipped_zeroed.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_clipped.tif --calc="A*(A>=0)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_clipped_zeroed.tif"
 Tcount
 
 ## CLIP CM TO HUC ##
@@ -279,16 +286,16 @@ Tcount
 echo -e $startDiv"Clipping Slope Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/slopes_d8_burned_filled_clipped.tif ] && \
-gdalwarp -r near -cutline $outputHucDataDir/wbd.gpkg -crop_to_cutline -ot Float32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputHucDataDir/slopes_d8_burned_filled.tif $outputHucDataDir/slopes_d8_burned_filled_clipped.tif
+[ ! -f $outputHucDataDir/slopes_d8_dem_meters_clipped.tif ] && \
+gdalwarp -r near -cutline $outputHucDataDir/wbd.gpkg -crop_to_cutline -ot Float32 -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/slopes_d8_dem_meters_clipped.tif
 Tcount
 
 ## MASK SLOPE RASTER ##
 echo -e $startDiv"Masking Slope Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/slopes_d8_burned_filled_clipped_masked.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/slopes_d8_burned_filled_clipped.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputHucDataDir/"slopes_d8_burned_filled_clipped_masked.tif"
+[ ! -f $outputHucDataDir/slopes_d8_dem_meters_clipped_masked.tif ] && \
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/slopes_d8_dem_meters_clipped.tif -B $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputHucDataDir/"slopes_d8_dem_meters_clipped_masked.tif"
 Tcount
 
 ## MASK REM RASTER ##
@@ -311,7 +318,7 @@ echo -e $startDiv"Hydraulic Properties $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/src_base.csv ] && \
-$taudemDir/catchhydrogeo -hand $outputHucDataDir/rem_clipped_zeroed_masked.tif -catch $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif -catchlist $outputHucDataDir/catchment_list.txt -slp $outputHucDataDir/slopes_d8_burned_filled_clipped_masked.tif -h $outputHucDataDir/stage.txt -table $outputHucDataDir/src_base.csv
+$taudemDir/catchhydrogeo -hand $outputHucDataDir/rem_clipped_zeroed_masked.tif -catch $outputHucDataDir/gw_catchments_reaches_clipped_addedAttributes.tif -catchlist $outputHucDataDir/catchment_list.txt -slp $outputHucDataDir/slopes_d8_dem_meters_clipped_masked.tif -h $outputHucDataDir/stage.txt -table $outputHucDataDir/src_base.csv
 Tcount
 
 ## GET MAJORITY COUNTS ##
