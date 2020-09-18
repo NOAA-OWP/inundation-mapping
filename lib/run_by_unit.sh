@@ -21,7 +21,7 @@ echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/wbd.gpkg ] && \
-ogr2ogr -f GPKG $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -makevalid -where "HUC$hucUnitLength='$hucNumber'" 
+ogr2ogr -f GPKG $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'" 
 Tcount
 
 ## BUFFER WBD ##
