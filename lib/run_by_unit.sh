@@ -256,7 +256,7 @@ echo -e $startDiv"Clipping Model Streams to HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/demDerived_reaches_split_clipped.gpkg ] && \
-ogr2ogr -progress -f GPKG -clipsrc $outputHucDataDir/wbd.gpkg $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg
+ogr2ogr -progress -nlt "LINESTRING" -nln "demDerived_reaches_split_clipped" -f GPKG -clipsrc $outputHucDataDir/wbd.gpkg $outputHucDataDir/demDerived_reaches_split_clipped.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg
 Tcount
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
