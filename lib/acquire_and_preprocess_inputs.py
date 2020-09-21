@@ -83,6 +83,7 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
         wbd_hu8 = wbd_hu8.to_crs(PREP_PROJECTION)  # Project.
         #wbd_hu8.to_file(os.path.join(wbd_directory, 'WBDHU8.gpkg'), driver='GPKG')  # Save.
         wbd_hu8 = subset_wbd_to_nwm_domain(wbd_hu8,nwm_file_to_use)
+        wbd_hu8.geometry = wbd_hu8.buffer(0)
         wbd_hu8.to_file(multilayer_wbd_geopackage, driver='GPKG',layer='WBDHU8')  # Save.
         wbd_hu8.HUC8.to_csv(nwm_huc_list_file_template.format('8'),index=False,header=False)
         #wbd_gpkg_list.append(os.path.join(wbd_directory, 'WBDHU8.gpkg'))  # Append to wbd_gpkg_list for subsetting later.
@@ -96,6 +97,7 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
             wbd = wbd.to_crs(PREP_PROJECTION)
             wbd = wbd.rename(columns={'huc'+wbd_layer_num : 'HUC' + wbd_layer_num})
             wbd = subset_wbd_to_nwm_domain(wbd,nwm_file_to_use)
+            wbd.geometry = wbd.buffer(0)
             wbd.to_file(multilayer_wbd_geopackage,driver="GPKG",layer=wbd_layer)
             wbd['HUC{}'.format(wbd_layer_num)].to_csv(nwm_huc_list_file_template.format(wbd_layer_num),index=False,header=False)
             #output_gpkg = os.path.join(wbd_directory, wbd_layer + '.gpkg')
