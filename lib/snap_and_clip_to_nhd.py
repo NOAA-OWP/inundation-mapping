@@ -108,13 +108,6 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
         if q in visited:
             continue
         visited.add(q)
-        # toNode = nhd_streams.loc[q,'ToNode']
-        # try:
-        #     downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
-        # except ValueError: # 18050002 has duplicate nhd stream feature
-        #     if len(toNode.unique()) == 1:
-        #         toNode = toNode.iloc[0]
-        #         downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
         toNode,DnLevelPat = nhd_streams.loc[q,['ToNode','DnLevelPat']]
         try:
             downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
@@ -128,9 +121,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
         else:
             relevant_ids = downstream_ids
         nhd_streams.loc[relevant_ids,'is_nwm_stream'] = True
-        # nhd_streams.loc[downstream_ids,'is_nwm_stream'] = True
         for i in relevant_ids:
-        # for i in downstream_ids:
             if i not in visited:
                 Q.append(i)
 
