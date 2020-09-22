@@ -9,3 +9,5 @@ config/**
 manuscripts/owp_fim3_2020/owp_fim3.aux
 manuscripts/owp_fim3_2020/owp_fim3.pdf
 manuscripts/owp_fim3_2020/owp_fim3.log
+manuscripts/*.bbl
+manuscripts/*.blg
