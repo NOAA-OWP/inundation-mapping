@@ -39,7 +39,7 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/demDerived_reaches.shp ] && \
-$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -s $input_NHD_Flowlines -v $input_NHD_VAA -l $input_NWM_Lakes -u $outputHucDataDir/wbd.gpkg -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg
+$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -s $input_NHD_Flowlines -v $input_NHD_VAA -l $input_NWM_Lakes -r $input_NLD -u $outputHucDataDir/wbd.gpkg -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg
 Tcount
 
 ## Clip WBD8 ##
@@ -50,11 +50,11 @@ ogr2ogr -f GPKG -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/w
 Tcount
 
 ## Clip NLD ##
-echo -e $startDiv"Clip NLD"$stopDiv
-date -u
-Tstart
-ogr2ogr -f GPKG -nlt MULTILINESTRINGZ -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/nld_clp.gpkg $input_NLD nld_preprocessed
-Tcount
+#echo -e $startDiv"Clip NLD"$stopDiv
+#date -u
+#Tstart
+#ogr2ogr -f GPKG -nlt MULTILINESTRINGZ -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/nld_clp.gpkg $input_NLD nld_preprocessed
+#Tcount
 
 ## CLIP DEM ##
 echo -e $startDiv"Clip DEM $hucNumber"$stopDiv
@@ -75,17 +75,17 @@ Tcount
 echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_rasterize -l nld_preprocessed -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_clp.gpkg $outputHucDataDir/nld_rasterized_elev.tif
+[ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
+gdal_rasterize -l nld_subset_levees -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
 Tcount
 
 ## RASTERIZE NLD POLYLINES BOOLEAN (1 & 0) ##
-echo -e $startDiv"Rasterize Reach Boolean (0=Levee pixel)"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/nld_rasterized_boolean.tif ] && \
-gdal_rasterize -l nld_preprocessed -burn 0 -at -init 1 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Int32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_clp.gpkg $outputHucDataDir/nld_rasterized_boolean.tif
-Tcount
+#echo -e $startDiv"Rasterize Reach Boolean (0=Levee pixel)"$stopDiv
+#date -u
+#Tstart
+#[ ! -f $outputHucDataDir/nld_rasterized_boolean.tif ] && \
+#gdal_rasterize -l nld_preprocessed -burn 0 -at -init 1 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Int32 -of GTiff -co #"COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_clp.gpkg $outputHucDataDir/nld_rasterized_boolean.tif
+#Tcount
 
 ## CONVERT TO METERS ##
 echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
@@ -119,24 +119,29 @@ Tstart
 gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
 Tcount
 
-## Option 1 for burning levees
 ## BURN LEVEES INTO DEM ##
-echo -e $startDiv"Burn nld levees into dem (convert nld to meters) $hucNumber"$stopDiv
+echo -e $startDiv"Burn nld levees into dem ($ convert nld elev to meters) $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/dem_meters_levees.tif ] && \
+[ -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ ! -f $outputHucDataDir/dem_meters_levees.tif ] && \
 gdal_calc.py --quiet --type=Float32 --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters_levees.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
 Tcount
 
-## BURN NEGATIVE ELEVATIONS STREAMS ##
-echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
+## BURN NEGATIVE ELEVATIONS STREAMS WITH LEVEES ##
+echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber (if levees present)"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/dem_burned.tif ] && \
+[ ! -f $outputHucDataDir/dem_burned.tif ] && [ -f $outputHucDataDir/dem_meters_levees.tif ] && \
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters_levees.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
 Tcount
 
-## Option 2 for burning levees
+## BURN NEGATIVE ELEVATIONS STREAMS WITHOUT LEVEES ##
+echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber (if no levees present)"$stopDiv
+date -u
+Tstart
+[ ! -f $outputHucDataDir/dem_burned.tif ] && [ ! -f $outputHucDataDir/dem_meters_levees.tif ] && \
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
+Tcount
 
 ## PIT REMOVE BURNED DEM ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber"$stopDiv
@@ -145,8 +150,7 @@ Tstart
 [ ! -f $outputHucDataDir/dem_burned_filled.tif ] && \
 rd_depression_filling $outputHucDataDir/dem_burned.tif $outputHucDataDir/dem_burned_filled.tif
 Tcount
-
-## Option 3 for burning levees
+exit N
 
 ## D8 FLOW DIR ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber"$stopDiv
