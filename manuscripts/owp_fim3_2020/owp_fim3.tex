@@ -71,6 +71,9 @@
 \newcommand\csiFimThreeOneHundred{0.5840}
 \newcommand\podFimThreeOneHundred{0.7015}
 \newcommand\farFimThreeOneHundred{0.1661}
+\newcommand\csiFimThreeFiveHundred{}
+\newcommand\podFimThreeFiveHundred{}
+\newcommand\farFimThreeFiveHundred{}
 
 
 %% -------------------------------------------------------------------------%%
@@ -149,8 +152,8 @@
 % \end{keypoints}
 
 \begin{keypoints}
-\item The National Water Model produces forecasts at more than 2.7 river reaches in the Continental United States, Hawaii, and Puerto Rico.
-\item OWP FIM version 3 produces flood inundation maps by converting discharges to stages and stages to extents and depths.
+\item The National Water Model produces forecasts at more than 2.8 million river reaches in the United States.
+\item OWP FIM produces flood inundation maps by converting discharges to stages and stages to extents and depths.
 \item FIM 3 is a modified version of the Height Above Nearest Drainage technique that provides version improvement with FIM 1 and 2.
 \end{keypoints}
 
@@ -176,7 +179,14 @@
 %% \begin{abstract} starts the second page
 
 \begin{abstract}
-The National Water Model Version 2.1 produces forecast river discharges at over 2.7 million over the continental United States, Hawaii, and Puerto Rico. \csiFimThreeOneHundred
+Historically, floods have led to significant loss of life and property in the United States and around the world. 
+With the expectation that climate change will only increase the intensity of extreme precipitation events, flooding will continue to play a major risk \cite{Tabari1}. 
+In response to this growing issue, the National Water Model Version 2.1, released in 2021, produces forecast discharges at over 2.8 million river reaches over the continental United States, Hawaii, and Puerto Rico as well as parts of Canada and Mexico. 
+The NWM is a hydrologic and hydraulic model implemented one-dimensionally to reduce computational costs inherent to continental scale modeling. 
+To provide guidance to the general public on flood inundation extents, a rapid methodology is desired to convert forecast discharges to river stages and those stages to inundation extents. Relative elevation models (REM), specifically Height Above Nearest Drainage (HAND), among others, detrend digital elevation models (DEM) to the nearest thalweg elevation within the relevant drainage area. 
+Generating REM's and reach level catchments enables river stages to translate to extents by assuming a consistent stage profile within each river reach. 
+
+Stages are translated from NWM discharges via synthetic rating curves that establish stage-discharge relationships via the Manning's equation with geometric properties sampled from the REM on a per catchment basis. The National Oceanic and Atmospheric Administration (NOAA) Office of Water Prediction (OWP) is currently on it's third FIM version providing version improvement
 \end{abstract}
 
 \section*{Plain Language Summary}
@@ -225,11 +235,15 @@ The National Water Model Version 2.1 produces forecast river discharges at over 
 \subsection{Synthetic Rating Curves}
 %Text here ===>>>
 
+\subsectin{Evaluation and Testing}
+
 \section{Data}
 %Text here ===>>>
 
 \section{Results}
 %Text here ===>>>
+
+\subsection{Computational Performance}
 
 \section{Conclusions}
 %Text here ===>>>
@@ -446,7 +460,7 @@ Enter acknowledgments, including your data availability statement, here.
 % don't specify bibliographystyle
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\bibliography{ enter your bibtex bibliography filename here }
+\bibliography{bib/owp_fim3_2020}
 
 
 
