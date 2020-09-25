@@ -71,7 +71,8 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
 
     # writeout nwm headwaters
     nwm_headwaters.reset_index(drop=True,inplace=True)
-    nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
+    if not nwm_headwaters.empty:
+        nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
     del nwm_headwaters
 
     # identify inflowing streams
@@ -118,8 +119,13 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
         visited.add(q)
 
         toNode = nhd_streams.loc[q,'ToNode']
-
-        downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
+        
+        try:
+            downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
+        except ValueError: # 18050002 has duplicate nhd stream feature
+            if len(toNode.unique()) == 1:
+                toNode = toNode.iloc[0]
+                downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
 
         nhd_streams.loc[downstream_ids,'is_nwm_stream'] = True
 

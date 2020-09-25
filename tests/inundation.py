@@ -395,8 +395,8 @@ def __make_windows_generator(rem,catchments,catchmentStagesDict,inundation_raste
 
             try:
                 #window = geometry_window(rem,shape(huc['geometry']))
-                rem_array,window_transform = mask(rem,shape(huc['geometry']),crop=True,indexes=1)
-                catchments_array,_ = mask(catchments,shape(huc['geometry']),crop=True,indexes=1)
+                rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)
+                catchments_array,_ = mask(catchments,[shape(huc['geometry'])],crop=True,indexes=1)
             except ValueError: # shape doesn't overlap raster
                 continue # skip to next HUC
 
