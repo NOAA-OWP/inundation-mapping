@@ -18,7 +18,7 @@ def hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, shar
         dem_m_profile = dem.profile
         dem_m = dem.read(1)
         
-    with rasterio.open(proximity_raster) as prox:
+    with rasterio.open(proximity) as prox:
         prox_data = prox.read(1)
     
     #Flip flows grid boolean raster (river cell = 0 and non-river cell = 1)
@@ -34,7 +34,7 @@ def hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, shar
     
     with rasterio.Env():
         dem_dtype = dem_m_profile['dtype']
-        with rasterio.open(outpath, 'w', **dem_m_profile) as raster:
+        with rasterio.open(hydrocond_tif, 'w', **dem_m_profile) as raster:
             raster.write(dem_cond_smooth_sharp.astype(dem_dtype),1)
 
 if __name__ == '__main__':
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--proximity', help = 'proximity raster', required = True)
     parser.add_argument('-sm', '--smooth_drop_adj_factor', help = 'Smooth drop adjustment factor', required = True)
     parser.add_argument('-sh', '--sharp_drop', help = 'sharp drop (m)', required = True)
-    parser.add_argument('-h',  '--hyrdocond_tif', help = 'Output hydroconditioned raster', required = True)
+    parser.add_argument('-h',  '--hydrocond_tif', help = 'Output hydroconditioned raster', required = True)
 
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

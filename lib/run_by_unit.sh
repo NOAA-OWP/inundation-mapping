@@ -93,14 +93,33 @@ Tstart
 [ ! -f $outputHucDataDir/nwm_catchments_proj_subset.tif ] && \
 gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
 Tcount
+###############################################################################
+## Edit by TSG create proximity raster and hydrocondition ##
+## Create Proximity Raster ##
+echo -e $startDiv"Create proximity raster $hucNumber"$stopDiv
+date -u
+Tstart
+[ ! -f $outputHucDataDir/stream_proximity.tif ] && \
+gdal_proximity --quiet --ot = Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
+-srcband 1 -distunits GEO -maxdist 50.0 -nodata 50.0 -of $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/stream_proximity.tif
+Tcount
 
-## BURN NEGATIVE ELEVATIONS STREAMS ##
-echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
+## Hydrocondition ##
+echo -e $startDiv"Hydrocondition Elevation Dataset"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
+$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_m.tif -p $outputHucDataDir/stream_proximity.tif -sm 10 -sh 1000 -h $outputHucDataDir/dem_burned.tif 
 Tcount
+##############################################################################
+
+## BURN NEGATIVE ELEVATIONS STREAMS ##
+#echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
+#date -u
+#Tstart
+#[ ! -f $outputHucDataDir/dem_burned.tif ] && \
+#gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A #$outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --#outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
+#Tcount
 
 ## PIT REMOVE BURNED DEM ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber"$stopDiv
