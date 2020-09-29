@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Sep 25 14:43:43 2020
-
-@author: trevor.grout
-"""
+#!/usr/bin/env python3
 
 import rasterio
 import argparse
