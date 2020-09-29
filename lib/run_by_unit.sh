@@ -94,7 +94,7 @@ Tstart
 gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
 Tcount
 ###############################################################################
-## Edit by TSG create proximity raster and hydrocondition ##
+## Edit to a create proximity raster and hydrocondition using ideas from the Inverse Distance Drainage Enforcement Algorithm ##
 ## Create Proximity Raster ##
 echo -e $startDiv"Create proximity raster $hucNumber"$stopDiv
 date -u
