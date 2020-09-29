@@ -220,7 +220,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     return stats_dictionary
 
 
-def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, exclusion_mask_list=[]):
+def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, exclusion_mask_dict={}):
     """
     Produces contingency table from 2 rasters and returns it. Also exports an agreement raster classified as:
         0: True Negatives
@@ -291,23 +291,20 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     del benchmark_src, benchmark_array, predicted_array, predicted_array_raw
 
     # Loop through exclusion masks and mask the agreement_array.
-    if exclusion_mask_list != []:
+    if exclusion_mask_dict != {}:
         print("Masking areas...")
-        for poly_layer in exclusion_mask_list:
-            print(poly_layer)
-            
+        for poly_layer in exclusion_mask_dict:
+            print("Masking at " + poly_layer + "...")
+            poly_path = exclusion_mask_dict[poly_layer]['path']
+            buffer_val = exclusion_mask_dict[poly_layer]['buffer']
             reference = predicted_src
-            
             
             buffer_val = 100
             
             print('Using Bounding Box of Reference Raster')
             bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
             #Read lakes layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
-            poly_all = gpd.read_file(poly_layer, bbox = bounding_box)
-            
-            #poly_all.to_file(os.path.join(TEST_CASES, 'other', 'zones', 'clipped_levee.shp'), driver='ESRI Shapefile')
-            
+            poly_all = gpd.read_file(poly_path, bbox = bounding_box)
             
             #Project lakes layer to reference crs.
             poly_all_proj = poly_all.to_crs(reference.crs)
@@ -360,7 +357,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             f.write("%s\n" % '1: False Negative')
             f.write("%s\n" % '2: False Positive')
             f.write("%s\n" % '3: True Positive')
-            f.write("%s\n" % '4: Waterbody area (excluded from contingency table analysis). Waterbody mask: {exclusion_mask}'.format(exclusion_mask=exclusion_mask_list))
+            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {exclusion_mask}'.format(exclusion_mask=exclusion_mask_dict))
             f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
                           
     # Store summed pixel counts in dictionary.

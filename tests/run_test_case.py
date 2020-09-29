@@ -73,7 +73,7 @@ def profile_test_case_archive(archive_to_check, return_interval, stats_mode):
     return archive_dictionary
 
 
-def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_raster_path, agreement_raster=None, stats_csv=None, stats_json=None, mask_values=None, stats_modes_list=['total_area'], test_id='', exclusion_mask_list=[]):
+def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_raster_path, agreement_raster=None, stats_csv=None, stats_json=None, mask_values=None, stats_modes_list=['total_area'], test_id='', exclusion_mask_dict={}):
     """
     This function contains FIM-specific logic to prepare raster datasets for use in the generic get_contingency_table_from_binary_rasters() function.
     This function also calls the generic compute_stats_from_contingency_table() function and writes the results to CSV and/or JSON, depending on user input.
@@ -109,7 +109,7 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
                     print("No " + stats_mode + " inclusion area found for " + test_id + ". Moving on with processing...")
     
     # Get contingency table from two rasters.
-    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask_list=exclusion_mask_list)
+    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask_dict=exclusion_mask_dict)
     
     stats_dictionary = {}
         
@@ -188,7 +188,13 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
     
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
-    exclusion_mask_list = [os.path.join(zones_dir, 'leveed_areas_conus.shp')]
+    exclusion_mask_dict = {'levees': {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
+                                      'buffer': None
+                                      },
+                            'waterbodies': {'path': os.path.join(zones_dir, 'nwm_v2_reservoirs.shp'),
+                                            'buffer': 100,
+                                            }
+                            }
     
     
 #    # Crosswalk feature_ids to hydroids.
@@ -263,7 +269,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                                                                          mask_values=[],
                                                                          stats_modes_list=stats_modes_list,
                                                                          test_id=test_id,
-                                                                         exclusion_mask_list=exclusion_mask_list
+                                                                         exclusion_mask_dict=exclusion_mask_dict
                                                                          )
         print(" ")
         print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + return_interval + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
