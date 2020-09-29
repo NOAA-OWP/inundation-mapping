@@ -100,8 +100,7 @@ echo -e $startDiv"Create proximity raster $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/stream_proximity.tif ] && \
-gdal_proximity --quiet --ot = Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
--srcband 1 -distunits GEO -maxdist 50.0 -nodata 50.0 -of $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/stream_proximity.tif
+gdal_proximity.py $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/stream_proximity.tif -srcband 1 -dstband 1 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -ot Float32 -distunits GEO -maxdist 50.0 -nodata 50.0 -quiet
 Tcount
 
 ## Hydrocondition ##
@@ -109,7 +108,7 @@ echo -e $startDiv"Hydrocondition Elevation Dataset"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_m.tif -p $outputHucDataDir/stream_proximity.tif -sm 10 -sh 1000 -h $outputHucDataDir/dem_burned.tif 
+$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/stream_proximity.tif -sm 10 -sh 1000 -h $outputHucDataDir/dem_burned.tif 
 Tcount
 ##############################################################################
 
