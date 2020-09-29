@@ -31,7 +31,7 @@ def hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, shar
     #Hydrocondition in 2 steps, first implement the shallow drop in non-river cells based on the proximity raster. Then burn in the steep drop in river cells.
     dem_cond_smooth = dem_m - (flip_proximity/smooth_drop_adj_factor)*non_river_cells
     dem_cond_smooth_sharp = dem_cond_smooth - sharp_drop*river_cells
-    
+ 
     with rasterio.Env():
         dem_dtype = dem_m_profile['dtype']
         with rasterio.open(hydrocond_tif, 'w', **dem_m_profile) as raster:
@@ -40,17 +40,35 @@ def hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, shar
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Hydrocondition DEM')
-    parser.add_argument('-b', '--flows_grid_boolean', help = 'flows grid boolean layer', required = True)
-    parser.add_argument('-d', '--dem_m',  help = 'DEM_m raster', required = True)
+    parser.add_argument('-b', '--flows-grid-boolean', help = 'flows grid boolean layer', required = True)
+    parser.add_argument('-d', '--dem-m',  help = 'DEM_m raster', required = True)
     parser.add_argument('-p', '--proximity', help = 'proximity raster', required = True)
-    parser.add_argument('-sm', '--smooth_drop_adj_factor', help = 'Smooth drop adjustment factor', required = True)
-    parser.add_argument('-sh', '--sharp_drop', help = 'sharp drop (m)', required = True)
-    parser.add_argument('-h',  '--hydrocond_tif', help = 'Output hydroconditioned raster', required = True)
+    parser.add_argument('-sm', '--smooth-drop-adj-factor', help = 'Smooth drop adjustment factor', required = False, type = float, default = 10.0)
+    parser.add_argument('-sh', '--sharp-drop', help = 'sharp drop (m)', required = False, type = float, default = 1000.0)
+    parser.add_argument('-o',  '--hydrocond-tif', help = 'Output hydroconditioned raster', required = True)
 
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
-    #Run create_flow_forecast_file
+    #Run hydroconditioning function
     hydrocond(**args)
+
+
+# import os
+
+# workingdir = r'D:\deleteme\dev-alt-hydrocond\120903'
+# flows_grid_boolean = os.path.join(workingdir,'flows_grid_boolean.tif')
+# dem_m = os.path.join(workingdir, 'dem_meters.tif')
+# proximity = os.path.join(workingdir, 'stream_proximity.tif')
+# smooth_drop_adj_factor = 10.0
+# sharp_drop = 1000.0
+# hydrocond_tif = os.path.join(workingdir, "test_output.tif")
+
+
+
+
+
+
+
 
 
 
