@@ -404,8 +404,6 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
     parser.add_argument('-s', '--run-structure-stats', help='Create contingency stats at structures.', required=False,action='store_true')
     parser.add_argument('-a', '--archive-results', help='Automatically copy results to the "previous_version" archive for test_id. For admin use only.', required=False,action='store_true')
-#    parser.add_argument('-w', '--mask-technique', help='Define the masking technique you would like to use. Options include: no_mask, levee_areas, waterbody_areas. Buffer distance in meters.', required=False, default='nwm_0')
-
     
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -418,24 +416,13 @@ if __name__ == '__main__':
     if args['run_structure_stats']:
         print("Run structure stats (-c) not yet supported.")
         run_structure_stats = False
-                
-    # NO YOU MUST USE NWM 
 
-#    if args['waterbody_mask_technique'] != '':
-#        if args['waterbody_mask_technique'] not in ['nhd_0', 'nhd_100', 'nhd_250', 'nhd_500', 'nwm_0', 'nwm_100', 'nwm_250', 'nwm_500']:
-#            print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided waterbody_mask_technique (-w) " + CYAN_BOLD + args['waterbody_mask_technique'] + WHITE_BOLD + " is not available." + ENDC)
-#            print(WHITE_BOLD + "Available techniues include: " + ENDC)
-#            for technique in ['nhd_0', 'nhd_100', 'nhd_250', 'nhd_500', 'nwm_0', 'nwm_100', 'nwm_250', 'nwm_500']:
-#                print(CYAN_BOLD + technique + ENDC)
-#            print()
-#            exit_flag = True
-#        
     # Ensure test_id is valid.
     if args['test_id'] not in valid_test_id_list:
         print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided test_id (-t) " + CYAN_BOLD + args['test_id'] + WHITE_BOLD + " is not available." + ENDC)
         print(WHITE_BOLD + "Available test_ids include: " + ENDC)
         for test_id in valid_test_id_list:
-          if 'validation' not in test_id.split('_'):
+          if 'validation' not in test_id.split('_') and 'ble' in test_id.split('_'):
               print(CYAN_BOLD + test_id + ENDC)
         print()
         exit_flag = True
