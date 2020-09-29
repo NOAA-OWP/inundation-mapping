@@ -44,8 +44,17 @@ if __name__ == '__main__':
 
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
-    #Run hydroconditioning function
-    hydrocond(**args)
+
+    # rename variable inputs
+    flows_grid_boolean = args['flows-grid-boolean']
+    dem_m = args['dem-m']
+    proximity = args['proximity']
+    smooth_drop_adj_factor = args['smooth-drop-adj-factor']
+    sharp_drop = args['sharp-drop']
+    hydrocond_tif = args['hydrocond-tif']
+
+    #Run hydrocond
+    hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, sharp_drop, hydrocond_tif)
 
 
 # import os
