@@ -35,23 +35,23 @@ def hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, shar
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Hydrocondition DEM')
-    parser.add_argument('-b', '--flows-grid-boolean', help = 'flows grid boolean layer', required = True)
-    parser.add_argument('-d', '--dem-m',  help = 'DEM_m raster', required = True)
+    parser.add_argument('-b', '--rivers', help = 'flows grid boolean layer', required = True)
+    parser.add_argument('-d', '--dem',  help = 'DEM_m raster', required = True)
     parser.add_argument('-p', '--proximity', help = 'proximity raster', required = True)
-    parser.add_argument('-sm', '--smooth-drop-adj-factor', help = 'Smooth drop adjustment factor', required = False, type = float, default = 10.0)
-    parser.add_argument('-sh', '--sharp-drop', help = 'sharp drop (m)', required = False, type = float, default = 1000.0)
-    parser.add_argument('-o',  '--hydrocond-tif', help = 'Output hydroconditioned raster', required = True)
+    parser.add_argument('-sm', '--smoothfactor', help = 'Smooth drop adjustment factor', required = False, type = float, default = 10.0)
+    parser.add_argument('-sh', '--sharpdrop', help = 'sharp drop (m)', required = False, type = float, default = 1000.0)
+    parser.add_argument('-o',  '--output', help = 'Output hydroconditioned raster', required = True)
 
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 
     # rename variable inputs
-    flows_grid_boolean = args['flows-grid-boolean']
-    dem_m = args['dem-m']
+    flows_grid_boolean = args['rivers']
+    dem_m = args['dem']
     proximity = args['proximity']
-    smooth_drop_adj_factor = args['smooth-drop-adj-factor']
-    sharp_drop = args['sharp-drop']
-    hydrocond_tif = args['hydrocond-tif']
+    smooth_drop_adj_factor = args['smoothfactor']
+    sharp_drop = args['sharpdrop']
+    hydrocond_tif = args['output']
 
     #Run hydrocond
     hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, sharp_drop, hydrocond_tif)
