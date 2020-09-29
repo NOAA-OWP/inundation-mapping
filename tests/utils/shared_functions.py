@@ -298,10 +298,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             poly_path = exclusion_mask_dict[poly_layer]['path']
             buffer_val = exclusion_mask_dict[poly_layer]['buffer']
             reference = predicted_src
-            
-            buffer_val = 100
-            
-            print('Using Bounding Box of Reference Raster')
+                        
             bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
             #Read lakes layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
             poly_all = gpd.read_file(poly_path, bbox = bounding_box)
@@ -326,14 +323,9 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                 #Write lakes mask array, areas inside lakes are set to 1 and areas outside lakes are set to 0.
                 poly_mask = np.where(in_poly == True, 1,0)
                 
-                print(poly_mask.shape)
-                print(agreement_array.shape)
-                
                 # Perform mask.
                 agreement_array = np.where(poly_mask == 1, 4, agreement_array)
                 
-#    import sys
-#    sys.exit()
     contingency_table_dictionary = {}
     
     # Only write the agreement raster if user-specified.
