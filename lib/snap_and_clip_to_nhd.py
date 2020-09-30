@@ -10,11 +10,12 @@ from shapely.strtree import STRtree
 from shapely.geometry import Point,MultiLineString,LineString,mapping
 from derive_headwaters import findHeadWaterPoints
 
-def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
+def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
 
     hucUnitLength = len(str(hucCode))
 
     wbd = gpd.read_file(wbd_fileName)
+    wbd_buffer = gpd.read_file(wbd_buffer_fileName)
     projection = wbd.crs
 
     # find intersecting lakes and writeout
@@ -34,23 +35,24 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
 
     # query nhd+HR streams for HUC code
     print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nhd_streams = gpd.read_file(nhd_streams_fileName, mask = wbd)
-    nhd_streams = nhd_streams.query('ReachCode.str.startswith("{}")'.format(hucCode))
+    nhd_streams = gpd.read_file(nhd_streams_fileName, mask = wbd_buffer)
+    # nhd_streams = nhd_streams.query('ReachCode.str.startswith("{}")'.format(hucCode))
     nhd_streams = nhd_streams.explode()
 
     # find intersecting nwm_headwaters
-    print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nwm_streams = gpd.read_file(nwm_streams_fileName, mask = wbd)
+    # print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+    nwm_streams = gpd.read_file(nwm_streams_fileName, mask = wbd_buffer)
     nwm_streams.to_file(subset_nwm_streams_fileName,driver=getDriver(subset_nwm_streams_fileName),index=False)
-    nwm_headwaters = findHeadWaterPoints(nwm_streams)
-    nwm_headwaters = gpd.overlay(nwm_headwaters,wbd,how='intersection')
-    del nwm_streams
+    # nwm_headwaters = findHeadWaterPoints(nwm_streams)
+    nwm_headwaters = gpd.read_file(nwm_headwaters_fileName, mask = wbd_buffer)
+    # nwm_headwaters = gpd.overlay(nwm_headwaters,wbd,how='intersection')
+    # del nwm_streams
 
     # merge vaa and nhd streams
-    print("Merging VAA into NHD streams",flush=True)
-    nhd_streams_vaa = gpd.read_file(nhd_streams_vaa_fileName)
-    nhd_streams = nhd_streams.merge(nhd_streams_vaa[['FromNode','ToNode','NHDPlusID','StreamOrde','DnLevelPat','LevelPathI']],on='NHDPlusID',how='inner')
-    del nhd_streams_vaa
+    # print("Merging VAA into NHD streams",flush=True)
+    # nhd_streams_vaa = gpd.read_file(nhd_streams_vaa_fileName)
+    # nhd_streams = nhd_streams.merge(nhd_streams_vaa[['FromNode','ToNode','NHDPlusID','StreamOrde','DnLevelPat','LevelPathI']],on='NHDPlusID',how='inner')
+    # del nhd_streams_vaa
 
     # get nhd headwaters closest to nwm headwater points
     print('Identify NHD Headwater streams nearest to NWM Headwater points',flush=True)
@@ -63,7 +65,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
         nhd_streams.loc[min_index,'is_nwm_headwater'] = True
 
     # writeout nwm headwaters
-    nwm_headwaters.reset_index(drop=True,inplace=True)
+    # nwm_headwaters.reset_index(drop=True,inplace=True)
     if not nwm_headwaters.empty:
         nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
     del nwm_headwaters
@@ -71,35 +73,27 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
     # identify inflowing streams
     print("Identify inflowing streams",flush=True)
     intersecting=nhd_streams.crosses(wbd.geometry[0])
-    nhd_streams.loc[intersecting,'is_nwm_headwater'] = True
+    # within=nhd_streams.within(wbd.geometry[0])
+
+    # nhd_streams['incoming_streams']=False
+    # nhd_streams['relevant_stream'] = False
+    # nhd_streams['maybe_relevant_stream'] = False
+
+    # nhd_streams.loc[within,'relevant_stream'] = True
+    # nhd_streams.loc[intersecting,'incoming_streams'] = True
+    # nhd_streams.loc[intersecting,'relevant_stream'] = True
+
+    # limit upstream trace to close streams
+    # intersecting_max=nhd_streams.crosses(wbd_buffer.geometry[0])
+    # nhd_streams.loc[intersecting_max,'is_nwm_headwater'] = True
 
     # copy over headwater features to nwm streams
     nhd_streams['is_nwm_stream'] = nhd_streams['is_nwm_headwater'].copy()
 
-    if subset_nhd_headwaters_fileName is not None:
-        # identify all nhd headwaters
-        print('Identify NHD headwater points',flush=True)
-        nhd_headwater_streams = nhd_streams.loc[nhd_streams['is_nwm_headwater'],:]
-        nhd_headwater_streams = nhd_headwater_streams.explode()
-
-        hw_points = np.zeros(len(nhd_headwater_streams),dtype=object)
-        for index,lineString in enumerate(nhd_headwater_streams.geometry):
-            hw_point = [point for point in zip(*lineString.coords.xy)][-1]
-            hw_points[index] = Point(*hw_point)
-
-        nhd_headwater_points = gpd.GeoDataFrame({'NHDPlusID' : nhd_headwater_streams['NHDPlusID'],
-                                                'geometry' : hw_points},geometry='geometry',crs=projection)
-
-        nhd_headwater_points.to_file(subset_nhd_headwaters_fileName,driver=getDriver(subset_nhd_headwaters_fileName),index=False)
-        del nhd_headwater_streams, nhd_headwater_points
-
-
     # trace down from NWM Headwaters
     print('Identify NHD streams downstream of relevant NHD Headwater streams',flush=True)
-    nhd_streams = nhd_streams.explode()
     nhd_streams.set_index('NHDPlusID',inplace=True,drop=False)
 
-    # Q = deque(nhd_headwater_streams['NHDPlusID'].tolist())
     Q = deque(nhd_streams.loc[nhd_streams['is_nwm_headwater'],'NHDPlusID'].tolist())
     visited = set()
 
@@ -115,7 +109,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
             if len(toNode.unique()) == 1:
                 toNode = toNode.iloc[0]
                 downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
-        #If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
+        # If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
         if len(downstream_ids)>1:
             relevant_ids = [segment for segment in downstream_ids if DnLevelPat == nhd_streams.loc[segment,'LevelPathI']]
         else:
@@ -126,6 +120,53 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
                 Q.append(i)
 
     nhd_streams = nhd_streams.loc[nhd_streams['is_nwm_stream'],:]
+
+    # nhd_streams.reset_index(drop=True,inplace=True)
+    #
+    # # Collect relevant incoming streams
+    # nhd_streams.loc[((nhd_streams['relevant_stream'] == False)) & (nhd_streams['is_nwm_headwater'] == True), 'maybe_relevant_stream'] = True
+    #
+    # nhd_streams = nhd_streams.explode()
+    # nhd_streams.set_index('NHDPlusID',inplace=True,drop=False)
+    # headwater_collection = dict()
+    #
+    # for headwater in nhd_streams.loc[nhd_streams['maybe_relevant_stream'],'NHDPlusID'].tolist():
+    #     q = headwater
+    #     t=1
+    #     headwater_collection[headwater] = [headwater]
+    #     while t:
+    #         ToNode,DnLevelPat = nhd_streams.loc[q,['ToNode','DnLevelPat']]
+    #         downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == ToNode,:].index.tolist()
+    #         if len(downstream_ids) == 1:
+    #             headwater_collection[headwater].append(downstream_ids[0])
+    #             q=downstream_ids[0]
+    #             if nhd_streams.loc[downstream_ids,'incoming_streams'].bool() == True:
+    #                 # keep this collection of stream segments
+    #                 t=0
+    #                 continue
+    #         elif len(downstream_ids) > 1:
+    #             print('divergent stream IDs: ' + str(downstream_ids))
+    #             downstream_ids = nhd_streams.loc[(nhd_streams['LevelPathI'] == DnLevelPat) & (nhd_streams['FromNode'] == ToNode),:].index.tolist()
+    #             headwater_collection[headwater].append(downstream_ids[0])
+    #             q=downstream_ids[0]
+    #             print('divergent stream ID chosen: ' + str(q))
+    #             if nhd_streams.loc[downstream_ids,'incoming_streams'].bool() == True:
+    #                 # keep this collection of stream segments
+    #                 t=0
+    #                 continue
+    #             # del my_dict[headwater]
+    #             t=1
+    #         else:
+    #             # drop this collection of stream segments
+    #             del headwater_collection[headwater]
+    #             t=0
+    #
+    # nhd_stream_flat_list = [segment for reach in headwater_collection.values() for segment in reach]
+    # nhd_stream_unique_list = list(set(nhd_stream_flat_list))
+    # for segment_id in nhd_stream_unique_list:
+    #     nhd_streams.loc[segment_id,'relevant_stream'] = True
+    #
+    # nhd_streams = nhd_streams.loc[nhd_streams['relevant_stream'],:]
 
     if dissolveLinks:
         # remove multi-line strings
@@ -192,6 +233,23 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
     nhd_streams.reset_index(drop=True,inplace=True)
     nhd_streams.to_file(subset_nhd_streams_fileName,driver=getDriver(subset_nhd_streams_fileName),index=False)
 
+    if subset_nhd_headwaters_fileName is not None:
+        # identify all nhd headwaters
+        print('Identify NHD headwater points',flush=True)
+        nhd_headwater_streams = nhd_streams.loc[nhd_streams['is_nwm_headwater'],:]
+        nhd_headwater_streams = nhd_headwater_streams.explode()
+
+        hw_points = np.zeros(len(nhd_headwater_streams),dtype=object)
+        for index,lineString in enumerate(nhd_headwater_streams.geometry):
+            hw_point = [point for point in zip(*lineString.coords.xy)][-1]
+            hw_points[index] = Point(*hw_point)
+
+        nhd_headwater_points = gpd.GeoDataFrame({'NHDPlusID' : nhd_headwater_streams['NHDPlusID'],
+                                                'geometry' : hw_points},geometry='geometry',crs=projection)
+
+        nhd_headwater_points.to_file(subset_nhd_headwaters_fileName,driver=getDriver(subset_nhd_headwaters_fileName),index=False)
+        del nhd_headwater_streams, nhd_headwater_points
+
 def getDriver(fileName):
 
     driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
@@ -203,13 +261,15 @@ def getDriver(fileName):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
-    parser.add_argument('-d','--hucCode', help='DEM to use within project path', required=True,type=str)
-    parser.add_argument('-w','--nwm-streams', help='DEM to use within project path', required=True)
+    parser.add_argument('-d','--hucCode', help='HUC boundary ID', required=True,type=str)
+    parser.add_argument('-w','--nwm-streams', help='NWM flowlines', required=True)
+    parser.add_argument('-f','--nwm-headwaters', help='NWM headwater points', required=True)
     parser.add_argument('-s','--nhd-streams',help='Basins polygons to use within project path',required=True)
     parser.add_argument('-v','--nhd-vaa',help='Basins polygons to use within project path',required=True)
     parser.add_argument('-l','--nwm-lakes', help='DEM to use within project path', required=True)
     parser.add_argument('-m','--nwm-catchments', help='DEM to use within project path', required=True)
     parser.add_argument('-u','--wbd',help='Basins polygons to use within project path',required=True)
+    parser.add_argument('-g','--wbd-buffer',help='Buffered basins polygons to use within project path',required=True)
     parser.add_argument('-c','--subset-streams',help='Basins polygons to use within project path',required=True)
     parser.add_argument('-a','--subset-lakes',help='Basins polygons to use within project path',required=True)
     parser.add_argument('-t','--subset-nwm-headwaters',help='Basins polygons to use within project path',required=True)
@@ -222,11 +282,13 @@ if __name__ == '__main__':
 
     hucCode = args['hucCode']
     nwm_streams_fileName = args['nwm_streams']
+    nwm_headwaters_fileName = args['nwm_headwaters']
     nhd_streams_fileName = args['nhd_streams']
     nhd_streams_vaa_fileName = args['nhd_vaa']
     nwm_lakes_fileName = args['nwm_lakes']
     nwm_catchments_fileName = args['nwm_catchments']
     wbd_fileName = args['wbd']
+    wbd_buffer_fileName = args['wbd_buffer']
     subset_nhd_streams_fileName = args['subset_streams']
     subset_nwm_lakes_fileName = args['subset_lakes']
     subset_nwm_headwaters_fileName = args['subset_nwm_headwaters']
@@ -235,4 +297,4 @@ if __name__ == '__main__':
     subset_nwm_streams_fileName = args['subset_nwm_streams']
     dissolveLinks = args['dissolve_links']
 
-    subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName,dissolveLinks)
+    subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName,dissolveLinks)
