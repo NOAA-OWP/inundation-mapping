@@ -8,9 +8,8 @@ import argparse
 from os.path import splitext
 from shapely.strtree import STRtree
 from shapely.geometry import Point,MultiLineString,LineString,mapping
-from derive_headwaters import findHeadWaterPoints
 
-def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
+def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
 
     hucUnitLength = len(str(hucCode))
 
@@ -20,7 +19,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
 
     # find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nwm_lakes = gpd.read_file(nwm_lakes_fileName, mask = wbd)
+    nwm_lakes = gpd.read_file(nwm_lakes_fileName, mask = wbd_buffer)
     if not nwm_lakes.empty:
         nwm_lakes.to_file(subset_nwm_lakes_fileName,driver=getDriver(subset_nwm_lakes_fileName),index=False)
     del nwm_lakes
@@ -28,31 +27,20 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
     # find intersecting nwm_catchments
     print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_catchments = gpd.read_file(nwm_catchments_fileName, mask = wbd)
-    #nwm_catchments = nwm_catchments.loc[nwm_catchments.intersects(wbd.geometry[0]),:]
-    #nwm_catchments.reset_index(drop=True,inplace=True)
     nwm_catchments.to_file(subset_nwm_catchments_fileName,driver=getDriver(subset_nwm_catchments_fileName),index=False)
     del nwm_catchments
 
     # query nhd+HR streams for HUC code
     print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nhd_streams = gpd.read_file(nhd_streams_fileName, mask = wbd_buffer)
-    # nhd_streams = nhd_streams.query('ReachCode.str.startswith("{}")'.format(hucCode))
     nhd_streams = nhd_streams.explode()
 
     # find intersecting nwm_headwaters
-    # print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+    print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_streams = gpd.read_file(nwm_streams_fileName, mask = wbd_buffer)
     nwm_streams.to_file(subset_nwm_streams_fileName,driver=getDriver(subset_nwm_streams_fileName),index=False)
-    # nwm_headwaters = findHeadWaterPoints(nwm_streams)
     nwm_headwaters = gpd.read_file(nwm_headwaters_fileName, mask = wbd_buffer)
-    # nwm_headwaters = gpd.overlay(nwm_headwaters,wbd,how='intersection')
-    # del nwm_streams
-
-    # merge vaa and nhd streams
-    # print("Merging VAA into NHD streams",flush=True)
-    # nhd_streams_vaa = gpd.read_file(nhd_streams_vaa_fileName)
-    # nhd_streams = nhd_streams.merge(nhd_streams_vaa[['FromNode','ToNode','NHDPlusID','StreamOrde','DnLevelPat','LevelPathI']],on='NHDPlusID',how='inner')
-    # del nhd_streams_vaa
+    del nwm_streams
 
     # get nhd headwaters closest to nwm headwater points
     print('Identify NHD Headwater streams nearest to NWM Headwater points',flush=True)
@@ -65,29 +53,11 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
         nhd_streams.loc[min_index,'is_nwm_headwater'] = True
 
     # writeout nwm headwaters
-    # nwm_headwaters.reset_index(drop=True,inplace=True)
     if not nwm_headwaters.empty:
         nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
     del nwm_headwaters
 
-    # identify inflowing streams
-    print("Identify inflowing streams",flush=True)
-    intersecting=nhd_streams.crosses(wbd.geometry[0])
-    # within=nhd_streams.within(wbd.geometry[0])
-
-    # nhd_streams['incoming_streams']=False
-    # nhd_streams['relevant_stream'] = False
-    # nhd_streams['maybe_relevant_stream'] = False
-
-    # nhd_streams.loc[within,'relevant_stream'] = True
-    # nhd_streams.loc[intersecting,'incoming_streams'] = True
-    # nhd_streams.loc[intersecting,'relevant_stream'] = True
-
-    # limit upstream trace to close streams
-    # intersecting_max=nhd_streams.crosses(wbd_buffer.geometry[0])
-    # nhd_streams.loc[intersecting_max,'is_nwm_headwater'] = True
-
-    # copy over headwater features to nwm streams
+    copy over headwater features to nwm streams
     nhd_streams['is_nwm_stream'] = nhd_streams['is_nwm_headwater'].copy()
 
     # trace down from NWM Headwaters
@@ -265,7 +235,6 @@ if __name__ == '__main__':
     parser.add_argument('-w','--nwm-streams', help='NWM flowlines', required=True)
     parser.add_argument('-f','--nwm-headwaters', help='NWM headwater points', required=True)
     parser.add_argument('-s','--nhd-streams',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-v','--nhd-vaa',help='Basins polygons to use within project path',required=True)
     parser.add_argument('-l','--nwm-lakes', help='DEM to use within project path', required=True)
     parser.add_argument('-m','--nwm-catchments', help='DEM to use within project path', required=True)
     parser.add_argument('-u','--wbd',help='Basins polygons to use within project path',required=True)
@@ -284,7 +253,6 @@ if __name__ == '__main__':
     nwm_streams_fileName = args['nwm_streams']
     nwm_headwaters_fileName = args['nwm_headwaters']
     nhd_streams_fileName = args['nhd_streams']
-    nhd_streams_vaa_fileName = args['nhd_vaa']
     nwm_lakes_fileName = args['nwm_lakes']
     nwm_catchments_fileName = args['nwm_catchments']
     wbd_fileName = args['wbd']
@@ -297,4 +265,4 @@ if __name__ == '__main__':
     subset_nwm_streams_fileName = args['subset_nwm_streams']
     dissolveLinks = args['dissolve_links']
 
-    subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nhd_streams_vaa_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName,dissolveLinks)
+    subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName,dissolveLinks)
