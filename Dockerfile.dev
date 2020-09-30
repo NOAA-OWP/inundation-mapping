@@ -83,8 +83,9 @@ ENV PYTHONUNBUFFERED=TRUE
 ENV PATH="$projectDir:${PATH}"
 
 ## install python 3 modules ##
-COPY requirements.txt .
-RUN pip3 install --no-binary shapely --no-binary pygeos -r requirements.txt --no-cache-dir
+COPY Pipfile .
+COPY Pipfile.lock .
+RUN pip3 install pipenv && pipenv install --system --deploy --ignore-pipfile
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./lib/entrypoint.sh /
