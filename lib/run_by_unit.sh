@@ -49,13 +49,6 @@ Tstart
 ogr2ogr -f GPKG -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8
 Tcount
 
-## Clip NLD ##
-#echo -e $startDiv"Clip NLD"$stopDiv
-#date -u
-#Tstart
-#ogr2ogr -f GPKG -nlt MULTILINESTRINGZ -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/nld_clp.gpkg $input_NLD nld_preprocessed
-#Tcount
-
 ## CLIP DEM ##
 echo -e $startDiv"Clip DEM $hucNumber"$stopDiv
 date -u
@@ -78,14 +71,6 @@ Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
 gdal_rasterize -l nld_subset_levees -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
 Tcount
-
-## RASTERIZE NLD POLYLINES BOOLEAN (1 & 0) ##
-#echo -e $startDiv"Rasterize Reach Boolean (0=Levee pixel)"$stopDiv
-#date -u
-#Tstart
-#[ ! -f $outputHucDataDir/nld_rasterized_boolean.tif ] && \
-#gdal_rasterize -l nld_preprocessed -burn 0 -at -init 1 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Int32 -of GTiff -co #"COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_clp.gpkg $outputHucDataDir/nld_rasterized_boolean.tif
-#Tcount
 
 ## CONVERT TO METERS ##
 echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
