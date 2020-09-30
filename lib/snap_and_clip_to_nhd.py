@@ -91,53 +91,6 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
 
     nhd_streams = nhd_streams.loc[nhd_streams['is_nwm_stream'],:]
 
-    # nhd_streams.reset_index(drop=True,inplace=True)
-    #
-    # # Collect relevant incoming streams
-    # nhd_streams.loc[((nhd_streams['relevant_stream'] == False)) & (nhd_streams['is_nwm_headwater'] == True), 'maybe_relevant_stream'] = True
-    #
-    # nhd_streams = nhd_streams.explode()
-    # nhd_streams.set_index('NHDPlusID',inplace=True,drop=False)
-    # headwater_collection = dict()
-    #
-    # for headwater in nhd_streams.loc[nhd_streams['maybe_relevant_stream'],'NHDPlusID'].tolist():
-    #     q = headwater
-    #     t=1
-    #     headwater_collection[headwater] = [headwater]
-    #     while t:
-    #         ToNode,DnLevelPat = nhd_streams.loc[q,['ToNode','DnLevelPat']]
-    #         downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == ToNode,:].index.tolist()
-    #         if len(downstream_ids) == 1:
-    #             headwater_collection[headwater].append(downstream_ids[0])
-    #             q=downstream_ids[0]
-    #             if nhd_streams.loc[downstream_ids,'incoming_streams'].bool() == True:
-    #                 # keep this collection of stream segments
-    #                 t=0
-    #                 continue
-    #         elif len(downstream_ids) > 1:
-    #             print('divergent stream IDs: ' + str(downstream_ids))
-    #             downstream_ids = nhd_streams.loc[(nhd_streams['LevelPathI'] == DnLevelPat) & (nhd_streams['FromNode'] == ToNode),:].index.tolist()
-    #             headwater_collection[headwater].append(downstream_ids[0])
-    #             q=downstream_ids[0]
-    #             print('divergent stream ID chosen: ' + str(q))
-    #             if nhd_streams.loc[downstream_ids,'incoming_streams'].bool() == True:
-    #                 # keep this collection of stream segments
-    #                 t=0
-    #                 continue
-    #             # del my_dict[headwater]
-    #             t=1
-    #         else:
-    #             # drop this collection of stream segments
-    #             del headwater_collection[headwater]
-    #             t=0
-    #
-    # nhd_stream_flat_list = [segment for reach in headwater_collection.values() for segment in reach]
-    # nhd_stream_unique_list = list(set(nhd_stream_flat_list))
-    # for segment_id in nhd_stream_unique_list:
-    #     nhd_streams.loc[segment_id,'relevant_stream'] = True
-    #
-    # nhd_streams = nhd_streams.loc[nhd_streams['relevant_stream'],:]
-
     if dissolveLinks:
         # remove multi-line strings
         print("Dissolving NHD reaches to Links (reaches constrained to stream intersections)",flush=True)
@@ -230,22 +183,22 @@ def getDriver(fileName):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
+    parser = argparse.ArgumentParser(description='Subset vector layers')
     parser.add_argument('-d','--hucCode', help='HUC boundary ID', required=True,type=str)
     parser.add_argument('-w','--nwm-streams', help='NWM flowlines', required=True)
     parser.add_argument('-f','--nwm-headwaters', help='NWM headwater points', required=True)
-    parser.add_argument('-s','--nhd-streams',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-l','--nwm-lakes', help='DEM to use within project path', required=True)
-    parser.add_argument('-m','--nwm-catchments', help='DEM to use within project path', required=True)
-    parser.add_argument('-u','--wbd',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-g','--wbd-buffer',help='Buffered basins polygons to use within project path',required=True)
-    parser.add_argument('-c','--subset-streams',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-a','--subset-lakes',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-t','--subset-nwm-headwaters',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-e','--subset-nhd-headwaters',help='Basins polygons to use within project path',required=True,default=None)
-    parser.add_argument('-n','--subset-catchments',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-b','--subset-nwm-streams',help='Basins polygons to use within project path',required=True)
-    parser.add_argument('-o','--dissolve-links',help='Basins polygons to use within project path',action="store_true",default=False)
+    parser.add_argument('-s','--nhd-streams',help='NHDPlus HR burnline',required=True)
+    parser.add_argument('-l','--nwm-lakes', help='NWM Lakes', required=True)
+    parser.add_argument('-m','--nwm-catchments', help='NWM catchments', required=True)
+    parser.add_argument('-u','--wbd',help='HUC boundary',required=True)
+    parser.add_argument('-g','--wbd-buffer',help='Buffered HUC boundary',required=True)
+    parser.add_argument('-c','--subset-nhd-streams',help='NHD streams subset',required=True)
+    parser.add_argument('-a','--subset-lakes',help='NWM lake subset',required=True)
+    parser.add_argument('-t','--subset-nwm-headwaters',help='NWM headwaters subset',required=True)
+    parser.add_argument('-e','--subset-nhd-headwaters',help='NHD headwaters subset',required=True,default=None)
+    parser.add_argument('-n','--subset-catchments',help='NWM catchments subset',required=True)
+    parser.add_argument('-b','--subset-nwm-streams',help='NWM streams subset',required=True)
+    parser.add_argument('-o','--dissolve-links',help='remove multi-line strings',action="store_true",default=False)
 
     args = vars(parser.parse_args())
 
@@ -257,7 +210,7 @@ if __name__ == '__main__':
     nwm_catchments_fileName = args['nwm_catchments']
     wbd_fileName = args['wbd']
     wbd_buffer_fileName = args['wbd_buffer']
-    subset_nhd_streams_fileName = args['subset_streams']
+    subset_nhd_streams_fileName = args['subset_nhd_streams']
     subset_nwm_lakes_fileName = args['subset_lakes']
     subset_nwm_headwaters_fileName = args['subset_nwm_headwaters']
     subset_nwm_catchments_fileName = args['subset_catchments']
