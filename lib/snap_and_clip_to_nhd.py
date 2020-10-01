@@ -57,7 +57,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
         nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
     del nwm_headwaters
 
-    copy over headwater features to nwm streams
+    # copy over headwater features to nwm streams
     nhd_streams['is_nwm_stream'] = nhd_streams['is_nwm_headwater'].copy()
 
     # trace down from NWM Headwaters
