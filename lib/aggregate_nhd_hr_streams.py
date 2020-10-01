@@ -12,30 +12,20 @@ nhd_dir ='data/inputs/nhdplus_vectors_aggregate'
 nwm_dir = 'data/inputs/nwm_hydrofabric'
 
 ## NWM Headwaters
-# print ('deriving NWM headwater points')
-# nwm_streams = gpd.read_file(os.path.join(nwm_dir,'nwm_flows.gpkg'))
-# nwm_headwaters = findHeadWaterPoints(nwm_streams)
-# nwm_headwaters.to_file(os.path.join(nwm_dir,'nwm_headwaters.gpkg'),driver='GPKG',index=False)
+print ('deriving NWM headwater points')
+nwm_streams = gpd.read_file(os.path.join(nwm_dir,'nwm_flows.gpkg'))
+nwm_headwaters = findHeadWaterPoints(nwm_streams)
+nwm_headwaters.to_file(os.path.join(nwm_dir,'nwm_headwaters.gpkg'),driver='GPKG',index=False)
 
 ## NHDPlus HR
 print ('aggregating NHDPlus HR burnline layers')
 nhd_streams_wVAA_fileName_pre=os.path.join(nhd_dir,'NHDPlusBurnLineEvent_wVAA.gpkg')
 
-# nhd_streams_CONUS = pd.DataFrame({"NHDPlusID": pd.Series([], dtype='object'),
-#                                   "ReachCode": pd.Series([], dtype='object'),
-#                                   "geometry": pd.Series([], dtype='object')})
-#
-# nhd_streams_vaa_CONUS = pd.DataFrame({"NHDPlusID": pd.Series([], dtype='object'),
-#                                       "StreamOrde": pd.Series([], dtype='object'),
-#                                       "FromNode": pd.Series([], dtype='object'),
-#                                       "ToNode": pd.Series([], dtype='object'),
-#                                       "DnLevelPat": pd.Series([], dtype='object'),
-#                                       "LevelPathI": pd.Series([], dtype='object')})
-
 schema = {'geometry': 'MultiLineString','properties': {'NHDPlusID': 'str','ReachCode': 'str',
                                                   'FromNode': 'str','ToNode': 'str',
                                                   'StreamOrde': 'str','DnLevelPat': 'str',
                                                   'LevelPathI': 'str'}}
+                                                  
 for huc in os.listdir(in_dir):
     if not huc[0]=='#':
         burnline_filename = os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '.gpkg')
