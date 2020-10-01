@@ -292,9 +292,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
 
     # Loop through exclusion masks and mask the agreement_array.
     if exclusion_mask_dict != {}:
-        print("Masking areas...")
         for poly_layer in exclusion_mask_dict:
-            print("Masking at " + poly_layer + "...")
+            print("-----> Masking at " + poly_layer + "...")
             poly_path = exclusion_mask_dict[poly_layer]['path']
             buffer_val = exclusion_mask_dict[poly_layer]['buffer']
             reference = predicted_src
@@ -324,7 +323,10 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                 poly_mask = np.where(in_poly == True, 1,0)
                 
                 # Perform mask.
-                agreement_array = np.where(poly_mask == 1, 4, agreement_array)
+                masked_agreement_array = np.where(poly_mask == 1, 4, agreement_array)
+                
+                # Get rid of masked values outside of the modeled domain.
+                agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
                 
     contingency_table_dictionary = {}
     
