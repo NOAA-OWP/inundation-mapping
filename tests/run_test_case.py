@@ -192,7 +192,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                                       'buffer': None
                                       },
                             'waterbodies': {'path': os.path.join(zones_dir, 'nwm_v2_reservoirs.shp'),
-                                            'buffer': 100,
+                                            'buffer': None,
                                             }
                             }
     
