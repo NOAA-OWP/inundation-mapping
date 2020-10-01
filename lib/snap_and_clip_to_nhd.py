@@ -79,7 +79,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
             if len(toNode.unique()) == 1:
                 toNode = toNode.iloc[0]
                 downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
-        # If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
+        #If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
         if len(downstream_ids)>1:
             relevant_ids = [segment for segment in downstream_ids if DnLevelPat == nhd_streams.loc[segment,'LevelPathI']]
         else:
