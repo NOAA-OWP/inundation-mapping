@@ -156,7 +156,7 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
     return difference_dict
 
 
-def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, run_structure_stats=False, run_levee_stats=False, archive_results=False, legacy_fim_run_dir=False, waterbody_mask_technique=''):
+def run_alpha_test(fim_run_dir, branch_name, test_id, mask_type, return_interval, compare_to_previous=False, run_structure_stats=False, run_levee_stats=False, archive_results=False, legacy_fim_run_dir=False, waterbody_mask_technique=''):
 
 
     # Construct paths to development test results if not existent.
@@ -185,6 +185,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
 
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+    catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
     current_huc = test_id.split('_')[0]
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
     hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')
@@ -259,8 +260,8 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
         # Run inundate.
         print("-----> Running inundate() to produce modeled inundation extent for the " + return_interval + " return period...")
         inundate(
-                 rem,catchments,hydro_table,forecast,hucs=hucs,hucs_layerName=hucs_layerName,subset_hucs=current_huc,
-                 num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
+                 rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                 subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
                  depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
 
@@ -410,13 +411,13 @@ if __name__ == '__main__':
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested',required=True,default="")
     parser.add_argument('-t','--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
+    parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
     parser.add_argument('-y', '--return-interval',help='The return interval to check. Options include: 100yr, 500yr',required=False,default=['10yr', '100yr', '500yr'])
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
     parser.add_argument('-s', '--run-structure-stats', help='Create contingency stats at structures.', required=False,action='store_true')
     parser.add_argument('-l', '--run-levee-stats', help='Create contingency stats at leveed areas.', required=False,action='store_true')
     parser.add_argument('-a', '--archive-results', help='Automatically copy results to the "previous_version" archive for test_id. For admin use only.', required=False,action='store_true')
     parser.add_argument('-w', '--waterbody-mask-technique', help='Define the waterbody masking technique you would like to use. Options include: nhd_0, nhd_100, nhd_250, nhd_500, nwm_0, nwm_100, nwm_250, nwm_500. Format is: dataset_buffer. Buffer distance in meters.', required=False, default='nwm_0')
-
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
