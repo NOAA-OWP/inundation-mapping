@@ -293,7 +293,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     # Loop through exclusion masks and mask the agreement_array.
     if exclusion_mask_dict != {}:
         for poly_layer in exclusion_mask_dict:
-            print("-----> Masking at " + poly_layer + "...")
+            
             poly_path = exclusion_mask_dict[poly_layer]['path']
             buffer_val = exclusion_mask_dict[poly_layer]['buffer']
             reference = predicted_src
@@ -305,6 +305,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
             if poly_all.empty:
                 continue
+            
+            print("-----> Masking at " + poly_layer + "...")
             #Project layer to reference crs.
             poly_all_proj = poly_all.to_crs(reference.crs)
             # check if there are any lakes within our reference raster extent.
