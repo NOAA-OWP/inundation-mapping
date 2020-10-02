@@ -6,27 +6,33 @@ import argparse
 def hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, sharp_drop, hydrocond_tif):
 
     #Import raster data
+    #Import flows_grid_boolean to get cells associated with rivers
     with rasterio.open(flows_grid_boolean) as rivers:
         river_cells = rivers.read(1)
     
+    #Import the elevation raster.
     with rasterio.open(dem_m) as dem:
         dem_m_profile = dem.profile
         dem_m = dem.read(1)
-        
+    
+    #Import proximity raster    
     with rasterio.open(proximity) as prox:
         prox_data = prox.read(1)
     
-    #Flip flows grid boolean raster (river cell = 0 and non-river cell = 1)
+    #Array that has non river cells = 1 and river cells = 0
     non_river_cells = (~river_cells.astype('bool')).astype('uint8')
     
-    #Flip the proximity raster so that the channel centerline has maximum values and decreasing outward. 
+    #Flip the proximity raster so that the channel centerline has maximum values and cell values decreasing outward. 
     max_prox_value = prox_data.max()
     flip_proximity = abs(max_prox_value - prox_data)
     
-    #Hydrocondition in 2 steps, first implement the shallow drop in non-river cells based on the proximity raster. Then burn in the steep drop in river cells.
+    #Hydrocondition in 2 steps:
+    #First implement the shallow drop in non-river cells surrounding the river cells. For example if a channel cell has a value of 50, a cell once removed from the channel would have a value of 40, a cell twice removed from the cell have a value of 30 and so forth. For the cells once removed from the channel, if the smooth factor is 4, the DEM is lowered by 10 units (40/4), cells twice removed are lowered by 7.5 units (30/4) and so forth.   
     dem_cond_smooth = dem_m - (flip_proximity/smooth_drop_adj_factor)*non_river_cells
+    #Second, lower channel cells by a very large value (e.g. 1000 units)
     dem_cond_smooth_sharp = dem_cond_smooth - sharp_drop*river_cells
  
+    #Write out hydroconditioned raster.
     with rasterio.Env():
         dem_dtype = dem_m_profile['dtype']
         with rasterio.open(hydrocond_tif, 'w', **dem_m_profile) as raster:
@@ -38,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--rivers', help = 'flows grid boolean layer', required = True)
     parser.add_argument('-d', '--dem',  help = 'DEM_m raster', required = True)
     parser.add_argument('-p', '--proximity', help = 'proximity raster', required = True)
-    parser.add_argument('-sm', '--smoothfactor', help = 'Smooth drop adjustment factor', required = False, type = float, default = 10.0)
+    parser.add_argument('-sm', '--smoothfactor', help = 'Smooth drop adjustment factor', required = False, type = float, default = 4.0)
     parser.add_argument('-sh', '--sharpdrop', help = 'sharp drop (m)', required = False, type = float, default = 1000.0)
     parser.add_argument('-o',  '--output', help = 'Output hydroconditioned raster', required = True)
 
@@ -57,15 +63,15 @@ if __name__ == '__main__':
     hydrocond(flows_grid_boolean, dem_m, proximity, smooth_drop_adj_factor, sharp_drop, hydrocond_tif)
 
 
-# import os
+import os
 
-# workingdir = r'D:\deleteme\dev-alt-hydrocond\120903'
-# flows_grid_boolean = os.path.join(workingdir,'flows_grid_boolean.tif')
-# dem_m = os.path.join(workingdir, 'dem_meters.tif')
-# proximity = os.path.join(workingdir, 'stream_proximity.tif')
-# smooth_drop_adj_factor = 10.0
-# sharp_drop = 1000.0
-# hydrocond_tif = os.path.join(workingdir, "test_output.tif")
+workingdir = r'D:\deleteme\dev_alt_hydrocond_up_to_date\111303'
+flows_grid_boolean = os.path.join(workingdir,'flows_grid_boolean.tif')
+dem_m = os.path.join(workingdir, 'dem_meters.tif')
+proximity = os.path.join(workingdir, 'stream_proximity.tif')
+smooth_drop_adj_factor = 4.0
+sharp_drop = 1000.0
+hydrocond_tif = os.path.join(workingdir, "test_output_4.tif")
 
 
 
