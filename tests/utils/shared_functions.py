@@ -299,27 +299,30 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             reference = predicted_src
                         
             bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
-            #Read lakes layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
+            #Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
             poly_all = gpd.read_file(poly_path, bbox = bounding_box)
             
-            #Project lakes layer to reference crs.
+            # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
+            if poly_all.empty:
+                continue
+            #Project layer to reference crs.
             poly_all_proj = poly_all.to_crs(reference.crs)
             # check if there are any lakes within our reference raster extent.
             if poly_all_proj.empty: 
-                #If no lake features within reference raster extent, create a zero array of same shape as reference raster.
+                #If no features within reference raster extent, create a zero array of same shape as reference raster.
                 poly_mask = np.zeros(reference.shape)
             else:
                 #Check if a buffer value is passed to function.
                 if buffer_val is None:
-                    #If lake features are present and no buffer is passed, assign geometry to variable.
+                    #If features are present and no buffer is passed, assign geometry to variable.
                     geometry = poly_all_proj.geometry
                 else:
-                    #If lake features are present and a buffer is passed, assign buffered geometry to variable.
+                    #If  features are present and a buffer is passed, assign buffered geometry to variable.
                     geometry = poly_all_proj.buffer(buffer_val)
                     
-                #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of lakes areas to be False and areas inside lake areas to be True.
+                #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
                 in_poly,transform,c = rasterio.mask.raster_geometry_mask(reference, geometry, invert = True)
-                #Write lakes mask array, areas inside lakes are set to 1 and areas outside lakes are set to 0.
+                #Write mask array, areas inside lakes are set to 1 and areas outside poly are set to 0.
                 poly_mask = np.where(in_poly == True, 1,0)
                 
                 # Perform mask.
