@@ -219,7 +219,7 @@ echo -e $startDiv"Vectorize Pixel Centroids $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/flows_points_pixels.gpkg ] && \
-$libDir/reachID_grid_to_vector_points.py $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/flows_points_pixels.gpkg featureID
+$libDir/reachID_grid_to_vector_points.py $outputHucDataDir/demDerived_streamPixels.tif $outputHucDataDir/flows_points_pixels.gpkg featureID
 Tcount
 
 ## GAGE WATERSHED FOR PIXELS ##
