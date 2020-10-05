@@ -135,7 +135,6 @@ Tstart
 [ ! -f $outputHucDataDir/dem_burned_filled.tif ] && \
 rd_depression_filling $outputHucDataDir/dem_burned.tif $outputHucDataDir/dem_burned_filled.tif
 Tcount
-exit N
 
 ## D8 FLOW DIR ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber"$stopDiv
