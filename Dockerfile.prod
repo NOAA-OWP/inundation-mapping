@@ -87,5 +87,7 @@ COPY . $projectDir/
 ## Set user:group for running docker in detached mode
 USER root:$GroupName
 
-ENTRYPOINT ["fim_run.sh"]
-CMD ["--help"]
+# RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
+ADD ./lib/entrypoint.sh /
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+
