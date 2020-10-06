@@ -105,26 +105,18 @@ gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTI
 Tcount
 
 ## BURN LEVEES INTO DEM ##
-echo -e $startDiv"Burn nld levees into dem ($ convert nld elev to meters) $hucNumber"$stopDiv
+echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwrite dem_meters.tif output) $hucNumber"$stopDiv
 date -u
 Tstart
-[ -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ ! -f $outputHucDataDir/dem_meters_levees.tif ] && \
-gdal_calc.py --quiet --type=Float32 --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters_levees.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
+[ -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
+gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
 Tcount
 
-## BURN NEGATIVE ELEVATIONS STREAMS WITH LEVEES ##
-echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber (if levees present)"$stopDiv
+## BURN NEGATIVE ELEVATIONS STREAMS ##
+echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/dem_burned.tif ] && [ -f $outputHucDataDir/dem_meters_levees.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters_levees.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
-Tcount
-
-## BURN NEGATIVE ELEVATIONS STREAMS WITHOUT LEVEES ##
-echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber (if no levees present)"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/dem_burned.tif ] && [ ! -f $outputHucDataDir/dem_meters_levees.tif ] && \
+[ ! -f $outputHucDataDir/dem_burned.tif ] && \
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
 Tcount
 
@@ -157,7 +149,7 @@ echo -e $startDiv"Flow Condition Thalweg $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
-$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters_levees.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
+$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
 Tcount
 
 ## D8 SLOPES ##
