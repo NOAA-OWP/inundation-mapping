@@ -49,7 +49,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
     # merge vaa and nhd streams
     print("Merging VAA into NHD streams",flush=True)
     nhd_streams_vaa = gpd.read_file(nhd_streams_vaa_fileName)
-    nhd_streams = nhd_streams.merge(nhd_streams_vaa[['FromNode','ToNode','NHDPlusID','StreamOrde']],on='NHDPlusID',how='inner')
+    nhd_streams = nhd_streams.merge(nhd_streams_vaa[['FromNode','ToNode','NHDPlusID','StreamOrde','DnLevelPat','LevelPathI']],on='NHDPlusID',how='inner')
     del nhd_streams_vaa
 
     # get nhd headwaters closest to nwm headwater points
@@ -64,7 +64,8 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
 
     # writeout nwm headwaters
     nwm_headwaters.reset_index(drop=True,inplace=True)
-    nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
+    if not nwm_headwaters.empty:
+        nwm_headwaters.to_file(subset_nwm_headwaters_fileName,driver=getDriver(subset_nwm_headwaters_fileName),index=False)
     del nwm_headwaters
 
     # identify inflowing streams
@@ -104,19 +105,24 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nhd_streams_fileName,nhd_s
 
     while Q:
         q = Q.popleft()
-
         if q in visited:
             continue
-
         visited.add(q)
+        toNode,DnLevelPat = nhd_streams.loc[q,['ToNode','DnLevelPat']]
+        try:
+            downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
+        except ValueError: # 18050002 has duplicate nhd stream feature
+            if len(toNode.unique()) == 1:
+                toNode = toNode.iloc[0]
+                downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
 
-        toNode = nhd_streams.loc[q,'ToNode']
-
-        downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
-
-        nhd_streams.loc[downstream_ids,'is_nwm_stream'] = True
-
-        for i in downstream_ids:
+        #If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
+        if len(downstream_ids)>1:
+            relevant_ids = [segment for segment in downstream_ids if DnLevelPat == nhd_streams.loc[segment,'LevelPathI']]
+        else:
+            relevant_ids = downstream_ids
+        nhd_streams.loc[relevant_ids,'is_nwm_stream'] = True
+        for i in relevant_ids:
             if i not in visited:
                 Q.append(i)
 

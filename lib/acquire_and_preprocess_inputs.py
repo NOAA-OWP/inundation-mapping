@@ -7,6 +7,7 @@ import sys
 import shutil
 from multiprocessing import Pool
 import geopandas as gp
+from urllib.error import HTTPError
 
 from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_URL_PREFIX,
@@ -25,9 +26,16 @@ from utils.shared_functions import pull_file, run_system_command, subset_wbd_gpk
     
 NHDPLUS_VECTORS_DIRNAME = 'nhdplus_vectors'
 NHDPLUS_RASTERS_DIRNAME = 'nhdplus_rasters'
+NWM_HYDROFABRIC_DIRNAME = 'nwm_hydrofabric'
+NWM_FILE_TO_SUBSET_WITH = 'nwm_flows.gpkg'
 
+def subset_wbd_to_nwm_domain(wbd,nwm_file_to_use):
+    
+    intersecting_indices = [not (gp.read_file(nwm_file_to_use,mask=b).empty) for b in wbd.geometry]
+    
+    return(wbd[intersecting_indices])
 
-def pull_and_prepare_wbd(path_to_saved_data_parent_dir, overwrite_wbd,num_workers):
+def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_use,overwrite_wbd,num_workers):
     """
     This helper function pulls and unzips Watershed Boundary Dataset (WBD) data. It uses the WBD URL defined by WBD_NATIONAL_URL.
     This function also subsets the WBD layers (HU4, HU6, HU8) to CONUS and converts to geopkacage layers.
@@ -46,6 +54,12 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir, overwrite_wbd,num_worker
     pulled_wbd_zipped_path = os.path.join(wbd_directory, 'WBD_National_GDB.zip')
             
     multilayer_wbd_geopackage = os.path.join(wbd_directory, 'WBD_National.gpkg')
+    
+    nwm_huc_list_file_template = os.path.join(wbd_directory,'nwm_wbd{}.csv')
+
+    nwm_file_to_use = os.path.join(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_use)
+    if not os.path.isfile(nwm_file_to_use):
+        raise IOError("NWM File to Subset Too Not Available: {}".format(nwm_file_to_use))
     
     if not os.path.exists(multilayer_wbd_geopackage) or overwrite_wbd:
         # Download WBD and unzip if it's not already done.
@@ -68,7 +82,10 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir, overwrite_wbd,num_worker
         wbd_hu8[FOSS_ID] = fossids
         wbd_hu8 = wbd_hu8.to_crs(PREP_PROJECTION)  # Project.
         #wbd_hu8.to_file(os.path.join(wbd_directory, 'WBDHU8.gpkg'), driver='GPKG')  # Save.
+        wbd_hu8 = subset_wbd_to_nwm_domain(wbd_hu8,nwm_file_to_use)
+        wbd_hu8.geometry = wbd_hu8.buffer(0)
         wbd_hu8.to_file(multilayer_wbd_geopackage, driver='GPKG',layer='WBDHU8')  # Save.
+        wbd_hu8.HUC8.to_csv(nwm_huc_list_file_template.format('8'),index=False,header=False)
         #wbd_gpkg_list.append(os.path.join(wbd_directory, 'WBDHU8.gpkg'))  # Append to wbd_gpkg_list for subsetting later.
         del wbd_hu8
 
@@ -79,7 +96,10 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir, overwrite_wbd,num_worker
             wbd = gp.read_file(wbd_gdb_path,layer=wbd_layer)
             wbd = wbd.to_crs(PREP_PROJECTION)
             wbd = wbd.rename(columns={'huc'+wbd_layer_num : 'HUC' + wbd_layer_num})
+            wbd = subset_wbd_to_nwm_domain(wbd,nwm_file_to_use)
+            wbd.geometry = wbd.buffer(0)
             wbd.to_file(multilayer_wbd_geopackage,driver="GPKG",layer=wbd_layer)
+            wbd['HUC{}'.format(wbd_layer_num)].to_csv(nwm_huc_list_file_template.format(wbd_layer_num),index=False,header=False)
             #output_gpkg = os.path.join(wbd_directory, wbd_layer + '.gpkg')
             #wbd_gpkg_list.append(output_gpkg)
             #procs_list.append(['ogr2ogr -overwrite -progress -f GPKG -t_srs "{projection}" {output_gpkg} {wbd_gdb_path} {wbd_layer}'.format(output_gpkg=output_gpkg, wbd_gdb_path=wbd_gdb_path, wbd_layer=wbd_layer, projection=PREP_PROJECTION)])
@@ -210,9 +230,9 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     
     print("Building included HUC lists...")
     # Identify all saved NHDPlus Vectors.
-    nhd_plus_vector_dir = os.path.join(path_to_saved_data_parent_dir, NHDPLUS_VECTORS_DIRNAME)
+    nhd_plus_vector_dir = os.path.join(path_to_saved_data_parent_dir, NHDPLUS_RASTERS_DIRNAME)
     
-    huc4_list = os.listdir(nhd_plus_vector_dir)
+    huc4_list = [i[-4:] for i in os.listdir(nhd_plus_vector_dir)]
         
     huc6_list, huc8_list = [], []
     # Read WBD into dataframe.
@@ -321,14 +341,19 @@ def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, ov
         nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd])
         
     # Pull and prepare NHD data.
-    pool = Pool(num_workers)
-    pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    #pool = Pool(num_workers)
+    #pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    for huc in nhd_procs_list:
+        try:
+            pull_and_prepare_nhd_data(huc)
+        except HTTPError:
+            print("404 error for HUC4 {}".format(huc))
     
     # Pull and prepare NWM data.
     #pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_preinputs_dir,num_workers)  # Commented out for now.
 
     # Pull and prepare WBD data.
-    wbd_directory = pull_and_prepare_wbd(path_to_saved_data_parent_dir, overwrite_wbd,num_workers)
+    wbd_directory = pull_and_prepare_wbd(path_to_saved_data_parent_dir,NWM_HYDROFABRIC_DIRNAME,NWM_FILE_TO_SUBSET_WITH,overwrite_wbd,num_workers)
     
     # Create HUC list files.
     build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)

@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Created on Thu Jun  4 12:37:15 2020
-
-@author: bradford.bates
-"""
 
 import os
 
