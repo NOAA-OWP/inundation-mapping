@@ -12,7 +12,14 @@ TEMP = r'/data/temp'
 from utils.shared_functions import compute_stats_from_contingency_table
 
 
-def aggregate_metrics(config="DEV", branch_name="", special_string=""):
+def aggregate_metrics(config="DEV", branch_name="", hucs="", special_string=""):
+    
+    # Read hucs into list.
+    if hucs != "":
+        huc_list = [line.rstrip('\n') for line in open(hucs)]
+        
+    else:
+        huc_list = None    
     
     if config == "DEV":
         config_version = "development_versions"
@@ -20,7 +27,8 @@ def aggregate_metrics(config="DEV", branch_name="", special_string=""):
         config_version = "previous_versions"
     
     # Make directory to store output aggregates.
-    special_string = "_" + special_string
+    if special_string != "":
+        special_string = "_" + special_string
     aggregate_output_dir = os.path.join(TEMP, 'aggregate_metrics', branch_name + '_aggregate_metrics' + special_string)
     if not os.path.exists(aggregate_output_dir):
         os.mkdir(aggregate_output_dir)
@@ -28,10 +36,6 @@ def aggregate_metrics(config="DEV", branch_name="", special_string=""):
     test_cases_dir_list = os.listdir(TEST_CASES_DIR)
             
     true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count = 0, 0, 0, 0, 0, 0
-    
-    # Loop through and get path to JSON
-    
-    
     
     for return_interval in ['100yr', '500yr']:
         huc_path_list = [['huc', 'path']]
@@ -41,6 +45,9 @@ def aggregate_metrics(config="DEV", branch_name="", special_string=""):
                 branch_results_dir = os.path.join(TEST_CASES_DIR, test_case, 'performance_archive', config_version, branch_name)
                 
                 huc = test_case.split('_')[0]
+                if huc_list != None and huc not in huc_list:
+                    continue
+                
                 stats_json_path = os.path.join(branch_results_dir, return_interval, 'total_area_stats.json')
                      
                 
@@ -83,9 +90,10 @@ def aggregate_metrics(config="DEV", branch_name="", special_string=""):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Aggregates a metric or metrics for multiple HUCs.')
+    parser = argparse.ArgumentParser(description='Aggregates a metric or metrics for multiple HUC8s.')
     parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=True)
     parser.add_argument('-b','--branch-name',help='Name of branch to check all test_cases for and to aggregate.',required=True)
+    parser.add_argument('-u','--hucs',help='HUC8s to restrict the aggregation.',required=False, default="")
     parser.add_argument('-s','--special_string',help='Special string to add to outputs.',required=False, default="")
     
     
