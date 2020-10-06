@@ -108,7 +108,7 @@ echo -e $startDiv"Hydrocondition Elevation Dataset"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/stream_proximity.tif -sm 4 -sh 1000 -o $outputHucDataDir/dem_burned.tif 
+$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/stream_proximity.tif -sm 2 -sh 1000 -o $outputHucDataDir/dem_burned.tif 
 Tcount
 ##############################################################################
 
