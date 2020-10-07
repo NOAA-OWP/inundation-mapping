@@ -220,7 +220,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     return stats_dictionary
 
 
-def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, exclusion_mask=""):
+def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, exclusion_mask_dict={}):
     """
     Produces contingency table from 2 rasters and returns it. Also exports an agreement raster classified as:
         0: True Negatives
@@ -241,7 +241,10 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     import rasterio
     import numpy as np
     import os
-        
+    import rasterio.mask
+    import geopandas as gpd
+    from shapely.geometry import box
+            
     print("-----> Evaluating performance across the total area...")
     # Load rasters.
     benchmark_src = rasterio.open(benchmark_raster_path)
@@ -287,30 +290,49 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     
     del benchmark_src, benchmark_array, predicted_array, predicted_array_raw
 
-    # Mask agreement_array with waterbody raster 100m buffer.
-    if exclusion_mask != "":
-        exclusion_src = rasterio.open(exclusion_mask)
-    
-        exclusion_src = rasterio.open(exclusion_mask)
-        
-        exclusion_array_original = exclusion_src.read(1)
-        exclusion_array = np.empty(agreement_array.shape, dtype=np.int8)
-                
-        print("-----> Masking waterbodies...")
-        reproject(exclusion_array_original, 
-                  destination = exclusion_array,
-                  src_transform = exclusion_src.transform, 
-                  src_crs = exclusion_src.crs,
-                  src_nodata = exclusion_src.nodata,
-                  dst_transform = predicted_src.transform, 
-                  dst_crs = predicted_src.crs,
-                  dst_nodata = exclusion_src.nodata,
-                  dst_resolution = predicted_src.res,
-                  resampling = Resampling.nearest)
+    # Loop through exclusion masks and mask the agreement_array.
+    if exclusion_mask_dict != {}:
+        for poly_layer in exclusion_mask_dict:
+            
+            poly_path = exclusion_mask_dict[poly_layer]['path']
+            buffer_val = exclusion_mask_dict[poly_layer]['buffer']
+            reference = predicted_src
+                        
+            bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
+            #Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
+            poly_all = gpd.read_file(poly_path, bbox = bounding_box)
+            
+            # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
+            if poly_all.empty:
+                continue
+            
+            print("-----> Masking at " + poly_layer + "...")
+            #Project layer to reference crs.
+            poly_all_proj = poly_all.to_crs(reference.crs)
+            # check if there are any lakes within our reference raster extent.
+            if poly_all_proj.empty: 
+                #If no features within reference raster extent, create a zero array of same shape as reference raster.
+                poly_mask = np.zeros(reference.shape)
+            else:
+                #Check if a buffer value is passed to function.
+                if buffer_val is None:
+                    #If features are present and no buffer is passed, assign geometry to variable.
+                    geometry = poly_all_proj.geometry
+                else:
+                    #If  features are present and a buffer is passed, assign buffered geometry to variable.
+                    geometry = poly_all_proj.buffer(buffer_val)
                     
-        # Perform mask.
-        agreement_array = np.where(exclusion_array == 1, 4, agreement_array)
-
+                #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
+                in_poly,transform,c = rasterio.mask.raster_geometry_mask(reference, geometry, invert = True)
+                #Write mask array, areas inside lakes are set to 1 and areas outside poly are set to 0.
+                poly_mask = np.where(in_poly == True, 1,0)
+                
+                # Perform mask.
+                masked_agreement_array = np.where(poly_mask == 1, 4, agreement_array)
+                
+                # Get rid of masked values outside of the modeled domain.
+                agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
+                
     contingency_table_dictionary = {}
     
     # Only write the agreement raster if user-specified.
@@ -334,7 +356,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             f.write("%s\n" % '1: False Negative')
             f.write("%s\n" % '2: False Positive')
             f.write("%s\n" % '3: True Positive')
-            f.write("%s\n" % '4: Waterbody area (excluded from contingency table analysis). Waterbody mask: {exclusion_mask}'.format(exclusion_mask=exclusion_mask))
+            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {exclusion_mask}'.format(exclusion_mask=exclusion_mask_dict))
             f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
                           
     # Store summed pixel counts in dictionary.
