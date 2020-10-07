@@ -7,8 +7,6 @@ import argparse
 TEST_CASES_DIR = r'/data/test_cases/'
 TEMP = r'/data/temp'
 
-# Search through all previous_versions in test_cases
-
 from utils.shared_functions import compute_stats_from_contingency_table
 
 
@@ -50,7 +48,6 @@ def aggregate_metrics(config="DEV", branch_name="", hucs="", special_string=""):
                 
                 stats_json_path = os.path.join(branch_results_dir, return_interval, 'total_area_stats.json')
                      
-                
                 if os.path.exists(stats_json_path):
                     json_dict = json.load(open(stats_json_path))
                                 
@@ -71,7 +68,6 @@ def aggregate_metrics(config="DEV", branch_name="", hucs="", special_string=""):
         for stat in stats_dict:
             list_to_write.append([stat, stats_dict[stat]])
             
-            
         output_file = os.path.join(aggregate_output_dir, branch_name + '_aggregate_metrics_' + return_interval + special_string + '.csv')
             
         with open(output_file, 'w', newline='') as csvfile:
@@ -79,7 +75,6 @@ def aggregate_metrics(config="DEV", branch_name="", hucs="", special_string=""):
             csv_writer.writerows(list_to_write)
             csv_writer.writerow([])
             csv_writer.writerows(huc_path_list)
-                    
             
         print()
         print("Finished aggregating for " + return_interval + ". Aggregated metrics over " + str(len(huc_path_list)) + " test cases.")
@@ -95,7 +90,6 @@ if __name__ == '__main__':
     parser.add_argument('-b','--branch-name',help='Name of branch to check all test_cases for and to aggregate.',required=True)
     parser.add_argument('-u','--hucs',help='HUC8s to restrict the aggregation.',required=False, default="")
     parser.add_argument('-s','--special_string',help='Special string to add to outputs.',required=False, default="")
-    
     
     args = vars(parser.parse_args())
     
