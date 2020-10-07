@@ -8,7 +8,7 @@ usage ()
     echo 'REQUIRED:'
     echo '  -d/--indir    : initial run directory with default mannings values'
     echo '  -t/--hucnumber    : '
-    echo '  -o/--outdir     : directory for output mannings parameter adjustment runs'
+    echo '  -g/--outdir     : directory for output mannings parameter adjustment runs'
     echo '  -n/--paramfile    : parameter set file'
     echo '  -f/--paramfolder    : parameter set file path'
     echo ''
@@ -30,7 +30,7 @@ in
         shift
         indir="$1"
         ;;
-    -o|--outdir )
+    -g|--outdir )
         shift
         outdir=$1
         ;;
