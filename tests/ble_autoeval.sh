@@ -2,7 +2,7 @@
 :
 usage ()
 {
-    echo 'Produce FIM datasets'
+    echo 'Automate runs of run_test_case.py and the aggregation of metrics for list of BLE sites.'
     echo 'Usage : ble_auto_eval.sh [REQ: -f <fim outfolder(s)> -b <ble list> -d <current dev> -s <outfolder> -v <version>] [OPT: -h -j <job limit>]'
     echo ''
     echo 'REQUIRED:'

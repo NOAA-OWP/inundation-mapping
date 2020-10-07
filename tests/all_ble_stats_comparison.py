@@ -27,13 +27,13 @@ def subset_vector_layers(huclist,branch_list,current_dev,outfolder):
                 eval_500 = pd.read_csv(eval_500_path,index_col=0)
                 eval_500['eval'] = '500yr'
 
-                eval = eval_100.append(eval_500)
-                eval.columns = ['new_feature' if x==str(branch) else x for x in eval.columns]
-                eval = eval.filter(items=stat_list)
-                eval = eval.reindex(columns=stat_list)
-                eval['site'] = str(site)
-                eval['branch'] = str(branch)
-                eval_all = eval_all.append(eval)
+                eval_combined = eval_100.append(eval_500)
+                eval_combined.columns = ['new_feature' if x==str(branch) else x for x in eval_combined.columns]
+                eval_combined = eval_combined.filter(items=stat_list)
+                eval_combined = eval_combined.reindex(columns=stat_list)
+                eval_combined['site'] = str(site)
+                eval_combined['branch'] = str(branch)
+                eval_all = eval_all.append(eval_combined)
 
     if not os.path.exists(outfolder):
         os.makedirs(outfolder)
