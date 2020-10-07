@@ -61,6 +61,8 @@ ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 ARG GroupID=1370800235
 ARG GroupName=fim
 RUN addgroup --gid $GroupID $GroupName
+ENV GID=$GroupID
+ENV GN=$GroupName
 
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
