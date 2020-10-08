@@ -25,13 +25,13 @@ then
 fi
 
 while [ "$1" != "" ]; do
-case $1 
+case $1
 in
     -u|--hucList)
         shift
         hucList="$1"
         ;;
-    -c|--configFile ) 
+    -c|--configFile )
         shift
         envFile=$1
         ;;
@@ -87,12 +87,14 @@ export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
 export input_NWM_Lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
 export input_NWM_Catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
 export input_NWM_Flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
+export input_NWM_Headwaters=$inputDataDir/nwm_hydrofabric/nwm_headwaters.gpkg
+export input_NHD_Flowlines=$inputDataDir/nhdplus_vectors_aggregate/NHDPlusBurnLineEvent_wVAA.gpkg
 
 ## Input handling ##
 $libDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
-if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then 
+if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then
     rm -rf "$outputRunDataDir"
 elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
     echo "$runName data directories already exist. Use -o/--overwrite to continue"
