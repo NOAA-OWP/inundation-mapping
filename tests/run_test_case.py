@@ -110,6 +110,7 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
 
     # Get contingency table from two rasters.
     contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask_dict=exclusion_mask_dict)
+
     stats_dictionary = {}
 
     for stats_mode in contingency_table_dictionary:

@@ -9,7 +9,7 @@ from os.path import splitext
 from shapely.strtree import STRtree
 from shapely.geometry import Point,MultiLineString,LineString,mapping
 
-def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
+def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nld_lines_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nld_lines_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False):
 
     hucUnitLength = len(str(hucCode))
 
@@ -23,6 +23,13 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
     if not nwm_lakes.empty:
         nwm_lakes.to_file(subset_nwm_lakes_fileName,driver=getDriver(subset_nwm_lakes_fileName),index=False)
     del nwm_lakes
+    
+    # find intersecting levee lines
+    print("Subsetting NLD levee lines for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+    nld_lines = gpd.read_file(nld_lines_fileName, mask = wbd)
+    if not nld_lines.empty:
+        nld_lines.to_file(subset_nld_lines_fileName,driver=getDriver(subset_nld_lines_fileName),index=False)
+    del nld_lines
 
     # find intersecting nwm_catchments
     print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
@@ -189,12 +196,14 @@ if __name__ == '__main__':
     parser.add_argument('-f','--nwm-headwaters', help='NWM headwater points', required=True)
     parser.add_argument('-s','--nhd-streams',help='NHDPlus HR burnline',required=True)
     parser.add_argument('-l','--nwm-lakes', help='NWM Lakes', required=True)
+    parser.add_argument('-r','--nld-lines', help='Levee vectors to use within project path', required=True)
     parser.add_argument('-m','--nwm-catchments', help='NWM catchments', required=True)
     parser.add_argument('-u','--wbd',help='HUC boundary',required=True)
     parser.add_argument('-g','--wbd-buffer',help='Buffered HUC boundary',required=True)
     parser.add_argument('-c','--subset-nhd-streams',help='NHD streams subset',required=True)
     parser.add_argument('-a','--subset-lakes',help='NWM lake subset',required=True)
     parser.add_argument('-t','--subset-nwm-headwaters',help='NWM headwaters subset',required=True)
+    parser.add_argument('-z','--subset-nld-lines',help='Subset of NLD levee vectors for HUC',required=True)
     parser.add_argument('-e','--subset-nhd-headwaters',help='NHD headwaters subset',required=True,default=None)
     parser.add_argument('-n','--subset-catchments',help='NWM catchments subset',required=True)
     parser.add_argument('-b','--subset-nwm-streams',help='NWM streams subset',required=True)
@@ -207,15 +216,17 @@ if __name__ == '__main__':
     nwm_headwaters_fileName = args['nwm_headwaters']
     nhd_streams_fileName = args['nhd_streams']
     nwm_lakes_fileName = args['nwm_lakes']
+    nld_lines_fileName = args['nld_lines']
     nwm_catchments_fileName = args['nwm_catchments']
     wbd_fileName = args['wbd']
     wbd_buffer_fileName = args['wbd_buffer']
     subset_nhd_streams_fileName = args['subset_nhd_streams']
     subset_nwm_lakes_fileName = args['subset_lakes']
     subset_nwm_headwaters_fileName = args['subset_nwm_headwaters']
+    subset_nld_lines_fileName = args['subset_nld_lines']
     subset_nwm_catchments_fileName = args['subset_catchments']
     subset_nhd_headwaters_fileName = args['subset_nhd_headwaters']
     subset_nwm_streams_fileName = args['subset_nwm_streams']
     dissolveLinks = args['dissolve_links']
 
-    subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName,dissolveLinks)
+    subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nld_lines_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nld_lines_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName,dissolveLinks)
