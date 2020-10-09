@@ -6,6 +6,7 @@ from numpy import unique
 import json
 import argparse
 import sys
+import create_mannings_table
 
 input_catchments_fileName = sys.argv[1]
 input_flows_fileName = sys.argv[2]
@@ -20,6 +21,7 @@ output_hydro_table_fileName = sys.argv[10]
 input_huc_fileName = sys.argv[11]
 input_nwmflows_fileName = sys.argv[12]
 mannings_json = sys.argv[13]
+param_set = sys.argv[14]
 
 input_catchments = gpd.read_file(input_catchments_fileName)
 input_flows = gpd.read_file(input_flows_fileName)
@@ -47,8 +49,12 @@ if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.Hydr
 output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
 # read in manning's n values
-with open(mannings_json, "r") as read_file:
-    mannings_dict = json.load(read_file)
+param_generator = create_mannings_table.return_table()
+mannings_dict=None
+mannings_dict = param_generator.create_mannings_table(param_set,"")
+print(mannings_dict)
+# with open(mannings_json, "r") as read_file:
+#     mannings_dict = json.load(read_file)
 
 output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
 
