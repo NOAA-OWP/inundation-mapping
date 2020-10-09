@@ -15,7 +15,7 @@ from r_grow_distance import r_grow_distance
 # dem = '/data/temp/tsg/grass/data/dem.tif'
 # workspace = '/data/temp/tsg/grass'
 
-def agreedem(rivers_raster, dem, workspace, grass_workspace):
+def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace):
 # Compute the vector grid (vectgrid). The cells in the vector grid corresponding to the lines in the vector coverage have data. All other cells have no data.
 # vectgrid = linegrid ( %vectcov% )
 
@@ -37,7 +37,7 @@ def agreedem(rivers_raster, dem, workspace, grass_workspace):
     smo_profile.update(nodata = 0)
     smo_profile.update(dtype = 'int32')
     
-    smo_output = os.path.join(workspace, 'smogrid.tif')
+    smo_output = os.path.join(workspace, 'agree_smogrid.tif')
     with rasterio.Env():
         with rasterio.open(smo_output, 'w', **smo_profile) as raster:
             raster.write(smogrid.astype('int32'),1)
@@ -60,7 +60,7 @@ def agreedem(rivers_raster, dem, workspace, grass_workspace):
     buffer_dist = 50
     bufgrid = np.where(vectdist_data>buffer_dist,elev_data, 0)
     
-    buf_output = os.path.join(workspace, 'bufgrid.tif')
+    buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
     buf_profile = dem_profile.copy()
     buf_profile.update(nodata = 0) #instead of dem no data value; valid data values outside huc on purpose.
     buf_profile.update(dtype = 'int32')
@@ -92,7 +92,7 @@ def agreedem(rivers_raster, dem, workspace, grass_workspace):
     elevgrid = np.where(river_data == 0, smoelev/100.0, shagrid/100.0)
     agree_dem = np.where(elev_mask == True, elevgrid, dem_profile['nodata'])
     
-    agree_output = os.path.join(workspace, 'agree_dem.tif')
+    agree_output = output_raster
     agree_profile = dem_profile.copy()
     agree_profile.update(dtype = 'float32')
     with rasterio.Env():
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dem_cm',  help = 'DEM raster in cm', required = True)
     parser.add_argument('-w', '--workspace', help = 'Workspace', required = True)
     parser.add_argument('-g', '--grass_workspace', help = 'Temporary GRASS workspace', required = True)
-
+    parser.add_argument('-o',  '--output', help = 'Path to output raster', required = True)
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 
@@ -116,6 +116,7 @@ if __name__ == '__main__':
     dem = args['dem_cm']
     workspace = args['workspace']
     grass_workspace = args['grass_workspace']
+    output_raster = args['output']
     
     #Run agreedem
-    agreedem(rivers_raster, dem, workspace, grass_workspace)
+    agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace)

@@ -94,23 +94,33 @@ Tstart
 gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
 Tcount
 ###############################################################################
-## Edit to a create proximity raster and hydrocondition using ideas from the Inverse Distance Drainage Enforcement Algorithm ##
+## Hydrocondition using Inverse Distance Drainage Enforcement Algorithm*
 ## Create Proximity Raster ##
-echo -e $startDiv"Create proximity raster $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/stream_proximity.tif ] && \
-gdal_proximity.py $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/stream_proximity.tif -srcband 1 -dstband 1 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -ot Float32 -distunits GEO -maxdist 50.0 -nodata 50.0 -quiet
-Tcount
+#date -u
+#echo -e $startDiv"Create proximity raster $hucNumber"$stopDiv
+#date -u
+#Tstart
+#[ ! -f $outputHucDataDir/stream_proximity.tif ] && \
+#gdal_proximity.py $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/stream_proximity.tif -srcband 1 -dstband 1 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -ot Float32 -distunits GEO -maxdist 50.0 -nodata 50.0 -quiet
+#Tcount
 
 ## Hydrocondition ##
-echo -e $startDiv"Hydrocondition Elevation Dataset"$stopDiv
+#echo -e $startDiv"Hydrocondition Elevation Dataset"$stopDiv
+#date -u
+#Tstart
+#[ ! -f $outputHucDataDir/dem_burned.tif ] && \
+#$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/stream_proximity.tif -sm 2 -sh 1000 -o $outputHucDataDir/dem_burned.tif 
+#Tcount
+############################################################
+#Run AGREE DEM Methodology
+## Hydrocondition ##
+echo -e $startDiv"Calculate AGREE Elevation Dataset"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/stream_proximity.tif -sm 2 -sh 1000 -o $outputHucDataDir/dem_burned.tif 
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem.tif -w $outputHucDataDir -g $outputHucDataDir/grass_temp -o $outputHucDataDir/dem_burned.tif 
 Tcount
-##############################################################################
+###############################################################################
 
 ## BURN NEGATIVE ELEVATIONS STREAMS ##
 #echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
