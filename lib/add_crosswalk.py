@@ -29,27 +29,32 @@ input_nwmflows = gpd.read_file(input_nwmflows_fileName)
 
 input_majorities = input_majorities.rename(columns={'_majority' : 'feature_id'})
 input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
-input_majorities['feature_id'] = input_majorities['feature_id'].astype(int)
+if input_majorities.feature_id.dtype != 'int': input_majorities.feature_id = input_majorities.feature_id.astype(int)
+if input_majorities.HydroID.dtype != 'int': input_majorities.HydroID = input_majorities.HydroID.astype(int)
 
 input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
+if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
 relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
 relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
 
-# output_catchments = input_catchments.merge(input_flows.drop(['geometry'],axis=1),on='HydroID')
+if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
 output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
 output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
+if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
 output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
 # read in manning's n values
 with open(mannings_json, "r") as read_file:
     mannings_dict = json.load(read_file)
+
 output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
 
 # calculate src_full
-input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object) #
-input_src_base['CatchId'] = input_src_base['CatchId'].astype(int)
+input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
+if input_src_base.CatchId.dtype != 'int': input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
 input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID']],left_on='CatchId',right_on='HydroID')
 
@@ -67,10 +72,9 @@ pow(input_src_base['SLOPE'],0.5)/input_src_base['ManningN']
 # set nans to 0
 input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
 
-
 # output_src = input_src.rename(columns={'CatchId':'HydroID'})
 output_src = input_src_base.drop(columns=['CatchId'])
-output_src['HydroID'] = output_src['HydroID'].astype(int)
+if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
 output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
 
 output_crosswalk = output_src[['HydroID','feature_id']]
@@ -79,9 +83,13 @@ output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 # make hydroTable
 output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
 output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
+if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
+output_hydro_table['HydroID'] = output_hydro_table.HydroID.str.zfill(8)
 output_hydro_table['fossid'] = output_hydro_table.loc[:,'HydroID'].apply(lambda x : str(x)[0:4])
-input_huc['fossid'] = input_huc['fossid'].astype(str)
+if input_huc.fossid.dtype != 'str': input_huc.fossid = input_huc.fossid.astype(str)
+
 output_hydro_table = output_hydro_table.merge(input_huc.loc[:,['fossid','HUC8']],how='left',on='fossid')
+if output_hydro_table.HydroID.dtype != 'int': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(int)
 output_hydro_table = output_hydro_table.merge(input_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
 output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
 output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
