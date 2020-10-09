@@ -8,7 +8,7 @@ import rasterio
 import numpy as np
 import os
 import argparse
-import r_grow_distance
+from r_grow_distance import r_grow_distance
 
 
 # rivers_tf = '/data/temp/tsg/grass/data/flows_grid_boolean.tif'
