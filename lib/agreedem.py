@@ -29,18 +29,17 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace):
     
     # Compute the smooth drop/raise grid (smogrid). The cells in the smooth drop/raise grid corresponding to the vector lines have an elevation equal to that of the original DEM (oelevgrid) plus a certain distance (smoothdist). All other cells have no data.
     # smogrid = int ( setnull ( isnull ( vectgrid ), ( %oelevgrid% + %smoothdist% ) ) )
-    smooth_dist_m = -10
-    smooth_dist = smooth_dist_m * 100 #Convert to cm
+    smooth_dist = -10
     smogrid = river_data*(elev_data + smooth_dist)
     
     smo_profile = dem_profile.copy()
     smo_profile.update(nodata = 0)
-    smo_profile.update(dtype = 'int32')
+    smo_profile.update(dtype = 'float32')
     
     smo_output = os.path.join(workspace, 'agree_smogrid.tif')
     with rasterio.Env():
         with rasterio.open(smo_output, 'w', **smo_profile) as raster:
-            raster.write(smogrid.astype('int32'),1)
+            raster.write(smogrid.astype('float32'),1)
     
     
     # Compute the vector distance grids (vectdist and vectallo). The cells in the vector distance grid (vectdist) store the distance to the closest vector cell. The cells in vector allocation grid (vectallo) store the elevation of the closest vector cell.
@@ -63,10 +62,10 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace):
     buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
     buf_profile = dem_profile.copy()
     buf_profile.update(nodata = 0) #instead of dem no data value; valid data values outside huc on purpose.
-    buf_profile.update(dtype = 'int32')
+    buf_profile.update(dtype = 'float32')
     with rasterio.Env():
         with rasterio.open(buf_output, 'w', **buf_profile) as raster:
-            raster.write(bufgrid.astype('int32'),1)
+            raster.write(bufgrid.astype('float32'),1)
     # Compute the buffer distance grids (bufdist and bufallo). The cells in the buffer distance grid (bufdist) store the distance to the closest valued buffer grid cell (bufgrid2). The cells in buffer allocation grid (bufallo) store the elevation of the closest valued buffer cell.
     # bufdist = eucdistance( bufgrid2, #, bufallo, #, # )
     bufdist_grid, bufallo_grid = r_grow_distance(buf_output, grass_workspace)
@@ -83,13 +82,12 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace):
     
     # Compute the sharp drop/raise grid (shagrid). The cells in the sharp drop/raise grid corresponding to the vector lines have an elevation equal to that of the smooth modified elevation grid (smoelev) plus a certain distance (sharpdist). All other cells have no data.
     # shagrid = int ( setnull ( isnull ( vectgrid ), ( smoelev + %sharpdist% ) ) )
-    sharp_dist_m = -1000
-    sharp_dist = sharp_dist_m * 100 #convert to cm
+    sharp_dist = -1000
     shagrid = (smoelev + sharp_dist) * river_data
     
     # Compute the modified elevation grid (elevgrid). The cells in the modified elevation grid store the results of the surface reconditioning process. Note that for cells outside the buffer the the equation below assigns the original elevation.
     # elevgrid = con ( isnull ( vectgrid ), smoelev, shagrid )
-    elevgrid = np.where(river_data == 0, smoelev/100.0, shagrid/100.0)
+    elevgrid = np.where(river_data == 0, smoelev, shagrid)
     agree_dem = np.where(elev_mask == True, elevgrid, dem_profile['nodata'])
     
     agree_output = output_raster
