@@ -134,7 +134,7 @@ echo -e $startDiv"Calculate AGREE Elevation Dataset"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g /data/temp/tsg/grass/temp_work -o $outputHucDataDir/dem_burned.tif 
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif 
 Tcount
 ###############################################################################
 
