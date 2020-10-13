@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Oct  6 16:20:28 2020
-
-@author: trevor.grout
-"""
+#!/usr/bin/env python3
 import rasterio
 import numpy as np
 import os

@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Oct  9 08:24:51 2020
-
-@author: trevor.grout
-"""
+#!/usr/bin/env python3
 from grass_session import Session
 import os
 import shutil 
