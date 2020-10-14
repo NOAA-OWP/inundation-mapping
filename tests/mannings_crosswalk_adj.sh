@@ -80,8 +80,9 @@ export paramfolder=$paramfolder
 export outdir=$outdir
 mkdir -p $outdir/logs
 
-for huc in $huclist
-do
+# for huc in $huclist
+# do
+while read huc; do
 
   # hucdir="/data/outputs/"$indir/$huc
   export huc=$huc
@@ -93,36 +94,15 @@ do
   ## RUN ##
   if [ -f "$paramfile" ]; then
       if [ "$jobLimit" -eq 1 ]; then
-          parallel --verbose --lb  -j $jobLimit -- $libDir/mannings_calibration.sh :::: $paramfile
+          parallel --verbose --lb  -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh :::: $paramfile
       else
-          parallel --eta -j $jobLimit -- $libDir/mannings_calibration.sh :::: $paramfile
+          parallel --eta -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh :::: $paramfile
       fi
   else
       if [ "$jobLimit" -eq 1 ]; then
-          parallel --verbose --lb -j $jobLimit -- $libDir/mannings_calibration.sh ::: $paramfile
+          parallel --verbose --lb -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh ::: $paramfile
       else
-          parallel --eta -j $jobLimit -- $libDir/mannings_calibration.sh ::: $paramfile
+          parallel --eta -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh ::: $paramfile
       fi
   fi
-
-
-  # while read p; do
-  #
-  #   # Generate mannings_table.json
-  #   python3 foss_fim/config/create_mannings_table.py -d "$p" -f $paramfolder/mannings_template.json
-  #
-  #   str_ord=$((($count-1)/17 +1))
-  #   echo "$str_ord"
-  #   subdir=$paramfolder/$outdir/$huc"_""$str_ord""_""$count"
-  #   mkdir -p $subdir
-  #   echo "$subdir"
-  #   $libDir/add_crosswalk.py $hucdir/gw_catchments_reaches_filtered_addedAttributes.gpkg $hucdir/demDerived_reaches_split_filtered.gpkg $hucdir/src_base.csv $hucdir/majority.geojson $subdir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg $subdir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg $subdir/src_full_crosswalked.csv $subdir/src.json $subdir/crosswalk_table.csv $subdir/hydroTable.csv $hucdir/wbd8_clp.gpkg $hucdir/nwm_subset_streams.gpkg $paramfolder/mannings_template.json
-  #
-  #   count=`expr $count + 1`
-  #
-  #   python3 foss_fim/tests/run_test_case_calibration.py -r $indir/$huc -d $subdir -t $huc"_ble" -b $subdir
-
-    # python3 foss_fim/tests/calc_obj_func.py -d data/test_cases/performance_archive/development_versions/$subdir -o 'data/temp/mannings_test.txt' -p $count
-
-  # done <$paramfolder/$paramfile
-done
+done <$huclist
