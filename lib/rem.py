@@ -5,8 +5,10 @@ import rasterio
 import numpy as np
 import argparse
 import os
+from osgeo import ogr, gdal
 
-def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg):
+
+def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shapefile, thalweg_raster):
     """
         Calculates REM/HAND/Detrended DEM
         
@@ -21,21 +23,80 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg):
 
     """
     
+    # Get path to the outputs directory.
+    outputs_dir = os.path.dirname(thalweg_shapefile)
+
+    # -- Create mask of pixels 50m buffer around thalweg -- #
+    as_thalweg = os.path.split(thalweg_shapefile)[1].replace('.shp', '')
+    buffered_thalweg = os.path.join(outputs_dir, 'buffered_thalweg.shp')
+    os.system('ogr2ogr -f "ESRI Shapefile" {buffered_thalweg} {thalweg_shapefile} -dialect sqlite -sql "select ST_buffer(geometry, 50.0) as geometry FROM {as_thalweg}"'.format(buffered_thalweg=buffered_thalweg, thalweg_shapefile=thalweg_shapefile, as_thalweg=as_thalweg))
+    dem_thalwegCond = os.path.join(outputs_dir, 'dem_thalwegCond.tif')
+    InputVector = buffered_thalweg
+    buffered_thalweg_tif = os.path.join(outputs_dir, 'demDerived_reaches_buffer.tif')
+    RefImage = dem_thalwegCond
+    gdalformat, datatype, burnVal = 'GTiff', gdal.GDT_Byte, 1
+    Image = gdal.Open(RefImage, gdal.GA_ReadOnly) # Get projection info from reference image
+    Shapefile = ogr.Open(InputVector) # Open Shapefile
+    Shapefile_layer = Shapefile.GetLayer()
+    # Rasterise
+    Output = gdal.GetDriverByName(gdalformat).Create(buffered_thalweg_tif, Image.RasterXSize, Image.RasterYSize, 1, datatype, options=['COMPRESS=DEFLATE'])
+    Output.SetProjection(Image.GetProjectionRef())
+    Output.SetGeoTransform(Image.GetGeoTransform()) 
+    # Write data to band 1
+    Band = Output.GetRasterBand(1)
+    Band.SetNoDataValue(0)
+    gdal.RasterizeLayer(Output, [1], Shapefile_layer, burn_values=[burnVal])
+    Band, Output, Image, Shapefile = None, None, None, None  # Close datasets
     
+    # Open mask layer.
+    buffered_thalweg_object = rasterio.open(buffered_thalweg_tif)
+    buffered_thalweg_array = buffered_thalweg_object.read(1)
+    
+    # Subset the dem_fileName to only the 50m buffered area.
+    dem_thalwegCond_object = rasterio.open(dem_fileName)
+    dem_thalwegCond_array = dem_thalwegCond_object.read(1)
+    masked_dem_thalwegCond_array = np.where(buffered_thalweg_array==1, dem_thalwegCond_array, buffered_thalweg_object.nodata)
+    
+    # Write the subset masked_dem_thalwegCond_array to raster file.
+    dem_thalwegCond_masked = os.path.join(outputs_dir, 'dem_thalwegCond_masked.tif')
+    with rasterio.Env():
+        profile = dem_thalwegCond_object.profile
+        with rasterio.open(dem_thalwegCond_masked, 'w', **profile) as dst:
+            dst.write(masked_dem_thalwegCond_array, 1)
+    
+    # Subset the pixel_watersheds_fileName to only the 50m buffered area.
+    gw_catchments_pixels_object = rasterio.open(pixel_watersheds_fileName)
+    gw_catchments_pixels_array = gw_catchments_pixels_object.read(1)
+    masked_gw_catchments_pixels_array = np.where(buffered_thalweg_array==1, gw_catchments_pixels_array, gw_catchments_pixels_object.nodata)
+    
+    # Write the subset masked_gw_catchments_pixels_array to raster file.      
+    gw_catchments_pixels_masked = os.path.join(outputs_dir, 'gw_catchments_pixels_masked.tif')
+    with rasterio.Env():
+        profile = gw_catchments_pixels_object.profile
+        with rasterio.open(gw_catchments_pixels_masked, 'w', **profile) as dst2:
+            dst2.write(masked_gw_catchments_pixels_array.astype(rasterio.int32), 1)
+    
+    
+    
+    # -- NUMBA OPERATIONS -- #
+    
+    # The following algorithm searches for the zonal minimum elevation in each pixel catchment
+    # It updates the catchment_min_dict with this zonal minimum elevation value.
     @njit
     def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments):
   
         for i,cm in enumerate(flat_catchments):
+
+            # If the catchment really exists in the dictionary, compare elevation values.
             if (cm in catchment_min_dict):
                 if (flat_dem[i] < catchment_min_dict[cm]):
-                    catchment_min_dict[cm] = flat_dem[i]
+                    # If the flat_dem's elevation value is less than the catchment_min_dict min, update the catchment_min_dict min.
+                    catchment_min_dict[cm] = flat_dem[i]                                                
+    
             else:
-                catchment_min_dict[cm] = flat_dem[i]
+                catchment_min_dict[cm] = flat_dem[i]                
 
         return(catchment_min_dict)
-    
-
-    # create rem_fileName grid 
     
     @njit
     def calculate_rem(flat_dem,catchmentMinDict,flat_catchments,ndv):
@@ -48,114 +109,34 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg):
                 rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
 
         return(rem_window)
-
-    # -- Main Function Block -- #
     
-    print("Buffering...")
-    print("Subsetting the DEM to 50m buffer on either side of thalweg...........")
+    # -- END NUMBA OPERATIONS -- #
     
-    outputs_dir = os.path.dirname(thalweg)
-
-    thalweg = os.path.join(outputs_dir, 'demDerived_reaches.shp')
-    as_thalweg = os.path.split(thalweg)[1].replace('.shp', '')
     
-    # -- Create mask of pixels 50m buffer around thalweg -- #
-    buffered_thalweg = os.path.join(outputs_dir, 'buffered.shp')
-    
-    os.system('ogr2ogr -f "ESRI Shapefile" {buffered_thalweg} {thalweg} -dialect sqlite -sql "select ST_buffer(geometry, 50.0) as geometry FROM {as_thalweg}"'.format(buffered_thalweg=buffered_thalweg, thalweg=thalweg, as_thalweg=as_thalweg))
-    dem_thalwegCond = os.path.join(outputs_dir, 'dem_thalwegCond.tif')
-    
-    from osgeo import ogr, gdal
-    
-    InputVector = buffered_thalweg
-    buffered_thalweg_tif = os.path.join(outputs_dir, 'demDerived_reaches_buffer.tif')
-    
-    RefImage = dem_thalwegCond
-    
-    gdalformat = 'GTiff'
-    datatype = gdal.GDT_Byte
-    burnVal = 1 #value for the output image pixels
-    # Get projection info from reference image
-    Image = gdal.Open(RefImage, gdal.GA_ReadOnly)
-    
-    # Open Shapefile
-    Shapefile = ogr.Open(InputVector)
-    Shapefile_layer = Shapefile.GetLayer()
-    
-    # Rasterise
-    print("Rasterising shapefile...")
-    Output = gdal.GetDriverByName(gdalformat).Create(buffered_thalweg_tif, Image.RasterXSize, Image.RasterYSize, 1, datatype, options=['COMPRESS=DEFLATE'])
-    Output.SetProjection(Image.GetProjectionRef())
-    Output.SetGeoTransform(Image.GetGeoTransform()) 
-    
-    # Write data to band 1
-    Band = Output.GetRasterBand(1)
-    Band.SetNoDataValue(0)
-    gdal.RasterizeLayer(Output, [1], Shapefile_layer, burn_values=[burnVal])
-    
-    # Close datasets
-    Band = None
-    Output = None
-    Image = None
-    Shapefile = None
-    
-    # Open mask layer.
-    buffered_thalweg_object = rasterio.open(buffered_thalweg_tif)
-    buffered_thalweg_array = buffered_thalweg_object.read(1)
-    
-    # Open dem_fileName.
-    dem_thalwegCond_object = rasterio.open(dem_fileName)
-    dem_thalwegCond_array = dem_thalwegCond_object.read(1)
-
-    gw_catchments_pixels_object = rasterio.open(pixel_watersheds_fileName)
-    gw_catchments_pixels_array = gw_catchments_pixels_object.read(1)
-        
-    print(buffered_thalweg_array.shape)
-    print(dem_thalwegCond_array.shape)
-    
-    # Subset the dem_thalwegCond_array and gw_catchments_pixels_array to only the 50m buffered area.
-    masked_dem_thalwegCond_array = np.where(buffered_thalweg_array==1, dem_thalwegCond_array, buffered_thalweg_object.nodata)
-    masked_gw_catchments_pixels_array = np.where(buffered_thalweg_array==1, gw_catchments_pixels_array, gw_catchments_pixels_object.nodata)
-    dem_thalwegCond_masked = os.path.join(outputs_dir, 'dem_thalwegCond_masked.tif')
-    with rasterio.Env():
-        profile = dem_thalwegCond_object.profile
-        with rasterio.open(dem_thalwegCond_masked, 'w', **profile) as dst:
-            dst.write(masked_dem_thalwegCond_array, 1)
-    
-    gw_catchments_pixels_masked = os.path.join(outputs_dir, 'gw_catchments_pixels_masked.tif')
-    print(os.path.exists(gw_catchments_pixels_masked))
-    with rasterio.Env():
-        profile = gw_catchments_pixels_object.profile
-        print(profile)
-        with rasterio.open(gw_catchments_pixels_masked, 'w', **profile) as dst2:
-            dst2.write(masked_gw_catchments_pixels_array.astype(rasterio.uint32), 1)
-    
+    # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
     gw_catchments_pixels_masked_object = rasterio.open(gw_catchments_pixels_masked)
     dem_thalwegCond_masked_object = rasterio.open(dem_thalwegCond_masked)
     
     # Specify raster object metadata.
     meta = dem_thalwegCond_masked_object.meta.copy()
-    meta['tiled'] = True
-    meta['compress'] = 'lzw'
-    
-    # Initialize an empty dictionary to store the catchment minimums.
-    catchment_min_dict = typed.Dict.empty(types.int32,types.float32)
-    
+    meta['tiled'], meta['compress']  = True, 'lzw'
+        
+    # -- Create catchment_min_dict -- #
+    catchment_min_dict = typed.Dict.empty(types.int32,types.float32)  # Initialize an empty dictionary to store the catchment minimums.
     # Update catchment_min_dict with pixel sheds minimum.
     for ji, window in dem_thalwegCond_masked_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
          dem_window = dem_thalwegCond_masked_object.read(1,window=window).ravel()  # Initialize dem_window.
          catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Initialize catchments_window.
 
-        # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
+         # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
          catchment_min_dict = make_catchment_min_dict(dem_window, catchment_min_dict, catchments_window)
-
-
-
-    # Open rem_rasterio_object for writing to rem_fileName.
-    rem_rasterio_object = rasterio.open(rem_fileName,'w',**meta)
     
+    
+    
+    
+    rem_rasterio_object = rasterio.open(rem_fileName,'w',**meta)  # Open rem_rasterio_object for writing to rem_fileName.
+    pixel_catchments_rasterio_object = rasterio.open(pixel_watersheds_fileName)  # Open pixel_catchments_rasterio_object
     dem_rasterio_object = rasterio.open(dem_fileName)
-    pixel_catchments_rasterio_object = rasterio.open(pixel_watersheds_fileName)
     
     for ji, window in dem_rasterio_object.block_windows(1):
         dem_window = dem_rasterio_object.read(1,window=window)
@@ -179,7 +160,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
     parser.add_argument('-d','--dem', help='DEM to use within project path', required=True)
     parser.add_argument('-w','--watersheds',help='Pixel based watersheds raster to use within project path',required=True)
-    parser.add_argument('-t','--thalweg',help='Thalweg raster to use within project path',required=True)
+    parser.add_argument('-ts','--thalweg-shapefile',help='Thalweg shapefile to use within project path',required=True)
+    parser.add_argument('-tr','--thalweg-raster',help='Thalweg raster to use within project path',required=True)
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     
     # extract to dictionary
@@ -189,6 +171,7 @@ if __name__ == '__main__':
     dem_fileName = args['dem']
     pixel_watersheds_fileName = args['watersheds']
     rem_fileName = args['rem']
-    thalweg = args['thalweg']
+    thalweg_shapefile = args['thalweg_shapefile']
+    thalweg_raster = args['thalweg_raster']
 
-    rel_dem(dem_fileName, pixel_watersheds_fileName,rem_fileName, thalweg)
+    rel_dem(dem_fileName, pixel_watersheds_fileName,rem_fileName, thalweg_shapefile, thalweg_raster)
