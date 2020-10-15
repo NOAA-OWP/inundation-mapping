@@ -130,11 +130,11 @@ Tcount
 ############################################################
 #Run AGREE DEM Methodology
 ## Hydrocondition ##
-echo -e $startDiv"Calculate AGREE Elevation Dataset"$stopDiv
+echo -e $startDiv"Calculate AGREE Elevation Dataset using $buffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif 
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000 
 Tcount
 ###############################################################################
 
