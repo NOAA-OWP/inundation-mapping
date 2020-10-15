@@ -30,20 +30,22 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace):
 
     '''
     # 1. From Hellweger documentation: Compute the vector grid (vectgrid). The cells in the vector grid corresponding to the lines in the vector coverage have data. All other cells have no data.
-
-    #Import river raster and dem.
-    with rasterio.open(rivers_raster) as rivers:
-        river_data = rivers.read(1)
-    
+  
+    #Import dem layer and get profile as well as mask.
     with rasterio.open(dem) as elev:
         dem_profile = elev.profile
         elev_data = elev.read(1)
         elev_mask = elev.read_masks(1).astype('bool')
-    
+
+    # Import boolean river raster and apply same NODATA mask as dem layer. In case rivers extend beyond valid data regions of DEM.
+    with rasterio.open(rivers_raster) as rivers:
+        river_raw_data = rivers.read(1)
+        river_data = np.where(elev_mask == True, river_raw_data, 0)
+        
     # 2. From Hellweger documentation: Compute the smooth drop/raise grid (smogrid). The cells in the smooth drop/raise grid corresponding to the vector lines have an elevation equal to that of the original DEM (oelevgrid) plus a certain distance (smoothdist). All other cells have no data.
 
     # Assign smooth distance and calculate the smogrid.
-    smooth_dist = -10 # in meters. This is a carryover from FIM 2
+    smooth_dist = -10.0 # in meters. This is a carryover from FIM 2
     smogrid = river_data*(elev_data + smooth_dist)
 
     # Define smogrid properties and then export smogrid to tif file.
@@ -70,16 +72,16 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace):
         vectallo_data = vectallo.read(1)
     
     # Define buffer distance and calculate adjustment to comput the bufgrid.
-    buffer_dist = 50 # in meters. Carry over from FIM 2 (5 cell buffer *10m = 50m buffer distance).
+    buffer_dist = 50.0 # in meters. Carry over from FIM 2 (5 cell buffer *10m = 50m buffer distance).
     half_res = elev.res[0]/2 # adjustment 
 
-    # Calculate bufgrid. 0 values will be assigned as no data.
-    bufgrid = np.where(vectdist_data>(buffer_dist-half_res),elev_data, 0)
+    # Calculate bufgrid. Assign NODATA to areas where vectdist_data <= buffered value.
+    bufgrid = np.where(vectdist_data>(buffer_dist-half_res),elev_data, dem_profile['nodata'])
     
     # Define bufgrid properties and export to tif file.
     buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
     buf_profile = dem_profile.copy()
-    buf_profile.update(nodata = 0) #Only areas within buffer distance will be classified as NODATA.
+    #buf_profile.update(nodata = -12345.0) #Only areas within buffer distance will be classified as NODATA.
     buf_profile.update(dtype = 'float32')
     with rasterio.Env():
         with rasterio.open(buf_output, 'w', **buf_profile) as raster:
@@ -103,13 +105,13 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace):
     
     # 7. From Hellweger documentation: Compute the sharp drop/raise grid (shagrid). The cells in the sharp drop/raise grid corresponding to the vector lines have an elevation equal to that of the smooth modified elevation grid (smoelev) plus a certain distance (sharpdist). All other cells have no data.
 
-    # Define sharp drop distance and calculate the sharp drop grid.
-    sharp_dist = -1000 # in meters. Carryover from FIM 2.
+    # Define sharp drop distance and calculate the sharp drop grid where only river cells are dropped by the sharp_dist amount.
+    sharp_dist = -1000.0 # in meters. Carryover from FIM 2.
     shagrid = (smoelev + sharp_dist) * river_data
     
     # 8. From Hellweger documentation: Compute the modified elevation grid (elevgrid). The cells in the modified elevation grid store the results of the surface reconditioning process. Note that for cells outside the buffer the the equation below assigns the original elevation.
 
-    # Incorporate sharp drop grid with smoelev grid. Then apply the same NODATA mask as original elevation grid.
+    # Merge sharp drop grid with smoelev grid. Then apply the same NODATA mask as original elevation grid.
     elevgrid = np.where(river_data == 0, smoelev, shagrid)
     agree_dem = np.where(elev_mask == True, elevgrid, dem_profile['nodata'])
 
