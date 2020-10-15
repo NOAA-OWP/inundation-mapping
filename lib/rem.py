@@ -64,6 +64,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
         with rasterio.open(dem_thalwegCond_masked, 'w', **profile) as dst:
             dst.write(masked_dem_thalwegCond_array, 1)
     
+    
+    
     # Subset the pixel_watersheds_fileName to only the 50m buffered area.
     gw_catchments_pixels_object = rasterio.open(pixel_watersheds_fileName)
     gw_catchments_pixels_array = gw_catchments_pixels_object.read(1)
@@ -77,9 +79,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
             dst2.write(masked_gw_catchments_pixels_array.astype(rasterio.int32), 1)
     
     
-    
-    # -- NUMBA OPERATIONS -- #
-    
+    # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
+
     # The following algorithm searches for the zonal minimum elevation in each pixel catchment
     # It updates the catchment_min_dict with this zonal minimum elevation value.
     @njit
@@ -92,26 +93,9 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
                 if (flat_dem[i] < catchment_min_dict[cm]):
                     # If the flat_dem's elevation value is less than the catchment_min_dict min, update the catchment_min_dict min.
                     catchment_min_dict[cm] = flat_dem[i]                                                
-    
             else:
                 catchment_min_dict[cm] = flat_dem[i]                
-
         return(catchment_min_dict)
-    
-    @njit
-    def calculate_rem(flat_dem,catchmentMinDict,flat_catchments,ndv):
-
-        rem_window = np.zeros(len(flat_dem),dtype=np.float32)
-        for i,cm in enumerate(flat_catchments):
-            if catchmentMinDict[cm] == ndv:
-                rem_window[i] = ndv
-            else:
-                rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
-
-        return(rem_window)
-    
-    # -- END NUMBA OPERATIONS -- #
-    
     
     # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
     gw_catchments_pixels_masked_object = rasterio.open(gw_catchments_pixels_masked)
@@ -125,15 +109,93 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
     catchment_min_dict = typed.Dict.empty(types.int32,types.float32)  # Initialize an empty dictionary to store the catchment minimums.
     # Update catchment_min_dict with pixel sheds minimum.
     for ji, window in dem_thalwegCond_masked_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
-         dem_window = dem_thalwegCond_masked_object.read(1,window=window).ravel()  # Initialize dem_window.
-         catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Initialize catchments_window.
+         dem_window = dem_thalwegCond_masked_object.read(1,window=window).ravel()  # Define dem_window.
+         catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
 
          # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
          catchment_min_dict = make_catchment_min_dict(dem_window, catchment_min_dict, catchments_window)
     
+    # ------------------------------------------------------------------------------------------------------------------------ #
     
     
+    @njit
+    def minimize_thalweg_elevation(dem_window, catchment_min_dict, catchments_window, thalweg_window):
+                
+        dem_window_to_return = np.zeros(len(dem_window),dtype=np.float32)
+        
+#        print("2")
+#        print(dem_window_to_return.shape)
+#        
+        # Get index of thalweg.
+        thalweg_index = np.where(thalweg_window == 1)
+        
+        # Get elevation at thalweg index.
+        thalweg_dem_cells = dem_window[thalweg_index]
+        catchment_cells = catchments_window[thalweg_index]
+        
+        for index in range(0, len(catchment_cells)):
+            catchment_cell = catchment_cells[index]
+            thalweg_dem_cell_elevation = thalweg_dem_cells[index]
+            catchment_cell_elevation = catchment_min_dict[catchment_cell]
+            
+            elevation_difference = thalweg_dem_cell_elevation - catchment_cell_elevation
+            
+            if thalweg_dem_cell_elevation > catchment_cell_elevation and elevation_difference < 5:
+#                print(dem_window_to_return.shape)
+                dem_window_to_return[thalweg_index][index] = catchment_cell_elevation
+#                print(dem_window_to_return.shape)
+            else:
+#                print("Not")
+                dem_window_to_return[thalweg_index][index] = thalweg_dem_cell_elevation
+
+#        print("3")
+#        print(dem_window_to_return.shape)
+##        print()
+        return(dem_window_to_return)
+
+        
+    thalweg_object = rasterio.open(thalweg_raster)
     
+    output_minimized_thalweg = os.path.join(outputs_dir, 'minimized_thalweg.tif')
+    minimized_thalweg_object = rasterio.open(output_minimized_thalweg, 'w', **meta)
+    
+    for ji, window in dem_thalwegCond_masked_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
+        dem_window = dem_thalwegCond_masked_object.read(1,window=window)  # Define dem_window.
+        window_shape = dem_window.shape
+#        print("1")
+#        print(window_shape)
+        dem_window = dem_window.ravel()
+        
+        catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
+        thalweg_window = thalweg_object.read(1,window=window).ravel()  # Define thalweg_window.
+        
+        # Call numba-optimized function to reassign thalweg cell values to catchment minimum value.
+        minimized_dem_window = minimize_thalweg_elevation(dem_window, catchment_min_dict, catchments_window, thalweg_window)
+        minimized_dem_window = minimized_dem_window.reshape(window_shape).astype(np.float32)
+
+
+        minimized_thalweg_object.write(minimized_dem_window, window=window, indexes=1)    
+        
+    
+    print("Finished minimizing.")
+    
+    # ------------------------------------------- Produce relative elevation model ------------------------------------------- #
+    
+    @njit
+    def calculate_rem(flat_dem,catchmentMinDict,flat_catchments,ndv):
+
+        rem_window = np.zeros(len(flat_dem),dtype=np.float32)
+#        print("2")
+#        print(rem_window.shape)
+        for i,cm in enumerate(flat_catchments):
+            if catchmentMinDict[cm] == ndv:
+                rem_window[i] = ndv
+            else:
+                rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
+#        print("3")
+#        print(rem_window.shape)
+        return(rem_window)
+
     rem_rasterio_object = rasterio.open(rem_fileName,'w',**meta)  # Open rem_rasterio_object for writing to rem_fileName.
     pixel_catchments_rasterio_object = rasterio.open(pixel_watersheds_fileName)  # Open pixel_catchments_rasterio_object
     dem_rasterio_object = rasterio.open(dem_fileName)
@@ -141,6 +203,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
     for ji, window in dem_rasterio_object.block_windows(1):
         dem_window = dem_rasterio_object.read(1,window=window)
         window_shape = dem_window.shape
+#        print("1")
+#        print(window_shape)
         dem_window = dem_window.ravel()
         catchments_window = pixel_catchments_rasterio_object.read(1,window=window).ravel()
         
@@ -148,10 +212,13 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
         rem_window = rem_window.reshape(window_shape).astype(np.float32)
         
         rem_rasterio_object.write(rem_window, window=window, indexes=1)
-
+#        print()
     dem_rasterio_object.close()
     pixel_catchments_rasterio_object.close()
     rem_rasterio_object.close()
+
+    # ------------------------------------------------------------------------------------------------------------------------ #
+
 
 
 if __name__ == '__main__':
