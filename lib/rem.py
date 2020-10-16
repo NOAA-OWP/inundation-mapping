@@ -76,8 +76,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
         with rasterio.open(gw_catchments_pixels_masked, 'w', **profile) as dst2:
             dst2.write(masked_gw_catchments_pixels_array.astype(rasterio.int32), 1)
     
+    
     # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
-
     # The following algorithm searches for the zonal minimum elevation in each pixel catchment
     # It updates the catchment_min_dict with this zonal minimum elevation value.
     @njit
@@ -113,9 +113,11 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
     
     dem_thalwegCond_masked_object.close()
     gw_catchments_pixels_masked_object.close()
-    
     # ------------------------------------------------------------------------------------------------------------------------ #
     
+    
+    
+    # ------------------------------------------- Assign zonal min to thalweg ------------------------------------------------ #
     @njit
     def minimize_thalweg_elevation(dem_window, catchment_min_dict, catchments_window, thalweg_window):
                 
@@ -162,10 +164,11 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
 
 
         minimized_thalweg_object.write(minimized_dem_window, window=window, indexes=1)    
-        
+    # ------------------------------------------------------------------------------------------------------------------------ #    
+    
+    
         
     # ------------------------------------------- Produce relative elevation model ------------------------------------------- #
-    
     thalweg_object.close()
     minimized_thalweg_object.close()
     gw_catchments_pixels_object.close()
@@ -202,10 +205,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
     dem_rasterio_object.close()
     pixel_catchments_rasterio_object.close()
     rem_rasterio_object.close()
-
-
     # ------------------------------------------------------------------------------------------------------------------------ #
-
 
 
 if __name__ == '__main__':
