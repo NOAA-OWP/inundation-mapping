@@ -40,7 +40,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             mannings_dict = json.load(read_file)
     else:
         mannings_dict = {}
-        for cnt,value in enumerate(param_set[2:].split(",")):
+        for cnt,value in enumerate(mannings_n[2:].split(",")):
             streamorder = cnt+1
             mannings_dict[str(streamorder)] = value
 
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     parser.add_argument('-j','--output-src-json-fileName',help='Output synthetic rating curve json',required=True)
     parser.add_argument('-x','--output-crosswalk-fileName',help='Crosswalk table',required=True)
     parser.add_argument('-t','--output-hydro-table-fileName',help='Hydrotable',required=True)
-    parser.add_argument('-h','--input-huc-fileName',help='HUC8 boundary',required=True)
+    parser.add_argument('-w','--input-huc-fileName',help='HUC8 boundary',required=True)
     parser.add_argument('-b','--input-nwmflows-fileName',help='Subest NWM burnlines',required=True)
     parser.add_argument('-m','--mannings-n',help='Mannings n. Accepts single parameter set or list of parameter set in calibration mode. Currently input as csv.',required=True)
     parser.add_argument('-c','--calibration-mode',help='Mannings calibration flag',required=False,action='store_true')

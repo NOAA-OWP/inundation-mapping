@@ -3,14 +3,13 @@
 usage ()
 {
     echo 'Produce FIM datasets'
-    echo 'Usage : fim_run.sh [REQ: -d <inputdir> -o <outputdir> -n <paramfile> -n <paramfolder>] [OPT: -h]'
+    echo 'Usage : fim_run.sh [REQ: -d <inputdir> -o <outputdir> -n <paramfile>] [OPT: -h]'
     echo ''
     echo 'REQUIRED:'
     echo '  -d/--indir    : initial run directory with default mannings values'
     echo '  -t/--huclist    : huc or list of hucs'
     echo '  -g/--outdir     : directory for output mannings parameter adjustment runs'
     echo '  -n/--paramfile    : parameter set file'
-    echo '  -f/--paramfolder    : parameter set file path'
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : help file'
@@ -44,10 +43,6 @@ in
         shift
         paramfile=$1
         ;;
-    -f|--paramfolder)
-        shift
-        paramfolder=$1
-        ;;
     -h|--help)
         shift
         usage
@@ -75,34 +70,27 @@ if [ "$jobLimit" = "" ] ; then
     jobLimit=1
 fi
 
-
-export paramfolder=$paramfolder
 export outdir=$outdir
-mkdir -p $outdir/logs
+export testdir="/foss_fim/tests"
 
-# for huc in $huclist
-# do
 while read huc; do
 
-  # hucdir="/data/outputs/"$indir/$huc
   export huc=$huc
-  # export hucdir=$hucdir
   export indir=$indir
   export hucdir="/data/outputs/"$indir/$huc
-  # count=1
 
   ## RUN ##
   if [ -f "$paramfile" ]; then
       if [ "$jobLimit" -eq 1 ]; then
-          parallel --verbose --lb  -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh :::: $paramfile
+          parallel --verbose --lb  -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
       else
-          parallel --eta -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh :::: $paramfile
+          parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
       fi
   else
       if [ "$jobLimit" -eq 1 ]; then
-          parallel --verbose --lb -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh ::: $paramfile
+          parallel --verbose --lb -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
       else
-          parallel --eta -j $jobLimit -- $libDir/time_and_tee_mannings_calibration.sh ::: $paramfile
+          parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
       fi
   fi
 done <$huclist
