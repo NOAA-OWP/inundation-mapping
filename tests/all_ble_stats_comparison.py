@@ -7,7 +7,7 @@ import argparse
 
 def subset_vector_layers(huclist,branch_list,current_dev,outfolder):
 
-    test_cases='data/test_cases'
+    test_cases=r'/data/test_cases'
     ble_sitelist = [str(line.rstrip('\n')) for line in open(huclist)]
     stat_list = ['fim_1_0_0', 'fim_2_3_3',str(current_dev), 'new_feature','eval']
     branch_list = branch_list.split()
