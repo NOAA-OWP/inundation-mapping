@@ -40,7 +40,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             mannings_dict = json.load(read_file)
     else:
         mannings_dict = {}
-        for cnt,value in enumerate(mannings_n[2:].split(",")):
+        for cnt,value in enumerate(mannings_n.split(",")[2:]):
             streamorder = cnt+1
             mannings_dict[str(streamorder)] = value
 
