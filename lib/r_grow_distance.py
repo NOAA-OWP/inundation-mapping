@@ -55,7 +55,7 @@ def r_grow_distance(input_raster, grass_workspace):
     # Define filenames and paths and export proximity and allocation rasters. Saved to same directory as input raster.
     proximity_filename = input_raster_name + '_dist.tif'
     output_proximity_path=os.path.join(input_raster_directory,proximity_filename)
-    gscript.run_command('r.out.gdal', flags = 'cf', input = proximity_grass_name, output = output_proximity_path, format = 'GTiff', quiet = True, type = 'Float32', createopt = 'COMPRESS=LZW')
+    gscript.run_command('r.out.gdal', flags = 'cf', input = proximity_grass_name, output = output_proximity_path, format = 'GTiff', quiet = True, type = 'Float64', createopt = 'COMPRESS=LZW')
     allocation_filename = input_raster_name + '_allo.tif'
     output_allocation_path = os.path.join(input_raster_directory, allocation_filename)
     gscript.run_command('r.out.gdal', flags = 'cf', input = allocation_grass_name, output = output_allocation_path, format = 'GTiff', quiet = True, type = 'Float64', createopt = 'COMPRESS=LZW')

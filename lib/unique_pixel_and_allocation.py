@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 """
 Created on Fri Oct 16 07:51:56 2020
 
@@ -42,7 +42,7 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace):
     # At streams return the unique array value otherwise return -1 (this will be the nodata value)
     stream_pixel_values = np.where(streams == 1, unique_vals, streams_profile['nodata'])
     
-    # Reassign dtype to be float64
+    # Reassign dtype to be float64 (needs to be float64)
     streams_profile.update(dtype = 'float64')
     
     # Output to raster 
@@ -50,7 +50,7 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace):
         with rasterio.open(unique_stream_pixels, 'w', **streams_profile) as raster:
             raster.write(stream_pixel_values,1)
     
-    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters.
+    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters. Make sure output for allocation is float64 (default).
     distance_grid, allocation_grid = r_grow_distance(unique_stream_pixels, grass_workspace)
 
     return distance_grid, allocation_grid
