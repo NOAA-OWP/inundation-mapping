@@ -5,7 +5,7 @@ import shutil
 import grass.script as gscript
 import argparse
 
-def r_grow_distance(input_raster, grass_workspace):
+def r_grow_distance(input_raster, grass_workspace, proximity_dtype, allocation_dtype):
     '''
     Runs the r.grow.distance GRASS gis tool which given an input raster will produce an output proximity (or distance) and euclidian allocation tool.
 
@@ -15,6 +15,10 @@ def r_grow_distance(input_raster, grass_workspace):
         Path to input raster. For example, see flows_grid_boolean.tif
     grass_workspace : STR
         Path to TEMPORARY directory to store intermediate GRASS data. This directory is deleted upon completion of this function.
+    proximity_dtype: STR
+        Data type for the proximity output. Typically 'Float32'.    
+    allocation_dtype: STR
+        Data type for the allocation output. Typically 'Float32' (AGREE processing) or 'Float64' (thalweg adjustment processing)
 
     Returns
     -------
@@ -52,13 +56,15 @@ def r_grow_distance(input_raster, grass_workspace):
     allocation_grass_name = 'allocation@'+ grass_mapset
     gscript.run_command('r.grow.distance', flags = 'm', input = imported_grass_raster, distance = proximity_grass_name, value = allocation_grass_name, quiet = True)
     
-    # Define filenames and paths and export proximity and allocation rasters. Saved to same directory as input raster.
+    # Export proximity raster. Saved to same directory as input raster. Dtype for proximity always float32.
     proximity_filename = input_raster_name + '_dist.tif'
     output_proximity_path=os.path.join(input_raster_directory,proximity_filename)
-    gscript.run_command('r.out.gdal', flags = 'cf', input = proximity_grass_name, output = output_proximity_path, format = 'GTiff', quiet = True, type = 'Float64', createopt = 'COMPRESS=LZW')
+    gscript.run_command('r.out.gdal', flags = 'cf', input = proximity_grass_name, output = output_proximity_path, format = 'GTiff', quiet = True, type = proximity_dtype, createopt = 'COMPRESS=LZW')
+
+    # Export allocation raster. Saved to same directory as input raster. Dtype assigned via the allocation_dtype input.
     allocation_filename = input_raster_name + '_allo.tif'
     output_allocation_path = os.path.join(input_raster_directory, allocation_filename)
-    gscript.run_command('r.out.gdal', flags = 'cf', input = allocation_grass_name, output = output_allocation_path, format = 'GTiff', quiet = True, type = 'Float64', createopt = 'COMPRESS=LZW')
+    gscript.run_command('r.out.gdal', flags = 'cf', input = allocation_grass_name, output = output_allocation_path, format = 'GTiff', quiet = True, type = allocation_dtype, createopt = 'COMPRESS=LZW')
     
     # Close down temporary session and remove temporary workspace.
     temporary_session.close()
@@ -72,6 +78,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Calculate AGREE DEM')
     parser.add_argument('-i', '--in_raster', help = 'raster to perform r.grow.distance', required = True)
     parser.add_argument('-g', '--grass_workspace', help = 'Temporary GRASS workspace', required = True)
+    parser.add_argument('-p', '--prox_dtype', help = 'Output proximity raster datatype', required = True)
+    parser.add_argument('-a', '--allo_dtype', help = 'Output allocation raster datatype', required = True)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -79,7 +87,9 @@ if __name__ == '__main__':
     # Rename variable inputs
     input_raster = args['in_raster']
     grass_workspace = args['grass_workspace']
+    proximity_dtype = args['prox_dtype']
+    allocation_dtype = args['allo_dtype']
     
     # Run r_grow_distance
-    r_grow_distance(input_raster, grass_workspace)
+    r_grow_distance(input_raster, grass_workspace, proximity_dtype, allocation_dtype)
     
