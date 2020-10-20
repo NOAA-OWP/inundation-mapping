@@ -44,12 +44,12 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace):
     
     # Reassign nodata to be -1 and dtype to be consistent with stream_pixel_values
     streams_profile.update(nodata = -1)
-    streams_profile.update(dtype = stream_pixel_values.dtype)
+    streams_profile.update(dtype = 'float32')
     
     # Output to raster 
     with rasterio.Env():
         with rasterio.open(unique_stream_pixels, 'w', **streams_profile) as raster:
-            raster.write(stream_pixel_values,1)
+            raster.write(stream_pixel_values.astype('float32'),1)
     
     # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters.
     distance_grid, allocation_grid = r_grow_distance(unique_stream_pixels, grass_workspace)
