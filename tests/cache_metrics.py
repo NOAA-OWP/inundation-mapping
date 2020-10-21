@@ -66,20 +66,23 @@ if __name__ == '__main__':
             current_huc = test_id.split('_')[0]
             
             for branch_name in previous_fim_list:
-                huc6 = current_huc[:6]
+                huc = current_huc
                 
-                fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, huc6)
+                fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, huc)
                 
                 if special_string != "":
                     branch_name = branch_name + '_' + special_string
-                
+                                
                 return_interval = ['100yr', '500yr']
+                print(fim_run_dir)
+                print(os.path.exists(fim_run_dir))
                 if os.path.exists(fim_run_dir):
                     print("Adding " + test_id + " to list of test_ids to archive...")
-                    if job_number > 1:
-                        procs_list.append([fim_run_dir, branch_name, test_id, return_interval, archive_results])
-                    else:
-                        process_alpha_test([fim_run_dir, branch_name, test_id, return_interval, archive_results])
+                    for ri in return_interval:
+                        if job_number > 1:
+                            procs_list.append([fim_run_dir, branch_name, test_id, return_interval, archive_results])
+                        else:
+                            process_alpha_test([fim_run_dir, branch_name, test_id, return_interval, archive_results])
 
 
     if job_number > 1:

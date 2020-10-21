@@ -62,26 +62,6 @@ done
 export testDir='foss_fim/tests'
 
 
-for branch in $fim_outfolder
-do
-  echo "processing feature branch: $branch"
-
-  while read p; do
-      # Run Eval
-      if [ -d "/data/outputs/$branch/$p" ]
-      then
-        echo "processing ble for $branch/$p"
-        python3 /$testDir/run_test_case.py -r $branch/$p -t $p"_ble" -b $branch -c
-      fi
-
-      if [ -d "/data/outputs/$branch/$(echo $p| cut -b 1-6)" ]
-      then
-        echo "processing ble for $branch/$(echo $p| cut -b 1-6)"
-        python3 /$testDir/run_test_case.py -r $branch/$(echo $p| cut -b 1-6) -t $p"_ble" -b $branch -c
-      fi
-  done <$ble_list
-done
-
 echo "combining ble metrics"
 python3 /$testDir/all_ble_stats_comparison.py -b $ble_list -e "$fim_outfolder" -d $current_dev -f $outfolder
 
