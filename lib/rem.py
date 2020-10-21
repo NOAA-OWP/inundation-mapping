@@ -75,6 +75,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
         profile = gw_catchments_pixels_object.profile
         with rasterio.open(gw_catchments_pixels_masked, 'w', **profile) as dst2:
             dst2.write(masked_gw_catchments_pixels_array.astype(rasterio.int32), 1)
+<<<<<<< HEAD
     
     # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
 
@@ -93,6 +94,26 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
                 catchment_min_dict[cm] = flat_dem[i]                
         return(catchment_min_dict)
     
+=======
+    
+    # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
+
+    # The following algorithm searches for the zonal minimum elevation in each pixel catchment
+    # It updates the catchment_min_dict with this zonal minimum elevation value.
+    @njit
+    def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments):
+  
+        for i,cm in enumerate(flat_catchments):
+            # If the catchment really exists in the dictionary, compare elevation values.
+            if (cm in catchment_min_dict):
+                if (flat_dem[i] < catchment_min_dict[cm]):
+                    # If the flat_dem's elevation value is less than the catchment_min_dict min, update the catchment_min_dict min.
+                    catchment_min_dict[cm] = flat_dem[i]                                                
+            else:
+                catchment_min_dict[cm] = flat_dem[i]                
+        return(catchment_min_dict)
+    
+>>>>>>> d6dc400e39f288dcc3324e0fdf1e2054a16933ff
     # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
     gw_catchments_pixels_masked_object = rasterio.open(gw_catchments_pixels_masked)
     dem_thalwegCond_masked_object = rasterio.open(dem_thalwegCond_masked)
@@ -140,6 +161,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
                     dem_window_to_return[i] = zonal_min_elevation
 
         return(dem_window_to_return)
+<<<<<<< HEAD
 
         
     thalweg_object = rasterio.open(thalweg_raster)
@@ -151,6 +173,19 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
         dem_window = dem_thalwegCond_object.read(1,window=window)  # Define dem_window.
         window_shape = dem_window.shape
 
+=======
+
+        
+    thalweg_object = rasterio.open(thalweg_raster)
+    
+    output_minimized_thalweg = os.path.join(outputs_dir, 'dem_minimized_thalweg.tif')
+    minimized_thalweg_object = rasterio.open(output_minimized_thalweg, 'w', **meta)
+    
+    for ji, window in dem_thalwegCond_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
+        dem_window = dem_thalwegCond_object.read(1,window=window)  # Define dem_window.
+        window_shape = dem_window.shape
+
+>>>>>>> d6dc400e39f288dcc3324e0fdf1e2054a16933ff
         dem_window = dem_window.ravel()
         
         catchments_window = gw_catchments_pixels_object.read(1,window=window).ravel()  # Define catchments_window.
@@ -180,8 +215,11 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_shape
             else:
                 rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
 
+<<<<<<< HEAD
         rem_window = np.where(rem_window < 0, 0, rem_window)
 
+=======
+>>>>>>> d6dc400e39f288dcc3324e0fdf1e2054a16933ff
         return(rem_window)
 
 
