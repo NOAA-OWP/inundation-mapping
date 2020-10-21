@@ -134,29 +134,6 @@ Tstart
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_burned_filled.tif -p $outputHucDataDir/flowdir_d8_burned_filled.tif
 Tcount
 
-## MASK BURNED DEM FOR STREAMS ONLY ###
-echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/flowdir_d8_burned_filled_flows.tif ] && \
-gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/flowdir_d8_burned_filled.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A/B" --outfile="$outputHucDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
-Tcount
-
-## FLOW CONDITION STREAMS ##
-echo -e $startDiv"Flow Condition Thalweg $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
-$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
-Tcount
-
-## D8 SLOPES ##
-echo -e $startDiv"D8 Slopes from DEM $hucNumber"$stopDiv
-date -u
-Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_meters.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
-Tcount
-
 ## DINF FLOW DIR ##
 # echo -e $startDiv"DINF on Filled Thalweg Conditioned DEM"$stopDiv
 # date -u
@@ -177,6 +154,36 @@ echo -e $startDiv"Threshold Accumulations $hucNumber"$stopDiv
 date -u
 Tstart
 $taudemDir/threshold -ssa $outputHucDataDir/flowaccum_d8_burned_filled.tif -src  $outputHucDataDir/demDerived_streamPixels.tif -thresh 1
+Tcount
+
+## Unique stream pixel ids and stream allocation and proximity grids ###
+echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber"$stopDiv
+date -u
+Tstart
+$libDir/unique_pixel_and_allocation.py -s $outputHucDataDir/demDerived_streamPixels.tif -o $outputHucDataDir/demDerived_streamPixels_ids.tif -g $outputHucDataDir/temp_grass
+Tcount
+
+## MASK BURNED DEM FOR STREAMS ONLY ###
+echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
+date -u
+Tstart
+[ ! -f $outputHucDataDir/flowdir_d8_burned_filled_flows.tif ] && \
+gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/flowdir_d8_burned_filled.tif -B $outputHucDataDir/demDerived_streamPixels.tif --calc="A/B" --outfile="$outputHucDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
+Tcount
+
+## FLOW CONDITION STREAMS ##
+echo -e $startDiv"Flow Condition Thalweg $hucNumber"$stopDiv
+date -u
+Tstart
+[ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
+$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
+Tcount
+
+## D8 SLOPES ##
+echo -e $startDiv"D8 Slopes from DEM $hucNumber"$stopDiv
+date -u
+Tstart
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_meters.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
 Tcount
 
 # STREAMNET FOR REACHES ##
