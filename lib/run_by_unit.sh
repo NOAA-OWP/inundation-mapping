@@ -167,9 +167,8 @@ Tcount
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/adjust_thalweg_lateral.py -s $outputHucDataDir/demDerived_streamPixels.tif -a $outputHucDataDir/demDerived_streamPixels_ids_allo.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50
+$libDir/adjust_thalweg_lateral.py -e $outputHucDataDir/dem_meters.tif -s $outputHucDataDir/demDerived_streamPixels.tif -a $outputHucDataDir/demDerived_streamPixels_ids_allo.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50 -o $outputHucDataDir/dem_lateral_thalweg_adj.tif
 Tcount
-
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
