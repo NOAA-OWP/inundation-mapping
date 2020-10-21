@@ -156,12 +156,20 @@ Tstart
 $taudemDir/threshold -ssa $outputHucDataDir/flowaccum_d8_burned_filled.tif -src  $outputHucDataDir/demDerived_streamPixels.tif -thresh 1
 Tcount
 
-## Unique stream pixel ids and stream allocation and proximity grids ###
+## UNIQUE STREAM PIXEL IDS AND STREAM ALLOCATION AND PROXIMITY GRIDS ###
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
 $libDir/unique_pixel_and_allocation.py -s $outputHucDataDir/demDerived_streamPixels.tif -o $outputHucDataDir/demDerived_streamPixels_ids.tif -g $outputHucDataDir/temp_grass
 Tcount
+
+# ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM #
+echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber"$stopDiv
+date -u
+Tstart
+$libDir/adjust_thalweg_lateral.py -s $outputHucDataDir/demDerived_streamPixels.tif -a $outputHucDataDir/demDerived_streamPixels_ids_allo.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50
+Tcount
+
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
