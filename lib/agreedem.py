@@ -65,8 +65,8 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     
     # 3. From Hellweger documentation: Compute the vector distance grids (vectdist and vectallo). The cells in the vector distance grid (vectdist) store the distance to the closest vector cell. The cells in vector allocation grid (vectallo) store the elevation of the closest vector cell.
 
-    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters.
-    vectdist_grid, vectallo_grid = r_grow_distance(smo_output, grass_workspace)
+    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
+    vectdist_grid, vectallo_grid = r_grow_distance(smo_output, grass_workspace, 'Float32', 'Float32')
   
     # 4. From Hellweger documentation: Compute the buffer grid (bufgrid2). The cells in the buffer grid outside the buffer distance (buffer) store the original elevation. The cells in the buffer grid inside the buffer distance have no data.
     
@@ -93,8 +93,8 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
 
     # 5. From Hellweger documentation: Compute the buffer distance grids (bufdist and bufallo). The cells in the buffer distance grid (bufdist) store the distance to the closest valued buffer grid cell (bufgrid2). The cells in buffer allocation grid (bufallo) store the elevation of the closest valued buffer cell.
 
-    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters.
-    bufdist_grid, bufallo_grid = r_grow_distance(buf_output, grass_workspace)
+    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
+    bufdist_grid, bufallo_grid = r_grow_distance(buf_output, grass_workspace, 'Float32', 'Float32')
 
     # Import allocation and proximity grids.
     with rasterio.open(bufdist_grid) as bufdist:
