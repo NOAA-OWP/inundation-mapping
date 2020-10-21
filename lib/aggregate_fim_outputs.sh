@@ -13,19 +13,19 @@ mkdir $fimAggregateOutputsDir
 cd $fimAggregateOutputsDir
 
 # build rem vrt
-gdalbuildvrt -q rem.vrt ../*/rem_clipped_zeroed_masked.tif
+gdalbuildvrt -q rem.vrt ../*/rem_zeroed_masked.tif
 
 # build catchments vrt
-gdalbuildvrt -q catchments.vrt ../*/gw_catchments_reaches_clipped_addedAttributes.tif
+gdalbuildvrt -q catchments.vrt ../*/gw_catchments_reaches_filtered_addedAttributes.tif
 
 # aggregate hydro-table
 i=0 #inialize counter variable
 for f in $(find $outputRunDataDir -type f -name hydroTable.csv); do
     if [ "$i" -gt 0 ];then # aggregate remaining files without header
-        tail -n+2 $f >> $fimAggregateOutputsDir/hydroTable.csv 
+        tail -n+2 $f >> $fimAggregateOutputsDir/hydroTable.csv
     else # copy first file over with header
-        cat $f > $fimAggregateOutputsDir/hydroTable.csv  
-    fi 
+        cat $f > $fimAggregateOutputsDir/hydroTable.csv
+    fi
     ((i=i+1)) #counter variable
 done
 
