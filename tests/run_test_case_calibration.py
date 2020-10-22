@@ -109,7 +109,7 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
                     print("No " + stats_mode + " inclusion area found for " + test_id + ". Moving on with processing...")
 
     # Get contingency table from two rasters.
-    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask_dict=exclusion_mask_dict)
+    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask_dict=exclusion_mask_dict)
 
     stats_dictionary = {}
 
@@ -182,7 +182,7 @@ def run_alpha_test(fim_run_dir, calib_dir, branch_name, test_id, mask_type, retu
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
 
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-    catchment_poly = os.path.join(fim_run_calib, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+    catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
     current_huc = test_id.split('_')[0]
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
     hydro_table = os.path.join(fim_run_calib, 'hydroTable.csv')
@@ -262,7 +262,7 @@ def run_alpha_test(fim_run_dir, calib_dir, branch_name, test_id, mask_type, retu
 
         test_version_dictionary = compute_contingency_stats_from_rasters(predicted_raster_path,
                                                                          benchmark_raster_path,
-                                                                         agreement_raster,
+                                                                         agreement_raster=None,
                                                                          stats_csv=stats_csv,
                                                                          stats_json=stats_json,
                                                                          mask_values=[],

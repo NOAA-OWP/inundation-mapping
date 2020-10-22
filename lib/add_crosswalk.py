@@ -9,7 +9,6 @@ import sys
 
 def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_majorities_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,mannings_n,calibration_mode=False):
 
-    input_catchments = gpd.read_file(input_catchments_fileName)
     input_flows = gpd.read_file(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName)
     input_majorities = gpd.read_file(input_majorities_fileName)
@@ -25,9 +24,11 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
     relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
 
-    if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
-    output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
-    output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
+    if calibration_mode == False:
+        input_catchments = gpd.read_file(input_catchments_fileName)
+        if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+        output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+        output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
     output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
@@ -90,29 +91,33 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_hydro_table.drop(columns='fossid',inplace=True)
     #output_hydro_table['discharge_cms'] = output_hydro_table['discharge_cms'].round(4)
 
-    # make src json
-    output_src_json = dict()
-    hydroID_list = unique(output_src['HydroID'])
+    # write out based on mode
+    if calibration_mode == True:
+        output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
+    else:
+        # make src json
+        output_src_json = dict()
+        hydroID_list = unique(output_src['HydroID'])
 
-    for hid in hydroID_list:
-        indices_of_hid = output_src['HydroID'] == hid
-        stage_list = output_src['Stage'][indices_of_hid].astype(float)
-        q_list = output_src['Discharge (m3s-1)'][indices_of_hid].astype(float)
+        for hid in hydroID_list:
+            indices_of_hid = output_src['HydroID'] == hid
+            stage_list = output_src['Stage'][indices_of_hid].astype(float)
+            q_list = output_src['Discharge (m3s-1)'][indices_of_hid].astype(float)
 
-        stage_list = stage_list.tolist()
-        q_list = q_list.tolist()
+            stage_list = stage_list.tolist()
+            q_list = q_list.tolist()
 
-        output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
+            output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
 
-    # write out
-    output_catchments.to_file(output_catchments_fileName, driver="GPKG",index=False)
-    output_flows.to_file(output_flows_fileName, driver="GPKG", index=False)
-    output_src.to_csv(output_src_fileName,index=False)
-    output_crosswalk.to_csv(output_crosswalk_fileName,index=False)
-    output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
+        # write out
+        output_catchments.to_file(output_catchments_fileName, driver="GPKG",index=False)
+        output_flows.to_file(output_flows_fileName, driver="GPKG", index=False)
+        output_src.to_csv(output_src_fileName,index=False)
+        output_crosswalk.to_csv(output_crosswalk_fileName,index=False)
+        output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
 
-    with open(output_src_json_fileName,'w') as f:
-        json.dump(output_src_json,f,sort_keys=True,indent=2)
+        with open(output_src_json_fileName,'w') as f:
+            json.dump(output_src_json,f,sort_keys=True,indent=2)
 
 if __name__ == '__main__':
 
