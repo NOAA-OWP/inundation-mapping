@@ -6,10 +6,9 @@ import argparse
 from r_grow_distance import r_grow_distance
 
 
-def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buffer_dist, smooth_drop, sharp_drop):
+def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data):
     '''
-    Produces a hydroconditioned raster using the AGREE DEM method.  Method follows workflow documented by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html).
-    This AGREE DEM method requires the calculation of euclidian allocation and euclidian distance rasters. The GRASS gis r.grow.distance tool is used for this.  All linear units assumed to be in meters. Input DEM assumed to be in meters (lateral and vertical). Output distance rasters from r.grow.distance are in meters. Input variables "buffer_dist", "smooth_drop", "sharp_drop" all in meters.
+    Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html). The GRASS gis tool r.grow.distance is used to calculate intermediate allocation and proximity rasters. 
 
     Parameters
     ----------
@@ -29,6 +28,9 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
         Smooth drop distance (in meters). Typically this has been 10m.
     sharp_drop : FLOAT
         Sharp drop distance (in meters). Typically this has been 1000m.
+    delete_intermediate_data: BOOL
+        If True all intermediate data is deleted, if False (default) no intermediate datasets are deleted. 
+
     Returns
     -------
     None.
@@ -61,11 +63,10 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     with rasterio.Env():
         with rasterio.open(smo_output, 'w', **smo_profile) as raster:
             raster.write(smogrid.astype('float32'),1)
-    
-    
+       
     # 3. From Hellweger documentation: Compute the vector distance grids (vectdist and vectallo). The cells in the vector distance grid (vectdist) store the distance to the closest vector cell. The cells in vector allocation grid (vectallo) store the elevation of the closest vector cell.
 
-    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
+    # Compute allocation and proximity grid using GRASS gis r.grow.distance tool. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
     vectdist_grid, vectallo_grid = r_grow_distance(smo_output, grass_workspace, 'Float32', 'Float32')
   
     # 4. From Hellweger documentation: Compute the buffer grid (bufgrid2). The cells in the buffer grid outside the buffer distance (buffer) store the original elevation. The cells in the buffer grid inside the buffer distance have no data.
@@ -79,13 +80,13 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # Define buffer distance and calculate adjustment to comput the bufgrid.
     half_res = elev.res[0]/2 # adjustment equal to half distance of one cell 
     final_buffer = buffer_dist - half_res # all units in assumed to be in meters. 
+
     # Calculate bufgrid. Assign NODATA to areas where vectdist_data <= buffered value.
     bufgrid = np.where(vectdist_data > final_buffer, elev_data, dem_profile['nodata'])
     
     # Define bufgrid properties and export to tif file.
     buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
     buf_profile = dem_profile.copy()
-    #buf_profile.update(nodata = -12345.0) #Only areas within buffer distance will be classified as NODATA.
     buf_profile.update(dtype = 'float32')
     with rasterio.Env():
         with rasterio.open(buf_output, 'w', **buf_profile) as raster:
@@ -93,7 +94,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
 
     # 5. From Hellweger documentation: Compute the buffer distance grids (bufdist and bufallo). The cells in the buffer distance grid (bufdist) store the distance to the closest valued buffer grid cell (bufgrid2). The cells in buffer allocation grid (bufallo) store the elevation of the closest valued buffer cell.
 
-    # Compute allocation and proximity grid using r.grow.distance. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
+    # Compute allocation and proximity grid using GRASS gis r.grow.distance. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
     bufdist_grid, bufallo_grid = r_grow_distance(buf_output, grass_workspace, 'Float32', 'Float32')
 
     # Import allocation and proximity grids.
@@ -126,6 +127,15 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     with rasterio.Env():
         with rasterio.open(agree_output, 'w', **agree_profile) as raster:
             raster.write(agree_dem.astype('float32'),1)
+            
+    # If the '-t' flag is called, intermediate data is removed.
+    if delete_intermediate_data:
+        os.remove(smo_output)
+        os.remove(buf_output)
+        os.remove(vectdist_grid)
+        os.remove(vectallo_grid)
+        os.remove(bufdist_grid)
+        os.remove(bufallo_grid)
         
         
 if __name__ == '__main__':
@@ -140,6 +150,7 @@ if __name__ == '__main__':
     parser.add_argument('-b',  '--buffer', help = 'Buffer distance (m) on either side of channel', required = True)
     parser.add_argument('-sm', '--smooth', help = 'Smooth drop (m)', required = True)
     parser.add_argument('-sh', '---sharp', help = 'Sharp drop (m)', required = True)
+    parser.add_argument('-t',  '--del',  help = 'Optional flag to delete intermediate datasets', action = 'store_true')
 
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -153,6 +164,7 @@ if __name__ == '__main__':
     buffer_dist = float(args['buffer'])
     smooth_drop = float(args['smooth'])
     sharp_drop =  float(args['sharp'])
+    delete_intermediate_data = args['del']
     
     #Run agreedem
-    agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buffer_dist, smooth_drop, sharp_drop)
+    agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data)

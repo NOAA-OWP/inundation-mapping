@@ -109,42 +109,14 @@ Tstart
 [ -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
 gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
 Tcount
-###############################################################################
-## Hydrocondition using Inverse Distance Drainage Enforcement Algorithm*
-## Create Proximity Raster ##
-#date -u
-#echo -e $startDiv"Create proximity raster $hucNumber"$stopDiv
-#date -u
-#Tstart
-#[ ! -f $outputHucDataDir/stream_proximity.tif ] && \
-#gdal_proximity.py $outputHucDataDir/flows_grid_boolean.tif $outputHucDataDir/stream_proximity.tif -srcband 1 -dstband 1 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -ot Float32 -distunits GEO -maxdist 50.0 -nodata 50.0 -quiet
-#Tcount
 
-## Hydrocondition ##
-#echo -e $startDiv"Hydrocondition Elevation Dataset"$stopDiv
-#date -u
-#Tstart
-#[ ! -f $outputHucDataDir/dem_burned.tif ] && \
-#$libDir/hydrocond.py -b $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -p $outputHucDataDir/stream_proximity.tif -sm 2 -sh 1000 -o $outputHucDataDir/dem_burned.tif 
-#Tcount
-############################################################
-#Run AGREE DEM Methodology
-## Hydrocondition ##
-echo -e $startDiv"Calculate AGREE Elevation Dataset using $buffer meter buffer"$stopDiv
+## Create AGREE DEM ##
+echo -e $startDiv"Creating AGREE DEM using $buffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000 
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000 -t 
 Tcount
-###############################################################################
-
-## BURN NEGATIVE ELEVATIONS STREAMS ##
-#echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
-#date -u
-#Tstart
-#[ ! -f $outputHucDataDir/dem_burned.tif ] && \
-#gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A #$outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --#outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
-#Tcount
 
 ## PIT REMOVE BURNED DEM ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber"$stopDiv
