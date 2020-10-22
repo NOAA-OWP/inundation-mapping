@@ -183,14 +183,14 @@ echo -e $startDiv"Flow Condition Thalweg $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
-$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
+$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_lateral_thalweg_adj.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
 Tcount
 
 ## D8 SLOPES ##
 echo -e $startDiv"D8 Slopes from DEM $hucNumber"$stopDiv
 date -u
 Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_meters.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_lateral_thalweg_adj.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
 Tcount
 
 # STREAMNET FOR REACHES ##
