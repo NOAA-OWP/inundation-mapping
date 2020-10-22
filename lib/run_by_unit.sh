@@ -3,6 +3,20 @@
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+echo -e $startDiv"Parameter Values"
+echo -e "extent=$extent"
+echo -e "negativeBurnValue=$negativeBurnValue"
+echo -e "maxSplitDistance_meters=$maxSplitDistance_meters"
+echo -e "mannings_n=$manning_n"
+echo -e "stage_min_meters=$stage_min_meters"
+echo -e "stage_interval_meters=$stage_interval_meters"
+echo -e "stage_max_meters=$stage_max_meters"
+echo -e "slope_min=$slope_min"
+echo -e "ncores_gw=$ncores_gw"
+echo -e "ncores_fd=$ncores_fd"
+echo -e "defaultMaxJobs=$defaultMaxJobs"
+echo -e "memfree=$memfree"$stopDiv
+
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
 outputHucDataDir=$outputRunDataDir/$hucNumber
@@ -195,12 +209,39 @@ Tstart
 $libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg  $outputHucDataDir/nwm_lakes_proj_subset.gpkg
 Tcount
 
+if [ "$extent" = "MS" ]; then
+  ## TRIM MS NETWORK ##
+  echo -e $startDiv"Trim Stream Network to AHPs sites $hucNumber"$stopDiv
+  date -u
+  Tstart
+  ahp_sites=$inputDataDir/ahp_sites/ahps_sites.gpkg
+  $libDir/fr_to_ms_conversion.py $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $ahp_sites $outputHucDataDir/demDerived_reaches_splitMS.gpkg $outputHucDataDir/demDerived_reaches_split_pointsMS.gpkg $outputHucDataDir/flowdir_d8_burned_filled.tif $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/flowdir_d8_MS.tif $outputHucDataDir/dem_thalwegCond_MS.tif $outputHucDataDir/slopes_d8_dem_metersMS.tif $outputHucDataDir/wbd.gpkg 7000
+  Tcount
+
+  if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
+    echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
+    exit
+  fi
+
+  dem_thalwegCond=$outputHucDataDir/dem_thalwegCond_MS.tif
+  demDerived_reaches_split=$outputHucDataDir/demDerived_reaches_splitMS.gpkg
+  demDerived_reaches_split_points=$outputHucDataDir/demDerived_reaches_split_pointsMS.gpkg
+  slopes_d8_dem_meters=$outputHucDataDir/slopes_d8_dem_metersMS.tif
+  flowdir_d8_burned_filled=$outputHucDataDir/flowdir_d8_MS.tif
+else
+  dem_thalwegCond=$outputHucDataDir/dem_thalwegCond.tif
+  demDerived_reaches_split=$outputHucDataDir/demDerived_reaches_split.gpkg
+  demDerived_reaches_split_points=$outputHucDataDir/demDerived_reaches_split_points.gpkg
+  slopes_d8_dem_meters=$outputHucDataDir/slopes_d8_dem_meters.tif
+  flowdir_d8_burned_filled=$outputHucDataDir/flowdir_d8_burned_filled.tif
+fi
+
 ## GAGE WATERSHED FOR REACHES ##
 echo -e $startDiv"Gage Watershed for Reaches $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputHucDataDir/flowdir_d8_burned_filled.tif -gw $outputHucDataDir/gw_catchments_reaches.tif -o $outputHucDataDir/demDerived_reaches_split_points.gpkg -id $outputHucDataDir/idFile.txt
+mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputHucDataDir/gw_catchments_reaches.tif -o $demDerived_reaches_split_points -id $outputHucDataDir/idFile.txt
 Tcount
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
@@ -216,7 +257,7 @@ echo -e $startDiv"Gage Watershed for Pixels $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_pixels.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputHucDataDir/flowdir_d8_burned_filled.tif -gw $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/flows_points_pixels.gpkg -id $outputHucDataDir/idFile.txt
+mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/flows_points_pixels.gpkg -id $outputHucDataDir/idFile.txt
 Tcount
 
 # D8 REM ##
@@ -224,7 +265,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif
+$libDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif
 Tcount
 
 ## DINF DISTANCE DOWN ##
@@ -256,7 +297,7 @@ echo -e $startDiv"Process catchments and model streams step 1 $hucNumber"$stopDi
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ] && \
-$libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
+$libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches.gpkg $demDerived_reaches_split $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
 Tcount
 
 ## GET RASTER METADATA ##
@@ -279,7 +320,7 @@ echo -e $startDiv"Masking Slope Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/slopes_d8_dem_meters_masked.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/slopes_d8_dem_meters.tif -B $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputHucDataDir/"slopes_d8_dem_meters_masked.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $slopes_d8_dem_meters -B $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*-1)" --NoDataValue=-1 --outfile=$outputHucDataDir/"slopes_d8_dem_meters_masked.tif"
 Tcount
 
 ## MASK REM RASTER ##
