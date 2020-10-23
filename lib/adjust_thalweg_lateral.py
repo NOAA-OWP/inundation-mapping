@@ -109,6 +109,13 @@ def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster,
 
         dem_lateral_thalweg_adj_object.write(minimized_dem_window, window=window, indexes=1)    
     
+    elevation_raster_object.close()
+    allocation_zone_raster_object.close()
+    cost_distance_raster_object.close()
+    
+    # Delete allocation_raster and distance_raster.
+    
+    
     
 if __name__ == '__main__':
     
