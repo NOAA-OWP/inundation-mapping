@@ -37,9 +37,9 @@ def aggregate_metrics(config="DEV", branch_list="", hucs="", special_string="", 
 
         test_cases_dir_list = os.listdir(TEST_CASES_DIR)
 
-        true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count = 0, 0, 0, 0, 0, 0
 
         for return_interval in ['100yr', '500yr']:
+            true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count = 0, 0, 0, 0, 0, 0
             huc_path_list = [['huc', 'path']]
             for test_case in test_cases_dir_list:
 
@@ -74,7 +74,7 @@ def aggregate_metrics(config="DEV", branch_list="", hucs="", special_string="", 
 
             for stat in stats_dict:
                 list_to_write.append([stat, stats_dict[stat]])
-                
+
             # Map path to output directory for aggregate metrics.
             output_file = os.path.join(aggregate_output_dir, branch + '_aggregate_metrics_' + return_interval + special_string + '.csv')
 

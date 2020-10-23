@@ -69,7 +69,7 @@ if (len(unsnapped_pts) > 0) or (len(incoming_points) > 0):
     if (len(incoming_points) > 0) and (len(unsnapped_pts) > 0):
         snapped_points = snapped_points.append(incoming_points).reset_index(drop=True)
     elif len(incoming_points) > 0:
-        snapped_points = incoming_points.copy().reset_index(drop=True)
+        snapped_points = incoming_points.copy()
 
     # get HydroID of stream segment that intersects with forecasting point
     print ("Tracing MS network from FR streams using AHPS points as starting points")
@@ -87,7 +87,6 @@ if (len(unsnapped_pts) > 0) or (len(incoming_points) > 0):
     downIDlist = []
 
     print ('Building MS network from {} forcasting points'.format(len(MSHydroIDs_list)))
-
     for startID in MSHydroIDs_list:
         terminalID = downstreamnetwork.set_index('HydroID').loc[startID][0]
         downIDlist.append(startID)
@@ -96,13 +95,11 @@ if (len(unsnapped_pts) > 0) or (len(incoming_points) > 0):
             terminalID = downstreamnetwork.set_index('HydroID').loc[terminalID][0]
 
     print ('Removing duplicate HydroIDs')
-
     uniqueHydroIDs = set(downIDlist)
     MSsplit_flows_gdf = split_flows[split_flows['HydroID'].isin(uniqueHydroIDs)]
     MSsplit_points_gdf = split_points[split_points['id'].isin(uniqueHydroIDs)]
 
     print('Writing vector outputs ...')
-
     if os.path.isfile(MSsplit_flows_fileName):
         os.remove(MSsplit_flows_fileName)
 

@@ -298,6 +298,13 @@ date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ] && \
 $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches.gpkg $demDerived_reaches_split $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
+
+if [ "$extent" = "MS" ]; then
+  if [[ ! -f $outputHucDataDir/demDerived_reaches_split_filtered.gpkg ]] ; then
+    echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
+    exit
+  fi
+fi
 Tcount
 
 ## GET RASTER METADATA ##
@@ -359,5 +366,5 @@ echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
-$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/src_base.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv $outputHucDataDir/hydroTable.csv $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_subset_streams.gpkg $manning_n
+$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/src_base.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv $outputHucDataDir/hydroTable.csv $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_subset_streams.gpkg $manning_n $input_NWM_Catchments
 Tcount
