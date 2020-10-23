@@ -156,14 +156,14 @@ Tstart
 $taudemDir/threshold -ssa $outputHucDataDir/flowaccum_d8_burned_filled.tif -src  $outputHucDataDir/demDerived_streamPixels.tif -thresh 1
 Tcount
 
-## UNIQUE STREAM PIXEL IDS AND STREAM ALLOCATION AND PROXIMITY GRIDS ###
+## UNIQUE STREAM PIXEL IDS AND STREAM ALLOCATION AND PROXIMITY GRIDS ##
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
 $libDir/unique_pixel_and_allocation.py -s $outputHucDataDir/demDerived_streamPixels.tif -o $outputHucDataDir/demDerived_streamPixels_ids.tif -g $outputHucDataDir/temp_grass
 Tcount
 
-# ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM #
+## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
@@ -238,7 +238,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -ts $outputHucDataDir/demDerived_reaches.shp -tr $outputHucDataDir/flows_grid_boolean.tif
+$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50
 Tcount
 
 ## DINF DISTANCE DOWN ##

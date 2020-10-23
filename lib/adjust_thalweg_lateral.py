@@ -6,7 +6,6 @@ from numba import njit, typeof, typed, types
 import rasterio
 import numpy as np
 
-test_zone = 39251045
 
 def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster, cost_distance_raster, cost_distance_tolerance, dem_lateral_thalweg_adj):
     
