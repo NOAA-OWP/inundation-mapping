@@ -59,6 +59,8 @@ pipenv lock
 
 and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image installs the environment from the lock file.
 
+If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
+
 
 ## Known Issues & Getting Help
 
