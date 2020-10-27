@@ -156,7 +156,8 @@ Tstart
 $taudemDir/threshold -ssa $outputHucDataDir/flowaccum_d8_burned_filled.tif -src  $outputHucDataDir/demDerived_streamPixels.tif -thresh 1
 Tcount
 
-## UNIQUE STREAM PIXEL IDS AND STREAM ALLOCATION AND PROXIMITY GRIDS ###
+## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
+>>>>>>> dev-rem-preprocessing
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
