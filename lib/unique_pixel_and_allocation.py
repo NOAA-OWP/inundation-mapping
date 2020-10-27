@@ -36,10 +36,10 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace):
         streams_profile = temp.profile
         streams = temp.read(1)  
     
-    # Create array that matches shape of streams raster with unique values for each cell.
+    # Create array that matches shape of streams raster with unique values for each cell. Dataype is float64.
     unique_vals = np.arange(streams.size, dtype = 'float64').reshape(*streams.shape)
 
-    # At streams return the unique array value otherwise return -1 (this will be the nodata value)
+    # At streams return the unique array value otherwise return NODATA value from input streams layer. NODATA value for demDerived_streamPixels.tif is -32768.
     stream_pixel_values = np.where(streams == 1, unique_vals, streams_profile['nodata'])
     
     # Reassign dtype to be float64 (needs to be float64)
