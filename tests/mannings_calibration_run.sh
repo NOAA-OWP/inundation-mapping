@@ -2,24 +2,23 @@
 :
 usage ()
 {
-    echo 'Produce FIM datasets'
-    echo 'Usage : fim_run.sh [REQ: -d <inputdir> -o <outputdir> -n <paramfile>] [OPT: -h]'
+    echo "Calibrate FIM based on Manning's n values"
+    echo 'Usage : fim_run.sh [REQ: -d <fimdir> -t <huclist> -g <outdir> -n <paramfile>] [OPT: -h]'
     echo ''
     echo 'REQUIRED:'
-    echo '  -d/--indir    : initial run directory with default mannings values'
+    echo '  -d/--fimdir    : initial run directory with default mannings values'
     echo '  -t/--huclist    : huc or list of hucs'
-    echo '  -g/--outdir     : directory for output mannings parameter adjustment runs'
+    echo '  -g/--outdir     : output directory for mannings parameter adjustment files'
     echo '  -n/--paramfile    : parameter set file'
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : help file'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
-    echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     exit
 }
 
-if [ "$#" -lt 8 ]
+if [ "$#" -lt 7 ]
 then
   usage
 fi
@@ -27,9 +26,9 @@ fi
 while [ "$1" != "" ]; do
 case $1
 in
-    -d|--indir)
+    -d|--fimdir)
         shift
-        indir="$1"
+        fimdir="$1"
         ;;
     -t|--huclist )
         shift
@@ -60,7 +59,7 @@ in
 done
 
 # print usage if arguments empty
-if [ "$indir" = "" ]
+if [ "$fimdir" = "" ]
 then
     usage
 fi
@@ -76,8 +75,8 @@ export testdir="/foss_fim/tests"
 while read huc; do
 
   export huc=$huc
-  export indir=$indir
-  export hucdir="/data/outputs/"$indir/$huc
+  export fimdir=$fimdir
+  export hucdir="/data/outputs/"$fimdir/$huc
 
   ## RUN ##
   if [ -f "$paramfile" ]; then

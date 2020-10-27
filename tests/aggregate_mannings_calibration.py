@@ -72,7 +72,7 @@ def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file)
 
     print ('Writing optimal mannings parameter set')
 
-    dictionary = {}
+    manning_dict = {}
     list_to_write_pd = pd.read_csv(output_file)
     for stream_order in list_to_write_pd.stream_order.unique():
         interval_100 = list_to_write_pd.loc[(list_to_write_pd['stream_order']==stream_order) & (list_to_write_pd['metric']=='CSI') & (list_to_write_pd['return_interval']=='100yr'), 'value'].max()
@@ -81,15 +81,25 @@ def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file)
         mannings_500yr = list_to_write_pd.loc[(list_to_write_pd['stream_order']==stream_order) & (list_to_write_pd['metric']=='CSI') & (list_to_write_pd['return_interval']=='500yr') & (list_to_write_pd['value']==interval_500), 'mannings_value']
         if (len(mannings_100yr)==1) & (len(mannings_500yr)==1):
             if mannings_100yr.iloc[0] == mannings_500yr.iloc[0]:
-                dictionary[str(stream_order)] = mannings_100yr.iloc[0]
+                manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
             else:
                 print ('100yr and 500yr optimal mannings vary by ' + str(round(abs(mannings_100yr.iloc[0] - mannings_500yr.iloc[0]),2)))
                 print ('Selecting optimal mannings n for 100yr event')
-                dictionary[str(stream_order)] = mannings_100yr.iloc[0]
+                manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
+        elif (len(mannings_100yr)>1) or (len(mannings_500yr)>1):
+            print ('multiple values achieve optimal results')
+            print ('Selecting optimal mannings n for 100yr event')
+            manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
+
+
+    for n in range(1,15):
+        if str(n) not in manning_dict:
+            manning_dict[str(n)] = 0.06
+
     mannings_json = os.path.join(outfolder,'mannings_template.json')
 
     with open(mannings_json, "w") as outfile:
-        json.dump(dictionary, outfile)
+        json.dump(manning_dict, outfile)
 
 if __name__ == '__main__':
 
