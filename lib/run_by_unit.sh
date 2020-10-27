@@ -157,20 +157,18 @@ $taudemDir/threshold -ssa $outputHucDataDir/flowaccum_d8_burned_filled.tif -src 
 Tcount
 
 ## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
->>>>>>> dev-rem-preprocessing
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
 $libDir/unique_pixel_and_allocation.py -s $outputHucDataDir/demDerived_streamPixels.tif -o $outputHucDataDir/demDerived_streamPixels_ids.tif -g $outputHucDataDir/temp_grass
 Tcount
 
-# ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM #
+## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/adjust_thalweg_lateral.py -s $outputHucDataDir/demDerived_streamPixels.tif -a $outputHucDataDir/demDerived_streamPixels_ids_allo.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50
+$libDir/adjust_thalweg_lateral.py -e $outputHucDataDir/dem_meters.tif -s $outputHucDataDir/demDerived_streamPixels.tif -a $outputHucDataDir/demDerived_streamPixels_ids_allo.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50 -o $outputHucDataDir/dem_lateral_thalweg_adj.tif
 Tcount
-
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber"$stopDiv
@@ -185,14 +183,14 @@ echo -e $startDiv"Flow Condition Thalweg $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_thalwegCond.tif ] && \
-$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_meters.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
+$taudemDir/flowdircond -p $outputHucDataDir/flowdir_d8_burned_filled_flows.tif -z $outputHucDataDir/dem_lateral_thalweg_adj.tif -zfdc $outputHucDataDir/dem_thalwegCond.tif
 Tcount
 
 ## D8 SLOPES ##
 echo -e $startDiv"D8 Slopes from DEM $hucNumber"$stopDiv
 date -u
 Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_meters.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputHucDataDir/dem_lateral_thalweg_adj.tif -sd8 $outputHucDataDir/slopes_d8_dem_meters.tif
 Tcount
 
 # STREAMNET FOR REACHES ##
@@ -240,7 +238,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -ts $outputHucDataDir/demDerived_reaches.shp -tr $outputHucDataDir/flows_grid_boolean.tif
+$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50
 Tcount
 
 ## DINF DISTANCE DOWN ##
