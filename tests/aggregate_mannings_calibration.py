@@ -8,7 +8,7 @@ import json
 import argparse
 
 
-def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file):
+def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file, mannings_json):
 
     outfolder = os.path.dirname(summary_file)
     aggregate_output_dir = os.path.join(outfolder, 'aggregate_metrics')
@@ -83,11 +83,11 @@ def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file)
             if mannings_100yr.iloc[0] == mannings_500yr.iloc[0]:
                 manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
             else:
-                print ('100yr and 500yr optimal mannings vary by ' + str(round(abs(mannings_100yr.iloc[0] - mannings_500yr.iloc[0]),2)))
+                print ('100yr and 500yr optimal mannings vary by ' + str(round(abs(mannings_100yr.iloc[0] - mannings_500yr.iloc[0]),2)) + " for stream order " + str(stream_order))
                 print ('Selecting optimal mannings n for 100yr event')
                 manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
         elif (len(mannings_100yr)>1) or (len(mannings_500yr)>1):
-            print ('multiple values achieve optimal results')
+            print ('multiple values achieve optimal results '  + " for stream order " + str(stream_order))
             print ('Selecting optimal mannings n for 100yr event')
             manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
 
@@ -95,8 +95,6 @@ def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file)
     for n in range(1,15):
         if str(n) not in manning_dict:
             manning_dict[str(n)] = 0.06
-
-    mannings_json = '/foss_fim/config/mannings_calibrated.json'
 
     with open(mannings_json, "w") as outfile:
         json.dump(manning_dict, outfile)
@@ -107,11 +105,13 @@ if __name__ == '__main__':
     parser.add_argument('-l','--huc-list-path', help='csv list of HUCs to aggregate', required=True)
     parser.add_argument('-c','--calibration-stat-folder', help='eval stat column name', required=True)
     parser.add_argument('-f','--summary-file', help='output file with aggregate mannings calibration stats', required=True)
+    parser.add_argument('-e','--mannings-json', help='file path for optimal mannings n parameter set json', required=False,default="/foss_fim/config/mannings_calibrated.json")
 
     args = vars(parser.parse_args())
 
     huc_list_path = args['huc_list_path']
     calibration_stat_folder = args['calibration_stat_folder']
     summary_file = args['summary_file']
+    mannings_json = args['mannings_json']
 
-    aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file)
+    aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file,mannings_json)

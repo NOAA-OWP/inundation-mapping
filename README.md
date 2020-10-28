@@ -22,7 +22,7 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 - params_template.env
 - mannings_default.json
     - must change filepath in params_template.env under "manning_n" variable name
-  - params_calibrated.env
+- params_calibrated.env
     - runs calibrated mannings parameters from mannings_calibrated.json
 
 ## Usage
