@@ -12,6 +12,7 @@ echo -e "stage_min_meters=$stage_min_meters"
 echo -e "stage_interval_meters=$stage_interval_meters"
 echo -e "stage_max_meters=$stage_max_meters"
 echo -e "slope_min=$slope_min"
+echo -e "ms_buffer_dist=$ms_buffer_dist"
 echo -e "ncores_gw=$ncores_gw"
 echo -e "ncores_fd=$ncores_fd"
 echo -e "defaultMaxJobs=$defaultMaxJobs"
@@ -221,7 +222,7 @@ if [ "$extent" = "MS" ]; then
   echo -e $startDiv"Mask Rasters with Stream Buffer $hucNumber"$stopDiv
   date -u
   Tstart
-  $libDir/fr_to_ms_raster_mask.py $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/flowdir_d8_burned_filled.tif $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/flowdir_d8_MS.tif $outputHucDataDir/dem_thalwegCond_MS.tif $outputHucDataDir/slopes_d8_dem_metersMS.tif 7000
+  $libDir/fr_to_ms_raster_mask.py $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/flowdir_d8_burned_filled.tif $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/flowdir_d8_MS.tif $outputHucDataDir/dem_thalwegCond_MS.tif $outputHucDataDir/slopes_d8_dem_metersMS.tif $ms_buffer_dist
   Tcount
 
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
