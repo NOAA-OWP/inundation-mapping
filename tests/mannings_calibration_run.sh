@@ -72,24 +72,51 @@ fi
 export outdir=$outdir
 export testdir="/foss_fim/tests"
 
-while read huc; do
+if [ -f "$huclist" ]; then
 
-  export huc=$huc
-  export fimdir=$fimdir
-  export hucdir="/data/outputs/"$fimdir/$huc
+  while read huc; do
 
-  ## RUN ##
-  if [ -f "$paramfile" ]; then
-      if [ "$jobLimit" -eq 1 ]; then
-          parallel --verbose --lb  -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
-      else
-          parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
-      fi
-  else
-      if [ "$jobLimit" -eq 1 ]; then
-          parallel --verbose --lb -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
-      else
-          parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
-      fi
-  fi
-done <$huclist
+    export huc=$huc
+    export fimdir=$fimdir
+    export hucdir="/data/outputs/"$fimdir/$huc
+
+    ## RUN ##
+    if [ -f "$paramfile" ]; then
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb  -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
+        else
+            parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
+        fi
+    else
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
+        else
+            parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
+        fi
+    fi
+  done <$huclist
+
+else
+
+  for huc in $huclist
+  do
+    export huc=$huc
+    export fimdir=$fimdir
+    export hucdir="/data/outputs/"$fimdir/$huc
+
+    ## RUN ##
+    if [ -f "$paramfile" ]; then
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb  -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
+        else
+            parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh :::: $paramfile
+        fi
+    else
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
+        else
+            parallel --eta -j $jobLimit -- $testdir/time_and_tee_mannings_calibration.sh ::: $paramfile
+        fi
+    fi
+  done
+fi
