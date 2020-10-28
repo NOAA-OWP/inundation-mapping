@@ -96,7 +96,7 @@ def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file)
         if str(n) not in manning_dict:
             manning_dict[str(n)] = 0.06
 
-    mannings_json = os.path.join(outfolder,'mannings_template.json')
+    mannings_json = '/foss_fim/config/mannings_calibrated.json'
 
     with open(mannings_json, "w") as outfile:
         json.dump(manning_dict, outfile)
