@@ -21,54 +21,66 @@ input_huc_fileName = sys.argv[11]
 input_nwmflows_fileName = sys.argv[12]
 mannings_json = sys.argv[13]
 input_nwmcat_fileName = sys.argv[14]
+extent = sys.argv[15]
 
 input_catchments = gpd.read_file(input_catchments_fileName)
 input_flows = gpd.read_file(input_flows_fileName)
 input_huc = gpd.read_file(input_huc_fileName)
-# input_majorities = gpd.read_file(input_majorities_fileName) #
 input_nwmflows = gpd.read_file(input_nwmflows_fileName)
 
-# input_majorities = input_majorities.rename(columns={'_majority' : 'feature_id'}) #
-# input_majorities = input_majorities[:][input_majorities['feature_id'].notna()] #
-# if input_majorities.feature_id.dtype != 'int': input_majorities.feature_id = input_majorities.feature_id.astype(int) #
-# if input_majorities.HydroID.dtype != 'int': input_majorities.HydroID = input_majorities.HydroID.astype(int) #
+if extent == 'FR':
+    # crosswalk using majority catchment method
+    input_majorities = gpd.read_file(input_majorities_fileName)
+    input_majorities = input_majorities.rename(columns={'_majority' : 'feature_id'})
+    input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
+    if input_majorities.feature_id.dtype != 'int': input_majorities.feature_id = input_majorities.feature_id.astype(int)
+    if input_majorities.HydroID.dtype != 'int': input_majorities.HydroID = input_majorities.HydroID.astype(int)
 
-input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
-input_nwmcat = input_nwmcat.rename(columns={'ID':'feature_id'})
-if input_nwmcat.feature_id.dtype != 'int': input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
-input_nwmcat=input_nwmcat.set_index('feature_id')
+    input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
+    if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+    relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
+    relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_']) #
 
-input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
-if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
-# relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])] #
-# relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_']) #
+    if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+    output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+    output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
-# Get stream midpoint
-stream_midpoint = []
-hydroID = []
-for i,lineString in enumerate(input_flows.geometry):
-    hydroID = hydroID + [input_flows.loc[i,'HydroID']]
-    stream_midpoint = stream_midpoint + [lineString.interpolate(0.05,normalized=True)]
+    if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+    output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+    if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
+    output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
-input_flows_midpoint = gpd.GeoDataFrame({'HydroID':hydroID, 'geometry':stream_midpoint}, crs=input_flows.crs, geometry='geometry')
-input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
-# input_flows_centroid = gpd.GeoDataFrame({'geometry':input_flows.set_index('HydroID').geometry.centroid}, crs=input_flows.crs, geometry='geometry')
-# Create crosswalk
-crosswalk = gpd.sjoin(input_flows_midpoint, input_nwmcat, how='left', op='within').reset_index()
-crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
-crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
-crosswalk = crosswalk.merge(input_nwmflows[['feature_id','order_']],on='feature_id')
+elif extent == 'MS':
+    # crosswalk using stream segment midpoint method
+    input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
+    input_nwmcat = input_nwmcat.rename(columns={'ID':'feature_id'})
+    if input_nwmcat.feature_id.dtype != 'int': input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
+    input_nwmcat=input_nwmcat.set_index('feature_id')
 
-if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
-# output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID') #
-output_catchments = input_catchments.merge(crosswalk,on='HydroID')
-# output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id') #
+    input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
+    if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
 
-if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
-# output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID') #
-# if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int) #
-# output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id') #
-output_flows = input_flows.merge(crosswalk,on='HydroID')
+    # Get stream midpoint
+    stream_midpoint = []
+    hydroID = []
+    for i,lineString in enumerate(input_flows.geometry):
+        hydroID = hydroID + [input_flows.loc[i,'HydroID']]
+        stream_midpoint = stream_midpoint + [lineString.interpolate(0.05,normalized=True)]
+
+    input_flows_midpoint = gpd.GeoDataFrame({'HydroID':hydroID, 'geometry':stream_midpoint}, crs=input_flows.crs, geometry='geometry')
+    input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
+
+    # Create crosswalk
+    crosswalk = gpd.sjoin(input_flows_midpoint, input_nwmcat, how='left', op='within').reset_index()
+    crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
+    crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
+    crosswalk = crosswalk.merge(input_nwmflows[['feature_id','order_']],on='feature_id')
+
+    if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+    output_catchments = input_catchments.merge(crosswalk,on='HydroID')
+
+    if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+    output_flows = input_flows.merge(crosswalk,on='HydroID')
 
 # read in manning's n values
 with open(mannings_json, "r") as read_file:
@@ -96,11 +108,13 @@ pow(input_src_base['SLOPE'],0.5)/input_src_base['ManningN']
 # set nans to 0
 input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
 
-# output_src = input_src.rename(columns={'CatchId':'HydroID'})
 output_src = input_src_base.drop(columns=['CatchId'])
 if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
-# output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID') #
-output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
+
+if extent == 'FR':
+    output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+elif extent == 'MS':
+    output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
 
 output_crosswalk = output_src[['HydroID','feature_id']]
 output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
@@ -119,7 +133,7 @@ output_hydro_table = output_hydro_table.merge(input_flows.loc[:,['HydroID','Lake
 output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
 output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
 output_hydro_table.drop(columns='fossid',inplace=True)
-#output_hydro_table['discharge_cms'] = output_hydro_table['discharge_cms'].round(4)
+if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
 
 # make src json
 output_src_json = dict()
