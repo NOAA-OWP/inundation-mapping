@@ -3,6 +3,20 @@
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+# Parameter values
+echo -e $startDiv"Parameter Values"
+echo -e "negativeBurnValue=$negativeBurnValue"
+echo -e "maxSplitDistance_meters=$maxSplitDistance_meters"
+echo -e "manning_n=$manning_n"
+echo -e "stage_min_meters=$stage_min_meters"
+echo -e "stage_interval_meters=$stage_interval_meters"
+echo -e "stage_max_meters=$stage_max_meters"
+echo -e "slope_min=$slope_min"
+echo -e "ncores_gw=$ncores_gw"
+echo -e "ncores_fd=$ncores_fd"
+echo -e "defaultMaxJobs=$defaultMaxJobs"
+echo -e "memfree=$memfree"$stopDiv
+
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
 outputHucDataDir=$outputRunDataDir/$hucNumber
@@ -110,12 +124,15 @@ Tstart
 gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
 Tcount
 
-## BURN NEGATIVE ELEVATIONS STREAMS ##
-echo -e $startDiv"Drop thalweg elevations by "$negativeBurnValue" units $hucNumber"$stopDiv
+## DEM Reconditioning ##
+# Using AGREE methodology, hydroenforce the DEM so that it is consistent
+# with the supplied stream network. This allows for more realistic catchment 
+# delineation which is ultimately reflected in the output FIM mapping. 
+echo -e $startDiv"Creating AGREE DEM using $buffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/flows_grid_boolean.tif --calc="A-$negativeBurnValue*B" --outfile="$outputHucDataDir/dem_burned.tif" --NoDataValue=$ndv
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000 -t 
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
@@ -332,5 +349,5 @@ echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
-$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/src_base.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv $outputHucDataDir/hydroTable.csv $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_subset_streams.gpkg $manning_n
+$libDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -u $outputHucDataDir/majority.geojson -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -m $manning_n
 Tcount

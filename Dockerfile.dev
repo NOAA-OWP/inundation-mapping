@@ -70,8 +70,13 @@ ENV GN=$GroupName
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
+
 RUN apt update --fix-missing
-RUN apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1
+RUN apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1
+
+COPY install_grass.exp .
+RUN ./install_grass.exp
+
 RUN apt auto-remove
 
 ## adding environment variables for numba and python ##
@@ -83,8 +88,9 @@ ENV PYTHONUNBUFFERED=TRUE
 ENV PATH="$projectDir:${PATH}"
 
 ## install python 3 modules ##
-COPY requirements.txt .
-RUN pip3 install --no-binary shapely --no-binary pygeos -r requirements.txt --no-cache-dir
+COPY Pipfile .
+COPY Pipfile.lock .
+RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./lib/entrypoint.sh /
