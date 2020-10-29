@@ -124,7 +124,10 @@ Tstart
 gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
 Tcount
 
-## Create AGREE DEM ##
+## DEM Reconditioning ##
+# Using AGREE methodology, hydroenforce the DEM so that it is consistent
+# with the supplied stream network. This allows for more realistic catchment 
+# delineation which is ultimately reflected in the output FIM mapping. 
 echo -e $startDiv"Creating AGREE DEM using $buffer meter buffer"$stopDiv
 date -u
 Tstart

@@ -143,7 +143,7 @@ if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Calculate AGREE DEM')
     parser.add_argument('-r', '--rivers', help = 'flows grid boolean layer', required = True)
-    parser.add_argument('-d', '--dem_cm',  help = 'DEM raster in cm', required = True)
+    parser.add_argument('-d', '--dem_m',  help = 'DEM raster in meters', required = True)
     parser.add_argument('-w', '--workspace', help = 'Workspace', required = True)
     parser.add_argument('-g', '--grass_workspace', help = 'Temporary GRASS workspace', required = True)
     parser.add_argument('-o',  '--output', help = 'Path to output raster', required = True)
@@ -157,7 +157,7 @@ if __name__ == '__main__':
 
     # rename variable inputs
     rivers_raster = args['rivers']
-    dem = args['dem_cm']
+    dem = args['dem_m']
     workspace = args['workspace']
     grass_workspace = args['grass_workspace']
     output_raster = args['output']
