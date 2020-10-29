@@ -3,6 +3,20 @@
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+# Parameter values
+echo -e $startDiv"Parameter Values"
+echo -e "negativeBurnValue=$negativeBurnValue"
+echo -e "maxSplitDistance_meters=$maxSplitDistance_meters"
+echo -e "manning_n=$manning_n"
+echo -e "stage_min_meters=$stage_min_meters"
+echo -e "stage_interval_meters=$stage_interval_meters"
+echo -e "stage_max_meters=$stage_max_meters"
+echo -e "slope_min=$slope_min"
+echo -e "ncores_gw=$ncores_gw"
+echo -e "ncores_fd=$ncores_fd"
+echo -e "defaultMaxJobs=$defaultMaxJobs"
+echo -e "memfree=$memfree"$stopDiv
+
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
 outputHucDataDir=$outputRunDataDir/$hucNumber
@@ -318,5 +332,5 @@ echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
-$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/src_base.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv $outputHucDataDir/hydroTable.csv $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_subset_streams.gpkg $manning_n
+$libDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -u $outputHucDataDir/majority.geojson -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -m $manning_n
 Tcount
