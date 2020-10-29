@@ -36,7 +36,11 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     None.
 
     '''
-    # 1. From Hellweger documentation: Compute the vector grid (vectgrid). The cells in the vector grid corresponding to the lines in the vector coverage have data. All other cells have no data.
+    #------------------------------------------------------------------
+    # 1. From Hellweger documentation: Compute the vector grid 
+    # (vectgrid). The cells in the vector grid corresponding to the 
+    # lines in the vector coverage have data. All other cells have no 
+    # data.
   
     #Import dem layer and get profile as well as mask.
     with rasterio.open(dem) as elev:
@@ -44,12 +48,18 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
         elev_data = elev.read(1)
         elev_mask = elev.read_masks(1).astype('bool')
 
-    # Import boolean river raster and apply same NODATA mask as dem layer. In case rivers extend beyond valid data regions of DEM.
+    # Import boolean river raster and apply same NODATA mask as dem 
+    # layer. In case rivers extend beyond valid data regions of DEM.
     with rasterio.open(rivers_raster) as rivers:
         river_raw_data = rivers.read(1)
         river_data = np.where(elev_mask == True, river_raw_data, 0)
-        
-    # 2. From Hellweger documentation: Compute the smooth drop/raise grid (smogrid). The cells in the smooth drop/raise grid corresponding to the vector lines have an elevation equal to that of the original DEM (oelevgrid) plus a certain distance (smoothdist). All other cells have no data.
+    
+    #------------------------------------------------------------------    
+    # 2. From Hellweger documentation: Compute the smooth drop/raise 
+    # grid (smogrid). The cells in the smooth drop/raise grid 
+    # corresponding to the vector lines have an elevation equal to that
+    # of the original DEM (oelevgrid) plus a certain distance 
+    # (smoothdist). All other cells have no data.
 
     # Assign smooth distance and calculate the smogrid.
     smooth_dist = -1 * smooth_drop # in meters.
@@ -63,13 +73,24 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     with rasterio.Env():
         with rasterio.open(smo_output, 'w', **smo_profile) as raster:
             raster.write(smogrid.astype('float32'),1)
-       
-    # 3. From Hellweger documentation: Compute the vector distance grids (vectdist and vectallo). The cells in the vector distance grid (vectdist) store the distance to the closest vector cell. The cells in vector allocation grid (vectallo) store the elevation of the closest vector cell.
+    
+    #------------------------------------------------------------------   
+    # 3. From Hellweger documentation: Compute the vector distance grids
+    # (vectdist and vectallo). The cells in the vector distance grid 
+    # (vectdist) store the distance to the closest vector cell. The 
+    # cells in vector allocation grid (vectallo) store the elevation of 
+    # the closest vector cell.
 
-    # Compute allocation and proximity grid using GRASS gis r.grow.distance tool. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
+    # Compute allocation and proximity grid using GRASS gis 
+    # r.grow.distance tool. Output distance grid in meters. Set datatype
+    # for output allocation and proximity grids to float32.
     vectdist_grid, vectallo_grid = r_grow_distance(smo_output, grass_workspace, 'Float32', 'Float32')
-  
-    # 4. From Hellweger documentation: Compute the buffer grid (bufgrid2). The cells in the buffer grid outside the buffer distance (buffer) store the original elevation. The cells in the buffer grid inside the buffer distance have no data.
+    
+    #------------------------------------------------------------------  
+    # 4. From Hellweger documentation: Compute the buffer grid 
+    # (bufgrid2). The cells in the buffer grid outside the buffer 
+    # distance (buffer) store the original elevation. The cells in the
+    # buffer grid inside the buffer distance have no data.
     
     # Import distance and allocation grids.
     with rasterio.open(vectdist_grid) as vectdist:
@@ -77,11 +98,14 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     with rasterio.open(vectallo_grid) as vectallo:
         vectallo_data = vectallo.read(1)
     
-    # Define buffer distance and calculate adjustment to comput the bufgrid.
-    half_res = elev.res[0]/2 # adjustment equal to half distance of one cell 
-    final_buffer = buffer_dist - half_res # all units in assumed to be in meters. 
+    # Define buffer distance and calculate adjustment to compute the 
+    # bufgrid.
+    # half_res adjustment equal to half distance of one cell   
+    half_res = elev.res[0]/2  
+    final_buffer = buffer_dist - half_res # assume all units in meters. 
 
-    # Calculate bufgrid. Assign NODATA to areas where vectdist_data <= buffered value.
+    # Calculate bufgrid. Assign NODATA to areas where vectdist_data <= 
+    # buffered value.
     bufgrid = np.where(vectdist_data > final_buffer, elev_data, dem_profile['nodata'])
     
     # Define bufgrid properties and export to tif file.
@@ -92,9 +116,16 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
         with rasterio.open(buf_output, 'w', **buf_profile) as raster:
             raster.write(bufgrid.astype('float32'),1)
 
-    # 5. From Hellweger documentation: Compute the buffer distance grids (bufdist and bufallo). The cells in the buffer distance grid (bufdist) store the distance to the closest valued buffer grid cell (bufgrid2). The cells in buffer allocation grid (bufallo) store the elevation of the closest valued buffer cell.
+    #------------------------------------------------------------------
+    # 5. From Hellweger documentation: Compute the buffer distance grids
+    # (bufdist and bufallo). The cells in the buffer distance grid 
+    # (bufdist) store the distance to the closest valued buffer grid 
+    # cell (bufgrid2). The cells in buffer allocation grid (bufallo) 
+    # store the elevation of the closest valued buffer cell.
 
-    # Compute allocation and proximity grid using GRASS gis r.grow.distance. Output distance grid in meters. Set datatype for output allocation and proximity grids to float32.
+    # Compute allocation and proximity grid using GRASS gis 
+    # r.grow.distance. Output distance grid in meters. Set datatype for
+    # output allocation and proximity grids to float32.
     bufdist_grid, bufallo_grid = r_grow_distance(buf_output, grass_workspace, 'Float32', 'Float32')
 
     # Import allocation and proximity grids.
@@ -103,20 +134,37 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     with rasterio.open(bufallo_grid) as bufallo:
         bufallo_data = bufallo.read(1)
     
-    # 6. From Hellweger documentation: Compute the smooth modified elevation grid (smoelev). The cells in the smooth modified elevation grid store the results of the smooth surface reconditioning process. Note that for cells outside the buffer the equation below assigns the original elevation.
+    #------------------------------------------------------------------
+    # 6. From Hellweger documentation: Compute the smooth modified 
+    # elevation grid (smoelev). The cells in the smooth modified 
+    # elevation grid store the results of the smooth surface 
+    # reconditioning process. Note that for cells outside the buffer the
+    # equation below assigns the original elevation.
     
     # Calculate smoelev. 
     smoelev = vectallo_data + ((bufallo_data - vectallo_data)/(bufdist_data + vectdist_data)) * vectdist_data
     
-    # 7. From Hellweger documentation: Compute the sharp drop/raise grid (shagrid). The cells in the sharp drop/raise grid corresponding to the vector lines have an elevation equal to that of the smooth modified elevation grid (smoelev) plus a certain distance (sharpdist). All other cells have no data.
+    #------------------------------------------------------------------
+    # 7. From Hellweger documentation: Compute the sharp drop/raise grid
+    # (shagrid). The cells in the sharp drop/raise grid corresponding to
+    # the vector lines have an elevation equal to that of the smooth
+    # modified elevation grid (smoelev) plus a certain distance 
+    # (sharpdist). All other cells have no data.
 
-    # Define sharp drop distance and calculate the sharp drop grid where only river cells are dropped by the sharp_dist amount.
+    # Define sharp drop distance and calculate the sharp drop grid where
+    # only river cells are dropped by the sharp_dist amount.
     sharp_dist = -1 * sharp_drop # in meters.
     shagrid = (smoelev + sharp_dist) * river_data
     
-    # 8. From Hellweger documentation: Compute the modified elevation grid (elevgrid). The cells in the modified elevation grid store the results of the surface reconditioning process. Note that for cells outside the buffer the the equation below assigns the original elevation.
+    #------------------------------------------------------------------
+    # 8. From Hellweger documentation: Compute the modified elevation 
+    # grid (elevgrid). The cells in the modified elevation grid store 
+    # the results of the surface reconditioning process. Note that for 
+    # cells outside the buffer the the equation below assigns the 
+    # original elevation.
 
-    # Merge sharp drop grid with smoelev grid. Then apply the same NODATA mask as original elevation grid.
+    # Merge sharp drop grid with smoelev grid. Then apply the same 
+    # NODATA mask as original elevation grid.
     elevgrid = np.where(river_data == 0, smoelev, shagrid)
     agree_dem = np.where(elev_mask == True, elevgrid, dem_profile['nodata'])
 
