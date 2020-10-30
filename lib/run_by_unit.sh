@@ -290,7 +290,7 @@ Tstart
 $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
 Tcount
 
-## GET RASTER METADATA ##
+## GET RASTER METADATA ## *****
 echo -e $startDiv"Get Clipped Raster Metadata $hucNumber"$stopDiv
 date -u
 Tstart
