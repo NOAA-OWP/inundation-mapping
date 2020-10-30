@@ -1,6 +1,6 @@
 ### Cahaba: Flood Inundation Mapping for U.S. National Water Model
 
-Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Weather Service (NWS). Software enables inundation mapping capability by generating Relative Elevation Models (REMs) and Synthetic Rating Curves (SRCs). Included are tests to evaluate skill and computational efficiency as well as functions to generate inundation maps. 
+Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Weather Service (NWS). Software enables inundation mapping capability by generating Relative Elevation Models (REMs) and Synthetic Rating Curves (SRCs). Included are tests to evaluate skill and computational efficiency as well as functions to generate inundation maps.
 
 ## Dependencies
 
@@ -10,7 +10,7 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
 2. Build Docker Image : `docker build -f Dockerfile.dev -t <image_name>:<tag> <path/to/repository>`
-3. Create FIM group on host machine: 
+3. Create FIM group on host machine:
     - Linux: `groupadd -g 1370800178 fim`
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
     - Linux: `chgrp -R fim <path/to/repository>`
@@ -18,10 +18,12 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 ## Configuration
 
 Software is configurable via parameters found in config directory. Copy files before editing and remove "template" pattern from the filename.
-
+Make sure to set the config folder group to 'fim' recursively using the chown command
 - params_template.env
-- mannings_template.json
+- mannings_default.json
     - must change filepath in params_template.env under "manning_n" variable name
+- params_calibrated.env
+    - runs calibrated mannings parameters from mannings_calibrated.json
 
 ## Usage
 
@@ -31,7 +33,7 @@ Software is configurable via parameters found in config directory. Copy files be
     - Please run `/foss_fim/lib/acquire_and_preprocess_inputs.py --help` for more information.
     - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 3. Produce Hydrofabric : `fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>`
-    - `-u` can be a single huc, a series passed in quotes, or a line-deliminted file
+    - `-u` can be a single huc, a series passed in quotes, or a line-delimited file
         i. To run entire domain of available data use one of the `/data/inputs/included_huc[4,6,8].lst` files
     - Outputs can be found under `/data/outputs/<name_your_run>`
 
@@ -43,9 +45,28 @@ Binary contingency statistics are currently being computed for Cahaba FIM compar
 2. Run hydrologic evaluation (from inside Docker container): `/foss_fim/tests/run_test_case.py -r <fim_run_name/hucID> -b <name_of_test_instance_to_use> -t <test_case_id>`
     - More information can be found by running `/foss_fim/tests/run_test_case.py --help`
 
+## Dependencies
+
+Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/). To add new dependencies, from the projects's top-level directory:
+
+```bash
+pipenv install ipython --dev
+```
+
+The `--dev` flag adds development dependencies, omit it if you want to add a production dependency. If the environment looks goods after adding dependencies, lock it with:
+
+```bash
+pipenv lock
+```
+
+and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image installs the environment from the lock file.
+
+If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
+
+
 ## Known Issues & Getting Help
 
-Please see the issue tracker on Github for known issues and for getting help.
+Please see the issue tracker on GitHub for known issues and for getting help.
 
 ## Getting Involved
 
@@ -68,4 +89,4 @@ NOAA's National Water Center welcomes anyone to contribute to the Cahaba reposit
 6. [TauDEM](https://github.com/dtarb/TauDEM)
 7. Federal Emergency Management Agency (FEMA) Base Level Engineering [(BLE)](https://webapps.usgs.gov/infrm/estBFE/)
 8. Verdin, James; Verdin, Kristine; Mathis, Melissa; Magadzire, Tamuka; Kabuchanga, Eric; Woodbury, Mark; and Gadain, Hussein, 2016, A software tool for rapid flood inundation mapping: U.S. Geological Survey Open-File Report 2016–1038, 26 p., http://dx.doi.org/10.3133/ofr20161038.
-9. United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR). https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution 
+9. United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR). https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution

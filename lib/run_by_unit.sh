@@ -116,13 +116,15 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nhd_headwater_points_subset.gpkg $outputHucDataDir/headwaters.tif
 Tcount
 
-# RASTERIZE NWM CATCHMENTS ##
-echo -e $startDiv"Raster NWM Catchments $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/nwm_catchments_proj_subset.tif ] && \
-gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
-Tcount
+if [ "$extent" = "FR" ]; then
+  # RASTERIZE NWM CATCHMENTS ##
+  echo -e $startDiv"Raster NWM Catchments $hucNumber"$stopDiv
+  date -u
+  Tstart
+  [ ! -f $outputHucDataDir/nwm_catchments_proj_subset.tif ] && \
+  gdal_rasterize -ot Int32 -a ID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_catchments_proj_subset.gpkg $outputHucDataDir/nwm_catchments_proj_subset.tif
+  Tcount
+fi
 
 ## BURN LEVEES INTO DEM ##
 echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwrite dem_meters.tif output) $hucNumber"$stopDiv
@@ -356,18 +358,10 @@ Tstart
 $taudemDir/catchhydrogeo -hand $outputHucDataDir/rem_zeroed_masked.tif -catch $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif -catchlist $outputHucDataDir/catchment_list.txt -slp $outputHucDataDir/slopes_d8_dem_meters_masked.tif -h $outputHucDataDir/stage.txt -table $outputHucDataDir/src_base.csv
 Tcount
 
-## GET MAJORITY COUNTS ##
-echo -e $startDiv"Getting majority counts $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/majority.geojson ] && \
-fio cat $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg | rio zonalstats -r $outputHucDataDir/nwm_catchments_proj_subset.tif --stats majority > $outputHucDataDir/majority.geojson
-Tcount
-
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
-$libDir/add_crosswalk.py $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/src_base.csv $outputHucDataDir/majority.geojson $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg $outputHucDataDir/src_full_crosswalked.csv $outputHucDataDir/src.json $outputHucDataDir/crosswalk_table.csv $outputHucDataDir/hydroTable.csv $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_subset_streams.gpkg $manning_n $input_NWM_Catchments $extent
+$libDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent
 Tcount
