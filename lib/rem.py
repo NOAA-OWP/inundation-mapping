@@ -66,7 +66,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, cost_distance
     
     dem_thalwegCond_masked_object.close()
     gw_catchments_pixels_masked_object.close()
-    cost_distance_raster_object.clost()
+    cost_distance_raster_object.close()
     # ------------------------------------------------------------------------------------------------------------------------ #
     
     
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
     parser.add_argument('-d','--dem', help='DEM to use within project path', required=True)
     parser.add_argument('-w','--watersheds',help='Pixel based watersheds raster to use within project path',required=True)
-    parser.add_argument('-d','--cost_distance_raster',help='Raster of cost distances for the allocation raster.',required=True)
+    parser.add_argument('-s','--cost_distance_raster',help='Raster of cost distances for the allocation raster.',required=True)
     parser.add_argument('-t','--cost_distance_tolerance',help='Tolerance in meters to use when searching for zonal minimum.',required=True)
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     
