@@ -72,19 +72,17 @@ def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster,
             cm = int(cm)
             thalweg_cell = thalweg_window[i]  # From flows_grid_boolean.tif (0s and 1s)
             if thalweg_cell == 1:  # Make sure thalweg cells are checked.
-   
-                zone_min_elevation = zone_min_dict[cm]
-                dem_thalweg_elevation = dem_window[i]
-                
-                elevation_difference = zone_min_elevation - dem_thalweg_elevation
-
-                if zone_min_elevation < dem_thalweg_elevation and elevation_difference <= 5:
-                    dem_window_to_return[i] = zone_min_elevation
+                if cm in zone_min_dict:
+                    zone_min_elevation = zone_min_dict[cm]
+                    dem_thalweg_elevation = dem_window[i]
+                    
+                    elevation_difference = zone_min_elevation - dem_thalweg_elevation
+    
+                    if zone_min_elevation < dem_thalweg_elevation and elevation_difference <= 5:
+                        dem_window_to_return[i] = zone_min_elevation
 
         return(dem_window_to_return)
         
-        
-    print("Minimizing dem")
     # Specify raster object metadata.
     elevation_raster_object = rasterio.open(elevation_raster)
     allocation_zone_raster_object = rasterio.open(allocation_raster)
@@ -118,7 +116,6 @@ def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster,
     
 if __name__ == '__main__':
     
-    print("HEY")
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts the elevation of the thalweg to the lateral zonal minimum.')
     parser.add_argument('-e','--elevation_raster',help='Raster of elevation.',required=True)
