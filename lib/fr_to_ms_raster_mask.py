@@ -5,6 +5,7 @@
 '''
 
 import sys
+import os
 import geopandas as gpd
 import rasterio.mask
 
