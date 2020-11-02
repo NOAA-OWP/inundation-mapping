@@ -155,7 +155,8 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
 
     return difference_dict
 
-def run_alpha_test(fim_run_dir, branch_name, test_id, mask_type, return_interval, compare_to_previous=False, run_structure_stats=False, run_levee_stats=False, archive_results=False):
+
+def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, run_structure_stats=False, run_levee_stats=False, archive_results=False, mask_type='huc'):
 
     # Construct paths to development test results if not existent.
     if archive_results:
@@ -180,7 +181,12 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, mask_type, return_interval
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
 
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-    catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+    
+    if mask_type == 'huc':
+        catchment_poly = ''
+    else:
+        catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+        
     current_huc = test_id.split('_')[0]
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
     hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')

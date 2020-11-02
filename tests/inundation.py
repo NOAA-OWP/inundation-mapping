@@ -125,13 +125,6 @@ def inundate(
     else:
         raise TypeError("Pass rasterio dataset or filepath for catchments")
 
-    # input catchments polygon
-    if isinstance(catchment_poly,str):
-        catchment_poly=gpd.read_file(catchment_poly)
-    elif isinstance(catchment_poly,DatasetReader):
-        pass
-    else:
-        raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
 
     # check for matching number of bands and single band only
     assert rem.count == catchments.count == 1, "REM and catchments rasters are required to be single band only"
@@ -407,6 +400,15 @@ def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentSt
                     rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)
                     catchments_array,_ = mask(catchments,[shape(huc['geometry'])],crop=True,indexes=1)
                 elif mask_type == "filter":
+                    
+                    # input catchments polygon
+                    if isinstance(catchment_poly,str):
+                        catchment_poly=gpd.read_file(catchment_poly)
+                    elif isinstance(catchment_poly,DatasetReader):
+                        pass
+                    else:
+                        raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
+
                     fossid = huc['properties']['fossid']
                     if catchment_poly.HydroID.dtype != 'str': catchment_poly.HydroID = catchment_poly.HydroID.astype(str)
                     catchment_poly=catchment_poly[catchment_poly.HydroID.str.startswith(fossid)]
