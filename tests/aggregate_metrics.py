@@ -37,10 +37,10 @@ def aggregate_metrics(config="DEV", branch_list="", hucs="", special_string="", 
 
         test_cases_dir_list = os.listdir(TEST_CASES_DIR)
 
-
         for return_interval in ['100yr', '500yr']:
-            true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count = 0, 0, 0, 0, 0, 0
             huc_path_list = [['huc', 'path']]
+            true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count = 0, 0, 0, 0, 0, 0
+
             for test_case in test_cases_dir_list:
 
                 if test_case not in ['other', 'validation_data_ble', 'validation_data_legacy']:
