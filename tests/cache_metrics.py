@@ -19,13 +19,17 @@ def process_alpha_test(args):
     return_interval = args[3]
     archive_results = args[4]
     
+    mask_type = 'huc'    
+    
     if archive_results == False:
         compare_to_previous = True
     else:
         compare_to_previous = False
 
-    run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=compare_to_previous, run_structure_stats=False, archive_results=archive_results)
-    
+    try:
+        run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=compare_to_previous, run_structure_stats=False, archive_results=archive_results, mask_type=mask_type)
+    except Exception as e:
+        print(e)
 
 if __name__ == '__main__':
 
@@ -66,23 +70,23 @@ if __name__ == '__main__':
             current_huc = test_id.split('_')[0]
             
             for branch_name in previous_fim_list:
-                huc = current_huc
                 
-                fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, huc)
-                
+                if config == 'DEV':
+                    fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, current_huc)
+                elif config == 'PREV':
+                    fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
+                    
+                print(fim_run_dir)
                 if special_string != "":
                     branch_name = branch_name + '_' + special_string
-                                
+                
                 return_interval = ['100yr', '500yr']
-                print(fim_run_dir)
-                print(os.path.exists(fim_run_dir))
                 if os.path.exists(fim_run_dir):
                     print("Adding " + test_id + " to list of test_ids to archive...")
-                    for ri in return_interval:
-                        if job_number > 1:
-                            procs_list.append([fim_run_dir, branch_name, test_id, return_interval, archive_results])
-                        else:
-                            process_alpha_test([fim_run_dir, branch_name, test_id, return_interval, archive_results])
+                    if job_number > 1:
+                        procs_list.append([fim_run_dir, branch_name, test_id, return_interval, archive_results])
+                    else:
+                        process_alpha_test([fim_run_dir, branch_name, test_id, return_interval, archive_results])
 
 
     if job_number > 1:
