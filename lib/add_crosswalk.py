@@ -32,15 +32,15 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
         relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
 
-        if calibration_mode == False:
-            if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
-            output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
-            output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
+        if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+        output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+        output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
         if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
         output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
         if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
         output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
+        output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
     elif extent == 'MS':
         ## crosswalk using stream segment midpoint method
@@ -68,12 +68,12 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
         crosswalk = crosswalk.merge(input_nwmflows[['feature_id','order_']],on='feature_id')
 
-        if calibration_mode == False:
-            if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
-            output_catchments = input_catchments.merge(crosswalk,on='HydroID')
+        if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+        output_catchments = input_catchments.merge(crosswalk,on='HydroID')
 
         if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
         output_flows = input_flows.merge(crosswalk,on='HydroID')
+        output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
     # read in manning's n values
     if calibration_mode == False:
@@ -86,6 +86,26 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             mannings_dict[str(streamorder)] = value
 
     output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
+
+    # Adjust short model reach rating curves
+print("Adjusting model reach rating curve")
+maxArea   = 0.25
+maxLength = 0.5
+where = "{} < {} and {} < {}".format("areasqkm", maxArea, "LengthKm", maxLength)
+sml_segs = pd.DataFrame()
+
+    # if segment is too short, find upstream segment and apply it's channel geometry
+for tab_ind in output_flows.index:
+    if output_flows["areasqkm"][tab_ind] < 0.25 and output_flows["LengthKm"][tab_ind] < 0.5:
+      short_id = output_flows['HydroID'][tab_ind]
+      if (len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1):
+          # max_da = max(output_flows.loc[output_flows['NextDownID'] == short_id][FN_PUOrder])
+          # up_id = output_flows.loc[(output_flows[FN_PUOrder] == max_da) & (output_flows['NextDownID'] == short_id)]['HydroID'].item()
+          print ("multiple up ids")
+      else:
+          up_id = output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID'].item()
+      sml_segs = sml_segs.append({'short_id':short_id, 'up_id':up_id}, ignore_index=True)
+    print("Number of short reaches [{}] = {}".format(where, len(sml_segs)))
 
     # calculate src_full
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
@@ -110,6 +130,16 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_src = input_src_base.drop(columns=['CatchId'])
     if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
 
+    # update rating curves
+    print("Update rating curves for short reaches.")
+    for index, row in sml_segs.iterrows():
+        if pd.notnull(row[1]):
+          new_values = input_src_base.loc[input_src_base['HydroID'] == row[1]][['Stage', 'Discharge (m3s-1)']]
+          for pf_index, pf_row in new_values.iterrows():
+              input_src_base.loc[(input_src_base['HydroID']== row[0]) & (input_src_base['Stage']== pf_row[0]),['Discharge (m3s-1)']] = pf_row[1]
+        else:
+          print("Reach HydroID: {} does not have upstream reach - update skipped".format(row[1]))
+
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
     elif extent == 'MS':
@@ -125,14 +155,15 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_hydro_table['HydroID'] = output_hydro_table.HydroID.str.zfill(8)
     output_hydro_table['fossid'] = output_hydro_table.loc[:,'HydroID'].apply(lambda x : str(x)[0:4])
     if input_huc.fossid.dtype != 'str': input_huc.fossid = input_huc.fossid.astype(str)
-
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:,['fossid','HUC8']],how='left',on='fossid')
-    if output_hydro_table.HydroID.dtype != 'int': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(int)
-    output_hydro_table = output_hydro_table.merge(input_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
+    # if output_hydro_table.HydroID.dtype != 'int': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(int)
+    if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
+    output_flows['HydroID'] = output_flows.HydroID.str.zfill(8)
+    output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
     output_hydro_table.drop(columns='fossid',inplace=True)
-    if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
+    if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
     # write out based on mode
     if calibration_mode == True:
