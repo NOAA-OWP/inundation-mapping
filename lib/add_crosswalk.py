@@ -127,12 +127,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if input_huc.fossid.dtype != 'str': input_huc.fossid = input_huc.fossid.astype(str)
 
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:,['fossid','HUC8']],how='left',on='fossid')
-    if output_hydro_table.HydroID.dtype != 'int': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(int)
-    output_hydro_table = output_hydro_table.merge(input_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
+    if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
+    output_flows['HydroID'] = output_flows.HydroID.str.zfill(8)
+    output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
     output_hydro_table.drop(columns='fossid',inplace=True)
-    if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
+    if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
     # write out based on mode
     if calibration_mode == True:
