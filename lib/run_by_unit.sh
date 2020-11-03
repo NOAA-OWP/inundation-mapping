@@ -255,7 +255,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -s $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 50
+$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $outputHucDataDir/demDerived_streamPixels.tif
 Tcount
 
 ## DINF DISTANCE DOWN ##

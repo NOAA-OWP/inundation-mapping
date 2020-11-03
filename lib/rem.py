@@ -8,7 +8,7 @@ import os
 from osgeo import ogr, gdal
 
 
-def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, cost_distance_raster, cost_distance_tolerance):
+def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster):
     """
         Calculates REM/HAND/Detrended DEM
         
@@ -25,13 +25,12 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, cost_distance
 
     
     # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
-    # The following algorithm searches for the zonal minimum elevation in each pixel catchment
-    # It updates the catchment_min_dict with this zonal minimum elevation value.
+    # The following creates a dictionary of the catchment ids (key) and their elevation along the thalweg (value).
     @njit
-    def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments, cost_window, cost_tolerance):
+    def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments, thalweg_window):
   
         for i,cm in enumerate(flat_catchments):
-            if cost_window[i] <= cost_tolerance:  # Only allow reference elevation to be within 50m of thalweg.
+            if thalweg_window[i] == 1:  # Only allow reference elevation to be within thalweg.
                 # If the catchment really exists in the dictionary, compare elevation values.
                 if (cm in catchment_min_dict):
                     if (flat_dem[i] < catchment_min_dict[cm]):
@@ -40,18 +39,15 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, cost_distance
                 else:
                     catchment_min_dict[cm] = flat_dem[i]                
         return(catchment_min_dict)
-    
 
     # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
     gw_catchments_pixels_masked_object = rasterio.open(pixel_watersheds_fileName)
     dem_thalwegCond_masked_object = rasterio.open(dem_fileName)
-    cost_distance_raster_object = rasterio.open(cost_distance_raster)
+    thalweg_raster_object = rasterio.open(thalweg_raster)
     
     # Specify raster object metadata.
     meta = dem_thalwegCond_masked_object.meta.copy()
     meta['tiled'], meta['compress'] = True, 'lzw'
-        
-    cost_tolerance = float(cost_distance_tolerance)
     
     # -- Create catchment_min_dict -- #
     catchment_min_dict = typed.Dict.empty(types.int32,types.float32)  # Initialize an empty dictionary to store the catchment minimums.
@@ -59,14 +55,14 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, cost_distance
     for ji, window in dem_thalwegCond_masked_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
         dem_window = dem_thalwegCond_masked_object.read(1,window=window).ravel()  # Define dem_window.
         catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
-        cost_window = cost_distance_raster_object.read(1, window=window).ravel()  # Define cost_window.
+        thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define cost_window.
         
         # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
-        catchment_min_dict = make_catchment_min_dict(dem_window, catchment_min_dict, catchments_window, cost_window, cost_tolerance)
-    
+        catchment_min_dict = make_catchment_min_dict(dem_window, catchment_min_dict, catchments_window, thalweg_window)
+
     dem_thalwegCond_masked_object.close()
     gw_catchments_pixels_masked_object.close()
-    cost_distance_raster_object.close()
+    thalweg_raster_object.close()
     # ------------------------------------------------------------------------------------------------------------------------ #
     
     
@@ -76,10 +72,11 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, cost_distance
 
         rem_window = np.zeros(len(flat_dem),dtype=np.float32)
         for i,cm in enumerate(flat_catchments):
-            if catchmentMinDict[cm] == ndv:
-                rem_window[i] = ndv
-            else:
-                rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
+            if cm in catchmentMinDict:
+                if catchmentMinDict[cm] == ndv:
+                    rem_window[i] = ndv
+                else:
+                    rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
 
         return(rem_window)
 
@@ -111,8 +108,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
     parser.add_argument('-d','--dem', help='DEM to use within project path', required=True)
     parser.add_argument('-w','--watersheds',help='Pixel based watersheds raster to use within project path',required=True)
-    parser.add_argument('-s','--cost_distance_raster',help='Raster of cost distances for the allocation raster.',required=True)
-    parser.add_argument('-t','--cost_distance_tolerance',help='Tolerance in meters to use when searching for zonal minimum.',required=True)
+    parser.add_argument('-t','--thalweg-raster',help='A binary raster representing the thalweg. 1 for thalweg, 0 for non-thalweg.',required=True)
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     
     
@@ -123,7 +119,6 @@ if __name__ == '__main__':
     dem_fileName = args['dem']
     pixel_watersheds_fileName = args['watersheds']
     rem_fileName = args['rem']
-    cost_distance_raster = args['cost_distance_raster']
-    cost_distance_tolerance = args['cost_distance_tolerance']
+    thalweg_raster = args['thalweg_raster']
 
-    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, cost_distance_raster, cost_distance_tolerance)
+    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster)
