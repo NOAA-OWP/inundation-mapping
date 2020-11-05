@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 '''
-Script objectives:
-    1) split stream segments based on lake boundaries (defined with ID to avoid in croswalk)
-    2) split stream segments based on threshold distance
-    3) calculate channel slope, manning's n, and LengthKm, and Waterbody value
-    4) create unique ids (ideally globally)
-    5) create vector points encoded with HydroID's
+Description:
+    1) split stream segments based on lake boundaries and input threshold distance
+    2) calculate channel slope, manning's n, and LengthKm for each segment
+    3) create unique ids using HUC8 boundaries (and unique 'fossid' column)
+    4) create network traversal attribute columns (To_Node, From_Node, NextDownID)
+    5) create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
 '''
 
 import sys
@@ -23,14 +23,14 @@ from os import remove
 from collections import OrderedDict
 import buildstreamtraversal
 
-flows_fileName         = sys.argv[1] # $outputDataDir/demDerived_reaches.gpkg
-dem_fileName           = sys.argv[2] # $outputDataDir/dem_thalwegCond.tif
-split_flows_fileName   = sys.argv[3] # $outputDataDir/demDerived_reaches_split.gpkg
-split_points_fileName  = sys.argv[4] # $outputDataDir/demDerived_reaches_split_points.gpkg
+flows_fileName         = sys.argv[1]
+dem_fileName           = sys.argv[2]
+split_flows_fileName   = sys.argv[3]
+split_points_fileName  = sys.argv[4]
 maxLength              = float(sys.argv[5])
 slope_min              = float(sys.argv[6])
-huc8_filename          = sys.argv[7] # $outputDataDir/wbd8_projected.gpkg
-lakes_filename         = sys.argv[8] # $outputDataDir/nwm_lakes_proj_clp.gpkg
+huc8_filename          = sys.argv[7]
+lakes_filename         = sys.argv[8]
 
 toMetersConversion = 1e-3
 
@@ -197,44 +197,3 @@ split_flows_gdf.to_file(split_flows_fileName,driver='GPKG',index=False)
 if isfile(split_points_fileName):
     remove(split_points_fileName)
 split_points_gdf.to_file(split_points_fileName,driver='GPKG',index=False)
-
-
-# def findIntersectionPoints(flows):
-#
-#     line_points = np.array([],dtype=np.object)
-#     for i,g in enumerate(flows.geometry):
-#
-#         g_points = set((x,y) for x,y in zip(*g.coords.xy))
-#         line_points = np.append(line_points,g_points)
-#
-#     intersectionPoints = set()
-#     for i,g in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
-#         boolean_of_lines_that_intersect_with_g = flows.geometry.intersects(g)
-#         boolean_of_lines_that_intersect_with_g[i] = False
-#
-#         if sum(boolean_of_lines_that_intersect_with_g) <= 1:
-#             continue
-#
-#         lines_that_intersect_with_g = flows.geometry[boolean_of_lines_that_intersect_with_g]
-#         # print(list(boolean_of_lines_that_intersect_with_g))
-#         line_points_that_intersect_with_g = line_points[boolean_of_lines_that_intersect_with_g]
-#
-#         g_points = line_points[i]
-#
-#         for ii,gg in enumerate(line_points_that_intersect_with_g):
-#
-#             for iii,ggg in enumerate(gg):
-#                     if ggg in g_points:
-#                         intersectionPoints.add(ggg)
-#
-#
-#         # g_points = [(x,y) for x,y in zip(*g.coords.xy)]
-#         # for line in lines_that_intersect_with_g:
-#             # line_points = set((x,y) for x,y in zip(*line.coords.xy))
-#             # print(line_points);exit()
-#
-#         # convert to point geometries
-#         intersectionPoints_geometries = np.array([Point(*ip) for ip in intersectionPoints],dtype=np.object)
-#
-#
-#     return(intersectionPoints,intersectionPoints_geometries)
