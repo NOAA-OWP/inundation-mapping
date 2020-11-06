@@ -69,6 +69,7 @@ if [ "$jobLimit" = "" ] ; then
     jobLimit=1
 fi
 
+export input_NWM_Catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
 export outdir=$outdir
 export testdir="/foss_fim/tests"
 

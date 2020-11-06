@@ -8,6 +8,7 @@ usage ()
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
     echo '                     also accepted. HUCs must present in inputs directory.'
+    echo '  -e/--extent     : full resolution or mainstem method; options are MS or FR'
     echo '  -c/--config     : configuration file with bash environment variables to export'
     echo '  -n/--runName    : a name to tag the output directories and log files as. could be a version tag.'
     echo ''
@@ -19,7 +20,7 @@ usage ()
     exit
 }
 
-if [ "$#" -lt 6 ]
+if [ "$#" -lt 7 ]
 then
   usage
 fi
@@ -34,6 +35,10 @@ in
     -c|--configFile )
         shift
         envFile=$1
+        ;;
+    -e|--extent)
+        shift
+        extent=$1
         ;;
     -n|--runName)
         shift
@@ -60,6 +65,10 @@ if [ "$hucList" = "" ]
 then
     usage
 fi
+if [ "$extent" = "" ]
+then
+    usage
+fi
 if [ "$envFile" = "" ]
 then
     usage
@@ -80,6 +89,7 @@ fi
 
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
+export extent=$extent
 logFile=$outputRunDataDir/logs/summary.log
 
 ## Define inputs
