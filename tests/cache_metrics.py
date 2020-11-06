@@ -19,13 +19,17 @@ def process_alpha_test(args):
     return_interval = args[3]
     archive_results = args[4]
     
+    mask_type = 'huc'    
+    
     if archive_results == False:
         compare_to_previous = True
     else:
         compare_to_previous = False
 
-    run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=compare_to_previous, run_structure_stats=False, archive_results=archive_results)
-    
+    try:
+        run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=compare_to_previous, run_structure_stats=False, archive_results=archive_results, mask_type=mask_type)
+    except Exception as e:
+        print(e)
 
 if __name__ == '__main__':
 
@@ -66,10 +70,13 @@ if __name__ == '__main__':
             current_huc = test_id.split('_')[0]
             
             for branch_name in previous_fim_list:
-                huc6 = current_huc[:6]
                 
-                fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, huc6)
-                
+                if config == 'DEV':
+                    fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, current_huc)
+                elif config == 'PREV':
+                    fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
+                    
+                print(fim_run_dir)
                 if special_string != "":
                     branch_name = branch_name + '_' + special_string
                 

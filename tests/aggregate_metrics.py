@@ -85,11 +85,11 @@ def aggregate_metrics(config="DEV", branch_list="", hucs="", special_string="", 
                 csv_writer.writerows(huc_path_list)
 
             print()
-            print("Finished aggregating for " + return_interval + ". Aggregated metrics over " + str(len(huc_path_list)) + " test cases.")
+            print("Finished aggregating for " + return_interval + ". Aggregated metrics over " + str(len(huc_path_list)-1) + " test cases.")
             print()
             print("Results are at: " + output_file)
             print()
-
+    
 
 if __name__ == '__main__':
 
