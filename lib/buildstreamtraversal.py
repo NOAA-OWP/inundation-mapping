@@ -1,9 +1,10 @@
 '''
-@author: brian.avant
 Description:
-        This tool creates unique IDs for each segment and build the To_Node, From_Node, and NExtDownID columns to traverse the network
+        This tool creates unique IDs for each segment and builds the To_Node, From_Node, and NextDownID columns to traverse the network
 Required Arguments:
-        modelstream        = stream network
+        modelstream   = stream network
+        WBD8          = HUC8 boundary dataset
+        HYDROID       = name of ID column (string)
 '''
 import sys
 import datetime
@@ -70,11 +71,6 @@ class BuildStreamTraversalColumns(object):
 
                 if not FN_TONODE in modelstream.columns:
                     modelstream[FN_TONODE] = ''
-
-                # PU_Order = 'PU_Order'
-                # # Create PU_Order field
-                # if not PU_Order in modelstream.columns:
-                #     modelstream[PU_Order] = ''
 
                 modelstream = modelstream.sort_values(by=[HYDROID], ascending=True).copy()
 

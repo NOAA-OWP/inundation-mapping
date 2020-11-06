@@ -3,37 +3,77 @@
 import geopandas as gpd
 import pandas as pd
 from numpy import unique
+from rasterstats import zonal_stats
 import json
 import argparse
 import sys
 
-def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_majorities_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,mannings_n,calibration_mode=False):
+def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,calibration_mode=False):
 
+    input_catchments = gpd.read_file(input_catchments_fileName)
     input_flows = gpd.read_file(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName)
-    input_majorities = gpd.read_file(input_majorities_fileName)
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
 
-    input_majorities = input_majorities.rename(columns={'_majority' : 'feature_id'})
-    input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
-    if input_majorities.feature_id.dtype != 'int': input_majorities.feature_id = input_majorities.feature_id.astype(int)
-    if input_majorities.HydroID.dtype != 'int': input_majorities.HydroID = input_majorities.HydroID.astype(int)
+    if extent == 'FR':
+        ## crosswalk using majority catchment method
 
-    input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
-    if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
-    relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
-    relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
+        # calculate majority catchemnts
+        majority_calc = zonal_stats(input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True)
+        input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
+        input_majorities = input_majorities.rename(columns={'majority' : 'feature_id'})
 
-    if calibration_mode == False:
-        input_catchments = gpd.read_file(input_catchments_fileName)
-        if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
-        output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
+        input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
+        if input_majorities.feature_id.dtype != 'int': input_majorities.feature_id = input_majorities.feature_id.astype(int)
+        if input_majorities.HydroID.dtype != 'int': input_majorities.HydroID = input_majorities.HydroID.astype(int)
 
-    if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
-    output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
-    if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
-    output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
+        input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
+        if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+        relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
+        relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
+
+        if calibration_mode == False:
+            if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+            output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+            output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
+
+        if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+        output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+        if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
+        output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
+
+    elif extent == 'MS':
+        ## crosswalk using stream segment midpoint method
+        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
+        input_nwmcat = input_nwmcat.rename(columns={'ID':'feature_id'})
+        if input_nwmcat.feature_id.dtype != 'int': input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
+        input_nwmcat=input_nwmcat.set_index('feature_id')
+
+        input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
+        if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+
+        # Get stream midpoint
+        stream_midpoint = []
+        hydroID = []
+        for i,lineString in enumerate(input_flows.geometry):
+            hydroID = hydroID + [input_flows.loc[i,'HydroID']]
+            stream_midpoint = stream_midpoint + [lineString.interpolate(0.05,normalized=True)]
+
+        input_flows_midpoint = gpd.GeoDataFrame({'HydroID':hydroID, 'geometry':stream_midpoint}, crs=input_flows.crs, geometry='geometry')
+        input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
+
+        # Create crosswalk
+        crosswalk = gpd.sjoin(input_flows_midpoint, input_nwmcat, how='left', op='within').reset_index()
+        crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
+        crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
+        crosswalk = crosswalk.merge(input_nwmflows[['feature_id','order_']],on='feature_id')
+
+        if calibration_mode == False:
+            if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+            output_catchments = input_catchments.merge(crosswalk,on='HydroID')
+
+        if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+        output_flows = input_flows.merge(crosswalk,on='HydroID')
 
     # read in manning's n values
     if calibration_mode == False:
@@ -67,10 +107,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     # set nans to 0
     input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
 
-    # output_src = input_src.rename(columns={'CatchId':'HydroID'})
     output_src = input_src_base.drop(columns=['CatchId'])
     if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
-    output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+
+    if extent == 'FR':
+        output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
+    elif extent == 'MS':
+        output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
 
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
@@ -84,12 +127,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if input_huc.fossid.dtype != 'str': input_huc.fossid = input_huc.fossid.astype(str)
 
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:,['fossid','HUC8']],how='left',on='fossid')
-    if output_hydro_table.HydroID.dtype != 'int': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(int)
-    output_hydro_table = output_hydro_table.merge(input_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
+    if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
+    output_flows['HydroID'] = output_flows.HydroID.str.zfill(8)
+    output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
     output_hydro_table.drop(columns='fossid',inplace=True)
-    #output_hydro_table['discharge_cms'] = output_hydro_table['discharge_cms'].round(4)
+    if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
     # write out based on mode
     if calibration_mode == True:
@@ -125,7 +169,6 @@ if __name__ == '__main__':
     parser.add_argument('-d','--input-catchments-fileName', help='DEM derived catchments', required=True)
     parser.add_argument('-a','--input-flows-fileName', help='DEM derived streams', required=True)
     parser.add_argument('-s','--input-srcbase-fileName', help='Base synthetic rating curve table', required=True)
-    parser.add_argument('-u','--input-majorities-fileName',help='Catchment majorities',required=True)
     parser.add_argument('-l','--output-catchments-fileName', help='Subset crosswalked catchments', required=True)
     parser.add_argument('-f','--output-flows-fileName', help='Subset crosswalked  streams', required=True)
     parser.add_argument('-r','--output-src-fileName', help='Output crosswalked synthetic rating curve table', required=True)
@@ -134,7 +177,10 @@ if __name__ == '__main__':
     parser.add_argument('-t','--output-hydro-table-fileName',help='Hydrotable',required=True)
     parser.add_argument('-w','--input-huc-fileName',help='HUC8 boundary',required=True)
     parser.add_argument('-b','--input-nwmflows-fileName',help='Subest NWM burnlines',required=True)
+    parser.add_argument('-y','--input-nwmcatras-fileName',help='NWM catchment raster',required=False)
     parser.add_argument('-m','--mannings-n',help='Mannings n. Accepts single parameter set or list of parameter set in calibration mode. Currently input as csv.',required=True)
+    parser.add_argument('-z','--input-nwmcat-fileName',help='NWM catchment polygon',required=True)
+    parser.add_argument('-p','--extent',help='MS or FR extent',required=True)
     parser.add_argument('-c','--calibration-mode',help='Mannings calibration flag',required=False,action='store_true')
 
     args = vars(parser.parse_args())
@@ -142,7 +188,6 @@ if __name__ == '__main__':
     input_catchments_fileName = args['input_catchments_fileName']
     input_flows_fileName = args['input_flows_fileName']
     input_srcbase_fileName = args['input_srcbase_fileName']
-    input_majorities_fileName = args['input_majorities_fileName']
     output_catchments_fileName = args['output_catchments_fileName']
     output_flows_fileName = args['output_flows_fileName']
     output_src_fileName = args['output_src_fileName']
@@ -151,7 +196,10 @@ if __name__ == '__main__':
     output_hydro_table_fileName = args['output_hydro_table_fileName']
     input_huc_fileName = args['input_huc_fileName']
     input_nwmflows_fileName = args['input_nwmflows_fileName']
+    input_nwmcatras_fileName = args['input_nwmcatras_fileName']
     mannings_n = args['mannings_n']
+    input_nwmcat_fileName = args['input_nwmcat_fileName']
+    extent = args['extent']
     calibration_mode = args['calibration_mode']
 
-    add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_majorities_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,mannings_n,calibration_mode)
+    add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,calibration_mode)
