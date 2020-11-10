@@ -6,8 +6,8 @@ config/**
 !config/*template*
 !config/symbology/
 *.zip
-manuscripts/owp_fim3_2020/owp_fim3.aux
-manuscripts/owp_fim3_2020/owp_fim3.pdf
-manuscripts/owp_fim3_2020/owp_fim3.log
-manuscripts/owp_fim3_2020/*.bbl
-manuscripts/owp_fim3_2020/*.blg
+manuscripts/**/owp_fim3.pdf
+manuscripts/**/*.aux
+manuscripts/**/*.log
+manuscripts/**/*.bbl
+manuscripts/**/*.blg

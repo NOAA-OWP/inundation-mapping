@@ -67,139 +67,25 @@
 \journalname{Water Resources Research}
 
 
-%% -------------------------------------------------------------------------%%
-%% Variables
-
-% Results
-\newcommand\csiFimThreeOneHundred{0.5840}
-\newcommand\podFimThreeOneHundred{0.7015}
-\newcommand\farFimThreeOneHundred{0.1661}
-\newcommand\csiFimThreeFiveHundred{}
-\newcommand\podFimThreeFiveHundred{}
-\newcommand\farFimThreeFiveHundred{}
+% Variables
+\input{vars/variables}
 
 
-%% -------------------------------------------------------------------------%%
-
-
-
+% starts document
 \begin{document}
 
-%% ------------------------------------------------------------------------ %%
-%  Title
-%
-% (A title should be specific, informative, and brief. Use
-% abbreviations only if they are defined in the abstract. Titles that
-% start with general keywords then specific terms are optimized in
-% searches)
-%
-%% ------------------------------------------------------------------------ %%
 
-% Example: \title{This is a test title}
-
-\title{High Resolution, Rapid Flood Inundation Mapping for the U.S. National Water Model: From Forecast River Discharges to Forecast Inundation}
-
-%% ------------------------------------------------------------------------ %%
-%
-%  AUTHORS AND AFFILIATIONS
-%
-%% ------------------------------------------------------------------------ %%
-
-% Authors are individuals who have significantly contributed to the
-% research and preparation of the article. Group authors are allowed, if
-% each author in the group is separately identified in an appendix.)
-
-% List authors by first name or initial followed by last name and
-% separated by commas. Use \affil{} to number affiliations, and
-% \thanks{} for author notes.
-% Additional author notes should be indicated with \thanks{} (for
-% example, for current addresses).
-
-% Example: \authors{A. B. Author\affil{1}\thanks{Current address, Antartica}, B. C. Author\affil{2,3}, and D. E.
-% Author\affil{3,4}\thanks{Also funded by Monsanto.}}
+%% Title and Authors
+\input{sec/title_authors}
 
 
-\authors{Fernando Aristizabal\affil{1,2,3}, Fernando Salas\affil{3}, Brian Avant\affil{1,3}, Bradford Bates\affil{1,3},Trevor Grout\affil{1,3}, Nick Chadwick\affil{1,3}, Zachary Wills\affil{1,3}, Gregory Petrochenkov\affil{4}, Roland Viger\affil{4}, Jasmeet Judge\affil{2}}
+%% Keypoints
+\input{sec/keypoints}
 
 
-\affiliation{1}{Lynker Technologies, Boulder, CO, USA}
-\affiliation{2}{Center for Remote Sensing, University of Florida, Gainesville, FL, USA}
-\affiliation{3}{National Water Center, Office of Water Prediction, National Oceanic and Atmospheric Administration, Tuscaloosa, AL, USA}
-\affiliation{4}{Water Mission Area, United States Geological Survey, Boulder, CO, USA}
+%% Abstract
+\input{sec/abstract_plainTextSummary}
 
-%(repeat as many times as is necessary)
-
-%% Corresponding Author:
-% Corresponding author mailing address and e-mail address:
-
-% (include name and email addresses of the corresponding author.  More
-% than one corresponding author is allowed in this LaTeX file and for
-% publication; but only one corresponding author is allowed in our
-% editorial system.)
-
-% Example: \correspondingauthor{First and Last Name}{email@address.edu}
-
-\correspondingauthor{Fernando Aristizabal}{fernando.aristizabal@noaa.gov}
-
-%% Keypoints, final entry on title page.
-
-%  List up to three key points (at least one is required)
-%  Key Points summarize the main points and conclusions of the article
-%  Each must be 140 characters or fewer with no special characters or punctuation and must be complete sentences
-
-% Example:
-% \begin{keypoints}
-% \item	List up to three key points (at least one is required)
-% \item	Key Points summarize the main points and conclusions of the article
-% \item	Each must be 140 characters or fewer with no special characters or punctuation and must be complete sentences
-% \end{keypoints}
-
-\begin{keypoints}
-\item The National Water Model produces forecasts at more than 2.8 million river reaches in the United States.
-\item OWP FIM produces flood inundation maps by converting discharges to stages and stages to extents and depths.
-\item FIM 3 is a modified version of the Height Above Nearest Drainage technique that provides version improvement with FIM 1 and 2.
-\end{keypoints}
-
-%% ------------------------------------------------------------------------ %%
-%
-%  ABSTRACT and PLAIN LANGUAGE SUMMARY
-%
-% A good Abstract will begin with a short description of the problem
-% being addressed, briefly describe the new data or analyses, then
-% briefly states the main conclusion(s) and how they are supported and
-% uncertainties.
-
-% The Plain Language Summary should be written for a broad audience,
-% including journalists and the science-interested public, that will not have 
-% a background in your field.
-%
-% A Plain Language Summary is required in GRL, JGR: Planets, JGR: Biogeosciences,
-% JGR: Oceans, G-Cubed, Reviews of Geophysics, and JAMES.
-% see http://sharingscience.agu.org/creating-plain-language-summary/)
-%
-%% ------------------------------------------------------------------------ %%
-
-%% \begin{abstract} starts the second page
-
-\begin{abstract}
-Historically, floods have led to significant loss of life and property in the United States and around the world. 
-With the expectation that climate change will only increase the intensity of extreme precipitation events, flooding will continue to play a major risk \cite{Tabari1}. 
-In response to this growing issue, the National Water Model Version 2.1, released in 2021, produces forecast discharges at over 2.8 million river reaches over the continental United States, Hawaii, and Puerto Rico as well as parts of Canada and Mexico. 
-The NWM is a hydrologic and hydraulic model implemented one-dimensionally to reduce computational costs inherent to continental scale modeling. 
-To provide guidance to the general public on flood inundation extents, a rapid methodology is desired to convert forecast discharges to river stages and those stages to inundation extents. Relative elevation models (REM), specifically Height Above Nearest Drainage (HAND), among others, detrend digital elevation models (DEM) to the nearest thalweg elevation within the relevant drainage area. 
-Generating REM's and reach level catchments enables river stages to translate to extents by assuming a consistent stage profile within each river reach. 
-Stages are translated from NWM discharges via synthetic rating curves that establish stage-discharge relationships via the Manning's equation with geometric properties sampled from the REM on a per catchment basis. The National Oceanic and Atmospheric Administration (NOAA) Office of Water Prediction (OWP) is currently on it's third FIM version providing version improvement
-\end{abstract}
-
-\section*{Plain Language Summary}
-[ enter your Plain Language Summary here or delete this section]
-
-
-%% ------------------------------------------------------------------------ %%
-%
-%  TEXT
-%
-%% ------------------------------------------------------------------------ %%
 
 %%% Suggested section heads:
 % \section{Introduction}
@@ -224,31 +110,25 @@ Stages are translated from NWM discharges via synthetic rating curves that estab
 %
 % \section{Conclusions}
 
+% Introduction
+\input{sec/introduction}
 
-\section{Introduction}
-%Text here ===>>>
 
-\section{Materials and Methods}
-%Text here ===>>>
+% Materials and Methods
+\input{sec/materials_and_methods}
 
-\subsection{HAND}
-%Text here ===>>>
 
-\subsection{Synthetic Rating Curves}
-%Text here ===>>>
+% Data
+\input{sec/data}
 
-\subsectin{Evaluation and Testing}
 
-\section{Data}
-%Text here ===>>>
+% Results
+\input{sec/results}
 
-\section{Results}
-%Text here ===>>>
 
-\subsection{Computational Performance}
+% Conclusions
+\input{sec/conclusions}
 
-\section{Conclusions}
-%Text here ===>>>
 
 %%
 
@@ -258,7 +138,6 @@ Stages are translated from NWM discharges via synthetic rating curves that estab
 %  \begin{equation}
 %  \end{equation}
 %  \end{linenomath*}
-
 
 
 %% Enter Figures and Tables near as possible to where they are first mentioned:
@@ -492,7 +371,7 @@ Enter acknowledgments, including your data availability statement, here.
 
 
 
-More Information and Advice:
+%%%% More Information and Advice:
 
 %% ------------------------------------------------------------------------ %%
 %
