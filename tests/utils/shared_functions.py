@@ -220,7 +220,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     return stats_dictionary
 
 
-def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, mask_dict={}):
+def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, mask_dict={}):
     """
     Produces contingency table from 2 rasters and returns it. Also exports an agreement raster classified as:
         0: True Negatives
@@ -381,6 +381,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             if operation == 'include':
                 poly_path = mask_dict[poly_layer]['path']
                 buffer_val = mask_dict[poly_layer]['buffer']
+                print("BUFFER")
+                print(buffer_val)
                 
                 reference = predicted_src
                             
@@ -411,10 +413,10 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                     #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
                     in_poly,transform,c = rasterio.mask.raster_geometry_mask(reference, geometry, invert = True)
                     #Write mask array, areas inside polys are set to 1 and areas outside poly are set to 0.
-                    poly_mask = np.where(in_poly == False, 1,0)
+                    poly_mask = np.where(in_poly == True, 1, 0)
 
                     # Perform mask.
-                    masked_agreement_array = np.where(poly_mask == 1, 4, agreement_array)
+                    masked_agreement_array = np.where(poly_mask == 0, 4, agreement_array)  # Changed to poly_mask == 0
                     
                     # Get rid of masked values outside of the modeled domain.
                     agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
@@ -434,47 +436,6 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                                      'true_positives': int((agreement_array == 3).sum()),
                                                                      'masked_count': int((agreement_array == 4).sum())
                                                                       }})
-        
-    # Parse through dictionary of other layers and create contingency table metrics for the desired area. Layer must be raster with same shape as agreement_raster.
-    if additional_layers_dict != {}:
-        for layer_name in additional_layers_dict:
-            print("-----> Evaluating performance at " + layer_name + "...")
-            layer_path = additional_layers_dict[layer_name]
-            layer_src = rasterio.open(layer_path)
-            
-            layer_array_original = layer_src.read(1)
-            layer_array = np.empty(agreement_array.shape, dtype=np.int8)
-                    
-            reproject(layer_array_original, 
-                  destination = layer_array,
-                  src_transform = layer_src.transform, 
-                  src_crs = layer_src.crs,
-                  src_nodata = layer_src.nodata,
-                  dst_transform = predicted_src.transform, 
-                  dst_crs = predicted_src.crs,
-                  dst_nodata = layer_src.nodata,
-                  dst_resolution = predicted_src.res,
-                  resampling = Resampling.nearest)
-                    
-            # Omit all areas that spatially disagree with the layer_array.
-            layer_agreement_array = np.where(layer_array>0, agreement_array, 10)
-            
-            # Write the layer_agreement_raster.
-            layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], layer_name + '_agreement.tif')
-            with rasterio.Env():
-                profile = predicted_src.profile
-                profile.update(nodata=10)
-                with rasterio.open(layer_agreement_raster, 'w', **profile) as dst:
-                    dst.write(layer_agreement_array, 1)
-            
-            # Store summed pixel counts in dictionary.
-            contingency_table_dictionary.update({layer_name:{'true_negatives': int((layer_agreement_array == 0).sum()),
-                                                             'false_negatives': int((layer_agreement_array == 1).sum()),
-                                                             'false_positives': int((layer_agreement_array == 2).sum()),
-                                                             'true_positives': int((layer_agreement_array == 3).sum()),
-                                                             'masked_count': int((layer_agreement_array == 4).sum())
-                                                              }})
-            del layer_agreement_array
 
     return contingency_table_dictionary
     

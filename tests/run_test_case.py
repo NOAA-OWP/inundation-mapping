@@ -73,7 +73,7 @@ def profile_test_case_archive(archive_to_check, return_interval, stats_mode):
     return archive_dictionary
 
 
-def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_raster_path, agreement_raster=None, stats_csv=None, stats_json=None, mask_values=None, stats_modes_list=['total_area'], test_id='', exclusion_mask_dict={}):
+def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_raster_path, agreement_raster=None, stats_csv=None, stats_json=None, mask_values=None, stats_modes_list=['total_area'], test_id='', mask_dict={}):
     """
     This function contains FIM-specific logic to prepare raster datasets for use in the generic get_contingency_table_from_binary_rasters() function.
     This function also calls the generic compute_stats_from_contingency_table() function and writes the results to CSV and/or JSON, depending on user input.
@@ -96,20 +96,8 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
     cell_y = t[4]
     cell_area = abs(cell_x*cell_y)
 
-    additional_layers_dict = {}
-    # Create path to additional_layer. Could put conditionals here to create path according to some version. Simply use stats_mode for now. Must be raster.
-    if len(stats_modes_list) > 1:
-        additional_layers_dict = {}
-        for stats_mode in stats_modes_list:
-            if stats_mode != 'total_area':
-                additional_layer_path = os.path.join(TEST_CASES_DIR, test_id, 'additional_layers', 'inclusion_areas', stats_mode + '.tif')
-                if os.path.exists(additional_layer_path):
-                    additional_layers_dict.update({stats_mode: additional_layer_path})
-                else:
-                    print("No " + stats_mode + " inclusion area found for " + test_id + ". Moving on with processing...")
-
     # Get contingency table from two rasters.
-    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, additional_layers_dict=additional_layers_dict, exclusion_mask_dict=exclusion_mask_dict)
+    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, mask_dict=mask_dict)
 
     stats_dictionary = {}
 
@@ -156,7 +144,7 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
     return difference_dict
 
 
-def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area=''):
+def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0):
 
     # Construct paths to development test results if not existent.
     if archive_results:
@@ -203,7 +191,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
     if inclusion_area != '':
         inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
         mask_dict.update({inclusion_area_name: {'path': inclusion_area,
-                                                'buffer': None,
+                                                'buffer': int(inclusion_area_buffer),
                                                 'operation': 'include'}})
 
 #    # Crosswalk feature_ids to hydroids.
