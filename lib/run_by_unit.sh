@@ -136,13 +136,13 @@ Tcount
 
 ## DEM Reconditioning ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent
-# with the supplied stream network. This allows for more realistic catchment 
-# delineation which is ultimately reflected in the output FIM mapping. 
+# with the supplied stream network. This allows for more realistic catchment
+# delineation which is ultimately reflected in the output FIM mapping.
 echo -e $startDiv"Creating AGREE DEM using $buffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000 
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
@@ -287,7 +287,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$libDir/rem.py -d $outputHucDataDir/dem_thalwegCond.tif -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $outputHucDataDir/demDerived_streamPixels.tif
+$libDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $outputHucDataDir/demDerived_streamPixels.tif
 Tcount
 
 ## DINF DISTANCE DOWN ##
