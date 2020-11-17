@@ -113,7 +113,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # Windowed reading/calculating/writing
     with rasterio.Env():
         with rasterio.open(buf_output, 'w', **buf_profile) as raster:
-            for yx, window in elev.block_windows(1):
+            for ji, window in elev.block_windows(1):
                 # read distance, allocation, and elevation datasets   
                 vectdist_data_window = vectdist.read(1, window = window)
                 vectallo_data_window = vectallo.read(1, window = window)
@@ -163,7 +163,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # Windowed reading/calculating/writing
     with rasterio.Env():
         with rasterio.open(agree_output, 'w', **agree_profile) as raster:
-            for yx, window in elev.block_windows(1):    
+            for ji, window in elev.block_windows(1):    
                 # Read elevation data and mask, distance and allocation grids, and river data.
                 elev_data_window = elev.read(1, window = window)
                 elev_mask_window = elev.read_masks(1, window = window).astype('bool')  
