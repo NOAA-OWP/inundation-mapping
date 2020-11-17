@@ -156,7 +156,7 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
     return difference_dict
 
 
-def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, run_structure_stats=False, run_levee_stats=False, archive_results=False, mask_type='huc'):
+def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area=''):
 
     # Construct paths to development test results if not existent.
     if archive_results:
@@ -170,11 +170,8 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
 
     print("Running the alpha test for test_id: " + test_id + ", " + branch_name + "...")
     stats_modes_list = ['total_area']
-    if run_structure_stats: stats_modes_list.append('structures')
-    if run_levee_stats: stats_modes_list.append('levees')
 
     fim_run_parent = os.path.join(os.environ['outputDataDir'], fim_run_dir)
-
     assert os.path.exists(fim_run_parent), "Cannot locate " + fim_run_parent
 
     # Create paths to fim_run outputs for use in inundate().
@@ -193,13 +190,21 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
 
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
-    exclusion_mask_dict = {'levees': {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
-                                      'buffer': None
-                                      },
-                            'waterbodies': {'path': os.path.join(zones_dir, 'nwm_v2_reservoirs.shp'),
-                                            'buffer': None,
-                                            }
+    mask_dict = {'levees': {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
+                            'buffer': None,
+                            'operation': 'exclude'
+                           },
+                'waterbodies': {'path': os.path.join(zones_dir, 'nwm_v2_reservoirs.shp'),
+                                'buffer': None,
+                                'operation': 'exclude',
+                                }
                             }
+                            
+    if inclusion_area != '':
+        inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
+        mask_dict.update({inclusion_area_name: {'path': inclusion_area,
+                                                'buffer': None,
+                                                'operation': 'include'}})
 
 #    # Crosswalk feature_ids to hydroids.
 #    hydro_table_data = pd.read_csv(hydro_table, header=0)
@@ -272,7 +277,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                                                                          mask_values=[],
                                                                          stats_modes_list=stats_modes_list,
                                                                          test_id=test_id,
-                                                                         exclusion_mask_dict=exclusion_mask_dict
+                                                                         mask_dict=mask_dict,
                                                                          )
         print(" ")
         print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + return_interval + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
@@ -402,12 +407,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Inundation mapping and regression analysis for FOSS FIM. Regression analysis results are stored in the test directory.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested',required=True,default="")
-    parser.add_argument('-t','--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
+    parser.add_argument('-t', '--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
     parser.add_argument('-y', '--return-interval',help='The return interval to check. Options include: 100yr, 500yr',required=False,default=['10yr', '100yr', '500yr'])
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
-    parser.add_argument('-s', '--run-structure-stats', help='Create contingency stats at structures.', required=False,action='store_true')
     parser.add_argument('-a', '--archive-results', help='Automatically copy results to the "previous_version" archive for test_id. For admin use only.', required=False,action='store_true')
+    parser.add_argument('-i', '--inclusion-area', help='Path to shapefile. Contingency metrics will be produced from pixels inside of shapefile extent.', required=False)
+    parser.add_argument('-ib', '--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -416,10 +422,6 @@ if __name__ == '__main__':
 
     exit_flag = False  # Default to False.
     print()
-
-    if args['run_structure_stats']:
-        print("Run structure stats (-c) not yet supported.")
-        run_structure_stats = False
 
     # Ensure test_id is valid.
     if args['test_id'] not in valid_test_id_list:
@@ -442,8 +444,17 @@ if __name__ == '__main__':
     if args['return_interval'] == '10yr':
         print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided return interval (-y) " + CYAN_BOLD + args['return_interval'] + WHITE_BOLD + " is not available." + ENDC)
         print()
-
         exit_flag = True
+    
+    # Ensure inclusion_area path exists.
+    if not os.path.exists(args['inclusion_area']):
+        print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area (-i) " + CYAN_BOLD + args['inclusion_area'] + WHITE_BOLD + " could not be located." + ENDC)
+        exit_flag = True
+        
+    try:
+        inclusion_buffer = int(args['inclusion_area_buffer'])
+    except ValueError:
+        print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area_buffer (-ib) " + CYAN_BOLD + args['inclusion_area'] + WHITE_BOLD + " is not a round number." + ENDC)
 
     if exit_flag:
         print()

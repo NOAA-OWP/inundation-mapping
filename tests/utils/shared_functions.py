@@ -220,7 +220,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     return stats_dictionary
 
 
-def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, exclusion_mask_dict={}):
+def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, mask_dict={}):
     """
     Produces contingency table from 2 rasters and returns it. Also exports an agreement raster classified as:
         0: True Negatives
@@ -291,11 +291,12 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     del benchmark_src, benchmark_array, predicted_array, predicted_array_raw
 
     # Loop through exclusion masks and mask the agreement_array.
-    if exclusion_mask_dict != {}:
-        for poly_layer in exclusion_mask_dict:
+    if mask_dict != {}:
+        for poly_layer in mask_dict:
             
-            poly_path = exclusion_mask_dict[poly_layer]['path']
-            buffer_val = exclusion_mask_dict[poly_layer]['buffer']
+            poly_path = mask_dict[poly_layer]['path']
+            buffer_val = mask_dict[poly_layer]['buffer']
+            operation = mask_dict[poly_layer]['operation']
             reference = predicted_src
                         
             bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
@@ -324,8 +325,11 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                     
                 #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
                 in_poly,transform,c = rasterio.mask.raster_geometry_mask(reference, geometry, invert = True)
-                #Write mask array, areas inside lakes are set to 1 and areas outside poly are set to 0.
-                poly_mask = np.where(in_poly == True, 1,0)
+                #Write mask array, areas inside polys are set to 1 and areas outside poly are set to 0.
+                if operation == 'exclude':
+                    poly_mask = np.where(in_poly == True, 1,0)
+                elif operation == 'include':
+                    poly_mask = np.where(in_poly == False, 1,0)
                 
                 # Perform mask.
                 masked_agreement_array = np.where(poly_mask == 1, 4, agreement_array)
@@ -356,7 +360,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             f.write("%s\n" % '1: False Negative')
             f.write("%s\n" % '2: False Positive')
             f.write("%s\n" % '3: True Positive')
-            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {exclusion_mask}'.format(exclusion_mask=exclusion_mask_dict))
+            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {exclusion_mask}'.format(exclusion_mask=mask_dict))
             f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
                           
     # Store summed pixel counts in dictionary.
