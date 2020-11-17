@@ -369,7 +369,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                       'false_negatives': int((agreement_array == 1).sum()),
                                                       'false_positives': int((agreement_array == 2).sum()),
                                                       'true_positives': int((agreement_array == 3).sum()),
-                                                      'masked_count': int((agreement_array == 4).sum())
+                                                      'masked_count': int((agreement_array == 4).sum()),
+                                                      'buffer': ''
                                                       }})                               
         
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
@@ -422,7 +423,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                     agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
                     
                     # Write the layer_agreement_raster.
-                    layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], poly_layer + '_agreement.tif')
+                    layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], poly_layer + '_b' + str(buffer_val) + 'm_agreement.tif')
                     with rasterio.Env():
                         profile = predicted_src.profile
                         profile.update(nodata=10)
@@ -434,7 +435,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                                      'false_negatives': int((agreement_array == 1).sum()),
                                                                      'false_positives': int((agreement_array == 2).sum()),
                                                                      'true_positives': int((agreement_array == 3).sum()),
-                                                                     'masked_count': int((agreement_array == 4).sum())
+                                                                     'masked_count': int((agreement_array == 4).sum()),
+                                                                     'buffer': buffer_val
                                                                       }})
 
     return contingency_table_dictionary
