@@ -107,19 +107,20 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
         false_positives = contingency_table_dictionary[stats_mode]['false_positives']
         true_positives = contingency_table_dictionary[stats_mode]['true_positives']
         masked_count = contingency_table_dictionary[stats_mode]['masked_count']
+        file_handle = contingency_table_dictionary[stats_mode]['file_handle']
 
         # Produce statistics from continency table and assign to dictionary. cell_area argument optional (defaults to None).
         mode_stats_dictionary = compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area, masked_count)
 
         # Write the mode_stats_dictionary to the stats_csv.
         if stats_csv != None:
-            stats_csv = os.path.join(os.path.split(stats_csv)[0], stats_mode + '_stats.csv')
+            stats_csv = os.path.join(os.path.split(stats_csv)[0], file_handle + '_stats.csv')
             df = pd.DataFrame.from_dict(mode_stats_dictionary, orient="index", columns=['value'])
             df.to_csv(stats_csv)
 
         # Write the mode_stats_dictionary to the stats_json.
         if stats_json != None:
-            stats_json = os.path.join(os.path.split(stats_csv)[0], stats_mode + '_stats.json')
+            stats_json = os.path.join(os.path.split(stats_csv)[0], file_handle + '_stats.json')
             with open(stats_json, "w") as outfile:
                 json.dump(mode_stats_dictionary, outfile)
 

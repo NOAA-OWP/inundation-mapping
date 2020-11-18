@@ -370,7 +370,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                       'false_positives': int((agreement_array == 2).sum()),
                                                       'true_positives': int((agreement_array == 3).sum()),
                                                       'masked_count': int((agreement_array == 4).sum()),
-                                                      'buffer': ''
+                                                      'file_handle': 'total_area'
+                                                     
                                                       }})                               
         
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
@@ -436,7 +437,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                                      'false_positives': int((agreement_array == 2).sum()),
                                                                      'true_positives': int((agreement_array == 3).sum()),
                                                                      'masked_count': int((agreement_array == 4).sum()),
-                                                                     'buffer': buffer_val
+                                                                     'file_handle': poly_layer + '_b' + str(buffer_val) + 'm'
                                                                       }})
 
     return contingency_table_dictionary
