@@ -28,16 +28,16 @@ WHITE_BOLD = '\033[37;1m'
 CYAN_BOLD = '\033[36;1m'
 
 
-def profile_test_case_archive(archive_to_check, return_interval, stats_mode):
+def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
     """
     This function searches multiple directories and locates previously produced performance statistics.
 
     Args:
         archive_to_check (str): The directory path to search.
-        return_interval (str): Because a benchmark dataset may have multiple return intervals, this argument defines
-                               which return interval is to be used when searching for previous statistics.
+        magnitude (str): Because a benchmark dataset may have multiple magnitudes, this argument defines
+                               which magnitude is to be used when searching for previous statistics.
     Returns:
-        archive_dictionary (dict): A dictionary of available statistics for previous versions of the domain and return interval.
+        archive_dictionary (dict): A dictionary of available statistics for previous versions of the domain and magnitude.
                                   {version: {agreement_raster: agreement_raster_path, stats_csv: stats_csv_path, stats_json: stats_json_path}}
                                   *Will only add the paths to files that exist.
 
@@ -53,15 +53,15 @@ def profile_test_case_archive(archive_to_check, return_interval, stats_mode):
         return
 
     for version in available_versions_list:
-        version_return_interval_dir = os.path.join(archive_to_check, version, return_interval)
+        version_magnitude_dir = os.path.join(archive_to_check, version, magnitude)
         # Initialize dictionary for version and set paths to None by default.
         archive_dictionary.update({version: {'agreement_raster': None,
                                              'stats_csv': None,
                                              'stats_json': None}})
         # Find stats files and raster files and add to dictionary.
-        agreement_raster = os.path.join(version_return_interval_dir, stats_mode + '_agreement.tif')
-        stats_csv = os.path.join(version_return_interval_dir, stats_mode + '_stats.csv')
-        stats_json = os.path.join(version_return_interval_dir, stats_mode + '_stats.json')
+        agreement_raster = os.path.join(version_magnitude_dir, stats_mode + '_agreement.tif')
+        stats_csv = os.path.join(version_magnitude_dir, stats_mode + '_stats.csv')
+        stats_json = os.path.join(version_magnitude_dir, stats_mode + '_stats.json')
 
         if os.path.exists(agreement_raster):
             archive_dictionary[version]['agreement_raster'] = agreement_raster
@@ -145,7 +145,7 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
     return difference_dict
 
 
-def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0):
+def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False):
 
     # Construct paths to development test results if not existent.
     if archive_results:
@@ -195,56 +195,28 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                                                 'buffer': int(inclusion_area_buffer),
                                                 'operation': 'include'}})
 
-#    # Crosswalk feature_ids to hydroids.
-#    hydro_table_data = pd.read_csv(hydro_table, header=0)
-#    ht_feature_id_list = list(hydro_table_data.feature_id)
-#    ht_hydro_id_list = list(hydro_table_data.HydroID)
-#    lake_id_list = list(hydro_table_data.LakeID)
-#
-#    # Get list of feature_ids_to_mask.
-#    feature_ids_to_mask = []
-#    for f in range(0, len(lake_id_list)):
-#        if lake_id_list[f] != -999:
-#            lake_feature_id = ht_feature_id_list[f]
-#            if lake_feature_id not in feature_ids_to_mask:
-#                feature_ids_to_mask.append(lake_feature_id)
+    # Check if magnitude is list of magnitudes or single value.
+    magnitude_list = magnitude
+    if type(magnitude_list) != list:
+        magnitude_list = [magnitude_list]
 
-    # Remove duplicates and create list of hydro_ids to use as waterbody mask.
-#    reduced_ht_feature_id_list, reduced_ht_hydro_id_list, hydro_ids_to_mask = [], [], []
-#
-#    for i in range(0, len(ht_hydro_id_list)):
-#        if ht_hydro_id_list[i] not in reduced_ht_hydro_id_list:
-#            reduced_ht_hydro_id_list.append(ht_hydro_id_list[i])
-#            reduced_ht_feature_id_list.append(ht_feature_id_list[i])
-#    for i in range(0, len(reduced_ht_feature_id_list)):
-#        ht_feature_id = reduced_ht_feature_id_list[i]
-#        ht_hydro_id = reduced_ht_hydro_id_list[i]
-#        if ht_feature_id in feature_ids_to_mask:
-#            hydro_ids_to_mask.append(ht_hydro_id)
-
-    # Check if return interval is list of return intervals or single value.
-    return_interval_list = return_interval
-    if type(return_interval_list) != list:
-        return_interval_list = [return_interval_list]
-
-    for return_interval in return_interval_list:
+    for magnitude in magnitude_list:
         # Construct path to validation raster and forecast file.
         benchmark_category = test_id.split('_')[1]
-        benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, return_interval, benchmark_category + '_huc_' + current_huc + '_depth_' + return_interval + '.tif')
+        benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
         if not os.path.exists(benchmark_raster_path):  # Skip loop instance if the benchmark raster doesn't exist.
             continue
 
-        branch_test_case_dir = os.path.join(branch_test_case_dir_parent, return_interval)
+        branch_test_case_dir = os.path.join(branch_test_case_dir_parent, magnitude)
 
-        os.makedirs(branch_test_case_dir)
-
+        os.makedirs(branch_test_case_dir)  # Make output directory for branch.
 
         # Define paths to inundation_raster and forecast file.
         inundation_raster = os.path.join(branch_test_case_dir, 'inundation_extent.tif')
-        forecast = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, return_interval, benchmark_category + '_huc_' + current_huc + '_flows_' + return_interval + '.csv')
+        forecast = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
 
         # Run inundate.
-        print("-----> Running inundate() to produce modeled inundation extent for the " + return_interval + " return period...")
+        print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
         inundate(
                  rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
                  subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
@@ -269,7 +241,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                                                                          mask_dict=mask_dict,
                                                                          )
         print(" ")
-        print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + return_interval + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
+        print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + magnitude + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
         print(" ")
 
         if compare_to_previous:
@@ -277,7 +249,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
             # Compare to previous stats files that are available.
             archive_to_check = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'previous_versions')
             for stats_mode in stats_modes_list:
-                archive_dictionary = profile_test_case_archive(archive_to_check, return_interval, stats_mode)
+                archive_dictionary = profile_test_case_archive(archive_to_check, magnitude, stats_mode)
 
                 if archive_dictionary == {}:
                     break
@@ -314,9 +286,8 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
 
             print()
             print("--------------------------------------------------------------------------------------------------")
-
+            
             stats_mode = stats_modes_list[0]
-
             try:
                 last_version_index = text_block[0].index('dev_latest')
             except ValueError:
@@ -341,7 +312,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                         print("--------------------------------------------------------------------------------------------------")
                     print()
                     stats_mode = first_item
-                    print(CYAN_BOLD + current_huc + ": " + return_interval.upper(), ENDC)
+                    print(CYAN_BOLD + current_huc + ": " + magnitude.upper(), ENDC)
                     print(CYAN_BOLD + stats_mode.upper().replace('_', ' ') + " METRICS" + ENDC)
                     print()
 
@@ -383,7 +354,6 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_t
                     print(WHITE_BOLD + stat_name + ENDC + "     " + color + (symbol + " {:5.2f}".format(abs(percent_change)) + " %").rjust(len(percent_change_header)), ENDC + "    " + color + ("{:12.3f}".format((difference))).rjust(len(difference_header)), ENDC + "    " + "{:15.3f}".format(current_version).rjust(len(current_version_header)) + "   " + "{:15.3f}".format(last_version).rjust(len(last_version_header)) + "  ")
 
             print()
-
             print()
             print()
             print("--------------------------------------------------------------------------------------------------")
@@ -398,11 +368,12 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested',required=True,default="")
     parser.add_argument('-t', '--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
-    parser.add_argument('-y', '--return-interval',help='The return interval to check. Options include: 100yr, 500yr',required=False,default=['10yr', '100yr', '500yr'])
+    parser.add_argument('-y', '--magnitude',help='The magnitude to run.',required=False, default="")
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
     parser.add_argument('-a', '--archive-results', help='Automatically copy results to the "previous_version" archive for test_id. For admin use only.', required=False,action='store_true')
-    parser.add_argument('-i', '--inclusion-area', help='Path to shapefile. Contingency metrics will be produced from pixels inside of shapefile extent.', required=False)
-    parser.add_argument('-ib', '--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
+    parser.add_argument('-i', '--inclusion-area', help='Path to shapefile. Contingency metrics will be produced from pixels inside of shapefile extent.', required=False, default="")
+    parser.add_argument('-ib','--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
+    parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -428,25 +399,37 @@ if __name__ == '__main__':
         print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. outputs/123456/123456." + ENDC)
         print()
         exit_flag = True
-
-    # Ensure return_interval available.
-    if args['return_interval'] == '10yr':
-        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided return interval (-y) " + CYAN_BOLD + args['return_interval'] + WHITE_BOLD + " is not available." + ENDC)
-        print()
-        exit_flag = True
     
     # Ensure inclusion_area path exists.
-    if not os.path.exists(args['inclusion_area']):
+    if args['inclusion_area'] != "" and not os.path.exists(args['inclusion_area']):
         print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area (-i) " + CYAN_BOLD + args['inclusion_area'] + WHITE_BOLD + " could not be located." + ENDC)
         exit_flag = True
         
     try:
         inclusion_buffer = int(args['inclusion_area_buffer'])
     except ValueError:
-        print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area_buffer (-ib) " + CYAN_BOLD + args['inclusion_area'] + WHITE_BOLD + " is not a round number." + ENDC)
+        print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area_buffer (-ib) " + CYAN_BOLD + args['inclusion_area_buffer'] + WHITE_BOLD + " is not a round number." + ENDC)
 
+    print(args['test_id'])
+    print(args['test_id'].split('_'))
+
+    if args['magnitude'] == '':
+        if 'ble' in args['test_id'].split('_'):
+            args['magnitude'] = ['100yr', '500yr']
+        elif 'ahps' in args['test_id'].split('_'):
+            print("Hey")
+            args['magnitude'] = ['action', 'minor']
+#                args['magnitude'] = ['action', 'minor', 'moderate', 'major']
+        else:
+            print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)
+            exit_flag = True     
+            
+            
     if exit_flag:
         print()
         sys.exit()
+        
+
     else:
+
         run_alpha_test(**args)
