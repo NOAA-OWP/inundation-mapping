@@ -383,9 +383,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             if operation == 'include':
                 poly_path = mask_dict[poly_layer]['path']
                 buffer_val = mask_dict[poly_layer]['buffer']
-                print("BUFFER")
-                print(buffer_val)
-                
+
                 reference = predicted_src
                             
                 bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
@@ -421,7 +419,10 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                     masked_agreement_array = np.where(poly_mask == 0, 4, agreement_array)  # Changed to poly_mask == 0
                     
                     # Get rid of masked values outside of the modeled domain.
-                    agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
+                    temp_agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
+                    
+                    if buffer_val == None:  # The buffer used is added to filename, and 0 is easier to read than None.
+                        buffer_val = 0
                     
                     # Write the layer_agreement_raster.
                     layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], poly_layer + '_b' + str(buffer_val) + 'm_agreement.tif')
@@ -429,14 +430,15 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                         profile = predicted_src.profile
                         profile.update(nodata=10)
                         with rasterio.open(layer_agreement_raster, 'w', **profile) as dst:
-                            dst.write(agreement_array, 1)
+                            dst.write(temp_agreement_array, 1)
                     
+
                     # Store summed pixel counts in dictionary.
-                    contingency_table_dictionary.update({poly_layer:{'true_negatives': int((agreement_array == 0).sum()),
-                                                                     'false_negatives': int((agreement_array == 1).sum()),
-                                                                     'false_positives': int((agreement_array == 2).sum()),
-                                                                     'true_positives': int((agreement_array == 3).sum()),
-                                                                     'masked_count': int((agreement_array == 4).sum()),
+                    contingency_table_dictionary.update({poly_layer:{'true_negatives': int((temp_agreement_array == 0).sum()),
+                                                                     'false_negatives': int((temp_agreement_array == 1).sum()),
+                                                                     'false_positives': int((temp_agreement_array == 2).sum()),
+                                                                     'true_positives': int((temp_agreement_array == 3).sum()),
+                                                                     'masked_count': int((temp_agreement_array == 4).sum()),
                                                                      'file_handle': poly_layer + '_b' + str(buffer_val) + 'm'
                                                                       }})
 

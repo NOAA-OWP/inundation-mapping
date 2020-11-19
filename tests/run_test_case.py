@@ -207,50 +207,26 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
         ahps_domain_shapefile = os.path.join(TEST_CASES_DIR, 'other', 'zones', 'ahps_domains.shp')
         
         # Open shapefile, determine the polys in the huc, create a different shapefile for each poly--name according to AHPS.
-        # Open shapefile.
         ahps_domain_obj = gpd.read_file(ahps_domain_shapefile)
         ahps_domain_gdf = gpd.GeoDataFrame(ahps_domain_obj)
-        
-        
-#        input_flows = gpd.read_file(input_flows_fileName)
-#        # must drop leading zeroes
-#        select_flows = tuple(map(str,map(int,wbd[wbd.HUC8.str.contains(hucCode)].fossid)))
-#        
-#        if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
-#        output_flows = input_flows[input_flows.HydroID.str.startswith(select_flows)].copy()
-#        if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
-
-        
+            
         # Loop through entries and compare against the huc4_list to get available HUCs within the geopackage domain.
         for index, row in ahps_domain_gdf.iterrows():
-            print(row)
             huc8_code = row['huc8_code']
             ahps = row['ahps_code']
             
             if huc8_code == current_huc:
-                print("YO")
                 ahps_domain_subset = ahps_domain_obj[ahps_domain_obj.ahps_code == ahps]
                 
                 #.query("ahps_code=='{ahps_code}'".format(ahps_code=ahps_code))
                 ahps_domain_subset_output = os.path.join(ahps_inclusion_zones_dir, ahps + '.shp')
                 ahps_domain_subset.to_file(ahps_domain_subset_output,driver='ESRI Shapefile')
-
                 
-#                ahps_domain_gdf.to_file(ahps_domain_subset_output,driver='ESRI Shapefile')
-                
-                
-#            huc = row["HUC" + huc_gpkg[-1]]
-#            
-#            # Append huc to appropriate list.
-#            if str(huc[:4]) in huc4_list:
-#                if huc_gpkg == 'WBDHU6':
-#                    huc6_list.append(huc)
-#                elif huc_gpkg == 'WBDHU8':
-#                    huc8_list.append(huc)  
-#        
-#        
-#        
-#        
+                mask_dict.update({ahps:
+                    {'path': ahps_domain_subset_output,
+                     'buffer': None,
+                     'operation': 'include'}
+                        })
                 
     if inclusion_area != '':
         inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
