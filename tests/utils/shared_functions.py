@@ -277,13 +277,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     predicted_array = np.where(predicted_array<0, 0, predicted_array)
     predicted_array = np.where(predicted_array>0, 1, predicted_array)
     
-    benchmark_array = np.where(benchmark_array==benchmark_src.nodata, 10, benchmark_array)  # Reclassify NoData to 10
-
-    
-#    # Mask agreement array according to mask catchments.
-#    for value in mask_values:
-#        agreement_array = np.where(np.absolute(predicted_array_raw) == int(value), 4, agreement_array)
-        
+    benchmark_array = np.where(benchmark_array==benchmark_src.nodata, 10, benchmark_array)  # Reclassify NoData to 10        
 
     agreement_array = np.add(benchmark_array, 2*predicted_array)
     agreement_array = np.where(agreement_array>4, 10, agreement_array)
@@ -361,7 +355,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             f.write("%s\n" % '1: False Negative')
             f.write("%s\n" % '2: False Positive')
             f.write("%s\n" % '3: True Positive')
-            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {exclusion_mask}'.format(exclusion_mask=mask_dict))
+            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {mask_dict}'.format(mask_dict=mask_dict))
             f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
                           
     # Store summed pixel counts in dictionary.
