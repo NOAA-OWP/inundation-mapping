@@ -69,38 +69,40 @@ if __name__ == '__main__':
     
     procs_list = []
     for test_id in test_cases_dir_list:
-        if 'validation' not in test_id:
+        if 'validation' and 'other' not in test_id:
                         
             current_huc = test_id.split('_')[0]
             
-            for branch_name in previous_fim_list:
-                
-                if config == 'DEV':
-                    fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, current_huc)
-                elif config == 'PREV':
-                    fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
+            if test_id.split('_')[1] in benchmark_category:
+            
+                for branch_name in previous_fim_list:
                     
-                if os.path.exists(fim_run_dir):    
+                    if config == 'DEV':
+                        fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, current_huc)
+                    elif config == 'PREV':
+                        fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
+                        
+                    if os.path.exists(fim_run_dir):    
+                        
+                        if special_string != "":
+                            branch_name = branch_name + '_' + special_string
+                        
+                        if 'ble' in test_id:
+                            magnitude = ['100yr', '500yr']
+                        elif 'ahps' in test_id:
+                            magnitude = ['action', 'minor', 'moderate', 'major']
+                        else:
+                            continue
                     
-                    if special_string != "":
-                        branch_name = branch_name + '_' + special_string
-                    
-                    if 'ble' in test_id:
-                        magnitude = ['100yr', '500yr']
-                    elif 'ahps' in test_id:
-                        magnitude = ['action', 'minor', 'moderate', 'major']
-                    else:
-                        continue
-                
-                    print("Adding " + test_id + " to list of test_ids to archive...")
-                    if job_number > 1:
-                        procs_list.append([fim_run_dir, branch_name, test_id, magnitude, archive_results])
-                    else:
-                        process_alpha_test([fim_run_dir, branch_name, test_id, magnitude, archive_results])
-
+                        print("Adding " + test_id + " to list of test_ids to process...")
+                        if job_number > 1:
+                            procs_list.append([fim_run_dir, branch_name, test_id, magnitude, archive_results])
+                        else:
+                            process_alpha_test([fim_run_dir, branch_name, test_id, magnitude, archive_results])
+                            
+            else:
+                print("No test_ids were found for the provided benchmark category: " + str(benchmark_category))
 
     if job_number > 1:
         pool = Pool(job_number)
         pool.map(process_alpha_test, procs_list)
-    else:
-        pass
