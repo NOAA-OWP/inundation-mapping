@@ -165,17 +165,18 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
 
     # Create paths to fim_run outputs for use in inundate().
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
-
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-    
     if mask_type == 'huc':
         catchment_poly = ''
     else:
         catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-        
-    current_huc = test_id.split('_')[0]
-    hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
     hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')
+        
+    # Map necessary inputs for inundation().
+    hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
+    
+    benchmark_category = test_id.split('_')[1]
+    current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
 
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
@@ -188,7 +189,12 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                                 'operation': 'exclude',
                                 }
                             }
-                            
+           
+            
+    # If the test_id is AHPS, then identify possible inclusion zones in the HUC.
+    if benchmark_category == 'ahps':
+        ahps_domain_shapefile = os.path.join(TEST_CASES_DIR, 'other', 'zones', 'ahps_domain.shp')
+                
     if inclusion_area != '':
         inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
         mask_dict.update({inclusion_area_name: {'path': inclusion_area,
@@ -202,7 +208,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
 
     for magnitude in magnitude_list:
         # Construct path to validation raster and forecast file.
-        benchmark_category = test_id.split('_')[1]
+        
         benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
         if not os.path.exists(benchmark_raster_path):  # Skip loop instance if the benchmark raster doesn't exist.
             continue
