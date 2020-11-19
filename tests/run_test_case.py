@@ -13,7 +13,7 @@ import shutil
 from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
-TEST_CASES_DIR = r'/data/test_cases_ahps_testing/'  # Will update.
+TEST_CASES_DIR = r'/data/test_cases/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
 PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']

@@ -16,7 +16,7 @@ def process_alpha_test(args):
     fim_run_dir = args[0]
     branch_name = args[1]
     test_id = args[2]
-    return_interval = args[3]
+    magnitude = args[3]
     archive_results = args[4]
     
     mask_type = 'huc'    
@@ -27,9 +27,10 @@ def process_alpha_test(args):
         compare_to_previous = False
 
     try:
-        run_alpha_test(fim_run_dir, branch_name, test_id, return_interval, compare_to_previous=compare_to_previous, run_structure_stats=False, archive_results=archive_results, mask_type=mask_type)
+        run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type)
     except Exception as e:
         print(e)
+
 
 if __name__ == '__main__':
 
@@ -39,9 +40,8 @@ if __name__ == '__main__':
     parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
     parser.add_argument('-j','--job-number',help='Number of processes to use. Default is 1.',required=False, default="1")
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
-    
-    compare_to_previous = False
-    
+    parser.add_argument('-b','--benchmark-category',help='Options include ble or ahps. Defaults to process both.',required=False, default=['ble', 'ahps'])
+        
     test_cases_dir_list = os.listdir(TEST_CASES_DIR)
     
     args = vars(parser.parse_args())
@@ -50,6 +50,7 @@ if __name__ == '__main__':
     fim_version = args['fim_version']
     job_number = int(args['job_number'])
     special_string = args['special_string']
+    benchmark_category = args['benchmark_category']
     
     if fim_version != "all":
         previous_fim_list = [fim_version]
@@ -62,6 +63,9 @@ if __name__ == '__main__':
         archive_results = False
     else:
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
+    
+    if type(benchmark_category) != list:
+        benchmark_category = [benchmark_category]
     
     procs_list = []
     for test_id in test_cases_dir_list:
@@ -76,17 +80,23 @@ if __name__ == '__main__':
                 elif config == 'PREV':
                     fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
                     
-                print(fim_run_dir)
-                if special_string != "":
-                    branch_name = branch_name + '_' + special_string
+                if os.path.exists(fim_run_dir):    
+                    
+                    if special_string != "":
+                        branch_name = branch_name + '_' + special_string
+                    
+                    if 'ble' in test_id:
+                        magnitude = ['100yr', '500yr']
+                    elif 'ahps' in test_id:
+                        magnitude = ['action', 'minor', 'moderate', 'major']
+                    else:
+                        continue
                 
-                return_interval = ['100yr', '500yr']
-                if os.path.exists(fim_run_dir):
                     print("Adding " + test_id + " to list of test_ids to archive...")
                     if job_number > 1:
-                        procs_list.append([fim_run_dir, branch_name, test_id, return_interval, archive_results])
+                        procs_list.append([fim_run_dir, branch_name, test_id, magnitude, archive_results])
                     else:
-                        process_alpha_test([fim_run_dir, branch_name, test_id, return_interval, archive_results])
+                        process_alpha_test([fim_run_dir, branch_name, test_id, magnitude, archive_results])
 
 
     if job_number > 1:
