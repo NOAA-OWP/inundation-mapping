@@ -3,6 +3,7 @@
 import os
 import sys
 import pandas as pd
+import geopandas as gpd
 import rasterio
 import json
 import csv
@@ -12,7 +13,7 @@ import shutil
 from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
-TEST_CASES_DIR = r'/data/test_cases/'  # Will update.
+TEST_CASES_DIR = r'/data/test_cases_ahps_testing/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
 PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
@@ -180,20 +181,76 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
 
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
-    mask_dict = {'levees': {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
-                            'buffer': None,
-                            'operation': 'exclude'
-                           },
-                'waterbodies': {'path': os.path.join(zones_dir, 'nwm_v2_reservoirs.shp'),
-                                'buffer': None,
-                                'operation': 'exclude',
-                                }
-                            }
-           
+    mask_dict = {'levees': 
+                    {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
+                     'buffer': None,
+                     'operation': 'exclude'
+                     },
+                'waterbodies':
+                    {'path': os.path.join(zones_dir, 'nwm_v2_reservoirs.shp'),
+                     'buffer': None,
+                     'operation': 'exclude',
+                     },
+                }
+            
+    if not os.path.exists(branch_test_case_dir_parent):
+        os.mkdir(branch_test_case_dir_parent)
             
     # If the test_id is AHPS, then identify possible inclusion zones in the HUC.
     if benchmark_category == 'ahps':
-        ahps_domain_shapefile = os.path.join(TEST_CASES_DIR, 'other', 'zones', 'ahps_domain.shp')
+        
+        ahps_inclusion_zones_dir = os.path.join(branch_test_case_dir_parent, 'ahps_domains')
+        print(ahps_inclusion_zones_dir)
+        if not os.path.exists(ahps_inclusion_zones_dir):
+            os.mkdir(ahps_inclusion_zones_dir)
+        
+        ahps_domain_shapefile = os.path.join(TEST_CASES_DIR, 'other', 'zones', 'ahps_domains.shp')
+        
+        # Open shapefile, determine the polys in the huc, create a different shapefile for each poly--name according to AHPS.
+        # Open shapefile.
+        ahps_domain_obj = gpd.read_file(ahps_domain_shapefile)
+        ahps_domain_gdf = gpd.GeoDataFrame(ahps_domain_obj)
+        
+        
+#        input_flows = gpd.read_file(input_flows_fileName)
+#        # must drop leading zeroes
+#        select_flows = tuple(map(str,map(int,wbd[wbd.HUC8.str.contains(hucCode)].fossid)))
+#        
+#        if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
+#        output_flows = input_flows[input_flows.HydroID.str.startswith(select_flows)].copy()
+#        if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
+
+        
+        # Loop through entries and compare against the huc4_list to get available HUCs within the geopackage domain.
+        for index, row in ahps_domain_gdf.iterrows():
+            print(row)
+            huc8_code = row['huc8_code']
+            ahps = row['ahps_code']
+            
+            if huc8_code == current_huc:
+                print("YO")
+                ahps_domain_subset = ahps_domain_obj[ahps_domain_obj.ahps_code == ahps]
+                
+                #.query("ahps_code=='{ahps_code}'".format(ahps_code=ahps_code))
+                ahps_domain_subset_output = os.path.join(ahps_inclusion_zones_dir, ahps + '.shp')
+                ahps_domain_subset.to_file(ahps_domain_subset_output,driver='ESRI Shapefile')
+
+                
+#                ahps_domain_gdf.to_file(ahps_domain_subset_output,driver='ESRI Shapefile')
+                
+                
+#            huc = row["HUC" + huc_gpkg[-1]]
+#            
+#            # Append huc to appropriate list.
+#            if str(huc[:4]) in huc4_list:
+#                if huc_gpkg == 'WBDHU6':
+#                    huc6_list.append(huc)
+#                elif huc_gpkg == 'WBDHU8':
+#                    huc8_list.append(huc)  
+#        
+#        
+#        
+#        
                 
     if inclusion_area != '':
         inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
@@ -416,14 +473,10 @@ if __name__ == '__main__':
     except ValueError:
         print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area_buffer (-ib) " + CYAN_BOLD + args['inclusion_area_buffer'] + WHITE_BOLD + " is not a round number." + ENDC)
 
-    print(args['test_id'])
-    print(args['test_id'].split('_'))
-
     if args['magnitude'] == '':
         if 'ble' in args['test_id'].split('_'):
             args['magnitude'] = ['100yr', '500yr']
         elif 'ahps' in args['test_id'].split('_'):
-            print("Hey")
             args['magnitude'] = ['action', 'minor']
 #                args['magnitude'] = ['action', 'minor', 'moderate', 'major']
         else:
