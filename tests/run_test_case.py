@@ -55,21 +55,10 @@ def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
 
     for version in available_versions_list:
         version_magnitude_dir = os.path.join(archive_to_check, version, magnitude)
-        # Initialize dictionary for version and set paths to None by default.
-        archive_dictionary.update({version: {'agreement_raster': None,
-                                             'stats_csv': None,
-                                             'stats_json': None}})
-        # Find stats files and raster files and add to dictionary.
-        agreement_raster = os.path.join(version_magnitude_dir, stats_mode + '_agreement.tif')
-        stats_csv = os.path.join(version_magnitude_dir, stats_mode + '_stats.csv')
         stats_json = os.path.join(version_magnitude_dir, stats_mode + '_stats.json')
 
-        if os.path.exists(agreement_raster):
-            archive_dictionary[version]['agreement_raster'] = agreement_raster
-        if os.path.exists(stats_csv):
-            archive_dictionary[version]['stats_csv'] = stats_csv
         if os.path.exists(stats_json):
-            archive_dictionary[version]['stats_json'] = stats_json
+            archive_dictionary.update({version: {'stats_json': stats_json}})
 
     return archive_dictionary
 
@@ -233,6 +222,10 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
         mask_dict.update({inclusion_area_name: {'path': inclusion_area,
                                                 'buffer': int(inclusion_area_buffer),
                                                 'operation': 'include'}})
+        # Append the concatenated inclusion_area_name and buffer.
+        if inclusion_area_buffer == None:
+            inclusion_area_buffer = 0
+        stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm') 
 
     # Check if magnitude is list of magnitudes or single value.
     magnitude_list = magnitude
@@ -288,7 +281,10 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
             # Compare to previous stats files that are available.
             archive_to_check = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'previous_versions')
             for stats_mode in stats_modes_list:
+                print(stats_mode)
                 archive_dictionary = profile_test_case_archive(archive_to_check, magnitude, stats_mode)
+                from pprint import pprint
+                pprint(archive_dictionary)
 
                 if archive_dictionary == {}:
                     break
@@ -306,10 +302,12 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                     for previous_version, paths in archive_dictionary.items():
                         # Load stats for previous version.
                         previous_version_stats_json_path = paths['stats_json']
-                        previous_version_stats_dict = json.load(open(previous_version_stats_json_path))
+                        if os.path.exists(previous_version_stats_json_path):
+                            previous_version_stats_dict = json.load(open(previous_version_stats_json_path))
+    
+                            # Append stat for the version to state_line.
+                            stat_line.append(previous_version_stats_dict[stat])
 
-                        # Append stat for the version to state_line.
-                        stat_line.append(previous_version_stats_dict[stat])
 
                     # Append stat for the current version to stat_line.
                     stat_line.append(test_version_dictionary[stats_mode][stat])
@@ -340,11 +338,12 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                         print()
                         continue
 
-            current_version_index = text_block[0].index(branch_name)
+            
 
             for line in text_block:
                 first_item = line[0]
                 if first_item in stats_modes_list:
+                    current_version_index = line.index(branch_name)
                     if first_item != stats_mode:  # Update the stats_mode and print a separator.
                         print()
                         print()

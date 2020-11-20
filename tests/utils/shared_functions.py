@@ -388,7 +388,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                 if poly_all.empty:
                     continue
                 
-                print("-----> Including at " + poly_layer + "...")
+                print("-----> Evaluating performance at " + poly_layer + "...")
                 #Project layer to reference crs.
                 poly_all_proj = poly_all.to_crs(reference.crs)
                 # check if there are any lakes within our reference raster extent.
@@ -418,8 +418,10 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                     if buffer_val == None:  # The buffer used is added to filename, and 0 is easier to read than None.
                         buffer_val = 0
                     
+                    poly_handle = poly_layer + '_b' + str(buffer_val) + 'm'
+                    
                     # Write the layer_agreement_raster.
-                    layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], poly_layer + '_b' + str(buffer_val) + 'm_agreement.tif')
+                    layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif')
                     with rasterio.Env():
                         profile = predicted_src.profile
                         profile.update(nodata=10)
@@ -428,12 +430,12 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                     
 
                     # Store summed pixel counts in dictionary.
-                    contingency_table_dictionary.update({poly_layer:{'true_negatives': int((temp_agreement_array == 0).sum()),
+                    contingency_table_dictionary.update({poly_handle:{'true_negatives': int((temp_agreement_array == 0).sum()),
                                                                      'false_negatives': int((temp_agreement_array == 1).sum()),
                                                                      'false_positives': int((temp_agreement_array == 2).sum()),
                                                                      'true_positives': int((temp_agreement_array == 3).sum()),
                                                                      'masked_count': int((temp_agreement_array == 4).sum()),
-                                                                     'file_handle': poly_layer + '_b' + str(buffer_val) + 'm'
+                                                                     'file_handle': poly_handle
                                                                       }})
 
     return contingency_table_dictionary
