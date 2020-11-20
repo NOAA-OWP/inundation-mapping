@@ -281,10 +281,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
             # Compare to previous stats files that are available.
             archive_to_check = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'previous_versions')
             for stats_mode in stats_modes_list:
-                print(stats_mode)
                 archive_dictionary = profile_test_case_archive(archive_to_check, magnitude, stats_mode)
-                from pprint import pprint
-                pprint(archive_dictionary)
 
                 if archive_dictionary == {}:
                     break
