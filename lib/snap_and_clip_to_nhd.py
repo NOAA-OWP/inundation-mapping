@@ -9,7 +9,7 @@ from tqdm import tqdm
 import argparse
 from os.path import splitext
 from shapely.strtree import STRtree
-from shapely.geometry import Point,MultiLineString,LineString,mapping
+from shapely.geometry import Point,MultiLineString,LineString,mapping,MultiPolygon,Polygon
 
 def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nld_lines_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,ahps_sites_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nld_lines_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False,extent='FR'):
 
@@ -22,7 +22,17 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
     # find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_lakes = gpd.read_file(nwm_lakes_fileName, mask = wbd_buffer)
+    print(nwm_lakes)
     if not nwm_lakes.empty:
+        # perform fill process to remove holes/islands in the NWM lake polygons
+        nwm_lakes_fill = nwm_lakes
+        nwm_lakes_fill_holes=MultiPolygon(Polygon(p.exterior) for p in nwm_lakes['geometry']) # remove donut hole geometries
+        # loop through the filled polygons and insert the new geometry
+        for i in range(len(nwm_lakes_fill_holes)):
+            print(str(i))
+            nwm_lakes_fill.loc[i,'geometry'] = nwm_lakes_fill_holes[i]
+        nwm_lakes_fill.crs = projection
+        nwm_lakes = nwm_lakes_fill
         nwm_lakes.to_file(subset_nwm_lakes_fileName,driver=getDriver(subset_nwm_lakes_fileName),index=False)
     del nwm_lakes
 
@@ -128,7 +138,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
                 toNode = toNode.iloc[0]
                 downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
         #If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
-        if len(downstream_ids)>1:
+        if len(set(downstream_ids))>1:
             relevant_ids = [segment for segment in downstream_ids if DnLevelPat == nhd_streams.loc[segment,'LevelPathI']]
         else:
             relevant_ids = downstream_ids
