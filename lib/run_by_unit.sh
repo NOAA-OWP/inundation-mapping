@@ -58,7 +58,7 @@ Tcount
 if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    exit
+    exit 0
   fi
 fi
 
@@ -241,21 +241,23 @@ if [ "$extent" = "MS" ]; then
   echo -e $startDiv"Mask Rasters with Stream Buffer $hucNumber"$stopDiv
   date -u
   Tstart
-  $libDir/fr_to_ms_raster_mask.py $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/flowdir_d8_burned_filled.tif $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/flowdir_d8_MS.tif $outputHucDataDir/dem_thalwegCond_MS.tif $outputHucDataDir/slopes_d8_dem_metersMS.tif $ms_buffer_dist
+  $libDir/fr_to_ms_raster_mask.py $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/flowdir_d8_burned_filled.tif $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/flowdir_d8_MS.tif $outputHucDataDir/dem_thalwegCond_MS.tif $outputHucDataDir/slopes_d8_dem_metersMS.tif $outputHucDataDir/demDerived_streamPixels.tif $outputHucDataDir/demDerived_streamPixelsMS.tif $ms_buffer_dist
   Tcount
 
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    exit
+    exit 0
   fi
 
   dem_thalwegCond=$outputHucDataDir/dem_thalwegCond_MS.tif
   slopes_d8_dem_meters=$outputHucDataDir/slopes_d8_dem_metersMS.tif
   flowdir_d8_burned_filled=$outputHucDataDir/flowdir_d8_MS.tif
+  demDerived_streamPixels=$outputHucDataDir/demDerived_streamPixelsMS.tif
 else
   dem_thalwegCond=$outputHucDataDir/dem_thalwegCond.tif
   slopes_d8_dem_meters=$outputHucDataDir/slopes_d8_dem_meters.tif
   flowdir_d8_burned_filled=$outputHucDataDir/flowdir_d8_burned_filled.tif
+  demDerived_streamPixels=$outputHucDataDir/demDerived_streamPixels.tif
 fi
 
 ## GAGE WATERSHED FOR REACHES ##
@@ -271,7 +273,7 @@ echo -e $startDiv"Vectorize Pixel Centroids $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/flows_points_pixels.gpkg ] && \
-$libDir/reachID_grid_to_vector_points.py $outputHucDataDir/demDerived_streamPixels.tif $outputHucDataDir/flows_points_pixels.gpkg featureID
+$libDir/reachID_grid_to_vector_points.py $demDerived_streamPixels $outputHucDataDir/flows_points_pixels.gpkg featureID
 Tcount
 
 ## GAGE WATERSHED FOR PIXELS ##
@@ -287,7 +289,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$libDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $outputHucDataDir/demDerived_streamPixels.tif
+$libDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $demDerived_streamPixels
 Tcount
 
 ## DINF DISTANCE DOWN ##
@@ -295,7 +297,7 @@ Tcount
 # date -u
 # Tstart
 # [ ! -f $outputHucDataDir/flowdir_dinf_thalwegCond.tif] && \
-# mpiexec -n $ncores_fd $taudemDir/dinfdistdown -ang $outputHucDataDir/flowdir_dinf_thalwegCond.tif -fel $outputHucDataDir/dem_thalwegCond_filled.tif -src $outputHucDataDir/demDerived_streamPixels.tif -dd $outputHucDataDir/rem.tif -m ave h
+# mpiexec -n $ncores_fd $taudemDir/dinfdistdown -ang $outputHucDataDir/flowdir_dinf_thalwegCond.tif -fel $outputHucDataDir/dem_thalwegCond_filled.tif -src $demDerived_streamPixels -dd $outputHucDataDir/rem.tif -m ave h
 # Tcount
 
 ## BRING DISTANCE DOWN TO ZERO ##
@@ -321,11 +323,9 @@ Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ] && \
 $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
 
-if [ "$extent" = "MS" ]; then
-  if [[ ! -f $outputHucDataDir/demDerived_reaches_split_filtered.gpkg ]] ; then
-    echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    exit
-  fi
+if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
+  echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
+  exit 0
 fi
 Tcount
 
