@@ -449,8 +449,7 @@ if __name__ == '__main__':
         if 'ble' in args['test_id'].split('_'):
             args['magnitude'] = ['100yr', '500yr']
         elif 'ahps' in args['test_id'].split('_'):
-            args['magnitude'] = ['action', 'minor']
-#                args['magnitude'] = ['action', 'minor', 'moderate', 'major']
+            args['magnitude'] = ['action', 'minor', 'moderate', 'major']
         else:
             print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)
             exit_flag = True     
