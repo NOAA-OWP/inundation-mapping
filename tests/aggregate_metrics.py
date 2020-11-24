@@ -64,9 +64,6 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
                     cell_area = json_dict['cell_area_m2']
 
                     huc_path_list.append([huc, stats_json_path])
-                    
-                stats_csv_path = os.path.join(branch_results_dir, magnitude, 'total_area_stats.json')
-                
                 
                     
             if cell_area == 0:

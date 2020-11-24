@@ -103,7 +103,6 @@ if __name__ == '__main__':
                         
             else:
                 print("No test_ids were found for the provided benchmark category: " + str(test_id.split('_')[1]))
-                print(test_id)
 
     # Multiprocess alpha test runs.
     if job_number > 1:

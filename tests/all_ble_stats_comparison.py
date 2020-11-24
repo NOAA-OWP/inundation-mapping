@@ -11,18 +11,11 @@ def subset_vector_layers(huclist, branch, current_dev, outfolder):
     ble_sitelist = [str(line.rstrip('\n')) for line in open(huclist)]
     stat_list = ['fim_1_0_0', 'fim_2_3_3',str(current_dev), 'new_feature','eval']
     eval_all = pd.DataFrame([])
-    
-    print(branch)
-    
+        
     # stat_list = stat_list + [branch]
     for site in ble_sitelist:
         eval_100_path=os.path.join(test_cases,str(site) + '_ble', 'performance_archive', 'development_versions', branch, '100yr','stats_summary.csv')
         eval_500_path=os.path.join(test_cases,str(site) + '_ble', 'performance_archive', 'development_versions', branch, '500yr','stats_summary.csv')
-        
-        print(eval_100_path)
-        print(os.path.exists(eval_100_path))
-        print(os.path.exists(eval_500_path))
-        
         
         if os.path.exists(eval_100_path) and os.path.exists(eval_500_path):
             eval_100 = pd.read_csv(eval_100_path,index_col=0)
