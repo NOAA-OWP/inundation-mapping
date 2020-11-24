@@ -16,7 +16,9 @@ slpFR                     = sys.argv[4]
 fdrMSname                 = sys.argv[5]
 nhddemMSname              = sys.argv[6]
 slpMSname                 = sys.argv[7]
-floodAOIbuf               = sys.argv[8]
+strpixelFR                = sys.argv[8]
+strpixelMSname            = sys.argv[9]
+floodAOIbuf               = sys.argv[10]
 
 # create output layer names
 split_flows = gpd.read_file(split_flows_fileName)
@@ -65,4 +67,17 @@ out_meta.update({"driver": "GTiff",
      "transform": out_transform})
 
 with rasterio.open(os.path.join(os.path.dirname(slpFR), slpMSname), "w", **out_meta) as dest:
+    dest.write(out_image)
+
+# Mask stream pixels
+with rasterio.open(strpixelFR) as src:
+    out_image, out_transform = rasterio.mask.mask(src, [MSsplit_flows_gdf_buffered], crop=True)
+    out_meta = src.meta
+
+out_meta.update({"driver": "GTiff",
+     "height": out_image.shape[1],
+     "width": out_image.shape[2],
+     "transform": out_transform})
+
+with rasterio.open(os.path.join(os.path.dirname(strpixelFR), strpixelMSname), "w", **out_meta) as dest:
     dest.write(out_image)
