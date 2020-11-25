@@ -63,8 +63,8 @@ if lakes is not None:
       lakes = lakes.filter(items=['newID', 'geometry'])
       lakes = lakes.set_index('newID')
       flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
-      lakes_buffer = lakes
-      lakes_buffer['geometry'] = lakes_buffer.buffer(20) # adding 10m buffer for spatial join comparison
+      lakes_buffer = lakes.copy()
+      lakes_buffer['geometry'] = lakes.buffer(20) # adding 20m buffer for spatial join comparison
 
 print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
 
