@@ -93,7 +93,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
                 nwm_headwaters = incoming_points.copy()
         else:
             print ("No AHPs point(s) within HUC " + str(hucCode) +  " boundaries.")
-            sys.exit()
+            sys.exit(0)
 
     for index, row in tqdm(nwm_headwaters.iterrows(),total=len(nwm_headwaters)):
         distances = nhd_streams.distance(row['geometry'])
