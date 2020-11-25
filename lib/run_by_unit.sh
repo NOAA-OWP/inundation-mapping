@@ -58,7 +58,7 @@ Tcount
 if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    exit
+    exit 0
   fi
 fi
 
@@ -246,7 +246,7 @@ if [ "$extent" = "MS" ]; then
 
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    exit
+    exit 0
   fi
 
   dem_thalwegCond=$outputHucDataDir/dem_thalwegCond_MS.tif
@@ -323,11 +323,9 @@ Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ] && \
 $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
 
-if [ "$extent" = "MS" ]; then
-  if [[ ! -f $outputHucDataDir/demDerived_reaches_split_filtered.gpkg ]] ; then
-    echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    exit
-  fi
+if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
+  echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
+  exit 0
 fi
 Tcount
 
