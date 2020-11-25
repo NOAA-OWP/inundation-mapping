@@ -9,7 +9,7 @@ from tqdm import tqdm
 import argparse
 from os.path import splitext
 from shapely.strtree import STRtree
-from shapely.geometry import Point,MultiLineString,LineString,mapping
+from shapely.geometry import Point,MultiLineString,LineString,mapping,MultiPolygon,Polygon
 
 def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nhd_streams_fileName,nwm_lakes_fileName,nld_lines_fileName,nwm_catchments_fileName,wbd_fileName,wbd_buffer_fileName,ahps_sites_fileName,subset_nhd_streams_fileName,subset_nwm_lakes_fileName,subset_nld_lines_fileName,subset_nwm_headwaters_fileName,subset_nwm_catchments_fileName,subset_nwm_streams_fileName,subset_nhd_headwaters_fileName=None,dissolveLinks=False,extent='FR'):
 
@@ -63,8 +63,9 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
         # check for incoming MS streams and convert to points
         intersecting = nhd_streams.crosses(wbd.geometry[0])
         incoming_flows = nhd_streams.loc[intersecting,:]
+        incoming_points_list = []
+
         if len(incoming_flows) > 0:
-            incoming_points_list = []
             for i,linesting in enumerate(incoming_flows.geometry):
                 incoming_points_list = incoming_points_list + [linesting.coords[-1]]
 
@@ -92,13 +93,15 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
                 nwm_headwaters = incoming_points.copy()
         else:
             print ("No AHPs point(s) within HUC " + str(hucCode) +  " boundaries.")
-            sys.exit()
+            sys.exit(0)
 
     for index, row in tqdm(nwm_headwaters.iterrows(),total=len(nwm_headwaters)):
         distances = nhd_streams.distance(row['geometry'])
         # nearestGeom = nhd_streams_tree.nearest(row['geometry'])
         min_index = np.argmin(distances)
         nhd_streams.loc[min_index,'is_nwm_headwater'] = True
+
+    nhd_streams = nhd_streams.loc[nhd_streams.geometry!=None,:] # special case: remove segments without geometries
 
     # writeout nwm headwaters
     if not nwm_headwaters.empty:
@@ -128,7 +131,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
                 toNode = toNode.iloc[0]
                 downstream_ids = nhd_streams.loc[nhd_streams['FromNode'] == toNode,:].index.tolist()
         #If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
-        if len(downstream_ids)>1:
+        if len(set(downstream_ids))>1: # special case: remove duplicate NHDPlusIDs
             relevant_ids = [segment for segment in downstream_ids if DnLevelPat == nhd_streams.loc[segment,'LevelPathI']]
         else:
             relevant_ids = downstream_ids
