@@ -18,6 +18,19 @@ AHPS implements a series of advances including model calibration techniques \cit
 Despite the AHPS advances in operational flood forecasting its significant limitations are the lack of spatial coverageand short forecast time horizons.
 Approximately, there is only one forecast point every 1,455 km of river and one forecast point with FIM every 29,261 km.
 
+\begin{figure}[h!]
+\centering
+\includegraphics[scale=2.0]{figs/ahps_all_forecast_points.jpg}
+\label{fig:all_ahps_points}
+\caption{All 3,781 forecast points in United States' Advanced Hydrologic Prediction System for lower 48 states and Alaska. No forecast points in Hawaii or territories. From: water.weather.gov/ahps}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[scale=2.0]{figs/ahps_fim_forecast_points_conus.jpg}
+\label{fig:fim_ahps_points}
+\caption{All 188 forecast points in United States' Advanced Hydrologic Prediction System with flood inundation mapping capabilities. One forecast point near Juneau, Alaska not shown. No forecast points in Hawaii or remaining territories. From: water.weather.gov/ahps}
+\end{figure}
 
 Additional work is required to fill-in the gaps that the AHPS leaves in terms of spatial and temporal coverage.
 To broaden the forecasting domain, the Office of Water Prediction (OWP) at the National Water Center (NWC) in Tuscaloosa, Alabama commissioned the utilization of the National Water Model (NWM) which is an instance of the Weather Research and Forecast Hydrologic Model (WRF-Hydro) \cite{gochis2018wrf,cosgrove2019evolution}. 
@@ -28,24 +41,8 @@ It's simply an additional model to be used in the forecasting and early warning 
 
 The National Hydrography Dataset Plus (NHDPlus) version 2.1 is the basis for the hydrofabric in the NWM due to its comprehensive use with the hydrologic communities' stakeholders \cite{mckay2012nhdplus}. 
 The term hydrofabric is used within the NWM jargon to describe the collection of geospatial datasets required for modeling including but not limited to stream networks, catchments, channel properties, and elevation data. 
-The routing methods used within the NWM for its stream network is Muskingam-Cunge (MC) routing \cite{bedient2008hydrology,ponce1994variable,gochis2018wrf}.
+The routing methods used within the NWM for its stream network is Muskingam-Cunge (MC) routing to reduce computational requirements of a continental scale model \cite{bedient2008hydrology,ponce1994variable,gochis2018wrf}.
+Muskinham-Cunge routing scheme has been demonstrated by \citeA{cunge1969subject} to be equivalent to the convective-diffusive wave method without consideration to wave dampening.
+As a result of high computational costs and large spatial domains, the need for high-resolution FIM at 10m or better requires additional post-processing from the principal output of the NWM which is forecast river discharges at the reach scale. The Height Above Nearest Drainage (HAND) terrain model is one such technique that can be used, along with synthetic rating curves (SRC), to convert riverine discharges to stages to inundation extents.
 
 
-
-
-
-
-\begin{figure}
-\centering
-\includegraphics[scale=2.0]{figs/ahps_all_forecast_points.jpg}
-\label{fig:all_ahps_points}
-\caption{All 3,781 forecast points in United States' Advanced Hydrologic Prediction System for lower 48 states and Alaska. No forecast points in Hawaii or territories. From: water.weather.gov/ahps}
-\end{figure}
-
-
-\begin{figure}
-\centering
-\includegraphics[scale=2.0]{figs/ahps_fim_forecast_points_conus.jpg}
-\label{fig:fim_ahps_points}
-\caption{All 188 forecast points in United States' Advanced Hydrologic Prediction System with flood inundation mapping capabilities. One forecast point near Juneau, Alaska not shown. No forecast points in Hawaii or remaining territories. From: water.weather.gov/ahps}
-\end{figure}
