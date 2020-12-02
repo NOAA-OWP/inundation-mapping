@@ -32,7 +32,7 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
             nwm_lakes.loc[i,'geometry'] = nwm_lakes_fill_holes[i]
 
         nwm_lakes.to_file(subset_nwm_lakes_fileName,driver=getDriver(subset_nwm_lakes_fileName),index=False)
-    del nwm_lakes, nwm_lakes_fill_holes
+    del nwm_lakes
 
     # find intersecting levee lines
     print("Subsetting NLD levee lines for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
