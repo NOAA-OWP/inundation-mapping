@@ -30,6 +30,7 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
+input_LANDSEA=$inputDataDir/nhdplus_vectors/"$huc4Identifier"/NHDPlusLandSea"$huc4Identifier".gpkg
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -52,7 +53,7 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -f $input_NWM_Headwaters -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -u $outputHucDataDir/wbd.gpkg -g $outputHucDataDir/wbd_buffered.gpkg -y $inputDataDir/ahp_sites/ahps_sites.gpkg -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -p $extent
+$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -f $input_NWM_Headwaters -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -u $outputHucDataDir/wbd.gpkg -g $outputHucDataDir/wbd_buffered.gpkg -y $inputDataDir/ahp_sites/ahps_sites.gpkg -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -p $extent
 Tcount
 
 if [ "$extent" = "MS" ]; then
