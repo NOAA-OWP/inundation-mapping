@@ -63,6 +63,8 @@ if lakes is not None:
       lakes = lakes.filter(items=['newID', 'geometry'])
       lakes = lakes.set_index('newID')
       flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
+      lakes_buffer = lakes.copy()
+      lakes_buffer['geometry'] = lakes.buffer(20) # adding 20m buffer for spatial join comparison
 
 print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
 
@@ -148,7 +150,7 @@ for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
 split_flows_gdf = gpd.GeoDataFrame({'S0' : slopes ,'geometry':split_flows}, crs=flows.crs, geometry='geometry')
 split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
 if lakes is not None:
-    split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes, how='left', op='within')
+    split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes_buffer, how='left', op='within') #options: intersects, within, contains, crosses
     split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
 else:
     split_flows_gdf['LakeID'] = -999

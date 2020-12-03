@@ -457,6 +457,7 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                          'discharge_cms':float,'LakeID' : int}
                                 )
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
+        hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
     elif isinstance(hydroTable,pd.DataFrame):
         pass #consider checking for correct dtypes, indices, and columns
     else:
