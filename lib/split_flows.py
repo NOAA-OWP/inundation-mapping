@@ -31,7 +31,7 @@ maxLength              = float(sys.argv[5])
 slope_min              = float(sys.argv[6])
 huc8_filename          = sys.argv[7]
 lakes_filename         = sys.argv[8]
-lakes_buffer_input     = sys.argv[9]
+lakes_buffer_input     = float(sys.argv[9])
 
 toMetersConversion = 1e-3
 
