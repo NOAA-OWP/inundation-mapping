@@ -60,28 +60,35 @@ Use of higher resolution DEMs in that study was motivated by previous work with 
 Further work by \citeA{johnson2019integrated} noted the general under-prediction of HAND and suggested tuning the Manning's n parameter to better align SRC's with observations. 
 Additionally, the sensitivity to low topographic relief and channel slope have been observed \cite{johnson2019integrated,godbout2019error}. 
 Catchment boundary issues are noted where the interconnection of catchments are not properly accounted for \cite{zhang2018comparative,mcgehee2016modified}.
-The HAND method and its associated advances require advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM (CFIM).
+These findings suggesting improvements to HAND require advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM (CFIM).
 
 
 Thanks to the availability of high-performance computing (HPC) and large scale high-resolution digital elevation models (DEM) such as the National Elevation Dataset (NED) at the 10m scale, HAND has been implemented into software for large-scale, continental computation. 
 HAND was initially implemented into operational software by the National Flood Interoperability Experiment (NFIE) to generate FIM hydrofabric (will be used interchangebly with the datasets produced by HAND) rapidly on a high-performance computer (HPC) \cite{maidment2017conceptual,liu2016cybergis}. 
-NFIE used open source dependencies including the Terrain Analysis Using Digital Elevation Models (TauDEM) \cite{tarboton2005terrain} and the Geospatial Data Abstraction Library (GDAL) \cite{warmerdam2008geospatial} to compute HAND for the Continental United States (CONUS) at 331 Hydrologic Unit Code (HUC) 6 processing units in 1.34 CPU years.
+NFIE used open-source dependencies including the Terrain Analysis Using Digital Elevation Models (TauDEM) \cite{tarboton2005terrain} and the Geospatial Data Abstraction Library (GDAL) \cite{warmerdam2008geospatial} to compute HAND for the Continental United States (CONUS) at 331 Hydrologic Unit Code (HUC) 6 processing units in 1.34 CPU years.
 By allocating 31 nodes at 20 cores per for a total of 620 available cores to the overall operation, it enabled the production to finish up in 36 hours consuming 3.2TB of peak memory and 5TB of total disk space.
 Originally, NFIE utilized the National Hydrography Dataset (NHD) Plus Medium Resolution (MR) to etch or burn flowlines prior to further conditioning but more recent work has advanced this to the more current NHDPlus High Resolution (HR) \cite{liu2020height}. 
-The original NFIE dataset was employed by the NWC to produce forecast FIM from the NWM for use within its network of RFC's for additional guidance in hydro-blind regions and tagged as OWP's FIM version 1.0.
+The original NFIE dataset was employed by the NWC to produce forecast FIM from the NWM for use within its network of RFC's for additional guidance in hydro-blind regions and tagged as OWP's FIM V1.0.
 Further work by \citeA{djokic2019arc}, implemented a series of improvements to HAND inluding equi-distant reaches, updates to use with NHDPlusHR hydrography, and AGREE-DEM reconditioning \cite{hellweger1997agree} into an ESRI Arc-Hydro workflow with use in ArcGIS and tagged as OWP FIM v2.0. 
 More notably the software added the ability to derive drainage potentials on a per mainstem basis as originally conceptualized by \cite{mcgehee2016modified}.
 Mainstem is generally used here as defined in \citeA{blodgett2020mainstems} but only available in mainstems downstream of forecast AHPS points within the workflow introduced by \citeA{djokic2019arc}.
 Overall, the software package is estimated to run CONUS at the full-resolution in 0.55 CPU years in a desktop setting.
 
 
-To continue to innovate and implement the most advanced developments in FIM, the need arose to implement a more advanced software package with higher standards for specifications.
+To continue to innovate and implement the most advanced developments in FIM, the need arose to implement a more advanced software package with higher standards for specifications. The desired specifications were
 
 \begin{enumerate}
-\item Use easily accesible, open-source dependencies to promote free-use, open-access, and community development and research.
-\item Excellent single-core computational and memory performance with favorable, time and space complexities.
-\item Ability to parallelize across multiple cores and nodes within HPC or cloud compute environments.
-\item Preprocessing functionality within package pipeline to acquire and process input artificats.
-\item Rapid inundation mapping capabilities to go from FIM hydrofabric datasets to forecast FIMs from NWM.
-\item Automated testing functionality to ensure modifications enhance forecast skill when compared to external sources
+\item Use easily accesible, open-source dependencies to promote free-use and open-access community development and research.
+\item excellent single-core computational and memory performance with favorable, time and space complexities,
+\item ability to parallelize across multiple cores and nodes within HPC or cloud compute environments,
+\item preprocessing functionality within package pipeline to acquire and process input artificats,
+\item rapid inundation mapping capabilities to go from FIM hydrofabric datasets to forecast FIMs from NWM,
+\item automated testing functionality to ensure modifications enhance forecast skill when compared to external sources,
+\item ability to produce depth forecasts,
+\item full NWM domain coverage (including Hawaii and Puerto Rico),
+\item and improved FIM forecasting skill when compared to FIM v1.0 and v2.0.
 \end{enumerate} 
+
+To meet these higher specifictions for the next generation of authoritative FIM capabilities, the OWP FIM V3.0 `Cahaba' was developed. It meets all the specifications listed above including version on version improvement of FIM skill due to the implementation of new developments in HAND techniques.
+
+  
