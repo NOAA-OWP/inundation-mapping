@@ -275,7 +275,7 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     included_huc6_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc6.lst')
     included_huc8_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc8.lst')
 
-        # Overly verbose file writing loops. Doing this in a pinch.
+    # Overly verbose file writing loops. Doing this in a pinch.
     with open(included_huc4_file, 'w') as f:
         for item in huc4_list:
             f.write("%s\n" % item)
