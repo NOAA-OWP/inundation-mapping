@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Aggregates a metric or metrics for multiple HUC8s.')
     parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=False)
-    parser.add_argument('-b','--branch-list',help='Name of branch to check all test_cases for and to aggregate.',required=True)
+    parser.add_argument('-b','--branch',help='Name of branch to check all test_cases for and to aggregate.',required=True)
     parser.add_argument('-u','--hucs',help='HUC8s to restrict the aggregation.',required=False, default="")
     parser.add_argument('-s','--special_string',help='Special string to add to outputs.',required=False, default="")
     parser.add_argument('-f','--outfolder',help='output folder',required=True,type=str)
