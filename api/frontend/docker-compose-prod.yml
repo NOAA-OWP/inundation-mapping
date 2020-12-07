@@ -1,0 +1,32 @@
+version: '3.5'
+services:
+  fim_frontend:
+    image: fim_frontend
+    build:
+      context: .
+    container_name: fim_frontend
+    restart: always
+    env_file:
+      - .env
+    expose:
+      - "5000"
+    networks:
+      - fim
+  fim_nginx:
+    image: nginx
+    container_name: fim_nginx
+    restart: always
+    depends_on:
+      - fim_frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-prod.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - fim
+    command: [nginx]
+
+networks:
+  fim:
+    name: fim
+          

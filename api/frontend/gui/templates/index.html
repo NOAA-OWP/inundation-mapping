@@ -1,0 +1,81 @@
+<html>
+    <head>
+        <title>FIM Run API</title>
+        <style>
+            html, body {
+                display: flex;
+                width: 100%;
+                height: 100%;
+
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #new-job {
+                display: flex;
+
+                flex-direction: column;
+
+            }
+
+            .form-field {
+                width: 8rem;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>FIM Run API</h1>
+        <h2 id="connected"></h2>
+        <form method="post" action="#" id="new-job">
+            <h2 style="text-align: center;">New Job</h2>
+            <div>
+                <input type="text" id="job-name" class="form-field" placeholder="Job Name"></input>
+            </div>
+            <div>
+                <input type="text" id="huc" class="form-field" placeholder="Huc"></input>
+            </div>
+            <div>
+                <input type="text" id="git-branch" class="form-field" placeholder="Git Branch"></input>
+            </div>
+            <input type="submit" value="Start Run"/>
+        </form>
+        <h2>Current Jobs</h2>
+        <table id="job-list"></table>
+
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
+
+        <script type="text/javascript">
+            document.addEventListener("DOMContentLoaded", () => {
+                var socket = io.connect('{{socket_url}}')
+
+                socket.on('is_connected', msg => {
+                    if(msg === true) document.querySelector('#connected').innerHTML = 'You are connected'
+                    else document.querySelector('#not-connected').innerHTML = 'You are not connected'
+                })
+
+                socket.on('client_update', jobs => {
+                    if(Object.keys(jobs).length !== 0) {
+                        var jobsTable = '<tr><th>Name</th><th>Time Elapsed</th><th>Status</th></tr>'
+                        Object.values(jobs).forEach(j => {
+                            jobsTable += `<tr><td>${j['name']}</td><td>${j['time_elapsed']}</td><th>${j['status']}</td></tr>`
+                        })
+                        document.querySelector('#job-list').innerHTML = jobsTable
+                    }
+                })
+
+                document.querySelector("#new-job").onsubmit = () => {
+                    socket.emit('new_job', {
+                        'job_name': document.querySelector('#job-name').value,
+                        'huc': document.querySelector('#huc').value,
+                        'git_branch': document.querySelector('#git-branch').value,
+                    })
+                    document.querySelector('#job-name').value = ''
+                    document.querySelector('#huc').value = ''
+                    document.querySelector('#git-branch').value = ''
+                    return false
+                }
+            })
+        </script>
+    </body>
+</html>
