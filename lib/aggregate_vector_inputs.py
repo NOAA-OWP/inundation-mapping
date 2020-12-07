@@ -20,7 +20,7 @@ nwm_headwaters.to_file(os.path.join(nwm_dir,'nwm_headwaters.gpkg'),driver='GPKG'
 
 ## NHDPlus HR
 print ('aggregating NHDPlus HR burnline layers')
-nhd_streams_wVAA_fileName_pre=os.path.join(nhd_dir,'NHDPlusBurnLineEvent_wVAA_fcode.gpkg')
+nhd_streams_wVAA_fileName_pre=os.path.join(nhd_dir,'NHDPlusBurnLineEvent_wVAA.gpkg')
 
 schema = {'geometry': 'MultiLineString','properties': {'NHDPlusID': 'str','ReachCode': 'str',
                                                   'FromNode': 'str','ToNode': 'str',

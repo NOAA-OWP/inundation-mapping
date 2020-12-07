@@ -170,7 +170,6 @@ def pull_and_prepare_nhd_data(args):
     # Download raster and vector, if not already in user's directory (exist check performed by pull_file()).
     nhd_raster_extraction_parent = os.path.dirname(nhd_raster_extraction_path)
     huc = os.path.basename(nhd_raster_extraction_path).split('_')[2]
-    print(str(huc))
 
     nhd_raster_parent_dir = os.path.join(nhd_raster_extraction_parent, 'HRNHDPlusRasters' + huc)
 
@@ -192,7 +191,8 @@ def pull_and_prepare_nhd_data(args):
                     shutil.rmtree(full_path)
                 elif os.path.isfile(full_path):
                     os.remove(full_path)
-        # os.remove(nhd_raster_extraction_path)
+        os.remove(nhd_raster_extraction_path)
+
     nhd_vector_extraction_parent = os.path.dirname(nhd_vector_extraction_path)
 
     if not os.path.exists(nhd_vector_extraction_parent):
@@ -247,28 +247,25 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     nhd_plus_vector_dir = os.path.join(path_to_saved_data_parent_dir, NHDPLUS_VECTORS_DIRNAME)
 
     huc4_list = [i[-4:] for i in os.listdir(nhd_plus_raster_dir)]
-
     huc6_list, huc8_list = [], []
 
     # Read WBD into dataframe.
-    # huc_gpkg_list = ['WBDHU6', 'WBDHU8']  # The WBDHU4 are handled by the nhd_plus_raster_dir name.
     full_huc_gpkg = os.path.join(wbd_directory, 'WBD_National.gpkg')
-    huc_gpkg = 'WBDHU8'
+    huc_gpkg = 'WBDHU8' # The WBDHU4 are handled by the nhd_plus_raster_dir name.
 
     # Open geopackage.
-    # wbd = gp.read_file(full_huc_gpkg, layer=huc_gpkg)
-    wbd = gp.read_file(full_huc_gpkg, layer='WBDHU8')
+    wbd = gp.read_file(full_huc_gpkg, layer=huc_gpkg)
 
     # Loop through entries and compare against the huc4_list to get available HUCs within the geopackage domain.
-for index, row in tqdm(wbd.iterrows()):
-    huc = row["HUC" + huc_gpkg[-1]]
-    huc_mask = wbd.loc[wbd[str("HUC" + huc_gpkg[-1])]==huc].geometry
-    burnline = os.path.join(nhd_plus_vector_dir, huc[0:4], 'NHDPlusBurnLineEvent' + huc[0:4] + '.gpkg')
-    if os.path.exists(burnline):
-        nhd_test = len(gp.read_file(burnline, mask = huc_mask)) # this is slow, iterates through 2000+ HUC8s
-        # Append huc to appropriate list.
-        if (str(huc[:4]) in huc4_list) & (nhd_test>0):
-            huc8_list.append(huc)
+    for index, row in tqdm(wbd.iterrows()):
+        huc = row["HUC" + huc_gpkg[-1]]
+        huc_mask = wbd.loc[wbd[str("HUC" + huc_gpkg[-1])]==huc].geometry
+        burnline = os.path.join(nhd_plus_vector_dir, huc[0:4], 'NHDPlusBurnLineEvent' + huc[0:4] + '.gpkg')
+        if os.path.exists(burnline):
+            nhd_test = len(gp.read_file(burnline, mask = huc_mask)) # this is slow, iterates through 2000+ HUC8s
+            # Append huc to huc8 list.
+            if (str(huc[:4]) in huc4_list) & (nhd_test>0):
+                huc8_list.append(huc)
 
     huc6_list = [w[:6] for w in huc8_list]
     huc6_list = set(huc6_list)
@@ -369,10 +366,10 @@ def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, ov
     #pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_preinputs_dir,num_workers)  # Commented out for now.
 
     # Pull and prepare WBD data.
-    # wbd_directory = pull_and_prepare_wbd(path_to_saved_data_parent_dir,NWM_HYDROFABRIC_DIRNAME,NWM_FILE_TO_SUBSET_WITH,overwrite_wbd,num_workers)
+    wbd_directory = pull_and_prepare_wbd(path_to_saved_data_parent_dir,NWM_HYDROFABRIC_DIRNAME,NWM_FILE_TO_SUBSET_WITH,overwrite_wbd,num_workers)
 
     # Create HUC list files.
-    # build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)
+    build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)
 
 
 if __name__ == '__main__':
