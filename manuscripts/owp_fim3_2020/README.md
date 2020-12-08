@@ -30,6 +30,16 @@ This contains instructions on how to build the manuscript written with LaTex int
 
 Please see the issue tracker on Github for known issues and for getting help.
 
+## Directory Structure
+
+Within <path_to_repo>/manuscripts/owp_fim3_2020/, the owp_fim3.tex is the main tex file. Here is a summary of the included directories:
+
+* Bib = bibliography file(s)
+* deps = dependencies
+* figs = figures
+* templates = template and class files
+* sec = tex files of individual sections of manuscript
+
 ## Getting Involved
 
 NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Fernando Aristizabal (fernando.aristizabal@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
