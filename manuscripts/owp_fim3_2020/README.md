@@ -1,6 +1,6 @@
 ### Building LaTex Manuscript to PDF
 
-This contains instructions on how to build the manuscript written with LaTex into PDF along the associated bibliography.
+This contains instructions on how to build the manuscript written with LaTex into a PDF along with the associated bibliography.
 
 ## Dependencies
 
@@ -16,12 +16,12 @@ This contains instructions on how to build the manuscript written with LaTex int
 5. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
     - Linux: `chgrp -R fim <path/to/repository>`
 
-## Usage for Machines with Bash
+## Building to PDF on Machines with Bash
 
 1. Run Docker container & compile document (may need to run as root/admin user): `/path_to_repo/manuscripts/owp_fim3_2020/docker_run_and_make.sh <path_to_repo>`
 2. View pdf output on your host machine located at `/path_to_repo/manuscripts/owp_fim3_2020/owp_fim3.pdf`.
 
-## Usage for Machines without Bash
+## Building to PDF on Machines without Bash
 
 1. Run Docker container & compile document (may need to run as root/admin user): `docker run --rm -v <path_to_repo>:/foss_fim <image_name>:<tag> /foss_fim/manuscripts/owp_fim3_2020/Makefile.sh`
 2. View pdf output on your host machine located at `/path_to_repo/manuscripts/owp_fim3_2020/owp_fim3.pdf`.
@@ -34,7 +34,7 @@ Please see the issue tracker on Github for known issues and for getting help.
 
 Within <path_to_repo>/manuscripts/owp_fim3_2020/, the owp_fim3.tex is the main tex file. Here is a summary of the included directories:
 
-* Bib = bibliography file(s)
+* bib = bibliography file(s)
 * deps = dependencies
 * figs = figures
 * templates = template and class files
