@@ -71,10 +71,10 @@ if __name__ == '__main__':
         
     procs_list = []
     for test_id in test_cases_dir_list:
-        if 'validation' and 'other' not in test_id:
+        if not any(x in test_id for x in ['validation','other','.lst']):#if 'validation' and 'other' not in test_id:
                         
             current_huc = test_id.split('_')[0]
-            
+            print(current_huc)
             if test_id.split('_')[1] in benchmark_category:
             
                 

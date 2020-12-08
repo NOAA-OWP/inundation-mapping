@@ -30,6 +30,7 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
+input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -52,7 +53,7 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -f $input_NWM_Headwaters -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -u $outputHucDataDir/wbd.gpkg -g $outputHucDataDir/wbd_buffered.gpkg -y $inputDataDir/ahp_sites/ahps_sites.gpkg -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -p $extent
+$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -f $input_NWM_Headwaters -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -u $outputHucDataDir/wbd.gpkg -g $outputHucDataDir/wbd_buffered.gpkg -y $inputDataDir/ahp_sites/ahps_sites.gpkg -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -p $extent
 Tcount
 
 if [ "$extent" = "MS" ]; then
@@ -233,7 +234,7 @@ echo -e $startDiv"Split Derived Reaches $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ] && \
-$libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg  $outputHucDataDir/nwm_lakes_proj_subset.gpkg
+$libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg $lakes_buffer_dist_meters
 Tcount
 
 if [ "$extent" = "MS" ]; then
@@ -344,6 +345,14 @@ Tstart
 gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif
 Tcount
 
+## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
+echo -e $startDiv"Rasterize filtered/dissolved ocean polygon $hucNumber"$stopDiv
+date -u
+Tstart
+[ -f $outputHucDataDir/LandSea_subset.gpkg ] && [ ! -f $outputHucDataDir/LandSea_subset.tif ] && \
+gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LandSea_subset.gpkg $outputHucDataDir/LandSea_subset.tif
+Tcount
+
 ## MASK SLOPE RASTER ##
 echo -e $startDiv"Masking Slope Raster to HUC $hucNumber"$stopDiv
 date -u
@@ -358,6 +367,14 @@ date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_zeroed_masked.tif ] && \
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
+Tcount
+
+## MASK REM RASTER TO REMOVE OCEAN AREAS ##
+echo -e $startDiv"Additional masking to REM raster to remove ocean areas in HUC $hucNumber (if applicable)"$stopDiv
+date -u
+Tstart
+[ -f $outputHucDataDir/LandSea_subset.tif ] && \
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed_masked.tif -B $outputHucDataDir/LandSea_subset.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
 Tcount
 
 ## MAKE CATCHMENT AND STAGE FILES ##
