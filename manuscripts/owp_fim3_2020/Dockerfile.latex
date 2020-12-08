@@ -1,0 +1,27 @@
+## Dockerfile for manuscript building from Latex
+FROM ubuntu:20.04
+ARG dataDir=/data
+ARG projectDir=/foss_fim
+
+
+## ADDING FIM GROUP ##
+ARG GroupID=1370800235
+ARG GroupName=fim
+RUN addgroup --gid $GroupID $GroupName
+ENV GID=$GroupID
+ENV GN=$GroupName
+
+
+## INSTALLS
+RUN apt update --fix-missing
+RUN DEBIAN_FRONTEND=noninteractive apt install -y texlive-full
+RUN apt auto-remove
+
+
+## ADD TO PATHS ##
+ENV PATH="$projectDir:${PATH}"
+
+
+## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
+ADD ./lib/entrypoint.sh /
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
