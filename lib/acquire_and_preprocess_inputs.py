@@ -8,6 +8,7 @@ import shutil
 from multiprocessing import Pool
 import geopandas as gp
 from urllib.error import HTTPError
+from tqdm import tqdm
 
 from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_URL_PREFIX,
@@ -211,15 +212,6 @@ def pull_and_prepare_nhd_data(args):
         nhd = gp.read_file(nhd_gdb,layer='NHDFlowline')
         nhd = nhd.to_crs(PREP_PROJECTION)
         nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDFlowline' + huc + '.gpkg'),driver='GPKG')
-        # extract sea boundaries for exclusion
-        nhd = gp.read_file(nhd_gdb,layer='NHDPlusLandSea')
-        if len(nhd) > 0:
-            nhd = nhd.to_crs(PREP_PROJECTION)
-            nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusLandSea' + huc + '.gpkg'),driver='GPKG')
-        # extract waterbodies for FType attributes
-        nhd = gp.read_file(nhd_gdb,layer='NHDPlusBurnWaterbody')
-        nhd = nhd.to_crs(PREP_PROJECTION)
-        nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusBurnWaterbody' + huc + '.gpkg'),driver='GPKG')
         # extract attributes
         nhd = gp.read_file(nhd_gdb,layer='NHDPlusFlowLineVAA')
         nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusFlowLineVAA' + huc + '.gpkg'),driver='GPKG')
@@ -257,7 +249,7 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     wbd = gp.read_file(full_huc_gpkg, layer=huc_gpkg)
 
     # Loop through entries and compare against the huc4_list to get available HUCs within the geopackage domain.
-    for index, row in tqdm(wbd.iterrows()):
+    for index, row in tqdm(wbd.iterrows(),total=len(wbd)):
         huc = row["HUC" + huc_gpkg[-1]]
         huc_mask = wbd.loc[wbd[str("HUC" + huc_gpkg[-1])]==huc].geometry
         burnline = os.path.join(nhd_plus_vector_dir, huc[0:4], 'NHDPlusBurnLineEvent' + huc[0:4] + '.gpkg')
