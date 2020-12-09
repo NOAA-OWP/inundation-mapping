@@ -67,9 +67,7 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
 
         # Step 3, copy files to desired names
         shutil.copy(os.path.join(output_folder_path, 'rem_zeroed_masked.tif'), os.path.join(output_folder_path, f'hand_grid_{huc_number}.tif'))
-        # os.rename(os.path.join(output_folder_path, 'rem_zeroed_masked.tif'), os.path.join(output_folder_path, f'hand_grid_{huc_number}.tif'))
         shutil.copy(os.path.join(output_folder_path, 'gw_catchments_reaches_filtered_addedAttributes.tif'), os.path.join(output_folder_path, f'catchments_{huc_number}.tif'))
-        # os.rename(os.path.join(output_folder_path, 'gw_catchments_reaches_filtered_addedAttributes.tif'), os.path.join(output_folder_path, f'catchments_{huc_number}.tif'))
 
 def whitelist_directory(directory_path, whitelist, additional_whitelist):
     # Add any additional files to the whitelist that the user wanted to keep
