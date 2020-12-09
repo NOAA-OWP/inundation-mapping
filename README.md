@@ -18,7 +18,7 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 ## Configuration
 
 Software is configurable via parameters found in config directory. Copy files before editing and remove "template" pattern from the filename.
-Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values. 
+Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
 - params_template.env
 - mannings_default.json
     - must change filepath in params_template.env under "manning_n" variable name
@@ -51,14 +51,14 @@ NOTE: Some of the input data is not easy to acquire and will need to be shared w
     - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
     - Please run `/foss_fim/lib/acquire_and_preprocess_inputs.py --help` for more information.
     - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
-3. Aggregate NHD HR streams : /foss_fim/lib/aggregate_nhd_hr_streams.py
+3. Aggregate NHD HR streams and create NWM headwater points : /foss_fim/lib/aggregate_vector_inputs.py
 4. Produce Hydrofabric : `fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>`
     - `-u` can be a single huc, a series passed in quotes, or a line-delimited file
         i. To run entire domain of available data use one of the `/data/inputs/included_huc[4,6,8].lst` files
     - Outputs can be found under `/data/outputs/<name_your_run>`
 
 ## Evaluate FIM output to a Benchmark Dataset
-Once the hydrofabric has been generated from fim_run.sh for, evaluation against a benchmark dataset can be performed using binary contingency statistics. One benchmark dataset that can be used for evaluations are Base Level Engineering studies available on the FEMA Base Flood Elevation Viewer. To acquire FEMA datasets go to the FEMA Base Flood Elevation Viewer (https://webapps.usgs.gov/infrm/estbfe/) and download the file geodatabase and depth grids for a HUC. To perform an evaluation a flow forecast file is required and benchmark grids are preprocessed prior to running run_test_case.py. 
+Once the hydrofabric has been generated from fim_run.sh for, evaluation against a benchmark dataset can be performed using binary contingency statistics. One benchmark dataset that can be used for evaluations are Base Level Engineering studies available on the FEMA Base Flood Elevation Viewer. To acquire FEMA datasets go to the FEMA Base Flood Elevation Viewer (https://webapps.usgs.gov/infrm/estbfe/) and download the file geodatabase and depth grids for a HUC. To perform an evaluation a flow forecast file is required and benchmark grids are preprocessed prior to running run_test_case.py.
 
 1. Flow Forecast File Creation
 `/foss_fim/tests/preprocess/create_flow_forecast_file.py -b <path to BLE geodatabase> -n <path to NWM geodatabase> -o <output directory> -xs <Cross Section layer name in BLE geodatabase> -hu <HUC layer name in BLE geodatabase> -huid <HUC ID field in HUC layer> -l <Stream layer name in NWM geodatabase> -f <feature id field in stream layer of NWM geodatabase>`
