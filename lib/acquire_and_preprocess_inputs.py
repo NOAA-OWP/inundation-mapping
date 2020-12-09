@@ -211,15 +211,6 @@ def pull_and_prepare_nhd_data(args):
         nhd = gp.read_file(nhd_gdb,layer='NHDFlowline')
         nhd = nhd.to_crs(PREP_PROJECTION)
         nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDFlowline' + huc + '.gpkg'),driver='GPKG')
-        # extract sea boundaries for exclusion
-        nhd = gp.read_file(nhd_gdb,layer='NHDPlusLandSea')
-        if len(nhd) > 0:
-            nhd = nhd.to_crs(PREP_PROJECTION)
-            nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusLandSea' + huc + '.gpkg'),driver='GPKG')
-        # extract waterbodies for FType attributes
-        nhd = gp.read_file(nhd_gdb,layer='NHDPlusBurnWaterbody')
-        nhd = nhd.to_crs(PREP_PROJECTION)
-        nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusBurnWaterbody' + huc + '.gpkg'),driver='GPKG')
         # extract attributes
         nhd = gp.read_file(nhd_gdb,layer='NHDPlusFlowLineVAA')
         nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusFlowLineVAA' + huc + '.gpkg'),driver='GPKG')

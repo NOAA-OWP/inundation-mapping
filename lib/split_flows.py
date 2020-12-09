@@ -31,6 +31,7 @@ maxLength              = float(sys.argv[5])
 slope_min              = float(sys.argv[6])
 huc8_filename          = sys.argv[7]
 lakes_filename         = sys.argv[8]
+lakes_buffer_input     = float(sys.argv[9])
 
 toMetersConversion = 1e-3
 
@@ -64,7 +65,7 @@ if lakes is not None:
       lakes = lakes.set_index('newID')
       flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
       lakes_buffer = lakes.copy()
-      lakes_buffer['geometry'] = lakes.buffer(20) # adding 20m buffer for spatial join comparison
+      lakes_buffer['geometry'] = lakes.buffer(lakes_buffer_input) # adding X meter buffer for spatial join comparison (currently using 20meters)
 
 print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
 
