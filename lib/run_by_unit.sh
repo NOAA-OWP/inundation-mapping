@@ -402,3 +402,14 @@ Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
 $libDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent
 Tcount
+
+## CLEANUP OUTPUTS ##
+echo -e $startDiv"Cleaning up outputs $hucNumber"$stopDiv
+args=()
+[[ ! -z "$whitelist" ]] && args+=( "-w$whitelist" )
+(( production == 1 )) && args+=( '-p' )
+(( viz == 1 )) && args+=( '-v' )
+date -u
+Tstart
+$libDir/output_cleanup.py $hucNumber $outputHucDataDir "${args[@]}"
+Tcount
