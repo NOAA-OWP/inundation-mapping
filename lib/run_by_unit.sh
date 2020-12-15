@@ -91,8 +91,8 @@ date -u
 Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
 if [[ ${ndv%%.*} -ge 0 ]] ; then
-	echo -e "$hucNumber raster NDV is >= 0 --> resetting to -9999"
-	ndv=-9999
+	echo -e "$hucNumber raster NDV is >= 0 --> resetting to -2147483648"
+	ndv=-2147483648
 fi
 Tcount
 
