@@ -86,6 +86,11 @@ Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
 Tcount
 
+echo $ndv
+if [ ${ndv%%.*} -ge 0 ]; then
+      $ndv=-9999
+fi
+
 ## RASTERIZE NLD POLYLINES ##
 echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
 date -u
