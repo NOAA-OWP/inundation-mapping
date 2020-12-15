@@ -30,7 +30,13 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
-input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
+# Define the landsea water body mask using either Great Lakes or Ocean polygon input #
+if [[ $huc2Identifier == "04" ]] ; then
+  input_LANDSEA=$inputDataDir/landsea/gl_water_polygons.gpkg
+  echo -e "Using $input_LANDSEA for water body mask (Great Lakes)"
+else
+  input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
+fi
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -84,10 +90,14 @@ echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
 Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
+if [[ ${ndv%%.*} -ge 0 ]] ; then
+	echo -e "$hucNumber raster NDV is >= 0 --> resetting to -9999"
+	ndv=-9999
+fi
 Tcount
 
-## RASTERIZE NLD POLYLINES ##
-echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
+## RASTERIZE NLD MULTILINES ##
+echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
@@ -349,7 +359,7 @@ gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "
 Tcount
 
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
-echo -e $startDiv"Rasterize filtered/dissolved ocean polygon $hucNumber"$stopDiv
+echo -e $startDiv"Rasterize filtered/dissolved ocean/glake polygon $hucNumber"$stopDiv
 date -u
 Tstart
 [ -f $outputHucDataDir/LandSea_subset.gpkg ] && [ ! -f $outputHucDataDir/LandSea_subset.tif ] && \
@@ -373,7 +383,7 @@ gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIF
 Tcount
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove ocean areas in HUC $hucNumber (if applicable)"$stopDiv
+echo -e $startDiv"Additional masking to REM raster to remove ocean/glake areas in HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ -f $outputHucDataDir/LandSea_subset.tif ] && \
