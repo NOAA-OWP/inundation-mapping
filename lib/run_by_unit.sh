@@ -245,7 +245,7 @@ Tcount
 
 if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
   echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  # rm -rf $outputHucDataDir
+  rm -rf $outputHucDataDir
   exit 0
 fi
 
