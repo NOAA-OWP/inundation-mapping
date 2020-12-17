@@ -20,7 +20,8 @@ def subset_vector_layers(hucCode,nwm_streams_fileName,nwm_headwaters_fileName,nh
     projection = wbd.crs
     
     # Clip ocean water polygon for future masking ocean areas (where applicable)
-    landsea = gpd.read_file(landsea_filename, mask = wbd_buffer)
+    landsea_read = gpd.read_file(landsea_filename, mask = wbd_buffer)
+    landsea = gpd.clip(landsea_read, wbd_buffer)
     if not landsea.empty:
         landsea.to_file(subset_landsea_filename,driver=getDriver(subset_landsea_filename),index=False)
     del landsea
