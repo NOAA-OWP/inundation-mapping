@@ -90,11 +90,6 @@ echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
 Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
-if [[ ${ndv%%.*} -ge 0 ]] ; then
-	echo -e "$hucNumber raster NDV is >= 0 --> resetting to -2147483648"
-	ndv=-2147483648
-fi
-Tcount
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
@@ -318,7 +313,7 @@ echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$sto
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_zeroed.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem.tif --calc="(A*(A>=0))" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed.tif"
 Tcount
 
 ## POLYGONIZE REACH WATERSHEDS ##
@@ -359,7 +354,7 @@ gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "
 Tcount
 
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
-echo -e $startDiv"Rasterize filtered/dissolved ocean/glake polygon $hucNumber"$stopDiv
+echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber"$stopDiv
 date -u
 Tstart
 [ -f $outputHucDataDir/LandSea_subset.gpkg ] && [ ! -f $outputHucDataDir/LandSea_subset.tif ] && \
@@ -379,11 +374,11 @@ echo -e $startDiv"Masking REM Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_zeroed_masked.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="(A*(B>0))" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
 Tcount
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove ocean/glake areas in HUC $hucNumber"$stopDiv
+echo -e $startDiv"Additional masking to REM raster to remove ocean/Glake areas in HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ -f $outputHucDataDir/LandSea_subset.tif ] && \
