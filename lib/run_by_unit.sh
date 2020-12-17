@@ -238,6 +238,12 @@ Tstart
 $libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg $lakes_buffer_dist_meters
 Tcount
 
+if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
+  echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
+  rm -rf $outputHucDataDir
+  exit 0
+fi
+
 if [ "$extent" = "MS" ]; then
   ## MASK RASTERS BY MS BUFFER ##
   echo -e $startDiv"Mask Rasters with Stream Buffer $hucNumber"$stopDiv
