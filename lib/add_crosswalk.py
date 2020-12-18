@@ -18,7 +18,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if extent == 'FR':
         ## crosswalk using majority catchment method
 
-        # calculate majority catchemnts
+        # calculate majority catchments
         majority_calc = zonal_stats(input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True)
         input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
         input_majorities = input_majorities.rename(columns={'majority' : 'feature_id'})
