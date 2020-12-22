@@ -13,26 +13,30 @@ services:
     networks:
       - fim
     volumes:
-      - ./templates/:/opt/frontend/templates/
-      - ./frontend.py:/opt/frontend/frontend.py
+      - ./gui/templates/:/opt/gui/templates/
+      - ./gui/gui.py:/opt/gui/gui.py
   fim_frontend_output_handler:
     image: fim_frontend_output_handler
     build:
       context: ./output_handler
     container_name: fim_frontend_output_handler
     restart: always
+    external_links: 
+      - fim_node_connector
     env_file:
       - .env
     networks:
       - fim
     volumes:
-      - ./output_handler.py:/opt/output_handler/output_handler.py
+      - ./output_handler/output_handler.py:/opt/output_handler/output_handler.py
   fim_nginx:
     image: nginx
     container_name: fim_nginx
     restart: always
     depends_on:
-      - fim_frontend
+      - fim_frontend_gui
+    external_links: 
+      - fim_node_connector
     ports:
       - "80:80"
     volumes:

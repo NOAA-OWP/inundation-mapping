@@ -33,6 +33,5 @@ services:
       - ./updater/updater.py:/opt/updater/updater.py
 networks:
   fim:
-    external:
-      name: fim
+    name: fim
           

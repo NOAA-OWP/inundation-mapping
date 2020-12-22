@@ -38,6 +38,7 @@ def ws_update(current_jobs):
 
 @socketio.on('output_handler_connected')
 def ws_output_handler_connected(new_handler_sid):
+    print('output handler has connected with sid', new_handler_sid)
     handler_sid = new_handler_sid
 
 @socketio.on('new_job')
