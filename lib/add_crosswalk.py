@@ -68,6 +68,10 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
         crosswalk = crosswalk.merge(input_nwmflows[['feature_id','order_']],on='feature_id')
 
+        if len(crosswalk) < 1:
+            print ("No relevant streams within HUC boundaries.")
+            sys.exit(0)
+
         if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
         output_catchments = input_catchments.merge(crosswalk,on='HydroID')
 
@@ -156,7 +160,7 @@ for tab_ind in output_flows.index:
     output_hydro_table['fossid'] = output_hydro_table.loc[:,'HydroID'].apply(lambda x : str(x)[0:4])
     if input_huc.fossid.dtype != 'str': input_huc.fossid = input_huc.fossid.astype(str)
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:,['fossid','HUC8']],how='left',on='fossid')
-    # if output_hydro_table.HydroID.dtype != 'int': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(int)
+
     if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
     output_flows['HydroID'] = output_flows.HydroID.str.zfill(8)
     output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')

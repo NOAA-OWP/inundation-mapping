@@ -220,7 +220,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     return stats_dictionary
 
 
-def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, additional_layers_dict={}, exclusion_mask_dict={}):
+def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, mask_dict={}):
     """
     Produces contingency table from 2 rasters and returns it. Also exports an agreement raster classified as:
         0: True Negatives
@@ -277,13 +277,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     predicted_array = np.where(predicted_array<0, 0, predicted_array)
     predicted_array = np.where(predicted_array>0, 1, predicted_array)
     
-    benchmark_array = np.where(benchmark_array==benchmark_src.nodata, 10, benchmark_array)  # Reclassify NoData to 10
-
-    
-#    # Mask agreement array according to mask catchments.
-#    for value in mask_values:
-#        agreement_array = np.where(np.absolute(predicted_array_raw) == int(value), 4, agreement_array)
-        
+    benchmark_array = np.where(benchmark_array==benchmark_src.nodata, 10, benchmark_array)  # Reclassify NoData to 10        
 
     agreement_array = np.add(benchmark_array, 2*predicted_array)
     agreement_array = np.where(agreement_array>4, 10, agreement_array)
@@ -291,49 +285,54 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     del benchmark_src, benchmark_array, predicted_array, predicted_array_raw
 
     # Loop through exclusion masks and mask the agreement_array.
-    if exclusion_mask_dict != {}:
-        for poly_layer in exclusion_mask_dict:
+    if mask_dict != {}:
+        for poly_layer in mask_dict:
             
-            poly_path = exclusion_mask_dict[poly_layer]['path']
-            buffer_val = exclusion_mask_dict[poly_layer]['buffer']
-            reference = predicted_src
-                        
-            bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
-            #Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
-            poly_all = gpd.read_file(poly_path, bbox = bounding_box)
+            operation = mask_dict[poly_layer]['operation']
             
-            # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
-            if poly_all.empty:
-                continue
-            
-            print("-----> Masking at " + poly_layer + "...")
-            #Project layer to reference crs.
-            poly_all_proj = poly_all.to_crs(reference.crs)
-            # check if there are any lakes within our reference raster extent.
-            if poly_all_proj.empty: 
-                #If no features within reference raster extent, create a zero array of same shape as reference raster.
-                poly_mask = np.zeros(reference.shape)
-            else:
-                #Check if a buffer value is passed to function.
-                if buffer_val is None:
-                    #If features are present and no buffer is passed, assign geometry to variable.
-                    geometry = poly_all_proj.geometry
+            if operation == 'exclude':
+                
+                poly_path = mask_dict[poly_layer]['path']
+                buffer_val = mask_dict[poly_layer]['buffer']
+                
+                reference = predicted_src
+                            
+                bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
+                #Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
+                poly_all = gpd.read_file(poly_path, bbox = bounding_box)
+                
+                # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
+                if poly_all.empty:
+                    continue
+                
+                print("-----> Masking at " + poly_layer + "...")
+                #Project layer to reference crs.
+                poly_all_proj = poly_all.to_crs(reference.crs)
+                # check if there are any lakes within our reference raster extent.
+                if poly_all_proj.empty: 
+                    #If no features within reference raster extent, create a zero array of same shape as reference raster.
+                    poly_mask = np.zeros(reference.shape)
                 else:
-                    #If  features are present and a buffer is passed, assign buffered geometry to variable.
-                    geometry = poly_all_proj.buffer(buffer_val)
+                    #Check if a buffer value is passed to function.
+                    if buffer_val is None:
+                        #If features are present and no buffer is passed, assign geometry to variable.
+                        geometry = poly_all_proj.geometry
+                    else:
+                        #If  features are present and a buffer is passed, assign buffered geometry to variable.
+                        geometry = poly_all_proj.buffer(buffer_val)
+                        
+                    #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
+                    in_poly,transform,c = rasterio.mask.raster_geometry_mask(reference, geometry, invert = True)
+                    #Write mask array, areas inside polys are set to 1 and areas outside poly are set to 0.
+                    poly_mask = np.where(in_poly == True, 1,0)
+
+                    # Perform mask.
+                    masked_agreement_array = np.where(poly_mask == 1, 4, agreement_array)
                     
-                #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
-                in_poly,transform,c = rasterio.mask.raster_geometry_mask(reference, geometry, invert = True)
-                #Write mask array, areas inside lakes are set to 1 and areas outside poly are set to 0.
-                poly_mask = np.where(in_poly == True, 1,0)
-                
-                # Perform mask.
-                masked_agreement_array = np.where(poly_mask == 1, 4, agreement_array)
-                
-                # Get rid of masked values outside of the modeled domain.
-                agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
-                
-    contingency_table_dictionary = {}
+                    # Get rid of masked values outside of the modeled domain.
+                    agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
+                    
+    contingency_table_dictionary = {}  # Initialize empty dictionary.
     
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
@@ -356,7 +355,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             f.write("%s\n" % '1: False Negative')
             f.write("%s\n" % '2: False Positive')
             f.write("%s\n" % '3: True Positive')
-            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {exclusion_mask}'.format(exclusion_mask=exclusion_mask_dict))
+            f.write("%s\n" % '4: Masked area (excluded from contingency table analysis). Mask layers: {mask_dict}'.format(mask_dict=mask_dict))
             f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
                           
     # Store summed pixel counts in dictionary.
@@ -364,49 +363,80 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                       'false_negatives': int((agreement_array == 1).sum()),
                                                       'false_positives': int((agreement_array == 2).sum()),
                                                       'true_positives': int((agreement_array == 3).sum()),
-                                                      'masked_count': int((agreement_array == 4).sum())
+                                                      'masked_count': int((agreement_array == 4).sum()),
+                                                      'file_handle': 'total_area'
+                                                     
                                                       }})                               
         
-    # Parse through dictionary of other layers and create contingency table metrics for the desired area. Layer must be raster with same shape as agreement_raster.
-    if additional_layers_dict != {}:
-        for layer_name in additional_layers_dict:
-            print("-----> Evaluating performance at " + layer_name + "...")
-            layer_path = additional_layers_dict[layer_name]
-            layer_src = rasterio.open(layer_path)
+    # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
+    if mask_dict != {}:
+        for poly_layer in mask_dict:
             
-            layer_array_original = layer_src.read(1)
-            layer_array = np.empty(agreement_array.shape, dtype=np.int8)
+            operation = mask_dict[poly_layer]['operation']
+            
+            if operation == 'include':
+                poly_path = mask_dict[poly_layer]['path']
+                buffer_val = mask_dict[poly_layer]['buffer']
+
+                reference = predicted_src
+                            
+                bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
+                #Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).  
+                poly_all = gpd.read_file(poly_path, bbox = bounding_box)
+                
+                # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
+                if poly_all.empty:
+                    continue
+                
+                print("-----> Evaluating performance at " + poly_layer + "...")
+                #Project layer to reference crs.
+                poly_all_proj = poly_all.to_crs(reference.crs)
+                # check if there are any lakes within our reference raster extent.
+                if poly_all_proj.empty: 
+                    #If no features within reference raster extent, create a zero array of same shape as reference raster.
+                    poly_mask = np.zeros(reference.shape)
+                else:
+                    #Check if a buffer value is passed to function.
+                    if buffer_val is None:
+                        #If features are present and no buffer is passed, assign geometry to variable.
+                        geometry = poly_all_proj.geometry
+                    else:
+                        #If  features are present and a buffer is passed, assign buffered geometry to variable.
+                        geometry = poly_all_proj.buffer(buffer_val)
+                        
+                    #Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
+                    in_poly,transform,c = rasterio.mask.raster_geometry_mask(reference, geometry, invert = True)
+                    #Write mask array, areas inside polys are set to 1 and areas outside poly are set to 0.
+                    poly_mask = np.where(in_poly == True, 1, 0)
+
+                    # Perform mask.
+                    masked_agreement_array = np.where(poly_mask == 0, 4, agreement_array)  # Changed to poly_mask == 0
                     
-            reproject(layer_array_original, 
-                  destination = layer_array,
-                  src_transform = layer_src.transform, 
-                  src_crs = layer_src.crs,
-                  src_nodata = layer_src.nodata,
-                  dst_transform = predicted_src.transform, 
-                  dst_crs = predicted_src.crs,
-                  dst_nodata = layer_src.nodata,
-                  dst_resolution = predicted_src.res,
-                  resampling = Resampling.nearest)
+                    # Get rid of masked values outside of the modeled domain.
+                    temp_agreement_array = np.where(agreement_array == 10, 10, masked_agreement_array)
                     
-            # Omit all areas that spatially disagree with the layer_array.
-            layer_agreement_array = np.where(layer_array>0, agreement_array, 10)
-            
-            # Write the layer_agreement_raster.
-            layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], layer_name + '_agreement.tif')
-            with rasterio.Env():
-                profile = predicted_src.profile
-                profile.update(nodata=10)
-                with rasterio.open(layer_agreement_raster, 'w', **profile) as dst:
-                    dst.write(layer_agreement_array, 1)
-            
-            # Store summed pixel counts in dictionary.
-            contingency_table_dictionary.update({layer_name:{'true_negatives': int((layer_agreement_array == 0).sum()),
-                                                             'false_negatives': int((layer_agreement_array == 1).sum()),
-                                                             'false_positives': int((layer_agreement_array == 2).sum()),
-                                                             'true_positives': int((layer_agreement_array == 3).sum()),
-                                                             'masked_count': int((layer_agreement_array == 4).sum())
-                                                              }})
-            del layer_agreement_array
+                    if buffer_val == None:  # The buffer used is added to filename, and 0 is easier to read than None.
+                        buffer_val = 0
+                    
+                    poly_handle = poly_layer + '_b' + str(buffer_val) + 'm'
+                    
+                    # Write the layer_agreement_raster.
+                    layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif')
+                    with rasterio.Env():
+                        profile = predicted_src.profile
+                        profile.update(nodata=10)
+                        with rasterio.open(layer_agreement_raster, 'w', **profile) as dst:
+                            dst.write(temp_agreement_array, 1)
+                    
+
+                    # Store summed pixel counts in dictionary.
+                    contingency_table_dictionary.update({poly_handle:{'true_negatives': int((temp_agreement_array == 0).sum()),
+                                                                     'false_negatives': int((temp_agreement_array == 1).sum()),
+                                                                     'false_positives': int((temp_agreement_array == 2).sum()),
+                                                                     'true_positives': int((temp_agreement_array == 3).sum()),
+                                                                     'masked_count': int((temp_agreement_array == 4).sum()),
+                                                                     'file_handle': poly_handle
+                                                                      }})
 
     return contingency_table_dictionary
     
