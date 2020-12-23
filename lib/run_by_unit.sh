@@ -274,28 +274,6 @@ else
   demDerived_streamPixels=$outputHucDataDir/demDerived_streamPixels.tif
 fi
 
-if [ "$extent" = "MS" ]; then
-  ## MASK RASTERS BY MS BUFFER ##
-  echo -e $startDiv"Mask Rasters with Stream Buffer $hucNumber"$stopDiv
-  date -u
-  Tstart
-  $libDir/fr_to_ms_raster_mask.py $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/flowdir_d8_burned_filled.tif $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/slopes_d8_dem_meters.tif $outputHucDataDir/flowdir_d8_MS.tif $outputHucDataDir/dem_thalwegCond_MS.tif $outputHucDataDir/slopes_d8_dem_metersMS.tif $ms_buffer_dist
-  Tcount
-
-  if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
-    echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    exit
-  fi
-
-  dem_thalwegCond=$outputHucDataDir/dem_thalwegCond_MS.tif
-  slopes_d8_dem_meters=$outputHucDataDir/slopes_d8_dem_metersMS.tif
-  flowdir_d8_burned_filled=$outputHucDataDir/flowdir_d8_MS.tif
-else
-  dem_thalwegCond=$outputHucDataDir/dem_thalwegCond.tif
-  slopes_d8_dem_meters=$outputHucDataDir/slopes_d8_dem_meters.tif
-  flowdir_d8_burned_filled=$outputHucDataDir/flowdir_d8_burned_filled.tif
-fi
-
 ## GAGE WATERSHED FOR REACHES ##
 echo -e $startDiv"Gage Watershed for Reaches $hucNumber"$stopDiv
 date -u
