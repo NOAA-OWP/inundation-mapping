@@ -58,8 +58,8 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         with open(os.path.join(output_folder_path, 'hydroTable.csv')) as csvf: 
             csvReader = csv.DictReader(csvf) 
             for row in csvReader: 
-                if row['HydroID'] in src_data and 'nwm_feature_id' not in src_data[row['HydroID']]:
-                    src_data[row['HydroID']]['nwm_feature_id'] = row['feature_id']
+                if row['HydroID'].lstrip('0') in src_data and 'nwm_feature_id' not in src_data[row['HydroID'].lstrip('0')]:
+                    src_data[row['HydroID'].lstrip('0')]['nwm_feature_id'] = row['feature_id']
 
         # Write src_data to JSON file
         with open(os.path.join(output_folder_path, f'rating_curves_{huc_number}.json'), 'w') as jsonf: 
