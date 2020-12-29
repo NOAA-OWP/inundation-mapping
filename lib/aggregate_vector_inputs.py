@@ -1,4 +1,4 @@
-#!/usr/bin/env·python3
+#!/usr/bin/env python3
 
 import os
 import geopandas as gpd
@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 in_dir ='data/inputs/nhdplus_vectors'
 nhd_dir ='data/inputs/nhdplus_vectors_aggregate'
-nwm_dir = 'data/inputs/nwm_hydrofabric'
+nwm_dir = '/data/inputs/nwm_hydrofabric'
 
 ## NWM Headwaters
 print ('deriving NWM headwater points')
