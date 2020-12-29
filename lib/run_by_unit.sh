@@ -32,6 +32,14 @@ input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_c
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
 
+if [ "$extent" = "MS" ]; then
+  input_NHD_Flowlines=$input_NHD_Flowlines_MS
+  input_NHD_Headwaters=$input_NHD_Headwaters_MS
+else
+  input_NHD_Flowlines=$input_NHD_Flowlines_FR
+  input_NHD_Headwaters=$input_NHD_Headwaters_FR
+fi
+
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
@@ -48,12 +56,12 @@ Tstart
 ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, 5000) from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd.gpkg
 Tcount
 
-## GET STREAMS ##
+## Subset Vector Layers ##
 echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -f $input_NWM_Headwaters -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -u $outputHucDataDir/wbd.gpkg -g $outputHucDataDir/wbd_buffered.gpkg -y $inputDataDir/ahp_sites/ahps_sites.gpkg -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -p $extent
+$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_NHD_Headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -p $extent
 Tcount
 
 if [ "$extent" = "MS" ]; then
@@ -140,11 +148,11 @@ Tcount
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent
 # with the supplied stream network. This allows for more realistic catchment
 # delineation which is ultimately reflected in the output FIM mapping.
-echo -e $startDiv"Creating AGREE DEM using $buffer meter buffer"$stopDiv
+echo -e $startDiv"Creating AGREE DEM using $agreeDEMbuffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $agreeDEMbuffer -sm 10 -sh 1000
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
