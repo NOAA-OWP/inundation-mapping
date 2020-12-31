@@ -8,6 +8,7 @@ import shutil
 from multiprocessing import Pool
 import geopandas as gp
 from urllib.error import HTTPError
+from tqdm import tqdm
 
 from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_URL_PREFIX,

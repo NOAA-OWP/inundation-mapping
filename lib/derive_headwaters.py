@@ -1,4 +1,4 @@
-#!/usr/bin/env·python3
+#!/usr/bin/env python3
 
 import geopandas as gpd
 from shapely.geometry import Point
