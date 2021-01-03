@@ -3,11 +3,13 @@
 import os
 import geopandas as gpd
 from utils.shared_variables import PREP_PROJECTION
+from utils.shared_functions import getDriver
 from derive_headwaters import findHeadWaterPoints
 from reduce_nhd_stream_density import subsetNHDnetwork
 from adjust_headwater_streams import adjustHeadwaters
 from tqdm import tqdm
 from os.path import splitext
+from shapely.geometry import Point
 # from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor,as_completed
 
@@ -25,39 +27,101 @@ agg_dir = 'data/inputs/nhdplus_vectors_aggregate'
 # nwm_headwaters.to_file(os.path.join(nwm_dir,'nwm_headwaters.gpkg'),driver='GPKG',index=False)
 # del nwm_headwaters, nwm_streams
 
+# subset nwm ms Network
+def subset_nwm_ms_streams(args):
+    nwm_streams_filename    = args[0]
+    in_dir                  = args[1]
+    ahps_dir                = args[2]
 
-# def find_nwm_incoming_streams(args):
-#
-#     nwm_streams_filename    = args[0]
-#     huc_size   = str(args[1])
-#     wbd_filename       = args[2]
-#     in_dir     = args[4]
-#
-#     layer = 'WBDHU' + str(len(huc))
-#     wbd = gpd.read_file(wbd_filename, layer=layer)
-#
-#     for index, row in wbd.iterrows():
-#         col_name = 'HUC' + str(len(huc))
-#         huc = row[col_name]
-#
-#         huc_mask = wbd.loc[wbd[col_name]==str(huc)]
-#         huc_mask = huc_mask.explode()
-#         huc_mask = huc_mask.reset_index(drop=True)
-#
-#         nwm_streams = gpd.read_file(nwm_streams_filename, mask=huc_mask)
-#
-#         nwm_streams = nwm_streams.explode()
-#         nwm_streams = nwm_streams.reset_index(drop=True)
-#         crosses=nwm_streams.crosses(huc_mask.geometry[0].exterior)
-#         nhd_streams.loc[crosses,'intersect'] = True
+    # subset nwm network to ms
+    ahps_headwaters_filename = os.path.join(ahps_dir,'bed_lids.gpkg')
+    ahps_headwaters = gpd.read_file(ahps_headwaters_filename)
+
+    nwm_streams = gpd.read_file(nwm_streams_filename)
+
+    nwm_streams['is_headwater'] = True]
+
+    nwm_streams.loc[nwm_streams.ID.isin(list(ahps_headwaters.nwm_featur)),'is_headwater'] = True
+    nwm_streams.loc[nwm_streams.feature_ID.isin(ahps_headwaters.nwm_featur),'downstream_of_headwater'] = True
+
+    ## subset NHDPlus HR
+    nwm_streams['is_relevant_stream'] = nwm_streams['is_headwater'].copy()
+
+    # trace down from headwaters
+    nwm_streams.set_index('NHDPlusID',inplace=True,drop=False)
+
+    Q = deque(nwm_streams.loc[nwm_streams[attribute],'feature_ID'].tolist())
+    visited = set()
+
+    while Q:
+        q = Q.popleft()
+        if q in visited:
+            continue
+
+        visited.add(q)
+        toNode,DnLevelPat = nwm_streams.loc[q,['ToNode','DnLevelPat']]
+
+        try:
+            downstream_ids = nwm_streams.loc[nwm_streams['FromNode'] == toNode,:].index.tolist()
+        except ValueError: # 18050002 has duplicate nhd stream feature
+            if len(toNode.unique()) == 1:
+                toNode = toNode.iloc[0]
+                downstream_ids = nwm_streams.loc[nwm_streams['FromNode'] == toNode,:].index.tolist()
+
+        # If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
+        if len(set(downstream_ids))>1: # special case: remove duplicate NHDPlusIDs
+            relevant_ids = [segment for segment in downstream_ids if DnLevelPat == nwm_streams.loc[segment,'LevelPathI']]
+        else:
+            relevant_ids = downstream_ids
+
+        nwm_streams.loc[relevant_ids,'is_relevant_stream'] = True
+        nwm_streams.loc[relevant_ids,'downstream_of_headwater'] = True
+
+        for i in relevant_ids:
+            if i not in visited:
+                Q.append(i)
+
+def find_nwm_incoming_streams(args):
+
+    nwm_streams_filename    = args[0]
+    huc_size                = str(args[1])
+    wbd_filename            = args[2]
+    in_dir                  = args[3]
+
+    layer = 'WBDHU' + str(huc_size)
+    wbd = gpd.read_file(wbd_filename, layer=layer)
+    #
+    intersection_geometries = []
+    for index, row in tqdm(wbd.iterrows(),total=len(wbd)):
+        col_name = 'HUC' + str(huc_size)
+        huc = row[col_name]
+        #
+        huc_mask = wbd.loc[wbd[col_name]==str(huc)]
+        huc_mask = huc_mask.explode()
+        huc_mask = huc_mask.reset_index(drop=True)
+        #
+        nwm_streams = gpd.read_file(nwm_streams_filename, mask=huc_mask)
+        nwm_streams = nwm_streams.explode()
+        nwm_streams = nwm_streams.reset_index(drop=True)
+        #
+        crosses=nwm_streams.crosses(huc_mask.geometry[0].exterior)
+        nwm_streams = nwm_streams.loc[crosses,:]
+        nwm_streams = nwm_streams.reset_index(drop=True)
+        #
+        intersection_points = set()
+        for i,g in enumerate(nwm_streams.geometry):
+            g_points = [(x,y) for x,y in zip(*g.coords.xy)]
+            intersection_point = g_points[1]
+            intersection_points.add(intersection_point)
+        #
+        intersection_points = list(intersection_points)
+        #
+        intersection_geometries = intersection_geometries + [Point(*hwp) for hwp in intersection_points]
+    fr_huc8_intersection = gpd.GeoDataFrame({'geometry' : intersection_geometries},crs=nwm_streams.crs,geometry='geometry')
 
 
-def getDriver(fileName):
 
-    driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
-    driver = driverDictionary[splitext(fileName)[1]]
 
-    return(driver)
 
 ## Preprocess NHDPlus HR
 def collect_stream_attributes(args, huc):
@@ -114,7 +178,7 @@ def subset_stream_networks(args, huc):
     nwm_headwater_id = 'ID'
     nwm_headwaters_filename = os.path.join(nwm_dir,'nwm_headwaters.gpkg')
     ahps_headwater_id = 'nws_lid'
-    ahps_headwaters_filename = os.path.join(ahps_dir,'all_lids.gpkg')
+    ahps_headwaters_filename = os.path.join(ahps_dir,'bed_lids.gpkg')
     nhd_streams_filename = os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_agg.gpkg')
 
     # subset to reduce footprint
@@ -314,9 +378,11 @@ if(__name__=='__main__'):
     wbd4 = gpd.read_file(wbd_filename, layer='WBDHU4')
     print ('loading wb8')
     wbd8 = gpd.read_file(wbd_filename, layer='WBDHU8')
+    nwm_incoming_streams_arg_list = (nwm_streams_filename,8,wbd_filename,in_dir)
     subset_arg_list = (nwm_dir,ahps_dir,wbd4,wbd8,in_dir)
     collect_arg_list = (in_dir,nwm_dir,ahps_dir)
     agg_arg_list = (in_dir,agg_dir, os.listdir(in_dir))
+
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         collect_attributes = [executor.submit(collect_stream_attributes, collect_arg_list, str(huc)) for huc in os.listdir(in_dir)]

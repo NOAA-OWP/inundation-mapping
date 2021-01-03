@@ -11,6 +11,7 @@ from shapely.geometry import Point,LineString
 from shapely.ops import split
 from shapely.wkb import dumps, loads
 from utils.shared_variables import PREP_PROJECTION
+from utils.shared_functions import getDriver
 
 def adjustHeadwaters(huc,nhd_streams,headwaters,headwater_id):
 
@@ -129,13 +130,6 @@ def adjustHeadwaters(huc,nhd_streams,headwaters,headwater_id):
     del nhd_headwater_streams_adj
 
     return(nhd_streams, nhd_headwater_points, nhd_headwater_points_adj)
-
-def getDriver(fileName):
-
-    driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
-    driver = driverDictionary[splitext(fileName)[1]]
-
-    return(driver)
 
 if __name__ == '__main__':
 

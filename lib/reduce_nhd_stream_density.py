@@ -9,6 +9,7 @@ from collections import deque
 import argparse
 import pygeos
 from shapely.wkb import dumps
+from utils.shared_functions import getDriver
 
 def subsetNHDnetwork(huc4,huc4_mask,selected_wbd8,nhd_streams_filename,headwaters_filename,headwater_id):
 
@@ -112,13 +113,6 @@ def subsetNHDnetwork(huc4,huc4_mask,selected_wbd8,nhd_streams_filename,headwater
     nhd_streams.reset_index(drop=True,inplace=True)
 
     return(nhd_streams)
-
-def getDriver(fileName):
-
-    driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
-    driver = driverDictionary[splitext(fileName)[1]]
-
-    return(driver)
 
 def get_downstream_segments(streams, attribute):
 
