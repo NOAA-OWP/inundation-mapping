@@ -13,6 +13,7 @@ from shapely.geometry import Point
 # from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor,as_completed
 
+<<<<<<< HEAD
 in_dir ='data/inputs/nhdplus_vectors'
 nwm_dir = 'data/inputs/nwm_hydrofabric'
 wbd_dir = 'data/inputs/wbd'

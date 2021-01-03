@@ -37,6 +37,11 @@ toMetersConversion = 1e-3
 
 print('Loading data ...')
 flows = gpd.read_file(flows_fileName)
+
+if not len(flows) > 0:
+    print ("No relevant streams within HUC boundaries.")
+    sys.exit(0)
+
 WBD8 = gpd.read_file(huc8_filename)
 #dem = Raster(dem_fileName)
 dem = rasterio.open(dem_fileName,'r')

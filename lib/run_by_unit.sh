@@ -30,7 +30,13 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
-input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
+# Define the landsea water body mask using either Great Lakes or Ocean polygon input #
+if [[ $huc2Identifier == "04" ]] ; then
+  input_LANDSEA=$inputDataDir/landsea/gl_water_polygons.gpkg
+  echo -e "Using $input_LANDSEA for water body mask (Great Lakes)"
+else
+  input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
+fi
 
 if [ "$extent" = "MS" ]; then
   input_NHD_Flowlines=$input_NHD_Flowlines_MS
@@ -92,10 +98,9 @@ echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
 Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
-Tcount
 
-## RASTERIZE NLD POLYLINES ##
-echo -e $startDiv"Rasterize all NLD polylines using zelev vertices"$stopDiv
+## RASTERIZE NLD MULTILINES ##
+echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
@@ -246,6 +251,12 @@ Tstart
 $libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg $lakes_buffer_dist_meters
 Tcount
 
+if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
+  echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
+  rm -rf $outputHucDataDir
+  exit 0
+fi
+
 if [ "$extent" = "MS" ]; then
   ## MASK RASTERS BY MS BUFFER ##
   echo -e $startDiv"Mask Rasters with Stream Buffer $hucNumber"$stopDiv
@@ -316,7 +327,7 @@ echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$sto
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_zeroed.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem.tif --calc="(A*(A>=0))+((A<=$ndv)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem.tif --calc="(A*(A>=0))" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed.tif"
 Tcount
 
 ## POLYGONIZE REACH WATERSHEDS ##
@@ -357,7 +368,7 @@ gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "
 Tcount
 
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
-echo -e $startDiv"Rasterize filtered/dissolved ocean polygon $hucNumber"$stopDiv
+echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber"$stopDiv
 date -u
 Tstart
 [ -f $outputHucDataDir/LandSea_subset.gpkg ] && [ ! -f $outputHucDataDir/LandSea_subset.tif ] && \
@@ -377,11 +388,11 @@ echo -e $startDiv"Masking REM Raster to HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem_zeroed_masked.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="(A*(B>0))+((B<=0)*$ndv)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed.tif -B $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="(A*(B>0))" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
 Tcount
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove ocean areas in HUC $hucNumber (if applicable)"$stopDiv
+echo -e $startDiv"Additional masking to REM raster to remove ocean/Glake areas in HUC $hucNumber"$stopDiv
 date -u
 Tstart
 [ -f $outputHucDataDir/LandSea_subset.tif ] && \
@@ -409,4 +420,15 @@ date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
 $libDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent
+Tcount
+
+## CLEANUP OUTPUTS ##
+echo -e $startDiv"Cleaning up outputs $hucNumber"$stopDiv
+args=()
+[[ ! -z "$whitelist" ]] && args+=( "-w$whitelist" )
+(( production == 1 )) && args+=( '-p' )
+(( viz == 1 )) && args+=( '-v' )
+date -u
+Tstart
+$libDir/output_cleanup.py $hucNumber $outputHucDataDir "${args[@]}"
 Tcount
