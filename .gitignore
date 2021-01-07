@@ -11,3 +11,4 @@ manuscripts/**/*.aux
 manuscripts/**/*.log
 manuscripts/**/*.bbl
 manuscripts/**/*.blg
+manuscripts/**/prev

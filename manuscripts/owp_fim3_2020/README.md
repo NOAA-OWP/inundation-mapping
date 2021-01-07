@@ -34,11 +34,14 @@ Please see the issue tracker on Github for known issues and for getting help.
 
 Within <path_to_repo>/manuscripts/owp_fim3_2020/, the owp_fim3.tex is the main tex file. Here is a summary of the included directories:
 
-* bib = bibliography file(s)
-* deps = dependencies
-* figs = figures
-* templates = template and class files
-* sec = tex files of individual sections of manuscript
+* bibliography = bibliography file(s) (\*.bib)
+* dependences = dependencies (\*.cls,\*.sty,etc)
+* figures = figures (stick to \*.jpg files with 300dpi)
+* templates = template and class files (original template & class files for reference)
+* sections = individual sections of manuscript (\*.tex)
+* reviews = previous revisions of manuscript with annotations 
+    * pre_submission = previous revisions with annotations prior to first submission
+    * first_submission = 1st submission of manuscript with annotations or comments from reviewers
 
 ## Getting Involved
 
