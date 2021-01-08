@@ -29,6 +29,7 @@ services:
     networks:
       - fim
     volumes:
+      - ${DATA_PATH}:/data/
       - /var/run/docker.sock:/var/run/docker.sock
       - ./updater/updater.py:/opt/updater/updater.py
 networks:

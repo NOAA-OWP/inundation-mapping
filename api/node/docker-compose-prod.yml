@@ -24,11 +24,11 @@ services:
     container_name: fim_node_updater
     restart: always
     depends_on: 
-      - fim_nginx
       - fim_node_connector
     networks:
       - fim
     volumes:
+      - ${DATA_PATH}:/data/
       - /var/run/docker.sock:/var/run/docker.sock
   fim_nginx:
     image: nginx

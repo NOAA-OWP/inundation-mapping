@@ -28,6 +28,7 @@ services:
     networks:
       - fim
     volumes:
+      - ${DATA_PATH}:/data/
       - ./output_handler/output_handler.py:/opt/output_handler/output_handler.py
   fim_nginx:
     image: nginx
