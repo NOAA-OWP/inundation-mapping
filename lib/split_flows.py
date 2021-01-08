@@ -31,11 +31,17 @@ maxLength              = float(sys.argv[5])
 slope_min              = float(sys.argv[6])
 huc8_filename          = sys.argv[7]
 lakes_filename         = sys.argv[8]
+lakes_buffer_input     = float(sys.argv[9])
 
 toMetersConversion = 1e-3
 
 print('Loading data ...')
 flows = gpd.read_file(flows_fileName)
+
+if not len(flows) > 0:
+    print ("No relevant streams within HUC boundaries.")
+    sys.exit(0)
+
 WBD8 = gpd.read_file(huc8_filename)
 #dem = Raster(dem_fileName)
 dem = rasterio.open(dem_fileName,'r')
@@ -64,7 +70,7 @@ if lakes is not None:
       lakes = lakes.set_index('newID')
       flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
       lakes_buffer = lakes.copy()
-      lakes_buffer['geometry'] = lakes.buffer(20) # adding 20m buffer for spatial join comparison
+      lakes_buffer['geometry'] = lakes.buffer(lakes_buffer_input) # adding X meter buffer for spatial join comparison (currently using 20meters)
 
 print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
 

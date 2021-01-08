@@ -17,6 +17,10 @@ usage ()
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
+    echo '  -p/--production : only save final inundation outputs'
+    echo '  -w/--whitelist  : list of files to save in a production run in addition to final inundation outputs'
+    echo '                     ex: file1.tif,file2.json,file3.csv'
+    echo '  -v/--viz        : compute post-processing on outputs to be used in viz'
     exit
 }
 
@@ -55,6 +59,16 @@ in
     -o|--overwrite)
         overwrite=1
         ;;
+    -p|--production)
+        production=1
+        ;;
+    -w|--whitelist)
+        shift
+        whitelist="$1"
+        ;;
+    -v|--viz)
+        viz=1
+        ;;
     *) ;;
     esac
     shift
@@ -90,6 +104,9 @@ fi
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
 export extent=$extent
+export production=$production
+export whitelist=$whitelist
+export viz=$viz
 logFile=$outputRunDataDir/logs/summary.log
 
 ## Define inputs
@@ -129,5 +146,3 @@ fi
 
 # aggregate outputs
 bash /foss_fim/lib/aggregate_fim_outputs.sh $outputRunDataDir
-
-# insert data management module here

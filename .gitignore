@@ -7,3 +7,4 @@ config/**
 !config/*default*
 !config/*calibrated*
 !config/symbology/
+.vscode/
