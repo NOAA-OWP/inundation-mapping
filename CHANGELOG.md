@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.0.2 - 2021-01-06 - [PR #200](https://github.com/NOAA-OWP/cahaba/pull/200)
+
+Patch to address AHPSs mapping errors.
+
+### Changes
+
+ - Checks `dtype` of `hydroTable.csv` columns to resolve errors caused in `inundation.py` when joining to flow forecast.
+ - Exits `inundation.py` when all hydrotable HydroIDs are lake features.
+ - Updates path to latest AHPs site layer.
+ - Updated [readme](https://github.com/NOAA-OWP/cahaba/commit/9bffb885f32dfcd95978c7ccd2639f9df56ff829)
+
 ## v3.0.0.1 - 2020-12-31 - [PR #184](https://github.com/NOAA-OWP/cahaba/pull/184)
 
 Modifications to build and run Docker image more reliably. Cleanup on some pre-processing scripts.
