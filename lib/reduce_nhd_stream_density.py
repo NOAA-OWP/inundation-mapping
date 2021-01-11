@@ -149,12 +149,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Reduce NHDPlus HR network based on headwater points')
     parser.add_argument('-n','--huc-number',help='HUC number',required=True,type=str)
-    parser.add_argument('-n','--huc4-mask',help='HUC4 mask',required=True,type=str)
-    parser.add_argument('-w','--selected-wbd8',help='WBD8 layer',required=True,type=str)
+    parser.add_argument('-b','--huc4-mask',help='HUC4 mask',required=True)
+    parser.add_argument('-w','--selected-wbd8',help='WBD8 layer',required=True)
     parser.add_argument('-t','--nhd-streams',help='NHDPlus HR geodataframe',required=True)
     parser.add_argument('-a','--headwaters-filename',help='Headwaters points layer name',required=True,type=str)
     parser.add_argument('-s','--subset-nhd-streams-fileName',help='Output streams layer name',required=False,type=str,default=None)
-    parser.add_argument('-i','--headwater-id',help='Output headwaters points',required=True)
+    parser.add_argument('-i','--headwater-id',help='Headwater points ID column',required=True)
+    parser.add_argument('-i','--nwm-intersections-filename',help='NWM HUC4 intersection points',required=True)
 
     args = vars(parser.parse_args())
 

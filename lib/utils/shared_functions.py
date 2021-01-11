@@ -76,7 +76,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
     # Overwrite geopackage.
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
     gdf.crs = PREP_PROJECTION
-    gdf.to_file(multilayer_wbd_geopackage, layer=layer_name, driver='GPKG')
+    gdf.to_file(multilayer_wbd_geopackage, layer=layer_name, getDriver(multilayer_wbd_geopackage))
 
 
 def getDriver(fileName):

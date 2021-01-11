@@ -5,8 +5,8 @@ T_total_start
 
 echo -e $startDiv"Parameter Values"
 echo -e "extent=$extent"
-echo -e "negativeBurnValue=$negativeBurnValue"
-echo -e "maxSplitDistance_meters=$maxSplitDistance_meters"
+echo -e "negative_burn_value=$negative_burn_value"
+echo -e "max_split_distance_meters=$max_split_distance_meters"
 echo -e "mannings_n=$manning_n"
 echo -e "stage_min_meters=$stage_min_meters"
 echo -e "stage_interval_meters=$stage_interval_meters"
@@ -15,7 +15,7 @@ echo -e "slope_min=$slope_min"
 echo -e "ms_buffer_dist=$ms_buffer_dist"
 echo -e "ncores_gw=$ncores_gw"
 echo -e "ncores_fd=$ncores_fd"
-echo -e "defaultMaxJobs=$defaultMaxJobs"
+echo -e "default_max_jobs=$default_max_jobs"
 echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
@@ -39,11 +39,11 @@ else
 fi
 
 if [ "$extent" = "MS" ]; then
-  input_NHD_Flowlines=$input_NHD_Flowlines_MS
-  input_NHD_Headwaters=$input_NHD_Headwaters_MS
+  input_nhd_flowlines=$input_nhd_flowlines_ms
+  input_nhd_headwaters=$input_nhd_headwaters_ms
 else
-  input_NHD_Flowlines=$input_NHD_Flowlines_FR
-  input_NHD_Headwaters=$input_NHD_Headwaters_FR
+  input_nhd_flowlines=$input_nhd_flowlines_fr
+  input_nhd_headwaters=$input_nhd_headwaters_fr
 fi
 
 ## GET WBD ##
@@ -67,13 +67,13 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_NHD_Headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -p $extent
+$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_nhd_flowlines -l $input_NWM_Lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_nhd_headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -p $extent
 Tcount
 
 if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/nhd_headwater_points_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    # rm -rf $outputHucDataDir
+    rm -rf $outputHucDataDir
     exit 0
   fi
 fi
@@ -153,11 +153,11 @@ Tcount
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent
 # with the supplied stream network. This allows for more realistic catchment
 # delineation which is ultimately reflected in the output FIM mapping.
-echo -e $startDiv"Creating AGREE DEM using $agreeDEMbuffer meter buffer"$stopDiv
+echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $agreeDEMbuffer -sm 10 -sh 1000
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
@@ -248,12 +248,12 @@ echo -e $startDiv"Split Derived Reaches $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ] && \
-$libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg $lakes_buffer_dist_meters
+$libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $max_split_distance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg $lakes_buffer_dist_meters
 Tcount
 
 if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
   echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  # rm -rf $outputHucDataDir
+  rm -rf $outputHucDataDir
   exit 0
 fi
 
@@ -267,7 +267,7 @@ if [ "$extent" = "MS" ]; then
 
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    # rm -rf $outputHucDataDir
+    rm -rf $outputHucDataDir
     exit 0
   fi
 
@@ -347,7 +347,7 @@ $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_
 
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  # rm -rf $outputHucDataDir
+  rm -rf $outputHucDataDir
   exit 0
 fi
 Tcount

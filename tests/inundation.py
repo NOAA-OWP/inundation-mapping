@@ -400,7 +400,7 @@ def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentSt
                     rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)
                     catchments_array,_ = mask(catchments,[shape(huc['geometry'])],crop=True,indexes=1)
                 elif mask_type == "filter":
-                    
+
                     # input catchments polygon
                     if isinstance(catchment_poly,str):
                         catchment_poly=gpd.read_file(catchment_poly)
@@ -458,6 +458,11 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                 )
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
         hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
+
+        if hydroTable.empty:
+            print ("All stream segments in this HUC are within lake boundaries.")
+            sys.exit(0)
+
     elif isinstance(hydroTable,pd.DataFrame):
         pass #consider checking for correct dtypes, indices, and columns
     else:

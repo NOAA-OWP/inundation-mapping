@@ -91,7 +91,7 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
         del wbd_hu8
 
         # Prepare procs_list for multiprocessed geopackaging.
-        for wbd_layer_num in ['2','4', '6']:
+        for wbd_layer_num in ['4', '6']:
             wbd_layer = 'WBDHU' + wbd_layer_num
             print("\t{}".format(wbd_layer))
             wbd = gp.read_file(wbd_gdb_path,layer=wbd_layer)
