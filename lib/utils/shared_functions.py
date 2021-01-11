@@ -3,6 +3,12 @@
 import os
 from os.path import splitext
 
+def getDriver(fileName):
+
+    driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
+    driver = driverDictionary[splitext(fileName)[1]]
+
+    return(driver)
 
 def pull_file(url, full_pulled_filepath):
     """
@@ -76,12 +82,4 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
     # Overwrite geopackage.
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
     gdf.crs = PREP_PROJECTION
-    gdf.to_file(multilayer_wbd_geopackage, layer=layer_name, getDriver(multilayer_wbd_geopackage))
-
-
-def getDriver(fileName):
-
-    driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
-    driver = driverDictionary[splitext(fileName)[1]]
-
-    return(driver)
+    gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)

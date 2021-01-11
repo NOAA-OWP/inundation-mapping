@@ -196,7 +196,6 @@ def subset_stream_networks(args, huc):
     nwm_huc4_intersect_fr_filename     = args[5]
     nwm_huc4_intersect_ms_filename     = args[6]
 
-
     print("starting HUC " + str(huc),flush=True)
     nwm_headwater_id = 'ID'
     nwm_headwaters_filename = os.path.join(nwm_dir,'nwm_headwaters.gpkg')
@@ -220,54 +219,44 @@ def subset_stream_networks(args, huc):
         # identify FR/NWM headwaters
         nhd_streams_fr = subset_nhd_network(huc,huc_mask,selected_wbd8,nhd_streams_filename,nwm_headwaters_filename,nwm_headwater_id,nwm_huc4_intersect_fr_filename)
 
-        # write out FR subset
-        nhd_streams_fr_fileName=os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_fr.gpkg')
-        nhd_streams_fr.to_file(nhd_streams_fr_fileName,getDriver(nhd_streams_fr_fileName),index=False)
-
-        ## identify MS/AHPs headwaters
-        nhd_streams_ms = subset_nhd_network(huc,huc_mask,selected_wbd8,nhd_streams_filename,ahps_headwaters_filename,ahps_headwater_id,nwm_huc4_intersect_ms_filename)
-
         ## adjust FR/NWM headwater segments
         nwm_headwaters = gpd.read_file(nwm_headwaters_filename, mask=huc_mask)
 
         if len(nwm_headwaters) > 0:
+
             adj_nhd_streams_fr, nhd_headwater_points_fr, adj_nhd_headwater_points_fr = adjust_headwaters(str(huc),nhd_streams_fr,nwm_headwaters,nwm_headwater_id)
 
-
             nhd_streams_fr_adjusted_fileName=os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_fr_adjusted.gpkg')
-            nhd_headwaters_fr_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_fr.gpkg')
             adj_nhd_headwaters_fr_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_fr.gpkg')
+
             # write out FR adjusted
             adj_nhd_streams_fr.to_file(nhd_streams_fr_adjusted_fileName,getDriver(nhd_streams_fr_adjusted_fileName),index=False)
-            nhd_headwater_points_fr.to_file(nhd_headwaters_fr_fileName,getDriver(nhd_headwaters_fr_fileName),index=False)
             adj_nhd_headwater_points_fr.to_file(adj_nhd_headwaters_fr_fileName,getDriver(adj_nhd_headwaters_fr_fileName),index=False)
 
-            del adj_nhd_streams_fr, nhd_headwater_points_fr, adj_nhd_headwater_points_fr
+            del adj_nhd_streams_fr, adj_nhd_headwater_points_fr
         else:
             print ('skipping FR headwater adjustments for HUC: ' + str(huc))
 
         del nhd_streams_fr
 
+        ## identify MS/AHPs headwaters
+        nhd_streams_ms = subset_nhd_network(huc,huc_mask,selected_wbd8,nhd_streams_filename,ahps_headwaters_filename,ahps_headwater_id,nwm_huc4_intersect_ms_filename)
+
         ## adjust MS/AHPs headwater segments
         ahps_headwaters = gpd.read_file(ahps_headwaters_filename, mask=huc_mask)
 
         if len(ahps_headwaters) > 0:
+
             adj_nhd_streams_ms, nhd_headwater_points_ms, adj_nhd_headwater_points_ms = adjust_headwaters(str(huc),nhd_streams_ms,ahps_headwaters,ahps_headwater_id)
 
-            # write out MS subset
-            nhd_streams_ms_fileName=os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_ms.gpkg')
-            nhd_streams_ms.to_file(nhd_streams_ms_fileName,getDriver(nhd_streams_ms_fileName),index=False)
-
-
             nhd_streams_ms_adjusted_fileName=os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_ms_adjusted.gpkg')
-            nhd_headwaters_ms_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_ms.gpkg')
             adj_nhd_headwaters_ms_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_ms.gpkg')
+
             # write out MS adjusted
             adj_nhd_streams_ms.to_file(nhd_streams_ms_adjusted_fileName,getDriver(nhd_streams_ms_adjusted_fileName),index=False)
-            nhd_headwater_points_ms.to_file(nhd_headwaters_ms_fileName,getDriver(nhd_headwaters_ms_fileName),index=False)
             adj_nhd_headwater_points_ms.to_file(adj_nhd_headwaters_ms_fileName,getDriver(adj_nhd_headwaters_ms_fileName),index=False)
 
-            del adj_nhd_streams_ms, nhd_headwater_points_ms, adj_nhd_headwater_points_ms
+            del adj_nhd_streams_ms, adj_nhd_headwater_points_ms
 
         else:
             print ('skipping MS headwater adjustments for HUC: ' + str(huc))
@@ -276,62 +265,6 @@ def subset_stream_networks(args, huc):
 def aggregate_stream_networks(in_dir,agg_dir, huc_list):
 
     for huc in huc_list:
-
-        ## FR
-        nhd_streams_fr_fileName=os.path.join(agg_dir,'NHDPlusBurnLineEvent_fr.gpkg')
-        nhd_headwaters_fr_fileName=os.path.join(agg_dir,'nhd_headwaters_fr.gpkg')
-        nhd_fr_huc_subset = os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_fr.gpkg')
-        nhd_fr_headwater_subset = os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_fr.gpkg')
-
-        if os.path.isfile(nhd_fr_huc_subset):
-            nhd_streams_fr = gpd.read_file(nhd_fr_huc_subset)
-
-            # write out FR subset
-            if os.path.isfile(nhd_streams_fr_fileName):
-                nhd_streams_fr.to_file(nhd_streams_fr_fileName,driver=getDriver(nhd_streams_fr_fileName),index=False, mode='a')
-            else:
-                nhd_streams_fr.to_file(nhd_streams_fr_fileName,driver=getDriver(nhd_streams_fr_fileName),index=False)
-
-            del nhd_streams_fr
-
-        if os.path.isfile(nhd_fr_headwater_subset):
-            nhd_headwater_points_fr = gpd.read_file(nhd_fr_headwater_subset)
-
-            # write out FR subset
-            if os.path.isfile(nhd_headwaters_fr_fileName):
-                nhd_headwater_points_fr.to_file(nhd_headwaters_fr_fileName,driver=getDriver(nhd_headwaters_fr_fileName),index=False, mode='a')
-            else:
-                nhd_headwater_points_fr.to_file(nhd_headwaters_fr_fileName,driver=getDriver(nhd_headwaters_fr_fileName),index=False)
-
-            del nhd_headwater_points_fr
-
-        ## MS
-        nhd_streams_ms_fileName=os.path.join(agg_dir,'NHDPlusBurnLineEvent_ms.gpkg')
-        nhd_headwaters_ms_fileName=os.path.join(agg_dir,'nhd_headwaters_ms.gpkg')
-        nhd_ms_huc_subset = os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_ms.gpkg')
-        nhd_ms_headwater_subset = os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_ms.gpkg')
-
-        if os.path.isfile(nhd_ms_huc_subset):
-            nhd_streams_ms = gpd.read_file(nhd_ms_huc_subset)
-
-            # write out ms subset
-            if os.path.isfile(nhd_streams_ms_fileName):
-                nhd_streams_ms.to_file(nhd_streams_ms_fileName,driver=getDriver(nhd_streams_ms_fileName),index=False, mode='a')
-            else:
-                nhd_streams_ms.to_file(nhd_streams_ms_fileName,driver=getDriver(nhd_streams_ms_fileName),index=False)
-
-            del nhd_streams_ms
-
-        if os.path.isfile(nhd_ms_headwater_subset):
-            nhd_headwater_points_ms = gpd.read_file(nhd_ms_headwater_subset)
-
-            # write out ms subset
-            if os.path.isfile(nhd_headwaters_ms_fileName):
-                nhd_headwater_points_ms.to_file(nhd_headwaters_ms_fileName,driver=getDriver(nhd_headwaters_ms_fileName),index=False, mode='a')
-            else:
-                nhd_headwater_points_ms.to_file(nhd_headwaters_ms_fileName,driver=getDriver(nhd_headwaters_ms_fileName),index=False)
-
-            del nhd_headwater_points_ms
 
         ## FR adjusted
         adj_nhd_headwaters_fr_fileName=os.path.join(agg_dir,'nhd_headwaters_adjusted_fr.gpkg')
@@ -370,7 +303,6 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
         if os.path.isfile(nhd_ms_adj_huc_subset):
             adj_nhd_streams_ms = gpd.read_file(nhd_ms_adj_huc_subset)
 
-
             # write out ms adjusted
             if os.path.isfile(nhd_streams_ms_adjusted_fileName):
                 adj_nhd_streams_ms.to_file(nhd_streams_ms_adjusted_fileName,driver=getDriver(nhd_streams_ms_adjusted_fileName),index=False, mode='a')
@@ -389,6 +321,48 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
                 adj_nhd_headwater_points_ms.to_file(adj_nhd_headwaters_ms_fileName,driver=getDriver(adj_nhd_headwaters_ms_fileName),index=False)
 
             del adj_nhd_headwater_points_ms
+
+
+def clean_up_intermediate_files(in_dir):
+
+    for huc in os.listdir(in_dir):
+        agg_path= os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_agg.gpkg')
+        fr_path= os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_fr.gpkg')
+        fr_adj_path= os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_fr_adjusted.gpkg')
+        ms_path= os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_ms.gpkg')
+        ms_adj_path= os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_ms_adjusted.gpkg')
+        ms_headwater_adj_path= os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_ms.gpkg')
+        fr_headwater_adj_path= os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_fr.gpkg')
+        ms_headwater_path= os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_ms.gpkg')
+        fr_headwater_path= os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_fr.gpkg')
+
+        if os.path.exists(agg_path):
+            os.remove(agg_path)
+
+        if os.path.exists(fr_path):
+            os.remove(fr_path)
+
+        if os.path.exists(fr_adj_path):
+            os.remove(fr_adj_path)
+
+        if os.path.exists(ms_path):
+            os.remove(ms_path)
+
+        if os.path.exists(ms_adj_path):
+            os.remove(ms_adj_path)
+
+        if os.path.exists(ms_headwater_adj_path):
+            os.remove(ms_headwater_adj_path)
+
+        if os.path.exists(fr_headwater_adj_path):
+            os.remove(fr_headwater_adj_path)
+
+        if os.path.exists(ms_headwater_path):
+            os.remove(ms_headwater_path)
+
+        if os.path.exists(fr_headwater_path):
+            os.remove(fr_headwater_path)
+
 
 
 if(__name__=='__main__'):
@@ -432,3 +406,6 @@ if(__name__=='__main__'):
 
     ## aggregate fr and ms nhd netowrks for entire nwm domain
     aggregate_stream_networks(in_dir,agg_dir, os.listdir(in_dir))
+
+    ## remove intermediate files
+    # clean_up_intermediate_files(in_dir)
