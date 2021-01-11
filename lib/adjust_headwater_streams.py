@@ -13,7 +13,7 @@ from shapely.wkb import dumps, loads
 from utils.shared_variables import PREP_PROJECTION
 from utils.shared_functions import getDriver
 
-def adjustHeadwaters(huc,nhd_streams,headwaters,headwater_id):
+def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
 
     ## identify nhd headwaters and incoming streams
     nhd_headwater_streams = nhd_streams.loc[nhd_streams['is_headwater'],:]
@@ -107,7 +107,7 @@ def adjustHeadwaters(huc,nhd_streams,headwaters,headwater_id):
             headwaterstreams = headwaterstreams + [LineString(line1[0])]
             nhd_streams.loc[nhd_streams.NHDPlusID==closest_stream.NHDPlusID.values[0],'geometry'] = LineString(line1[0])
 
-    nhd_streams = nhd_streams.drop(columns=['is_relevant_stream', 'headwaters_id', 'downstream_of_headwater','close_streams'])
+    nhd_streams = nhd_streams.drop(columns=['is_relevant_stream', 'headwaters_id', 'downstream_of_headwater'])
 
     try:
         del nhd_streams_adj, headwaters, headwater_limited, headwaterstreams, referencedpoints, cumulative_line, relativedistlst
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    adj_streams_gdf,adj_headwaters_gdf = adjustHeadwaters(huc,nhd_streams,headwaters,headwater_id)
+    adj_streams_gdf,adj_headwaters_gdf = adjust_headwaters(huc,nhd_streams,headwaters,headwater_id)
 
     if subset_nhd_streams_fileName is not None:
         adj_streams_gdf.to_file(args['subset_nhd_streams_fileName'],driver=getDriver(args['subset_nhd_streams_fileName']),index=False)

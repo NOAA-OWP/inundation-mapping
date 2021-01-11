@@ -67,13 +67,13 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_NHD_Headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -p $extent
+$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_NHD_Headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -p $extent
 Tcount
 
 if [ "$extent" = "MS" ]; then
-  if [[ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ]] ; then
+  if [[ ! -f $outputHucDataDir/nhd_headwater_points_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    rm -rf $outputHucDataDir
+    # rm -rf $outputHucDataDir
     exit 0
   fi
 fi
@@ -253,7 +253,7 @@ Tcount
 
 if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
   echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  rm -rf $outputHucDataDir
+  # rm -rf $outputHucDataDir
   exit 0
 fi
 
@@ -267,7 +267,7 @@ if [ "$extent" = "MS" ]; then
 
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    rm -rf $outputHucDataDir
+    # rm -rf $outputHucDataDir
     exit 0
   fi
 
@@ -347,7 +347,7 @@ $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_
 
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  rm -rf $outputHucDataDir
+  # rm -rf $outputHucDataDir
   exit 0
 fi
 Tcount

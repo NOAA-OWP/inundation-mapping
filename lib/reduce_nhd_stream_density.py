@@ -11,7 +11,7 @@ import pygeos
 from shapely.wkb import dumps
 from utils.shared_functions import getDriver
 
-def subsetNHDnetwork(huc4,huc4_mask,selected_wbd8,nhd_streams_filename,headwaters_filename,headwater_id):
+def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_filename,headwaters_filename,headwater_id,nwm_intersections_filename):
 
     headwater_streams = pd.DataFrame()
 
@@ -21,7 +21,6 @@ def subsetNHDnetwork(huc4,huc4_mask,selected_wbd8,nhd_streams_filename,headwater
         huc = row["HUC8"]
 
         if huc.startswith(str(huc4)):
-
             huc8_mask = selected_wbd8.loc[selected_wbd8.HUC8.str.startswith(huc)]
             huc8_mask = huc8_mask.reset_index(drop=True)
 
@@ -30,86 +29,83 @@ def subsetNHDnetwork(huc4,huc4_mask,selected_wbd8,nhd_streams_filename,headwater
 
             streams_subset = gpd.read_file(nhd_streams_filename, mask = huc8_mask)
 
-            streams_subset.loc[:,'is_headwater'] = False
-            streams_subset = streams_subset.reset_index(drop=True)
+            if not streams_subset.empty:
+                streams_subset.loc[:,'is_headwater'] = False
+                streams_subset = streams_subset.reset_index(drop=True)
 
-            if not len(streams_subset) > 0:
-                print ('skipping HUC: ' + str(huc))
-                continue
+                streams_subset['b_geom'] = None
+                for index, linestring in enumerate(streams_subset.geometry):
+                    streams_subset.at[index, 'b_geom'] = dumps(linestring)
 
-            streams_subset['b_geom'] = None
-            for index, linestring in enumerate(streams_subset.geometry):
-                streams_subset.at[index, 'b_geom'] = dumps(linestring)
+                # create pygeos nhd stream geometries from WKB representation
+                streambin_geom = pygeos.io.from_wkb(streams_subset['b_geom'])
 
-            # create pygeos nhd stream geometries from WKB representation
-            streambin_geom = pygeos.io.from_wkb(streams_subset['b_geom'])
+                streams_subset.loc[:,'HUC8'] = str(huc)
 
-            # streams_subset.loc[:,'is_headwater'] = False
-            streams_subset.loc[:,'HUC8'] = str(huc)
+                if headwaters_mask[headwater_id].dtype=='int':
+                    n = -1
+                else:
+                    n = ''
 
-            if headwaters_mask[headwater_id].dtype=='int':
-                n = -1
-            else:
-                n = ''
+                streams_subset.loc[:,'headwaters_id'] = n
 
-            streams_subset.loc[:,'headwaters_id'] = n
+                # find stream segment closest to headwater point
+                for index, point in headwaters_mask.iterrows():
 
-            # find stream segment closest to headwater point
-            for index, point in headwaters_mask.iterrows():
-                # convert headwaterpoint geometries to WKB representation
-                wkb_points = dumps(point.geometry)
-                # create pygeos headwaterpoint geometries from WKB representation
-                pointbin_geom = pygeos.io.from_wkb(wkb_points)
-                # distance to each stream segment
-                distances = pygeos.measurement.distance(streambin_geom, pointbin_geom)
-                # find minimum distance
-                min_index = np.argmin(distances)
-                # Closest segment to headwater
-                streams_subset.loc[min_index,'is_headwater'] = True
-                streams_subset.loc[min_index,'headwaters_id'] = point[headwater_id]
+                    # convert headwaterpoint geometries to WKB representation
+                    wkb_points = dumps(point.geometry)
 
-            headwater_streams = headwater_streams.append(streams_subset[['NHDPlusID','is_headwater','headwaters_id','HUC8']])
+                    # create pygeos headwaterpoint geometries from WKB representation
+                    pointbin_geom = pygeos.io.from_wkb(wkb_points)
+
+                    # distance to each stream segment
+                    distances = pygeos.measurement.distance(streambin_geom, pointbin_geom)
+
+                    # find minimum distance
+                    min_index = np.argmin(distances)
+
+                    # Closest segment to headwater
+                    streams_subset.loc[min_index,'is_headwater'] = True
+                    streams_subset.loc[min_index,'headwaters_id'] = point[headwater_id]
+
+                headwater_streams = headwater_streams.append(streams_subset[['NHDPlusID','is_headwater','headwaters_id','HUC8']])
 
     headwater_streams = headwater_streams.sort_values('is_headwater', ascending=False).drop_duplicates('NHDPlusID') # keeps headwater=True for conflicting duplicates
     nhd_streams = nhd_streams.merge(headwater_streams,on='NHDPlusID',how='inner')
 
     del selected_wbd8, streams_subset, headwater_streams
 
-    # identify inflowing streams
-    nhd_streams['downstream_of_headwater'] = False
+    huc4_mask_buffer = huc4_mask.buffer(10)
 
+    # identify inflowing streams
+    nwm_intersections = gpd.read_file(nwm_intersections_filename, mask=huc4_mask_buffer)
+
+    nhd_streams['downstream_of_headwater'] = False
     nhd_streams = nhd_streams.explode()
     nhd_streams = nhd_streams.reset_index(drop=True)
 
-    crosses=nhd_streams.crosses(huc4_mask.geometry[0].exterior)
+    # find stream segment closest to nwm intersection point
+    for index, point in nwm_intersections.iterrows():
 
-    nhd_streams.loc[crosses,'is_headwater'] = True
-    nhd_streams.loc[crosses,'downstream_of_headwater'] = True
+        # distance to each stream segment
+        distances = nhd_streams.distance(point.geometry)
+
+        # find minimum distance
+        min_index = np.argmin(distances)
+
+        # update attributes for incoming stream
+        nhd_streams.loc[min_index,'is_headwater'] = True
+        nhd_streams.loc[min_index,'downstream_of_headwater'] = True
 
     ## subset NHDPlus HR
     nhd_streams['is_relevant_stream'] = nhd_streams['is_headwater'].copy()
 
     # trace down from headwaters
-    # print('Identify NHD streams downstream of relevant NHD Headwater streams',flush=True)
     nhd_streams.set_index('NHDPlusID',inplace=True,drop=False)
 
     nhd_streams = get_downstream_segments(nhd_streams, 'is_headwater')
 
-    # this section identifies incoming stream segments that do not qualify as 'crossing' or 'touching' WBD boundary due to lack of geometric precision
-    precision_threshold = 1e-15
-    nhd_streams['close_streams'] = False
-    stragglers_subset = nhd_streams.loc[(nhd_streams.StreamOrde>=2) & ~(nhd_streams['is_relevant_stream'])]
-    for index, line in stragglers_subset.iterrows():
-        if (huc4_mask.geometry[0].exterior.distance(line.geometry) < precision_threshold):
-            nhd_streams.loc[index,'is_headwater'] = True
-            nhd_streams.loc[index,'downstream_of_headwater'] = True
-            nhd_streams.loc[index,'is_relevant_stream'] = True
-            nhd_streams.loc[index,'close_streams'] = True
-
-    nhd_streams = get_downstream_segments(nhd_streams, 'close_streams')
-
     nhd_streams = nhd_streams.loc[nhd_streams['is_relevant_stream'],:]
-
     nhd_streams.reset_index(drop=True,inplace=True)
 
     return(nhd_streams)
@@ -162,7 +158,7 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    subset_streams_gdf = subsetNHDnetwork(huc_number,huc4_mask,selected_wbd8,nhd_streams,headwaters_filename,headwater_id)
+    subset_streams_gdf = subset_nhd_network(huc_number,huc4_mask,selected_wbd8,nhd_streams,headwaters_filename,headwater_id)
 
     if subset_nhd_streams_fileName is not None:
         subset_streams_gdf.to_file(args['subset_nhd_streams_fileName'],driver=getDriver(args['subset_nhd_streams_fileName']),index=False)
