@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+# Created: 1/11/2021
+# Primary developer(s): ryan.spies@noaa.gov
+# Purpose: This script provides the user to input a customized flow entry to produce
+# inundation outputs using outputs from fim_run. Note that the flow csv must be
+# formatted with "feature_id" & "discharge" columns. Flow must be in cubic m/s
+
 import os
 import sys
 import pandas as pd
@@ -39,17 +45,20 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
 
     print("Running the NWM recurrence intervals for HUC: " + huc_id + ", " + branch_name + "...")
 
-    fim_run_parent = os.path.join(os.environ['outputDataDir'], fim_run_dir)
-    assert os.path.exists(fim_run_parent), "Cannot locate " + fim_run_parent
+    assert os.path.exists(fim_run_dir), "Cannot locate " + fim_run_dir
 
     # Create paths to fim_run outputs for use in inundate().
-    rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
-    catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+    if "previous_fim" in fim_run_dir and "fim_2" in fim_run_dir:
+        rem = os.path.join(fim_run_dir, 'rem_clipped_zeroed_masked.tif')
+        catchments = os.path.join(fim_run_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif')
+    else:
+        rem = os.path.join(fim_run_dir, 'rem_zeroed_masked.tif')
+        catchments = os.path.join(fim_run_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
     if mask_type == 'huc':
         catchment_poly = ''
     else:
-        catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-    hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')
+        catchment_poly = os.path.join(fim_run_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+    hydro_table = os.path.join(fim_run_dir, 'hydroTable.csv')
 
     # Map necessary inputs for inundation().
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
@@ -84,7 +93,7 @@ if __name__ == '__main__':
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Results are stored in the test directory.')
-    parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (starting inside the /output/ dir)',required=True)
+    parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev/12345678)',required=True)
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output directory) -> type=str',required=True,default="")
     parser.add_argument('-t', '--huc-id',help='The huc id to use. Format as: xxxxxxxx, e.g. 12345678',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
@@ -100,9 +109,9 @@ if __name__ == '__main__':
     print()
 
     # Ensure fim_run_dir exists.
-    if not os.path.exists(os.path.join(os.environ['outputDataDir'], args['fim_run_dir'])):
-        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided fim_run_dir (-r) " + CYAN_BOLD + os.environ['outputDataDir'] + args['fim_run_dir'] + WHITE_BOLD + " could not be located in the 'outputs' directory." + ENDC)
-        print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. outputs/123456/123456." + ENDC)
+    if not os.path.exists(args['fim_run_dir']):
+        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided fim_run_dir (-r) " + CYAN_BOLD + args['fim_run_dir'] + WHITE_BOLD + " could not be located in the 'outputs' directory." + ENDC)
+        print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456." + ENDC)
         print()
         exit_flag = True
 
