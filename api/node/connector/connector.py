@@ -13,10 +13,12 @@ from flask_socketio import SocketIO, emit
 
 DATA_PATH = os.environ.get('DATA_PATH')
 DOCKER_IMAGE_PATH = os.environ.get('DOCKER_IMAGE_PATH')
+SOCKET_URL = os.environ.get('SOCKET_URL')
+FRONTEND_URL = os.environ.get('FRONTEND_URL')
 GITHUB_REPO = os.environ.get('GITHUB_REPO')
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins=[SOCKET_URL, FRONTEND_URL, "http://fim_node_connector:6000"])
 
 shared_data = {
     'handler_sid': None,
