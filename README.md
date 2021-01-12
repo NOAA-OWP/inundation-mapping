@@ -47,11 +47,11 @@ NOTE: Some of the input data is not easy to acquire and will need to be shared w
 ## Usage
 
 1. Run Docker Container : `docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <image_name>:<tag>`
-2. Acquire and Prepare Data : `/foss_fim/lib/acquire_and_preprocess_inputs.py -u <huc4s_to_process>`
+2. Acquire and Prepare Data : `/foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>`
     - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
-    - Please run `/foss_fim/lib/acquire_and_preprocess_inputs.py --help` for more information.
+    - Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
     - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
-3. Aggregate NHD HR streams and create NWM headwater points : /foss_fim/lib/aggregate_vector_inputs.py
+3. Aggregate NHD HR streams and create NWM headwater points : `/foss_fim/src/aggregate_vector_inputs.py`
 4. Produce Hydrofabric : `fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>`
     - `-u` can be a single huc, a series passed in quotes, or a line-delimited file
         i. To run entire domain of available data use one of the `/data/inputs/included_huc[4,6,8].lst` files

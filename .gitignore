@@ -8,3 +8,4 @@ config/**
 !config/*calibrated*
 !config/symbology/
 .vscode/
+**/.DS_Store

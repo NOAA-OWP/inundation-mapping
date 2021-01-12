@@ -94,7 +94,7 @@ fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
-source $libDir/bash_functions.env
+source $srcDir/bash_functions.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
@@ -118,7 +118,7 @@ export input_NWM_Headwaters=$inputDataDir/nwm_hydrofabric/nwm_headwaters.gpkg
 export input_NHD_Flowlines=$inputDataDir/nhdplus_vectors_aggregate/NHDPlusBurnLineEvent_wVAA.gpkg
 
 ## Input handling ##
-$libDir/check_huc_inputs.py -u "$hucList"
+$srcDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then
@@ -132,17 +132,17 @@ mkdir -p $outputRunDataDir/logs
 ## RUN ##
 if [ -f "$hucList" ]; then
     if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh :::: $hucList
+        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
     else
-        parallel --eta -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh :::: $hucList
+        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
     fi
 else
     if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh ::: $hucList
+        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
     else
-        parallel --eta -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh ::: $hucList
+        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
     fi
 fi
 
 # aggregate outputs
-bash /foss_fim/lib/aggregate_fim_outputs.sh $outputRunDataDir
+bash /foss_fim/src/aggregate_fim_outputs.sh $outputRunDataDir
