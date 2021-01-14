@@ -5,6 +5,10 @@ T_total_start
 
 echo -e $startDiv"Parameter Values"
 echo -e "extent=$extent"
+echo -e "agree_DEM_buffer=$agree_DEM_buffer"
+echo -e "wbd_buffer=$wbd_buffer"
+echo -e "ms_buffer_dist=$ms_buffer_dist"
+echo -e "lakes_buffer_dist_meters=$lakes_buffer_dist_meters"
 echo -e "negative_burn_value=$negative_burn_value"
 echo -e "max_split_distance_meters=$max_split_distance_meters"
 echo -e "mannings_n=$manning_n"
@@ -30,6 +34,7 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
+
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then
   input_LANDSEA=$inputDataDir/landsea/gl_water_polygons.gpkg
@@ -37,7 +42,7 @@ if [[ $huc2Identifier == "04" ]] ; then
 else
   input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
 fi
-
+# Define streams and headwaters based on extent #
 if [ "$extent" = "MS" ]; then
   input_nhd_flowlines=$input_nhd_flowlines_ms
   input_nhd_headwaters=$input_nhd_headwaters_ms
@@ -104,7 +109,7 @@ echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-gdal_rasterize -l nld_subset_levees -3d -at -init -9999 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
+gdal_rasterize -l nld_subset_levees -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
 Tcount
 
 ## CONVERT TO METERS ##
@@ -146,7 +151,7 @@ echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwr
 date -u
 Tstart
 [ -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,((B>-9999)*0.3048))" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
 Tcount
 
 ## DEM Reconditioning ##
@@ -338,34 +343,12 @@ Tstart
 gdal_polygonize.py -8 -f GPKG $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif $outputHucDataDir/gw_catchments_reaches.gpkg catchments HydroID
 Tcount
 
-# ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
-# echo -e $startDiv"Process catchments and model streams step 1 $hucNumber"$stopDiv
-# date -u
-# Tstart
-# [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ] && \
-# $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_reaches.gpkg $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/demDerived_reaches_split_filtered.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
-#
-# if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
-#   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-#   rm -rf $outputHucDataDir
-#   exit 0
-# fi
-# Tcount
-
 ## GET RASTER METADATA ## *****
 echo -e $startDiv"Get Clipped Raster Metadata $hucNumber"$stopDiv
 date -u
 Tstart
 read fsize ncols nrows ndv_clipped xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($libDir/getRasterInfoNative.py $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif)
 Tcount
-
-# ## RASTERIZE NEW CATCHMENTS AGAIN ##
-# echo -e $startDiv"Rasterize filtered catchments $hucNumber"$stopDiv
-# date -u
-# Tstart
-# [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif ] && \
-# gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.tif
-# Tcount
 
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
 echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber"$stopDiv

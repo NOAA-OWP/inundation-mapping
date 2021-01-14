@@ -223,8 +223,8 @@ print('Writing outputs ...')
 
 if isfile(split_flows_fileName):
     remove(split_flows_fileName)
-split_flows_gdf.to_file(split_flows_fileName,getDriver(split_flows_fileName),index=False)
+split_flows_gdf.to_file(split_flows_fileName,driver=getDriver(split_flows_fileName),index=False)
 
 if isfile(split_points_fileName):
     remove(split_points_fileName)
-split_points_gdf.to_file(split_points_fileName,getDriver(split_points_fileName),index=False)
+split_points_gdf.to_file(split_points_fileName,driver=getDriver(split_points_fileName),index=False)
