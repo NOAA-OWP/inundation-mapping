@@ -15,20 +15,6 @@ from utils.shared_functions import getDriver
 
 def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
 
-    ## identify nhd headwaters and incoming streams
-    nhd_headwater_streams = nhd_streams.loc[nhd_streams['is_headwater'],:]
-    nhd_headwater_streams = nhd_headwater_streams.explode()
-
-    hw_points = np.zeros(len(nhd_headwater_streams),dtype=object)
-    for index,lineString in enumerate(nhd_headwater_streams.geometry):
-        hw_point = [point for point in zip(*lineString.coords.xy)][-1]
-        hw_points[index] = Point(*hw_point)
-
-    nhd_headwater_points = gpd.GeoDataFrame({'NHDPlusID' : nhd_headwater_streams['NHDPlusID'],
-                                            'geometry' : hw_points},geometry='geometry',crs=PREP_PROJECTION)
-
-    del nhd_headwater_streams
-
     # identify true headwater segments
     if nhd_streams['headwaters_id'].dtype=='int':
         nhd_streams_adj = nhd_streams.loc[(nhd_streams.headwaters_id > 0) & (nhd_streams.downstream_of_headwater == False),:].copy()
@@ -129,7 +115,7 @@ def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
 
     del nhd_headwater_streams_adj
 
-    return(nhd_streams, nhd_headwater_points, nhd_headwater_points_adj)
+    return(nhd_streams, nhd_headwater_points_adj)
 
 if __name__ == '__main__':
 

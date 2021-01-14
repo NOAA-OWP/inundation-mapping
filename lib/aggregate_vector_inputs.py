@@ -224,7 +224,7 @@ def subset_stream_networks(args, huc):
 
         if len(nwm_headwaters) > 0:
 
-            adj_nhd_streams_fr, nhd_headwater_points_fr, adj_nhd_headwater_points_fr = adjust_headwaters(str(huc),nhd_streams_fr,nwm_headwaters,nwm_headwater_id)
+            adj_nhd_streams_fr, adj_nhd_headwater_points_fr = adjust_headwaters(str(huc),nhd_streams_fr,nwm_headwaters,nwm_headwater_id)
 
             nhd_streams_fr_adjusted_fileName=os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_fr_adjusted.gpkg')
             adj_nhd_headwaters_fr_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_fr.gpkg')
@@ -247,7 +247,7 @@ def subset_stream_networks(args, huc):
 
         if len(ahps_headwaters) > 0:
 
-            adj_nhd_streams_ms, nhd_headwater_points_ms, adj_nhd_headwater_points_ms = adjust_headwaters(str(huc),nhd_streams_ms,ahps_headwaters,ahps_headwater_id)
+            adj_nhd_streams_ms, adj_nhd_headwater_points_ms = adjust_headwaters(str(huc),nhd_streams_ms,ahps_headwaters,ahps_headwater_id)
 
             nhd_streams_ms_adjusted_fileName=os.path.join(in_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_ms_adjusted.gpkg')
             adj_nhd_headwaters_ms_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_ms.gpkg')
