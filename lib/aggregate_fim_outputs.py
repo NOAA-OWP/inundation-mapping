@@ -11,6 +11,7 @@ from utils.shared_variables import PREP_PROJECTION
 
 def aggregate_fim_outputs(fim_out_dir):
 
+    print ("aggregating outputs to HUC6 scale")
     drop_folders = ['logs','aggregate_fim_outputs']
     huc_list = [huc for huc in os.listdir(fim_out_dir) if huc not in drop_folders]
 
@@ -35,7 +36,7 @@ def aggregate_fim_outputs(fim_out_dir):
         src = open(os.path.join(fim_out_dir,huc,'src.json'))
         src = json.load(src)
 
-        # write out hydrotable
+        # write out src
         if os.path.isfile(aggregate_src):
             with open(aggregate_src, 'a') as outfile:
                     json.dump(src, outfile)
@@ -65,7 +66,7 @@ def aggregate_fim_outputs(fim_out_dir):
             rem_files_to_mosaic.append(rem_src)
 
         mosaic, out_trans = merge(rem_files_to_mosaic)
-        out_meta = src.meta.copy()
+        out_meta = rem_src.meta.copy()
         out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
 
         rem_mosaic = os.path.join(huc6_dir,'rem_zeroed_masked.tif')
@@ -84,7 +85,7 @@ def aggregate_fim_outputs(fim_out_dir):
             cat_files_to_mosaic.append(cat_src)
 
         mosaic, out_trans = merge(cat_files_to_mosaic)
-        out_meta = src.meta.copy()
+        out_meta = cat_src.meta.copy()
         out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
 
         catchment_mosaic = os.path.join(huc6_dir,'gw_catchments_reaches_filtered_addedAttributes.tif')
@@ -102,6 +103,6 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    fim_outputs_directory = args['fim-outputs-directory']
+    fim_outputs_directory = args['fim_outputs_directory']
 
     aggregate_fim_outputs(fim_outputs_directory)

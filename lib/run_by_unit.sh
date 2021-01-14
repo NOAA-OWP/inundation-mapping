@@ -59,7 +59,7 @@ echo -e $startDiv"Buffer WBD $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/wbd_buffered.gpkg ] && \
-ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, '$wbd_buffer') from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd.gpkg
+ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, $wbd_buffer) from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd.gpkg
 Tcount
 
 ## Subset Vector Layers ##
