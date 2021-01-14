@@ -322,7 +322,6 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
 
             del adj_nhd_headwater_points_ms
 
-
 def clean_up_intermediate_files(in_dir):
 
     for huc in os.listdir(in_dir):

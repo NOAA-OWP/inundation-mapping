@@ -18,6 +18,22 @@ stages_max = float(sys.argv[7])
 flows = gpd.read_file(flows_fileName)
 catchments = gpd.read_file(catchments_fileName)
 
+# filter out smaller duplicate features
+if catchments.HydroID.dtype != 'int': catchments.HydroID = catchments.HydroID.astype(int)
+duplicateFeatures = np.where(np.bincount(catchments['HydroID'])>1)[0]
+
+for dp in duplicateFeatures:
+
+    indices_of_duplicate = np.where(catchments['HydroID'] == dp)[0]
+
+    areas = catchments.iloc[indices_of_duplicate,:].geometry.area
+
+    indices_of_smaller_duplicates = indices_of_duplicate[np.where(areas != np.amax(areas))[0]]
+
+    catchments = catchments.drop(catchments.index[indices_of_smaller_duplicates])
+
+# add geometry column
+catchments['areasqkm'] = catchments.geometry.area/(1000**2)
 
 hydroIDs = flows['HydroID'].tolist()
 len_of_hydroIDs = len(hydroIDs)

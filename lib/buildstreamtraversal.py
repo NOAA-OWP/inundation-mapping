@@ -42,13 +42,20 @@ class BuildStreamTraversalColumns(object):
             if not hydro_id in streams.columns:
                 print ("Required field " + hydro_id + " does not exist in input. Generating..")
 
-                stream_centroid = gpd.GeoDataFrame({'geometry':streams.geometry.centroid}, crs=streams.crs, geometry='geometry')
-                stream_wbdjoin = gpd.sjoin(stream_centroid, wbd8, how='left', op='within')
-                stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "centroid", "index_right": "HUC8id"})
-                streams = streams.join(stream_wbdjoin).drop(columns=['centroid'])
+                # Get stream midpoint
+                stream_midpoint = []
+                for i,lineString in enumerate(streams.geometry):
+                    stream_midpoint = stream_midpoint + [lineString.interpolate(0.05,normalized=True)]
+
+                stream_md_gpd = gpd.GeoDataFrame({'geometry':stream_midpoint}, crs=streams.crs, geometry='geometry')
+                stream_wbdjoin = gpd.sjoin(stream_md_gpd, wbd8, how='left', op='within')
+                stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint", "index_right": "HUC8id"})
+                streams = streams.join(stream_wbdjoin).drop(columns=['midpoint'])
 
                 streams['seqID'] = (streams.groupby('HUC8id').cumcount(ascending=True)+1).astype('str').str.zfill(4)
                 streams = streams.loc[streams['HUC8id'].notna(),:]
+                if streams.HUC8id.dtype != 'str': streams.HUC8id = streams.HUC8id.astype(str)
+                if streams.seqID.dtype != 'str': streams.seqID = streams.seqID.astype(str)
                 streams = streams.assign(hydro_id= lambda x: x.HUC8id + x.seqID)
                 streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
                 streams = streams.drop(columns=['HUC8id', 'seqID'])
