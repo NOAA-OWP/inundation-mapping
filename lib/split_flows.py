@@ -161,6 +161,9 @@ if lakes is not None:
 else:
     split_flows_gdf['LakeID'] = -999
 
+# need to figure out why so many duplicate stream segments for 04010101 FR
+split_flows_gdf = split_flows_gdf.drop_duplicates()
+
 # Create Ids and Network Traversal Columns
 addattributes = buildstreamtraversal.BuildStreamTraversalColumns()
 tResults=None
