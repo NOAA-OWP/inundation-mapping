@@ -12,8 +12,10 @@ from utils.shared_variables import PREP_PROJECTION
 def aggregate_fim_outputs(fim_out_dir):
 
     print ("aggregating outputs to HUC6 scale")
-    drop_folders = ['logs','aggregate_fim_outputs']
+    drop_folders = ['logs']
     huc_list = [huc for huc in os.listdir(fim_out_dir) if huc not in drop_folders]
+    huc6_list = [str(huc[0:6]) for huc in os.listdir(fim_out_dir) if huc not in drop_folders]
+    huc6_list = list(set(huc6_list))
 
     for huc in huc_list:
 
@@ -45,10 +47,6 @@ def aggregate_fim_outputs(fim_out_dir):
                     json.dump(src, outfile)
 
         del src
-
-
-    huc6_list = [str(huc[0:6]) for huc in os.listdir(fim_out_dir) if huc not in drop_folders]
-    huc6_list = list(set(huc6_list))
 
     for huc6 in huc6_list:
         huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',huc6)
