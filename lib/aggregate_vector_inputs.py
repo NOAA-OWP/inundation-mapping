@@ -230,6 +230,9 @@ def subset_stream_networks(args, huc):
             adj_nhd_headwaters_fr_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_fr.gpkg')
 
             # write out FR adjusted
+            adj_nhd_streams_fr = adj_nhd_streams_fr.to_crs(PREP_PROJECTION)
+            adj_nhd_headwater_points_fr = adj_nhd_headwater_points_fr.to_crs(PREP_PROJECTION)
+
             adj_nhd_streams_fr.to_file(nhd_streams_fr_adjusted_fileName,driver=getDriver(nhd_streams_fr_adjusted_fileName),index=False)
             adj_nhd_headwater_points_fr.to_file(adj_nhd_headwaters_fr_fileName,driver=getDriver(adj_nhd_headwaters_fr_fileName),index=False)
 
@@ -253,6 +256,9 @@ def subset_stream_networks(args, huc):
             adj_nhd_headwaters_ms_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_ms.gpkg')
 
             # write out MS adjusted
+            adj_nhd_streams_ms = adj_nhd_streams_ms.to_crs(PREP_PROJECTION)
+            adj_nhd_headwater_points_ms = adj_nhd_headwater_points_ms.to_crs(PREP_PROJECTION)
+
             adj_nhd_streams_ms.to_file(nhd_streams_ms_adjusted_fileName,driver=getDriver(nhd_streams_ms_adjusted_fileName),index=False)
             adj_nhd_headwater_points_ms.to_file(adj_nhd_headwaters_ms_fileName,driver=getDriver(adj_nhd_headwaters_ms_fileName),index=False)
 
@@ -276,6 +282,8 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
             adj_nhd_streams_fr = gpd.read_file(nhd_fr_adj_huc_subset)
 
             # write out FR adjusted
+            adj_nhd_streams_fr = adj_nhd_streams_fr.to_crs(PREP_PROJECTION)
+
             if os.path.isfile(nhd_streams_fr_adjusted_fileName):
                 adj_nhd_streams_fr.to_file(nhd_streams_fr_adjusted_fileName,driver=getDriver(nhd_streams_fr_adjusted_fileName),index=False, mode='a')
             else:
@@ -287,6 +295,8 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
             adj_nhd_headwater_points_fr = gpd.read_file(nhd_fr_adj_headwaters_subset)
 
             # write out FR adjusted
+            adj_nhd_headwater_points_fr = adj_nhd_headwater_points_fr.to_crs(PREP_PROJECTION)
+
             if os.path.isfile(adj_nhd_headwaters_fr_fileName):
                 adj_nhd_headwater_points_fr.to_file(adj_nhd_headwaters_fr_fileName,driver=getDriver(adj_nhd_headwaters_fr_fileName),index=False, mode='a')
             else:
@@ -304,6 +314,8 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
             adj_nhd_streams_ms = gpd.read_file(nhd_ms_adj_huc_subset)
 
             # write out ms adjusted
+            adj_nhd_streams_ms = adj_nhd_streams_ms.to_crs(PREP_PROJECTION)
+
             if os.path.isfile(nhd_streams_ms_adjusted_fileName):
                 adj_nhd_streams_ms.to_file(nhd_streams_ms_adjusted_fileName,driver=getDriver(nhd_streams_ms_adjusted_fileName),index=False, mode='a')
             else:
@@ -315,6 +327,8 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
             adj_nhd_headwater_points_ms = gpd.read_file(nhd_ms_adj_headwater_subset)
 
             # write out ms adjusted
+            adj_nhd_headwater_points_ms = adj_nhd_headwater_points_ms.to_crs(PREP_PROJECTION)
+
             if os.path.isfile(adj_nhd_headwaters_ms_fileName):
                 adj_nhd_headwater_points_ms.to_file(adj_nhd_headwaters_ms_fileName,driver=getDriver(adj_nhd_headwaters_ms_fileName),index=False, mode='a')
             else:
