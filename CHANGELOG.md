@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.0.4 - 2021-01-20 - [PR #230](https://github.com/NOAA-OWP/cahaba/pull/230)
+
+Changed the directory where the `included_huc*.lst` files are being read from.
+
+### Changes
+
+ - Changed the directory where the `included_huc*.lst` files are being read from.
+
 ## v3.0.0.3 - 2021-01-14 - [PR #210](https://github.com/NOAA-OWP/cahaba/pull/210)
 
 Hotfix for handling nodata value in rasterized levee lines.
