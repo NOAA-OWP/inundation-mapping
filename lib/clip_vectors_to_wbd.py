@@ -5,6 +5,7 @@ import geopandas as gpd
 import argparse
 from os.path import splitext
 from shapely.geometry import MultiPolygon,Polygon,Point
+<<<<<<< HEAD
 from utils.shared_functions import getDriver
 
 def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,dissolveLinks=False):
@@ -75,6 +76,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         nhd_headwaters = nhd_headwaters.append(local_headwaters)
 
         # nhd_streams = nhd_streams.loc[~nhd_streams.NHDPlusID.isin(NHDPlusIDs)]
+
     if len(nhd_streams) > 0:
         nhd_streams.to_file(subset_nhd_streams_filename,driver=getDriver(subset_nhd_streams_filename),index=False)
     else:
@@ -93,7 +95,6 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd_buffer)
     nwm_streams.to_file(subset_nwm_streams_filename,driver=getDriver(subset_nwm_streams_filename),index=False)
     del nwm_streams
-
 
 if __name__ == '__main__':
 

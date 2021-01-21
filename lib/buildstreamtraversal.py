@@ -56,6 +56,7 @@ class BuildStreamTraversalColumns(object):
                 streams = streams.loc[streams['HUC8id'].notna(),:]
                 if streams.HUC8id.dtype != 'str': streams.HUC8id = streams.HUC8id.astype(str)
                 if streams.seqID.dtype != 'str': streams.seqID = streams.seqID.astype(str)
+
                 streams = streams.assign(hydro_id= lambda x: x.HUC8id + x.seqID)
                 streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
                 streams = streams.drop(columns=['HUC8id', 'seqID'])

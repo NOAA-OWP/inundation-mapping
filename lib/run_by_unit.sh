@@ -51,6 +51,14 @@ else
   input_nhd_headwaters=$input_nhd_headwaters_fr
 fi
 
+if [ "$extent" = "MS" ]; then
+  input_nhd_flowlines=$input_nhd_flowlines_ms
+  input_nhd_headwaters=$input_nhd_headwaters_ms
+else
+  input_nhd_flowlines=$input_nhd_flowlines_fr
+  input_nhd_headwaters=$input_nhd_headwaters_fr
+fi
+
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
