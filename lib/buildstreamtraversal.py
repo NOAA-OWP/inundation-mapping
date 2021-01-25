@@ -2,9 +2,9 @@
 Description:
         This tool creates unique IDs for each segment and builds the To_Node, From_Node, and NextDownID columns to traverse the network
 Required Arguments:
-        modelstream   = stream network
-        WBD8          = HUC8 boundary dataset
-        HYDROID       = name of ID column (string)
+        streams   = stream network
+        wbd8          = HUC8 boundary dataset
+        hydro_id       = name of ID column (string)
 '''
 import sys
 import datetime
@@ -22,9 +22,9 @@ def trace():
     synerror = traceback.format_exc().splitlines()[-1]
     return line, filename, synerror
 
-FN_FROMNODE = "From_Node"
-FN_TONODE = "To_Node"
-FN_NEXTDOWNID = "NextDownID"
+from_node = "From_Node"
+to_node = "To_Node"
+next_down_id = "NextDownID"
 
 class BuildStreamTraversalColumns(object):
     '''Tool class for updating the next down IDs of stream features.'''
@@ -33,60 +33,60 @@ class BuildStreamTraversalColumns(object):
         self.label = 'Find Next Downstream Line'
         self.description = '''Finds next downstream line, retrieves its HydroID and stores it in the NextDownID field.'''
 
-    def execute(self, modelstream, WBD8, HYDROID):
+    def execute(self, streams, wbd8, hydro_id):
         try:
             split_code = 1
             sOK = 'OK'
 
             # check for HydroID; Assign if it doesn't exist
-            if not HYDROID in modelstream.columns:
-                print ("Required field " + HYDROID + " does not exist in input. Generating..")
+            if not hydro_id in streams.columns:
+                print ("Required field " + hydro_id + " does not exist in input. Generating..")
 
-                stream_centroid = gpd.GeoDataFrame({'geometry':modelstream.geometry.centroid}, crs=modelstream.crs, geometry='geometry')
-                stream_wbdjoin = gpd.sjoin(stream_centroid, WBD8, how='left', op='within')
+                stream_centroid = gpd.GeoDataFrame({'geometry':streams.geometry.centroid}, crs=streams.crs, geometry='geometry')
+                stream_wbdjoin = gpd.sjoin(stream_centroid, wbd8, how='left', op='within')
                 stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "centroid", "index_right": "HUC8id"})
-                modelstream = modelstream.join(stream_wbdjoin).drop(columns=['centroid'])
+                streams = streams.join(stream_wbdjoin).drop(columns=['centroid'])
 
-                modelstream['seqID'] = (modelstream.groupby('HUC8id').cumcount(ascending=True)+1).astype('str').str.zfill(4)
-                modelstream = modelstream.loc[modelstream['HUC8id'].notna(),:]
-                modelstream = modelstream.assign(HYDROID= lambda x: x.HUC8id + x.seqID)
-                modelstream = modelstream.rename(columns={"HYDROID": HYDROID}).sort_values(HYDROID)
-                modelstream = modelstream.drop(columns=['HUC8id', 'seqID'])
-                modelstream[HYDROID] = modelstream[HYDROID].astype(int)
-                print ('Generated ' + HYDROID)
+                streams['seqID'] = (streams.groupby('HUC8id').cumcount(ascending=True)+1).astype('str').str.zfill(4)
+                streams = streams.loc[streams['HUC8id'].notna(),:]
+                streams = streams.assign(hydro_id= lambda x: x.HUC8id + x.seqID)
+                streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
+                streams = streams.drop(columns=['HUC8id', 'seqID'])
+                streams[hydro_id] = streams[hydro_id].astype(int)
+                print ('Generated ' + hydro_id)
 
             # Check for TO/From Nodes; Assign if doesnt exist
             bOK = True
-            if not FN_FROMNODE in modelstream.columns:
-                print ("Field " + FN_FROMNODE + " does not exist in input ")
+            if not from_node in streams.columns:
+                print ("Field " + from_node + " does not exist in input ")
                 bOK = False
-            if not FN_TONODE in modelstream.columns:
-                print ("Field " + FN_TONODE + " does not exist in input. Generating..")
+            if not to_node in streams.columns:
+                print ("Field " + to_node + " does not exist in input. Generating..")
                 bOK = False
 
             if(bOK==False):
                 # Add fields if not they do not exist.
-                if not FN_FROMNODE in modelstream.columns:
-                    modelstream[FN_FROMNODE] = ''
+                if not from_node in streams.columns:
+                    streams[from_node] = ''
 
-                if not FN_TONODE in modelstream.columns:
-                    modelstream[FN_TONODE] = ''
+                if not to_node in streams.columns:
+                    streams[to_node] = ''
 
-                modelstream = modelstream.sort_values(by=[HYDROID], ascending=True).copy()
+                streams = streams.sort_values(by=[hydro_id], ascending=True).copy()
 
                 xy_dict = {}
                 bhasnullshape=False
-                for rows in modelstream[['geometry', FN_FROMNODE, FN_TONODE]].iterrows():
+                for rows in streams[['geometry', from_node, to_node]].iterrows():
                     if rows[1][0]:
                         # From Node
                         firstx = round(rows[1][0].coords.xy[0][0], 7)
                         firsty = round(rows[1][0].coords.xy[1][0], 7)
                         from_key = '{},{}'.format(firstx, firsty)
                         if from_key in xy_dict:
-                            modelstream.at[rows[0], FN_FROMNODE,] = xy_dict[from_key]
+                            streams.at[rows[0], from_node,] = xy_dict[from_key]
                         else:
                             xy_dict[from_key] = len(xy_dict) + 1
-                            modelstream.at[rows[0], FN_FROMNODE,] = xy_dict[from_key]
+                            streams.at[rows[0], from_node,] = xy_dict[from_key]
 
                         # To Node
                         lastx = round(rows[1][0].coords.xy[0][-1], 7)
@@ -94,27 +94,27 @@ class BuildStreamTraversalColumns(object):
                         to_key = '{},{}'.format(lastx, lasty)
                         #if xy_dict.has_key(to_key):
                         if to_key in xy_dict:
-                            modelstream.at[rows[0], FN_TONODE] = xy_dict[to_key]
+                            streams.at[rows[0], to_node] = xy_dict[to_key]
                         else:
                             xy_dict[to_key] = len(xy_dict) + 1
-                            modelstream.at[rows[0], FN_TONODE] = xy_dict[to_key]
+                            streams.at[rows[0], to_node] = xy_dict[to_key]
                     else:
                          bhasnullshape=True
 
                 if bhasnullshape==True:
                     print ("Some of the input features have a null shape.")
-                    print (FN_FROMNODE + " and " + FN_TONODE + " fields cannot be populated for those features.")
+                    print (from_node + " and " + to_node + " fields cannot be populated for those features.")
                 else:
                     print ('Generated To/From Nodes')
 
             # Create NextDownID field
-            if not FN_NEXTDOWNID in modelstream.columns:
-                modelstream[FN_NEXTDOWNID] = ''
+            if not next_down_id in streams.columns:
+                streams[next_down_id] = ''
 
-            # Create dict to store FN_FROMNODE values for each HydroID
+            # Create dict to store from_node values for each HydroID
             dnodes=dict()
             lstHydroIDs=[]
-            for row in modelstream[[FN_FROMNODE,HYDROID]].iterrows():
+            for row in streams[[from_node,hydro_id]].iterrows():
 
                 if (row[1][0] in dnodes)==False:
                     lstHydroIDs=[row[1][1]]
@@ -124,7 +124,7 @@ class BuildStreamTraversalColumns(object):
                     lstHydroIDs.append(row[1][1])
 
             # for each stream segment, search dict for HydroID downstream and
-            for urow in modelstream[[FN_NEXTDOWNID, FN_TONODE, FN_FROMNODE, HYDROID]].iterrows():
+            for urow in streams[[next_down_id, to_node, from_node, hydro_id]].iterrows():
                 tonodecol = urow[1][1]
                 nextdownIDcol = urow[1][0]
                 hydroIDcol = urow[1][3]
@@ -152,9 +152,9 @@ class BuildStreamTraversalColumns(object):
                     if next_down_ids:del next_down_ids
                 except:
                     pass
-                modelstream.loc[modelstream[HYDROID]== hydroIDcol,[FN_NEXTDOWNID]] = nextdownIDcol
+                streams.loc[streams[hydro_id]== hydroIDcol,[next_down_id]] = nextdownIDcol
 
-            tReturns = (sOK, modelstream)
+            tReturns = (sOK, streams)
         except Exception:
             sOK = "{}".format(trace())
             tReturns = (sOK, )
@@ -166,18 +166,15 @@ if(__name__=='__main__'):
         ap.add_argument("-p", "--parameters", nargs='+', default=[], required=True,
                     help="list of parameters")
         args = ap.parse_args()
-        modelstream    = args.parameters[0]
-        WBD8           = args.parameters[1]
-        HYDROID        = args.parameters[2]
+        streams    = args.parameters[0]
+        wbd8           = args.parameters[1]
+        hydro_id        = args.parameters[2]
 
         oProcessor = BuildStreamTraversalColumns()
-        params = (modelstream, WBD8, HYDROID)
+        params = (streams, wbd8, hydro_id)
         tResults=None
         tResults = oProcessor.execute(params)
 
         del oProcessor
     except:
         print (str(trace()))
-    finally:
-        dt = datetime.datetime.now()
-        print  ('Finished at ' + dt.strftime("%Y-%m-%d %H:%M:%S"))

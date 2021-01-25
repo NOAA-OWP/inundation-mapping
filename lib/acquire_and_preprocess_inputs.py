@@ -249,7 +249,7 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     wbd = gp.read_file(full_huc_gpkg, layer=huc_gpkg)
 
     # Loop through entries and compare against the huc4_list to get available HUCs within the geopackage domain.
-    for index, row in tqdm(wbd.iterrows()):
+    for index, row in tqdm(wbd.iterrows(),total=len(wbd)):
         huc = row["HUC" + huc_gpkg[-1]]
         huc_mask = wbd.loc[wbd[str("HUC" + huc_gpkg[-1])]==huc].geometry
         burnline = os.path.join(nhd_plus_vector_dir, huc[0:4], 'NHDPlusBurnLineEvent' + huc[0:4] + '.gpkg')

@@ -27,6 +27,7 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
     production_whitelist = [
         'rem_zeroed_masked.tif',
         'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg',
+        'demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg',
         'gw_catchments_reaches_filtered_addedAttributes.tif',
         'hydroTable.csv',
         'src.json'
@@ -54,15 +55,15 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         src_data = {}
         with open(os.path.join(output_folder_path, 'src.json')) as jsonf:
             src_data = json.load(jsonf)
-        
-        with open(os.path.join(output_folder_path, 'hydroTable.csv')) as csvf: 
-            csvReader = csv.DictReader(csvf) 
-            for row in csvReader: 
+
+        with open(os.path.join(output_folder_path, 'hydroTable.csv')) as csvf:
+            csvReader = csv.DictReader(csvf)
+            for row in csvReader:
                 if row['HydroID'].lstrip('0') in src_data and 'nwm_feature_id' not in src_data[row['HydroID'].lstrip('0')]:
                     src_data[row['HydroID'].lstrip('0')]['nwm_feature_id'] = row['feature_id']
 
         # Write src_data to JSON file
-        with open(os.path.join(output_folder_path, f'rating_curves_{huc_number}.json'), 'w') as jsonf: 
+        with open(os.path.join(output_folder_path, f'rating_curves_{huc_number}.json'), 'w') as jsonf:
             json.dump(src_data, jsonf)
 
         # Step 3, copy files to desired names
@@ -78,7 +79,7 @@ def whitelist_directory(directory_path, whitelist, additional_whitelist):
     directory = os.fsencode(directory_path)
     for file in os.listdir(directory_path):
         filename = os.fsdecode(file)
-        if filename not in whitelist: 
+        if filename not in whitelist:
             os.remove(os.path.join(directory_path, filename))
 
 
@@ -100,7 +101,6 @@ if __name__ == '__main__':
     additional_whitelist = args['additional_whitelist']
     is_production = args['is_production']
     is_viz_post_processing = args['is_viz_post_processing']
-    
+
     # Run output_cleanup
     output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, is_viz_post_processing)
-    
