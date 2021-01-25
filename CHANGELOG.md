@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.2.0 - 2021-01-25 - [PR #218](https://github.com/NOAA-OWP/cahaba/pull/218)
+
+Addition of an API service to schedule, run and manage `fim_run` jobs through a user-friendly web interface.
+
+### Additions
+
+ - `api` folder that contains all the codebase for the new service.
+
 ## v3.0.0.2 - 2021-01-06 - [PR #200](https://github.com/NOAA-OWP/cahaba/pull/200)
 
 Patch to address AHPSs mapping errors.
