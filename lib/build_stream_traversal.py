@@ -26,7 +26,7 @@ from_node = "From_Node"
 to_node = "To_Node"
 next_down_id = "NextDownID"
 
-class BuildStreamTraversalColumns(object):
+class build_stream_traversal_columns(object):
     '''Tool class for updating the next down IDs of stream features.'''
     def __init__(self):
         '''Define tool properties (tool name is the class name).'''
@@ -178,7 +178,7 @@ if(__name__=='__main__'):
         wbd8           = args.parameters[1]
         hydro_id        = args.parameters[2]
 
-        oProcessor = BuildStreamTraversalColumns()
+        oProcessor = build_stream_traversal_columns()
         params = (streams, wbd8, hydro_id)
         tResults=None
         tResults = oProcessor.execute(params)
