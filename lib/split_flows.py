@@ -34,7 +34,7 @@ wbd8_clp_filename      = sys.argv[7]
 lakes_filename         = sys.argv[8]
 lakes_buffer_input     = float(sys.argv[9])
 
-wbd = gpd.read_file(wbd_fileName)
+wbd = gpd.read_file(wbd8_clp_filename)
 
 toMetersConversion = 1e-3
 
