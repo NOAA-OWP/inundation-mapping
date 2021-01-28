@@ -75,7 +75,7 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
     #os.makedirs(branch_test_case_dir)  # Make output directory for branch.
 
     # Define paths to inundation_raster and forecast file.
-    inundation_raster = os.path.join(branch_test_case_dir_parent, 'inundation_extent.tif')
+    inundation_raster = os.path.join(branch_test_case_dir_parent, branch_name + '_inund_extent.tif')
     forecast = os.path.join(TEST_CASES_DIR, input_flow_csv)
 
     # Run inundate.
