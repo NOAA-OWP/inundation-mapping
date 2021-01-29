@@ -19,7 +19,7 @@ import shutil
 from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
-TEST_CASES_DIR = r'/data/test_cases_user_defined_flow/'  # Will update.
+TEST_CASES_DIR = r'/data/test_cases_custom_flow/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
 OUTPUTS_DIR = os.environ['outputDataDir']
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output directory) -> type=str',required=True,default="")
     parser.add_argument('-t', '--huc-id',help='The huc id to use. Format as: xxxxxxxx, e.g. 12345678',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
-    parser.add_argument('-y', '--input-flow-csv',help='The user specified csv containing nwm feature ids and flow values (in cms)',required=True, default="")
+    parser.add_argument('-y', '--input-flow-csv',help='The user specified (customized) csv containing nwm feature ids and flow values (in cms)',required=True, default="")
 
 
     # Extract to dictionary and assign to variables.
