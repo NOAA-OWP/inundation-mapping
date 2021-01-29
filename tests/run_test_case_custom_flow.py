@@ -76,7 +76,10 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
 
     # Define paths to inundation_raster and forecast file.
     inundation_raster = os.path.join(branch_test_case_dir_parent, branch_name + '_inund_extent.tif')
-    forecast = os.path.join(TEST_CASES_DIR, input_flow_csv)
+    forecast = os.path.join(TEST_CASES_DIR,"_input_flow_files", input_flow_csv)
+
+    # Copy forecast flow file into the outputs directory to all viewer to reference the flows used to create inundation_raster
+    shutil.copyfile(forecast,os.path.join(branch_test_case_dir_parent,input_flow_csv))
 
     # Run inundate.
     print("-----> Running inundate() to produce modeled inundation extent for the " + input_flow_csv)
@@ -97,7 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output directory) -> type=str',required=True,default="")
     parser.add_argument('-t', '--huc-id',help='The huc id to use. Format as: xxxxxxxx, e.g. 12345678',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
-    parser.add_argument('-y', '--input-flow-csv',help='The user specified (customized) csv containing nwm feature ids and flow values (in cms)',required=True, default="")
+    parser.add_argument('-y', '--input-flow-csv',help='The user specified (customized) csv containing nwm feature ids and flow values (in cms) --> put these in the "_input_flow_files" directory',required=True, default="")
 
 
     # Extract to dictionary and assign to variables.
