@@ -84,8 +84,6 @@ if [ "$extent" = "MS" ]; then
   fi
 fi
 
-exit 1
-
 ## Clip WBD8 ##
 echo -e $startDiv"Clip WBD8"$stopDiv
 date -u
