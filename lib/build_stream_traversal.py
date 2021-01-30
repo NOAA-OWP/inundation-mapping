@@ -26,7 +26,7 @@ from_node = "From_Node"
 to_node = "To_Node"
 next_down_id = "NextDownID"
 
-class BuildStreamTraversalColumns(object):
+class build_stream_traversal_columns(object):
     '''Tool class for updating the next down IDs of stream features.'''
     def __init__(self):
         '''Define tool properties (tool name is the class name).'''
@@ -56,6 +56,7 @@ class BuildStreamTraversalColumns(object):
                 streams = streams.loc[streams['HUC8id'].notna(),:]
                 if streams.HUC8id.dtype != 'str': streams.HUC8id = streams.HUC8id.astype(str)
                 if streams.seqID.dtype != 'str': streams.seqID = streams.seqID.astype(str)
+
                 streams = streams.assign(hydro_id= lambda x: x.HUC8id + x.seqID)
                 streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
                 streams = streams.drop(columns=['HUC8id', 'seqID'])
@@ -177,7 +178,7 @@ if(__name__=='__main__'):
         wbd8           = args.parameters[1]
         hydro_id        = args.parameters[2]
 
-        oProcessor = BuildStreamTraversalColumns()
+        oProcessor = build_stream_traversal_columns()
         params = (streams, wbd8, hydro_id)
         tResults=None
         tResults = oProcessor.execute(params)

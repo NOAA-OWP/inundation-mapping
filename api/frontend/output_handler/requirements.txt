@@ -1,0 +1,2 @@
+python-engineio[client]==4.0.0
+python-socketio[client]==5.0.3

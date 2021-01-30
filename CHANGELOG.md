@@ -1,6 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.2.0 - 2021-01-25 - [PR #218](https://github.com/NOAA-OWP/cahaba/pull/218)
+
+Addition of an API service to schedule, run and manage `fim_run` jobs through a user-friendly web interface.
+
+### Additions
+
+ - `api` folder that contains all the codebase for the new service.
+
+## v3.0.1.0 - 2021-01-21 - [PR #206](https://github.com/NOAA-OWP/cahaba/pull/206)
+
+Preprocess MS and FR stream networks
+
+### Changes
+
+ - Headwater stream segments geometries are adjusted to align with with NWM streams.
+ - Incoming streams are selected using intersection points between NWM streams and HUC4 boundaries.
+ - `clip_vectors_to_wbd.py` handles local headwaters.
+ - Removes NHDPlus features categorized as coastline and underground conduit.  
+ - Added streams layer to production whitelist.
+ - Fixed progress bar in `lib/acquire_and_preprocess_inputs.py`.
+ - Added `getDriver` to shared `functions.py`.
+ - Cleaned up variable names and types.
+
+## v3.0.0.4 - 2021-01-20 - [PR #230](https://github.com/NOAA-OWP/cahaba/pull/230)
+
+Changed the directory where the `included_huc*.lst` files are being read from.
+
+### Changes
+
+ - Changed the directory where the `included_huc*.lst` files are being read from.
+
 ## v3.0.0.3 - 2021-01-14 - [PR #210](https://github.com/NOAA-OWP/cahaba/pull/210)
 
 Hotfix for handling nodata value in rasterized levee lines.

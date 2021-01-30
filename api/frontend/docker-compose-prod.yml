@@ -1,0 +1,47 @@
+version: '3.5'
+services:
+  fim_frontend_gui:
+    image: fim_frontend_gui
+    build:
+      context: ./gui
+    container_name: fim_frontend_gui
+    restart: always
+    env_file:
+      - .env
+    expose:
+      - "5000"
+    networks:
+      - fim
+  fim_frontend_output_handler:
+    image: fim_frontend_output_handler
+    build:
+      context: ./output_handler
+    container_name: fim_frontend_output_handler
+    restart: always
+    external_links: 
+      - fim_node_connector
+    env_file:
+      - .env
+    networks:
+      - fim
+    volumes:
+      - ${DATA_PATH}:/data/
+  fim_nginx:
+    image: nginx
+    container_name: fim_nginx
+    restart: always
+    depends_on:
+      - fim_frontend_gui
+    external_links: 
+      - fim_node_connector
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-prod.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - fim
+    command: [nginx]
+
+networks:
+  fim:
+    name: fim

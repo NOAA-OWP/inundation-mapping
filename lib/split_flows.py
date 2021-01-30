@@ -21,7 +21,7 @@ import time
 from os.path import isfile
 from os import remove
 from collections import OrderedDict
-import buildstreamtraversal
+import build_stream_traversal
 from utils.shared_functions import getDriver
 
 flows_fileName         = sys.argv[1]
@@ -34,10 +34,7 @@ wbd8_clp_filename      = sys.argv[7]
 lakes_filename         = sys.argv[8]
 lakes_buffer_input     = float(sys.argv[9])
 
-wbd_fileName           = sys.argv[10]
-hucCode                = str(sys.argv[11])
-
-wbd = gpd.read_file(wbd_fileName)
+wbd = gpd.read_file(wbd8_clp_filename)
 
 toMetersConversion = 1e-3
 
@@ -171,8 +168,11 @@ if lakes is not None:
 else:
     split_flows_gdf['LakeID'] = -999
 
+# need to figure out why so many duplicate stream segments for 04010101 FR
+split_flows_gdf = split_flows_gdf.drop_duplicates()
+
 # Create Ids and Network Traversal Columns
-addattributes = buildstreamtraversal.BuildStreamTraversalColumns()
+addattributes = build_stream_traversal.build_stream_traversal_columns()
 tResults=None
 tResults = addattributes.execute(split_flows_gdf, wbd8, hydro_id)
 if tResults[0] == 'OK':
@@ -206,18 +206,6 @@ hydroIDs_points = [hidp for hidp in split_points.values()]
 split_points = [Point(*point) for point in split_points]
 
 split_points_gdf = gpd.GeoDataFrame({'id': hydroIDs_points , 'geometry':split_points}, crs=flows.crs, geometry='geometry')
-
-## filter out irrelevant segments
-# must drop leading zeroes
-select_flows = tuple(map(str,map(int,wbd[wbd.HUC8.str.contains(hucCode)].fossid)))
-
-if split_flows_gdf.HydroID.dtype != 'str': split_flows_gdf.HydroID = split_flows_gdf.HydroID.astype(str)
-split_flows_gdf = split_flows_gdf[split_flows_gdf.HydroID.str.startswith(select_flows)].copy()
-if split_flows_gdf.HydroID.dtype != 'int': split_flows_gdf.HydroID = split_flows_gdf.HydroID.astype(int)
-
-if split_points_gdf.id.dtype != 'str': split_points_gdf.id = split_points_gdf.id.astype(str)
-split_points_gdf = split_points_gdf[split_points_gdf.id.str.startswith(select_flows)].copy()
-if split_points_gdf.id.dtype != 'int': split_points_gdf.id = split_points_gdf.id.astype(int)
 
 print('Writing outputs ...')
 

@@ -144,6 +144,7 @@ def find_nwm_incoming_streams(args):
     huc_intersection = huc_intersection.drop_duplicates()
     huc_intersection.to_file(output_filename,driver=getDriver(output_filename))
 
+
 def collect_stream_attributes(args, huc):
     print ('Starting huc: ' + str(huc))
     in_dir = args[0]
@@ -385,6 +386,7 @@ if(__name__=='__main__'):
     # nwm_headwaters = findHeadWaterPoints(nwm_streams_fr_filename)
     # nwm_headwaters['ID'] = nwm_headwaters.index + 1
     # nwm_headwaters.to_file(nwm_headwaters_filename,driver=getDriver(nwm_headwaters_filename),index=False)
+    
     # del nwm_headwaters, nwm_streams
 
     ## subset NWM MS Streams
