@@ -135,8 +135,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_flows['HydroID'] = output_flows.HydroID.str.zfill(8)
     output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
+
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
+    if output_hydro_table.HUC.dtype != 'str': output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
+    output_hydro_table.HUC = output_hydro_table.HUC.str.zfill(8)
+
     output_hydro_table.drop(columns='fossid',inplace=True)
+    if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
     # write out based on mode
