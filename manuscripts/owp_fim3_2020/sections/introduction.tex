@@ -17,9 +17,10 @@ Increasing trends in frequency and risk are not uniform across spatial regions w
 Operational flood forecasting systems are primary tools in developing accurate forecasts for public awareness prior to life or property damaging events occur. 
 One of these operational systems is the Advanced Hydrologic Prediction System (AHPS) maintained by National Oceanic Atmospheric Administration (NOAA) National Weather Service (NWS) with approximately 3,781 forecast points across the US at typically short forecast horizons of 24 or 72 hours \cite{mcenery2005noaa}.
 AHPS provides forecasting services in the form of ensemble stream flows at 3,781 forecast points illustrated in Figure \ref{fig:all_ahps_points} and flood inundation maps (FIM) at 188 of those forecast points shown in Figure \ref{fig:fim_ahps_points}.
+\note{Fernando A}{Combine Figure 1 and 2 with one figure: All AHPS forecast points with no inundation extents one color and with extents other color for entire US if needed}
 AHPS implements a series of advances including model calibration techniques \cite{zhang2003hydrologic,hogue2003multi,duan2003global,gupta2003advances,parada2003multi}, distributed modeling approaches \cite{reed2004overall,koren2004hydrology,duan2002results}, ensemble forecasting \cite{day1985extended,seo2000simulation,mullusky2002simplified,herr2002simplified}, enhanced data analysis procedures \cite{mcenery2005noaa}, flood-forecasting inundation maps \cite{cajina2002fldview}, hydraulic routing models \cite{fread1973technique,cajina2002fldview}, and multisensor precipitation techniques \cite{breidenbach1999accounting,kondragunta2001outlier,seo2002real,bonnin1996noaa}.
 On an approximate basis, there is only one forecast point every 1,455 km of river and one forecast point with FIM every 29,261 km.
-Despite the AHPS advances in operational flood forecasting, it lacks of sufficient spatial coverage and long-range forecast horizons.
+Despite the AHPS advances in operational flood forecasting, it lacks sufficient spatial coverage and long-range forecast horizons.
 
 \begin{figure}[h!]
 \centering
@@ -57,6 +58,7 @@ As a result of high computational costs and large spatial domains, the need for 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Height Above Nearest Drainage}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 HAND normalizes topography along the nearest drainage path and its been demonstrated to be a good proxy and indicator of a series of important environmental conditions including soil environments, landscape classes, soil gravitational potentials, geomorphologies, soil moisture, and ground water dynamics \cite{renno2008hand,nobre2011height}. 
 \citeA{nobre2016hand} showed evidence for utilizing the drainage normalizing HAND dataset as a proxy for flood potential to make static flood inundation maps from known stages.
 The terrain index as even gone on to provide additional utility in the observation of riverine flood inundation mapping from remote sensing especially in areas of high electromagnetic interference such as vegetated and anthropogenic areas \cite{aristizabal2020high,shastry2019using,huang2017comparison,twele2016sentinel}.

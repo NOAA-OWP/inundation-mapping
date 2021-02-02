@@ -1,5 +1,7 @@
 *.pyc
 *.swp
+*.swn
+*.swo
 .nfs*
 __pycache__/
 config/**
