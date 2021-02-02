@@ -26,6 +26,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
             File name of the hydroid raster (i.e. gw_catchments_reaches.tif)
         hand_ref_elev_fileName
             File name of the output csv containing list of hydroid values and HAND zero/reference elev
+        dem_reaches_filename
+            File name of the reaches layer to populate HAND elevation attribute values and overwrite as output
 
     """
 
@@ -119,9 +121,10 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     merge_df.index.name = 'pixelcatch_id'
     merge_df.to_csv(hand_ref_elev_fileName,index=True) # export dataframe to csv file
 
+    # Merge the HAND reference elvation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
     merge_df = merge_df.groupby(['HydroID']).median() # median value of all Min_Thal_Elev_meters for pixel catchments in each HydroID reach
     input_reaches = gpd.read_file(dem_reaches_filename)
-    input_reaches = input_reaches.merge(merge_df, on='HydroID')
+    input_reaches = input_reaches.merge(merge_df, on='HydroID') # merge dataframes by HydroID variable
     input_reaches.to_file(dem_reaches_filename,driver='GPKG',index=False)
     # ------------------------------------------------------------------------------------------------------------------------ #
 
