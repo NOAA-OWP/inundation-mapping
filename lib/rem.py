@@ -7,9 +7,10 @@ import argparse
 import os
 import pandas as pd
 from osgeo import ogr, gdal
+import geopandas as gpd
 
 
-def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, hand_ref_elev_fileName):
+def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, hand_ref_elev_fileName, dem_reaches_filename):
     """
         Calculates REM/HAND/Detrended DEM
 
@@ -117,6 +118,11 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     merge_df = catchment_hydroid_dict_df.merge(catchment_min_dict_df, left_index=True, right_index=True)
     merge_df.index.name = 'pixelcatch_id'
     merge_df.to_csv(hand_ref_elev_fileName,index=True) # export dataframe to csv file
+
+    merge_df = merge_df.groupby(['HydroID']).median() # median value of all Min_Thal_Elev_meters for pixel catchments in each HydroID reach
+    input_reaches = gpd.read_file(dem_reaches_filename)
+    input_reaches = input_reaches.merge(merge_df, on='HydroID')
+    input_reaches.to_file(dem_reaches_filename,driver='GPKG',index=False)
     # ------------------------------------------------------------------------------------------------------------------------ #
 
 
@@ -166,6 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     parser.add_argument('-i','--hydroid', help='HydroID raster to use within project path', required=True)
     parser.add_argument('-r','--hand_ref_elev_table',help='Output table of HAND reference elev by catchment',required=True)
+    parser.add_argument('-s','--dem_reaches_in_out',help='DEM derived reach layer to join HAND reference elevation attribute',required=True)
 
 
     # extract to dictionary
@@ -178,5 +185,6 @@ if __name__ == '__main__':
     thalweg_raster = args['thalweg_raster']
     hydroid_fileName = args['hydroid']
     hand_ref_elev_fileName = args['hand_ref_elev_table']
+    dem_reaches_filename = args['dem_reaches_in_out']
 
-    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, hand_ref_elev_fileName)
+    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, hand_ref_elev_fileName, dem_reaches_filename)
