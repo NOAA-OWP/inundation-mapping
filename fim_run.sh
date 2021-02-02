@@ -98,7 +98,7 @@ source $libDir/bash_functions.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
-    jobLimit=$defaultMaxJobs
+    jobLimit=$default_max_jobs
 fi
 
 ## Define Outputs Data Dir & Log File##
