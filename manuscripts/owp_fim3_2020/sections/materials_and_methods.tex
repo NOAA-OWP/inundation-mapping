@@ -188,13 +188,15 @@ OWP FIM 3 utilized a CyberGIS implementation of the D-8 flow direction algorithm
 \note[Fernando Aristizabal]{For Brian Avant}
 The derivations of relative elevations and catchments from the newly conditioned DEM involves re-deriving a new FIM stream network. 
 The FIM stream network is of the same density as the NWM V2.1 network and fully converges at all junctions leaving no divergences in the network.
-This is accomplished by using the seed points generated from the stream network enforcement process (Section \ref{sec:stream_network_enforcment}).
+This is accomplished by using the seed points generated from the stream network enforcement process (Section \ref{ssec:stream_network_enforcment}).
 These seeds points are headwater locations of the NHDPlusHR Beta Burnline Events layer that spatially correspond to theheadwater definitions in the stream network of the NWM V2.1.
-
-Additionally, each stream link in the FIM stream network is split into equidistant reaches
+Feeding the seed points and previously computed flow directions into flow accumulation methods \cite{wallis2009parallel,tarboton1997new,tarboton2005terrain} yields a stream link accumulation raster that can be converted to a vector file for further processing.
+Each stream link in this derived FIM stream network is split into equidistant reaches.
 Stream links are defined here as segments of rivers discretized by junctions with other NWM river segments or NWM lakes.
-D-8 flow accumulation from seed points, thresholding, conversion to vector, splitting to equal lengths at junctions and lakes, globally unique reach id's based on HUC 8 id, cross-walking
-\cite{wallis2009parallel}
+Discretizing at NWM lakes isolates reaches and catchments associated with lakes and reservoirs to avoid mapping them using the Manning's equation and could potentially enable volume based mapping in the future as a feature enhancement.
+Additionally every reach (and later catchment) is assigned a globally unique identifier based on the HUC 8 membership.
+
+Now that the stream network has been re-derived using the hydro-conditioning techniques previously discussed, the split stream reaches need to cross-walked to the forecast stream network which is that of the National Water Model's.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Catchments}
