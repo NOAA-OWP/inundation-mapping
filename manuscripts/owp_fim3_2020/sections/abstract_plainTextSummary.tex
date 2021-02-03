@@ -20,10 +20,23 @@
 %% \begin{abstract} starts the second page
 
 \begin{abstract}
-Abstract here
+The National Water Model Version 2.1 (NWM V2.1) seeks to expand upon existing systems to provide hourly forecast discharges at four time horizons (1, 3, 10, and 30 days) at over 2.7 million locations throughout the continental United States, Hawaii and Puerto Rico.
+Additional modeling capabilities are required to convert these 1-D discharge forecasts into 2-D inundation extents used for forecasting purposes to protect life and property.
+The Office of Water Prediction Flood Inundation Mapping Version 3.0 `Cahaba' (OWP-FIM V3.0) was developed to provide these inundation mapping services based on the latest advancements in methodology and data sources available. 
+Among the implemented enhancements are efficient computational performance, support for Hawaii and Puerto Rico NWM domains, support for a two-tiered drainage density, parametrization of processing unit size, enforcement of levee data, support for the latest digital elevation model and stream network data sources, advanced stream burning techniques, thalweg conditioning, and optimal Manning's n roughness parameter calibrated by stream order.
+OWP FIM V3 was calibrated and evaluated at 48 Base Level Engineering (BLE) sites furnished by the Federal Emergency Management Agency (FEMA).
+The modeled discharges from the BLE sections were used for the 100 and 500 year flood events as input to OWP-FIM V3 instaed of NWM discharges to isolate out factors related to hydro-meterology.
+The resulting maps are compared to the modeled extents from the BLE and binary contigency statistics are computed.
+Across the 48 sites, Critical Success Index (CSI) and Matthew's Correlation Coefficient (MCC) were found to increase across FIM versions driven by improvements to the probability of detection (POD) via reduction in errors of omission with only a slight increase in errors of commission.
+These capabalities were implemented in an open-source package available on GitHub (\url{https://github.com/NOAA-OWP/cahaba}) for continued use and collaboration with the research community.
+%
 \end{abstract}
 
 \section*{Plain Language Summary}
-PLS here
-
-
+Flooding is one of the most impactful natural disasters on life and property.
+So having high quality flood forecasts enables people to protect lives and property.
+The United States National Water Model seeks to provide flood forecasts for the entire country so that adequate warnings can be raised to the public to enable safe evacuations and protective measures.
+The National Water Model produces flow rates at river segments so additional work is needed to convert these flow rates to inundation extents so that flood maps can be developed.
+The Office of Water Prediction Flood Inundation Mapping Version 3 provides enhancements to existing capabilities to provide these flood maps as a service.
+The maps were compared to other, more rigorous models and shown to perform well when compared to previous versions.
+%
