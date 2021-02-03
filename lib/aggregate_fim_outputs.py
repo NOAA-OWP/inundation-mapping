@@ -27,7 +27,7 @@ def aggregate_fim_outputs(fim_out_dir):
 
         # write out hydrotable
         if os.path.isfile(aggregate_hydrotable):
-            hydrotable.to_csv(aggregate_hydrotable,index=False, mode='a')
+            hydrotable.to_csv(aggregate_hydrotable,index=False, mode='a',header=False)
         else:
             hydrotable.to_csv(aggregate_hydrotable,index=False)
 
