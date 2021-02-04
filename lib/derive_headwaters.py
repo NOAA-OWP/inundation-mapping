@@ -2,6 +2,7 @@
 
 import geopandas as gpd
 from shapely.geometry import Point
+from utils.shared_functions import getDriver
 
 
 def findHeadWaterPoints(flows):
@@ -32,12 +33,6 @@ def findHeadWaterPoints(flows):
 
     return(hw_gdf)
 
-def getDriver(fileName):
-
-    driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
-    driver = driverDictionary[splitext(fileName)[1]]
-
-    return(driver)
 
 if __name__ == '__main__':
 

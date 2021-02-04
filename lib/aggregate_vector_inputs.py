@@ -76,7 +76,7 @@ def subset_nwm_ms_streams(args):
 
     nwm_streams.reset_index(drop=True,inplace=True)
 
-    nwm_streams.to_file(output_filename,getDriver(output_filename),index=False)
+    nwm_streams.to_file(output_filename,driver=getDriver(output_filename),index=False)
 
 def find_nwm_incoming_streams(args):
 
@@ -142,7 +142,8 @@ def find_nwm_incoming_streams(args):
 
     huc_intersection = gpd.GeoDataFrame({'geometry' : intersecting_points},crs=nwm_streams.crs,geometry='geometry')
     huc_intersection = huc_intersection.drop_duplicates()
-    huc_intersection.to_file(output_filename,getDriver(output_filename))
+    huc_intersection.to_file(output_filename,driver=getDriver(output_filename))
+
 
 def collect_stream_attributes(args, huc):
     print ('Starting huc: ' + str(huc))
@@ -230,8 +231,8 @@ def subset_stream_networks(args, huc):
             adj_nhd_headwaters_fr_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_fr.gpkg')
 
             # write out FR adjusted
-            adj_nhd_streams_fr.to_file(nhd_streams_fr_adjusted_fileName,getDriver(nhd_streams_fr_adjusted_fileName),index=False)
-            adj_nhd_headwater_points_fr.to_file(adj_nhd_headwaters_fr_fileName,getDriver(adj_nhd_headwaters_fr_fileName),index=False)
+            adj_nhd_streams_fr.to_file(nhd_streams_fr_adjusted_fileName,driver=getDriver(nhd_streams_fr_adjusted_fileName),index=False)
+            adj_nhd_headwater_points_fr.to_file(adj_nhd_headwaters_fr_fileName,driver=getDriver(adj_nhd_headwaters_fr_fileName),index=False)
 
             del adj_nhd_streams_fr, adj_nhd_headwater_points_fr
         else:
@@ -253,8 +254,8 @@ def subset_stream_networks(args, huc):
             adj_nhd_headwaters_ms_fileName=os.path.join(in_dir,huc,'nhd' + str(huc) + '_headwaters_adjusted_ms.gpkg')
 
             # write out MS adjusted
-            adj_nhd_streams_ms.to_file(nhd_streams_ms_adjusted_fileName,getDriver(nhd_streams_ms_adjusted_fileName),index=False)
-            adj_nhd_headwater_points_ms.to_file(adj_nhd_headwaters_ms_fileName,getDriver(adj_nhd_headwaters_ms_fileName),index=False)
+            adj_nhd_streams_ms.to_file(nhd_streams_ms_adjusted_fileName,driver=getDriver(nhd_streams_ms_adjusted_fileName),index=False)
+            adj_nhd_headwater_points_ms.to_file(adj_nhd_headwaters_ms_fileName,driver=getDriver(adj_nhd_headwaters_ms_fileName),index=False)
 
             del adj_nhd_streams_ms, adj_nhd_headwater_points_ms
 
@@ -322,7 +323,6 @@ def aggregate_stream_networks(in_dir,agg_dir, huc_list):
 
             del adj_nhd_headwater_points_ms
 
-
 def clean_up_intermediate_files(in_dir):
 
     for huc in os.listdir(in_dir):
@@ -371,7 +371,8 @@ if(__name__=='__main__'):
     # print ('deriving nwm headwater points')
     # nwm_headwaters = findHeadWaterPoints(nwm_streams_fr_filename)
     # nwm_headwaters['ID'] = nwm_headwaters.index + 1
-    # nwm_headwaters.to_file(nwm_headwaters_filename,getDriver(nwm_headwaters_filename),index=False)
+    # nwm_headwaters.to_file(nwm_headwaters_filename,driver=getDriver(nwm_headwaters_filename),index=False)
+    
     # del nwm_headwaters, nwm_streams
 
     ## subset NWM MS Streams
