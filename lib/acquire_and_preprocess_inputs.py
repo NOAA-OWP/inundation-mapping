@@ -262,9 +262,12 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     huc6_list = set(huc6_list)
 
     # Write huc lists to appropriate .lst files.
-    included_huc4_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc4.lst')
-    included_huc6_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc6.lst')
-    included_huc8_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc8.lst')
+    huc_lists_dir = os.path.join(path_to_saved_data_parent_dir, 'huc_lists')
+    if not os.path.exists(huc_lists_dir):
+        os.mkdir(huc_lists_dir)
+    included_huc4_file = os.path.join(huc_lists_dir, 'included_huc4.lst')
+    included_huc6_file = os.path.join(huc_lists_dir, 'included_huc6.lst')
+    included_huc8_file = os.path.join(huc_lists_dir, 'included_huc8.lst')
 
     # Overly verbose file writing loops. Doing this in a pinch.
     with open(included_huc4_file, 'w') as f:

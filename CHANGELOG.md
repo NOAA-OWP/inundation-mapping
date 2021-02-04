@@ -1,6 +1,33 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.3.1 - 2021-02-04 - [PR #253](https://github.com/NOAA-OWP/cahaba/pull/253)
+
+Bug fixes to correct mismatched variable name and file path.
+
+### Changes
+
+ - Corrected variable name in `fim_run.sh`.
+ - `acquire_and_preprocess_inputs.py` now creates `huc_lists` folder and updates file path.
+
+## v3.0.3.0 - 2021-02-04 - [PR #227](https://github.com/NOAA-OWP/cahaba/pull/227)
+
+Post-process to aggregate FIM outputs to HUC6 scale.
+
+### Additions
+
+ - Viz outputs aggregated to HUC6 scale; saves outputs to `aggregate_fim_outputs` folder.
+ 
+### Changes
+
+ - `split_flows.py` now splits streams at HUC8 boundaries to ensure consistent catchment boundaries along edges.
+ - `aggregate_fim_outputs.sh` has been depreciated but remains in the repo for potential FIM 4 development.
+ - Replaced geopandas driver arg with getDriver throughout repo.
+ - Organized parameters in environment files by group.
+ - Cleaned up variable names in `split_flows.py` and `build_stream_traversal.py`.
+ - `build_stream_traversal.py` is now assigning HydroID by midpoint instead centroid.
+ - Cleanup of `clip_vectors_to_wbd.py`.
+
 ## v3.0.2.0 - 2021-01-25 - [PR #218](https://github.com/NOAA-OWP/cahaba/pull/218)
 
 Addition of an API service to schedule, run and manage `fim_run` jobs through a user-friendly web interface.
