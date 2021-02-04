@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.3.1 - 2021-02-04 - [PR #253](https://github.com/NOAA-OWP/cahaba/pull/253)
+
+Bug fixes to correct mismatched variable name and file path.
+
+### Changes
+
+ - Corrected variable name in `fim_run.sh`.
+ - `acquire_and_preprocess_inputs.py` now creates `huc_lists` folder and updates file path.
+
 ## v3.0.2.0 - 2021-01-25 - [PR #218](https://github.com/NOAA-OWP/cahaba/pull/218)
 
 Addition of an API service to schedule, run and manage `fim_run` jobs through a user-friendly web interface.
