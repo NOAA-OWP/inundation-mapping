@@ -21,7 +21,8 @@ import time
 from os.path import isfile
 from os import remove
 from collections import OrderedDict
-import buildstreamtraversal
+import build_stream_traversal
+from utils.shared_functions import getDriver
 
 flows_fileName         = sys.argv[1]
 dem_fileName           = sys.argv[2]
@@ -29,9 +30,11 @@ split_flows_fileName   = sys.argv[3]
 split_points_fileName  = sys.argv[4]
 maxLength              = float(sys.argv[5])
 slope_min              = float(sys.argv[6])
-huc8_filename          = sys.argv[7]
+wbd8_clp_filename      = sys.argv[7]
 lakes_filename         = sys.argv[8]
 lakes_buffer_input     = float(sys.argv[9])
+
+wbd = gpd.read_file(wbd8_clp_filename)
 
 toMetersConversion = 1e-3
 
@@ -42,7 +45,7 @@ if not len(flows) > 0:
     print ("No relevant streams within HUC boundaries.")
     sys.exit(0)
 
-WBD8 = gpd.read_file(huc8_filename)
+wbd8 = gpd.read_file(wbd8_clp_filename)
 #dem = Raster(dem_fileName)
 dem = rasterio.open(dem_fileName,'r')
 if isfile(lakes_filename):
@@ -50,17 +53,21 @@ if isfile(lakes_filename):
 else:
     lakes = None
 
-WBD8 = WBD8.filter(items=['fossid', 'geometry'])
-WBD8 = WBD8.set_index('fossid')
+wbd8 = wbd8.filter(items=['fossid', 'geometry'])
+wbd8 = wbd8.set_index('fossid')
 flows = flows.explode()
 
 # temp
-flows = flows.to_crs(WBD8.crs)
+flows = flows.to_crs(wbd8.crs)
 
 split_flows = []
 slopes = []
-HYDROID = 'HydroID'
-split_endpoints = OrderedDict()
+hydro_id = 'HydroID'
+
+# split at HUC8 boundaries
+print ('splitting stream segments at HUC8 boundaries')
+flows = gpd.overlay(flows, wbd8, how='union').explode().reset_index(drop=True)
+
 # check for lake features
 if lakes is not None:
     if len(lakes) > 0:
@@ -165,9 +172,9 @@ else:
 split_flows_gdf = split_flows_gdf.drop_duplicates()
 
 # Create Ids and Network Traversal Columns
-addattributes = buildstreamtraversal.BuildStreamTraversalColumns()
+addattributes = build_stream_traversal.build_stream_traversal_columns()
 tResults=None
-tResults = addattributes.execute(split_flows_gdf, WBD8, HYDROID)
+tResults = addattributes.execute(split_flows_gdf, wbd8, hydro_id)
 if tResults[0] == 'OK':
     split_flows_gdf = tResults[1]
 else:
@@ -176,14 +183,14 @@ else:
 # Get Outlet Point Only
 #outlet = OrderedDict()
 #for i,segment in split_flows_gdf.iterrows():
-#    outlet[segment.geometry.coords[-1]] = segment[HYDROID]
+#    outlet[segment.geometry.coords[-1]] = segment[hydro_id]
 
 #hydroIDs_points = [hidp for hidp in outlet.values()]
 #split_points = [Point(*point) for point in outlet]
 
 # Get all vertices
 split_points = OrderedDict()
-for row in split_flows_gdf[['geometry',HYDROID, 'NextDownID']].iterrows():
+for row in split_flows_gdf[['geometry',hydro_id, 'NextDownID']].iterrows():
     lineString = row[1][0]
 
     for point in zip(*lineString.coords.xy):
@@ -199,12 +206,13 @@ hydroIDs_points = [hidp for hidp in split_points.values()]
 split_points = [Point(*point) for point in split_points]
 
 split_points_gdf = gpd.GeoDataFrame({'id': hydroIDs_points , 'geometry':split_points}, crs=flows.crs, geometry='geometry')
+
 print('Writing outputs ...')
 
 if isfile(split_flows_fileName):
     remove(split_flows_fileName)
-split_flows_gdf.to_file(split_flows_fileName,driver='GPKG',index=False)
+split_flows_gdf.to_file(split_flows_fileName,driver=getDriver(split_flows_fileName),index=False)
 
 if isfile(split_points_fileName):
     remove(split_points_fileName)
-split_points_gdf.to_file(split_points_fileName,driver='GPKG',index=False)
+split_points_gdf.to_file(split_points_fileName,driver=getDriver(split_points_fileName),index=False)

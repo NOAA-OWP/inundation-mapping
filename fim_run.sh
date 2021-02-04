@@ -147,5 +147,8 @@ else
     fi
 fi
 
-# aggregate outputs
-bash /foss_fim/lib/aggregate_fim_outputs.sh $outputRunDataDir
+echo "$viz"
+if [[ "$viz" -eq 1 ]]; then
+    # aggregate outputs
+    python3 /foss_fim/lib/aggregate_fim_outputs.py -d $outputRunDataDir
+fi
