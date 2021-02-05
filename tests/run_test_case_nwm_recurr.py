@@ -102,7 +102,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Results are stored in the test directory.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev/12345678)',required=True)
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output directory) -> type=str',required=True,default="")
-    parser.add_argument('-t', '--huc-id',help='The huc_id to use. Format as: xxxxxxxx, e.g. 12345678',required=True,default="")
+    parser.add_argument('-t', '--huc-id',help='Provide either a single hucid (Format as: xxxxxxxx, e.g. 12345678',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
     parser.add_argument('-y', '--magnitude',help='The magnitude (reccur interval) to run. Leave blank to use default intervals.',required=False, default="")
 
@@ -115,29 +115,44 @@ if __name__ == '__main__':
     exit_flag = False  # Default to False.
     print()
 
-    # Ensure fim_run_dir exists.
-    if not os.path.exists(args['fim_run_dir']):
-        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided fim_run_dir (-r) " + CYAN_BOLD + args['fim_run_dir'] + WHITE_BOLD + " could not be located in the 'outputs' directory." + ENDC)
-        print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456." + ENDC)
-        print()
-        exit_flag = True
-
-    # Ensure valid flow recurr intervals
-    default_flow_intervals = ['1_5','5_0','10_0']
-    if args['magnitude'] == '':
-        args['magnitude'] = default_flow_intervals
-        print(TRED_BOLD + "Using default flow reccurence intervals: " + WHITE_BOLD + str(default_flow_intervals)[1:-1])
+    # check if user provided a single huc_id or a file path to a list of huc ids
+    if args['huc_id'].isdigit():
+        huc_list = [args['huc_id']]
+    elif os.path.exists(args['huc_id']):
+        with open(args['huc_id'],newline='') as list_file:
+            read_list = csv.reader(list_file)
+            huc_list=[i for row in read_list for i in row]
     else:
-        if set(default_flow_intervals).issuperset(set(args['magnitude'])) == False:
-            print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. NWM Recurrence Interval options include: " + str(default_flow_intervals)[1:-1] + ENDC)
-            exit_flag = True
-
-
+        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "Invalid huc-id entry: " + CYAN_BOLD + args['fim_run_dir'] + WHITE_BOLD + " --> check that huc_id number or list file is valid")
+        exit_flag = True
+    print(huc_list)
     if exit_flag:
         print()
         sys.exit()
 
+    for huc_id in huc_list:
+        args['huc_id'] = huc_id
+        # Ensure fim_run_dir exists.
+        fim_run_dir = args['fim_run_dir'] + os.sep + huc_id
+        if not os.path.exists(fim_run_dir):
+            print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided fim_run_dir (-r) " + CYAN_BOLD + fim_run_dir + WHITE_BOLD + " could not be located in the 'outputs' directory." + ENDC)
+            print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456." + ENDC)
+            print()
+            exit_flag = True
 
-    else:
+        # Ensure valid flow recurr intervals
+        default_flow_intervals = ['1_5','5_0','10_0']
+        if args['magnitude'] == '':
+            args['magnitude'] = default_flow_intervals
+            print(TRED_BOLD + "Using default flow reccurence intervals: " + WHITE_BOLD + str(default_flow_intervals)[1:-1])
+        else:
+            if set(default_flow_intervals).issuperset(set(args['magnitude'])) == False:
+                print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. NWM Recurrence Interval options include: " + str(default_flow_intervals)[1:-1] + ENDC)
+                exit_flag = True
 
-        run_recurr_test(**args)
+        if exit_flag:
+            print()
+            sys.exit()
+
+        else:
+            run_recurr_test(fim_run_dir,args['branch_name'],huc_id,args['magnitude'],args['mask_type'])
