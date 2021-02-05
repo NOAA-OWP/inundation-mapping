@@ -57,9 +57,9 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     meta = hydroid_pixels_object.meta.copy()
     meta['tiled'], meta['compress'] = True, 'lzw'
 
-    # -- Create catchment_min_dict -- #
+    # -- Create catchment_max_dict -- #
     catchment_hydroid_dict = typed.Dict.empty(types.int32,types.int32)  # Initialize an empty dictionary to store the catchment hydroid.
-    # Update catchment_min_dict with pixel sheds maximum.
+    # Update catchment_max_dict with pixel sheds maximum.
     for ji, window in hydroid_pixels_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
         hydroid_window = hydroid_pixels_object.read(1,window=window).ravel()  # Define hydroid_window.
         catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
