@@ -84,8 +84,9 @@ ENV PYTHONUNBUFFERED=TRUE
 ENV PATH="$projectDir:${PATH}"
 
 ## install python 3 modules ##
-COPY requirements.txt .
-RUN pip3 install --no-binary shapely --no-binary pygeos -r requirements.txt --no-cache-dir
+COPY Pipfile .
+COPY Pipfile.lock .
+RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
 
 ## Copy the source code to the image
 COPY . $projectDir/

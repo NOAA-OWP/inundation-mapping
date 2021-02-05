@@ -12,6 +12,7 @@ from tqdm import tqdm
 import geopandas as gpd
 from shapely.geometry import Point
 from raster import Raster
+from utils.shared_functions import getDriver
 
 """
 USAGE:
@@ -78,8 +79,7 @@ for y_index,x_index in tqdm(zip(*indices),total=len(indices[0])):
     i += 1
 
 pointGDF = gpd.GeoDataFrame({'id' : id, 'geometry' : points},crs=boolean.proj,geometry='geometry')
-pointGDF.to_file(outputFileName,driver='GPKG',index=False)
+pointGDF.to_file(outputFileName,driver=getDriver(outputFileName),index=False)
 
 print("Complete")
 #shapeData.Destroy()
-
