@@ -54,7 +54,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     # -- Create catchment_hydroid_dict -- #
     catchment_hydroid_dict = typed.Dict.empty(types.int64,types.int64)  # Initialize an empty dictionary to store the catchment hydroid.
     # Update catchment_hydroid_dict with each pixel sheds hydroid.
-    print("Creating dictionary containing catchment ids (key) and corresponding hydroid within the thalweg...")
+    # Creating dictionary containing catchment ids (key) and corresponding hydroid within the thalweg...
     for ji, window in hydroid_pixels_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
         hydroid_window = hydroid_pixels_object.read(1,window=window).ravel()  # Define hydroid_window.
         catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
@@ -94,7 +94,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     # -- Create catchment_min_dict -- #
     catchment_min_dict = typed.Dict.empty(types.int64,types.float32)  # Initialize an empty dictionary to store the catchment minimums.
     # Update catchment_min_dict with pixel sheds minimum.
-    print("Creating dictionary containing catchment ids (key) and corresponding elevation within the thalweg (value)...")
+    # Creating dictionary containing catchment ids (key) and corresponding elevation within the thalweg (value)...
     for ji, window in dem_thalwegCond_masked_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
         dem_window = dem_thalwegCond_masked_object.read(1,window=window).ravel()  # Define dem_window.
         catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
@@ -109,7 +109,6 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
 
 ###############################################
     # Merge and export dictionary to to_csv
-    print("Combining catchment dataframes and exporting new csv...")
     catchment_min_dict_df = pd.DataFrame.from_dict(catchment_min_dict, orient='index') # convert dict to dataframe
     catchment_min_dict_df.columns = ['Min_Thal_Elev_meters']
     catchment_hydroid_dict_df = pd.DataFrame.from_dict(catchment_hydroid_dict, orient='index') # convert dict to dataframe
@@ -119,7 +118,6 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     merge_df.to_csv(hand_ref_elev_fileName,index=True) # export dataframe to csv file
 
     # Merge the HAND reference elvation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
-    print("Adding thalweg min elevation attribute to demDerived_reaches layer...")
     merge_df = merge_df.groupby(['HydroID']).median() # median value of all Min_Thal_Elev_meters for pixel catchments in each HydroID reach
     input_reaches = gpd.read_file(dem_reaches_filename)
     input_reaches = input_reaches.merge(merge_df, on='HydroID') # merge dataframes by HydroID variable
@@ -144,7 +142,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     pixel_catchments_rasterio_object = rasterio.open(pixel_watersheds_fileName)  # Open pixel_catchments_rasterio_object
     dem_rasterio_object = rasterio.open(dem_fileName)
 
-    print("Producing relative elevation model raster")
+    # Producing relative elevation model raster
     for ji, window in dem_rasterio_object.block_windows(1):
         dem_window = dem_rasterio_object.read(1,window=window)
         window_shape = dem_window.shape
