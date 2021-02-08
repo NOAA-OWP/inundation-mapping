@@ -16,6 +16,8 @@ import csv
 import argparse
 import shutil
 
+# insert python path at runtime for accessing scripts in foss_fim/tests dir (e.g. inundation.py)
+sys.path.insert(1, 'foss_fim/tests')
 from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
