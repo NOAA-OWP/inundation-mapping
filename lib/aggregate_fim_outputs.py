@@ -6,6 +6,7 @@ import pandas as pd
 import json
 import rasterio
 from rasterio.merge import merge
+import shutil
 from utils.shared_variables import PREP_PROJECTION
 
 
@@ -21,76 +22,101 @@ def aggregate_fim_outputs(fim_out_dir):
 
         os.makedirs(os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6])), exist_ok=True)
 
-        # merge hydrotable
+        # original file paths
+        hydrotable_filename = os.path.join(fim_out_dir,huc,'hydroTable.csv')
+        src_filename = os.path.join(fim_out_dir,huc,'src.json')
+
+        # aggregate file name paths
         aggregate_hydrotable = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),'hydroTable.csv')
-        hydrotable = pd.read_csv(os.path.join(fim_out_dir,huc,'hydroTable.csv'))
-
-        # write out hydrotable
-        if os.path.isfile(aggregate_hydrotable):
-            hydrotable.to_csv(aggregate_hydrotable,index=False, mode='a',header=False)
-        else:
-            hydrotable.to_csv(aggregate_hydrotable,index=False)
-
-        del hydrotable
-
-        # merge src
         aggregate_src = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),'src.json')
-        src = open(os.path.join(fim_out_dir,huc,'src.json'))
-        src = json.load(src)
 
-        # write out src
-        if os.path.isfile(aggregate_src):
-            with open(aggregate_src, 'a') as outfile:
-                    json.dump(src, outfile)
+        if len(huc)> 6:
+
+            # open hydrotable
+            hydrotable = pd.read_csv(hydrotable_filename)
+
+            # write/append aggregate hydrotable
+            if os.path.isfile(aggregate_hydrotable):
+                hydrotable.to_csv(aggregate_hydrotable,index=False, mode='a',header=False)
+            else:
+                hydrotable.to_csv(aggregate_hydrotable,index=False)
+
+            del hydrotable
+
+            # open src
+            src = open(src_filename)
+            src = json.load(src)
+
+            # write/append aggregate src
+            if os.path.isfile(aggregate_src):
+                with open(aggregate_src, 'a') as outfile:
+                        json.dump(src, outfile)
+            else:
+                with open(aggregate_src, 'w') as outfile:
+                        json.dump(src, outfile)
+
+            del src
+
         else:
-            with open(aggregate_src, 'w') as outfile:
-                    json.dump(src, outfile)
+            shutil.copy(hydrotable_filename, aggregate_hydrotable)
+            shutil.copy(src_filename, aggregate_src)
 
-        del src
 
     for huc6 in huc6_list:
+
         huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',huc6)
-
-        huc6_filter = [path.startswith(huc6) for path in huc_list]
-        subset_huc6_list = [i for (i, v) in zip(huc_list, huc6_filter) if v]
-
-        # aggregate and mosaic rem
-        rem_list = [os.path.join(fim_out_dir,huc,'rem_zeroed_masked.tif') for huc in subset_huc6_list]
-
-        rem_files_to_mosaic = []
-
-        for rem in rem_list:
-            rem_src = rasterio.open(rem)
-            rem_files_to_mosaic.append(rem_src)
-
-        mosaic, out_trans = merge(rem_files_to_mosaic)
-        out_meta = rem_src.meta.copy()
-        out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
-
+        # aggregate file paths
         rem_mosaic = os.path.join(huc6_dir,'rem_zeroed_masked.tif')
-        with rasterio.open(rem_mosaic, "w", **out_meta) as dest:
-            dest.write(mosaic)
-
-        del rem_files_to_mosaic,rem_src,out_meta,mosaic
-
-        # aggregate and mosaic catchments
-        catchment_list = [os.path.join(fim_out_dir,huc,'gw_catchments_reaches_filtered_addedAttributes.tif') for huc in subset_huc6_list]
-
-        cat_files_to_mosaic = []
-
-        for cat in catchment_list:
-            cat_src = rasterio.open(cat)
-            cat_files_to_mosaic.append(cat_src)
-
-        mosaic, out_trans = merge(cat_files_to_mosaic)
-        out_meta = cat_src.meta.copy()
-        out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
-
         catchment_mosaic = os.path.join(huc6_dir,'gw_catchments_reaches_filtered_addedAttributes.tif')
-        with rasterio.open(catchment_mosaic, "w", **out_meta) as dest:
-            dest.write(mosaic)
 
-        del cat_files_to_mosaic,cat_src,out_meta,mosaic
+        if huc6 not in huc_list:
+
+            huc6_filter = [path.startswith(huc6) for path in huc_list]
+            subset_huc6_list = [i for (i, v) in zip(huc_list, huc6_filter) if v]
+
+            # aggregate and mosaic rem
+            rem_list = [os.path.join(fim_out_dir,huc,'rem_zeroed_masked.tif') for huc in subset_huc6_list]
+            rem_files_to_mosaic = []
+
+            for rem in rem_list:
+
+                rem_src = rasterio.open(rem)
+                rem_files_to_mosaic.append(rem_src)
+                mosaic, out_trans = merge(rem_files_to_mosaic)
+                out_meta = rem_src.meta.copy()
+
+                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
+
+                with rasterio.open(rem_mosaic, "w", **out_meta) as dest:
+                    dest.write(mosaic)
+
+                del rem_files_to_mosaic,rem_src,out_meta,mosaic
+
+                # aggregate and mosaic catchments
+                catchment_list = [os.path.join(fim_out_dir,huc,'gw_catchments_reaches_filtered_addedAttributes.tif') for huc in subset_huc6_list]
+
+                cat_files_to_mosaic = []
+
+                for cat in catchment_list:
+                    cat_src = rasterio.open(cat)
+                    cat_files_to_mosaic.append(cat_src)
+
+                mosaic, out_trans = merge(cat_files_to_mosaic)
+                out_meta = cat_src.meta.copy()
+                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
+
+                with rasterio.open(catchment_mosaic, "w", **out_meta) as dest:
+                    dest.write(mosaic)
+
+                del cat_files_to_mosaic,cat_src,out_meta,mosaic
+
+        else:
+            # original file paths
+            rem_filename = os.path.join(fim_out_dir,huc6,'rem_zeroed_masked.tif')
+            catchment_filename = os.path.join(fim_out_dir,huc6,'rem_zeroed_masked.tif')
+
+            shutil.copy(rem_filename, rem_mosaic)
+            shutil.copy(catchment_filename, catchment_mosaic)
 
 
 if __name__ == '__main__':
