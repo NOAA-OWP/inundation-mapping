@@ -97,12 +97,12 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
 if __name__ == '__main__':
 
     # Parse arguments.
-    parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Results are stored in the test directory.')
+    parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using a user supplied flow data file. Results are stored in the test directory.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev/12345678)',required=True)
-    parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output directory) -> type=str',required=True,default="")
-    parser.add_argument('-t', '--huc-id',help='The huc id to use. Format as: xxxxxxxx, e.g. 12345678',required=True,default="")
-    parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
-    parser.add_argument('-y', '--input-flow-csv',help='The user specified (customized) csv containing nwm feature ids and flow values (in cms) --> put these in the "_input_flow_files" directory',required=True, default="")
+    parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output inundation directory) -> type=str',required=True,default="")
+    parser.add_argument('-t', '--huc-id',help='The huc id to use (single huc). Format as: xxxxxxxx, e.g. 12345678',required=True,default="")
+    parser.add_argument('-m', '--mask-type', help='Optional: specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
+    parser.add_argument('-y', '--input-flow-csv',help='Filename of the user generated (customized) csv. Must contain nwm feature ids and flow value(s) (units: cms) --> put this file in the "_input_flow_files" directory',required=True, default="")
 
 
     # Extract to dictionary and assign to variables.

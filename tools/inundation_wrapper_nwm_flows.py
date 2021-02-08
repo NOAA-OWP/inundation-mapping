@@ -15,6 +15,8 @@ import csv
 import argparse
 import shutil
 
+# insert python path at runtime for accessing scripts in foss_fim/tests dir (e.g. inundation.py)
+sys.path.insert(1, 'foss_fim/tests')
 from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
@@ -100,8 +102,8 @@ if __name__ == '__main__':
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Results are stored in the test directory.')
-    parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev/12345678)',required=True)
-    parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output directory) -> type=str',required=True,default="")
+    parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test)',required=True)
+    parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output inundation directory) -> type=str',required=True,default="")
     parser.add_argument('-t', '--huc-id',help='Provide either a single hucid (Format as: xxxxxxxx, e.g. 12345678) or a filepath to a list of hucids',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Optional: specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
     parser.add_argument('-y', '--magnitude',help='The magnitude (reccur interval) to run. Leave blank to use default intervals (options: 1_5, 5_0, 10_0).',required=False, default="")
@@ -116,7 +118,7 @@ if __name__ == '__main__':
     print()
 
     # check if user provided a single huc_id or a file path to a list of huc ids
-    if args['huc_id'].isdigit(): 
+    if args['huc_id'].isdigit():
         huc_list = [args['huc_id']]
     elif os.path.exists(args['huc_id']): # check if provided str is a valid path
         with open(args['huc_id'],newline='') as list_file:
