@@ -58,7 +58,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         hydroID = []
         for i,lineString in enumerate(input_flows.geometry):
             hydroID = hydroID + [input_flows.loc[i,'HydroID']]
-            stream_midpoint = stream_midpoint + [lineString.interpolate(0.05,normalized=True)]
+            stream_midpoint = stream_midpoint + [lineString.interpolate(0.5,normalized=True)]
 
         input_flows_midpoint = gpd.GeoDataFrame({'HydroID':hydroID, 'geometry':stream_midpoint}, crs=input_flows.crs, geometry='geometry')
         input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
