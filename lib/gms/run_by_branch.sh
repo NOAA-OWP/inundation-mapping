@@ -23,7 +23,7 @@ fi
 ## SET VARIABLES AND FILE INPUTS ##
 branch_id_attribute=HydroID
 branch_buffer_distance_meters=1000
-input_demThal=$inputDataDir/dem_thalCond.tif
+input_demThal=$inputDataDir/dem_thalwegCond.tif
 input_flowdir=$inputDataDir/flowdir_d8_burned_filled.tif
 input_slopes=$inputDataDir/slopes_d8_dem_meters.tif
 input_demDerived_raster=$inputDataDir/demDerived_streamPixels.tif
@@ -43,14 +43,14 @@ input_hydroTable=$inputDataDir/hydroTable.tif
 echo -e $startDiv"Generating Stream Branch Polygons"$stopDiv
 date -u
 Tstart
-$libDir/gms/buffer_stream_branches.py -s $input_demDerived_reaches -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
+#$libDir/gms/buffer_stream_branches.py -s $input_demDerived_reaches -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
 Tcount
 
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches"$stopDiv
 date -u
 Tstart
-$libDir/gms/clip_rasters_to_branches.py -b $outputDataDir/polygons.gpkg -r $input_demThal -c $outputDataDir/dem_ThalCond.tif -v 
+$libDir/gms/clip_rasters_to_branches.py -b $outputDataDir/polygons.gpkg -i $branch_id_attribute -r $input_demThal $input_flowdir $input_slopes $input_demDerived_raster -c $outputDataDir/dem_thalwegCond.tif $outputDataDir/flowdir.tif $outputDataDir/slopes.tif $outputDataDir/demDerived.tif -v 
 Tcount
 
 exit 0
