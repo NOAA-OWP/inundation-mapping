@@ -8,6 +8,7 @@ T_total_start
 # TEMP
 export startDiv="\n##########################################################################\n"
 export stopDiv="\n##########################################################################"
+ndv=-2147483648
 
 ## ECHO PARAMETERS
 # echo -e "memfree=$memfree"$stopDiv
@@ -22,17 +23,18 @@ fi
 
 ## SET VARIABLES AND FILE INPUTS ##
 branch_id_attribute=HydroID
-branch_buffer_distance_meters=1000
+branch_buffer_distance_meters=2000
+ncores_gw=1
 input_demThal=$inputDataDir/dem_thalwegCond.tif
 input_flowdir=$inputDataDir/flowdir_d8_burned_filled.tif
 input_slopes=$inputDataDir/slopes_d8_dem_meters.tif
 input_demDerived_raster=$inputDataDir/demDerived_streamPixels.tif
 input_demDerived_reaches=$inputDataDir/demDerived_reaches_split.gpkg
 input_demDerived_reaches_points=$inputDataDir/demDerived_reaches_split_points.gpkg
-input_demDerived_pixels_points=$inputDataDir/flows_points_pixels.gpkg
+input_demDerived_pixel_points=$inputDataDir/flows_points_pixels.gpkg
 input_catchment_list=$inputDataDir/catchment_list.txt
-input_stage_list=$inputDataDir/stage.tif
-input_hydroTable=$inputDataDir/hydroTable.tif
+input_stage_list=$inputDataDir/stage.txt
+input_hydroTable=$inputDataDir/hydroTable.csv
 
 
 ## DERIVE LEVELPATH 
@@ -43,7 +45,7 @@ input_hydroTable=$inputDataDir/hydroTable.tif
 echo -e $startDiv"Generating Stream Branch Polygons"$stopDiv
 date -u
 Tstart
-#$libDir/gms/buffer_stream_branches.py -s $input_demDerived_reaches -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
+$libDir/gms/buffer_stream_branches.py -s $input_demDerived_reaches -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
 Tcount
 
 ## CLIP RASTERS
@@ -53,22 +55,22 @@ Tstart
 $libDir/gms/clip_rasters_to_branches.py -b $outputDataDir/polygons.gpkg -i $branch_id_attribute -r $input_demThal $input_flowdir $input_slopes $input_demDerived_raster -c $outputDataDir/dem_thalwegCond.tif $outputDataDir/flowdir.tif $outputDataDir/slopes.tif $outputDataDir/demDerived.tif -v 
 Tcount
 
-exit 0
 ## SUBSET VECTORS
-echo -e $startDiv"Subsetting vectors to branches"$stopDiv
-date -u
-Tstart
-$libDir/gms/clip_vectors_to_branches.py -b $outputDataDir/polygons.gpkg -r $input_demThal -c $outputDataDir/dem_ThalCond.tif -v 
-Tcount
+#echo -e $startDiv"Subsetting vectors to branches"$stopDiv
+#date -u
+#Tstart
+#$libDir/gms/clip_rasters_to_branches.py -b $outputDataDir/polygons.gpkg -i $branch_id_attribute -r $input_demDerived_reaches_points $input_demDerived_pixel_points -c $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixel_points.gpkg -v 
+# not clipping "$input_demDerived_reaches" to "$outputDataDir/demDerived_reaches.gpkg"
+#Tcount
 
-exit 0
+current_branch_id=15080001
 
 ## GAGE WATERSHED FOR PIXELS ##
 echo -e $startDiv"Gage Watershed for Pixels $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/gw_catchments_pixels.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/flows_points_pixels.gpkg -id $outputDataDir/idFile.txt
+mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_"$current_branch_id".tif -gw $outputDataDir/gw_catchments_pixels_$current_branch_id.tif -o $inputDataDir/flows_points_pixels.gpkg -id $outputDataDir/idFile.txt
 Tcount
 
 # D8 REM ##
@@ -76,7 +78,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/rem.tif ] && \
-$libDir/rem.py -d $dem_thalwegCond -w $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/rem.tif -t $demDerived_streamPixels
+$libDir/rem.py -d $outputDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputDataDir/rem_$current_branch_id.tif -t $outputDataDir/demDerived_$current_branch_id.tif
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
@@ -84,116 +86,33 @@ echo -e $startDiv"Gage Watershed for Reaches $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/gw_catchments_reaches.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputDataDir/gw_catchments_reaches.tif -o $outputDataDir/demDerived_reaches_split_points.gpkg -id $outputDataDir/idFile.txt
+mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_$current_branch_id.tif -gw $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -o $inputDataDir/demDerived_reaches_split_points.gpkg -id $outputDataDir/idFile.txt
 Tcount
 
 ## BRING DISTANCE DOWN TO ZERO ##
-echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$stopDiv
+echo -e $startDiv"Bring negative values in REM to zero"$stopDiv
 date -u
-
-
-## SUBSET VECTORS
-
-
-exit 0
-
-#dem_thalwegCond=$outputDataDir/dem_thalwegCond.tif
-#slopes_d8_dem_meters=$outputDataDir/slopes_d8_dem_meters.tif
-#flowdir_d8_burned_filled=$outputDataDir/flowdir_d8_burned_filled.tif
-#demDerived_streamPixels=$outputDataDir/demDerived_streamPixels.tif
-
-
-
-#dem_thalwegCond=$outputDataDir/dem_thalwegCond.tif
-#slopes_d8_dem_meters=$outputDataDir/slopes_d8_dem_meters.tif
-#flowdir_d8_burned_filled=$outputDataDir/flowdir_d8_burned_filled.tif
-#demDerived_streamPixels=$outputDataDir/demDerived_streamPixels.tif
-
-## GAGE WATERSHED FOR PIXELS ##
-echo -e $startDiv"Gage Watershed for Pixels $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputDataDir/gw_catchments_pixels.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/flows_points_pixels.gpkg -id $outputDataDir/idFile.txt
-Tcount
-
-# D8 REM ##
-echo -e $startDiv"D8 REM $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputDataDir/rem.tif ] && \
-$libDir/rem.py -d $dem_thalwegCond -w $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/rem.tif -t $demDerived_streamPixels
-Tcount
-
-## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputDataDir/gw_catchments_reaches.tif -o $outputDataDir/demDerived_reaches_split_points.gpkg -id $outputDataDir/idFile.txt
-Tcount
-
-## BRING DISTANCE DOWN TO ZERO ##
-echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$stopDiv
-date -u
-
-
-## SUBSET VECTORS
-
-
-exit 0
-
-#dem_thalwegCond=$outputDataDir/dem_thalwegCond.tif
-#slopes_d8_dem_meters=$outputDataDir/slopes_d8_dem_meters.tif
-#flowdir_d8_burned_filled=$outputDataDir/flowdir_d8_burned_filled.tif
-#demDerived_streamPixels=$outputDataDir/demDerived_streamPixels.tif
-
-## GAGE WATERSHED FOR PIXELS ##
-echo -e $startDiv"Gage Watershed for Pixels $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputDataDir/gw_catchments_pixels.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/flows_points_pixels.gpkg -id $outputDataDir/idFile.txt
-Tcount
-
-# D8 REM ##
-echo -e $startDiv"D8 REM $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputDataDir/rem.tif ] && \
-$libDir/rem.py -d $dem_thalwegCond -w $outputDataDir/gw_catchments_pixels.tif -o $outputDataDir/rem.tif -t $demDerived_streamPixels
-Tcount
-
-## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches.tif ] && \
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $flowdir_d8_burned_filled -gw $outputDataDir/gw_catchments_reaches.tif -o $outputDataDir/demDerived_reaches_split_points.gpkg -id $outputDataDir/idFile.txt
-Tcount
-
-## BRING DISTANCE DOWN TO ZERO ##
-echo -e $startDiv"Zero out negative values in distance down grid $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputDataDir/rem_zeroed.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/rem.tif --calc="(A*(A>=0))" --NoDataValue=$ndv --outfile=$outputDataDir/"rem_zeroed.tif"
+[ ! -f $outputHucDataDir/rem_zeroed.tif ] && \
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/rem_$current_branch_id.tif --calc="(A*(A>=0))" --NoDataValue=$ndv --outfile=$outputDataDir/"rem_zeroed_$current_branch_id.tif"
 Tcount
 
 ## POLYGONIZE REACH WATERSHEDS ##
 echo -e $startDiv"Polygonize Reach Watersheds $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputDataDir/gw_catchments_reaches.gpkg ] && \
-gdal_polygonize.py -8 -f GPKG $outputDataDir/gw_catchments_reaches.tif $outputDataDir/gw_catchments_reaches.gpkg catchments HydroID
+[ ! -f $outputHucDataDir/gw_catchments_reaches.gpkg ] && \
+gdal_polygonize.py -8 -f GPKG $outputDataDir/gw_catchments_reaches_$current_branch_id.tif $outputDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
 Tcount
 
+echo "1" > $outputDataDir/catch_list_$current_branch_id.txt
+grep "$current_branch_id" $input_catchment_list >> $outputDataDir/catch_list_$current_branch_id.txt
+
 ## HYDRAULIC PROPERTIES ##
-echo -e $startDiv"Hydraulic Properties $hucNumber"$stopDiv
+echo -e $startDiv"Sample reach averaged parameters"$stopDiv
 date -u
 Tstart
 [ ! -f $outputDataDir/src_base.csv ] && \
-$taudemDir/catchhydrogeo -hand $outputDataDir/rem_zeroed_masked.tif -catch $outputDataDir/gw_catchments_reaches_filtered_addedAttributes.tif -catchlist $outputDataDir/catchment_list.txt -slp $outputDataDir/slopes_d8_dem_meters_masked.tif -h $outputDataDir/stage.txt -table $outputDataDir/src_base.csv
+$taudemDir/catchhydrogeo -hand $outputDataDir/rem_zeroed_$current_branch_id.tif -catch $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -catchlist $outputDataDir/catch_list_$current_branch_id.txt -slp $outputDataDir/slopes_$current_branch_id.tif -h $input_stage_list -table $outputDataDir/src_base_$current_branch_id.csv
 Tcount
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##

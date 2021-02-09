@@ -326,7 +326,7 @@ class StreamBranchPolygons(StreamNetwork):
         polys = stream_network.copy()
 
         # assign to StreamBranchPolys
-        polys[stream_network.branch_id_attribute] = new_bids
+        #polys[stream_network.branch_id_attribute] = new_bids
         polys[stream_network.geom_name] = new_geoms
         polys.set_geometry(stream_network.geom_name)
         
@@ -399,6 +399,8 @@ class StreamBranchPolygons(StreamNetwork):
                 return_list += [out]
                 
                 if (out_filename_template is not None) & (not out.empty):
-                    StreamNetwork.write(out,out_filename_template.format(branch_id))
+                    base,ext = out_filename_template.split('.')
+                    out_filename = base + "_{}.".format(branch_id) + ext
+                    StreamNetwork.write(out,out_filename)
         
         return(return_list)

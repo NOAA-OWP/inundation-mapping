@@ -4,7 +4,6 @@
 from stream_branches import StreamNetwork
 from stream_branches import StreamBranchPolygons
 import argparse
-from os.path import join
 
 
 if __name__ == '__main__':
