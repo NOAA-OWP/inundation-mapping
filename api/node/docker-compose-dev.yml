@@ -1,0 +1,38 @@
+version: '3.5'
+services:
+  fim_node_connector:
+    image: fim_node_connector
+    build:
+      context: ./connector
+    container_name: fim_node_connector
+    env_file:
+      - .env
+    restart: always
+    expose:
+      - "6000"
+    networks:
+      fim:
+        aliases: 
+          - fimnodeconnector
+    volumes:
+      - ${DATA_PATH}:/data/
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./connector/connector.py:/opt/connector/connector.py
+  fim_node_updater:
+    image: fim_node_updater
+    build:
+      context: ./updater
+    container_name: fim_node_updater
+    restart: always
+    depends_on: 
+      - fim_node_connector
+    networks:
+      - fim
+    volumes:
+      - ${DATA_PATH}:/data/
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./updater/updater.py:/opt/updater/updater.py
+networks:
+  fim:
+    name: fim
+          

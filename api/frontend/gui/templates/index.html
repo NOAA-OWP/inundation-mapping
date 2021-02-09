@@ -1,0 +1,395 @@
+<html>
+    <head>
+        <title>Cahaba API</title>
+
+        <link rel="preconnect" href="https://fonts.gstatic.com">
+        <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+        <style>
+            html, body {
+                display: flex;
+                width: 100%;
+                height: 100%;
+
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            p, span, h1, h2, h3, h4, h5, h6, div, form, input, label, table {
+                font-family: 'Roboto', sans-serif;
+            }
+
+            #request-container {
+                display: flex;
+                width: 25rem;
+
+                flex-direction: column;
+
+                cursor: inherit;
+                opacity: inherit;
+            }
+
+            #request-container.loading {
+                cursor: progress;
+                opacity: 0.3;
+            }
+
+            #request-container.loading > div {
+                pointer-events: none;
+            }
+
+            #request-tabs-container {
+                display: flex;
+                width: 100%;
+                height: 2rem;
+
+                justify-content: space-evenly;
+
+                border: 2px solid black;
+            }
+
+            .request-tab {
+                display: flex;
+                flex: 1;
+                height: 100%;
+
+                align-items: center;
+                justify-content: center;
+
+                color: black;
+                background-color: white;
+
+                transition: all 0.1s linear;
+
+                cursor: pointer;
+            }
+
+            .request-tab:hover {
+                color: white;
+                background-color: rgb(99, 99, 99);
+            }
+
+            .request-tab.active {
+                color: white;
+                background-color: rgb(56, 56, 56);
+            }
+
+            .request-form {
+                display: flex;
+                width: 100%;
+                min-height: 20rem;
+                flex-direction: column;
+
+                justify-content: space-between;
+
+                border: 2px solid black;
+                border-top: none;
+                border-radius: 0 0 8px 8px;
+
+                margin: 0;
+                overflow: hidden;
+            }
+
+            .error-list {
+                display: flex;
+                width: 100%;
+                min-height: 4rem;
+                flex-direction: column;
+
+                align-items: center;
+                justify-content: center;
+
+                color: red;
+            }
+
+            .form-content {
+                display: flex;
+                flex-direction: column;
+                margin-bottom: 1rem;
+
+                padding: 1rem;
+            }
+
+            .start-button {
+                display: flex;
+                width: 100%;
+                height: 4rem;
+
+                align-items: center;
+                justify-content: center;
+
+                font-size: 2rem;
+                color: white;
+                background-color: #286ebe;
+                cursor: pointer;
+
+                transition: all 0.5s linear;
+                pointer-events: inherit;
+            }
+            
+            .start-button.not-connected {
+                background-color: #d11111;
+                pointer-events: none;
+            }
+
+            .start-button:hover {
+                background-color: #093568;
+            }
+
+            .form-field {
+                display: flex;
+                width: 0;
+
+                flex: 1;
+            }
+
+            .container-horizontal {
+                display: flex;
+
+                margin-bottom: 1rem;
+            }
+
+            .input-with-label {
+                display: flex;
+
+                margin-right: 2rem;
+            }
+
+            .styled-table-wrapper {
+                display: none;
+                height: 12rem;
+
+                margin-top: 2rem;
+
+                overflow-y: auto;
+            }
+
+            .styled-table {
+                border-collapse: collapse;
+                min-width: 10rem;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+            }
+
+            .styled-table th {
+                position: sticky;
+                top: 0;
+
+                background-color: #286ebe;
+                color: #ffffff;
+                font-weight: normal;
+                text-align: left;
+            }
+
+            .styled-table th,
+            .styled-table td {
+                padding: 1rem;
+            }
+
+            .styled-table tbody tr {
+                border-bottom: thin solid #dddddd;
+            }
+
+            .styled-table tbody tr:nth-of-type(even) {
+                background-color: #f3f3f3;
+            }
+
+            .styled-table tbody tr:last-of-type {
+                border-bottom: 2px solid #286ebe;
+            }
+
+            .styled-table tbody tr.job-completed {
+                font-weight: bold;
+                color: #2fd107;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- <h1>FIM Run API</h1> -->
+        <div id="request-container">
+            <div id="request-tabs-container">
+                <div class="request-tab active" onclick="selectForm(event, 'fim-run')">FIM Run</div>
+                <div class="request-tab" onclick="selectForm(event, 'calibration')">Calibration</div>
+                <div class="request-tab" onclick="selectForm(event, 'preprocessing')">Pre-processing</div>
+            </div>
+            <div id="fim-run" class="request-form">
+                <div class="form-content">
+                    <h3 style="margin: 0;">Basic</h3>
+                    <div class="container-horizontal">
+                        <input type="text" id="job-name" class="form-field" placeholder="Job Name"></input>
+                        <input type="text" id="hucs" class="form-field" placeholder="HUC(s)"></input>
+                        <input type="text" id="git-branch" class="form-field" placeholder="Git Branch"></input>
+                    </div>
+                    <h3 style="margin: 0;">Configuration</h3>
+                    <div class="container-horizontal">
+                        <div class="input-with-label">
+                            <input type="radio" name="configuration" value="default" checked>
+                            <label for="default">Default</label>
+                        </div>
+                        <div class="input-with-label">
+                            <input type="radio" name="configuration" value="calibrated">
+                            <label for="calibrated">Calibrated</label>
+                        </div>
+                    </div>
+                    <h3 style="margin: 0;">Extent</h3>
+                    <div class="container-horizontal">
+                        <div class="input-with-label">
+                            <input type="radio" name="extent" value="FR" checked>
+                            <label for="FR">Full Resolution</label>
+                        </div>
+                        <div class="input-with-label">
+                            <input type="radio" name="extent" value="MS">
+                            <label for="MS">Main Stem</label>
+                        </div>
+                    </div>
+                    <div class="input-with-label">
+                        <input type="checkbox" name="dev-run" value="dev-run">
+                        <label for="dev-run"> Include all intermediate output files?</label>
+                    </div>
+                    <div class="error-list" id="fim-run-errors">
+    
+                    </div>
+                </div>
+                <div class="start-button not-connected" onclick="submitRequest('fim-run')">Not Connected</div>
+            </div>
+            <div id="calibration" class="request-form" style="display: None;">
+                Calibration stuff goes here
+            </div>
+            <div id="preprocessing" class="request-form" style="display: None;">
+                Pre-processing stuff goes here
+            </div>
+        </div>
+        <div id="job-list-wrapper" class="styled-table-wrapper">
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Time Elapsed</th>
+                        <th>Status</th>
+                        <th>Outputs Saved</th>
+                    </tr>
+                </thead>
+                <tbody id="job-list">
+                </tbody>
+            </table>
+        </div>
+
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.min.js"></script>
+
+        <script type="text/javascript">
+            const socket = io.connect('{{socket_url}}')
+
+            document.addEventListener("DOMContentLoaded", () => {
+                // Socket.io related code
+                socket.on('connect', () => {
+                    const buttons = document.getElementsByClassName('start-button')
+                    for (let i = 0; i < buttons.length; i++) {
+                        buttons[i].classList.remove('not-connected')
+                        buttons[i].innerHTML = 'Start'
+                    }
+                })
+
+                socket.on('disconnect', () => {
+                    const buttons = document.getElementsByClassName('start-button')
+                    for (let i = 0; i < buttons.length; i++) {
+                        buttons[i].classList.add('not-connected')
+                        buttons[i].innerHTML = 'Not Connected'
+                    }
+                })
+
+                socket.on('client_update', jobs => {
+                    let jobsTableBody = ''
+
+                    if (Object.keys(jobs).length === 0)
+                        document.querySelector('#job-list-wrapper').style.display = 'none'
+                    else
+                        document.querySelector('#job-list-wrapper').style.display = 'block'
+
+                    Object.values(jobs).forEach(j => {
+                        let outputs_saved = "N/A"
+                        if (Object.keys(j['output_files_saved']).length > 0) {
+                            const total = Object.keys(j['output_files_saved']).length
+                            const current =  Object.values(j['output_files_saved']).filter(v => v === true).length
+                            outputs_saved = `${current}/${total}`
+                        }
+
+                        jobsTableBody += `<tr ${j['status'] === 'Completed' && 'class="job-completed"'}>
+                                            <td>${j['nice_name'].replace(/_/g, ' ')}</td>
+                                            <td>${j['time_elapsed']} Seconds</td>
+                                            <td>${j['status']}</td>
+                                            <td>${outputs_saved}</td>
+                                        </tr>`
+                    })
+                    document.querySelector('#job-list').innerHTML = jobsTableBody
+                })
+
+                socket.on('validation_errors', validation_errors => {
+                    document.querySelector('#request-container').classList.remove('loading')
+                    document.querySelector('#fim-run-errors').innerHTML = validation_errors.map(e => `<span>${e}</span>`).join('')
+                })
+
+                socket.on('job_started', job_type => {
+                    document.querySelector('#request-container').classList.remove('loading')
+                    if (job_type === 'fim_run') {
+                        document.querySelector('#job-name').value = ''
+                        document.querySelector('#hucs').value = ''
+                        document.querySelector('#git-branch').value = ''
+                        document.querySelector("input[name='dev-run']").checked = false
+                        document.querySelector("input[name='configuration'][value='default']").checked = true
+                        document.querySelector("input[name='extent'][value='FR']").checked = true
+                        document.querySelector('#fim-run-errors').innerHTML = ''
+                    }
+                })
+            })
+
+            // Fim_run related code
+            const submitRequest = requestName => {
+                let validation_errors = []
+                const job_name = document.querySelector('#job-name').value
+                const hucs = document.querySelector('#hucs').value
+                const git_branch = document.querySelector('#git-branch').value
+                const dev_run = document.querySelector("input[name='dev-run']").checked
+                const configuration =  Array.from(document.querySelectorAll("input[name='configuration']")).filter(c => c.checked)[0].value
+                const extent =  Array.from(document.querySelectorAll("input[name='extent']")).filter(c => c.checked)[0].value
+
+                if (job_name === '') validation_errors.push('Job Name Cannot Be Empty')
+                if (hucs === '') validation_errors.push('Huc(s) Cannot Be Empty')
+                if (git_branch === '') validation_errors.push('Git Branch Cannot Be Empty')
+
+                if (validation_errors.length > 0){
+                    document.querySelector('#fim-run-errors').innerHTML = validation_errors.map(e => `<span>${e}</span>`).join('')
+                    return
+                }
+
+                document.querySelector('#request-container').classList.add('loading')
+                
+                socket.emit('new_job', {
+                    job_name,
+                    hucs,
+                    git_branch,
+                    dev_run,
+                    configuration,
+                    extent
+                })
+            }
+
+            const selectForm = (e, formName) => {
+                // Close all forms and remove active from all tabs
+                const forms = document.getElementsByClassName('request-form')
+                for (let i = 0; i < forms.length; i++) {
+                    forms[i].style.display = 'none'
+                }
+
+                const tabs = document.getElementsByClassName('request-tab')
+                for (let i = 0; i < tabs.length; i++) {
+                    tabs[i].classList.remove('active')
+                }
+                
+                // Add active class to newly selected tab
+                e.target.classList.add('active')
+
+                // Make newly selected form visible
+                document.getElementById(formName).style.display = 'flex'
+            }
+        </script>
+    </body>
+</html>
