@@ -338,6 +338,21 @@ class StreamBranchPolygons(StreamNetwork):
         return(polys)
 
 
+    def subset_vectors_to_branches(self,out_filename_template=None:
+        
+        out_files = [None] * len(self)
+        for i,bid in enumerate(self.branch_id_attribute):
+            out_files[i] = self.loc[self.branch_id_attribute == bid]
+
+            if (out_filename_template is not None) & (not self.empty):
+                base,ext = out_filename_template.split('.')
+                out_filename = base + "_{}.".format(bid) + ext
+                
+                out_file[i].to_file(out_filename)
+
+        return(out_files)
+
+
     def clip(self,to_clip,out_filename_template=None):
 
         """ Clips a raster or vector to the stream branch polygons """
