@@ -113,7 +113,7 @@ def aggregate_fim_outputs(fim_out_dir):
         else:
             # original file paths
             rem_filename = os.path.join(fim_out_dir,huc6,'rem_zeroed_masked.tif')
-            catchment_filename = os.path.join(fim_out_dir,huc6,'rem_zeroed_masked.tif')
+            catchment_filename = os.path.join(fim_out_dir,huc6,'gw_catchments_reaches_filtered_addedAttributes.tif')
 
             shutil.copy(rem_filename, rem_mosaic)
             shutil.copy(catchment_filename, catchment_mosaic)
