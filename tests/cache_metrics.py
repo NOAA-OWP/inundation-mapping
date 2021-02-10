@@ -2,11 +2,12 @@
 
 import os
 import argparse
+import traceback
 
 from run_test_case import run_alpha_test
 from multiprocessing import Pool
 
-TEST_CASES_DIR = r'/data/test_cases/'
+TEST_CASES_DIR = r'/data/test_cases_ahps_testing/'
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
 OUTPUTS_DIR = r'/data/outputs'
 
@@ -28,8 +29,8 @@ def process_alpha_test(args):
 
     try:
         run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type)
-    except Exception as e:
-        print(e)
+    except Exception:
+        traceback.print_exc()
 
 
 if __name__ == '__main__':
@@ -81,9 +82,13 @@ if __name__ == '__main__':
                         fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, current_huc)
                     elif config == 'PREV':
                         fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
-                        
-                    if os.path.exists(fim_run_dir):    
-                        
+                                            
+                    if not os.path.exists(fim_run_dir):
+                        fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc[:6])  # For previous versions of HAND computed at HUC6 scale
+                    
+                    print(fim_run_dir)
+                    if os.path.exists(fim_run_dir):
+                        print("Hello")
                         if special_string != "":
                             branch_name = branch_name + '_' + special_string
                         
@@ -97,9 +102,9 @@ if __name__ == '__main__':
                         print("Adding " + test_id + " to list of test_ids to process...")
                         if job_number > 1:
                             procs_list.append([fim_run_dir, branch_name, test_id, magnitude, archive_results])
-                        else:
+                        else:                            
                             process_alpha_test([fim_run_dir, branch_name, test_id, magnitude, archive_results])
-                            
+                        
             else:
                 print("No test_ids were found for the provided benchmark category: " + str(benchmark_category))
 
