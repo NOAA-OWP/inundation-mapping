@@ -104,7 +104,6 @@ if __name__ == '__main__':
                             procs_list.append([fim_run_dir, branch_name, test_id, magnitude, archive_results])
                         else:                            
                             process_alpha_test([fim_run_dir, branch_name, test_id, magnitude, archive_results])
-                        
             else:
                 print("No test_ids were found for the provided benchmark category: " + str(benchmark_category))
 
