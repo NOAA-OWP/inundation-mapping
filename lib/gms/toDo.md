@@ -1,16 +1,21 @@
 # GMS TO DO
-- Query vectors by attribute
-    - requires demDerived points (reaches and pixels) to have associated branch ID (HydroID or LevelPathID)
+- Derive full SRC and hydroTable.csv
+- Make branch inundation maps
+- Mosaic branch inundation maps
+- Run FIM 3 latest dev and run_by_branch on that
+
+
 - Derive levelpath
-- Parallelize by unit?
+- Parallelize by unit. Needs a script comparable to fim_run or integration into fim_run
+    - echo HUC and progress for each branch
 - Set no data value from DEM
-- managing data: 
-    - group by branch_id or dataset
-- implement attribute exlcusion for branching functionality
+- implement attribute exclusion for branching functionality (stream order 1s)
 - parameterize branch buffer distance by stream order
 
 
 # Issues in FIM 3
 - REM raster nodata not set properly
-- Reset negatives to zero in rem.py
+- rem.py optimization
+- demDerived_reaches_split_points.gpkg and flows_points_pixels.gpkg files should have HydroID attribute
+
 
