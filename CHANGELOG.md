@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.4.0 - 2021-02-10 - [PR #256](https://github.com/NOAA-OWP/cahaba/pull/256)
+
+New python script "wrappers" for using `inundation.py`.
+
+### Additions
+
+ - Created `inundation_wrapper_nwm_flows.py` to produce inundation outputs using NWM recurrence flows: 1.5 year, 5 year, 10 year.
+ - Created `inundation_wrapper_custom_flow.py` to produce inundation outputs with user-created flow file.
+ - Created new `tools` parent directory to store `inundation_wrapper_nwm_flows.py` and  `inundation_wrapper_custom_flow.py`.
+ 
+<br/><br/>
 ## v3.0.3.1 - 2021-02-04 - [PR #253](https://github.com/NOAA-OWP/cahaba/pull/253)
 
 Bug fixes to correct mismatched variable name and file path.
@@ -10,6 +21,7 @@ Bug fixes to correct mismatched variable name and file path.
  - Corrected variable name in `fim_run.sh`.
  - `acquire_and_preprocess_inputs.py` now creates `huc_lists` folder and updates file path.
 
+<br/><br/>
 ## v3.0.3.0 - 2021-02-04 - [PR #227](https://github.com/NOAA-OWP/cahaba/pull/227)
 
 Post-process to aggregate FIM outputs to HUC6 scale.
@@ -28,6 +40,7 @@ Post-process to aggregate FIM outputs to HUC6 scale.
  - `build_stream_traversal.py` is now assigning HydroID by midpoint instead centroid.
  - Cleanup of `clip_vectors_to_wbd.py`.
 
+<br/><br/>
 ## v3.0.2.0 - 2021-01-25 - [PR #218](https://github.com/NOAA-OWP/cahaba/pull/218)
 
 Addition of an API service to schedule, run and manage `fim_run` jobs through a user-friendly web interface.
@@ -36,6 +49,7 @@ Addition of an API service to schedule, run and manage `fim_run` jobs through a 
 
  - `api` folder that contains all the codebase for the new service.
 
+<br/><br/>
 ## v3.0.1.0 - 2021-01-21 - [PR #206](https://github.com/NOAA-OWP/cahaba/pull/206)
 
 Preprocess MS and FR stream networks
@@ -51,6 +65,7 @@ Preprocess MS and FR stream networks
  - Added `getDriver` to shared `functions.py`.
  - Cleaned up variable names and types.
 
+<br/><br/>
 ## v3.0.0.4 - 2021-01-20 - [PR #230](https://github.com/NOAA-OWP/cahaba/pull/230)
 
 Changed the directory where the `included_huc*.lst` files are being read from.
@@ -59,6 +74,7 @@ Changed the directory where the `included_huc*.lst` files are being read from.
 
  - Changed the directory where the `included_huc*.lst` files are being read from.
 
+<br/><br/>
 ## v3.0.0.3 - 2021-01-14 - [PR #210](https://github.com/NOAA-OWP/cahaba/pull/210)
 
 Hotfix for handling nodata value in rasterized levee lines.
@@ -68,6 +84,7 @@ Hotfix for handling nodata value in rasterized levee lines.
  - Resolves bug for HUCs where `$ndv > 0` (Great Lakes region).
  - Initialize the `nld_rasterized_elev.tif` using a value of `-9999` instead of `$ndv`.
  
+ <br/><br/>
 ## v3.0.0.2 - 2021-01-06 - [PR #200](https://github.com/NOAA-OWP/cahaba/pull/200)
 
 Patch to address AHPSs mapping errors.
@@ -79,6 +96,7 @@ Patch to address AHPSs mapping errors.
  - Updates path to latest AHPs site layer.
  - Updated [readme](https://github.com/NOAA-OWP/cahaba/commit/9bffb885f32dfcd95978c7ccd2639f9df56ff829)
 
+<br/><br/>
 ## v3.0.0.1 - 2020-12-31 - [PR #184](https://github.com/NOAA-OWP/cahaba/pull/184)
 
 Modifications to build and run Docker image more reliably. Cleanup on some pre-processing scripts.
@@ -91,6 +109,7 @@ Modifications to build and run Docker image more reliably. Cleanup on some pre-p
 ### Notes
  - `aggregate_vector_inputs.py` doesn't work yet. Need to externally download required data to run fim_run.sh
  
+ <br/><br/>
 ## v3.0.0.0 - 2020-12-22 - [PR #181](https://github.com/NOAA-OWP/cahaba/pull/181)
 
 The software released here builds on the flood inundation mapping capabilities demonstrated as part of the National Flood Interoperability Experiment, the Office of Water Prediction's Innovators Program and the National Water Center Summer Institute. The flood inundation mapping software implements the Height Above Nearest Drainage (HAND) algorithm and incorporates community feedback and lessons learned over several years. The software has been designed to meet the requirements set by stakeholders interested in flood prediction and has been developed in partnership with several entities across the water enterprise.
