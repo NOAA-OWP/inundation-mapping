@@ -7,6 +7,7 @@ from rasterstats import zonal_stats
 import json
 import argparse
 import sys
+from utils.shared_functions import getDriver
 
 def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,calibration_mode=False):
 
@@ -18,7 +19,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if extent == 'FR':
         ## crosswalk using majority catchment method
 
-        # calculate majority catchemnts
+        # calculate majority catchments
         majority_calc = zonal_stats(input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True)
         input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
         input_majorities = input_majorities.rename(columns={'majority' : 'feature_id'})
@@ -135,8 +136,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_flows['HydroID'] = output_flows.HydroID.str.zfill(8)
     output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
+
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
+    if output_hydro_table.HUC.dtype != 'str': output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
+    output_hydro_table.HUC = output_hydro_table.HUC.str.zfill(8)
+
     output_hydro_table.drop(columns='fossid',inplace=True)
+    if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
     # write out based on mode
@@ -158,8 +164,8 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
 
         # write out
-        output_catchments.to_file(output_catchments_fileName, driver="GPKG",index=False)
-        output_flows.to_file(output_flows_fileName, driver="GPKG", index=False)
+        output_catchments.to_file(output_catchments_fileName,driver=getDriver(output_catchments_fileName),index=False)
+        output_flows.to_file(output_flows_fileName,driver=getDriver(output_flows_fileName),index=False)
         output_src.to_csv(output_src_fileName,index=False)
         output_crosswalk.to_csv(output_crosswalk_fileName,index=False)
         output_hydro_table.to_csv(output_hydro_table_fileName,index=False)

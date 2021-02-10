@@ -5,8 +5,12 @@ T_total_start
 
 echo -e $startDiv"Parameter Values"
 echo -e "extent=$extent"
-echo -e "negativeBurnValue=$negativeBurnValue"
-echo -e "maxSplitDistance_meters=$maxSplitDistance_meters"
+echo -e "agree_DEM_buffer=$agree_DEM_buffer"
+echo -e "wbd_buffer=$wbd_buffer"
+echo -e "ms_buffer_dist=$ms_buffer_dist"
+echo -e "lakes_buffer_dist_meters=$lakes_buffer_dist_meters"
+echo -e "negative_burn_value=$negative_burn_value"
+echo -e "max_split_distance_meters=$max_split_distance_meters"
 echo -e "mannings_n=$manning_n"
 echo -e "stage_min_meters=$stage_min_meters"
 echo -e "stage_interval_meters=$stage_interval_meters"
@@ -15,7 +19,7 @@ echo -e "slope_min=$slope_min"
 echo -e "ms_buffer_dist=$ms_buffer_dist"
 echo -e "ncores_gw=$ncores_gw"
 echo -e "ncores_fd=$ncores_fd"
-echo -e "defaultMaxJobs=$defaultMaxJobs"
+echo -e "default_max_jobs=$default_max_jobs"
 echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
@@ -30,12 +34,22 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
+
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then
   input_LANDSEA=$inputDataDir/landsea/gl_water_polygons.gpkg
   echo -e "Using $input_LANDSEA for water body mask (Great Lakes)"
 else
   input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
+fi
+
+# Define streams and headwaters based on extent #
+if [ "$extent" = "MS" ]; then
+  input_nhd_flowlines=$input_nhd_flowlines_ms
+  input_nhd_headwaters=$input_nhd_headwaters_ms
+else
+  input_nhd_flowlines=$input_nhd_flowlines_fr
+  input_nhd_headwaters=$input_nhd_headwaters_fr
 fi
 
 ## GET WBD ##
@@ -51,19 +65,19 @@ echo -e $startDiv"Buffer WBD $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/wbd_buffered.gpkg ] && \
-ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, 5000) from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd.gpkg
+ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, $wbd_buffer) from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd.gpkg
 Tcount
 
-## GET STREAMS ##
+## Subset Vector Layers ##
 echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-$libDir/snap_and_clip_to_nhd.py -d $hucNumber -w $input_NWM_Flows -f $input_NWM_Headwaters -s $input_NHD_Flowlines -l $input_NWM_Lakes -r $input_NLD -u $outputHucDataDir/wbd.gpkg -g $outputHucDataDir/wbd_buffered.gpkg -y $inputDataDir/ahp_sites/ahps_sites.gpkg -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -t $outputHucDataDir/nwm_headwaters_proj_subset.gpkg -m $input_NWM_Catchments -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -p $extent
+$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_nhd_flowlines -l $input_NWM_Lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_nhd_headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg
 Tcount
 
 if [ "$extent" = "MS" ]; then
-  if [[ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ]] ; then
+  if [[ ! -f $outputHucDataDir/nhd_headwater_points_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
     rm -rf $outputHucDataDir
     exit 0
@@ -96,7 +110,7 @@ echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-gdal_rasterize -l nld_subset_levees -3d -at -init $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
+gdal_rasterize -l nld_subset_levees -3d -at -init -9999 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
 Tcount
 
 ## CONVERT TO METERS ##
@@ -138,18 +152,18 @@ echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwr
 date -u
 Tstart
 [ -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,(B*0.3048))" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,((B>-9999)*0.3048))" --NoDataValue=$ndv
 Tcount
 
 ## DEM Reconditioning ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent
 # with the supplied stream network. This allows for more realistic catchment
 # delineation which is ultimately reflected in the output FIM mapping.
-echo -e $startDiv"Creating AGREE DEM using $buffer meter buffer"$stopDiv
+echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
-$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $buffer -sm 10 -sh 1000
+$libDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
@@ -240,7 +254,7 @@ echo -e $startDiv"Split Derived Reaches $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ] && \
-$libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $maxSplitDistance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg $lakes_buffer_dist_meters
+$libDir/split_flows.py $outputHucDataDir/demDerived_reaches.shp $outputHucDataDir/dem_thalwegCond.tif $outputHucDataDir/demDerived_reaches_split.gpkg $outputHucDataDir/demDerived_reaches_split_points.gpkg $max_split_distance_meters $slope_min $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg $lakes_buffer_dist_meters
 Tcount
 
 if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
