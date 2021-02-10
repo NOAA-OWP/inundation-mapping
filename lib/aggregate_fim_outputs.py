@@ -65,6 +65,7 @@ def aggregate_fim_outputs(fim_out_dir):
     for huc6 in huc6_list:
 
         huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',huc6)
+
         # aggregate file paths
         rem_mosaic = os.path.join(huc6_dir,'rem_zeroed_masked.tif')
         catchment_mosaic = os.path.join(huc6_dir,'gw_catchments_reaches_filtered_addedAttributes.tif')
@@ -82,33 +83,34 @@ def aggregate_fim_outputs(fim_out_dir):
 
                 rem_src = rasterio.open(rem)
                 rem_files_to_mosaic.append(rem_src)
-                mosaic, out_trans = merge(rem_files_to_mosaic)
-                out_meta = rem_src.meta.copy()
 
-                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
+            mosaic, out_trans = merge(rem_files_to_mosaic)
+            out_meta = rem_src.meta.copy()
+            out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'})
 
-                with rasterio.open(rem_mosaic, "w", **out_meta) as dest:
-                    dest.write(mosaic)
+            with rasterio.open(rem_mosaic, "w", **out_meta) as dest:
+                dest.write(mosaic)
 
-                del rem_files_to_mosaic,rem_src,out_meta,mosaic
+            del rem_files_to_mosaic,rem_src,out_meta,mosaic
 
-                # aggregate and mosaic catchments
-                catchment_list = [os.path.join(fim_out_dir,huc,'gw_catchments_reaches_filtered_addedAttributes.tif') for huc in subset_huc6_list]
+            # aggregate and mosaic catchments
+            catchment_list = [os.path.join(fim_out_dir,huc,'gw_catchments_reaches_filtered_addedAttributes.tif') for huc in subset_huc6_list]
 
-                cat_files_to_mosaic = []
+            cat_files_to_mosaic = []
 
-                for cat in catchment_list:
-                    cat_src = rasterio.open(cat)
-                    cat_files_to_mosaic.append(cat_src)
+            for cat in catchment_list:
+                cat_src = rasterio.open(cat)
+                cat_files_to_mosaic.append(cat_src)
 
-                mosaic, out_trans = merge(cat_files_to_mosaic)
-                out_meta = cat_src.meta.copy()
-                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION})
+            mosaic, out_trans = merge(cat_files_to_mosaic)
+            out_meta = cat_src.meta.copy()
 
-                with rasterio.open(catchment_mosaic, "w", **out_meta) as dest:
-                    dest.write(mosaic)
+            out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'})
 
-                del cat_files_to_mosaic,cat_src,out_meta,mosaic
+            with rasterio.open(catchment_mosaic, "w", **out_meta) as dest:
+                dest.write(mosaic)
+
+            del cat_files_to_mosaic,cat_src,out_meta,mosaic
 
         else:
             # original file paths
