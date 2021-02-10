@@ -488,12 +488,9 @@ if __name__ == '__main__':
             print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)
             exit_flag = True     
             
-            
     if exit_flag:
         print()
         sys.exit()
-        
 
     else:
-
         run_alpha_test(**args)
