@@ -12,7 +12,7 @@ import shutil
 from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
-TEST_CASES_DIR = r'/data/test_cases_ahps_testing/'  # Will update.
+TEST_CASES_DIR = r'/data/test_cases_new/'  # TODO remove "_new"
 INPUTS_DIR = r'/data/inputs'
 PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
@@ -136,15 +136,22 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
 
 def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False):
 
+    
+    benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
+    current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
+    
     # Construct paths to development test results if not existent.
     if archive_results:
-        branch_test_case_dir_parent = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'previous_versions', branch_name)
+        branch_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'official_versions', branch_name)
     else:
-        branch_test_case_dir_parent = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'development_versions', branch_name)
+        branch_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'testing_versions', branch_name)
+
 
     # Delete the entire directory if it already exists.
     if os.path.exists(branch_test_case_dir_parent):
         shutil.rmtree(branch_test_case_dir_parent)
+        
+    os.mkdir(branch_test_case_dir_parent)
 
     print("Running the alpha test for test_id: " + test_id + ", " + branch_name + "...")
     stats_modes_list = ['total_area']
@@ -154,15 +161,11 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
 
     # Create paths to fim_run outputs for use in inundate().
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
-    
     if not os.path.exists(rem):
         rem = os.path.join(fim_run_parent, 'rem_clipped_zeroed_masked.tif')
-    
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-    
     if not os.path.exists(catchments):
         catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_clipped_addedAttributes.tif')
-    
     if mask_type == 'huc':
         catchment_poly = ''
     else:
@@ -171,9 +174,6 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
         
     # Map necessary inputs for inundation().
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
-    
-    benchmark_category = test_id.split('_')[1]
-    current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
 
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
@@ -189,10 +189,6 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                      },
                 }
             
-    if not os.path.exists(branch_test_case_dir_parent):
-        os.mkdir(branch_test_case_dir_parent)
-
-
     if inclusion_area != '':
         inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
         mask_dict.update({inclusion_area_name: {'path': inclusion_area,
@@ -209,23 +205,18 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
         magnitude_list = [magnitude_list]
 
     # Get path to validation_data_{benchmark} directory and huc_dir.
-#    validation_data_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category)
-    validation_data_path = os.path.join(TEST_CASES_DIR, 'usgs_1_21_2021')
+    validation_data_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category)
     
     for magnitude in magnitude_list:
-        
         branch_test_case_dir = os.path.join(branch_test_case_dir_parent, magnitude)
         if not os.path.exists(branch_test_case_dir):
             os.mkdir(branch_test_case_dir)
     
         # Construct path to validation raster and forecast file.
-        if benchmark_category == 'ahps':
-            benchmark_raster_path_list = []
-            forecast_list = []
+        if benchmark_category in ['usgs', 'nws']:
+            benchmark_raster_path_list, forecast_list = [], []
             lid_dir_list = os.listdir(os.path.join(validation_data_path, current_huc))
-            lid_list = []
-            inundation_raster_list = []
-            extent_file_list = []
+            lid_list, inundation_raster_list, extent_file_list = [], [], []
             
             for lid in lid_dir_list:
                 lid_dir = os.path.join(validation_data_path, current_huc, lid)
@@ -241,39 +232,38 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                 os.mkdir(ahps_inclusion_zones_dir)
 
         else:
-            benchmark_raster_file = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
+            benchmark_raster_file = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
             benchmark_raster_path_list = [benchmark_raster_file]
-            forecast_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
+            forecast_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
             forecast_list = [forecast_path]
             inundation_raster_list = [os.path.join(branch_test_case_dir, 'inundation_extent.tif')]
             
         for index in range(0, len(benchmark_raster_path_list)):
             benchmark_raster_path = benchmark_raster_path_list[index]
             forecast = forecast_list[index]
-            ahps_lid = lid_list[index]
-            ahps_extent_file = extent_file_list[index]
             inundation_raster = inundation_raster_list[index]
-                      
-            mask_dict.update({ahps_lid:
-                {'path': ahps_extent_file,
-                 'buffer': None,
-                 'operation': 'include'}
-                    })
-        
-            if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_extent_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
-                print(benchmark_raster_path)
-                continue
-                
-            # Define paths to inundation_raster and forecast file.
             
+            # Only need to define ahps_lid and ahps_extent_file for usgs and nwm benchmark categories.
+            if benchmark_category in ['usgs', 'nws']:
+                ahps_lid = lid_list[index]
+                ahps_extent_file = extent_file_list[index]
+                mask_dict.update({ahps_lid:
+                    {'path': ahps_extent_file,
+                     'buffer': None,
+                     'operation': 'include'}
+                        })
+        
+                if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_extent_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
+                    print(benchmark_raster_path)
+                    continue
+            else:  # If not usgs or nws benchmark categories.
+                if not os.path.exists(benchmark_raster_path) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
+                    print("Yoooo")
+                    print(benchmark_raster_path)
+                    continue
     
             # Run inundate.
             print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
-            try:
-                print(ahps_lid)
-            except:
-                pass
-                
             try:
                 inundate(
                          rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
@@ -285,13 +275,11 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                 predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
         
                 # Define outputs for agreement_raster, stats_json, and stats_csv.
-        
-                if benchmark_category == 'ahps':
+                if benchmark_category in ['usgs', 'nws']:
                     agreement_raster, stats_json, stats_csv = os.path.join(branch_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(branch_test_case_dir, 'stats.json'), os.path.join(branch_test_case_dir, 'stats.csv')
                 else:
                     agreement_raster, stats_json, stats_csv = os.path.join(branch_test_case_dir, 'total_area_agreement.tif'), os.path.join(branch_test_case_dir, 'stats.json'), os.path.join(branch_test_case_dir, 'stats.csv')
          
-        
                 test_version_dictionary = compute_contingency_stats_from_rasters(predicted_raster_path,
                                                                                  benchmark_raster_path,
                                                                                  agreement_raster,
@@ -302,18 +290,20 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                                                                                  test_id=test_id,
                                                                                  mask_dict=mask_dict,
                                                                                  )
-                del mask_dict[ahps_lid]
+                
+                if benchmark_category in ['usgs', 'nws']:
+                    del mask_dict[ahps_lid]
                 
                 print(" ")
                 print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + magnitude + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
                 print(" ")
             except Exception as e:
                 print(e)
-    
+
             if compare_to_previous:
                 text_block = []
                 # Compare to previous stats files that are available.
-                archive_to_check = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'previous_versions')
+                archive_to_check = os.path.join(TEST_CASES_DIR, benchmark_category + 'test_cases', test_id, 'official_versions')
                 for stats_mode in stats_modes_list:
                     archive_dictionary = profile_test_case_archive(archive_to_check, magnitude, stats_mode)
     
