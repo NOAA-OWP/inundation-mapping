@@ -9,7 +9,7 @@ from run_test_case import run_alpha_test
 from all_ble_stats_comparison import subset_vector_layers
 from aggregate_metrics import aggregate_metrics
 
-TEST_CASES_DIR = r'/data/test_cases/'
+TEST_CASES_DIR = r'/data/test_cases_new/'  # TODO remove "_new"
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
 OUTPUTS_DIR = r'/data/outputs'
 
@@ -53,11 +53,15 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     config = args['config']
-    branch_name = args['fim_version']
+    fim_version = args['fim_version']
     job_number = int(args['job_number'])
     special_string = args['special_string']
     benchmark_category = args['benchmark_category']
     
+    if fim_version != "all":
+        previous_fim_list = [fim_version]
+    else:
+        previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)  
     
     if config == 'PREV':
         archive_results = True
@@ -65,44 +69,96 @@ if __name__ == '__main__':
         archive_results = False
     else:
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
+     
+    benchmark_category_list = []
     
-    if type(benchmark_category) != list:
-        benchmark_category = [benchmark_category]
+    if benchmark_category == None:
+        for d in test_cases_dir_list:
+            if 'test_cases' in d:
+                benchmark_category_list.append(d.replace('_test_cases', ''))
+    else:
+        benchmark_category_list = [benchmark_category]
         
     procs_list = []
-    for test_id in test_cases_dir_list:
-        if not any(x in test_id for x in ['validation','other','.lst']):#if 'validation' and 'other' not in test_id:
-                        
-            current_huc = test_id.split('_')[0]
-            print(current_huc)
-            if test_id.split('_')[1] in benchmark_category:
-            
+    
+    
+    for bench_cat in benchmark_category_list:
+        bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
+        
+        bench_cat_test_case_list = os.listdir(bench_cat_test_case_dir)
+    
+        for test_id in bench_cat_test_case_list:
+            if 'validation' and 'other' not in test_id:
+                            
+                current_huc = test_id.split('_')[0]
+                if test_id.split('_')[1] in bench_cat:
                 
-                if config == 'DEV':
-                    fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, current_huc)
-                elif config == 'PREV':
-                    fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
-                    
-                if os.path.exists(fim_run_dir):    
-                    
-                    if special_string != "":
-                        branch_name = branch_name + '_' + special_string
-                    
-                    if 'ble' in test_id:
-                        magnitude = ['100yr', '500yr']
-                    elif 'ahps' in test_id:
-                        magnitude = ['action', 'minor', 'moderate', 'major']
-                    else:
-                        continue
-                
-                    print("Adding " + test_id + " to list of test_ids to process...")
-                    if job_number > 1:
-                        procs_list.append([fim_run_dir, branch_name, test_id, magnitude, archive_results])
-                    else:
-                        process_alpha_test([fim_run_dir, branch_name, test_id, magnitude, archive_results])
+                    for version in previous_fim_list:
                         
-            else:
-                print("No test_ids were found for the provided benchmark category: " + str(test_id.split('_')[1]))
+                        if config == 'DEV':
+                            fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
+                        elif config == 'PREV':
+                            fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
+                                                
+                        if not os.path.exists(fim_run_dir):
+                            fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])  # For previous versions of HAND computed at HUC6 scale
+                        
+                        if os.path.exists(fim_run_dir):
+                            if special_string != "":
+                                version = version + '_' + special_string
+                            
+                            if 'ble' in test_id:
+                                magnitude = ['100yr', '500yr']
+                            elif 'usgs' or 'nws' in test_id:
+                                magnitude = ['action', 'minor', 'moderate', 'major']
+                            else:
+                                continue
+                        
+                            print("Adding " + test_id + " to list of test_ids to process...")
+                            if job_number > 1:
+                                procs_list.append([fim_run_dir, version, test_id, magnitude, archive_results])
+                            else:                            
+                                process_alpha_test([fim_run_dir, version, test_id, magnitude, archive_results])
+
+
+
+    
+    
+    
+    
+#    for test_id in test_cases_dir_list:
+#        if not any(x in test_id for x in ['validation','other','.lst']):  #if 'validation' and 'other' not in test_id:
+#                        
+#            current_huc = test_id.split('_')[0]
+#            print(current_huc)
+#            if test_id.split('_')[1] in benchmark_category:
+#            
+#                
+#                if config == 'DEV':
+#                    fim_run_dir = os.path.join(OUTPUTS_DIR, branch_name, current_huc)
+#                elif config == 'PREV':
+#                    fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, branch_name, current_huc)
+#                    
+#                if os.path.exists(fim_run_dir):    
+#                    
+#                    if special_string != "":
+#                        branch_name = branch_name + '_' + special_string
+#                    
+#                    if 'ble' in test_id:
+#                        magnitude = ['100yr', '500yr']
+#                    elif 'ahps' in test_id:
+#                        magnitude = ['action', 'minor', 'moderate', 'major']
+#                    else:
+#                        continue
+#                
+#                    print("Adding " + test_id + " to list of test_ids to process...")
+#                    if job_number > 1:
+#                        procs_list.append([fim_run_dir, branch_name, test_id, magnitude, archive_results])
+#                    else:
+#                        process_alpha_test([fim_run_dir, branch_name, test_id, magnitude, archive_results])
+#                        
+#            else:
+#                print("No test_ids were found for the provided benchmark category: " + str(test_id.split('_')[1]))
 
     # Multiprocess alpha test runs.
     if job_number > 1:
@@ -110,10 +166,8 @@ if __name__ == '__main__':
         pool.map(process_alpha_test, procs_list)
         
     # Do all_ble_stats_comparison.
-    subset_vector_layers(args['huc8_list'], branch_name, args['current_dev'], args['output_folder'])
+    subset_vector_layers(args['huc8_list'], fim_version, args['current_dev'], args['output_folder'])
     
     # Do aggregate_metrics.
-    aggregate_metrics(config=config, branch=branch_name, hucs=args['huc8_list'], special_string=args['special_string'], outfolder=args['output_folder'])
-    
-        
+    aggregate_metrics(config=config, branch=fim_version, hucs=args['huc8_list'], special_string=args['special_string'], outfolder=args['output_folder'])
     
