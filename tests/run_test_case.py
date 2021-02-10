@@ -3,7 +3,6 @@
 import os
 import sys
 import pandas as pd
-import geopandas as gpd
 import rasterio
 import json
 import csv
@@ -13,7 +12,7 @@ import shutil
 from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
-TEST_CASES_DIR = r'/data/test_cases/'  # Will update.
+TEST_CASES_DIR = r'/data/test_cases_ahps_testing/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
 PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
@@ -155,7 +154,15 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
 
     # Create paths to fim_run outputs for use in inundate().
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
+    
+    if not os.path.exists(rem):
+        rem = os.path.join(fim_run_parent, 'rem_clipped_zeroed_masked.tif')
+    
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+    
+    if not os.path.exists(catchments):
+        catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_clipped_addedAttributes.tif')
+    
     if mask_type == 'huc':
         catchment_poly = ''
     else:
@@ -184,39 +191,8 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
             
     if not os.path.exists(branch_test_case_dir_parent):
         os.mkdir(branch_test_case_dir_parent)
-            
-    # If the test_id is AHPS, then identify possible inclusion zones in the HUC.
-    if benchmark_category == 'ahps':
-        
-        ahps_inclusion_zones_dir = os.path.join(branch_test_case_dir_parent, 'ahps_domains')
-        print(ahps_inclusion_zones_dir)
-        if not os.path.exists(ahps_inclusion_zones_dir):
-            os.mkdir(ahps_inclusion_zones_dir)
-        
-        ahps_domain_shapefile = os.path.join(TEST_CASES_DIR, 'other', 'zones', 'ahps_domains.shp')
-        
-        # Open shapefile, determine the polys in the huc, create a different shapefile for each poly--name according to AHPS.
-        ahps_domain_obj = gpd.read_file(ahps_domain_shapefile)
-        ahps_domain_gdf = gpd.GeoDataFrame(ahps_domain_obj)
-            
-        # Loop through entries and compare against the huc4_list to get available HUCs within the geopackage domain.
-        for index, row in ahps_domain_gdf.iterrows():
-            huc8_code = row['huc8_code']
-            ahps = row['ahps_code']
-            
-            if huc8_code == current_huc:
-                ahps_domain_subset = ahps_domain_obj[ahps_domain_obj.ahps_code == ahps]
-                
-                #.query("ahps_code=='{ahps_code}'".format(ahps_code=ahps_code))
-                ahps_domain_subset_output = os.path.join(ahps_inclusion_zones_dir, ahps + '.shp')
-                ahps_domain_subset.to_file(ahps_domain_subset_output,driver='ESRI Shapefile')
-                
-                mask_dict.update({ahps:
-                    {'path': ahps_domain_subset_output,
-                     'buffer': None,
-                     'operation': 'include'}
-                        })
-                
+
+
     if inclusion_area != '':
         inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
         mask_dict.update({inclusion_area_name: {'path': inclusion_area,
@@ -232,167 +208,225 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
     if type(magnitude_list) != list:
         magnitude_list = [magnitude_list]
 
-    for magnitude in magnitude_list:
-        # Construct path to validation raster and forecast file.
-        
-        benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
-        if not os.path.exists(benchmark_raster_path):  # Skip loop instance if the benchmark raster doesn't exist.
-            continue
-
-        branch_test_case_dir = os.path.join(branch_test_case_dir_parent, magnitude)
-
-        os.makedirs(branch_test_case_dir)  # Make output directory for branch.
-
-        # Define paths to inundation_raster and forecast file.
-        inundation_raster = os.path.join(branch_test_case_dir, 'inundation_extent.tif')
-        forecast = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
-
-        # Run inundate.
-        print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
-        inundate(
-                 rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                 subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
-                 depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
-                )
-
-        print("-----> Inundation mapping complete.")
-        predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
-
-        # Define outputs for agreement_raster, stats_json, and stats_csv.
-
-        agreement_raster, stats_json, stats_csv = os.path.join(branch_test_case_dir, 'total_area_agreement.tif'), os.path.join(branch_test_case_dir, 'stats.json'), os.path.join(branch_test_case_dir, 'stats.csv')
-
-        test_version_dictionary = compute_contingency_stats_from_rasters(predicted_raster_path,
-                                                                         benchmark_raster_path,
-                                                                         agreement_raster,
-                                                                         stats_csv=stats_csv,
-                                                                         stats_json=stats_json,
-                                                                         mask_values=[],
-                                                                         stats_modes_list=stats_modes_list,
-                                                                         test_id=test_id,
-                                                                         mask_dict=mask_dict,
-                                                                         )
-        print(" ")
-        print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + magnitude + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
-        print(" ")
-
-        if compare_to_previous:
-            text_block = []
-            # Compare to previous stats files that are available.
-            archive_to_check = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'previous_versions')
-            for stats_mode in stats_modes_list:
-                archive_dictionary = profile_test_case_archive(archive_to_check, magnitude, stats_mode)
-
-                if archive_dictionary == {}:
-                    break
-
-                # Create header for section.
-                header = [stats_mode]
-                for previous_version, paths in archive_dictionary.items():
-                    header.append(previous_version)
-                header.append(branch_name)
-                text_block.append(header)
-
-                # Loop through stats in PRINTWORTHY_STATS for left.
-                for stat in PRINTWORTHY_STATS:
-                    stat_line = [stat]
-                    for previous_version, paths in archive_dictionary.items():
-                        # Load stats for previous version.
-                        previous_version_stats_json_path = paths['stats_json']
-                        if os.path.exists(previous_version_stats_json_path):
-                            previous_version_stats_dict = json.load(open(previous_version_stats_json_path))
+    # Get path to validation_data_{benchmark} directory and huc_dir.
+#    validation_data_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category)
+    validation_data_path = os.path.join(TEST_CASES_DIR, 'usgs_1_21_2021')
     
-                            # Append stat for the version to state_line.
-                            stat_line.append(previous_version_stats_dict[stat])
-
-
-                    # Append stat for the current version to stat_line.
-                    stat_line.append(test_version_dictionary[stats_mode][stat])
-
-                    text_block.append(stat_line)
-
-                text_block.append([" "])
-
-            regression_report_csv = os.path.join(branch_test_case_dir, 'stats_summary.csv')
-            with open(regression_report_csv, 'w', newline='') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                csv_writer.writerows(text_block)
-
-            print()
-            print("--------------------------------------------------------------------------------------------------")
+    for magnitude in magnitude_list:
+        
+        branch_test_case_dir = os.path.join(branch_test_case_dir_parent, magnitude)
+        if not os.path.exists(branch_test_case_dir):
+            os.mkdir(branch_test_case_dir)
+    
+        # Construct path to validation raster and forecast file.
+        if benchmark_category == 'ahps':
+            benchmark_raster_path_list = []
+            forecast_list = []
+            lid_dir_list = os.listdir(os.path.join(validation_data_path, current_huc))
+            lid_list = []
+            inundation_raster_list = []
+            extent_file_list = []
             
-            stats_mode = stats_modes_list[0]
+            for lid in lid_dir_list:
+                lid_dir = os.path.join(validation_data_path, current_huc, lid)
+                benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_depth_' + magnitude + '.tif'))  # TEMP
+                forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
+                lid_list.append(lid)
+                inundation_raster_list.append(os.path.join(branch_test_case_dir, lid + '_inundation_extent.tif'))
+                extent_file_list.append(os.path.join(lid_dir, lid + '_extent.shp'))
+                    
+            ahps_inclusion_zones_dir = os.path.join(branch_test_case_dir_parent, 'ahps_domains')
+            
+            if not os.path.exists(ahps_inclusion_zones_dir):
+                os.mkdir(ahps_inclusion_zones_dir)
+
+        else:
+            benchmark_raster_file = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
+            benchmark_raster_path_list = [benchmark_raster_file]
+            forecast_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
+            forecast_list = [forecast_path]
+            inundation_raster_list = [os.path.join(branch_test_case_dir, 'inundation_extent.tif')]
+            
+        for index in range(0, len(benchmark_raster_path_list)):
+            benchmark_raster_path = benchmark_raster_path_list[index]
+            forecast = forecast_list[index]
+            ahps_lid = lid_list[index]
+            ahps_extent_file = extent_file_list[index]
+            inundation_raster = inundation_raster_list[index]
+                      
+            mask_dict.update({ahps_lid:
+                {'path': ahps_extent_file,
+                 'buffer': None,
+                 'operation': 'include'}
+                    })
+        
+            if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_extent_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
+                print(benchmark_raster_path)
+                continue
+                
+            # Define paths to inundation_raster and forecast file.
+            
+    
+            # Run inundate.
+            print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
             try:
-                last_version_index = text_block[0].index('dev_latest')
-            except ValueError:
+                print(ahps_lid)
+            except:
+                pass
+                
+            try:
+                inundate(
+                         rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                         subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
+                         depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
+                        )
+            
+                print("-----> Inundation mapping complete.")
+                predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
+        
+                # Define outputs for agreement_raster, stats_json, and stats_csv.
+        
+                if benchmark_category == 'ahps':
+                    agreement_raster, stats_json, stats_csv = os.path.join(branch_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(branch_test_case_dir, 'stats.json'), os.path.join(branch_test_case_dir, 'stats.csv')
+                else:
+                    agreement_raster, stats_json, stats_csv = os.path.join(branch_test_case_dir, 'total_area_agreement.tif'), os.path.join(branch_test_case_dir, 'stats.json'), os.path.join(branch_test_case_dir, 'stats.csv')
+         
+        
+                test_version_dictionary = compute_contingency_stats_from_rasters(predicted_raster_path,
+                                                                                 benchmark_raster_path,
+                                                                                 agreement_raster,
+                                                                                 stats_csv=stats_csv,
+                                                                                 stats_json=stats_json,
+                                                                                 mask_values=[],
+                                                                                 stats_modes_list=stats_modes_list,
+                                                                                 test_id=test_id,
+                                                                                 mask_dict=mask_dict,
+                                                                                 )
+                del mask_dict[ahps_lid]
+                
+                print(" ")
+                print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + magnitude + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
+                print(" ")
+            except Exception as e:
+                print(e)
+    
+            if compare_to_previous:
+                text_block = []
+                # Compare to previous stats files that are available.
+                archive_to_check = os.path.join(TEST_CASES_DIR, test_id, 'performance_archive', 'previous_versions')
+                for stats_mode in stats_modes_list:
+                    archive_dictionary = profile_test_case_archive(archive_to_check, magnitude, stats_mode)
+    
+                    if archive_dictionary == {}:
+                        break
+    
+                    # Create header for section.
+                    header = [stats_mode]
+                    for previous_version, paths in archive_dictionary.items():
+                        header.append(previous_version)
+                    header.append(branch_name)
+                    text_block.append(header)
+    
+                    # Loop through stats in PRINTWORTHY_STATS for left.
+                    for stat in PRINTWORTHY_STATS:
+                        stat_line = [stat]
+                        for previous_version, paths in archive_dictionary.items():
+                            # Load stats for previous version.
+                            previous_version_stats_json_path = paths['stats_json']
+                            if os.path.exists(previous_version_stats_json_path):
+                                previous_version_stats_dict = json.load(open(previous_version_stats_json_path))
+        
+                                # Append stat for the version to state_line.
+                                stat_line.append(previous_version_stats_dict[stat])
+    
+    
+                        # Append stat for the current version to stat_line.
+                        stat_line.append(test_version_dictionary[stats_mode][stat])
+    
+                        text_block.append(stat_line)
+    
+                    text_block.append([" "])
+    
+                regression_report_csv = os.path.join(branch_test_case_dir, 'stats_summary.csv')
+                with open(regression_report_csv, 'w', newline='') as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    csv_writer.writerows(text_block)
+    
+                print()
+                print("--------------------------------------------------------------------------------------------------")
+                
+                stats_mode = stats_modes_list[0]
                 try:
-                    last_version_index = text_block[0].index('fim_2_3_3')
+                    last_version_index = text_block[0].index('dev_latest')
                 except ValueError:
                     try:
-                        last_version_index = text_block[0].index('fim_1_0_0')
+                        last_version_index = text_block[0].index('fim_2_3_3')
                     except ValueError:
-                        print(TRED_BOLD + "Warning: " + ENDC + "Cannot compare " + branch_name + " to a previous version because no authoritative versions were found in previous_versions directory. Future version of run_test_case may allow for comparisons between dev branches.")
+                        try:
+                            last_version_index = text_block[0].index('fim_1_0_0')
+                        except ValueError:
+                            print(TRED_BOLD + "Warning: " + ENDC + "Cannot compare " + branch_name + " to a previous version because no authoritative versions were found in previous_versions directory. Future version of run_test_case may allow for comparisons between dev branches.")
+                            print()
+                            continue
+    
+                
+    
+                for line in text_block:
+                    first_item = line[0]
+                    if first_item in stats_modes_list:
+                        current_version_index = line.index(branch_name)
+                        if first_item != stats_mode:  # Update the stats_mode and print a separator.
+                            print()
+                            print()
+                            print("--------------------------------------------------------------------------------------------------")
                         print()
-                        continue
-
-            
-
-            for line in text_block:
-                first_item = line[0]
-                if first_item in stats_modes_list:
-                    current_version_index = line.index(branch_name)
-                    if first_item != stats_mode:  # Update the stats_mode and print a separator.
+                        stats_mode = first_item
+                        print(CYAN_BOLD + current_huc + ": " + magnitude.upper(), ENDC)
+                        print(CYAN_BOLD + stats_mode.upper().replace('_', ' ') + " METRICS" + ENDC)
                         print()
-                        print()
-                        print("--------------------------------------------------------------------------------------------------")
-                    print()
-                    stats_mode = first_item
-                    print(CYAN_BOLD + current_huc + ": " + magnitude.upper(), ENDC)
-                    print(CYAN_BOLD + stats_mode.upper().replace('_', ' ') + " METRICS" + ENDC)
-                    print()
-
-                    color = WHITE_BOLD
-                    metric_name = '      '.center(len(max(PRINTWORTHY_STATS, key=len)))
-                    percent_change_header = '% CHG'
-                    difference_header = 'DIFF'
-                    current_version_header = line[current_version_index].upper()
-                    last_version_header = line[last_version_index].upper()
-                    # Print Header.
-                    print(color + metric_name + "      " + percent_change_header.center((7)) + "       " + difference_header.center((15))  + "    " + current_version_header.center(18) + " " + last_version_header.center(18), ENDC)
-                # Format and print stat row.
-                elif first_item in PRINTWORTHY_STATS:
-                    stat_name = first_item.upper().center(len(max(PRINTWORTHY_STATS, key=len))).replace('_', ' ')
-                    current_version = round((line[current_version_index]), 3)
-                    last_version = round((line[last_version_index]) + 0.000, 3)
-                    difference = round(current_version - last_version, 3)
-                    if difference > 0:
-                        symbol = '+'
-                        if first_item in GO_UP_STATS:
-                            color = TGREEN_BOLD
-                        elif first_item in GO_DOWN_STATS:
-                            color = TRED_BOLD
-                        else:
-                            color = TWHITE
-                    if difference < 0:
-                        symbol = '-'
-                        if first_item in GO_UP_STATS:
-                            color = TRED_BOLD
-                        elif first_item in GO_DOWN_STATS:
-                            color = TGREEN_BOLD
-                        else:
-                            color = TWHITE
-
-                    if difference == 0 :
-                        symbol, color = '+', TGREEN
-                    percent_change = round((difference / last_version)*100,2)
-
-                    print(WHITE_BOLD + stat_name + ENDC + "     " + color + (symbol + " {:5.2f}".format(abs(percent_change)) + " %").rjust(len(percent_change_header)), ENDC + "    " + color + ("{:12.3f}".format((difference))).rjust(len(difference_header)), ENDC + "    " + "{:15.3f}".format(current_version).rjust(len(current_version_header)) + "   " + "{:15.3f}".format(last_version).rjust(len(last_version_header)) + "  ")
-
-            print()
-            print()
-            print()
-            print("--------------------------------------------------------------------------------------------------")
-            print()
+    
+                        color = WHITE_BOLD
+                        metric_name = '      '.center(len(max(PRINTWORTHY_STATS, key=len)))
+                        percent_change_header = '% CHG'
+                        difference_header = 'DIFF'
+                        current_version_header = line[current_version_index].upper()
+                        last_version_header = line[last_version_index].upper()
+                        # Print Header.
+                        print(color + metric_name + "      " + percent_change_header.center((7)) + "       " + difference_header.center((15))  + "    " + current_version_header.center(18) + " " + last_version_header.center(18), ENDC)
+                    # Format and print stat row.
+                    elif first_item in PRINTWORTHY_STATS:
+                        stat_name = first_item.upper().center(len(max(PRINTWORTHY_STATS, key=len))).replace('_', ' ')
+                        current_version = round((line[current_version_index]), 3)
+                        last_version = round((line[last_version_index]) + 0.000, 3)
+                        difference = round(current_version - last_version, 3)
+                        if difference > 0:
+                            symbol = '+'
+                            if first_item in GO_UP_STATS:
+                                color = TGREEN_BOLD
+                            elif first_item in GO_DOWN_STATS:
+                                color = TRED_BOLD
+                            else:
+                                color = TWHITE
+                        if difference < 0:
+                            symbol = '-'
+                            if first_item in GO_UP_STATS:
+                                color = TRED_BOLD
+                            elif first_item in GO_DOWN_STATS:
+                                color = TGREEN_BOLD
+                            else:
+                                color = TWHITE
+    
+                        if difference == 0 :
+                            symbol, color = '+', TGREEN
+                        percent_change = round((difference / last_version)*100,2)
+    
+                        print(WHITE_BOLD + stat_name + ENDC + "     " + color + (symbol + " {:5.2f}".format(abs(percent_change)) + " %").rjust(len(percent_change_header)), ENDC + "    " + color + ("{:12.3f}".format((difference))).rjust(len(difference_header)), ENDC + "    " + "{:15.3f}".format(current_version).rjust(len(current_version_header)) + "   " + "{:15.3f}".format(last_version).rjust(len(last_version_header)) + "  ")
+    
+                print()
+                print()
+                print()
+                print("--------------------------------------------------------------------------------------------------")
+                print()
 
 
 if __name__ == '__main__':
