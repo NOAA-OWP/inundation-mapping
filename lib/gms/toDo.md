@@ -6,6 +6,9 @@
 - Set no data value from DEM
 - managing data: 
     - group by branch_id or dataset
+- implement attribute exlcusion for branching functionality
+- parameterize branch buffer distance by stream order
+
 
 # Issues in FIM 3
 - REM raster nodata not set properly

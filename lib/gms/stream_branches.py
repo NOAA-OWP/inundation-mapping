@@ -338,17 +338,27 @@ class StreamBranchPolygons(StreamNetwork):
         return(polys)
 
 
-    def subset_vectors_to_branches(self,out_filename_template=None:
+    def query_vectors_by_branch(self,vector,out_filename_template=None,vector_layer=None):
         
+        # load vaas
+        if isinstance(vector,str):
+            vector_filename = vector
+            vector = gpd.read_file(vector_filename,layer=vector_layer)
+        elif isinstance(vector,gpd.GeoDataFrame):
+            pass
+        else:
+            raise TypeError('Pass vector argument as filepath or GeoDataframe')
+
         out_files = [None] * len(self)
-        for i,bid in enumerate(self.branch_id_attribute):
-            out_files[i] = self.loc[self.branch_id_attribute == bid]
+        
+        for i,bid in enumerate(self.loc[:,self.branch_id_attribute]):
+            out_files[i] = vector.loc[vector.loc[:,self.branch_id_attribute] == bid,:]
 
             if (out_filename_template is not None) & (not self.empty):
                 base,ext = out_filename_template.split('.')
                 out_filename = base + "_{}.".format(bid) + ext
                 
-                out_file[i].to_file(out_filename)
+                StreamNetwork.write(out_files[i],out_filename)
 
         return(out_files)
 
