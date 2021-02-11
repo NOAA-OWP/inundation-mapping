@@ -95,7 +95,7 @@ def aggregate_fim_outputs(fim_out_dir):
         huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',huc6)
 
         # aggregate file paths
-        rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}.tif'))
+        rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}.tif')
         catchment_mosaic = os.path.join(huc6_dir,f'catchments_{huc6}.tif')
 
         if huc6 not in huc_list:
