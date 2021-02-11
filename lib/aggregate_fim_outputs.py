@@ -70,10 +70,10 @@ def aggregate_fim_outputs(fim_out_dir):
 
     for huc6 in huc6_list:
 
+        ## add feature_id to aggregate src
         aggregate_hydrotable = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc6),'hydroTable.csv')
         aggregate_src = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),f'rating_curves_{huc[0:6]}.json')
 
-        # add feature_id to aggregate src
         # Open aggregate src for writing feature_ids to
         src_data = {}
         with open(aggregate_src) as jsonf:
@@ -87,11 +87,10 @@ def aggregate_fim_outputs(fim_out_dir):
                     src_data[row['HydroID'].lstrip('0')]['nwm_feature_id'] = row['feature_id']
 
         # Write src_data to JSON file
-        with open(aggregate_hydrotable, 'w') as jsonf:
+        with open(aggregate_src, 'w') as jsonf:
             json.dump(src_data, jsonf)
 
-    for huc6 in huc6_list:
-
+        ## aggregate rasters
         huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',huc6)
 
         # aggregate file paths
@@ -119,7 +118,7 @@ def aggregate_fim_outputs(fim_out_dir):
                 out_meta = rem_src.meta.copy()
                 out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'})
 
-                with rasterio.open(rem_mosaic, "w", **out_meta) as dest:
+                with rasterio.open(rem_mosaic, "w", **out_meta, tiled=True, blockxsize=256, blockysize=256, BIGTIFF='YES') as dest:
                     dest.write(mosaic)
 
                 del rem_files_to_mosaic,rem_src,out_meta,mosaic
@@ -142,9 +141,9 @@ def aggregate_fim_outputs(fim_out_dir):
                 mosaic, out_trans = merge(cat_files_to_mosaic)
                 out_meta = cat_src.meta.copy()
 
-                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'})
+                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'}) #"compress": "JPEG",  "photometric": "YCBCR"
 
-                with rasterio.open(catchment_mosaic, "w", **out_meta) as dest:
+                with rasterio.open(catchment_mosaic, "w", **out_meta, tiled=True, blockxsize=256, blockysize=256, BIGTIFF='YES') as dest:
                     dest.write(mosaic)
 
                 del cat_files_to_mosaic,cat_src,out_meta,mosaic
