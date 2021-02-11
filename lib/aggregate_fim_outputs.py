@@ -7,12 +7,14 @@ import json
 import rasterio
 from rasterio.merge import merge
 import shutil
+import csv
 from utils.shared_variables import PREP_PROJECTION
 
 
 def aggregate_fim_outputs(fim_out_dir):
 
     print ("aggregating outputs to HUC6 scale")
+
     drop_folders = ['logs']
     huc_list = [huc for huc in os.listdir(fim_out_dir) if huc not in drop_folders]
     huc6_list = [str(huc[0:6]) for huc in os.listdir(fim_out_dir) if huc not in drop_folders]
@@ -28,7 +30,7 @@ def aggregate_fim_outputs(fim_out_dir):
 
         # aggregate file name paths
         aggregate_hydrotable = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),'hydroTable.csv')
-        aggregate_src = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),'src.json')
+        aggregate_src = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),f'rating_curves_{huc[0:6]}.json')
 
         if len(huc)> 6:
 
@@ -66,9 +68,32 @@ def aggregate_fim_outputs(fim_out_dir):
             shutil.copy(hydrotable_filename, aggregate_hydrotable)
             shutil.copy(src_filename, aggregate_src)
 
+    for huc6 in huc6_list:
+
+        aggregate_hydrotable = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc6),'hydroTable.csv')
+        aggregate_src = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),f'rating_curves_{huc[0:6]}.json')
+
+        # add feature_id to aggregate src
+        # Open aggregate src for writing feature_ids to
+        src_data = {}
+        with open(aggregate_src) as jsonf:
+            src_data = json.load(jsonf)
+
+        with open(aggregate_hydrotable) as csvf:
+            csvReader = csv.DictReader(csvf)
+
+            for row in csvReader:
+                if row['HydroID'].lstrip('0') in src_data and 'nwm_feature_id' not in src_data[row['HydroID'].lstrip('0')]:
+                    src_data[row['HydroID'].lstrip('0')]['nwm_feature_id'] = row['feature_id']
+
+        # Write src_data to JSON file
+        with open(aggregate_hydrotable, 'w') as jsonf:
+            json.dump(src_data, jsonf)
 
     for huc6 in huc6_list:
+
         huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',huc6)
+
         # aggregate file paths
         rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}.tif'))
         catchment_mosaic = os.path.join(huc6_dir,f'catchments_{huc6}.tif')
