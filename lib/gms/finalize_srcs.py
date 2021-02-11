@@ -6,45 +6,35 @@ from numpy import unique
 import json
 import argparse
 import sys
-from utils.shared_functions import getDriver
+sys.path.insert(1,"../utils")
+from shared_functions import getDriver
 
-def finalize_srcs(input_srcbase_fileName,output_src_fileName,output_hydro_table_fileName,mannings_n,calibration_mode=False):
+def finalize_srcs(input_srcbase,input_srcfull,input_hydrotable,output_srcfull,output_hydrotable):
 
-    # read in manning's n values
-    with open(mannings_n, "r") as read_file:
-
-        if calibration_mode == False:
-            mannings_dict = json.load(read_file)
-        else:
-            mannings_dict = {}
-            for cnt,value in enumerate(mannings_n.split(",")[2:]):
-                streamorder = cnt+1
-                mannings_dict[str(streamorder)] = value
 
     # calculate src_full
-    input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
-    if input_src_base.CatchId.dtype != 'int': input_src_base.CatchId = input_src_base.CatchId.astype(int)
+    input_srcbase = pd.read_csv(input_srcbase, dtype= {'CatchId': int})
+    #input_hydrotable = pd.read_csv(input_hydrotable)
+    input_srcfull = pd.read_csv(input_srcfull)
 
-    input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID']],left_on='CatchId',right_on='HydroID')
+    input_srcbase = input_srcbase.merge(input_srcfull[['ManningN','HydroID']],left_on='CatchId',right_on='HydroID')
 
-    input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
-    input_src_base = input_src_base.apply(pd.to_numeric,**{'errors' : 'coerce'})
-    input_src_base['TopWidth (m)'] = input_src_base['SurfaceArea (m2)']/input_src_base['LENGTHKM']/1000
-    input_src_base['WettedPerimeter (m)'] = input_src_base['BedArea (m2)']/input_src_base['LENGTHKM']/1000
-    input_src_base['WetArea (m2)'] = input_src_base['Volume (m3)']/input_src_base['LENGTHKM']/1000
-    input_src_base['HydraulicRadius (m)'] = input_src_base['WetArea (m2)']/input_src_base['WettedPerimeter (m)']
-    input_src_base['HydraulicRadius (m)'].fillna(0, inplace=True)
-    input_src_base['Discharge (m3s-1)'] = input_src_base['WetArea (m2)']* \
-    pow(input_src_base['HydraulicRadius (m)'],2.0/3)* \
-    pow(input_src_base['SLOPE'],0.5)/input_src_base['ManningN']
+    input_srcbase = input_srcbase.rename(columns=lambda x: x.strip(" "))
+    input_srcbase = input_srcbase.apply(pd.to_numeric,**{'errors' : 'coerce'})
+    input_srcbase['TopWidth (m)'] = input_srcbase['SurfaceArea (m2)']/input_srcbase['LENGTHKM']/1000
+    input_srcbase['WettedPerimeter (m)'] = input_srcbase['BedArea (m2)']/input_srcbase['LENGTHKM']/1000
+    input_srcbase['WetArea (m2)'] = input_srcbase['Volume (m3)']/input_srcbase['LENGTHKM']/1000
+    input_srcbase['HydraulicRadius (m)'] = input_srcbase['WetArea (m2)']/input_srcbase['WettedPerimeter (m)']
+    input_srcbase['HydraulicRadius (m)'].fillna(0, inplace=True)
+    input_srcbase['Discharge (m3s-1)'] = input_srcbase['WetArea (m2)']* \
+                                          pow(input_srcbase['HydraulicRadius (m)'],2.0/3)* \
+                                          pow(input_srcbase['SLOPE'],0.5)/input_srcbase['ManningN']
 
     # set nans to 0
-    input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
+    input_srcbase.loc[input_srcbase['Stage']==0,['Discharge (m3s-1)']] = 0
 
-    output_src = input_src_base.drop(columns=['CatchId'])
-    if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
-
-    output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
+    input_srcbase.rename(columns={"HydroID":'CatchId'},inplace=True)
+    print(input_srcbase,input_srcbase.dtypes);exit()
 
     # make hydroTable
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
@@ -61,12 +51,16 @@ def finalize_srcs(input_srcbase_fileName,output_src_fileName,output_hydro_table_
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
 
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
-    if output_hydro_table.HUC.dtype != 'str': output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
+    if output_hydro_table.HUC.dtype != 'str':
+        output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
     output_hydro_table.HUC = output_hydro_table.HUC.str.zfill(8)
 
     output_hydro_table.drop(columns='fossid',inplace=True)
-    if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
-    if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
+
+    if output_hydro_table.feature_id.dtype != 'int':
+        output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
+    if output_hydro_table.feature_id.dtype != 'str':
+        output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
 
         output_src.to_csv(output_src_fileName,index=False)
@@ -76,11 +70,11 @@ def finalize_srcs(input_srcbase_fileName,output_src_fileName,output_hydro_table_
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-s','--input-srcbase-fileName', help='Base synthetic rating curve table', required=True)
-    parser.add_argument('-r','--output-src-fileName', help='Output crosswalked synthetic rating curve table', required=True)
-    parser.add_argument('-t','--output-hydro-table-fileName',help='Hydrotable',required=True)
-    parser.add_argument('-m','--mannings-n',help='Mannings n. Accepts single parameter set or list of parameter set in calibration mode. Currently input as csv.',required=True)
-    parser.add_argument('-c','--calibration-mode',help='Mannings calibration flag',required=False,action='store_true')
+    parser.add_argument('-s','--input-srcbase', help='Base synthetic rating curve table', required=True)
+    parser.add_argument('-w','--input-hydrotable',help='Input Hydro-Table',required=False)
+    parser.add_argument('-f','--input-srcfull',help='Input Hydro-Table',required=False)
+    parser.add_argument('-r','--output-srcfull', help='Output crosswalked synthetic rating curve table', required=False)
+    parser.add_argument('-t','--output-hydrotable',help='Hydrotable',required=False)
 
     args = vars(parser.parse_args())
 

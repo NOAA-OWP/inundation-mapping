@@ -14,7 +14,7 @@ T_total_start
 # echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
-outputDataDir=/data/temp/gms/test1
+outputDataDir=/data/temp/gms/test2
 inputDataDir=/data/outputs/default_12090301/12090301
 
 # make outputs directory
@@ -41,7 +41,7 @@ input_hydroTable=$inputDataDir/hydroTable.csv
 echo -e $startDiv"TEMP EDITING DEM DERIVED POINTS FILES: SHOULD BE DONE IN FIM 3"$stopDiv
 date -u
 Tstart
-$libDir/gms/edit_points.py
+$libDir/gms/edit_points.py $input_demDerived_reaches_points $outputDataDir/demDerived_reaches.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg 
 Tcount
 
 ## DERIVE LEVELPATH 
@@ -82,7 +82,7 @@ for current_branch_id in $(cat $outputDataDir/branch_id.lst);
 do
 
     #[ "$current_branch_id" -ne "15080120" ] && continue
-    echo -e $startDiv "Processing $current_branch_id ..." $stopDiv
+    echo -e $startDiv$startDiv"Processing $current_branch_id ..."$stopDiv$stopDiv
 
     ## GAGE WATERSHED FOR PIXELS ##
     echo -e $startDiv"Gage Watershed for Pixels $hucNumber"$stopDiv
