@@ -53,7 +53,7 @@ def aggregate_fim_outputs(fim_out_dir):
                 with open(aggregate_src, "r+") as file:
                     data = json.load(file)
                     data.update(src)
-                    
+
                 with open(aggregate_src, 'w') as outfile:
                     json.dump(data, outfile)
             else:
@@ -68,12 +68,10 @@ def aggregate_fim_outputs(fim_out_dir):
 
 
     for huc6 in huc6_list:
-
         huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',huc6)
-
         # aggregate file paths
-        rem_mosaic = os.path.join(huc6_dir,'rem_zeroed_masked.tif')
-        catchment_mosaic = os.path.join(huc6_dir,'gw_catchments_reaches_filtered_addedAttributes.tif')
+        rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}.tif'))
+        catchment_mosaic = os.path.join(huc6_dir,f'catchments_{huc6}.tif')
 
         if huc6 not in huc_list:
 
