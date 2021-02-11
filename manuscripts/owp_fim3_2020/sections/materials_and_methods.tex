@@ -171,7 +171,7 @@ This procedure enforces the location of streams and ensures that thalweg elevati
 %
 To facilitate the generation of a connected stream network and its associated catchments from the conditioned DEM, the depression-filled DEM is used to derive connectivity in the form of D-8 flow directions.
 D-8 seeks to allocate a drainage direction for every pixel based on the adjacent eight pixel neighborhood with the steepest slope \cite{o1984extraction}.
-The horizontal component of slope is defined as one for the 4 neighboring pixels in the main cardinal directions while the intercardinal pixels are designated a horizontal component of square root of 2. 
+The horizontal component of slope is defined as one for the 4 neighboring pixels in the main cardinal directions while the intercardinal pixels are designated a horizontal component of $\sqrt{2}$. 
 The flow direction is encoded as integers 1 through 8 corresponding with the cardinal direction East as 1 and continuing counter-clockwise to the Southwest direction as 8. 
 Flow directions are derived for non-depression filled regions trivially with the above procedure but to define connectivity for every grid cell the remaining flats corresponding to depression filled cells must be resolved.
 
@@ -192,7 +192,8 @@ This is accomplished by using the seed points generated from the stream network 
 These seeds points are headwater locations of the NHDPlusHR Beta Burnline Events layer that spatially correspond to theheadwater definitions in the stream network of the NWM V2.1.
 Feeding the seed points and previously computed flow directions into flow accumulation methods \cite{wallis2009parallel,tarboton1997new,tarboton2005terrain} yields a stream link accumulation raster that can be converted to a vector file for further processing.
 Each stream link in this derived FIM stream network is split into equidistant reaches.
-Stream links are defined here as segments of rivers discretized by junctions with other NWM river segments or NWM lakes.
+Stream links are defined here as segments of rivers discretized by junctions with other NWM river segments.
+Stream links are then further segmented at NWM lakes and HUC8 boundaries.
 Discretizing at NWM lakes isolates reaches and catchments associated with lakes and reservoirs to avoid mapping them using the Manning's equation and could potentially enable volume based mapping in the future as a feature enhancement.
 Additionally every reach (and later catchment) is assigned a globally unique identifier based on the HUC 8 membership.
 
