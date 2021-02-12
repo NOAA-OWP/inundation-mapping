@@ -72,7 +72,7 @@ def aggregate_fim_outputs(fim_out_dir):
 
         ## add feature_id to aggregate src
         aggregate_hydrotable = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc6),'hydroTable.csv')
-        aggregate_src = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc[0:6]),f'rating_curves_{huc[0:6]}.json')
+        aggregate_src = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc6),f'rating_curves_{huc6}.json')
 
         # Open aggregate src for writing feature_ids to
         src_data = {}
@@ -141,7 +141,7 @@ def aggregate_fim_outputs(fim_out_dir):
                 mosaic, out_trans = merge(cat_files_to_mosaic)
                 out_meta = cat_src.meta.copy()
 
-                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'}) #"compress": "JPEG",  "photometric": "YCBCR"
+                out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'})
 
                 with rasterio.open(catchment_mosaic, "w", **out_meta, tiled=True, blockxsize=256, blockysize=256, BIGTIFF='YES') as dest:
                     dest.write(mosaic)
