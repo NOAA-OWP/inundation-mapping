@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.4.1 - 2021-02-12 - [PR #261](https://github.com/NOAA-OWP/cahaba/pull/261)
+
+Updated MS Crosswalk method to address gaps in FIM.
+
+### Changes
+
+- Fixed typo in stream midpoint calculation in `split_flows.py` and `add_crosswalk.py`.
+- `add_crosswalk.py` now restricts the MS crosswalk to NWM MS catchments.
+- `add_crosswalk.py` now performs a secondary MS crosswalk selection by nearest NWM MS catchment.
+
+<br/><br/>
 ## v3.0.4.0 - 2021-02-10 - [PR #256](https://github.com/NOAA-OWP/cahaba/pull/256)
 
 New python script "wrappers" for using `inundation.py`.
