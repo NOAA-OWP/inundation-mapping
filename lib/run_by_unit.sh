@@ -47,9 +47,13 @@ fi
 if [ "$extent" = "MS" ]; then
   input_nhd_flowlines=$input_nhd_flowlines_ms
   input_nhd_headwaters=$input_nhd_headwaters_ms
+  input_NWM_Flows=$input_NWM_Flows_ms
+  input_NWM_Catchments=$input_NWM_Catchments_ms
 else
   input_nhd_flowlines=$input_nhd_flowlines_fr
   input_nhd_headwaters=$input_nhd_headwaters_fr
+  input_NWM_Flows=$input_NWM_Flows_fr
+  input_NWM_Catchments=$input_NWM_Catchments_fr
 fi
 
 ## GET WBD ##
