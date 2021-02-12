@@ -40,6 +40,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
         output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
         if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
+        if output_flows.NextDownID.dtype != 'int': output_flows.NextDownID = output_flows.NextDownID.astype(int)
         output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
@@ -109,23 +110,38 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
 
     # Adjust short model reach rating curves
-print("Adjusting model reach rating curve")
-maxArea   = 0.25
-maxLength = 0.5
-where = "{} < {} and {} < {}".format("areasqkm", maxArea, "LengthKm", maxLength)
-sml_segs = pd.DataFrame()
+    print("Adjusting model reach rating curve")
+    maxArea   = 0.25
+    maxLength = 0.5
+    where = "{} < {} and {} < {}".format("areasqkm", maxArea, "LengthKm", maxLength)
+    sml_segs = pd.DataFrame()
 
     # if segment is too short, find upstream segment and apply it's channel geometry
-for tab_ind in output_flows.index:
-    if output_flows["areasqkm"][tab_ind] < 0.25 and output_flows["LengthKm"][tab_ind] < 0.5:
-      short_id = output_flows['HydroID'][tab_ind]
-      if (len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1):
-          # max_da = max(output_flows.loc[output_flows['NextDownID'] == short_id][FN_PUOrder])
-          # up_id = output_flows.loc[(output_flows[FN_PUOrder] == max_da) & (output_flows['NextDownID'] == short_id)]['HydroID'].item()
-          print ("multiple up ids")
-      else:
-          up_id = output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID'].item()
-      sml_segs = sml_segs.append({'short_id':short_id, 'up_id':up_id}, ignore_index=True)
+    for tab_ind in output_flows.index:
+
+        if output_flows["areasqkm"][tab_ind] < 0.25 and output_flows["LengthKm"][tab_ind] < 0.5 and output_flows["LakeID"][tab_ind] < 0:
+
+            short_id = output_flows['HydroID'][tab_ind]
+            to_node = output_flows['To_Node'][tab_ind]
+            from_node = output_flows['From_Node'][tab_ind]
+
+            if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
+                # max_da = max(output_flows.loc[output_flows['NextDownID'] == short_id][FN_PUOrder])
+                # update_id = output_flows.loc[(output_flows[FN_PUOrder] == max_da) & (output_flows['NextDownID'] == short_id)]['HydroID'].item()
+                max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_'])
+
+                if len(output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID']) == 1:
+                    update_id = output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID'].item()
+                else:
+                    update_id = output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID'].values[0] # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
+
+            elif len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) == 1:
+                update_id = output_flows.loc[output_flows.To_Node==from_node]['HydroID'].item()
+            else:
+                update_id = output_flows.loc[output_flows.From_Node==to_node]['HydroID'].item() # get down id instead
+
+            sml_segs = sml_segs.append({'short_id':short_id, 'update_id':update_id}, ignore_index=True)
+
     print("Number of short reaches [{}] = {}".format(where, len(sml_segs)))
 
     # calculate src_full
@@ -152,14 +168,17 @@ for tab_ind in output_flows.index:
     if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
 
     # update rating curves
-    print("Update rating curves for short reaches.")
-    for index, row in sml_segs.iterrows():
-        if pd.notnull(row[1]):
-          new_values = input_src_base.loc[input_src_base['HydroID'] == row[1]][['Stage', 'Discharge (m3s-1)']]
-          for pf_index, pf_row in new_values.iterrows():
-              input_src_base.loc[(input_src_base['HydroID']== row[0]) & (input_src_base['Stage']== pf_row[0]),['Discharge (m3s-1)']] = pf_row[1]
-        else:
-          print("Reach HydroID: {} does not have upstream reach - update skipped".format(row[1]))
+    if len(sml_segs) > 0:
+        sml_segs.to_csv(small_segments_filename,index=False)
+        print("Update rating curves for short reaches.")
+        for index, segment in sml_segs.iterrows():
+
+            short_id = segment[0]
+            update_id= segment[1]
+            new_values = input_src_base.loc[input_src_base['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
+
+            for src_index, src_stage in new_values.iterrows():
+                input_src_base.loc[(input_src_base['HydroID']== short_id) & (input_src_base['Stage']== src_stage[0]),['Discharge (m3s-1)']] = src_stage[1]
 
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
@@ -237,6 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('-m','--mannings-n',help='Mannings n. Accepts single parameter set or list of parameter set in calibration mode. Currently input as csv.',required=True)
     parser.add_argument('-z','--input-nwmcat-fileName',help='NWM catchment polygon',required=True)
     parser.add_argument('-p','--extent',help='MS or FR extent',required=True)
+    parser.add_argument('-k','--small-segments-filename',help='output list of short segments',required=True)
     parser.add_argument('-c','--calibration-mode',help='Mannings calibration flag',required=False,action='store_true')
 
     args = vars(parser.parse_args())
@@ -256,6 +276,7 @@ if __name__ == '__main__':
     mannings_n = args['mannings_n']
     input_nwmcat_fileName = args['input_nwmcat_fileName']
     extent = args['extent']
+    small_segments_filename = args['small_segments_filename']
     calibration_mode = args['calibration_mode']
 
     add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,calibration_mode)
