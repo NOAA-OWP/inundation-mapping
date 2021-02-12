@@ -50,26 +50,6 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         # Step 1, keep only files that Viz needs
         whitelist_directory(output_folder_path, viz_whitelist, additional_whitelist)
 
-        # Step 2, add feature_id to src.json and rename file
-        # Open src.json for writing feature_ids to
-        src_data = {}
-        with open(os.path.join(output_folder_path, 'src.json')) as jsonf:
-            src_data = json.load(jsonf)
-
-        with open(os.path.join(output_folder_path, 'hydroTable.csv')) as csvf:
-            csvReader = csv.DictReader(csvf)
-            for row in csvReader:
-                if row['HydroID'].lstrip('0') in src_data and 'nwm_feature_id' not in src_data[row['HydroID'].lstrip('0')]:
-                    src_data[row['HydroID'].lstrip('0')]['nwm_feature_id'] = row['feature_id']
-
-        # Write src_data to JSON file
-        with open(os.path.join(output_folder_path, f'rating_curves_{huc_number}.json'), 'w') as jsonf:
-            json.dump(src_data, jsonf)
-
-        # Step 3, copy files to desired names
-        shutil.copy(os.path.join(output_folder_path, 'rem_zeroed_masked.tif'), os.path.join(output_folder_path, f'hand_grid_{huc_number}.tif'))
-        shutil.copy(os.path.join(output_folder_path, 'gw_catchments_reaches_filtered_addedAttributes.tif'), os.path.join(output_folder_path, f'catchments_{huc_number}.tif'))
-
 def whitelist_directory(directory_path, whitelist, additional_whitelist):
     # Add any additional files to the whitelist that the user wanted to keep
     if additional_whitelist:
