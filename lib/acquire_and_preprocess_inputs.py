@@ -23,7 +23,7 @@ from utils.shared_variables import (NHD_URL_PARENT,
                                     OVERWRITE_NHD,
                                     OVERWRITE_ALL)
 
-from utils.shared_functions import pull_file, run_system_command, subset_wbd_gpkg, delete_file
+from utils.shared_functions import pull_file, run_system_command, subset_wbd_gpkg, delete_file, getDriver
 
 NHDPLUS_VECTORS_DIRNAME = 'nhdplus_vectors'
 NHDPLUS_RASTERS_DIRNAME = 'nhdplus_rasters'
@@ -82,10 +82,9 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
         fossids = [str(item).zfill(4) for item in list(range(1, 1 + len(wbd_hu8)))]
         wbd_hu8[FOSS_ID] = fossids
         wbd_hu8 = wbd_hu8.to_crs(PREP_PROJECTION)  # Project.
-        #wbd_hu8.to_file(os.path.join(wbd_directory, 'WBDHU8.gpkg'), driver='GPKG')  # Save.
         wbd_hu8 = subset_wbd_to_nwm_domain(wbd_hu8,nwm_file_to_use)
         wbd_hu8.geometry = wbd_hu8.buffer(0)
-        wbd_hu8.to_file(multilayer_wbd_geopackage, driver='GPKG',layer='WBDHU8')  # Save.
+        wbd_hu8.to_file(multilayer_wbd_geopackage,layer='WBDHU8',driver=getDriver(multilayer_wbd_geopackage),index=False)  # Save.
         wbd_hu8.HUC8.to_csv(nwm_huc_list_file_template.format('8'),index=False,header=False)
         #wbd_gpkg_list.append(os.path.join(wbd_directory, 'WBDHU8.gpkg'))  # Append to wbd_gpkg_list for subsetting later.
         del wbd_hu8
@@ -99,7 +98,7 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
             wbd = wbd.rename(columns={'huc'+wbd_layer_num : 'HUC' + wbd_layer_num})
             wbd = subset_wbd_to_nwm_domain(wbd,nwm_file_to_use)
             wbd.geometry = wbd.buffer(0)
-            wbd.to_file(multilayer_wbd_geopackage,driver="GPKG",layer=wbd_layer)
+            wbd.to_file(multilayer_wbd_geopackage,layer=wbd_layer,driver=getDriver(multilayer_wbd_geopackage),index=False)
             wbd['HUC{}'.format(wbd_layer_num)].to_csv(nwm_huc_list_file_template.format(wbd_layer_num),index=False,header=False)
             #output_gpkg = os.path.join(wbd_directory, wbd_layer + '.gpkg')
             #wbd_gpkg_list.append(output_gpkg)
@@ -263,9 +262,12 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     huc6_list = set(huc6_list)
 
     # Write huc lists to appropriate .lst files.
-    included_huc4_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc4.lst')
-    included_huc6_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc6.lst')
-    included_huc8_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc8.lst')
+    huc_lists_dir = os.path.join(path_to_saved_data_parent_dir, 'huc_lists')
+    if not os.path.exists(huc_lists_dir):
+        os.mkdir(huc_lists_dir)
+    included_huc4_file = os.path.join(huc_lists_dir, 'included_huc4.lst')
+    included_huc6_file = os.path.join(huc_lists_dir, 'included_huc6.lst')
+    included_huc8_file = os.path.join(huc_lists_dir, 'included_huc8.lst')
 
     # Overly verbose file writing loops. Doing this in a pinch.
     with open(included_huc4_file, 'w') as f:

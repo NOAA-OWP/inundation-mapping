@@ -98,7 +98,7 @@ source $libDir/bash_functions.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
-    jobLimit=$defaultMaxJobs
+    jobLimit=$default_max_jobs
 fi
 
 ## Define Outputs Data Dir & Log File##
@@ -112,8 +112,10 @@ logFile=$outputRunDataDir/logs/summary.log
 ## Define inputs
 export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
 export input_NWM_Lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
-export input_NWM_Catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
-export input_NWM_Flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
+export input_NWM_Catchments_fr=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
+export input_NWM_Catchments_ms=$inputDataDir/nwm_hydrofabric/nwm_catchments_ms.gpkg
+export input_NWM_Flows_fr=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
+export input_NWM_Flows_ms=$inputDataDir/nwm_hydrofabric/nwm_flows_ms.gpkg
 export input_NWM_Headwaters=$inputDataDir/nwm_hydrofabric/nwm_headwaters.gpkg
 export input_nhd_flowlines_fr=$inputDataDir/nhdplus_vectors_aggregate/NHDPlusBurnLineEvent_fr_adjusted.gpkg
 export input_nhd_flowlines_ms=$inputDataDir/nhdplus_vectors_aggregate/NHDPlusBurnLineEvent_ms_adjusted.gpkg
@@ -147,5 +149,8 @@ else
     fi
 fi
 
-# aggregate outputs
-bash /foss_fim/lib/aggregate_fim_outputs.sh $outputRunDataDir
+echo "$viz"
+if [[ "$viz" -eq 1 ]]; then
+    # aggregate outputs
+    python3 /foss_fim/lib/aggregate_fim_outputs.py -d $outputRunDataDir
+fi

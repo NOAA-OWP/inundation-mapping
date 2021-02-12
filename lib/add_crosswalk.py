@@ -7,6 +7,7 @@ from rasterstats import zonal_stats
 import json
 import argparse
 import sys
+from utils.shared_functions import getDriver
 
 def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,calibration_mode=False):
 
@@ -57,7 +58,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         hydroID = []
         for i,lineString in enumerate(input_flows.geometry):
             hydroID = hydroID + [input_flows.loc[i,'HydroID']]
-            stream_midpoint = stream_midpoint + [lineString.interpolate(0.05,normalized=True)]
+            stream_midpoint = stream_midpoint + [lineString.interpolate(0.5,normalized=True)]
 
         input_flows_midpoint = gpd.GeoDataFrame({'HydroID':hydroID, 'geometry':stream_midpoint}, crs=input_flows.crs, geometry='geometry')
         input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
@@ -65,6 +66,22 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         # Create crosswalk
         crosswalk = gpd.sjoin(input_flows_midpoint, input_nwmcat, how='left', op='within').reset_index()
         crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
+
+        # fill in missing ms
+        crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
+        for index, stream in crosswalk_missing.iterrows():
+
+            # find closest nwm catchment by distance
+            distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
+            min_dist = min(distances)
+            nwmcat_index=distances.index(min_dist)
+
+            # update crosswalk
+            crosswalk.loc[crosswalk.HydroID==stream.HydroID,'feature_id'] = input_nwmcat.iloc[nwmcat_index].name
+            crosswalk.loc[crosswalk.HydroID==stream.HydroID,'AreaSqKM'] = input_nwmcat.iloc[nwmcat_index].AreaSqKM
+            crosswalk.loc[crosswalk.HydroID==stream.HydroID,'Shape_Length'] = input_nwmcat.iloc[nwmcat_index].Shape_Length
+            crosswalk.loc[crosswalk.HydroID==stream.HydroID,'Shape_Area'] = input_nwmcat.iloc[nwmcat_index].Shape_Area
+
         crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
         crosswalk = crosswalk.merge(input_nwmflows[['feature_id','order_']],on='feature_id')
 
@@ -163,8 +180,8 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
 
         # write out
-        output_catchments.to_file(output_catchments_fileName, driver="GPKG",index=False)
-        output_flows.to_file(output_flows_fileName, driver="GPKG", index=False)
+        output_catchments.to_file(output_catchments_fileName,driver=getDriver(output_catchments_fileName),index=False)
+        output_flows.to_file(output_flows_fileName,driver=getDriver(output_flows_fileName),index=False)
         output_src.to_csv(output_src_fileName,index=False)
         output_crosswalk.to_csv(output_crosswalk_fileName,index=False)
         output_hydro_table.to_csv(output_hydro_table_fileName,index=False)

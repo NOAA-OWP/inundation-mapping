@@ -5,6 +5,10 @@ T_total_start
 
 echo -e $startDiv"Parameter Values"
 echo -e "extent=$extent"
+echo -e "agree_DEM_buffer=$agree_DEM_buffer"
+echo -e "wbd_buffer=$wbd_buffer"
+echo -e "ms_buffer_dist=$ms_buffer_dist"
+echo -e "lakes_buffer_dist_meters=$lakes_buffer_dist_meters"
 echo -e "negative_burn_value=$negative_burn_value"
 echo -e "max_split_distance_meters=$max_split_distance_meters"
 echo -e "mannings_n=$manning_n"
@@ -30,6 +34,7 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
+
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then
   input_LANDSEA=$inputDataDir/landsea/gl_water_polygons.gpkg
@@ -38,12 +43,17 @@ else
   input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
 fi
 
+# Define streams and headwaters based on extent #
 if [ "$extent" = "MS" ]; then
   input_nhd_flowlines=$input_nhd_flowlines_ms
   input_nhd_headwaters=$input_nhd_headwaters_ms
+  input_NWM_Flows=$input_NWM_Flows_ms
+  input_NWM_Catchments=$input_NWM_Catchments_ms
 else
   input_nhd_flowlines=$input_nhd_flowlines_fr
   input_nhd_headwaters=$input_nhd_headwaters_fr
+  input_NWM_Flows=$input_NWM_Flows_fr
+  input_NWM_Catchments=$input_NWM_Catchments_fr
 fi
 
 ## GET WBD ##
@@ -59,7 +69,7 @@ echo -e $startDiv"Buffer WBD $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/wbd_buffered.gpkg ] && \
-ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, 5000) from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd.gpkg
+ogr2ogr -f GPKG -dialect sqlite -sql "select ST_buffer(geom, $wbd_buffer) from 'WBDHU$hucUnitLength'" $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd.gpkg
 Tcount
 
 ## Subset Vector Layers ##
@@ -67,7 +77,7 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_nhd_flowlines -l $input_NWM_Lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_nhd_headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -p $extent
+$libDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_NWM_Flows -s $input_nhd_flowlines -l $input_NWM_Lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_NWM_Catchments -y $input_nhd_headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg
 Tcount
 
 if [ "$extent" = "MS" ]; then
