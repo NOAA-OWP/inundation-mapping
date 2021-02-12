@@ -8,6 +8,7 @@ import os
 import pandas as pd
 from osgeo import ogr, gdal
 import geopandas as gpd
+from utils.shared_functions import getDriver
 
 
 def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, hand_ref_elev_fileName, dem_reaches_filename):
@@ -121,7 +122,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     merge_df = merge_df.groupby(['HydroID']).median() # median value of all Min_Thal_Elev_meters for pixel catchments in each HydroID reach
     input_reaches = gpd.read_file(dem_reaches_filename)
     input_reaches = input_reaches.merge(merge_df, on='HydroID') # merge dataframes by HydroID variable
-    input_reaches.to_file(dem_reaches_filename,driver='GPKG',index=False)
+    input_reaches.to_file(dem_reaches_filename,driver=getDriver(dem_reaches_filename),index=False)
     # ------------------------------------------------------------------------------------------------------------------------ #
 
 
