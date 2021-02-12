@@ -12,7 +12,18 @@ Addresses issue when running on HUC6 scale.
  - Naming convention and feature id attribute are only added to the aggregated hucs.
  - HydroIDs are different for huc6 vs aggregated huc8s mostly due to forced split at huc boundaries (so long we use consistent workflow it shouldn't matter).
  - Fixed known issue where sometimes an incoming stream is not included in the final selection will affect aggregate outputs.
- 
+
+<br/><br/>
+## v3.0.4.1 - 2021-02-12 - [PR #261](https://github.com/NOAA-OWP/cahaba/pull/261)
+
+Updated MS Crosswalk method to address gaps in FIM.
+
+### Changes
+
+ - Fixed typo in stream midpoint calculation in `split_flows.py` and `add_crosswalk.py`.
+ - `add_crosswalk.py` now restricts the MS crosswalk to NWM MS catchments.
+ - `add_crosswalk.py` now performs a secondary MS crosswalk selection by nearest NWM MS catchment.
+
 <br/><br/>
 ## v3.0.4.0 - 2021-02-10 - [PR #256](https://github.com/NOAA-OWP/cahaba/pull/256)
 
