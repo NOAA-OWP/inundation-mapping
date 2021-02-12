@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.4.3 - 2021-02-12 - [PR #254](https://github.com/NOAA-OWP/cahaba/pull/254)
+
+Modified `rem.py` with a new function to output HAND reference elev.
+
+### Changes
+
+ - Function `make_catchment_hydroid_dict` creates a df of pixel catchment ids and overlapping hydroids.
+ - Merge hydroid df and thalweg minimum elevation df.
+ - Produces new output containing all catchment ids and min thalweg elevation value named `hand_ref_elev_table.csv`.
+ - Overwrites the `demDerived_reaches_split.gpk` layer by adding additional attribute `Min_Thal_Elev_meters` to view the elevation value for each hydroid.
+
+<br/><br/>
 ## v3.0.4.2 - 2021-02-12 - [PR #255](https://github.com/NOAA-OWP/cahaba/pull/255)
 
 Addresses issue when running on HUC6 scale.
