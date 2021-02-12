@@ -56,6 +56,15 @@ def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , a
     csv_df = pd.read_csv(metrics_csv)
     #Filter out versions based on supplied version list
     metrics = csv_df.query('version.str.startswith(tuple(@versions))')
+    
+    ###################################################################
+    #To Play With Later, if changing this also experiment with version_order section
+    #versions_joined = '|'.join(versions)
+    #metrics = csv_df.query('version.str.contains(@versions_joined)')
+    #Version order section mod, test this thoroughly seems to create duplicates
+    #selected_versions = [sel_version for sel_version in all_versions if version in sel_version]
+    ####################################################################
+    
     #Group by benchmark source
     benchmark_by_source = metrics.groupby('benchmark_source')
 
@@ -133,7 +142,6 @@ def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , a
             #Select all the versions that start with the supplied version.
             selected_versions = [sel_version for sel_version in all_versions if sel_version.startswith(version)]
             #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            #Until Natsort is on VM, selected versions are in order that user specifies.
             #Naturally sort selected_versions
             #selected_versions = natsorted(selected_versions)
             #Populate version order based on the sorted subsets.
