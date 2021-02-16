@@ -47,9 +47,13 @@ fi
 if [ "$extent" = "MS" ]; then
   input_nhd_flowlines=$input_nhd_flowlines_ms
   input_nhd_headwaters=$input_nhd_headwaters_ms
+  input_NWM_Flows=$input_NWM_Flows_ms
+  input_NWM_Catchments=$input_NWM_Catchments_ms
 else
   input_nhd_flowlines=$input_nhd_flowlines_fr
   input_nhd_headwaters=$input_nhd_headwaters_fr
+  input_NWM_Flows=$input_NWM_Flows_fr
+  input_NWM_Catchments=$input_NWM_Catchments_fr
 fi
 
 ## GET WBD ##
@@ -317,7 +321,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$libDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $demDerived_streamPixels
+$libDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $demDerived_streamPixels -i $outputHucDataDir/gw_catchments_reaches.tif -r $outputHucDataDir/hand_ref_elev_table.csv -s $outputHucDataDir/demDerived_reaches_split.gpkg
 Tcount
 
 ## DINF DISTANCE DOWN ##
