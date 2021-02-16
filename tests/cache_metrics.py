@@ -15,7 +15,7 @@ OUTPUTS_DIR = r'/data/outputs'
 def process_alpha_test(args):
     
     fim_run_dir = args[0]
-    branch_name = args[1]
+    version = args[1]
     test_id = args[2]
     magnitude = args[3]
     archive_results = args[4]
@@ -28,7 +28,7 @@ def process_alpha_test(args):
         compare_to_previous = False
 
     try:
-        run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type)
+        run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type)
     except Exception:
         traceback.print_exc()
 

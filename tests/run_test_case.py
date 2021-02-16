@@ -134,7 +134,7 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
     return difference_dict
 
 
-def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False):
+def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True):
 
     
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
@@ -142,18 +142,22 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
     
     # Construct paths to development test results if not existent.
     if archive_results:
-        branch_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'official_versions', branch_name)
+        version_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'official_versions', version)
     else:
-        branch_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'testing_versions', branch_name)
+        version_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'testing_versions', version)
 
 
     # Delete the entire directory if it already exists.
-    if os.path.exists(branch_test_case_dir_parent):
-        shutil.rmtree(branch_test_case_dir_parent)
+    if os.path.exists(version_test_case_dir_parent):
+        if overwrite == True:
+            shutil.rmtree(version_test_case_dir_parent)
+        else:
+            print("Metrics for ({version}: {test_id}) already exist. Set overwrite flag (-o) to True to overwrite metrics.".format(version=version, test_id=test_id))
+            return
         
-    os.mkdir(branch_test_case_dir_parent)
+    os.mkdir(version_test_case_dir_parent)
 
-    print("Running the alpha test for test_id: " + test_id + ", " + branch_name + "...")
+    print("Running the alpha test for test_id: " + test_id + ", " + version + "...")
     stats_modes_list = ['total_area']
 
     fim_run_parent = os.path.join(os.environ['outputDataDir'], fim_run_dir)
@@ -208,9 +212,9 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
     validation_data_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category)
     
     for magnitude in magnitude_list:
-        branch_test_case_dir = os.path.join(branch_test_case_dir_parent, magnitude)
-        if not os.path.exists(branch_test_case_dir):
-            os.mkdir(branch_test_case_dir)
+        version_test_case_dir = os.path.join(version_test_case_dir_parent, magnitude)
+        if not os.path.exists(version_test_case_dir):
+            os.mkdir(version_test_case_dir)
     
         # Construct path to validation raster and forecast file.
         if benchmark_category in ['usgs', 'nws']:
@@ -223,10 +227,10 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                 benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_depth_' + magnitude + '.tif'))  # TEMP
                 forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
                 lid_list.append(lid)
-                inundation_raster_list.append(os.path.join(branch_test_case_dir, lid + '_inundation_extent.tif'))
+                inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
                 extent_file_list.append(os.path.join(lid_dir, lid + '_extent.shp'))
                     
-            ahps_inclusion_zones_dir = os.path.join(branch_test_case_dir_parent, 'ahps_domains')
+            ahps_inclusion_zones_dir = os.path.join(version_test_case_dir_parent, 'ahps_domains')
             
             if not os.path.exists(ahps_inclusion_zones_dir):
                 os.mkdir(ahps_inclusion_zones_dir)
@@ -236,7 +240,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
             benchmark_raster_path_list = [benchmark_raster_file]
             forecast_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
             forecast_list = [forecast_path]
-            inundation_raster_list = [os.path.join(branch_test_case_dir, 'inundation_extent.tif')]
+            inundation_raster_list = [os.path.join(version_test_case_dir, 'inundation_extent.tif')]
             
         for index in range(0, len(benchmark_raster_path_list)):
             benchmark_raster_path = benchmark_raster_path_list[index]
@@ -276,9 +280,9 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
         
                 # Define outputs for agreement_raster, stats_json, and stats_csv.
                 if benchmark_category in ['usgs', 'nws']:
-                    agreement_raster, stats_json, stats_csv = os.path.join(branch_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(branch_test_case_dir, 'stats.json'), os.path.join(branch_test_case_dir, 'stats.csv')
+                    agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
                 else:
-                    agreement_raster, stats_json, stats_csv = os.path.join(branch_test_case_dir, 'total_area_agreement.tif'), os.path.join(branch_test_case_dir, 'stats.json'), os.path.join(branch_test_case_dir, 'stats.csv')
+                    agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
          
                 test_version_dictionary = compute_contingency_stats_from_rasters(predicted_raster_path,
                                                                                  benchmark_raster_path,
@@ -295,7 +299,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                     del mask_dict[ahps_lid]
                 
                 print(" ")
-                print("Evaluation complete. All metrics for " + test_id + ", " + branch_name + ", " + magnitude + " are available at " + CYAN_BOLD + branch_test_case_dir + ENDC)
+                print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
                 print(" ")
             except Exception as e:
                 print(e)
@@ -314,7 +318,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                     header = [stats_mode]
                     for previous_version, paths in archive_dictionary.items():
                         header.append(previous_version)
-                    header.append(branch_name)
+                    header.append(version)
                     text_block.append(header)
     
                     # Loop through stats in PRINTWORTHY_STATS for left.
@@ -337,7 +341,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
     
                     text_block.append([" "])
     
-                regression_report_csv = os.path.join(branch_test_case_dir, 'stats_summary.csv')
+                regression_report_csv = os.path.join(version_test_case_dir, 'stats_summary.csv')
                 with open(regression_report_csv, 'w', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
                     csv_writer.writerows(text_block)
@@ -355,7 +359,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                         try:
                             last_version_index = text_block[0].index('fim_1_0_0')
                         except ValueError:
-                            print(TRED_BOLD + "Warning: " + ENDC + "Cannot compare " + branch_name + " to a previous version because no authoritative versions were found in previous_versions directory. Future version of run_test_case may allow for comparisons between dev branches.")
+                            print(TRED_BOLD + "Warning: " + ENDC + "Cannot compare " + version + " to a previous version because no authoritative versions were found in previous_versions directory. Future version of run_test_case may allow for comparisons between dev versions.")
                             print()
                             continue
     
@@ -364,7 +368,7 @@ def run_alpha_test(fim_run_dir, branch_name, test_id, magnitude, compare_to_prev
                 for line in text_block:
                     first_item = line[0]
                     if first_item in stats_modes_list:
-                        current_version_index = line.index(branch_name)
+                        current_version_index = line.index(version)
                         if first_item != stats_mode:  # Update the stats_mode and print a separator.
                             print()
                             print()
@@ -424,7 +428,7 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Inundation mapping and regression analysis for FOSS FIM. Regression analysis results are stored in the test directory.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
-    parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested',required=True,default="")
+    parser.add_argument('-b', '--version-name',help='The name of the working version in which features are being tested',required=True,default="")
     parser.add_argument('-t', '--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
     parser.add_argument('-y', '--magnitude',help='The magnitude to run.',required=False, default="")
@@ -433,6 +437,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--inclusion-area', help='Path to shapefile. Contingency metrics will be produced from pixels inside of shapefile extent.', required=False, default="")
     parser.add_argument('-ib','--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
+    parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

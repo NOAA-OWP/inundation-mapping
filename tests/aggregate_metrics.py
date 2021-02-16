@@ -6,17 +6,14 @@ import csv
     
 import argparse
 
-TEST_CASES_DIR = r'/data/test_cases/'
+TEST_CASES_DIR = r'/data/test_cases_new/'
 # TEMP = r'/data/temp'
 
 # Search through all previous_versions in test_cases
 from utils.shared_functions import compute_stats_from_contingency_table
 
 def create_master_metrics_csv():
-    
-    # Loop through test_cases
-    output_csv = r'/data/temp/brad/merged_ble_ahps_02092021.csv'
-        
+            
     # Construct header
     metrics_to_write = ['true_negatives_count',
                         'false_negatives_count',
