@@ -61,7 +61,7 @@ def create_master_metrics_csv(master_metrics_csv_output):
                         ]
     
     additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
-    list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config'] + ['fim_run_time']]
+    list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config']]
     
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
     
@@ -203,14 +203,12 @@ if __name__ == '__main__':
     parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
     parser.add_argument('-j','--job-number',help='Number of processes to use. Default is 1.',required=False, default="1")
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
-    parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default=None)
+    parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False)
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
         
-    test_cases_dir_list = os.listdir(TEST_CASES_DIR)
-    
+    # Assign variables from arguments.
     args = vars(parser.parse_args())
-
     config = args['config']
     fim_version = args['fim_version']
     job_number = int(args['job_number'])
@@ -218,14 +216,14 @@ if __name__ == '__main__':
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
     master_metrics_csv = args['master_metrics_csv']
-    
+        
+    # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
     if fim_version != "all":
         previous_fim_list = [fim_version]
     else:
-        previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)  
+        previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
     
-    # Define whether or not to archive metrics in "official_versions" or
-    # "testing_versions" for each test_id.
+    # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
     if config == 'PREV':
         archive_results = True
     elif config == 'DEV':
@@ -233,8 +231,10 @@ if __name__ == '__main__':
     else:
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
      
+    # List all available benchmark categories and test_cases.
+    test_cases_dir_list = os.listdir(TEST_CASES_DIR)
     benchmark_category_list = []
-    if benchmark_category == None:
+    if benchmark_category == "all":
         for d in test_cases_dir_list:
             if 'test_cases' in d:
                 benchmark_category_list.append(d.replace('_test_cases', ''))
@@ -244,12 +244,13 @@ if __name__ == '__main__':
     # Loop through benchmark categories.
     procs_list = []
     for bench_cat in benchmark_category_list:
-        print(bench_cat)
+        
+        # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
         bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
-        bench_cat_test_case_list = os.listdir(bench_cat_test_case_dir)
+        bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
     
-        # Loop through test_ids.
-        for test_id in bench_cat_test_case_list:
+        # Loop through test_ids in bench_cat_id_list.
+        for test_id in bench_cat_id_list:
             if 'validation' and 'other' not in test_id:
                 current_huc = test_id.split('_')[0]
                 if test_id.split('_')[1] in bench_cat:
@@ -266,9 +267,11 @@ if __name__ == '__main__':
                             fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])  
                         
                         if os.path.exists(fim_run_dir):
+                            # If a user supplies a specia_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
                             
+                            # Define the magnitude lists to use, depending on test_id.
                             if 'ble' in test_id:
                                 magnitude = ['100yr', '500yr']
                             elif 'usgs' or 'nws' in test_id:
@@ -276,6 +279,7 @@ if __name__ == '__main__':
                             else:
                                 continue
                         
+                            # Either add to list to multiprocess or process serially, depending on user specification.
                             print("Adding " + test_id + " to list of test_ids to process...")
                             if job_number > 1:
                                 procs_list.append([fim_run_dir, version, test_id, magnitude, archive_results, overwrite])
