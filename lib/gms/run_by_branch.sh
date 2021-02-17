@@ -15,7 +15,7 @@ T_total_start
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 outputDataDir=/data/temp/gms/test2
-inputDataDir=/data/outputs/default_12090301/12090301
+inputDataDir=/data/outputs/latest_dev_test1/12090301
 
 # make outputs directory
 if [ ! -d "$outputDataDir" ]; then
@@ -31,17 +31,18 @@ input_flowdir=$inputDataDir/flowdir_d8_burned_filled.tif
 input_slopes=$inputDataDir/slopes_d8_dem_meters.tif
 input_demDerived_raster=$inputDataDir/demDerived_streamPixels.tif
 input_demDerived_reaches=$inputDataDir/demDerived_reaches_split.gpkg
-input_demDerived_reaches_points=$outputDataDir/demDerived_reaches_split_points.gpkg
-input_demDerived_pixel_points=$outputDataDir/flows_points_pixels.gpkg
+input_demDerived_reaches_points=$inputDataDir/demDerived_reaches_split_points.gpkg
+input_demDerived_pixel_points=$inputDataDir/flows_points_pixels.gpkg
 input_catchment_list=$inputDataDir/catchment_list.txt
 input_stage_list=$inputDataDir/stage.txt
 input_hydroTable=$inputDataDir/hydroTable.csv
+input_src_full=$inputDataDir/src_full_crosswalked.csv
 
 ##### TEMP ######
 echo -e $startDiv"TEMP EDITING DEM DERIVED POINTS FILES: SHOULD BE DONE IN FIM 3"$stopDiv
 date -u
 Tstart
-$libDir/gms/edit_points.py $input_demDerived_reaches_points $outputDataDir/demDerived_reaches.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg 
+$libDir/gms/edit_points.py $input_demDerived_reaches_points $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg 
 Tcount
 
 ## DERIVE LEVELPATH 
@@ -65,7 +66,7 @@ Tcount
 echo -e $startDiv"Subsetting vectors to branches"$stopDiv
 date -u
 Tstart
-$libDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i HydroID -s $input_demDerived_reaches $input_demDerived_reaches_points $input_demDerived_pixel_points -o $outputDataDir/demDerived_reaches.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
+$libDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i HydroID -s $input_demDerived_reaches $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## CREATE BRANCHID LIST FILE
@@ -139,7 +140,7 @@ do
     date -u
     Tstart
     [ ! -f $outputDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
-    #$libDir/add_crosswalk.py -d $outputDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputDataDir/demDerived_reaches_split_filtered.gpkg -s $outputDataDir/src_base.csv -l $outputDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputDataDir/src_full_crosswalked.csv -j $outputDataDir/src.json -x $outputDataDir/crosswalk_table.csv -t $outputDataDir/hydroTable.csv -w $outputDataDir/wbd8_clp.gpkg -b $outputDataDir/nwm_subset_streams.gpkg -y $outputDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent
+    $libDir/gms/finalize_srcs.py -b $outputDataDir/src_base_$current_branch_id.csv -w $input_hydroTable -r $outputDataDir/src_full_$current_branch_id.csv -f $input_src_full -t $outputDataDir/hydroTable_$current_branch_id.csv
     Tcount
 
     # make branch output directory and mv files to

@@ -6,7 +6,6 @@ from sys import argv
 reach_points = argv[1]
 out_reach_points = argv[2]
 out_pixel_points = argv[3]
-print(argv);exit()
 
 #reach_points=gpd.read_file('/data/outputs/default_12090301/12090301/demDerived_reaches_split_points.gpkg')
 reach_points=gpd.read_file(reach_points)
