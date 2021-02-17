@@ -357,7 +357,7 @@ $libDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_
 
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  rm -rf $outputHucDataDir
+  # rm -rf $outputHucDataDir
   exit 0
 fi
 Tcount

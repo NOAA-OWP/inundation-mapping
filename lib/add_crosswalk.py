@@ -26,21 +26,20 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
         input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
         if input_majorities.feature_id.dtype != 'int': input_majorities.feature_id = input_majorities.feature_id.astype(int)
-        if input_majorities.HydroID.dtype != 'int': input_majorities.HydroID = input_majorities.HydroID.astype(int)
+        if input_majorities.HydroID.dtype != 'str': input_majorities.HydroID = input_majorities.HydroID.astype(str)
 
         input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
         if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
         relevant_input_nwmflows = input_nwmflows[input_nwmflows['feature_id'].isin(input_majorities['feature_id'])]
         relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
 
-        if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+        if input_catchments.HydroID.dtype != 'str': input_catchments.HydroID = input_catchments.HydroID.astype(str)
         output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
         output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
-        if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+        if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
         output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
-        if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
-        if output_flows.NextDownID.dtype != 'int': output_flows.NextDownID = output_flows.NextDownID.astype(int)
+        if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
         output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
@@ -90,10 +89,10 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             print ("No relevant streams within HUC boundaries.")
             sys.exit(0)
 
-        if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+        if input_catchments.HydroID.dtype != 'str': input_catchments.HydroID = input_catchments.HydroID.astype(str)
         output_catchments = input_catchments.merge(crosswalk,on='HydroID')
 
-        if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+        if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
         output_flows = input_flows.merge(crosswalk,on='HydroID')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
@@ -108,6 +107,9 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             mannings_dict[str(streamorder)] = value
 
     output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
+
+    if output_flows.NextDownID.dtype != 'str': output_flows.NextDownID = output_flows.NextDownID.astype(str)
+    output_flows.NextDownID = output_flows.NextDownID.str.zfill(8)
 
     # Adjust short model reach rating curves
     print("Adjusting model reach rating curve")
@@ -132,21 +134,28 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
                 if len(output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID']) == 1:
                     update_id = output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID'].item()
+
                 else:
                     update_id = output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID'].values[0] # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
 
             elif len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) == 1:
                 update_id = output_flows.loc[output_flows.To_Node==from_node]['HydroID'].item()
-            else:
+
+            elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID'])>1:
                 update_id = output_flows.loc[output_flows.From_Node==to_node]['HydroID'].item() # get down id instead
 
-            sml_segs = sml_segs.append({'short_id':short_id, 'update_id':update_id}, ignore_index=True)
+            else:
+                update_id = output_flows.loc[output_flows.HydroID==short_id]['HydroID'].item()
+
+            str_order = output_flows.loc[output_flows.HydroID==short_id]['order_'].item()
+            sml_segs = sml_segs.append({'short_id':short_id, 'update_id':update_id, 'str_order':str_order}, ignore_index=True)
 
     print("Number of short reaches [{}] = {}".format(where, len(sml_segs)))
 
     # calculate src_full
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
-    if input_src_base.CatchId.dtype != 'int': input_src_base.CatchId = input_src_base.CatchId.astype(int)
+    if input_src_base.CatchId.dtype != 'str': input_src_base.CatchId = input_src_base.CatchId.astype(str)
+    input_src_base['CatchId'] = input_src_base.CatchId.str.zfill(8)
 
     input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID']],left_on='CatchId',right_on='HydroID')
 
@@ -165,7 +174,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
 
     output_src = input_src_base.drop(columns=['CatchId'])
-    if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
+    if output_src.HydroID.dtype != 'str': output_src.HydroID = output_src.HydroID.astype(str)
 
     # update rating curves
     if len(sml_segs) > 0:
