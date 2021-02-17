@@ -79,7 +79,7 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
         wbd_hu8 = gp.read_file(wbd_gdb_path, layer='WBDHU8')
         wbd_hu8 = wbd_hu8.rename(columns={'huc8':'HUC8'}) # rename column to caps
         wbd_hu8 = wbd_hu8.sort_values('HUC8')
-        fossids = [str(item).zfill(4) for item in list(range(1, 1 + len(wbd_hu8)))]
+        fossids = [str(item).zfill(4) for item in list(range(1000, 1000 + len(wbd_hu8)))]
         wbd_hu8[FOSS_ID] = fossids
         wbd_hu8 = wbd_hu8.to_crs(PREP_PROJECTION)  # Project.
         wbd_hu8 = subset_wbd_to_nwm_domain(wbd_hu8,nwm_file_to_use)

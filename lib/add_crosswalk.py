@@ -175,19 +175,22 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     output_src = input_src_base.drop(columns=['CatchId'])
     if output_src.HydroID.dtype != 'str': output_src.HydroID = output_src.HydroID.astype(str)
+    output_src['HydroID'] = output_src.HydroID.str.zfill(8)
 
     # update rating curves
     if len(sml_segs) > 0:
+
         sml_segs.to_csv(small_segments_filename,index=False)
         print("Update rating curves for short reaches.")
+
         for index, segment in sml_segs.iterrows():
 
             short_id = segment[0]
             update_id= segment[1]
-            new_values = input_src_base.loc[input_src_base['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
+            new_values = output_src.loc[output_src['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
 
             for src_index, src_stage in new_values.iterrows():
-                input_src_base.loc[(input_src_base['HydroID']== short_id) & (input_src_base['Stage']== src_stage[0]),['Discharge (m3s-1)']] = src_stage[1]
+                output_src.loc[(output_src['HydroID']== short_id) & (output_src['Stage']== src_stage[0]),['Discharge (m3s-1)']] = src_stage[1]
 
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
