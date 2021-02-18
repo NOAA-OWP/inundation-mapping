@@ -4,7 +4,7 @@
 Description:
     1) split stream segments based on lake boundaries and input threshold distance
     2) calculate channel slope, manning's n, and LengthKm for each segment
-    3) create unique ids using HUC8 boundaries (and unique 'fossid' column)
+    3) create unique ids using HUC8 boundaries (and unique FIM_ID column)
     4) create network traversal attribute columns (To_Node, From_Node, NextDownID)
     5) create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
 '''
@@ -23,6 +23,7 @@ from os import remove
 from collections import OrderedDict
 import build_stream_traversal
 from utils.shared_functions import getDriver
+from utils.shared_variables import FIM_ID
 
 flows_fileName         = sys.argv[1]
 dem_fileName           = sys.argv[2]
@@ -46,15 +47,15 @@ if not len(flows) > 0:
     sys.exit(0)
 
 wbd8 = gpd.read_file(wbd8_clp_filename)
-#dem = Raster(dem_fileName)
 dem = rasterio.open(dem_fileName,'r')
+
 if isfile(lakes_filename):
     lakes = gpd.read_file(lakes_filename)
 else:
     lakes = None
 
-wbd8 = wbd8.filter(items=['fossid', 'geometry'])
-wbd8 = wbd8.set_index('fossid')
+wbd8 = wbd8.filter(items=[FIM_ID, 'geometry'])
+wbd8 = wbd8.set_index(FIM_ID)
 flows = flows.explode()
 
 # temp
