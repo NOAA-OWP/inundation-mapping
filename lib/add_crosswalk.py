@@ -31,7 +31,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
         if input_majorities.feature_id.dtype != 'int': input_majorities.feature_id = input_majorities.feature_id.astype(int)
         if input_majorities.HydroID.dtype != 'int': input_majorities.HydroID = input_majorities.HydroID.astype(int)
-        # if input_majorities.HydroID.dtype != 'str': input_majorities.HydroID = input_majorities.HydroID.astype(str)
 
         input_nwmflows = input_nwmflows.rename(columns={'ID':'feature_id'})
         if input_nwmflows.feature_id.dtype != 'int': input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
@@ -39,15 +38,12 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id','order_'])
 
         if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        # if input_catchments.HydroID.dtype != 'str': input_catchments.HydroID = input_catchments.HydroID.astype(str)
         output_catchments = input_catchments.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
         output_catchments = output_catchments.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
 
         if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
-        # if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
         output_flows = input_flows.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
         if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
-        # if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
         output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
@@ -98,7 +94,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             sys.exit(0)
 
         if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        # if input_catchments.HydroID.dtype != 'str': input_catchments.HydroID = input_catchments.HydroID.astype(str)
         output_catchments = input_catchments.merge(crosswalk,on='HydroID')
 
         if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
@@ -120,7 +115,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if output_flows.NextDownID.dtype != 'int': output_flows.NextDownID = output_flows.NextDownID.astype(int)
 
     # Adjust short model reach rating curves
-    print("Adjusting model reach rating curve")
+    print("Adjusting model reach rating curves")
     sml_segs = pd.DataFrame()
 
     # replace small segment geometry with neighboring stream
@@ -207,7 +202,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
     output_hydro_table[FIM_ID] = output_hydro_table.loc[:,'HydroID'].apply(lambda x : str(x)[0:4])
-    
+
     if input_huc[FIM_ID].dtype != 'str': input_huc[FIM_ID] = input_huc[FIM_ID].astype(str)
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:,[FIM_ID,'HUC8']],how='left',on=FIM_ID)
 

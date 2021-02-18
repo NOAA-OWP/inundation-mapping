@@ -19,7 +19,7 @@ import argparse
 from tqdm import tqdm
 import time
 from os.path import isfile
-from os import remove
+from os import remove,environ
 from collections import OrderedDict
 import build_stream_traversal
 from utils.shared_functions import getDriver
@@ -29,11 +29,11 @@ flows_fileName         = sys.argv[1]
 dem_fileName           = sys.argv[2]
 split_flows_fileName   = sys.argv[3]
 split_points_fileName  = sys.argv[4]
-maxLength              = float(sys.argv[5])
-slope_min              = float(sys.argv[6])
-wbd8_clp_filename      = sys.argv[7]
-lakes_filename         = sys.argv[8]
-lakes_buffer_input     = float(sys.argv[9])
+wbd8_clp_filename      = sys.argv[5]
+lakes_filename         = sys.argv[6]
+max_length             = float(environ['max_split_distance_meters'])
+slope_min              = float(environ['slope_min'])
+lakes_buffer_input     = float(environ['lakes_buffer_dist_meters'])
 
 wbd = gpd.read_file(wbd8_clp_filename)
 
@@ -80,7 +80,7 @@ if lakes is not None:
       lakes_buffer = lakes.copy()
       lakes_buffer['geometry'] = lakes.buffer(lakes_buffer_input) # adding X meter buffer for spatial join comparison (currently using 20meters)
 
-print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(maxLength) + ' m max length')
+print ('splitting ' + str(len(flows)) + ' stream segments based on ' + str(max_length) + ' m max length')
 
 # remove empty geometries
 flows = flows.loc[~flows.is_empty,:]
@@ -93,8 +93,8 @@ for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
     if lineString.length == 0:
         continue
 
-    # existing reaches of less than maxLength
-    if lineString.length < maxLength:
+    # existing reaches of less than max_length
+    if lineString.length < max_length:
         split_flows = split_flows + [lineString]
         line_points = [point for point in zip(*lineString.coords.xy)]
 
@@ -107,7 +107,7 @@ for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
         slopes = slopes + [slope]
         continue
 
-    splitLength = lineString.length / np.ceil(lineString.length / maxLength)
+    splitLength = lineString.length / np.ceil(lineString.length / max_length)
 
     cumulative_line = []
     line_points = []
