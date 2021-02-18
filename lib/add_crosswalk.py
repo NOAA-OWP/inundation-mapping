@@ -96,7 +96,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
         output_catchments = input_catchments.merge(crosswalk,on='HydroID')
 
-        if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
+        if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
         output_flows = input_flows.merge(crosswalk,on='HydroID')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
