@@ -127,6 +127,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             to_node = output_flows['To_Node'][stream_index]
             from_node = output_flows['From_Node'][stream_index]
 
+            # multiple upstream segments
             if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
                 max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_']) # drainage area would be better than stream order but we would need to calculate
 
@@ -136,11 +137,23 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
                 else:
                     update_id = output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID'].values[0] # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
 
+            # single upstream segments
             elif len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) == 1:
                 update_id = output_flows.loc[output_flows.To_Node==from_node]['HydroID'].item()
 
-            elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID'])>1:
-                update_id = output_flows.loc[output_flows.From_Node==to_node]['HydroID'].item() # get down id instead
+            # no upstream segments; multiple downstream segments
+            elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID']) > 1:
+                max_order = max(output_flows.loc[output_flows.From_Node==to_node]['HydroID']['order_']) # drainage area would be better than stream order but we would need to calculate
+
+                if len(output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID']) == 1:
+                    update_id = output_flows.loc[(output_flows.From_Node==to_node) & (output_flows['order_'] == max_order)]['HydroID'].item()
+
+                else:
+                    update_id = output_flows.loc[(output_flows.From_Node==to_node) & (output_flows['order_'] == max_order)]['HydroID'].values[0] # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
+
+            # no upstream segments; single downstream segment
+            elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID']) == 1:
+                    update_id = output_flows.loc[output_flows.From_Node==to_node]['HydroID'].item()
 
             else:
                 update_id = output_flows.loc[output_flows.HydroID==short_id]['HydroID'].item()
