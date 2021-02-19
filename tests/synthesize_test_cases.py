@@ -8,10 +8,7 @@ import json
 import csv
 
 from run_test_case import run_alpha_test
-
-TEST_CASES_DIR = r'/data/test_cases_new/'  # TODO remove "_new"
-PREVIOUS_FIM_DIR = r'/data/previous_fim'
-OUTPUTS_DIR = r'/data/outputs'
+from utils import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR
 
 
 def create_master_metrics_csv(master_metrics_csv_output):

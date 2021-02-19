@@ -4,8 +4,112 @@ import os
 import json
 import csv
 
-from utils.shared_variables import (TEST_CASES_DIR, INPUTS_DIR, PRINTWORTHY_STATS, GO_UP_STATS, GO_DOWN_STATS,
+from utils.shared_variables import (TEST_CASES_DIR, PRINTWORTHY_STATS, GO_UP_STATS, GO_DOWN_STATS,
                                     ENDC, TGREEN_BOLD, TGREEN, TRED_BOLD, TWHITE, WHITE_BOLD, CYAN_BOLD)
+
+def check_for_regression(stats_json_to_test, previous_version, previous_version_stats_json_path, regression_test_csv=None):
+
+    difference_dict = {}
+
+    # Compare stats_csv to previous_version_stats_file
+    stats_dict_to_test = json.load(open(stats_json_to_test))
+    previous_version_stats_dict = json.load(open(previous_version_stats_json_path))
+
+    for stat, value in stats_dict_to_test.items():
+        previous_version_value = previous_version_stats_dict[stat]
+        stat_value_diff = value - previous_version_value
+        difference_dict.update({stat + '_diff': stat_value_diff})
+
+    return difference_dict
+
+
+def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_raster_path, agreement_raster=None, stats_csv=None, stats_json=None, mask_values=None, stats_modes_list=['total_area'], test_id='', mask_dict={}):
+    """
+    This function contains FIM-specific logic to prepare raster datasets for use in the generic get_contingency_table_from_binary_rasters() function.
+    This function also calls the generic compute_stats_from_contingency_table() function and writes the results to CSV and/or JSON, depending on user input.
+
+    Args:
+        predicted_raster_path (str): The path to the predicted, or modeled, FIM extent raster.
+        benchmark_raster_path (str): The path to the benchmark, or truth, FIM extent raster.
+        agreement_raster (str): Optional. An agreement raster will be written to this path. 0: True Negatives, 1: False Negative, 2: False Positive, 3: True Positive.
+        stats_csv (str): Optional. Performance statistics will be written to this path. CSV allows for readability and other tabular processes.
+        stats_json (str): Optional. Performance statistics will be written to this path. JSON allows for quick ingestion into Python dictionary in other processes.
+
+    Returns:
+        stats_dictionary (dict): A dictionary of statistics produced by compute_stats_from_contingency_table(). Statistic names are keys and statistic values are the values.
+    """
+
+    # Get cell size of benchmark raster.
+    raster = rasterio.open(predicted_raster_path)
+    t = raster.transform
+    cell_x = t[0]
+    cell_y = t[4]
+    cell_area = abs(cell_x*cell_y)
+
+    # Get contingency table from two rasters.
+    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, mask_dict=mask_dict)
+
+    stats_dictionary = {}
+
+    for stats_mode in contingency_table_dictionary:
+        true_negatives = contingency_table_dictionary[stats_mode]['true_negatives']
+        false_negatives = contingency_table_dictionary[stats_mode]['false_negatives']
+        false_positives = contingency_table_dictionary[stats_mode]['false_positives']
+        true_positives = contingency_table_dictionary[stats_mode]['true_positives']
+        masked_count = contingency_table_dictionary[stats_mode]['masked_count']
+        file_handle = contingency_table_dictionary[stats_mode]['file_handle']
+
+        # Produce statistics from continency table and assign to dictionary. cell_area argument optional (defaults to None).
+        mode_stats_dictionary = compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area, masked_count)
+
+        # Write the mode_stats_dictionary to the stats_csv.
+        if stats_csv != None:
+            stats_csv = os.path.join(os.path.split(stats_csv)[0], file_handle + '_stats.csv')
+            df = pd.DataFrame.from_dict(mode_stats_dictionary, orient="index", columns=['value'])
+            df.to_csv(stats_csv)
+
+        # Write the mode_stats_dictionary to the stats_json.
+        if stats_json != None:
+            stats_json = os.path.join(os.path.split(stats_csv)[0], file_handle + '_stats.json')
+            with open(stats_json, "w") as outfile:
+                json.dump(mode_stats_dictionary, outfile)
+
+        stats_dictionary.update({stats_mode: mode_stats_dictionary})
+
+    return stats_dictionary
+
+def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
+    """
+    This function searches multiple directories and locates previously produced performance statistics.
+
+    Args:
+        archive_to_check (str): The directory path to search.
+        magnitude (str): Because a benchmark dataset may have multiple magnitudes, this argument defines
+                               which magnitude is to be used when searching for previous statistics.
+    Returns:
+        archive_dictionary (dict): A dictionary of available statistics for previous versions of the domain and magnitude.
+                                  {version: {agreement_raster: agreement_raster_path, stats_csv: stats_csv_path, stats_json: stats_json_path}}
+                                  *Will only add the paths to files that exist.
+
+    """
+
+    archive_dictionary = {}
+
+    # List through previous version and check for available stats and maps. If available, add to dictionary.
+    available_versions_list = os.listdir(archive_to_check)
+
+    if len(available_versions_list) == 0:
+        print("Cannot compare with -c flag because there are no data in the previous_versions directory.")
+        return
+
+    for version in available_versions_list:
+        version_magnitude_dir = os.path.join(archive_to_check, version, magnitude)
+        stats_json = os.path.join(version_magnitude_dir, stats_mode + '_stats.json')
+
+        if os.path.exists(stats_json):
+            archive_dictionary.update({version: {'stats_json': stats_json}})
+
+    return archive_dictionary
 
 
 def compare_to_previous(benchmark_category, test_id, stats_modes_list, magnitude, version, test_version_dictionary, version_test_case_dir):
