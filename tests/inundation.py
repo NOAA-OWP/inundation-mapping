@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import numpy as np
 import pandas as pd
 from numba import njit, typeof, typed, types
@@ -456,11 +457,13 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                          'HydroID':str,'stage':float,
                                          'discharge_cms':float,'LakeID' : int}
                                 )
+
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
+
         hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
 
         if hydroTable.empty:
-            print ("All stream segments in this HUC are within lake boundaries.")
+            print ("All stream segments in HUC are within lake boundaries.")
             sys.exit(0)
 
     elif isinstance(hydroTable,pd.DataFrame):
