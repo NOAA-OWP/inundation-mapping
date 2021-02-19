@@ -10,7 +10,7 @@ Rating curves for short stream segments are replaced with rating curves from ups
  - Short stream segments are identified and are reassigned the channel geometry from upstream/downstream segment.
  - `fossid` renamed to `fimid` and the attribute's starting value is now 1000 to avoid HydroIDs with leading zeroes.
  - Addresses issue where HydroIDs were not included in final hydrotable.
- - Added `import sys` to inundation.py (missing from previous feature branch).
+ - Added `import sys` to `inundation.py` (missing from previous feature branch).
  - Variable names and general workflow are cleaned up.
 
 <br/><br/>
