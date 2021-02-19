@@ -7,7 +7,6 @@ Required Arguments:
         hydro_id       = name of ID column (string)
 '''
 import sys
-import datetime
 import pandas as pd
 import argparse
 import geopandas as gpd
