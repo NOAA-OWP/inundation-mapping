@@ -218,7 +218,10 @@ if __name__ == '__main__':
     if fim_version != "all":
         previous_fim_list = [fim_version]
     else:
-        previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
+        if config == 'PREV':
+            previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
+        elif config == 'DEV':
+            previous_fim_list = os.listdir(OUTPUTS_DIR)
     
     # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
     if config == 'PREV':
@@ -261,9 +264,14 @@ if __name__ == '__main__':
                                                 
                         # For previous versions of HAND computed at HUC6 scale
                         if not os.path.exists(fim_run_dir):
-                            fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])  
+                            if config == 'DEV':
+                                fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
+                                print(fim_run_dir)
+                            elif config == 'PREV':
+                                fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])  
                         
                         if os.path.exists(fim_run_dir):
+                            
                             # If a user supplies a specia_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
@@ -277,7 +285,6 @@ if __name__ == '__main__':
                                 continue
                         
                             # Either add to list to multiprocess or process serially, depending on user specification.
-                            print("Adding " + test_id + " to list of test_ids to process...")
                             if job_number > 1:
                                 procs_list.append([fim_run_dir, version, test_id, magnitude, archive_results, overwrite])
                             else:                            
