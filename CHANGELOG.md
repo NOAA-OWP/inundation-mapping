@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.4.4 - 2021-02-19 - [PR #266](https://github.com/NOAA-OWP/cahaba/pull/266)
+
+Rating curves for short stream segments are replaced with rating curves from upstream/downstream segments.
+
+### Changes
+
+ - Short stream segments are identified and are reassigned the channel geometry from upstream/downstream segment.
+ - `fossid` renamed to `fimid` and the attribute's starting value is now 1000 to avoid HydroIDs with leading zeroes.
+ - Addresses issue where HydroIDs were not included in final hydrotable.
+ - Added `import sys` to `inundation.py` (missing from previous feature branch).
+ - Variable names and general workflow are cleaned up.
+
+<br/><br/>
 ## v3.0.4.3 - 2021-02-12 - [PR #254](https://github.com/NOAA-OWP/cahaba/pull/254)
 
 Modified `rem.py` with a new function to output HAND reference elev.

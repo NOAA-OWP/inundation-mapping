@@ -21,13 +21,13 @@ NHD_VECTOR_EXTRACTION_PREFIX = 'NHDPLUS_H_'
 NHD_VECTOR_EXTRACTION_SUFFIX = '_HU4_GDB.zip'
 
 # -- Field Names -- #
-FOSS_ID = 'fossid'
+FIM_ID = 'fimid'
 
 # -- Other -- #
-CONUS_STATE_LIST = {"AL", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA", 
-                    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", 
-                    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", 
-                    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "PR", "RI", "SC", 
+CONUS_STATE_LIST = {"AL", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
+                    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+                    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+                    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "PR", "RI", "SC",
                     "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"}
 
 OVERWRITE_WBD = 'OVERWRITE_WBD'
