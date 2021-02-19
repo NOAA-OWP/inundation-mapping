@@ -46,6 +46,7 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, j
             # Check if necessary data exist; set exit_flag to True if they don't exist.
             for f in [rem, catchments, hydroTable]:
                 if not os.path.exists(f):
+                    print(f)
                     no_data_list.append(f)
                     exit_flag = True
                     
@@ -62,7 +63,6 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, j
             
             # Loop through AHPS sites.
             for ahps_site in ahps_site_dir_list:
-                
                 # Map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj).
                 ahps_site_parent = os.path.join(ahps_site_dir, ahps_site)
                 thresholds_dir_list = os.listdir(ahps_site_parent)
@@ -72,17 +72,17 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, j
                 if not os.path.exists(cat_fim_huc_ahps_dir):
                     os.mkdir(cat_fim_huc_ahps_dir)
                         
-                    # Loop through thresholds/magnitudes and define inundation output files paths
-                    for magnitude in thresholds_dir_list:
-                        if "." not in magnitude:
-                            magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
-                            if os.path.exists(magnitude_flows_csv):                                
-                                output_extent_shapefile = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.shp')
-                                output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
-                                output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
-                                
-                                # Append necessary variables to list for multiprocessing.
-                                procs_list.append([rem, catchments, catchment_poly, magnitude_flows_csv, huc, hydroTable, output_extent_shapefile, output_extent_grid, output_depth_grid, ahps_site, magnitude])
+                # Loop through thresholds/magnitudes and define inundation output files paths
+                for magnitude in thresholds_dir_list:
+                    if "." not in magnitude:
+                        magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
+                        if os.path.exists(magnitude_flows_csv):
+                            output_extent_shapefile = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.shp')
+                            output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
+                            output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
+                            
+                            # Append necessary variables to list for multiprocessing.
+                            procs_list.append([rem, catchments, catchment_poly, magnitude_flows_csv, huc, hydroTable, output_extent_shapefile, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_dir])
     # Initiate multiprocessing.                                    
     pool = Pool(job_number)
     pool.map(run_inundation, procs_list)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Inundation mapping and regression analysis for FOSS FIM. Regression analysis results are stored in the test directory.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-s', '--source-flow-dir',help='Path to directory containing flow CSVs to use to generate categorical FIM.',required=True, default="")
-    parser.add_argument('-s', '--output-cat-fim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
+    parser.add_argument('-o', '--output-cat-fim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
     parser.add_argument('-j','--job-number',help='Number of processes to use. Default is 1.',required=False, default="1")
     
     args = vars(parser.parse_args())
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     fim_run_dir = args['fim_run_dir']
     source_flow_dir = args['source_flow_dir']
     output_cat_fim_dir = args['output_cat_fim_dir']
-    job_number = args['job_number']
+    job_number = int(args['job_number'])
     
     generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, job_number)
     
