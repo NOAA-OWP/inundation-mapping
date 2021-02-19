@@ -6,6 +6,8 @@
 __pycache__/
 config/**
 !config/*template*
+!config/*default*
+!config/*calibrated*
 !config/symbology/
 *.zip
 manuscripts/**/owp_fim3.pdf
@@ -14,3 +16,4 @@ manuscripts/**/*.log
 manuscripts/**/*.bbl
 manuscripts/**/*.blg
 manuscripts/**/prev
+.vscode/
