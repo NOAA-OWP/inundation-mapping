@@ -26,7 +26,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         if overwrite == True:
             shutil.rmtree(version_test_case_dir_parent)
         else:
-            print("Metrics for ({version}: {test_id}) already exist. Set overwrite flag (-o) to True to overwrite metrics.".format(version=version, test_id=test_id))
+            print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.".format(version=version, test_id=test_id))
             return
         
     os.mkdir(version_test_case_dir_parent)
