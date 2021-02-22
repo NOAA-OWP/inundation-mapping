@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.5.0 - 2021-02-22 - [PR #267](https://github.com/NOAA-OWP/cahaba/pull/267)
+
+Enhancements to allow for evaluation at AHPS sites, the generation of a query-optimized metrics CSV, and the generation of categorical FIM. This merge requires that the `/test_cases` directory be updated for all machines performing evaluation.
+
+### Additions
+
+ - `generate_categorical_fim.py` was added to allow production of NWS Flood Categorical HAND FIM (CatFIM) source data. More changes on this script are to follow in subsequent branches.
+
+### Removals
+
+ - `ble_autoeval.sh` and `all_ble_stats_comparison.py` were deleted because `synthesize_test_cases.py` now handles the merging of metrics.
+ - The code block in `run_test_case.py` that was responsible for printing the colored metrics to screen has been commented out because of the new scale of evaluations (formerly in `run_test_case.py`, now in `shared_functions.py`)
+ - Remove unused imports from inundation wrappers in `/tools`.
+
+### Changes
+
+ - Updated `synthesize_test_cases.py` to allow for AHPS site evaluations.
+ - Reorganized `run_test_case.py` by moving more functions into `shared_functions.py`.
+ - Created more shared variables in `shared_variables.py` and updated import statements in relevant scripts.
+
+<br/><br/>
+
 ## v3.0.4.4 - 2021-02-19 - [PR #266](https://github.com/NOAA-OWP/cahaba/pull/266)
 
 Rating curves for short stream segments are replaced with rating curves from upstream/downstream segments.
