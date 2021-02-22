@@ -6,7 +6,7 @@ import shutil
 import argparse
 
 from utils.shared_functions import compute_contingency_stats_from_rasters
-from utils.shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD)
+from utils.shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
 
 
@@ -91,7 +91,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
             os.mkdir(version_test_case_dir)
     
         # Construct path to validation raster and forecast file.
-        if benchmark_category in ['usgs', 'nws']:
+        if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
             benchmark_raster_path_list, forecast_list = [], []
             lid_dir_list = os.listdir(os.path.join(validation_data_path, current_huc))
             lid_list, inundation_raster_list, extent_file_list = [], [], []
@@ -121,8 +121,8 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
             forecast = forecast_list[index]
             inundation_raster = inundation_raster_list[index]
             
-            # Only need to define ahps_lid and ahps_extent_file for usgs and nwm benchmark categories.
-            if benchmark_category in ['usgs', 'nws']:
+            # Only need to define ahps_lid and ahps_extent_file for AHPS_BENCHMARK_CATEGORIES.
+            if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
                 ahps_lid = lid_list[index]
                 ahps_extent_file = extent_file_list[index]
                 mask_dict.update({ahps_lid:
@@ -133,7 +133,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_extent_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
-            else:  # If not usgs or nws benchmark categories.
+            else:  # If not in AHPS_BENCHMARK_CATEGORIES.
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
     
@@ -150,7 +150,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                 predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
         
                 # Define outputs for agreement_raster, stats_json, and stats_csv.
-                if benchmark_category in ['usgs', 'nws']:
+                if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
                     agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
                 else:
                     agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
@@ -166,14 +166,23 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                                                        mask_dict=mask_dict,
                                                        )
         
-                if benchmark_category in ['usgs', 'nws']:
-                            del mask_dict[ahps_lid]
+                if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
+                    del mask_dict[ahps_lid]
                 
                 print(" ")
                 print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
                 print(" ")
             except Exception as e:
-                print(e)            
+                print(e)      
+        
+        if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
+            # -- Delete temp files -- #
+            # List all files in the output directory.
+            output_file_list = os.listdir(version_test_case_dir)
+            for output_file in output_file_list:
+                if "total_area" in output_file:
+                    full_output_file_path = os.path.join(version_test_case_dir, output_file)
+                    os.remove(full_output_file_path)
 
 
 if __name__ == '__main__':

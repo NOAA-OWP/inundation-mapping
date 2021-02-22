@@ -79,6 +79,7 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
 
     return stats_dictionary
 
+
 def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
     """
     This function searches multiple directories and locates previously produced performance statistics.

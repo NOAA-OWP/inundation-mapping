@@ -14,7 +14,7 @@ hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WB
 mask_type, catchment_poly = 'huc', ''
     
 
-def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, job_number):
+def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, job_number, gpkg, extif, depthtif):
     
     # Create output directory and log directory.
     if not os.path.exists(output_cat_fim_dir):
@@ -77,12 +77,21 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, j
                     if "." not in magnitude:
                         magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
                         if os.path.exists(magnitude_flows_csv):
-                            output_extent_shapefile = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.shp')
-                            output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
-                            output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
+                            if gpkg:
+                                output_extent_gpkg = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.gpkg')
+                            else:
+                                output_extent_gpkg = None
+                            if extif:
+                                output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
+                            else:
+                                output_extent_grid = None
+                            if depthtif:
+                                output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
+                            else:
+                                output_depth_grid = None
                             
                             # Append necessary variables to list for multiprocessing.
-                            procs_list.append([rem, catchments, catchment_poly, magnitude_flows_csv, huc, hydroTable, output_extent_shapefile, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_dir])
+                            procs_list.append([rem, catchments, catchment_poly, magnitude_flows_csv, huc, hydroTable, output_extent_gpkg, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_dir])
     # Initiate multiprocessing.                                    
     pool = Pool(job_number)
     pool.map(run_inundation, procs_list)
@@ -97,18 +106,18 @@ def run_inundation(args):
     magnitude_flows_csv = args[3]
     huc = args[4]
     hydroTable = args[5]
-    output_extent_shapefile = args[6]
+    output_extent_gpkg = args[6]
     output_extent_grid = args[7]
     output_depth_grid = args[8]
     ahps_site = args[9]
     magnitude = args[10]
     log_dir = args[11]
     
-    print("Running inundation for " + str(os.path.split(os.path.split(output_extent_shapefile)[0])[0]))
+    print("Running inundation for " + str(os.path.split(os.path.split(output_extent_gpkg)[0])[0]))
     try:
         inundate(
                  rem,catchments,catchment_poly,hydroTable,magnitude_flows_csv,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                 subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=output_extent_grid,inundation_polygon=None,
+                 subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=output_extent_grid,inundation_polygon=output_extent_gpkg,
                  depths=output_depth_grid,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
     except Exception:
@@ -126,6 +135,9 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--source-flow-dir',help='Path to directory containing flow CSVs to use to generate categorical FIM.',required=True, default="")
     parser.add_argument('-o', '--output-cat-fim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
     parser.add_argument('-j','--job-number',help='Number of processes to use. Default is 1.',required=False, default="1")
+    parser.add_argument('-gpkg','--write-geopackage',help='Using this option will write a geopackage.',required=False, action='store_true')
+    parser.add_argument('-extif','--write-extent-tiff',help='Using this option will write extent TIFFs. This is the default.',required=False, action='store_true')
+    parser.add_argument('-depthtif','--write-depth-tiff',help='Using this option will write depth TIFFs.',required=False, action='store_true')
     
     args = vars(parser.parse_args())
     
@@ -133,8 +145,11 @@ if __name__ == '__main__':
     source_flow_dir = args['source_flow_dir']
     output_cat_fim_dir = args['output_cat_fim_dir']
     job_number = int(args['job_number'])
+    gpkg = args['write_geopackage']
+    extif = args['write_extent_tiff']
+    depthtif = args['write_depth_tiff']
     
-    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, job_number)
+    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, job_number, gpkg, extif, depthtif)
     
     
     

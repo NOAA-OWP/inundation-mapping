@@ -201,7 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('-j','--job-number',help='Number of processes to use. Default is 1.',required=False, default="1")
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
-    parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False)
+    parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
         
     # Assign variables from arguments.
