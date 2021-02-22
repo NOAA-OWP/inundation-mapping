@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.5.1 - 2021-02-22
+
+Fixed `TEST_CASES_DIR` path in `tests/utils/shared_variables.py`.
+
+### Changes
+
+ - Removed `"_new"` from `TEST_CASES_DIR` variable.
+
 ## v3.0.5.0 - 2021-02-22 - [PR #267](https://github.com/NOAA-OWP/cahaba/pull/267)
 
 Enhancements to allow for evaluation at AHPS sites, the generation of a query-optimized metrics CSV, and the generation of categorical FIM. This merge requires that the `/test_cases` directory be updated for all machines performing evaluation.
