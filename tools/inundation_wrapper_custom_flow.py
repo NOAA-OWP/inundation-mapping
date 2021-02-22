@@ -8,17 +8,11 @@
 
 import os
 import sys
-import pandas as pd
-import geopandas as gpd
-import rasterio
-import json
-import csv
 import argparse
 import shutil
 
 # insert python path at runtime for accessing scripts in foss_fim/tests dir (e.g. inundation.py)
 sys.path.insert(1, 'foss_fim/tests')
-from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
 TEST_CASES_DIR = r'/data/inundation_review/inundation_custom_flow/'  # Will update.
