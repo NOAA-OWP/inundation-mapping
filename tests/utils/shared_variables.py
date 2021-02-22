@@ -1,6 +1,6 @@
 import os
 
-TEST_CASES_DIR = r'/data/test_cases_new/'  # TODO remove "_new"
+TEST_CASES_DIR = r'/data/test_cases/'
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
 OUTPUTS_DIR = os.environ['outputDataDir']
 INPUTS_DIR = r'/data/inputs'
