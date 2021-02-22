@@ -2,10 +2,12 @@
 
 Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Weather Service (NWS). This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids, which together are used to produce flood inundation maps (FIM). This repository also includes functionality to generate FIMs as well as tests to evaluate FIM prediction skill.
 
+<br/><br/>
 ## Dependencies
 
 [Docker](https://docs.docker.com/get-docker/)
 
+<br/><br/>
 ## Installation
 
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
@@ -15,35 +17,42 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
     - Linux: `chgrp -R fim <path/to/repository>`
 
+<br/><br/>
 ## Configuration
 
 Software is configurable via parameters found in config directory. Copy files before editing and remove "template" pattern from the filename.
 Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
-- params_template.env
-- mannings_default.json
-    - must change filepath in params_template.env under "manning_n" variable name
-- params_calibrated.env
-    - runs calibrated mannings parameters from mannings_calibrated.json
+- `params_template.env`
+- `mannings_default.json`
+    - must change filepath in `params_template.env` under "manning_n" variable name
+- `params_calibrated.env`
+    - runs calibrated mannings parameters from `mannings_calibrated.json`
 
+<br/><br/>
 ## Input Data
 
 The following input data sources should be downloaded and preprocessed prior to executing the preprocessing & hydrofabric generation code:
-USACE National Levee Database:
--Access here: https://levees.sec.usace.army.mil/
--Recommend downloading the “Full GeoJSON” file for the area of interest
--Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
-AHPs site locations for MS extent (currently not available to public)
-NHDPlus HR datasets
--Acquire_and_preprocess_inputs.py
--aggregate_nhd_hr_streams.py
-NWM Hydrofabric
--nwm_flows.gpkg (currently not available to public)
--nwm_catchments.gpkg (currently not available to public)
--nwm_lakes.gpkg (currently not available to public)
--nwm_headwaters.gpkg - derived
+### USACE National Levee Database:
+- Access here: https://levees.sec.usace.army.mil/
+- Recommend downloading the “Full GeoJSON” file for the area of interest
+- Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
+- Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 
-NOTE: Some of the input data is not easy to acquire and will need to be shared with outside users. We are currently working on providing this functionality and should be available soon.
+### NHDPlus HR datasets
+- `acquire_and_preprocess_inputs.py`
+- `aggregate_nhd_hr_streams.py`
 
+### AHPs Site Locations for MS Extent (See Note Below)
+
+### NWM Hydrofabric (See Note Below)
+- `nwm_flows.gpkg`
+- `nwm_catchments.gpkg`
+- `nwm_lakes.gpkg`
+- `nwm_headwaters.gpkg`
+
+**NOTE:** We are currently working on a long-term data sharing solution. Until then, please fill out this [Google form](https://docs.google.com/forms/d/e/1FAIpQLSf4jkg3Fcfgl-zTCeuTzKleiM_5tE5qwwUvVUQrjC9DBa7Ulg/viewform) to notify us that you would like to obtain the AHPS Site Locations NWM Hydrofabric.
+
+<br/><br/>
 ## Usage
 
 1. Run Docker Container : `docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <image_name>:<tag>`
@@ -57,8 +66,9 @@ NOTE: Some of the input data is not easy to acquire and will need to be shared w
         i. To run entire domain of available data use one of the `/data/inputs/included_huc[4,6,8].lst` files
     - Outputs can be found under `/data/outputs/<name_your_run>`
 
-## Evaluate FIM output to a Benchmark Dataset
-Once the hydrofabric has been generated from fim_run.sh for, evaluation against a benchmark dataset can be performed using binary contingency statistics. One benchmark dataset that can be used for evaluations are Base Level Engineering studies available on the FEMA Base Flood Elevation Viewer. To acquire FEMA datasets go to the FEMA Base Flood Elevation Viewer (https://webapps.usgs.gov/infrm/estbfe/) and download the file geodatabase and depth grids for a HUC. To perform an evaluation a flow forecast file is required and benchmark grids are preprocessed prior to running run_test_case.py.
+<br/><br/>
+## Evaluate Inundation Map Performance
+Once the hydrofabric has been generated from fim_run.sh for, evaluation against a benchmark dataset can be performed using binary contingency statistics. One benchmark dataset that can be used for evaluations are Base Level Engineering studies available on the FEMA Base Flood Elevation Viewer. To acquire FEMA datasets go to the FEMA Base Flood Elevation Viewer (https://webapps.usgs.gov/infrm/estbfe/) and download the file geodatabase and depth grids for a HUC. To perform an evaluation a flow forecast file is required and benchmark grids are preprocessed prior to running `run_test_case.py`.
 
 1. Flow Forecast File Creation
 `/foss_fim/tests/preprocess/create_flow_forecast_file.py -b <path to BLE geodatabase> -n <path to NWM geodatabase> -o <output directory> -xs <Cross Section layer name in BLE geodatabase> -hu <HUC layer name in BLE geodatabase> -huid <HUC ID field in HUC layer> -l <Stream layer name in NWM geodatabase> -f <feature id field in stream layer of NWM geodatabase>`
@@ -72,6 +82,7 @@ For HUC 12090301, the benchmark datasets (-b) are the 100 year (“BLE_DEP01PCT�
 3. Run hydrologic evaluation (from inside Docker container): `/foss_fim/tests/run_test_case.py -r <fim_run_name/hucID> -b <name_of_test_instance_to_use> -t <test_case_id>`
     - More information can be found by running `/foss_fim/tests/run_test_case.py --help`
 
+<br/><br/>
 ## Dependencies
 
 Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/). To add new dependencies, from the projects's top-level directory:
@@ -90,23 +101,26 @@ and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image 
 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
 
-
+<br/><br/>
 ## Known Issues & Getting Help
 
 Please see the issue tracker on GitHub for known issues and for getting help.
 
+<br/><br/>
 ## Getting Involved
 
 NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
 ----
 
+<br/><br/>
 ## Open Source Licensing Info
 1. [TERMS](TERMS.md)
 2. [LICENSE](LICENSE)
 
 ----
 
+<br/><br/>
 ## Credits and References
 1. Office of Water Prediction [(OWP)](https://water.noaa.gov/)
 2. National Flood Interoperability Experiment [(NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
