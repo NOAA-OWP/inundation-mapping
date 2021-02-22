@@ -2,10 +2,10 @@
 import pandas as pd
 from pathlib import Path
 import argparse
-#from natsort import natsorted
+from natsort import natsorted
 import geopandas as gpd
 from utils.shared_functions import filter_dataframe, boxplot, scatterplot, barplot
-def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False):
+def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False):
 
     '''
     Creates plots and summary statistics for a csv from synthesize_test_cases. The only required inputs are:
@@ -54,8 +54,14 @@ def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , a
     
     #Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv)
-    #Filter out versions based on supplied version list
-    metrics = csv_df.query('version.str.startswith(tuple(@versions))')
+    
+    
+    #If versions are supplied then filter out    
+    if versions:
+        #Filter out versions based on supplied version list
+        metrics = csv_df.query('version.str.startswith(tuple(@versions))')
+    else:
+        metrics = csv_df
     
     ###################################################################
     #To Play With Later, if changing this also experiment with version_order section
@@ -66,11 +72,11 @@ def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , a
     ####################################################################
     
     #Group by benchmark source
-    benchmark_by_source = metrics.groupby('benchmark_source')
+    benchmark_by_source = metrics.groupby(['benchmark_source', 'extent_config'])
 
     #Cycle through each group of data, based on the benchmark source. Perform a further filter so that all desired versions contain same instances of the base_resolution (e.g. for ble: keep all hucs that exist across all desired versions for a given magnitude; for ahps: keep all nws_lid sites that exist across all versions for a given magnitude). Write the final filtered dataset to a new dictionary with the source (key) and tuple (metrics dataframe, contributing sites).
     all_datasets = {}
-    for benchmark_source, benchmark_metrics in benchmark_by_source:        
+    for (benchmark_source, extent_configuration), benchmark_metrics in benchmark_by_source:        
         
         #Split the benchmark source to parent source and subgroup
         source, *subgroup = benchmark_source.split('_')
@@ -93,7 +99,7 @@ def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , a
             ahps_metrics = benchmark_metrics.query(query)
             
             #Filter out all instances where the base_resolution doesn't exist across all desired fim versions.
-            all_datasets[benchmark_source] = filter_dataframe(ahps_metrics, base_resolution)
+            all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(ahps_metrics, base_resolution)
                      
         #If source is 'ble', set base_resolution and append ble dataset to all_datasets dictionary
         if source == 'ble':
@@ -102,13 +108,13 @@ def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , a
             base_resolution = 'huc'
             
             #Filter out all instances where base_resolution doesn't exist across all desired fim versions.
-            all_datasets[benchmark_source] = filter_dataframe(benchmark_metrics, base_resolution)
+            all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(benchmark_metrics, base_resolution)
             
     #For each dataset in all_datasets, generate plots and aggregate statistics.
-    for dataset_name, (dataset, sites) in all_datasets.items():
+    for (dataset_name,configuration), (dataset, sites) in all_datasets.items():
         
         #Define and create the output workspace as a subfolder within the supplied workspace
-        output_workspace = Path(workspace) / dataset_name
+        output_workspace = Path(workspace) / dataset_name / configuration
         output_workspace.mkdir(parents = True, exist_ok = True)         
                 
         #Write out the filtered dataset and common sites to file
@@ -137,16 +143,23 @@ def eval_plots(metrics_csv, workspace, versions, stats = ['CSI','FAR','TPR'] , a
         #Order all versions that start all elements from desired_versions and naturally sort them. This will be the hue order for the generated plots.
         all_versions = list(dataset.version.unique())        
         version_order = []
+        
+        #If versions are not specified then use all available versions and assign to versions_list
+        if not versions:
+            versions_list = all_versions
+        #if versions are supplied assign to versions_list
+        else:
+            versions_list = versions
+        
         #For each version supplied by the user
-        for version in versions:
+        for version in versions_list:
             #Select all the versions that start with the supplied version.
             selected_versions = [sel_version for sel_version in all_versions if sel_version.startswith(version)]
-            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             #Naturally sort selected_versions
-            #selected_versions = natsorted(selected_versions)
+            selected_versions = natsorted(selected_versions)
             #Populate version order based on the sorted subsets.
             version_order.extend(selected_versions)
-
+            
         #Define textbox which will contain the counts of each magnitude.
         textbox = []
         for magnitude in sites:
@@ -228,7 +241,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)')
     parser.add_argument('-m','--metrics_csv', help = 'Metrics csv created from synthesize test cases.', required = True)
     parser.add_argument('-w', '--workspace', help = 'Output workspace', required = True)
-    parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [], required = True)
+    parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
     parser.add_argument('-s', '--stats', help = 'List of statistics (abbrev to 3 letters) to be plotted/aggregated', nargs = '+', default = ['CSI','TPR','FAR'], required = False)
     parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
     parser.add_argument('-sp', '--spatial_ahps', help = 'If spatial point layer is desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
