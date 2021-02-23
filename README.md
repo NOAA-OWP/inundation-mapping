@@ -9,6 +9,7 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 
 [Docker](https://docs.docker.com/get-docker/)
 
+----
 ## Installation
 
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
@@ -18,6 +19,7 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
     - Linux: `chgrp -R fim <path/to/repository>`
 
+----
 ## Configuration
 
 This software is configurable via parameters found in the `config` directory. Copy files before editing and remove "template" pattern from the filename.
@@ -38,7 +40,6 @@ The following input data sources should be downloaded and preprocessed prior to 
 - Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 - Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 
-----
 ### NHDPlus HR datasets
 - `acquire_and_preprocess_inputs.py`
 - `aggregate_nhd_hr_streams.py`
