@@ -48,7 +48,7 @@ The following input data sources should be downloaded and preprocessed prior to 
 - `nwm_lakes.gpkg`
 - `nwm_headwaters.gpkg`
 
-**NOTE:** We are currently working on a long-term data sharing solution. Until then, please contact Brad Bates (bradford.bates@noaa.gov) for data access.
+**Please note:** We are currently working on a long-term data sharing solution. Until then, please contact Brad Bates (bradford.bates@noaa.gov) for data access.
 
 ## Usage
 
@@ -64,7 +64,7 @@ The following input data sources should be downloaded and preprocessed prior to 
     - Outputs can be found under `/data/outputs/<name_your_run>`
 
 ## Evaluating Inundation Map Performance
-After `fim_run.sh` completes, you are ready to evaluate the model's skill. The following information can be used to preprocess the appropriate benchmark data against which model comparisons can be performed. Please note that you will need access to the test_cases benchmark data. Similar to the other non-publicly available datasets, you can acquire the benchmark data from Brad Bates (bradford.bates). (A longer term data sharing solution is in the works).
+After `fim_run.sh` completes, you are ready to evaluate the model's skill. The following information can be used to preprocess the appropriate benchmark data against which model comparisons can be performed. **Please note:** You will need access to the test_cases benchmark data. Similar to the other non-publicly available datasets, you can acquire the benchmark data from Brad Bates (bradford.bates). (A longer term data sharing solution is in the works).
 
 `/foss_fim/tests/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path_to_output_metrics_csv>-j [num_of_jobs]`
     - More information can be found by running `/foss_fim/tests/synthesize_test_cases.py --help`
