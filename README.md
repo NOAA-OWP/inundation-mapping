@@ -121,17 +121,14 @@ If you are on a machine that has a particularly slow internet connection, you ma
 
 Please see the issue tracker on GitHub for known issues and for getting help.
 
-----
 ## Getting Involved
 
 NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
-----
 ## Open Source Licensing Info
 1. [TERMS](TERMS.md)
 2. [LICENSE](LICENSE)
 
-----
 ## Credits and References
 1. Office of Water Prediction [(OWP)](https://water.noaa.gov/)
 2. National Flood Interoperability Experiment [(NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
