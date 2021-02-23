@@ -62,15 +62,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         metrics = csv_df.query('version.str.startswith(tuple(@versions))')
     else:
         metrics = csv_df
-    
-    ###################################################################
-    #To Play With Later, if changing this also experiment with version_order section
-    #versions_joined = '|'.join(versions)
-    #metrics = csv_df.query('version.str.contains(@versions_joined)')
-    #Version order section mod, test this thoroughly seems to create duplicates
-    #selected_versions = [sel_version for sel_version in all_versions if version in sel_version]
-    ####################################################################
-    
+       
     #Group by benchmark source
     benchmark_by_source = metrics.groupby(['benchmark_source', 'extent_config'])
 
@@ -140,17 +132,16 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         #Write aggregated metrics to file.
         dataset_sums.to_csv(output_workspace / f'aggregate_{dataset_name}.csv', index = False )
 
-        #Order all versions that start all elements from desired_versions and naturally sort them. This will be the hue order for the generated plots.
+        #This section naturally orders versions which defines the hue order for the generated plots.
+        #Get all versions in dataset
         all_versions = list(dataset.version.unique())        
-        version_order = []
-        
+        version_order = []        
         #If versions are not specified then use all available versions and assign to versions_list
         if not versions:
             versions_list = all_versions
         #if versions are supplied assign to versions_list
         else:
-            versions_list = versions
-        
+            versions_list = versions        
         #For each version supplied by the user
         for version in versions_list:
             #Select all the versions that start with the supplied version.
