@@ -39,19 +39,18 @@ The following input data sources should be downloaded and preprocessed prior to 
 ### NHDPlus HR datasets
 - `acquire_and_preprocess_inputs.py`
 - `aggregate_nhd_hr_streams.py`
-
-<br/><br/>
+----
 **Please note:** For the following two datasets, please contact Brad Bates (bradford.bates@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
 
-- **NWM Hydrofabric**
-   - `nwm_flows.gpkg`
-   - `nwm_catchments.gpkg`
-   - `nwm_lakes.gpkg`
-   - `nwm_headwaters.gpkg`
+### NWM Hydrofabric
+- `nwm_flows.gpkg`
+- `nwm_catchments.gpkg`
+- `nwm_lakes.gpkg`
+- `nwm_headwaters.gpkg`
 
-- **AHPS Site Locations (For Mainstem Configuration)**
-   - `nws_lid.gpkg`
-   - `ms_segs.gpkg`
+### AHPS Site Locations (For Mainstem Configuration)
+- `nws_lid.gpkg`
+- `ms_segs.gpkg`
 
 ## Usage
 
