@@ -220,9 +220,9 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:,[FIM_ID,'HUC8']],how='left',on=FIM_ID)
 
     if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
-    output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
+    output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID','Median_Thal_Elev_m']],how='left',on='HydroID')
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
-
+    output_hydro_table['Median_Thal_Elev_m'] = output_hydro_table['Median_Thal_Elev_m'].astype(float).round(2)
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
     if output_hydro_table.HUC.dtype != 'str': output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
 

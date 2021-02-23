@@ -111,7 +111,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
 ###############################################
     # Merge and export dictionary to to_csv
     catchment_min_dict_df = pd.DataFrame.from_dict(catchment_min_dict, orient='index') # convert dict to dataframe
-    catchment_min_dict_df.columns = ['Min_Thal_Elev_meters']
+    catchment_min_dict_df.columns = ['Median_Thal_Elev_m']
     catchment_hydroid_dict_df = pd.DataFrame.from_dict(catchment_hydroid_dict, orient='index') # convert dict to dataframe
     catchment_hydroid_dict_df.columns = ['HydroID']
     merge_df = catchment_hydroid_dict_df.merge(catchment_min_dict_df, left_index=True, right_index=True)
@@ -119,7 +119,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     merge_df.to_csv(hand_ref_elev_fileName,index=True) # export dataframe to csv file
 
     # Merge the HAND reference elvation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
-    merge_df = merge_df.groupby(['HydroID']).median() # median value of all Min_Thal_Elev_meters for pixel catchments in each HydroID reach
+    merge_df = merge_df.groupby(['HydroID']).median() # median value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
     input_reaches = gpd.read_file(dem_reaches_filename)
     input_reaches = input_reaches.merge(merge_df, on='HydroID') # merge dataframes by HydroID variable
     input_reaches.to_file(dem_reaches_filename,driver=getDriver(dem_reaches_filename),index=False)

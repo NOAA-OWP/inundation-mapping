@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.5.2 - 2021-02-23
+
+Adding HAND SRC datum elev values to `hydroTable.csv` output
+
+### Changes
+
+ - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in hydroTable.csv
+ - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.)
+
 ## v3.0.5.1 - 2021-02-22
 
 Fixed `TEST_CASES_DIR` path in `tests/utils/shared_variables.py`.
