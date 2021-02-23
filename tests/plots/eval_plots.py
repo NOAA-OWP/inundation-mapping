@@ -79,7 +79,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             #Set the base processing unit for the ahps runs.
             base_resolution = 'nws_lid'
             
-            #Default query (used for APG) it could be that bad_sites should be modified. If so pass an alternate query using the "evaluation_query"
+            #Default query (used for APG) it could be that bad_sites should be modified. If so pass an alternate query using the "alternate_ahps_query"
             bad_sites = ['grfi2','ksdm7','hohn4','rwdn4']
             query = "not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites"
 
