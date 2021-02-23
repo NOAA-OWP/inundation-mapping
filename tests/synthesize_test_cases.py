@@ -57,7 +57,7 @@ def create_master_metrics_csv(master_metrics_csv_output):
                         ]
     
     additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
-    list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config']]
+    list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config'] + ["calibrated"]]
     
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
     
@@ -77,17 +77,20 @@ def create_master_metrics_csv(master_metrics_csv_output):
                     
                     for magnitude in ['100yr', '500yr']:
                         for version in versions_to_aggregate:
-                            if '_fr_' in version:
+                            if '_fr' in version:
                                 extent_config = 'FR'
-                            if '_ms_' in version:
+                            if '_ms' in version:
                                 extent_config = 'MS'
-                            if '_fr_' or '_ms_' not in version:
+                            if '_fr' or '_ms' not in version:
                                 extent_config = 'FR'
+                            if "_c" in version:
+                                calibrated = "yes"
                             version_dir = os.path.join(official_versions, version)
                             magnitude_dir = os.path.join(version_dir, magnitude)
 
+                            print(magnitude_dir)
                             if os.path.exists(magnitude_dir):
-                                
+                                print("Hey")
                                 magnitude_dir_list = os.listdir(magnitude_dir)
                                 for f in magnitude_dir_list:
                                     if '.json' in f:
@@ -97,6 +100,7 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                         sub_list_to_append = [version, nws_lid, magnitude, huc]
                                         full_json_path = os.path.join(magnitude_dir, f)
                                         if os.path.exists(full_json_path):
+                                            print("yo")
                                             stats_dict = json.load(open(full_json_path))
                                             for metric in metrics_to_write:
                                                 sub_list_to_append.append(stats_dict[metric])
@@ -104,6 +108,7 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                             sub_list_to_append.append(flow)
                                             sub_list_to_append.append(benchmark_source)
                                             sub_list_to_append.append(extent_config)
+                                            sub_list_to_append.append(calibrated)
                                             
                                             list_to_write.append(sub_list_to_append)
                 except ValueError:
@@ -121,12 +126,14 @@ def create_master_metrics_csv(master_metrics_csv_output):
                     
                     for magnitude in ['action', 'minor', 'moderate', 'major']:
                         for version in versions_to_aggregate:
-                            if '_fr_' in version:
+                            if '_fr' in version:
                                 extent_config = 'FR'
-                            if '_ms_' in version:
+                            if '_ms' in version:
                                 extent_config = 'MS'
-                            if '_fr_' or '_ms_' not in version:
+                            if '_fr' or '_ms' not in version:
                                 extent_config = 'FR'
+                            if "_c" in version:
+                                calibrated = "yes"
                                 
                             version_dir = os.path.join(official_versions, version)
                             magnitude_dir = os.path.join(version_dir, magnitude)
@@ -159,6 +166,7 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                             sub_list_to_append.append(flow)
                                             sub_list_to_append.append(benchmark_source)
                                             sub_list_to_append.append(extent_config)
+                                            sub_list_to_append.append(calibrated)
                                             
                                             list_to_write.append(sub_list_to_append)
                 except ValueError:

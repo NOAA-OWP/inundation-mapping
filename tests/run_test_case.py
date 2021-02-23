@@ -103,11 +103,6 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                 lid_list.append(lid)
                 inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
                 extent_file_list.append(os.path.join(lid_dir, lid + '_extent.shp'))
-                    
-            ahps_inclusion_zones_dir = os.path.join(version_test_case_dir_parent, 'ahps_domains')
-            
-            if not os.path.exists(ahps_inclusion_zones_dir):
-                os.mkdir(ahps_inclusion_zones_dir)
 
         else:
             benchmark_raster_file = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
