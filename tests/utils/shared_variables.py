@@ -1,5 +1,6 @@
 import os
 
+# Environmental variables and constants.
 TEST_CASES_DIR = r'/data/test_cases/'
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
 OUTPUTS_DIR = os.environ['outputDataDir']
@@ -10,7 +11,7 @@ GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP
 GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc']
 
 
-
+# Colors.
 ENDC = '\033[m'
 TGREEN_BOLD = '\033[32;1m'
 TGREEN = '\033[32m'
