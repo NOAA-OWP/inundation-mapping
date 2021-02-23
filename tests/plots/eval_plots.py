@@ -54,8 +54,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     
     #Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv)
-    
-    
+        
     #If versions are supplied then filter out    
     if versions:
         #Filter out versions based on supplied version list
@@ -69,12 +68,9 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     #Cycle through each group of data, based on the benchmark source. Perform a further filter so that all desired versions contain same instances of the base_resolution (e.g. for ble: keep all hucs that exist across all desired versions for a given magnitude; for ahps: keep all nws_lid sites that exist across all versions for a given magnitude). Write the final filtered dataset to a new dictionary with the source (key) and tuple (metrics dataframe, contributing sites).
     all_datasets = {}
     for (benchmark_source, extent_configuration), benchmark_metrics in benchmark_by_source:        
-        
-        #Split the benchmark source to parent source and subgroup
-        source, *subgroup = benchmark_source.split('_')
-        
+                
         #If source is 'ahps' set the base resolution and additional query (use alternate query if passed). Append filtered datasets to all_datasets dictionary.
-        if source == 'ahps':
+        if benchmark_source in ['usgs','nws']:
             
             #Set the base processing unit for the ahps runs.
             base_resolution = 'nws_lid'
@@ -94,7 +90,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(ahps_metrics, base_resolution)
                      
         #If source is 'ble', set base_resolution and append ble dataset to all_datasets dictionary
-        if source == 'ble':
+        elif benchmark_source == 'ble':
             
             #Set the base processing unit for ble runs
             base_resolution = 'huc'
@@ -118,7 +114,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         if dataset_name == 'ble':
             magnitude_order = ['100yr', '500yr']
             base_resolution = 'huc'
-        elif 'ahps' in dataset_name:
+        elif dataset_name in ['usgs','nws']:
             magnitude_order = ['action','minor','moderate','major']
             base_resolution = 'nws_lid'
 
