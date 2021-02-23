@@ -66,11 +66,14 @@ The following input data sources should be downloaded and preprocessed prior to 
     - Outputs can be found under `/data/outputs/<name_your_run>`
 
 ## Evaluating Inundation Map Performance
-After `fim_run.sh` completes, you are ready to evaluate the model's skill. **Please note:** You will need access to the test_cases benchmark data. Similar to the other non-publicly available datasets, you can acquire the benchmark data from Brad Bates (bradford.bates). (A longer term data sharing solution is in the works).
+After `fim_run.sh` completes, you are ready to evaluate the model's skill.
 
-`/foss_fim/tests/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path_to_output_metrics_csv> -j [num_of_jobs]`
+**Please note:** You will need access to the test_cases benchmark data. Similar to the other non-publicly available datasets, you can acquire the benchmark data from Brad Bates (bradford.bates@noaa.gov). (A longer term data sharing solution is in the works).
 
-More information can be found by running `/foss_fim/tests/synthesize_test_cases.py --help`
+To evaluate model skill, run the following:
+`python /foss_fim/tests/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs]`
+
+More information can be found by running `python /foss_fim/tests/synthesize_test_cases.py --help`
 
 ## Dependencies
 
