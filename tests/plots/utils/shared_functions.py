@@ -87,6 +87,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     #If figure to be saved to disk, then do so, otherwise return figure
     if dest_file:
         fig.savefig(dest_file)
+        plt.close(fig)
     else:
         return fig
 
@@ -160,6 +161,7 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
     #If figure to be saved to disk, then do so, otherwise return fig
     if dest_file:
         fig.savefig(dest_file)
+        plt.close(fig)
     else:
         return fig
 #########################################################################
@@ -251,6 +253,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     #If figure to be saved to disk, then do so, otherwise return fig
     if dest_file:
         fig.savefig(dest_file)
+        plt.close(fig)
     else:
         return fig
 #######################################################################
