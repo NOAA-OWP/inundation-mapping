@@ -4,12 +4,10 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids, which together are used to produce flood inundation maps (FIMs). This repository also includes functionality to generate FIMs and tests to evaluate FIM prediction skill.
 
-----
 ## Dependencies
 
 [Docker](https://docs.docker.com/get-docker/)
 
-----
 ## Installation
 
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
@@ -19,7 +17,6 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
     - Linux: `chgrp -R fim <path/to/repository>`
 
-----
 ## Configuration
 
 This software is configurable via parameters found in the `config` directory. Copy files before editing and remove "template" pattern from the filename.
