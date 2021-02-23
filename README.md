@@ -33,8 +33,7 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 The following input data sources should be downloaded and preprocessed prior to executing the preprocessing & hydrofabric generation code:
 ### USACE National Levee Database:
 - Access here: https://levees.sec.usace.army.mil/
-- Recommend downloading the “Full GeoJSON” file for the area of interest
-- Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
+- Download the “Full GeoJSON” file for the area of interest
 - Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 
 ### NHDPlus HR datasets
