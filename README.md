@@ -67,7 +67,7 @@ docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <i
 - Please run `/foss_fim/lib/acquire_and_preprocess_inputs.py --help` for more information.
 - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 
-### Aggregate NHD HR streams and create NWM headwater points 
+### Aggregate NHDHR Streams and Create NWM Headwater Points 
 ```
 /foss_fim/lib/aggregate_vector_inputs.py
 ```
