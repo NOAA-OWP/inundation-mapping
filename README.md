@@ -19,7 +19,7 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 
 ## Configuration
 
-This software is configurable via parameters found in `config` directory. Copy files before editing and remove "template" pattern from the filename.
+This software is configurable via parameters found in the `config` directory. Copy files before editing and remove "template" pattern from the filename.
 Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
 - `params_template.env`
 - `mannings_default.json`
