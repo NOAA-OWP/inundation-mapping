@@ -7,7 +7,7 @@ import json
 import csv
 
 from run_test_case import run_alpha_test
-from utils.shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR
+from utils.shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES
 
 
 def create_master_metrics_csv(master_metrics_csv_output):
@@ -79,18 +79,18 @@ def create_master_metrics_csv(master_metrics_csv_output):
                         for version in versions_to_aggregate:
                             if '_fr' in version:
                                 extent_config = 'FR'
-                            if '_ms' in version:
+                            elif '_ms' in version:
                                 extent_config = 'MS'
-                            if '_fr' or '_ms' not in version:
+                            else:
                                 extent_config = 'FR'
-                            if "_c" in version:
+                            if "_c" in version and version.split('_c')[1] == "":
                                 calibrated = "yes"
+                            else:
+                                calibrated = "no"
                             version_dir = os.path.join(official_versions, version)
                             magnitude_dir = os.path.join(version_dir, magnitude)
 
-                            print(magnitude_dir)
                             if os.path.exists(magnitude_dir):
-                                print("Hey")
                                 magnitude_dir_list = os.listdir(magnitude_dir)
                                 for f in magnitude_dir_list:
                                     if '.json' in f:
@@ -100,7 +100,6 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                         sub_list_to_append = [version, nws_lid, magnitude, huc]
                                         full_json_path = os.path.join(magnitude_dir, f)
                                         if os.path.exists(full_json_path):
-                                            print("yo")
                                             stats_dict = json.load(open(full_json_path))
                                             for metric in metrics_to_write:
                                                 sub_list_to_append.append(stats_dict[metric])
@@ -114,30 +113,31 @@ def create_master_metrics_csv(master_metrics_csv_output):
                 except ValueError:
                     pass
                 
-        if benchmark_source in ['nws', 'usgs']:
-            test_cases_list = os.listdir(TEST_CASES_DIR)
+        if benchmark_source in AHPS_BENCHMARK_CATEGORIES:
+            test_cases_list = os.listdir(benchmark_test_case_dir)
 
             for test_case in test_cases_list:
                 try:
                     int(test_case.split('_')[0])
                     
                     huc = test_case.split('_')[0]
-                    official_versions = os.path.join(benchmark_test_case_dir, test_case, 'performance_archive', 'previous_versions')
+                    official_versions = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                     
                     for magnitude in ['action', 'minor', 'moderate', 'major']:
                         for version in versions_to_aggregate:
                             if '_fr' in version:
                                 extent_config = 'FR'
-                            if '_ms' in version:
+                            elif '_ms' in version:
                                 extent_config = 'MS'
-                            if '_fr' or '_ms' not in version:
+                            else:
                                 extent_config = 'FR'
-                            if "_c" in version:
+                            if "_c" in version and version.split('_c')[1] == "":
                                 calibrated = "yes"
+                            else:
+                                calibrated = "no"
                                 
                             version_dir = os.path.join(official_versions, version)
                             magnitude_dir = os.path.join(version_dir, magnitude)
-                            
                             if os.path.exists(magnitude_dir):
                                 magnitude_dir_list = os.listdir(magnitude_dir)
                                 for f in magnitude_dir_list:
@@ -210,7 +210,7 @@ if __name__ == '__main__':
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
-        
+    
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     config = args['config']
@@ -220,6 +220,10 @@ if __name__ == '__main__':
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
     master_metrics_csv = args['master_metrics_csv']
+    
+    if overwrite:
+        if input("Are you sure you want to overwrite metrics? y/n: ") == "n":
+            quit
         
     # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
     if fim_version != "all":
@@ -273,7 +277,6 @@ if __name__ == '__main__':
                         if not os.path.exists(fim_run_dir):
                             if config == 'DEV':
                                 fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
-                                print(fim_run_dir)
                             elif config == 'PREV':
                                 fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])  
                         
