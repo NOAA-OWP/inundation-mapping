@@ -4,6 +4,7 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids, which together are used to produce flood inundation maps (FIMs). This repository also includes functionality to generate FIMs and tests to evaluate FIM prediction skill.
 
+----
 ## Dependencies
 
 [Docker](https://docs.docker.com/get-docker/)
@@ -27,6 +28,7 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 - `params_calibrated.env`
     - runs calibrated mannings parameters from `mannings_calibrated.json`
 
+----
 ## Input Data
 
 The following input data sources should be downloaded and preprocessed prior to executing the preprocessing & hydrofabric generation code:
@@ -36,10 +38,11 @@ The following input data sources should be downloaded and preprocessed prior to 
 - Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 - Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 
+----
 ### NHDPlus HR datasets
 - `acquire_and_preprocess_inputs.py`
 - `aggregate_nhd_hr_streams.py`
-----
+
 **Please note:** For the following two datasets, please contact Brad Bates (bradford.bates@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
 
 ### NWM Hydrofabric
@@ -52,6 +55,7 @@ The following input data sources should be downloaded and preprocessed prior to 
 - `nws_lid.gpkg`
 - `ms_segs.gpkg`
 
+----
 ## Usage
 
 ### Run Docker Container
@@ -80,7 +84,6 @@ fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_
 - Outputs can be found under ```/data/outputs/<name_your_run>```
 
 ----
-
 ## Evaluating Inundation Map Performance
 After `fim_run.sh` completes, you are ready to evaluate the model's skill.
 
@@ -96,6 +99,7 @@ More information can be found by running:
 python /foss_fim/tests/synthesize_test_cases.py --help
 ```
 
+----
 ## Dependencies
 
 Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/). To add new dependencies, from the projects's top-level directory:
@@ -114,22 +118,22 @@ and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image 
 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
 
+----
 ## Known Issues & Getting Help
 
 Please see the issue tracker on GitHub for known issues and for getting help.
 
+----
 ## Getting Involved
 
 NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
 ----
-
 ## Open Source Licensing Info
 1. [TERMS](TERMS.md)
 2. [LICENSE](LICENSE)
 
 ----
-
 ## Credits and References
 1. Office of Water Prediction [(OWP)](https://water.noaa.gov/)
 2. National Flood Interoperability Experiment [(NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
