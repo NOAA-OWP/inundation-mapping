@@ -48,7 +48,7 @@ The following input data sources should be downloaded and preprocessed prior to 
 - `nwm_lakes.gpkg`
 - `nwm_headwaters.gpkg`
 
-**NOTE:** We are currently working on a long-term data sharing solution. Until then, please fill out this [Google form](https://docs.google.com/forms/d/e/1FAIpQLSf4jkg3Fcfgl-zTCeuTzKleiM_5tE5qwwUvVUQrjC9DBa7Ulg/viewform) to notify us that you would like to obtain the AHPS Site Locations NWM Hydrofabric data.
+**NOTE:** We are currently working on a long-term data sharing solution. Until then, please contact Brad Bates (bradford.bates@noaa.gov) for data access.
 
 ## Usage
 
