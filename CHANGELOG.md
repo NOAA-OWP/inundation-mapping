@@ -13,12 +13,12 @@ Bug fixes to new evaluation code.
 <br/><br/>
 ## v3.0.5.2 - 2021-02-23 - [PR #272](https://github.com/NOAA-OWP/cahaba/pull/272)
 
-Adding HAND SRC datum elev values to `hydroTable.csv` output.
+Adds HAND synthetic rating curve (SRC) datum elevation values to `hydroTable.csv` output.
 
 ### Changes
 
- - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in hydroTable.csv
- - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.)
+ - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.cs`v.
+ - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.).
 
 <br/><br/>
 ## v3.0.5.1 - 2021-02-22
