@@ -1,6 +1,108 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.5.3 - 2021-02-23 - [PR #275](https://github.com/NOAA-OWP/cahaba/pull/275)
+
+Bug fixes to new evaluation code.
+
+### Changes
+
+ - Fixed a bug in `synthesize_test_cases.py` where the extent (MS/FR) was not being written to merged metrics file properly.
+ - Fixed a bug in `synthesize_test_cases.py` where only BLE test cases were being written to merged metrics file.
+ - Removed unused imports from `inundation.py`.
+ - Updated README.md
+
+<br/><br/>
+## v3.0.5.2 - 2021-02-23 - [PR #272](https://github.com/NOAA-OWP/cahaba/pull/272)
+
+Adds HAND synthetic rating curve (SRC) datum elevation values to `hydroTable.csv` output.
+
+### Changes
+
+ - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.cs`v.
+ - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.).
+
+<br/><br/>
+## v3.0.5.1 - 2021-02-22
+
+Fixed `TEST_CASES_DIR` path in `tests/utils/shared_variables.py`.
+
+### Changes
+
+ - Removed `"_new"` from `TEST_CASES_DIR` variable.
+
+<br/><br/>
+## v3.0.5.0 - 2021-02-22 - [PR #267](https://github.com/NOAA-OWP/cahaba/pull/267)
+
+Enhancements to allow for evaluation at AHPS sites, the generation of a query-optimized metrics CSV, and the generation of categorical FIM. This merge requires that the `/test_cases` directory be updated for all machines performing evaluation.
+
+### Additions
+
+ - `generate_categorical_fim.py` was added to allow production of NWS Flood Categorical HAND FIM (CatFIM) source data. More changes on this script are to follow in subsequent branches.
+
+### Removals
+
+ - `ble_autoeval.sh` and `all_ble_stats_comparison.py` were deleted because `synthesize_test_cases.py` now handles the merging of metrics.
+ - The code block in `run_test_case.py` that was responsible for printing the colored metrics to screen has been commented out because of the new scale of evaluations (formerly in `run_test_case.py`, now in `shared_functions.py`)
+ - Remove unused imports from inundation wrappers in `/tools`.
+
+### Changes
+
+ - Updated `synthesize_test_cases.py` to allow for AHPS site evaluations.
+ - Reorganized `run_test_case.py` by moving more functions into `shared_functions.py`.
+ - Created more shared variables in `shared_variables.py` and updated import statements in relevant scripts.
+
+<br/><br/>
+
+## v3.0.4.4 - 2021-02-19 - [PR #266](https://github.com/NOAA-OWP/cahaba/pull/266)
+
+Rating curves for short stream segments are replaced with rating curves from upstream/downstream segments.
+
+### Changes
+
+ - Short stream segments are identified and are reassigned the channel geometry from upstream/downstream segment.
+ - `fossid` renamed to `fimid` and the attribute's starting value is now 1000 to avoid HydroIDs with leading zeroes.
+ - Addresses issue where HydroIDs were not included in final hydrotable.
+ - Added `import sys` to `inundation.py` (missing from previous feature branch).
+ - Variable names and general workflow are cleaned up.
+
+<br/><br/>
+## v3.0.4.3 - 2021-02-12 - [PR #254](https://github.com/NOAA-OWP/cahaba/pull/254)
+
+Modified `rem.py` with a new function to output HAND reference elev.
+
+### Changes
+
+ - Function `make_catchment_hydroid_dict` creates a df of pixel catchment ids and overlapping hydroids.
+ - Merge hydroid df and thalweg minimum elevation df.
+ - Produces new output containing all catchment ids and min thalweg elevation value named `hand_ref_elev_table.csv`.
+ - Overwrites the `demDerived_reaches_split.gpk` layer by adding additional attribute `Min_Thal_Elev_meters` to view the elevation value for each hydroid.
+
+<br/><br/>
+## v3.0.4.2 - 2021-02-12 - [PR #255](https://github.com/NOAA-OWP/cahaba/pull/255)
+
+Addresses issue when running on HUC6 scale.
+
+### Changes
+
+ - `src.json` should be fixed and slightly smaller by removing whitespace.
+ - Rasters are about the same size as running fim as huc6 (compressed and tiled; aggregated are slightly larger).
+ - Naming convention and feature id attribute are only added to the aggregated hucs.
+ - HydroIDs are different for huc6 vs aggregated huc8s mostly due to forced split at huc boundaries (so long we use consistent workflow it shouldn't matter).
+ - Fixed known issue where sometimes an incoming stream is not included in the final selection will affect aggregate outputs.
+
+<br/><br/>
+## v3.0.4.1 - 2021-02-12 - [PR #261](https://github.com/NOAA-OWP/cahaba/pull/261)
+
+Updated MS Crosswalk method to address gaps in FIM.
+
+### Changes
+
+ - Fixed typo in stream midpoint calculation in `split_flows.py` and `add_crosswalk.py`.
+ - `add_crosswalk.py` now restricts the MS crosswalk to NWM MS catchments.
+ - `add_crosswalk.py` now performs a secondary MS crosswalk selection by nearest NWM MS catchment.
+
+<br/><br/>
 ## v3.0.4.0 - 2021-02-10 - [PR #256](https://github.com/NOAA-OWP/cahaba/pull/256)
 
 New python script "wrappers" for using `inundation.py`.
