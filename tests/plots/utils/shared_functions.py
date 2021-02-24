@@ -26,9 +26,11 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     title_text : STR
         Text for plot title.
     simplify_legend : BOOL, optional
-        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. The default is False.
+        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
+        The default is False.
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False no plot is saved to disk. The default is False.
+        If STR provide the full path to the figure to be saved. If False 
+        no plot is saved to disk. The default is False.
 
     Returns
     -------
@@ -111,7 +113,8 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
     stats_text : STR or BOOL
         Text for stats to place on chart. Default is false (no stats printed)
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False no plot is saved to disk. The default is False.
+        If STR provide the full path to the figure to be saved. If False 
+        no plot is saved to disk. The default is False.
 
     Returnsy
     -------
@@ -186,11 +189,14 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     title_text : STR
         Text for plot title.
     simplify_legend : BOOL, optional
-        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. The default is False.
+        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
+        Default is False.
     display_values : BOOL, optional
-        If True, Y values will be displayed above bars. Default is False.
+        If True, Y values will be displayed above bars. 
+        Default is False.
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False no plot is saved to disk. The default is False.
+        If STR provide the full path to the figure to be saved. If False 
+        no plot is saved to disk. Default is False.
 
     Returns
     -------
@@ -262,24 +268,28 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
 def filter_dataframe(dataframe, unique_field):
     '''
 
-    This script will filter out the sites (or hucs) which are not consistently found for all versions for a given magnitude 
-    For example, an AHPS lid site must have output for all 3 versions (fim1, fim2, fim3) for a given magnitude (eg action) otherwise that lid is filtered out.
-    Likewise for a BLE a huc must have output for all 3 versions (fim1, fim2, fim3) for a given magnitude (eg 100yr) otherwise it is filtered out.
-    This allows for fair comparisons in plotting and calculating aggregate statistics.
-    
+    This script will filter out the sites (or hucs) which are not consistently 
+    found for all versions for a given magnitude. For example, an AHPS 
+    lid site must have output for all 3 versions (fim1, fim2, fim3) for 
+    a given magnitude (eg action) otherwise that lid is filtered out. 
+    Likewise for a BLE a huc must have output for all 3 versions 
+    (fim1, fim2, fim3) for a given magnitude (eg 100yr) otherwise it is 
+    filtered out.
 
     Parameters
     ----------
     dataframe : Pandas DataFrame
-        Containing the input data from csv file (or a prefiltered dataframe originating from csv) that is produced by run_test_case aggregate scores.
-    source : STR
-        Source of dataset: 'nws' -- ahps data from nws, 'usgs' -- ahps data from usgs, 'ble' -- FEMA ble data.
+        Containing the input metrics originating from synthesize_test_cases
+    unique_field : STR
+        base resolution for each benchmark source: 'nws'/'usgs' (nws_lid)
+        ble (huc).
 
     Returns
     -------
     final_filtered_dataframe : Pandas Dataframe
         Filtered dataframe that contains only common sites (lids or hucs) between versions for each magnitude. For example, for AHPS all sites which were run for each version for a given magnitude will be kept or for ble, all hucs which ran for all versions for a given magnitude. 
- 
+    unique_sites: DICT
+        The sites that were included in the dataframe for each magnitude.
 
     '''
     

@@ -8,47 +8,98 @@ from utils.shared_functions import filter_dataframe, boxplot, scatterplot, barpl
 def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False, fim_1_ms = False):
 
     '''
-    Creates plots and summary statistics for a csv from synthesize_test_cases. The only required inputs are:
-        metrics_csv, evaluation_dataset, workspace. 
+    Creates plots and summary statistics using metrics compiled from 
+    synthesize_test_cases. Required inputs are metrics_csv and workspace. 
     Outputs include:
-        aggregate_*.csv --> this csv contains the aggregated total statistics (CSI, FAR, POD) using the summed area_sq_km fields
-        *_common_sites.csv --> this csv contains the base resolution data (e.g ahps: nws_lid; ble: huc08) retained when doing aggregation/plots for each magnitude. LIDs or HUCs occur in all versions supplied for analysis. For example if FIM 1, FIM 2, FIM 3.0.0.3 were versions supplied, the common sites for ble would list all huc 08 watersheds that had data for all 3 versions for the 100 year flood. The same analysis is then redone for the 500 year flood. Hucs listed in one may not be present in the other magnitude. This is especially evident in ahps. The length of the common sites is also displayed on plots as an annotation.
-        *_data.csv --> This is the filtered down metrics csv. All statistics and plots are created using this csv. For example, for BLE if a huc is not found in some of the supplied versions then that huc is removed (or filtered).
-        CSI_aggr_*.png --> this is a bar plot of the aggregated CSI score across all supplied versions. Sample size is annoted (see list of sites and length in corresponding column in *_common_sites.csv)
-        CSI_*.png --> this is a box plot of CSI of all sites (weighted equally). Sample size is annoted (see list of sites and length in corresponding column in *_common_sites.csv)
-        FAR_*.png --> this is a box plot of FAR of all sites (weighted equally). Sample size is annoted (see list of sites and length in corresponding column in *_common_sites.csv)
-        TPR_*.png --> this is a box plot of TPR/POD of all sites (weighted equally). Sample size is annoted (see list of sites and length in corresponding column in *_common_sites.csv)
-        ScatterPlot_*.png --> This is a scatter plot comparing the last two versions supplied. One scatterplot is created for each magnitude (e.g. ble: 100yr and 500yr)
+        aggregate_*.csv: this csv contains the aggregated total statistics 
+            (i.e. CSI, FAR, POD) using the summed area_sq_km fields
+        *_common_sites.csv: this csv contains the base resolution data 
+            (e.g usgs/nws: nws_lid; ble: huc08) retained when doing 
+            aggregation/plots for each magnitude. LIDs or HUCs occur in 
+            all versions supplied for analysis. For example if FIM 1, 
+            FIM 2, FIM 3.0.0.3 were versions supplied, the common sites 
+            for ble would list all huc 08 watersheds that had data for 
+            all 3 versions for the 100 year flood. The same analysis is 
+            then redone for the 500 year flood. Hucs listed in one may 
+            not be present in the other magnitude. This is especially 
+            evident in ahps. The number common sites is also displayed 
+            on plots as an annotation.
+        *_data.csv: this is the filtered down metrics csv. All statistics
+            and plots are created using this csv. For example, for BLE 
+            if a huc is not found all of the analyzed versions then that 
+            huc is removed (or filtered).
+        CSI_aggr_*.png: bar plot of the aggregated CSI scores. Sample 
+            size is annoted (sites listed in *_common_sites.csv)
+        CSI_*.png: box plot of CSI scores (sites weighted equally). 
+            Sample size is annoted (sites listed in *_common_sites.csv)
+        FAR_*.png --> box plot of FAR scores (sites weighted equally). 
+            Sample size is annoted (sites listed in *_common_sites.csv)
+        TPR_*.png: box plot of TPR/POD scores (sites weighted equally). 
+            Sample size is annoted (sites listed in *_common_sites.csv)
+        ScatterPlot_*.png: scatter plot comparing the last two versions 
+            (n-1, n) analyzed. One scatterplot is created for each 
+            magnitude (e.g. ble: 100yr and 500yr)
 
     Parameters
     ----------
     metrics_csv : STRING
-        File path to csv containing combined metrics (produced as part of synthesize_test_cases)
+        Path to csv produced as part of synthesize_test_cases containing
+        all metrics across all versions.
     workspace : STRING
-        Path to the output workspace. Subdirectories will be created reflecting the evaluation dataset.
+        Path to the output workspace. Subdirectories will be created 
+        reflecting the evaluation datasets.
     versions: LIST
-        A list of versions to be aggregated/plotted. Uses the "startswith" approach. Versions should be supplied in the order they are to be plotted. 
-        For example:
-            ['fim_', 'fb'] = This will evaluate all versions that start with fim_ (fim_1, fim_2, fim_3) and any feature branch that starts with "fb". To esbalish version order, the fim versions naturally sorted and then fb is appended to the order. Scatter plot is created using the last two elements of the versions (last fim_3 version and fb)
-            ['fim_3_0','fb'] = this will evaluate all versions that start with fim_3_0 as well as feature branches starting with "fb". fim_3_0 versions are naturally sorted and the fb is appended. Scatter plot of the last fim_3_0 version and the fb are produced. 
-        When the metric csv is input the data is filtered so that the same hucs (or nws_lid) are evaluated across all versions for each magnitude. For example: if fim_v1, fim_v2, fimv_3 are selected, then hucs that have scores for fim_v1, fim_v2, and fim_v3 are used for analysis all others are discarded (same for nws_lid for ahps). Sample size is the same for a given magnitude (100yr/500yr or Action, Minor, Moderate, Major)
+        A list of versions to be aggregated/plotted. Uses the "startswith" 
+        approach. Versions should be supplied in the order they are to 
+        be plotted. For example:
+            ['fim_', 'fb']; This will evaluate all versions that start 
+            with fim_ (e.g. fim_1, fim_2, fim_3) and any feature branch 
+            that starts with "fb". To esbalish version order, the fim 
+            versions are naturally sorted and then fb versions (naturally sorted) 
+            are appended. Scatter plot is created using the last two 
+            elements of the versions list (e.g. last fim_3 version and fb)           
+            ['fim_3_0','fb']; this will evaluate all versions that start 
+            with fim_3_0 as well as feature branches starting with "fb". 
+            Fim_3_0 versions are naturally sorted and then fb versions 
+            (also naturally sorted) are appended. Scatter plot of the 
+            last two elements of the version list 
+            (e.g. last fim_3_0 version and the fb)             
+        When the metric csv is input the data is filtered so that the same
+        hucs (or nws_lid) are evaluated across all versions for each magnitude. 
+        For example: if fim_v1, fim_v2, fim_v3 are analyzed versions then 
+        hucs/nws_lids that have scores for fim_v1, fim_v2, and fim_v3 
+        are used for analysis all others are discarded. Each magnitude 
+        is considered independently and the sample size could potentially 
+        vary from magnitude to magnitude.
     stats: LIST
-        A list of statistics to be plotted. Must be identical to column field in metrics_csv.
+        A list of statistics to be plotted. Must be identical to column 
+        field in metrics_csv. CSI, POD, TPR are currently calculated, if 
+        additional statistics are desired formulas would need to be coded.
     alternate_ahps_query : STRING, optional
-        Currently the default ahps query is same as done for apg goals. If a different query is desired (e.g. different bad sites selected) then use the default query to help build a new query. If query is supplied that query will supercede the default query. The default is False.
+        The default is false. Currently the default ahps query is same 
+        as done for apg goals. If a different query is desired it can be 
+        supplied and it will supercede the default query. 
     spatial_ahps : DICTIONARY, optional
-        The default is false. Otherwise a dictionary with keys as follows: 
-            'static' --> Path to AHPS point file created during creation of FIM 3 static libraries.
-            'evaluated' --> Path to extent file created during the creation of the NWS/USGS AHPS preprocessing.
-            'metadata' --> Path to previously created file that contains metadata about each site (feature_id, wfo, rfc and etc).
-        No spatial layers will be created if set to False, if a dictionary is supplied then a spatial layer is produced.
-    ble_scatterplot : BOOL, optional
-        A scatter plot comparing FIM 2 and FIM 3 ble HUCs. The default is True. If FIM 2 is not available, then set to False.
+        The default is false. A dictionary with keys as follows: 
+            'static': Path to AHPS point file created during creation of
+                FIM 3 static libraries.
+            'evaluated': Path to extent file created during the creation
+                of the NWS/USGS AHPS preprocessing.
+            'metadata': Path to previously created file that contains 
+                metadata about each site (feature_id, wfo, rfc and etc).
+        No spatial layers will be created if set to False, if a dictionary
+        is supplied then a spatial layer is produced.
+    fim_1_ms: BOOL
+        Default is false. If True then fim_1 rows are duplicated with 
+        extent_config set to MS. This allows for FIM 1 to be included 
+        in MS plots/stats (helpful for nws/usgs ahps comparisons).
 
     Returns
     -------
     all_datasets : DICT
-        Dictionary of pandas DataFrames of all datasets used to create plots/aggregated statistics.
+        Dictionary containing all datasets generated. 
+        Keys: (benchmark_source, extent_config), 
+        Values: (filtered dataframe, common sites)
 
     '''
     
@@ -74,11 +125,18 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     #Group by benchmark source
     benchmark_by_source = metrics.groupby(['benchmark_source', 'extent_config'])
 
-    #Cycle through each group of data, based on the benchmark source. Perform a further filter so that all desired versions contain same instances of the base_resolution (e.g. for ble: keep all hucs that exist across all desired versions for a given magnitude; for ahps: keep all nws_lid sites that exist across all versions for a given magnitude). Write the final filtered dataset to a new dictionary with the source (key) and tuple (metrics dataframe, contributing sites).
+    #Iterate through benchmark_by_source. Pre-filter metrics dataframe 
+    #as needed (e.g. usgs/nws filter query). Then further filtering to 
+    #discard all hucs/nws_lid that are not present across all analyzed 
+    #versions for a given magnitude. The final filtered dataset is written 
+    #to a dictionary with the key (benchmark source, extent config) 
+    #and values (filtered dataframe, common sites).
     all_datasets = {}
     for (benchmark_source, extent_configuration), benchmark_metrics in benchmark_by_source:        
                 
-        #If source is 'ahps' set the base resolution and additional query (use alternate query if passed). Append filtered datasets to all_datasets dictionary.
+        #If source is usgs/nws define the base resolution and query 
+        #(use alternate query if passed). Append filtered datasets to 
+        #all_datasets dictionary.
         if benchmark_source in ['usgs','nws']:
             
             #Set the base processing unit for the ahps runs.
@@ -95,22 +153,26 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             #Filter the dataset based on query
             ahps_metrics = benchmark_metrics.query(query)
             
-            #Filter out all instances where the base_resolution doesn't exist across all desired fim versions.
+            #Filter out all instances where the base_resolution doesn't 
+            #exist across all desired fim versions for a given magnitude.
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(ahps_metrics, base_resolution)
                      
-        #If source is 'ble', set base_resolution and append ble dataset to all_datasets dictionary
+        #If source is 'ble', set base_resolution and append ble dataset 
+        #to all_datasets dictionary
         elif benchmark_source == 'ble':
             
             #Set the base processing unit for ble runs
             base_resolution = 'huc'
             
-            #Filter out all instances where base_resolution doesn't exist across all desired fim versions.
+            #Filter out all instances where base_resolution doesn't exist 
+            #across all desired fim versions for a given magnitude.
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(benchmark_metrics, base_resolution)
             
     #For each dataset in all_datasets, generate plots and aggregate statistics.
     for (dataset_name,configuration), (dataset, sites) in all_datasets.items():
         
-        #Define and create the output workspace as a subfolder within the supplied workspace
+        #Define and create the output workspace as a subfolder within 
+        #the supplied workspace
         output_workspace = Path(workspace) / dataset_name / configuration
         output_workspace.mkdir(parents = True, exist_ok = True)         
                 
@@ -137,11 +199,13 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         #Write aggregated metrics to file.
         dataset_sums.to_csv(output_workspace / f'aggregate_{dataset_name}.csv', index = False )
 
-        #This section naturally orders versions which defines the hue order for the generated plots.
+        #This section naturally orders analyzed versions which defines 
+        #the hue order for the generated plots.
         #Get all versions in dataset
         all_versions = list(dataset.version.unique())        
         version_order = []        
-        #If versions are not specified then use all available versions and assign to versions_list
+        #If versions are not specified then use all available versions 
+        #and assign to versions_list
         if not versions:
             versions_list = all_versions
         #if versions are supplied assign to versions_list
@@ -173,11 +237,11 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             output_file = output_workspace / (f'{stat}_{dataset_name}.png')    
             boxplot(dataframe = dataset, x_field = 'magnitude', x_order = magnitude_order, y_field = stat, hue_field = 'version', ordered_hue = version_order, title_text = f'{dataset_name.upper()} FIM Sites', textbox_str = textbox, simplify_legend = True, dest_file = output_file)
         
-        #Get the last 2 versions from the version order if version order more than 1 element
+        #Get the last 2 versions from the version order for scatter plot.
         if len(version_order) > 1:            
             *discarded_versions, x_version, y_version = version_order
             for magnitude in magnitude_order:
-                #Scatterplot comparison between last 2 versions in version_order variable
+                #Scatterplot comparison between last 2 versions.
                 x_csi = dataset.query(f'version == "{x_version}" & magnitude == "{magnitude}"')[[base_resolution, 'CSI']]
                 y_csi = dataset.query(f'version == "{y_version}" & magnitude == "{magnitude}"')[[base_resolution, 'CSI']]
                 plotdf = pd.merge(x_csi, y_csi, on = base_resolution, suffixes = (f"_{x_version}",f"_{y_version}"))
@@ -193,7 +257,8 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     if spatial_ahps:
 
         #Read in supplied shapefile layers
-        #Layer containing metadata for each site (feature_id, wfo, etc). Convert nws_lid to lower case.
+        #Layer containing metadata for each site (feature_id, wfo, etc). 
+        #Convert nws_lid to lower case.
         ahps_metadata = gpd.read_file(spatial_ahps['metadata'])
         ahps_metadata['nws_lid'] = ahps_metadata['nws_lid'].str.lower()
         metadata_crs = ahps_metadata.crs
@@ -218,8 +283,8 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         
         #merge metrics 
         final_join = pd.DataFrame()
-        for dataset_name, (dataset, sites) in all_datasets.items():
-            if 'ahps' in dataset_name:
+        for (dataset_name,configuration), (dataset, sites) in all_datasets.items():
+            if dataset_name in ['usgs','nws']:
                 subset = evaluated_ahps_extent.query(f'source == "{dataset_name}"')                        
                 dataset_with_subset = dataset.merge(subset, on = 'nws_lid')
                 final_join = final_join.append(dataset_with_subset)
@@ -257,7 +322,7 @@ if __name__ == '__main__':
                 key, value = line.strip('\n').split(',')
                 spatial_dict[key] = Path(value)
         args['spatial_ahps'] = spatial_dict
-        #Check that all required keys are present. If they are, overwrite args with spatial_dict
+        #Check that all required keys are present and overwrite args with spatial_dict
         required_keys = set(['metadata', 'evaluated', 'static'])
         if required_keys - spatial_dict.keys():
           print('\n Required keys are: metadata, evaluated, static')
