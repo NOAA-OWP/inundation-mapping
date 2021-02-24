@@ -262,6 +262,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         ahps_metadata = gpd.read_file(spatial_ahps['metadata'])
         ahps_metadata['nws_lid'] = ahps_metadata['nws_lid'].str.lower()
         metadata_crs = ahps_metadata.crs
+        
         #Extent layer generated from preprocessing NWS/USGS datasets
         evaluated_ahps_extent = gpd.read_file(spatial_ahps['evaluated'])
         
@@ -281,16 +282,22 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         evaluated_ahps_extent.drop(columns = ['geometry_y','geometry_x'], inplace = True)
         evaluated_ahps_extent = evaluated_ahps_extent.merge(static_library[preserved_static_library_fields], on = 'nws_lid')
         
-        #merge metrics 
+        #Join dataset metrics to evaluated_ahps_extent data. 
         final_join = pd.DataFrame()
-        for (dataset_name,configuration), (dataset, sites) in all_datasets.items():
-            if dataset_name in ['usgs','nws']:
+        for (dataset_name, configuration), (dataset, sites) in all_datasets.items():
+            #Only select ahps from dataset if config is MS
+            if dataset_name in ['usgs','nws'] and configuration == 'MS':
+                #Select records from evaluated_ahps_extent that match the dataset name
                 subset = evaluated_ahps_extent.query(f'source == "{dataset_name}"')                        
+                #Join to dataset
                 dataset_with_subset = dataset.merge(subset, on = 'nws_lid')
+                #Append rows to final_join dataframe
                 final_join = final_join.append(dataset_with_subset)
-                    
+        
+        #Modify version field
         final_join['version'] = final_join.version.str.split('_nws|_usgs').str[0]
-        final_join['source'] = final_join['source'].str.split('ahps_').str[1]
+        
+        #Write geodataframe to file
         gdf = gpd.GeoDataFrame(final_join, geometry = final_join['geometry'], crs = metadata_crs)
         gdf.to_file(output_workspace.parent / 'nws_usgs_site_info.shp') 
                     
