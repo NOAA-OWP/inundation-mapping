@@ -299,7 +299,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         
         #Write geodataframe to file
         gdf = gpd.GeoDataFrame(final_join, geometry = final_join['geometry'], crs = metadata_crs)
-        output_shapefile = Path(workspace / 'nws_usgs_site_info.shp')
+        output_shapefile = Path(workspace) / 'nws_usgs_site_info.shp'
         gdf.to_file(output_shapefile) 
                     
 
