@@ -177,9 +177,9 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         output_workspace.mkdir(parents = True, exist_ok = True)         
                 
         #Write out the filtered dataset and common sites to file
-        dataset.to_csv(output_workspace / (f'{dataset_name}_analyzed_data.csv'), index = False)
+        dataset.to_csv(output_workspace / (f'{dataset_name}_{configuration.lower()}_analyzed_data.csv'), index = False)
         sites_pd = pd.DataFrame.from_dict(sites, orient = 'index').transpose()
-        sites_pd.to_csv(output_workspace / (f'{dataset_name}_common_sites.csv'), index = False)
+        sites_pd.to_csv(output_workspace / (f'{dataset_name}_{configuration.lower()}_common_sites.csv'), index = False)
         
         #set the order of the magnitudes and define base resolution.
         if dataset_name == 'ble':
@@ -197,7 +197,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         dataset_sums = dataset_sums.reset_index()
         
         #Write aggregated metrics to file.
-        dataset_sums.to_csv(output_workspace / f'aggregate_{dataset_name}.csv', index = False )
+        dataset_sums.to_csv(output_workspace / f'aggregate_{dataset_name}_{configuration.lower()}.csv', index = False )
 
         #This section naturally orders analyzed versions which defines 
         #the hue order for the generated plots.
@@ -229,12 +229,12 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         textbox = '\n'.join(textbox)
 
         #Create aggregate barplot
-        aggregate_file = output_workspace / (f'csi_aggr_{dataset_name}.png')        
+        aggregate_file = output_workspace / (f'csi_aggr_{dataset_name}_{configuration.lower()}.png')        
         barplot(dataframe = dataset_sums, x_field = 'magnitude', x_order = magnitude_order, y_field = 'csi', hue_field = 'version', ordered_hue = version_order, title_text = f'Aggregate {dataset_name.upper()} FIM Scores', fim_configuration = configuration, textbox_str = textbox, simplify_legend = True, dest_file = aggregate_file)
         
         #Create box plots for each metric in supplied stats.
         for stat in stats:
-            output_file = output_workspace / (f'{stat.lower()}_{dataset_name}.png')    
+            output_file = output_workspace / (f'{stat.lower()}_{dataset_name}_{configuration.lower()}.png')    
             boxplot(dataframe = dataset, x_field = 'magnitude', x_order = magnitude_order, y_field = stat, hue_field = 'version', ordered_hue = version_order, title_text = f'{dataset_name.upper()} FIM Sites', fim_configuration = configuration, textbox_str = textbox, simplify_legend = True, dest_file = output_file)
         
         #Get the last 2 versions from the version order for scatter plot.
@@ -247,8 +247,8 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
                 plotdf = pd.merge(x_csi, y_csi, on = base_resolution, suffixes = (f"_{x_version}",f"_{y_version}"))
                 #Define arguments for scatterplot function.
                 title_text = f'CSI {magnitude}'
-                dest_file = output_workspace / f'scatter_{magnitude}.png'
-                scatterplot(dataframe = plotdf, x_field = f'CSI_{x_version}', y_field = f'CSI_{y_version}', title_text = title_text, annotate = False, dest_file = dest_file)
+                dest_file = output_workspace / f'scatter_{magnitude}_{configuration.lower()}.png'
+                scatterplot(dataframe = plotdf, x_field = f'CSI_{x_version}', y_field = f'CSI_{y_version}', title_text = title_text, fim_configuration = configuration, annotate = False, dest_file = dest_file)
     
 
     #######################################################################
