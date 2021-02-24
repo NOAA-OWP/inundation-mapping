@@ -185,7 +185,7 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Inundation mapping and regression analysis for FOSS FIM. Regression analysis results are stored in the test directory.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
-    parser.add_argument('-b', '--version-name',help='The name of the working version in which features are being tested',required=True,default="")
+    parser.add_argument('-b', '--version',help='The name of the working version in which features are being tested',required=True,default="")
     parser.add_argument('-t', '--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
     parser.add_argument('-y', '--magnitude',help='The magnitude to run.',required=False, default="")
@@ -205,14 +205,14 @@ if __name__ == '__main__':
     print()
 
     # Ensure test_id is valid.
-    if args['test_id'] not in valid_test_id_list:
-        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided test_id (-t) " + CYAN_BOLD + args['test_id'] + WHITE_BOLD + " is not available." + ENDC)
-        print(WHITE_BOLD + "Available test_ids include: " + ENDC)
-        for test_id in valid_test_id_list:
-          if 'validation' not in test_id.split('_') and 'ble' in test_id.split('_'):
-              print(CYAN_BOLD + test_id + ENDC)
-        print()
-        exit_flag = True
+#    if args['test_id'] not in valid_test_id_list:
+#        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided test_id (-t) " + CYAN_BOLD + args['test_id'] + WHITE_BOLD + " is not available." + ENDC)
+#        print(WHITE_BOLD + "Available test_ids include: " + ENDC)
+#        for test_id in valid_test_id_list:
+#          if 'validation' not in test_id.split('_') and 'ble' in test_id.split('_'):
+#              print(CYAN_BOLD + test_id + ENDC)
+#        print()
+#        exit_flag = True
 
     # Ensure fim_run_dir exists.
     if not os.path.exists(os.path.join(os.environ['outputDataDir'], args['fim_run_dir'])):
