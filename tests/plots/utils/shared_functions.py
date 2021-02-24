@@ -7,7 +7,7 @@ import re
 #########################################################################
 #Create boxplot
 #########################################################################
-def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, textbox_str = False, simplify_legend = False, dest_file = False):      
+def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, dest_file = False):      
     '''
     Create boxplots. 
 
@@ -25,6 +25,8 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         Field to use for hue (typically FIM version)
     title_text : STR
         Text for plot title.
+    fim_configuration: STR
+        Configuration of FIM (FR or MS or Composite).
     simplify_legend : BOOL, optional
         If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
         The default is False.
@@ -65,13 +67,13 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             if 'fim_1' in label:
                 label_dict[label] = 'FIM 1'
             elif 'fim_2' in label:
-                label_dict[label] = 'FIM 2'
+                label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()                  
             elif 'fim_3' in label:
-                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ')
+                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
-                    label_dict[label] = label_dict[label] + '_c'
+                    label_dict[label] = label_dict[label] + ' c'
             else:
-                label_dict[label] = label
+                label_dict[label] = label + ' ' + fim_configuration.lower()
         #Define simplified labels as a list.
         new_labels = [label_dict[label] for label in org_labels]
         #Define legend location. FAR needs to be in different location than CSI/POD.
@@ -170,7 +172,7 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 #########################################################################
 #Create barplot
 #########################################################################
-def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, textbox_str = False, simplify_legend = False, display_values = False, dest_file = False):      
+def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, display_values = False, dest_file = False):      
     '''
     Create barplots. 
 
@@ -188,6 +190,8 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         Field to use for hue (typically FIM version)
     title_text : STR
         Text for plot title.
+    fim_configuration: STR
+        Configuration of FIM (FR or MS or Composite).
     simplify_legend : BOOL, optional
         If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
         Default is False.
@@ -230,13 +234,13 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             if 'fim_1' in label:
                 label_dict[label] = 'FIM 1'
             elif 'fim_2' in label:
-                label_dict[label] = 'FIM 2'
+                label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
             elif 'fim_3' in label:
-                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ')
+                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
-                    label_dict[label] = label_dict[label] + '_c'
+                    label_dict[label] = label_dict[label] + ' c'
             else:
-                label_dict[label] = label
+                label_dict[label] = label + ' ' + fim_configuration.lower()
         #Define simplified labels as a list.
         new_labels = [label_dict[label] for label in org_labels]
         #rename legend labels to the simplified labels.
