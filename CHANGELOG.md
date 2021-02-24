@@ -9,6 +9,8 @@ Bug fixes to new evaluation code.
 
  - Fixed a bug in `synthesize_test_cases.py` where the extent (MS/FR) was not being written to merged metrics file properly.
  - Fixed a bug in `synthesize_test_cases.py` where only BLE test cases were being written to merged metrics file.
+ - Removed unused imports from `inundation.py`.
+ - Updated README.md
 
 <br/><br/>
 ## v3.0.5.2 - 2021-02-23 - [PR #272](https://github.com/NOAA-OWP/cahaba/pull/272)
