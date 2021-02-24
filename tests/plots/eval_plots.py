@@ -5,7 +5,7 @@ import argparse
 from natsort import natsorted
 import geopandas as gpd
 from utils.shared_functions import filter_dataframe, boxplot, scatterplot, barplot
-def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False):
+def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False, fim_1_ms = False):
 
     '''
     Creates plots and summary statistics for a csv from synthesize_test_cases. The only required inputs are:
@@ -54,6 +54,15 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     
     #Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv)
+
+    #fim_1_ms flag enables FIM 1 to be shown on MS plots/stats
+    if fim_1_ms:
+        #Query FIM 1 rows based on version beginning with "fim_1"
+        fim_1_rows = csv_df.query('version.str.startswith("fim_1")').copy()
+        #Set extent configuration to MS (instead of FR)
+        fim_1_rows['extent_config'] = 'MS'
+        #Append duplicate FIM 1 rows to original dataframe
+        csv_df = csv_df.append(fim_1_rows, ignore_index = True)
         
     #If versions are supplied then filter out    
     if versions:
@@ -232,6 +241,8 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stats', help = 'List of statistics (abbrev to 3 letters) to be plotted/aggregated', nargs = '+', default = ['CSI','TPR','FAR'], required = False)
     parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
     parser.add_argument('-sp', '--spatial_ahps', help = 'If spatial point layer is desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
+    parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
+    
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
     
@@ -262,7 +273,8 @@ if __name__ == '__main__':
     s = args['stats']
     q = args['alternate_ahps_query']
     sp= args['spatial_ahps']
+    f = args['fim_1_ms']
 
     #Run eval_plots function
     if not error:        
-        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial_ahps = sp)
+        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial_ahps = sp, fim_1_ms = f)
