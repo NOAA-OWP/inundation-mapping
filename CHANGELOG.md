@@ -1,15 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.5.2 - 2021-02-23
+## v3.0.5.3 - 2021-02-23 - [PR #275](https://github.com/NOAA-OWP/cahaba/pull/275)
 
-Adding HAND SRC datum elev values to `hydroTable.csv` output
+Bug fixes to new evaluation code.
 
 ### Changes
 
- - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in hydroTable.csv
- - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.)
+ - Fixed a bug in `synthesize_test_cases.py` where the extent (MS/FR) was not being written to merged metrics file properly.
+ - Fixed a bug in `synthesize_test_cases.py` where only BLE test cases were being written to merged metrics file.
+ - Removed unused imports from `inundation.py`.
+ - Updated README.md
 
+<br/><br/>
+## v3.0.5.2 - 2021-02-23 - [PR #272](https://github.com/NOAA-OWP/cahaba/pull/272)
+
+Adds HAND synthetic rating curve (SRC) datum elevation values to `hydroTable.csv` output.
+
+### Changes
+
+ - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.cs`v.
+ - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.).
+
+<br/><br/>
 ## v3.0.5.1 - 2021-02-22
 
 Fixed `TEST_CASES_DIR` path in `tests/utils/shared_variables.py`.
@@ -18,6 +31,7 @@ Fixed `TEST_CASES_DIR` path in `tests/utils/shared_variables.py`.
 
  - Removed `"_new"` from `TEST_CASES_DIR` variable.
 
+<br/><br/>
 ## v3.0.5.0 - 2021-02-22 - [PR #267](https://github.com/NOAA-OWP/cahaba/pull/267)
 
 Enhancements to allow for evaluation at AHPS sites, the generation of a query-optimized metrics CSV, and the generation of categorical FIM. This merge requires that the `/test_cases` directory be updated for all machines performing evaluation.
