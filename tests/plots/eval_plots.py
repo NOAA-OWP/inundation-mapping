@@ -11,34 +11,37 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     Creates plots and summary statistics using metrics compiled from 
     synthesize_test_cases. Required inputs are metrics_csv and workspace. 
     Outputs include:
-        aggregate_*.csv: this csv contains the aggregated total statistics 
-            (i.e. CSI, FAR, POD) using the summed area_sq_km fields
-        *_common_sites.csv: this csv contains the base resolution data 
-            (e.g usgs/nws: nws_lid; ble: huc08) retained when doing 
-            aggregation/plots for each magnitude. LIDs or HUCs occur in 
-            all versions supplied for analysis. For example if FIM 1, 
-            FIM 2, FIM 3.0.0.3 were versions supplied, the common sites 
-            for ble would list all huc 08 watersheds that had data for 
-            all 3 versions for the 100 year flood. The same analysis is 
-            then redone for the 500 year flood. Hucs listed in one may 
-            not be present in the other magnitude. This is especially 
-            evident in ahps. The number common sites is also displayed 
-            on plots as an annotation.
-        *_data.csv: this is the filtered down metrics csv. All statistics
-            and plots are created using this csv. For example, for BLE 
-            if a huc is not found all of the analyzed versions then that 
-            huc is removed (or filtered).
-        CSI_aggr_*.png: bar plot of the aggregated CSI scores. Sample 
-            size is annoted (sites listed in *_common_sites.csv)
-        CSI_*.png: box plot of CSI scores (sites weighted equally). 
-            Sample size is annoted (sites listed in *_common_sites.csv)
-        FAR_*.png --> box plot of FAR scores (sites weighted equally). 
-            Sample size is annoted (sites listed in *_common_sites.csv)
-        TPR_*.png: box plot of TPR/POD scores (sites weighted equally). 
-            Sample size is annoted (sites listed in *_common_sites.csv)
-        ScatterPlot_*.png: scatter plot comparing the last two versions 
-            (n-1, n) analyzed. One scatterplot is created for each 
-            magnitude (e.g. ble: 100yr and 500yr)
+        aggregate_<benchmark source>_<configuration>.csv: this csv 
+            contains the aggregated total statistics (i.e. CSI, FAR, POD)
+            using the summed area_sq_km fields
+        <benchmark source>_<configuration>_common_sites.csv: this csv 
+            contains the unique sites (e.g usgs/nws: nws_lid; ble: huc08) 
+            considered for aggregation/plots for each magnitude. The selected
+            sites occur in all versions analyzed. For example, if FIM 1,
+            FIM 2, FIM 3.0.0.3 were versions analyzed, the common sites 
+            would be those that had data for ALL versions. This 
+            analysis is then redone for each magnitude. As such, the number
+            of sites may vary with magnitude. The number of sites for each
+            magnitude is annotated on generated plots.
+        <benchmark source>_<configuration>_analyzed_data.csv: this is the 
+            dataset used to create plots and aggregate statistics. It is 
+            a subset of the input metrics file and consists of the common
+            sites.
+        csi_aggr_<benchmark source>_<configuration>.png: bar plot of the 
+            aggregated CSI scores. Number of common sites is annotated
+            (see list of sites listed in *_*_common_sites.csv).
+        csi_<benchmark source>_<configuration>.png: box plot of CSI scores 
+            (sites weighted equally). Number of common sites is annotated 
+            (see list of sites listed in *_*_common_sites.csv).
+        far_<benchmark source>_<configuration>*.png: box plot of FAR scores
+            (sites weighted equally). Number of common sites is annotated 
+            (see list of sites listed in *_*_common_sites.csv).
+        tpr_<benchmark source>_<configuration>*.png: box plot of TPR/POD 
+            scores (sites weighted equally). Number of common sites is 
+            annotated (see list of sites listed in *_*_common_sites.csv).
+        csi_scatter_<magnitude>_<configuration>*.png: scatter plot comparing 
+            two versions for a given magnitude. This is only generated if
+            there are exactly two versions analyzed.
 
     Parameters
     ----------
@@ -51,26 +54,13 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     versions: LIST
         A list of versions to be aggregated/plotted. Uses the "startswith" 
         approach. Versions should be supplied in the order they are to 
-        be plotted. For example:
-            ['fim_', 'fb']; This will evaluate all versions that start 
-            with fim_ (e.g. fim_1, fim_2, fim_3) and any feature branch 
-            that starts with "fb". To esbalish version order, the fim 
-            versions are naturally sorted and then fb versions (naturally sorted) 
-            are appended. Scatter plot is created using the last two 
-            elements of the versions list (e.g. last fim_3 version and fb)           
-            ['fim_3_0','fb']; this will evaluate all versions that start 
-            with fim_3_0 as well as feature branches starting with "fb". 
-            Fim_3_0 versions are naturally sorted and then fb versions 
-            (also naturally sorted) are appended. Scatter plot of the 
-            last two elements of the version list 
-            (e.g. last fim_3_0 version and the fb)             
-        When the metric csv is input the data is filtered so that the same
-        hucs (or nws_lid) are evaluated across all versions for each magnitude. 
-        For example: if fim_v1, fim_v2, fim_v3 are analyzed versions then 
-        hucs/nws_lids that have scores for fim_v1, fim_v2, and fim_v3 
-        are used for analysis all others are discarded. Each magnitude 
-        is considered independently and the sample size could potentially 
-        vary from magnitude to magnitude.
+        be plotted. For example: ['fim_', 'fb']; This will evaluate all 
+        versions that start with fim_ (e.g. fim_1, fim_2, fim_3) and any
+        feature branch that starts with "fb". To esbalish version order,
+        the fim versions are naturally sorted and then fb versions 
+        (naturally sorted) are appended. These versions are also used to 
+        filter the input metric csv as only these versions are retained 
+        for analysis. 
     stats: LIST
         A list of statistics to be plotted. Must be identical to column 
         field in metrics_csv. CSI, POD, TPR are currently calculated, if 
@@ -247,7 +237,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
                 plotdf = pd.merge(x_csi, y_csi, on = base_resolution, suffixes = (f"_{x_version}",f"_{y_version}"))
                 #Define arguments for scatterplot function.
                 title_text = f'CSI {magnitude}'
-                dest_file = output_workspace / f'scatter_{magnitude}_{configuration.lower()}.png'
+                dest_file = output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
                 scatterplot(dataframe = plotdf, x_field = f'CSI_{x_version}', y_field = f'CSI_{y_version}', title_text = title_text, fim_configuration = configuration, annotate = False, dest_file = dest_file)
     
 
