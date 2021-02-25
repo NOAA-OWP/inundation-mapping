@@ -5,9 +5,7 @@ import pandas as pd
 from numpy import unique
 import json
 import argparse
-import sys
-sys.path.insert(1,"../utils")
-from shared_functions import getDriver
+from utils.shared_functions import getDriver
 
 def finalize_srcs(srcbase,srcfull,hydrotable,output_srcfull=None,output_hydrotable=None):
 
