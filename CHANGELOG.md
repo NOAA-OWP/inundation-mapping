@@ -1,5 +1,71 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+<br/><br/>
+## v3.0.6.0 - 2021-02-25 - [PR #276](https://github.com/NOAA-OWP/cahaba/pull/276)
+
+Enhancement that creates metric plots and summary statistics using metrics compiled by `synthesize_test_cases.py`. 
+
+### Additions
+ - Added `eval_plots.py`, which produces:
+    - Boxplots of CSI, FAR, and POD/TPR
+    - Barplot of aggregated CSI scores
+    - Scatterplot of CSI comparing two FIM versions
+    - CSV of aggregated statistics (CSI, FAR, POD/TPR)
+    - CSV of analyzed data and analyzed sites
+
+<br/><br/>
+## v3.0.5.3 - 2021-02-23 - [PR #275](https://github.com/NOAA-OWP/cahaba/pull/275)
+
+Bug fixes to new evaluation code.
+
+### Changes
+
+ - Fixed a bug in `synthesize_test_cases.py` where the extent (MS/FR) was not being written to merged metrics file properly.
+ - Fixed a bug in `synthesize_test_cases.py` where only BLE test cases were being written to merged metrics file.
+ - Removed unused imports from `inundation.py`.
+ - Updated README.md
+
+<br/><br/>
+## v3.0.5.2 - 2021-02-23 - [PR #272](https://github.com/NOAA-OWP/cahaba/pull/272)
+
+Adds HAND synthetic rating curve (SRC) datum elevation values to `hydroTable.csv` output.
+
+### Changes
+
+ - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.csv`.
+ - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.).
+
+<br/><br/>
+## v3.0.5.1 - 2021-02-22
+
+Fixed `TEST_CASES_DIR` path in `tests/utils/shared_variables.py`.
+
+### Changes
+
+ - Removed `"_new"` from `TEST_CASES_DIR` variable.
+
+<br/><br/>
+## v3.0.5.0 - 2021-02-22 - [PR #267](https://github.com/NOAA-OWP/cahaba/pull/267)
+
+Enhancements to allow for evaluation at AHPS sites, the generation of a query-optimized metrics CSV, and the generation of categorical FIM. This merge requires that the `/test_cases` directory be updated for all machines performing evaluation.
+
+### Additions
+
+ - `generate_categorical_fim.py` was added to allow production of NWS Flood Categorical HAND FIM (CatFIM) source data. More changes on this script are to follow in subsequent branches.
+
+### Removals
+
+ - `ble_autoeval.sh` and `all_ble_stats_comparison.py` were deleted because `synthesize_test_cases.py` now handles the merging of metrics.
+ - The code block in `run_test_case.py` that was responsible for printing the colored metrics to screen has been commented out because of the new scale of evaluations (formerly in `run_test_case.py`, now in `shared_functions.py`)
+ - Remove unused imports from inundation wrappers in `/tools`.
+
+### Changes
+
+ - Updated `synthesize_test_cases.py` to allow for AHPS site evaluations.
+ - Reorganized `run_test_case.py` by moving more functions into `shared_functions.py`.
+ - Created more shared variables in `shared_variables.py` and updated import statements in relevant scripts.
+
+<br/><br/>
 
 ## v3.0.4.4 - 2021-02-19 - [PR #266](https://github.com/NOAA-OWP/cahaba/pull/266)
 
