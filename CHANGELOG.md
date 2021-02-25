@@ -19,7 +19,7 @@ Adds HAND synthetic rating curve (SRC) datum elevation values to `hydroTable.csv
 
 ### Changes
 
- - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.cs`v.
+ - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.csv`.
  - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.).
 
 <br/><br/>
