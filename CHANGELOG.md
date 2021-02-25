@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 ## v3.0.6.0 - 2021-02-25 - [PR #276](https://github.com/NOAA-OWP/cahaba/pull/276)
 
-Enhancement that create metric plots and summary statistics using metrics compiled by `synthesize_test_cases.py`. 
+Enhancement that creates metric plots and summary statistics using metrics compiled by `synthesize_test_cases.py`. 
 
 ### Additions
  - Added `eval_plots.py`, which produces:
