@@ -10,7 +10,7 @@ T_total_start
 # echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
-inputDataDir=/data/outputs/latest_dev_uncalibrated/12090301
+inputDataDir=/data/outputs/fim3_integration_test_to_fim4_20210225_ca68f2b/12090301
 outputDataDir=$inputDataDir/gms
 
 # make outputs directory
