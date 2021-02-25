@@ -229,7 +229,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         
         #Get the last 2 versions from the version order for scatter plot.
         if len(version_order) == 2:            
-            *discarded_versions, x_version, y_version = version_order
+            x_version, y_version = version_order
             for magnitude in magnitude_order:
                 #Scatterplot comparison between last 2 versions.
                 x_csi = dataset.query(f'version == "{x_version}" & magnitude == "{magnitude}"')[[base_resolution, 'CSI']]
@@ -238,7 +238,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
                 #Define arguments for scatterplot function.
                 title_text = f'CSI {magnitude}'
                 dest_file = output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
-                scatterplot(dataframe = plotdf, x_field = f'CSI_{x_version}', y_field = f'CSI_{y_version}', title_text = title_text, fim_configuration = configuration, annotate = False, dest_file = dest_file)
+                scatterplot(dataframe = plotdf, x_field = f'CSI_{x_version}', y_field = f'CSI_{y_version}', title_text = title_text, annotate = False, dest_file = dest_file)
     
 
     #######################################################################

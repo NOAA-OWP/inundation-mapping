@@ -98,7 +98,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
 #########################################################################
 #Create scatter plot
 #########################################################################
-def scatterplot(dataframe, x_field, y_field, title_text, fim_configuration, stats_text=False, annotate = False, dest_file = False):      
+def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annotate = False, dest_file = False):      
     '''
     Create boxplots. 
 
@@ -111,9 +111,7 @@ def scatterplot(dataframe, x_field, y_field, title_text, fim_configuration, stat
     y_field : STR
         Field to use for the y-axis (Assumes FIM 3)
     title_text : STR
-        Text for plot title.
-    fim_configuration: STR
-        Configuration of FIM (FR or MS or Composite).    
+        Text for plot title.    
     stats_text : STR or BOOL
         Text for stats to place on chart. Default is false (no stats printed)
     dest_file : STR or BOOL, optional
@@ -142,8 +140,8 @@ def scatterplot(dataframe, x_field, y_field, title_text, fim_configuration, stat
     axes.tick_params(labelsize = 'xx-large')
 
     #Define y axis label and x axis label.
-    axes.set_ylabel(f'{y_field.replace("_"," ")} {fim_configuration.lower()}',fontsize='xx-large',weight = 'bold')
-    axes.set_xlabel(f'{x_field.replace("_"," ")} {fim_configuration.lower()}',fontsize='xx-large',weight = 'bold')
+    axes.set_ylabel(f'{y_field.replace("_"," ")}',fontsize='xx-large',weight = 'bold')
+    axes.set_xlabel(f'{x_field.replace("_"," ")}',fontsize='xx-large',weight = 'bold')
 
     #Plot diagonal line
     diag_range = [0,1]
