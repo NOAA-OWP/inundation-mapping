@@ -173,7 +173,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         
         #Define and create the output workspace as a subfolder within 
         #the supplied workspace
-        output_workspace = Path(workspace) / dataset_name / configuration
+        output_workspace = Path(workspace) / dataset_name / configuration.lower()
         output_workspace.mkdir(parents = True, exist_ok = True)         
                 
         #Write out the filtered dataset and common sites to file
