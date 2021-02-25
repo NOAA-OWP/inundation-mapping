@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+<br/><br/>
+## v3.0.6.0 - 2021-02-25 - [PR #276](https://github.com/NOAA-OWP/cahaba/pull/276)
 
+Enhancement that creates metric plots and summary statistics using metrics compiled by `synthesize_test_cases.py`. 
+
+### Additions
+ - Added `eval_plots.py`, which produces:
+    - Boxplots of CSI, FAR, and POD/TPR
+    - Barplot of aggregated CSI scores
+    - Scatterplot of CSI comparing two FIM versions
+    - CSV of aggregated statistics (CSI, FAR, POD/TPR)
+    - CSV of analyzed data and analyzed sites
+
+<br/><br/>
 ## v3.0.5.3 - 2021-02-23 - [PR #275](https://github.com/NOAA-OWP/cahaba/pull/275)
 
 Bug fixes to new evaluation code.
