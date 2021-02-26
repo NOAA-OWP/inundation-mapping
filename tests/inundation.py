@@ -2,25 +2,22 @@
 
 import numpy as np
 import pandas as pd
-from numba import njit, typeof, typed, types
+from numba import njit, typed, types
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from subprocess import run
 from os.path import splitext
 import rasterio
 import fiona
-import shapely
 from shapely.geometry import shape
-from fiona.crs import to_string
-from rasterio.errors import WindowError
 from rasterio.mask import mask
 from rasterio.io import DatasetReader,DatasetWriter
-from rasterio.features import shapes,geometry_window,dataset_features
-from rasterio.windows import transform,Window
 from collections import OrderedDict
 import argparse
 from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
+
+
 def inundate(
              rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
              subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
@@ -456,12 +453,15 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                          'HydroID':str,'stage':float,
                                          'discharge_cms':float,'LakeID' : int}
                                 )
+
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
+
         hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
 
         if hydroTable.empty:
-            print ("All stream segments in this HUC are within lake boundaries.")
-            sys.exit(0)
+            class hydroTableHasOnlyLakes(Exception): 
+                pass
+            raise hydroTableHasOnlyLakes("All stream segments in HUC are within lake boundaries.")
 
     elif isinstance(hydroTable,pd.DataFrame):
         pass #consider checking for correct dtypes, indices, and columns
@@ -504,7 +504,12 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
         hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
 
     # join tables
-    hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    try:
+        hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    except AttributeError:
+        class NoForecastFound(Exception):
+            pass
+        raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
 
     # initialize dictionary
     catchmentStagesDict = typed.Dict.empty(types.int32,types.float64)

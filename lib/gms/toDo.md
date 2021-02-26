@@ -4,15 +4,18 @@
     - Mosaic polygons vs rasters?
 - Evaluate with test cases
 
+
 ## Longer term
 - Derive levelpath
+    - fix issues
+    - subset other vectors based on this now
+    - dissolving?
 - Parallelize by unit. 
     - Needs a script comparable to fim_run or integration into fim_run
     - Need branch progress tracking or writing stdout/err to individual log file
 - No data value issue?
 - Implement attribute exclusion for branching functionality (stream order 1s)
 - parameterize branch buffer distance by stream order
-- derive branch_id.lst for all HydroID's in buffered units
 
 # FIM 3 To Do for GMS
 - rem.py is current bottleneck. Optimize

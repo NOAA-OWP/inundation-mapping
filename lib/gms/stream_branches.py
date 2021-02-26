@@ -217,7 +217,6 @@ class StreamNetwork(gpd.GeoDataFrame):
     def get_arbolate_sum(self,arbolate_sum_attribute='arbolate_sum',inlets_attribute='inlet_id',
                          reach_id_attribute='NHDPlusID',toNode_attribute='toNodes',
                          fromNode_attribute='fromNodes',length_conversion_factor_to_km = 0.001,
-                         length_km_attribute='lengthKM'
                         ):
         
         # sets index of stream branches as reach id attribute
@@ -231,7 +230,6 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # initialize arbolate sum, make length km column, make all from nodes set
         self[arbolate_sum_attribute] = self.geometry.length * length_conversion_factor_to_km 
-        self[length_km_attribute] = self[arbolate_sum_attribute]
         all_fromNodes = set(self[fromNode_attribute].unique())
         
         # depth-first traversal

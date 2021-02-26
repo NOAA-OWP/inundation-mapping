@@ -27,7 +27,7 @@ input_demThal=$inputDataDir/dem_thalwegCond.tif
 input_flowdir=$inputDataDir/flowdir_d8_burned_filled.tif
 input_slopes=$inputDataDir/slopes_d8_dem_meters.tif
 input_demDerived_raster=$inputDataDir/demDerived_streamPixels.tif
-input_demDerived_reaches=$inputDataDir/demDerived_reaches_split.gpkg
+input_demDerived_reaches=$inputDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg
 input_demDerived_reaches_points=$inputDataDir/demDerived_reaches_split_points.gpkg
 input_demDerived_pixel_points=$inputDataDir/flows_points_pixels.gpkg
 input_catchment_list=$inputDataDir/catchment_list.txt
@@ -46,8 +46,12 @@ Tstart
 $libDir/gms/edit_points.py $input_demDerived_reaches_points $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg 
 Tcount
 
-## DERIVE LEVELPATH 
-# derive_level_paths.py
+## DERIVE LEVELPATH  ##
+#echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
+#date -u
+#Tstart
+#$libDir/gms/derive_level_paths.py -i $input_demDerived_reaches -o /data/outputs/latest_dev_uncalibrated/12090301/gms/demDerived_reaches_levelPaths.gpkg
+#Tcount
 
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv
@@ -75,8 +79,9 @@ echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
 date -u
 Tstart
 rm -f $outputDataDir/branch_id.lst
-awk '{print $1}'  $input_catchment_list | while read line; do echo $line >> $outputDataDir/branch_id.lst;done
-tail -n +2 $outputDataDir/branch_id.lst > $outputDataDir/branch_id.tmp && mv $outputDataDir/branch_id.tmp $outputDataDir/branch_id.lst
+#awk '{print $1}'  $input_catchment_list | while read line; do echo $line >> $outputDataDir/branch_id.lst;done
+#tail -n +2 $outputDataDir/branch_id.lst > $outputDataDir/branch_id.tmp && mv $outputDataDir/branch_id.tmp $outputDataDir/branch_id.lst
+$libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst
 Tcount
 
 

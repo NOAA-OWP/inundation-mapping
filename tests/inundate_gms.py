@@ -20,17 +20,20 @@ def Inundate_gms(
     catchment_poly = os.path.join(hydrofabric_dir,'gw_catchments_reaches_filtered.gpkg')
     
     # get available branch ids
-    branch_ids = [i for i in os.listdir(gms_dir) if os.path.isdir(i)]
+    branch_ids = [i for i in os.listdir(gms_dir) if os.path.isdir(os.path.join(gms_dir,i))]
     
     if not quiet:
         print("Inundating branches ...")
-
+    
+    # iterate over branches
     for branch_id in tqdm(branch_ids,disable=quiet):
        
+        # define branch specific files
         rem_branch = rem.format(branch_id,branch_id)
         catchments_branch = catchments.format(branch_id,branch_id)
         hydroTable_branch = hydroTable.format(branch_id,branch_id)
-        inundation_branch_polygon = inundation_polygon.split('.')[0] + "_{}.".format(branch_id) + inundation_polygon.split(".")[1]
+        inundation_polygon_file_name, inundation_polygon_extension = inundation_polygon.split('.')
+        inundation_branch_polygon = inundation_polygon_file_name + "_{}.".format(branch_id) + inundation_polygon_extension
 
         try:
             inundate(
@@ -41,8 +44,9 @@ def Inundate_gms(
                      inundation_polygon=inundation_branch_polygon,
                      depths=depths_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
                     )
-        except:
+        except Exception as e:
             print("Error on BranchID: {}".format(branch_id))
+            print(e)
 if __name__ == '__main__':
 
     # parse arguments
