@@ -8,17 +8,21 @@ from rasterstats import zonal_stats
 import json
 import argparse
 import sys
+from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
-def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
+def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
 
     input_catchments = gpd.read_file(input_catchments_fileName)
     input_flows = gpd.read_file(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName)
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
-    min_catchment_area = float(os.environ['min_catchment_area'])
-    min_stream_length = float(os.environ['min_stream_length'])
+    #####
+    # FIX THIS LATER
+    #####
+    min_catchment_area = 0.25#float(os.environ['min_catchment_area'])
+    min_stream_length = 0.5#float(os.environ['min_stream_length'])
 
     if extent == 'FR':
         ## crosswalk using majority catchment method
@@ -167,7 +171,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
     if input_src_base.CatchId.dtype != 'int': input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
-    input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID']],left_on='CatchId',right_on='HydroID')
+    input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID','order_']],left_on='CatchId',right_on='HydroID')
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric,**{'errors' : 'coerce'})
@@ -208,6 +212,9 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
+
+    ## bathy implimentation??
+    output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName)
 
     # make hydroTable
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
@@ -264,6 +271,8 @@ if __name__ == '__main__':
     parser.add_argument('-d','--input-catchments-fileName', help='DEM derived catchments', required=True)
     parser.add_argument('-a','--input-flows-fileName', help='DEM derived streams', required=True)
     parser.add_argument('-s','--input-srcbase-fileName', help='Base synthetic rating curve table', required=True)
+    parser.add_argument('-u','--input-bathy-fileName', help='Text file with bankfull bathy variables', required=True)
+    parser.add_argument('-v','--output-bathy-fileName', help='Output bathy/bankfull crosswalk and calculated bathy variables', required=True)
     parser.add_argument('-l','--output-catchments-fileName', help='Subset crosswalked catchments', required=True)
     parser.add_argument('-f','--output-flows-fileName', help='Subset crosswalked  streams', required=True)
     parser.add_argument('-r','--output-src-fileName', help='Output crosswalked synthetic rating curve table', required=True)
@@ -284,6 +293,8 @@ if __name__ == '__main__':
     input_catchments_fileName = args['input_catchments_fileName']
     input_flows_fileName = args['input_flows_fileName']
     input_srcbase_fileName = args['input_srcbase_fileName']
+    input_bathy_fileName = args['input_bathy_fileName']
+    output_bathy_fileName = args['output_bathy_fileName']
     output_catchments_fileName = args['output_catchments_fileName']
     output_flows_fileName = args['output_flows_fileName']
     output_src_fileName = args['output_src_fileName']
@@ -299,4 +310,4 @@ if __name__ == '__main__':
     small_segments_filename = args['small_segments_filename']
     calibration_mode = args['calibration_mode']
 
-    add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode)
+    add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode)
