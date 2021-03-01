@@ -352,7 +352,7 @@ class StreamBranchPolygons(StreamNetwork):
         for i,bid in enumerate(self.loc[:,self.branch_id_attribute]):
             out_files[i] = vector.loc[vector.loc[:,self.branch_id_attribute] == bid,:]
 
-            if (out_filename_template is not None) & (not self.empty):
+            if (out_filename_template is not None) & (not out_files[i].empty):
                 base,ext = out_filename_template.split('.')
                 out_filename = base + "_{}.".format(bid) + ext
                 
