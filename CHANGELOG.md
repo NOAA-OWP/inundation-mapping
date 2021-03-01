@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+
+## v3.0.7.0 - 2021-03-01 - [PR #288](https://github.com/NOAA-OWP/cahaba/pull/288)
+
+Restructured the repository. This has no impact on hydrological work done in the codebase and is simply moving files and renaming directories.
+
+### Changes
+ - Moved the contents of the `lib` folder to a new folder called `src`.
+ - Moved the contents of the `tests` folder to the `tools` folder.
+ - Changed any instance of `lib` or `libDir` to `src` or `srcDir`.
+
+<br/><br/>
 ## v3.0.6.0 - 2021-02-25 - [PR #276](https://github.com/NOAA-OWP/cahaba/pull/276)
 
 Enhancement that creates metric plots and summary statistics using metrics compiled by `synthesize_test_cases.py`. 
