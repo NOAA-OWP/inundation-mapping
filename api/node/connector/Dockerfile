@@ -1,4 +1,4 @@
-FROM docker:19.03.14-dind
+FROM docker:20.10.2-dind
 
 RUN apk add --no-cache python3 python3-dev py3-pip build-base openssl-dev libffi-dev git
 
