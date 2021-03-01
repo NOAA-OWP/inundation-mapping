@@ -6,7 +6,7 @@ import csv
 import sys
 import shutil
 from multiprocessing import Pool
-import geopandas as gp
+import geopandas as gpd
 from urllib.error import HTTPError
 from tqdm import tqdm
 
@@ -18,12 +18,12 @@ from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_VECTOR_EXTRACTION_SUFFIX,
                                     PREP_PROJECTION,
                                     WBD_NATIONAL_URL,
-                                    FOSS_ID,
+                                    FIM_ID,
                                     OVERWRITE_WBD,
                                     OVERWRITE_NHD,
                                     OVERWRITE_ALL)
 
-from utils.shared_functions import pull_file, run_system_command, subset_wbd_gpkg, delete_file
+from utils.shared_functions import pull_file, run_system_command, subset_wbd_gpkg, delete_file, getDriver
 
 NHDPLUS_VECTORS_DIRNAME = 'nhdplus_vectors'
 NHDPLUS_RASTERS_DIRNAME = 'nhdplus_rasters'
@@ -32,7 +32,7 @@ NWM_FILE_TO_SUBSET_WITH = 'nwm_flows.gpkg'
 
 def subset_wbd_to_nwm_domain(wbd,nwm_file_to_use):
 
-    intersecting_indices = [not (gp.read_file(nwm_file_to_use,mask=b).empty) for b in wbd.geometry]
+    intersecting_indices = [not (gpd.read_file(nwm_file_to_use,mask=b).empty) for b in wbd.geometry]
 
     return(wbd[intersecting_indices])
 
@@ -71,21 +71,20 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
 
         procs_list, wbd_gpkg_list = [], []
         multilayer_wbd_geopackage = os.path.join(wbd_directory, 'WBD_National.gpkg')
-        # Add fossid to HU8, project, and convert to geopackage. Code block from Brian Avant.
+        # Add fimid to HU8, project, and convert to geopackage.
         if os.path.isfile(multilayer_wbd_geopackage):
             os.remove(multilayer_wbd_geopackage)
         print("Making National WBD GPKG...")
         print("\tWBDHU8")
-        wbd_hu8 = gp.read_file(wbd_gdb_path, layer='WBDHU8')
+        wbd_hu8 = gpd.read_file(wbd_gdb_path, layer='WBDHU8')
         wbd_hu8 = wbd_hu8.rename(columns={'huc8':'HUC8'}) # rename column to caps
         wbd_hu8 = wbd_hu8.sort_values('HUC8')
-        fossids = [str(item).zfill(4) for item in list(range(1, 1 + len(wbd_hu8)))]
-        wbd_hu8[FOSS_ID] = fossids
+        fimids = [str(item).zfill(4) for item in list(range(1000, 1000 + len(wbd_hu8)))]
+        wbd_hu8[FIM_ID] = fimids
         wbd_hu8 = wbd_hu8.to_crs(PREP_PROJECTION)  # Project.
-        #wbd_hu8.to_file(os.path.join(wbd_directory, 'WBDHU8.gpkg'), driver='GPKG')  # Save.
         wbd_hu8 = subset_wbd_to_nwm_domain(wbd_hu8,nwm_file_to_use)
         wbd_hu8.geometry = wbd_hu8.buffer(0)
-        wbd_hu8.to_file(multilayer_wbd_geopackage, driver='GPKG',layer='WBDHU8')  # Save.
+        wbd_hu8.to_file(multilayer_wbd_geopackage,layer='WBDHU8',driver=getDriver(multilayer_wbd_geopackage),index=False)  # Save.
         wbd_hu8.HUC8.to_csv(nwm_huc_list_file_template.format('8'),index=False,header=False)
         #wbd_gpkg_list.append(os.path.join(wbd_directory, 'WBDHU8.gpkg'))  # Append to wbd_gpkg_list for subsetting later.
         del wbd_hu8
@@ -94,12 +93,12 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
         for wbd_layer_num in ['4', '6']:
             wbd_layer = 'WBDHU' + wbd_layer_num
             print("\t{}".format(wbd_layer))
-            wbd = gp.read_file(wbd_gdb_path,layer=wbd_layer)
+            wbd = gpd.read_file(wbd_gdb_path,layer=wbd_layer)
             wbd = wbd.to_crs(PREP_PROJECTION)
             wbd = wbd.rename(columns={'huc'+wbd_layer_num : 'HUC' + wbd_layer_num})
             wbd = subset_wbd_to_nwm_domain(wbd,nwm_file_to_use)
             wbd.geometry = wbd.buffer(0)
-            wbd.to_file(multilayer_wbd_geopackage,driver="GPKG",layer=wbd_layer)
+            wbd.to_file(multilayer_wbd_geopackage,layer=wbd_layer,driver=getDriver(multilayer_wbd_geopackage),index=False)
             wbd['HUC{}'.format(wbd_layer_num)].to_csv(nwm_huc_list_file_template.format(wbd_layer_num),index=False,header=False)
             #output_gpkg = os.path.join(wbd_directory, wbd_layer + '.gpkg')
             #wbd_gpkg_list.append(output_gpkg)
@@ -205,15 +204,15 @@ def pull_and_prepare_nhd_data(args):
         huc = os.path.split(nhd_vector_extraction_parent)[1]  # Parse HUC.
         os.system("7za x {nhd_vector_extraction_path} -o{nhd_vector_extraction_parent}".format(nhd_vector_extraction_path=nhd_vector_extraction_path, nhd_vector_extraction_parent=nhd_vector_extraction_parent))
         # extract input stream network
-        nhd = gp.read_file(nhd_gdb,layer='NHDPlusBurnLineEvent')
+        nhd = gpd.read_file(nhd_gdb,layer='NHDPlusBurnLineEvent')
         nhd = nhd.to_crs(PREP_PROJECTION)
         nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusBurnLineEvent' + huc + '.gpkg'),driver='GPKG')
         # extract flowlines for FType attributes
-        nhd = gp.read_file(nhd_gdb,layer='NHDFlowline')
+        nhd = gpd.read_file(nhd_gdb,layer='NHDFlowline')
         nhd = nhd.to_crs(PREP_PROJECTION)
         nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDFlowline' + huc + '.gpkg'),driver='GPKG')
         # extract attributes
-        nhd = gp.read_file(nhd_gdb,layer='NHDPlusFlowLineVAA')
+        nhd = gpd.read_file(nhd_gdb,layer='NHDPlusFlowLineVAA')
         nhd.to_file(os.path.join(nhd_vector_extraction_parent, 'NHDPlusFlowLineVAA' + huc + '.gpkg'),driver='GPKG')
         # -- Project and convert NHDPlusBurnLineEvent and NHDPlusFlowLineVAA vectors to geopackage -- #
         #for nhd_layer in ['NHDPlusBurnLineEvent', 'NHDPlusFlowlineVAA']:
@@ -246,15 +245,15 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     huc_gpkg = 'WBDHU8' # The WBDHU4 are handled by the nhd_plus_raster_dir name.
 
     # Open geopackage.
-    wbd = gp.read_file(full_huc_gpkg, layer=huc_gpkg)
+    wbd = gpd.read_file(full_huc_gpkg, layer=huc_gpkg)
 
     # Loop through entries and compare against the huc4_list to get available HUCs within the geopackage domain.
-    for index, row in tqdm(wbd.iterrows()):
+    for index, row in tqdm(wbd.iterrows(),total=len(wbd)):
         huc = row["HUC" + huc_gpkg[-1]]
         huc_mask = wbd.loc[wbd[str("HUC" + huc_gpkg[-1])]==huc].geometry
         burnline = os.path.join(nhd_plus_vector_dir, huc[0:4], 'NHDPlusBurnLineEvent' + huc[0:4] + '.gpkg')
         if os.path.exists(burnline):
-            nhd_test = len(gp.read_file(burnline, mask = huc_mask)) # this is slow, iterates through 2000+ HUC8s
+            nhd_test = len(gpd.read_file(burnline, mask = huc_mask)) # this is slow, iterates through 2000+ HUC8s
             # Append huc to huc8 list.
             if (str(huc[:4]) in huc4_list) & (nhd_test>0):
                 huc8_list.append(huc)
@@ -263,9 +262,12 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
     huc6_list = set(huc6_list)
 
     # Write huc lists to appropriate .lst files.
-    included_huc4_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc4.lst')
-    included_huc6_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc6.lst')
-    included_huc8_file = os.path.join(path_to_saved_data_parent_dir, 'included_huc8.lst')
+    huc_lists_dir = os.path.join(path_to_saved_data_parent_dir, 'huc_lists')
+    if not os.path.exists(huc_lists_dir):
+        os.mkdir(huc_lists_dir)
+    included_huc4_file = os.path.join(huc_lists_dir, 'included_huc4.lst')
+    included_huc6_file = os.path.join(huc_lists_dir, 'included_huc6.lst')
+    included_huc8_file = os.path.join(huc_lists_dir, 'included_huc8.lst')
 
     # Overly verbose file writing loops. Doing this in a pinch.
     with open(included_huc4_file, 'w') as f:
