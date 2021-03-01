@@ -7,7 +7,6 @@ Required Arguments:
         hydro_id       = name of ID column (string)
 '''
 import sys
-import datetime
 import pandas as pd
 import argparse
 import geopandas as gpd
@@ -45,7 +44,7 @@ class build_stream_traversal_columns(object):
                 # Get stream midpoint
                 stream_midpoint = []
                 for i,lineString in enumerate(streams.geometry):
-                    stream_midpoint = stream_midpoint + [lineString.interpolate(0.05,normalized=True)]
+                    stream_midpoint = stream_midpoint + [lineString.interpolate(0.5,normalized=True)]
 
                 stream_md_gpd = gpd.GeoDataFrame({'geometry':stream_midpoint}, crs=streams.crs, geometry='geometry')
                 stream_wbdjoin = gpd.sjoin(stream_md_gpd, wbd8, how='left', op='within')
