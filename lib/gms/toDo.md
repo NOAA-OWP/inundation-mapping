@@ -16,6 +16,8 @@
 - No data value issue?
 - Implement attribute exclusion for branching functionality (stream order 1s)
 - parameterize branch buffer distance by stream order
+- why using filtered reaches causes issues?
+- use new rem.py
 
 # FIM 3 To Do for GMS
 - rem.py is current bottleneck. Optimize

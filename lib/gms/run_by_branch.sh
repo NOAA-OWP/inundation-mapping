@@ -10,11 +10,14 @@ T_total_start
 # echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
-inputDataDir=/data/outputs/fim3_integration_test_to_fim4_20210225_ca68f2b/12090301
+inputDataDir=/data/outputs/fim3_20210301_a92212d/12090301
 outputDataDir=$inputDataDir/gms
 
 # make outputs directory
 if [ ! -d "$outputDataDir" ]; then
+    mkdir -p $outputDataDir
+else # remove contents if already exists
+    rm -rf $outputDataDir
     mkdir -p $outputDataDir
 fi
 
@@ -27,7 +30,7 @@ input_demThal=$inputDataDir/dem_thalwegCond.tif
 input_flowdir=$inputDataDir/flowdir_d8_burned_filled.tif
 input_slopes=$inputDataDir/slopes_d8_dem_meters.tif
 input_demDerived_raster=$inputDataDir/demDerived_streamPixels.tif
-input_demDerived_reaches=$inputDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg
+input_demDerived_reaches=$inputDataDir/demDerived_reaches_split.gpkg
 input_demDerived_reaches_points=$inputDataDir/demDerived_reaches_split_points.gpkg
 input_demDerived_pixel_points=$inputDataDir/flows_points_pixels.gpkg
 input_catchment_list=$inputDataDir/catchment_list.txt
@@ -102,7 +105,7 @@ do
     echo -e $startDiv"D8 REM for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    $libDir/rem.py -d $outputDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputDataDir/rem_$current_branch_id.tif -t $outputDataDir/demDerived_$current_branch_id.tif
+    $libDir/rem.py -d $outputDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputDataDir/rem_$current_branch_id.tif -t $outputDataDir/demDerived_$current_branch_id.tif 
     Tcount
 
     ## GAGE WATERSHED FOR REACHES ##
