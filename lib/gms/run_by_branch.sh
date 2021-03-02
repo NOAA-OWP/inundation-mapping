@@ -53,7 +53,7 @@ Tcount
 #echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 #date -u
 #Tstart
-#$libDir/gms/derive_level_paths.py -i $input_demDerived_reaches -o /data/outputs/latest_dev_uncalibrated/12090301/gms/demDerived_reaches_levelPaths.gpkg
+#$libDir/gms/derive_level_paths.py -i $input_demDerived_reaches -o $outputDataDir/demDerived_reaches_levelPaths.gpkg
 #Tcount
 
 ## STREAM BRANCH POLYGONS
@@ -74,16 +74,13 @@ Tcount
 echo -e $startDiv"Subsetting vectors to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i HydroID -s $input_demDerived_reaches $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
+$libDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i $branch_id_attribute -s $input_demDerived_reaches $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
 date -u
 Tstart
-rm -f $outputDataDir/branch_id.lst
-#awk '{print $1}'  $input_catchment_list | while read line; do echo $line >> $outputDataDir/branch_id.lst;done
-#tail -n +2 $outputDataDir/branch_id.lst > $outputDataDir/branch_id.tmp && mv $outputDataDir/branch_id.tmp $outputDataDir/branch_id.lst
 $libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst
 Tcount
 
@@ -112,7 +109,7 @@ do
     echo -e $startDiv"Gage Watershed for Reaches for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_$current_branch_id.tif -gw $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -o $outputDataDir/demDerived_reaches_points_$current_branch_id.gpkg -id $outputDataDir/idFile.txt
+    mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_$current_branch_id.tif -gw $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -o $outputDataDir/demDerived_reaches_points_$current_branch_id.gpkg -id $outputDataDir/idFile_$current_branch_id.txt
     Tcount
 
     ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##
@@ -125,7 +122,7 @@ do
     echo -e $startDiv"Polygonize Reach Watersheds for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    gdal_polygonize.py -8 -f GPKG $outputDataDir/gw_catchments_reaches_$current_branch_id.tif $outputDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
+    gdal_polygonize.py -8 -f GPKG $outputDataDir/gw_catchments_reaches_$current_branch_id.tif $outputDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments $branch_id_attribute
     Tcount
 
     echo "1" > $outputDataDir/catch_list_$current_branch_id.txt

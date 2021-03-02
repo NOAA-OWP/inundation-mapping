@@ -92,7 +92,11 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def derive_outlets(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',outlets_attribute='outlet_id'):
+    def derive_outlets(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',outlets_attribute='outlet_id',
+                       verbose=False):
+
+        if verbose:
+            print("Deriving outlets ...")
 
         fromNodes = set(i for i in self[fromNode_attribute])
 
@@ -107,7 +111,11 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def derive_inlets(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',inlets_attribute='inlet_id'):
+    def derive_inlets(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',inlets_attribute='inlet_id',
+                      verbose=False):
+
+        if verbose:
+            print("Deriving inlets ...")
 
         toNodes = set(i for i in self[toNode_attribute])
 
@@ -122,9 +130,18 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def derive_stream_branches(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',outlet_attribute='outlet_id',branch_id_attribute='branchID',reach_id_attribute='NHDPlusID',comparison_attributes='StreamOrde',comparison_function=max):
+    def derive_stream_branches(self,toNode_attribute='ToNode',
+                               fromNode_attribute='FromNode',
+                               outlet_attribute='outlet_id',
+                               branch_id_attribute='branchID',
+                               reach_id_attribute='NHDPlusID',
+                               comparison_attributes='StreamOrde',
+                               comparison_function=max,
+                               verbose=False):
 
         """ Derives stream branches """
+        if verbose:
+            print("Deriving stream branches ..")
 
         # checks inputs
         allowed_comparison_function = {max,min}
@@ -217,8 +234,12 @@ class StreamNetwork(gpd.GeoDataFrame):
     def get_arbolate_sum(self,arbolate_sum_attribute='arbolate_sum',inlets_attribute='inlet_id',
                          reach_id_attribute='NHDPlusID',toNode_attribute='toNodes',
                          fromNode_attribute='fromNodes',length_conversion_factor_to_km = 0.001,
+                         verbose=False
                         ):
         
+        if verbose:
+            print("Deriving arbolate sum ...")
+
         # sets index of stream branches as reach id attribute
         if self.index.name != reach_id_attribute:
             self.set_index(reach_id_attribute,drop=True,inplace=True)
@@ -271,21 +292,43 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def dissolve_by_branch(self,branch_id_attribute='LevelPathI',attribute_excluded='StreamOrde',values_excluded=[1,2],out_vector_file_template=None):
+    def dissolve_by_branch(self,branch_id_attribute='LevelPathI',attribute_excluded='StreamOrde',
+                           values_excluded=[1,2],out_vector_files=None, verbose=False):
         
+        if verbose:
+            print("Dissolving by branch ...")
+
+        # exclude attributes and their values
+        if (attribute_excluded is not None) & (values_excluded is not None):
+            values_excluded = set(values_excluded)
+            exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
+            self = self.loc[exclude_indices,:]
+
+        # save branch ids
+        bids = self.loc[:,branch_id_attribute].unique().tolist()
+
         # dissolve lines
-        values_excluded = set(values_excluded)
-        exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
-        self = self.loc[exclude_indices,:]
         self = self.dissolve(by=branch_id_attribute)
         
+        self[branch_id_attribute] = bids
         self = StreamNetwork(self,branch_id_attribute=branch_id_attribute,
                              attribute_excluded=attribute_excluded,
                              values_excluded=values_excluded)
 
-        if out_vector_file_template is not None:
+        if out_vector_files is not None:
+            
+            base_file_path,extension = splitext(out_vector_files)
+            
+            if verbose:
+                print("Writing dissolved branches ...")
+            
+            for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
+                out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
+                
+                bid_indices = self.loc[:,branch_id_attribute] == bid
+                current_stream_network = StreamNetwork(self.loc[bid_indices,:])
 
-            self.write(out_vector_file_template)
+                current_stream_network.write(out_vector_file)
 
         return(self)
 
