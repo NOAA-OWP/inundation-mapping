@@ -2,6 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.7.1 - 2021-03-02 - [PR #290](https://github.com/NOAA-OWP/cahaba/pull/290)
+
+Renamed benchmark layers in `test_cases` and updated variable names in evaluation scripts.
+
+### Changes
+ - Updated `run_test_case.py` with new benchmark layer names.
+ - Updated `run_test_case_calibration.py` with new benchmark layer names.
+ 
+<br/><br/>
 ## v3.0.7.0 - 2021-03-01 - [PR #288](https://github.com/NOAA-OWP/cahaba/pull/288)
 
 Restructured the repository. This has no impact on hydrological work done in the codebase and is simply moving files and renaming directories.

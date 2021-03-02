@@ -232,7 +232,7 @@ def run_alpha_test(fim_run_dir, calib_dir, branch_name, test_id, mask_type, retu
     for return_interval in return_interval_list:
         # Construct path to validation raster and forecast file.
         benchmark_category = test_id.split('_')[1]
-        benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, return_interval, benchmark_category + '_huc_' + current_huc + '_depth_' + return_interval + '.tif')
+        benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, return_interval, benchmark_category + '_huc_' + current_huc + '_extent_' + return_interval + '.tif')
         if not os.path.exists(benchmark_raster_path):  # Skip loop instance if the benchmark raster doesn't exist.
             continue
 
