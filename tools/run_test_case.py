@@ -98,7 +98,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
             
             for lid in lid_dir_list:
                 lid_dir = os.path.join(validation_data_path, current_huc, lid)
-                benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_depth_' + magnitude + '.tif'))  # TEMP
+                benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif'))  # TEMP
                 forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
                 lid_list.append(lid)
                 inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
