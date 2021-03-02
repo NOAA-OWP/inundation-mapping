@@ -54,7 +54,7 @@ ARG projectDir=/foss_fim
 ARG depDir=/dependencies
 ENV inputDataDir=$dataDir/inputs
 ENV outputDataDir=$dataDir/outputs 
-ENV libDir=$projectDir/lib
+ENV srcDir=$projectDir/src
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
@@ -91,5 +91,5 @@ COPY Pipfile.lock .
 RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
-ADD ./lib/entrypoint.sh /
+ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
