@@ -7,9 +7,10 @@ import pandas as pd
 import json
 import rasterio
 from rasterio.merge import merge
+from rasterio.warp import calculate_default_transform, reproject, Resampling
 import shutil
 import csv
-from utils.shared_variables import PREP_PROJECTION
+from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
 def aggregate_fim_outputs(args):
 
@@ -85,8 +86,8 @@ def aggregate_fim_outputs(args):
 
     ## aggregate rasters
     # aggregate file paths
-    rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}.tif')
-    catchment_mosaic = os.path.join(huc6_dir,f'catchments_{huc6}.tif')
+    rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}_unprj.tif')
+    catchment_mosaic = os.path.join(huc6_dir,f'catchments_{huc6}_unprj.tif')
 
     if huc6 not in huc_list:
 
@@ -150,6 +151,43 @@ def aggregate_fim_outputs(args):
 
         shutil.copy(rem_filename, rem_mosaic)
         shutil.copy(catchment_filename, catchment_mosaic)
+
+    ## reproject rasters
+    reproject_raster(rem_mosaic)
+    os.remove(rem_mosaic)
+
+    reproject_raster(catchment_mosaic)
+    os.remove(catchment_mosaic)
+    
+
+def reproject_raster(raster_name):
+
+    with rasterio.open(raster_name) as src:
+        transform, width, height = calculate_default_transform(
+            src.crs, VIZ_PROJECTION, src.width, src.height, *src.bounds)
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': VIZ_PROJECTION,
+            'transform': transform,
+            'width': width,
+            'height': height,
+            'compress': 'lzw'
+        })
+
+        raster_proj_rename = os.path.split(raster_name)[1].replace('_unprj.tif', '.tif')
+        raster_proj_dir = os.path.join(os.path.dirname(raster_name), raster_proj_rename)
+
+        with rasterio.open(raster_proj_dir, 'w', **kwargs, tiled=True, blockxsize=1024, blockysize=1024, BIGTIFF='YES') as dst:
+            # for i in range(1, src.count + 1):
+            reproject(
+                source=rasterio.band(src, 1),
+                destination=rasterio.band(dst, 1),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=VIZ_PROJECTION,
+                resampling=Resampling.nearest)
+    del src, dst
 
 if __name__ == '__main__':
 
