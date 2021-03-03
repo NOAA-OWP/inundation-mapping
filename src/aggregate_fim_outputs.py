@@ -118,7 +118,7 @@ def aggregate_fim_outputs(fim_out_dir):
                 out_meta = rem_src.meta.copy()
                 out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'})
 
-                with rasterio.open(rem_mosaic, "w", **out_meta, tiled=True, blockxsize=256, blockysize=256, BIGTIFF='YES') as dest:
+                with rasterio.open(rem_mosaic, "w", **out_meta, tiled=True, blockxsize=1024, blockysize=1024, BIGTIFF='YES') as dest:
                     dest.write(mosaic)
 
                 del rem_files_to_mosaic,rem_src,out_meta,mosaic
@@ -143,7 +143,7 @@ def aggregate_fim_outputs(fim_out_dir):
 
                 out_meta.update({"driver": "GTiff", "height": mosaic.shape[1], "width": mosaic.shape[2], "dtype": str(mosaic.dtype), "transform": out_trans,"crs": PREP_PROJECTION,'compress': 'lzw'})
 
-                with rasterio.open(catchment_mosaic, "w", **out_meta, tiled=True, blockxsize=256, blockysize=256, BIGTIFF='YES') as dest:
+                with rasterio.open(catchment_mosaic, "w", **out_meta, tiled=True, blockxsize=1024, blockysize=1024, BIGTIFF='YES') as dest:
                     dest.write(mosaic)
 
                 del cat_files_to_mosaic,cat_src,out_meta,mosaic
