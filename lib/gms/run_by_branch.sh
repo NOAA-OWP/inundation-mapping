@@ -11,7 +11,7 @@ T_total_start
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 inputDataDir=/data/outputs/fim3_20210301_a92212d/12090301
-outputDataDir=$inputDataDir/gms
+outputDataDir=$inputDataDir/gms_levelpath
 
 # make outputs directory
 if [ ! -d "$outputDataDir" ]; then
