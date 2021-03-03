@@ -18,6 +18,8 @@ def aggregate_fim_outputs(args):
     huc6          = args[1]
     huc_list      = args[2]
 
+    print(f"aggregating {huc6}")
+
     huc6_dir = os.path.join(fim_out_dir,'aggregate_fim_outputs',str(huc6))
     os.makedirs(huc6_dir, exist_ok=True)
 
@@ -158,7 +160,7 @@ def aggregate_fim_outputs(args):
 
     reproject_raster(catchment_mosaic)
     os.remove(catchment_mosaic)
-    
+
 
 def reproject_raster(raster_name):
 
