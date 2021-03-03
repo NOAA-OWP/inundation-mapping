@@ -52,7 +52,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(cls(gpd.read_file(filename,*args,**kwargs),**inputs))
 
 
-    def write(self,fileName,layer=None,verbose=False):
+    def write(self,fileName,layer=None,index=True,verbose=False):
 
         """ Gets driver Name from file extension for Geopandas writing """
 
@@ -63,7 +63,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
         driver = driverDictionary[splitext(fileName)[1]]
     
-        self.to_file(fileName, driver=driver, layer=layer, index=False)
+        self.to_file(fileName, driver=driver, layer=layer, index=index)
 
 
     def merge_stream_branches(self,stream_branch_dataset,on='NHDPlusID',branch_id_attribute='LevelPathI',attributes='StreamOrde',stream_branch_layer_name=None):
@@ -305,12 +305,16 @@ class StreamNetwork(gpd.GeoDataFrame):
             self = self.loc[exclude_indices,:]
 
         # save branch ids
-        bids = self.loc[:,branch_id_attribute].unique().tolist()
+        #print(self.columns)
+        #self.sort_values(axis=1,by=branch_id_attribute,inplace=True)
+        #bids = self.loc[:,branch_id_attribute].unique().tolist()
 
         # dissolve lines
+        self['bids_temp'] = self.loc[:,branch_id_attribute].copy()
         self = self.dissolve(by=branch_id_attribute)
+        self.rename(columns={'bids_temp' : branch_id_attribute},inplace=True)
         
-        self[branch_id_attribute] = bids
+        #self[branch_id_attribute] = bids
         self = StreamNetwork(self,branch_id_attribute=branch_id_attribute,
                              attribute_excluded=attribute_excluded,
                              values_excluded=values_excluded)
@@ -328,7 +332,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 bid_indices = self.loc[:,branch_id_attribute] == bid
                 current_stream_network = StreamNetwork(self.loc[bid_indices,:])
 
-                current_stream_network.write(out_vector_file)
+                current_stream_network.write(out_vector_file,index=False)
 
         return(self)
 

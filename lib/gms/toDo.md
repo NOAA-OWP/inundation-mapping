@@ -8,14 +8,12 @@
 
 ## Longer term
 - Derive levelpath
-    - UNSORTED BRANCH IDs in dissolved files
-    - fix issues with library for deriving levelpaths
+    - ADD levelpaths capabilities to edit_points.py. then move that module down in order.
     - subset other vectors based on this now (requires association of HydroIDs to levelpathIDs)
     - create branch id list from levelpathIDs
-    - dissolving?
-- levelpaths for nested segments: 
-    - nested segments not allocated correctly in levelpath. 
-    - May need to derive arbolate sum and levelpath on a non-HUC scale (entire FIM domain scale)
+    - levelpaths for nested segments: 
+        - nested segments not allocated correctly in levelpath. 
+        - May need to derive arbolate sum and levelpath on a non-HUC scale (entire FIM domain scale)
 - Parallelize by unit. 
     - Needs a script comparable to fim_run or integration into fim_run
     - Need branch progress tracking or writing stdout/err to individual log file

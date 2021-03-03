@@ -50,11 +50,11 @@ $libDir/gms/edit_points.py $input_demDerived_reaches_points $outputDataDir/demDe
 Tcount
 
 ## DERIVE LEVELPATH  ##
-#echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
-#date -u
-#Tstart
-#$libDir/gms/derive_level_paths.py -i $input_demDerived_reaches -o $outputDataDir/demDerived_reaches_levelPaths.gpkg
-#Tcount
+echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
+date -u
+Tstart
+$libDir/gms/derive_level_paths.py -i $input_demDerived_reaches -b $branch_id_attribute -o $outputDataDir/demDerived_reaches_levelPaths.gpkg -d $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
+Tcount
 
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv

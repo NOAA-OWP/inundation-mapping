@@ -4,12 +4,18 @@ from stream_branches import StreamNetwork
 import argparse
 
 
-def Derive_level_paths(in_stream_network, out_stream_network,
+def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute,
                        out_stream_network_dissolved=None,
                        toNode_attribute='To_Node',fromNode_attribute='From_Node',
                        verbose=False
                        ):
+
+    if verbose:
+        print("Deriving level paths ...")
+
     # load file
+    if verbose:
+        print("Loading stream network ...")
     stream_network = StreamNetwork.from_file(in_stream_network)
 
     # derive outlets and inlets
@@ -29,7 +35,7 @@ def Derive_level_paths(in_stream_network, out_stream_network,
     # derive stream branches
     stream_network = stream_network.derive_stream_branches( toNode_attribute=toNode_attribute,
                                                             fromNode_attribute=fromNode_attribute,
-                                                            branch_id_attribute='levpa_id',
+                                                            branch_id_attribute=branch_id_attribute,
                                                             reach_id_attribute='HydroID',
                                                             comparison_attributes='arbolate_sum',
                                                             comparison_function=max,
@@ -37,12 +43,12 @@ def Derive_level_paths(in_stream_network, out_stream_network,
                                                            )
     
     if out_stream_network is not None:
-        stream_network.write(out_stream_network)
+        stream_network.write(out_stream_network,index=True)
     
     if out_stream_network_dissolved is not None:
     
         # dissolve by levelpath
-        stream_network = stream_network.dissolve_by_branch(branch_id_attribute='levpa_id',
+        stream_network = stream_network.dissolve_by_branch(branch_id_attribute=branch_id_attribute,
                                                            attribute_excluded=None, #'order_',
                                                            values_excluded=None, #[1,2],
                                                            out_vector_files=out_stream_network_dissolved,
@@ -56,7 +62,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Create stream network level paths')
     parser.add_argument('-i','--in-stream-network', help='Input stream network', required=True)
-    parser.add_argument('-o','--out-stream-network', help='Output stream network', required=True)
+    parser.add_argument('-b','--branch-id-attribute', help='Name of the branch attribute desired', required=True)
+    parser.add_argument('-o','--out-stream-network', help='Output stream network', required=False,default=None)
     parser.add_argument('-d','--out-stream-network-dissolved', help='Dissolved output stream network', required=False,default=None)
     parser.add_argument('-v','--verbose', help='Verbose output', required=False,default=False,action='store_true')
     
