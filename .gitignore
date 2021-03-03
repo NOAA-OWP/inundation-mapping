@@ -8,3 +8,5 @@ config/**
 !config/*calibrated*
 !config/symbology/
 .vscode/
+**/.DS_Store
+**/*_pytest.py
