@@ -264,7 +264,7 @@ def reformat_inundation_maps(args):
         # project to Web Mercator
         extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
 
-        # copy gdb and save to feature class
+        # save dissolved multipolygon
         handle = os.path.split(grid_path)[1].replace('.tif', '')
 
         diss_extent_filename = os.path.join(gpkg_dir, handle + "_dissolved.gpkg")
