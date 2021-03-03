@@ -241,7 +241,6 @@ def reformat_inundation_maps(args):
         magnitude    = args[5]
 
         # convert raster to to shapes
-        # with rasterio.Env():
         with rasterio.open(grid_path) as src:
             image = src.read(1)
             mask = image > 0
