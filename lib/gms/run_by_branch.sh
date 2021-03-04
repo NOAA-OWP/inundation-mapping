@@ -23,7 +23,7 @@ fi
 
 ## TEMP ##
 ## SET VARIABLES AND FILE INPUTS ##
-branch_id_attribute=HydroID
+branch_id_attribute=levpa_id
 branch_buffer_distance_meters=7000
 ncores_gw=1
 input_demThal=$inputDataDir/dem_thalwegCond.tif
@@ -42,13 +42,6 @@ export stopDiv="\n##############################################################
 ndv=-2147483648
 hucNumber=12090301
 
-##### TEMP ######
-echo -e $startDiv"TEMP EDITING DEM DERIVED POINTS FILES for $hucNumber: SHOULD BE DONE IN FIM 3"$stopDiv
-date -u
-Tstart
-$libDir/gms/edit_points.py $input_demDerived_reaches_points $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg 
-Tcount
-
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 date -u
@@ -60,7 +53,7 @@ Tcount
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/buffer_stream_branches.py -s $input_demDerived_reaches -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
+$libDir/gms/buffer_stream_branches.py -s $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
 Tcount
 
 ## CLIP RASTERS
@@ -70,21 +63,30 @@ Tstart
 $libDir/gms/clip_rasters_to_branches.py -b $outputDataDir/polygons.gpkg -i $branch_id_attribute -r $input_demThal $input_flowdir $input_slopes $input_demDerived_raster -c $outputDataDir/dem_thalwegCond.tif $outputDataDir/flowdir.tif $outputDataDir/slopes.tif $outputDataDir/demDerived.tif -v 
 Tcount
 
+##### EDIT DEM DERIVED POINTS TO ADD BRANCH IDS ######
+echo -e $startDiv"EDITING DEM DERIVED POINTS for $hucNumber"$stopDiv
+date -u
+Tstart
+$libDir/gms/edit_points.py -i $outputDataDir/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -r $input_demDerived_reaches_points -o $outputDataDir/demDerived_reaches_points.gpkg -p $outputDataDir/demDerived_pixels_points.gpkg
+Tcount
+
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i $branch_id_attribute -s $input_demDerived_reaches $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
+$libDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i $branch_id_attribute -s $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst
+$libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst -d $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -b $branch_id_attribute
+#$libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst
 Tcount
 
 
+## LOOP OVER EACH STREAM BRANCH TO DERIVE BRANCH LEVEL HYDROFABRIC ##
 for current_branch_id in $(cat $outputDataDir/branch_id.lst);
 do
 
