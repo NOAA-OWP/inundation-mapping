@@ -12,16 +12,16 @@ import shutil
 from rasterio.features import shapes
 from shapely.geometry.polygon import Polygon
 from shapely.geometry.multipolygon import MultiPolygon
+from inundation import inundate
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 from utils.shared_functions import getDriver
-from inundation import inundate
 
 INPUTS_DIR = r'/data/inputs'
 magnitude_list = ['action', 'minor', 'moderate','major']
 
 # Map path to points with attributes
-all_mapped_ahps_conus_hipr = '/data/inputs/ahp_sites/all_mapped_ahps.csv'
+all_mapped_ahps_conus_hipr = os.path.join(INPUTS_DIR, 'ahp_sites', 'all_mapped_ahps.csv')
 
 # Define necessary variables for inundation()
 hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
@@ -237,7 +237,7 @@ def reformat_inundation_maps(args):
             image = src.read(1)
             mask = image > 0
 
-        # Cggregate shapes
+        # Aggregate shapes
         results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
 
         # convert list of shapes to polygon
@@ -256,7 +256,7 @@ def reformat_inundation_maps(args):
         # Project to Web Mercator
         extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
 
-        # Copy gdb and save to feature class
+        # Save dissolved multipolygon
         handle = os.path.split(grid_path)[1].replace('.tif', '')
 
         diss_extent_filename = os.path.join(gpkg_dir, handle + "_dissolved.gpkg")
