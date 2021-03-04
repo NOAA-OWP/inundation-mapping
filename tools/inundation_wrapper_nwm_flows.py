@@ -10,8 +10,6 @@ import sys
 import csv
 import argparse
 import shutil
-
-# insert python path at runtime for accessing scripts in foss_fim/tests dir (e.g. inundation.py)
 from inundation import inundate
 
 TEST_CASES_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
