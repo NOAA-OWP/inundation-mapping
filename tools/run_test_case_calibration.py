@@ -9,7 +9,7 @@ import csv
 import argparse
 import shutil
 
-from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
+from tools_shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
 TEST_CASES_DIR = r'/data/test_cases/'  # Will update.
