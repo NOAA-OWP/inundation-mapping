@@ -138,7 +138,7 @@ def run_inundation(args):
     except Exception:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
-        f.write(f"{output_extent_gpkg} - inundation error: {traceback.format_exc()}\n")
+        f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
         f.close()
 
 
