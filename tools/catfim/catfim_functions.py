@@ -151,7 +151,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     return dictionary, joined_gdf
 
 ########################################################################
-def mainstems_network(metadata_url, list_of_sites):
+def mainstem_nwm_segs(metadata_url, list_of_sites):
     '''
     Define the mainstems network. Currently a 4 pass approach that probably needs refined.
     Once a final method is decided the code can be shortened. Passes are:
@@ -203,16 +203,16 @@ def mainstems_network(metadata_url, list_of_sites):
     
     #Combine all lists of metadata dictionaries into a single list.
     combined_lists = gages_list + fcst_list + eval_list + islands_list
-    #Define empty list that will contain all segments listed in metadata.
+    #Define list that will contain all segments listed in metadata.
     all_nwm_segments = []
     #For each lid metadata dictionary in list
     for lid in combined_lists:        
-        #get all downstream segments (always a list or doesn't exist)
+        #get all downstream segments
         downstream_nwm_segs = lid.get('downstream_nwm_features')        
         #Append downstream segments
         if downstream_nwm_segs:
             all_nwm_segments.extend(downstream_nwm_segs)                    
-        #Get the nwm feature id associated with the location (always a str or doesn't exist)
+        #Get the nwm feature id associated with the location
         location_nwm_seg = lid.get('identifiers').get('nwm_feature_id')
         if location_nwm_seg:
             #Append nwm segment (conver to list)

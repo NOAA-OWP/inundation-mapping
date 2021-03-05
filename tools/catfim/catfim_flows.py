@@ -9,7 +9,7 @@ import os
 
 load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL")
-
+EVALUATED_SITES_CSV = os.getenv("SITES_CSV")
 
 def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     '''
@@ -70,9 +70,11 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_dataframe = all_dataframe, wbd_huc8_path = wbd_path)
     out_gdf.to_file(workspace / f'candidate_sites.shp')
     
-    #Get all possible mainstem segments, if hi/pr domain = 'hipr', if conus domain = 'conus'
+    #Get all possible mainstem segments
     print('Getting list of mainstem segments')
-    ms_segs = mainstems_network(metadata_url, list_of_sites)
+    #Import list of evaluated sites
+    list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
+    ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
     
     #Loop through each aggregate unit
     all_messages = []
