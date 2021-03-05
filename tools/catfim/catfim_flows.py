@@ -9,7 +9,7 @@ import os
 
 load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL")
-EVALUATED_SITES_CSV = os.getenv("SITES_CSV")
+EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
 
 def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     '''
