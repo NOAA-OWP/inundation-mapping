@@ -205,7 +205,6 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
-    parser.add_argument('-hu', '--wbd_path', help = 'HUC layer (as geopackage)', required = True)
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
     
