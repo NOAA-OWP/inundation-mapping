@@ -2,7 +2,7 @@
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
-from catfim_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_threshold, flow_data, get_metadata, get_nwm_segs, flow_data
+from catfim_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, flow_data
 import argparse
 from dotenv import load_dotenv
 import os
