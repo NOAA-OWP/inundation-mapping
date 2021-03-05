@@ -1,4 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
+
+
+##############################!/bin/bash -e
 
 ## SOURCE BASH FUNCTIONS
 source $libDir/bash_functions.env
@@ -82,9 +85,14 @@ echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
 date -u
 Tstart
 $libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst -d $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -b $branch_id_attribute
-#$libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst
 Tcount
 
+## CREATE BRANCH LEVEL CATCH LISTS ##
+echo -e $startDiv"Create branch level catch lists in HUC: $hucNumber"$stopDiv
+date -u
+Tstart
+/foss_fim/lib/gms/subset_catch_list_by_branch_id.py -c $inputDataDir/catchment_list.txt -s $outputDataDir/demDerived_reaches_levelPaths.gpkg -o $outputDataDir/catch_list.txt -b $branch_id_attribute -l $outputDataDir/branch_id.lst -v
+Tcount
 
 ## LOOP OVER EACH STREAM BRANCH TO DERIVE BRANCH LEVEL HYDROFABRIC ##
 for current_branch_id in $(cat $outputDataDir/branch_id.lst);
@@ -124,11 +132,8 @@ do
     echo -e $startDiv"Polygonize Reach Watersheds for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    gdal_polygonize.py -8 -f GPKG $outputDataDir/gw_catchments_reaches_$current_branch_id.tif $outputDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments $branch_id_attribute
+    gdal_polygonize.py -8 -f GPKG $outputDataDir/gw_catchments_reaches_$current_branch_id.tif $outputDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
     Tcount
-
-    echo "1" > $outputDataDir/catch_list_$current_branch_id.txt
-    grep "$current_branch_id" $input_catchment_list >> $outputDataDir/catch_list_$current_branch_id.txt
 
     ## MASK SLOPE TO CATCHMENTS ##
     echo -e $startDiv"Mask to slopes to catchments for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv

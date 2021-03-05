@@ -1,5 +1,7 @@
 # GMS To Do: 
 ## Immediate
+- some levelpaths yielding errors (see #242). add back -e flag once resolved
+    - run `grep -in "error" /data/outputs/fim3_20210301_a92212d/gms_test2_levelpath.log` for more info
 - Fix inundate_gms??
 - Mosaic branch inundation maps
     - Mosaic polygons vs rasters?
@@ -8,9 +10,7 @@
 
 ## Longer term
 - Derive levelpath
-    - ADD levelpaths capabilities to edit_points.py. then move that module down in order.
-    - subset other vectors based on this now (requires association of HydroIDs to levelpathIDs)
-    - create branch id list from levelpathIDs
+    
     - levelpaths for nested segments: 
         - nested segments not allocated correctly in levelpath. 
         - May need to derive arbolate sum and levelpath on a non-HUC scale (entire FIM domain scale)
