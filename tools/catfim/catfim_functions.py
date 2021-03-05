@@ -88,8 +88,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     
     Parameters
     ----------
-    metadata_dataframe: Pandas DataFrame
-        Output DataFrame from get_metadata
+    metadata_list: List of Dictionaries
+        Output list from get_metadata
     wbd_huc8_path : pathlib Path
         Path to HUC8 wbd layer (assumed to be geopackage format)
     retain_attributes ; Bool OR List

@@ -67,7 +67,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     
     print('Determining HUC using WBD layer...')
     #Assign FIM HUC to GeoDataFrame and export to shapefile all candidate sites.
-    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_dataframe, wbd_huc8_path = WBD_LAYER)
+    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
     out_gdf.to_file(workspace / f'candidate_sites.shp')
     
     #Get all possible mainstem segments
