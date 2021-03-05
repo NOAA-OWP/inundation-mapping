@@ -2,10 +2,16 @@
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
-from utils.shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_threshold, flow_data, get_metadata, get_nwm_segs, flow_data
+#from utils.shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_threshold, flow_data, get_metadata, get_nwm_segs, flow_data
 import argparse
+from dotenv import load_dotenv
+import os
 
-def static_flow_lids(BASE_URL, workspace, nwm_us_search, nwm_ds_search, wbd_path,domain):
+load_dotenv()
+API_BASE_URL = os.getenv("API_BASE_URL")
+print(API_BASE_URL)
+
+def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -41,8 +47,9 @@ def static_flow_lids(BASE_URL, workspace, nwm_us_search, nwm_ds_search, wbd_path
     wbd_path = Path(wbd_path)
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
-    metadata_url = f'{BASE_URL}/metadata'
-    threshold_url = f'{BASE_URL}/threshold'
+    metadata_url = f'{API_BASE_URL}/metadata'
+    threshold_url = f'{API_BASE_URL}/threshold'
+    print(metadata_url, threshold_url)
     ###################################################################
     #Create workspace
     workspace.mkdir(exist_ok = True)
@@ -171,7 +178,6 @@ def static_flow_lids(BASE_URL, workspace, nwm_us_search, nwm_ds_search, wbd_path
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Create forecast files for all nws_lid sites')
-    parser.add_argument('-u', '--BASE_URL', help = 'URL to get metadata about site.', required = True)    
     parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
