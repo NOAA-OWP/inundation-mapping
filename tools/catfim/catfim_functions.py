@@ -186,7 +186,7 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     #Trace downstream from all rfc_forecast_point.
     select_by = 'nws_lid'
     selector = ['all']
-    must_include = 'rfc_forecast_point'
+    must_include = 'nws_data.rfc_forecast_point'
     fcst_list, fcst_dataframe = get_metadata(metadata_url = metadata_url, select_by = select_by, selector = selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = downstream_trace_distance )
     
     #Trace downstream from all evaluated ahps sites.

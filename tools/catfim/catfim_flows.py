@@ -56,9 +56,9 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     #Return dictionary of huc (key) and sublist of ahps(value) as well as geodataframe of sites.
     print('Retrieving metadata...')
     #Get metadata for 'CONUS'
-    conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
+    conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
 
-    #Get metadata for Islands --Not working
+    #Get metadata for Islands
     islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
     
     #Append the dataframes and lists
@@ -74,6 +74,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
+    #If errors, be sure to check the must_include argument within this function!!!
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
     
     #Loop through each aggregate unit
