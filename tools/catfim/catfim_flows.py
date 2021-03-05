@@ -10,8 +10,9 @@ import os
 load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL")
 EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
+WBD_LAYER = os.getenv("WBD_LAYER")
 
-def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
+def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -67,7 +68,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     
     print('Determining HUC using WBD layer...')
     #Assign FIM HUC to GeoDataFrame and export to shapefile all candidate sites.
-    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_dataframe = all_dataframe, wbd_huc8_path = wbd_path)
+    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_dataframe = all_dataframe, wbd_huc8_path = Path(WBD_LAYER))
     out_gdf.to_file(workspace / f'candidate_sites.shp')
     
     #Get all possible mainstem segments
