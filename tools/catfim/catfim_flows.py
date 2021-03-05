@@ -2,14 +2,14 @@
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
-#from utils.shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_threshold, flow_data, get_metadata, get_nwm_segs, flow_data
+from catfim_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_threshold, flow_data, get_metadata, get_nwm_segs, flow_data
 import argparse
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL")
-print(API_BASE_URL)
+
 
 def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     '''
@@ -49,7 +49,6 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     nwm_ds_search = int(nwm_ds_search)
     metadata_url = f'{API_BASE_URL}/metadata'
     threshold_url = f'{API_BASE_URL}/threshold'
-    print(metadata_url, threshold_url)
     ###################################################################
     #Create workspace
     workspace.mkdir(exist_ok = True)
@@ -114,6 +113,8 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
                 flow = flows[category]
                 #If there is a valid flow value, write a flow file.
                 if flow != 'None':
+                    #round flow to nearest hundredth
+                    flow = round(flow,2)
                     #Create the guts of the flow file.
                     flow_info = flow_data(segments,flow)
                     #Define destination path and create folders
@@ -138,23 +139,35 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
             q_maj = flows['major']
             q_rec = flows['record']
             flow_units = flows['units']
-            flow_source = flows.get('source')
+            flow_source = flows['source']
             s_act = stages['action']
             s_min = stages['minor']
             s_mod = stages['moderate']
             s_maj = stages['major']
             s_rec = stages['record']
             stage_units = stages['units']
-            stage_source = stages.get('source')
-            wrds_timestamp = stages.get('wrds_timestamp')
+            stage_source = stages['source']
+            wrds_timestamp = stages['wrds_timestamp']
             #Create a GeoDataFrame using the lat/lon information
-            df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'rfc':rfc, 'HUC8':[huc], 'state':state, 'county':county, 'Q_act':q_act, 'Q_min':q_min, 'Q_mod':q_mod, 'Q_maj':q_maj, 'Q_rec':q_rec, 'Q_unit':flow_units, 'Q_source':flow_source, 'S_act':s_act, 'S_min':s_min, 'S_mod':s_mod, 'S_maj':s_maj, 'S_rec':s_rec, 'S_unit':stage_units, 'S_source':stage_source, 'WRDS_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
+            df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'q_act':q_act, 'q_min':q_min, 'q_mod':q_mod, 'q_maj':q_maj, 'q_rec':q_rec, 'q_uni':flow_units, 'q_src':flow_source, 'stage_act':s_act, 'stage_min':s_min, 'stage_mod':s_mod, 'stage_maj':s_maj, 'stage_rec':s_rec, 'stage_uni':stage_units, 's_src':stage_source, 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
+            #Round stages and flows to nearest hundredth
+            df = df.round({'q_act':2,'q_min':2,'q_mod':2,'q_maj':2,'q_rec':2,'stage_act':2,'stage_min':2,'stage_mod':2,'stage_maj':2,'stage_rec':2})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  "EPSG:4326") 
+
+            #Create a csv with same info as shapefile
+            csv_df = pd.DataFrame()
+            for threshold in ['action', 'minor', 'moderate', 'major', 'record']:
+                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'stage':stages[threshold], 'stage_uni':stages['units'], 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
+                csv_df = csv_df.append(line_df)
+            #Round flow and stage columns to 2 decimal places.
+            csv = csv_df.round({'q':2,'stage':2})
+
             
             try:
-                #Save GeoDataFrame to shapefile format
-                output_file = workspace / huc / lid / (f'{lid}_location.shp')
-                gdf.to_file(output_file)
+                #Save GeoDataFrame to shapefile format and export csv
+                output_dir = workspace / huc / lid
+                gdf.to_file(output_dir / f'{lid}_location.shp' )
+                csv_df.to_csv(output_dir / f'{lid}_info.csv', index = False)
             except:
                 print(f'{lid} missing all flows')
                 message = f'{lid} missing all flows'
@@ -162,17 +175,25 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search, wbd_path):
     #Write out messages
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
     messages_df.to_csv(workspace / f'all_messages.csv', index = False)
-    #Append all location shapefiles
-    locations_files = list(workspace.rglob('*_location.shp'))
+
+    #Find all location shapefiles
+    locations_files = list(workspace.rglob('*_location.shp'))    
     spatial_layers = gpd.GeoDataFrame()
+    #Append all shapefile info to a geodataframe
     for location in locations_files:
         gdf = gpd.read_file(location)
         spatial_layers = spatial_layers.append(gdf)
+    #Write appended spatial data to disk.
     output_file = workspace /'all_mapped_ahps.shp'
     spatial_layers.to_file(output_file)
-    #Write out spatial layers as a text file    
-    csv_df = spatial_layers.drop(columns = 'geometry')
-    output_csv = workspace / 'all_mapped_ahps.csv'
+    #Find all *_info csv files
+    csv_files = list(workspace.rglob('*_info.csv'))
+    all_csv_df = pd.DataFrame()
+    for csv in csv_files:
+        temp_df = pd.read_csv(csv)
+        all_csv_df = all_csv_df.append(temp_df)
+    #Write csv to file
+    output_csv = workspace / '_info.csv'
     csv_df.to_csv(output_csv, index = False)
 
 if __name__ == '__main__':

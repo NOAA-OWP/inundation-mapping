@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-#Function to get WRDS list of all rfc_forecast_point or rfc_defined_fcst_point.
 import requests
 import pandas as pd
 import geopandas as gpd
@@ -264,6 +263,35 @@ def get_nwm_segs(metadata):
 #Thresholds
 #######################################################################
 def get_thresholds(threshold_url, location_ids, physical_element = 'all', threshold = 'all', bypass_source_flag = False):
+    '''
+    Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
+    moderate, major). Returns a dictionary for stages and one for flows.
+
+    Parameters
+    ----------
+    threshold_url : STR
+        WRDS threshold API.
+    location_ids : STR
+        nws_lid code (only a single code).
+    physical_element : STR, optional
+        Physical element option. The default is 'all'.
+    threshold : STR, optional
+        Threshold option. The default is 'all'.
+    bypass_source_flag : BOOL, optional
+        Special case if calculated values are not available (e.g. no rating
+        curve is available) then this allows for just a stage to be returned.
+        Used in case a flow is already known from another source, such as
+        a model. The default is False.
+
+    Returns
+    -------
+    stages : DICT
+        Dictionary of stages at each threshold.
+    flows : DICT
+        Dictionary of flows at each threshold.
+
+    '''
+
     url = f'{threshold_url}/{physical_element}/{threshold}/{location_ids}'
     response = requests.get(url)
     if response.ok:
@@ -275,18 +303,16 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
         flows = {}
         #Check if thresholds information is populated. If site is non-existent thresholds info is blank
         if thresholds_info:
-            #Get rating sources in thresholds_info and assign to rating_sources dictionary
-            rating_sources = {}
-            for index, record in enumerate(thresholds_info):
-                rating_source = record['calc_flow_values']['rating_curve']['source']
-                rating_sources[rating_source] = index
-            #Get threshold data use USGS Rating Depot (priority) otherwise NRLDB. In instances with no rating curve, source is 'NONE' these sites will not be used.
+            #Get all rating sources and corresponding indexes in a dictionary
+            rating_sources = {i.get('calc_flow_values').get('rating_curve').get('source'): index for index, i in enumerate(thresholds_info)}
+            #Get threshold data use USGS Rating Depot (priority) otherwise NRLDB.
             if 'USGS Rating Depot' in rating_sources:
                 threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
             elif 'NRLDB' in rating_sources:
                 threshold_data = thresholds_info[rating_sources['NRLDB']]
+            #If neither USGS or NRLDB is available 
             else:
-                #A flag option for USGS scenario where a rating curve source is not available yet stages are available for the site. If flag is enabled, then stages are retrieved from the first record in thresholds_info. Typically the flows will not be populated as no rating curve is available. Flag only enabled when flows are already supplied by source (e.g. USGS) and threshold stages are needed.
+                #A flag option for cases where only a stage is needed for USGS scenario where a rating curve source is not available yet stages are available for the site. If flag is enabled, then stages are retrieved from the first record in thresholds_info. Typically the flows will not be populated as no rating curve is available. Flag should only be enabled when flows are already supplied by source (e.g. USGS) and threshold stages are needed.
                 if bypass_source_flag:
                     threshold_data = thresholds_info[0]
                 else:
@@ -309,7 +335,8 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
 ########################################################################
 def flow_data(segments, flows, convert_to_cms = True):
     '''
-    Given a list of NWM segments and a flow value in cfs, convert flow to cms and return a DataFrame that is set up for export to a flow file.
+    Given a list of NWM segments and a flow value in cfs, convert flow to 
+    cms and return a DataFrame that is set up for export to a flow file.
 
     Parameters
     ----------
