@@ -45,7 +45,6 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     '''    
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
-    wbd_path = Path(wbd_path)
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
     metadata_url = f'{API_BASE_URL}/metadata'
