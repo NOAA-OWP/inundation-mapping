@@ -108,9 +108,10 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     #Import huc8 layer as geodataframe and retain necessary columns
     huc8 = gpd.read_file(wbd_huc8_path, layer = 'WBDHU8')
     huc8 = huc8[['HUC8','name','states', 'geometry']]
+    #Define EPSG codes for possible usgs latlon datum names (NAD83WGS84 assigned NAD83)
+    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269'}    
     #Create empty geodataframe and define CRS for potential horizontal datums
     metadata_gdf = gpd.GeoDataFrame()
-    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269'}    
     #Iterate through each site
     for metadata in metadata_list:
         #Convert metadata to json
