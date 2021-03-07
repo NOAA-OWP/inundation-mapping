@@ -99,7 +99,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 continue
 
             #Instead of calling WRDS API, find corresponding record in the list of dictionaries
-            metadata = next((item for item in all_lists if item['nws_lid'] == lid.upper()), False)
+            metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
         
             #Get NWM Segments by intersecting with known mainstem segments
             segments = get_nwm_segs(metadata)        
@@ -115,7 +115,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             for category in ['action', 'minor', 'moderate', 'major', 'record']:
                 flow = flows[category]
                 #If there is a valid flow value, write a flow file.
-                if flow != 'None':
+                if flow:
                     #round flow to nearest hundredth
                     flow = round(flow,2)
                     #Create the guts of the flow file.
@@ -130,12 +130,12 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                     all_messages.append(message)
             #This section will produce a point file of the AHPS location
             #Get various attributes of the site including lat, lon, rfc, state, county, name, flows, and stages for each threshold.
-            lat = float(metadata['latitude'])
-            lon = float(metadata['longitude'])
-            rfc = metadata['rfc']
-            state = metadata['state']
-            county = metadata['county']
-            name = metadata['name']
+            lat = float(metadata['usgs_data']['latitude'])
+            lon = float(metadata['usgs_data']['longitude'])
+            rfc = metadata['nws_data']['rfc']
+            state = metadata['nws_data']['state']
+            county = metadata['nws_data']['county']
+            name = metadata['nws_data']['name']
             q_act = flows['action']
             q_min = flows['minor']
             q_mod = flows['moderate']
