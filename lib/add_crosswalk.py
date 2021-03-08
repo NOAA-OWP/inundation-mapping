@@ -12,7 +12,7 @@ from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
-def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
+def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
 
     input_catchments = gpd.read_file(input_catchments_fileName)
     input_flows = gpd.read_file(input_flows_fileName)
@@ -213,8 +213,8 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
-    ## bathy implimentation??
-    output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName)
+    ## bathy estimation integration
+    output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName)
 
     # make hydroTable
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
@@ -273,6 +273,7 @@ if __name__ == '__main__':
     parser.add_argument('-s','--input-srcbase-fileName', help='Base synthetic rating curve table', required=True)
     parser.add_argument('-u','--input-bathy-fileName', help='Text file with bankfull bathy variables', required=True)
     parser.add_argument('-v','--output-bathy-fileName', help='Output bathy/bankfull crosswalk and calculated bathy variables', required=True)
+    parser.add_argument('-e','--output-bathy-order-fileName', help='Output bathy/bankfull stream order avg calculated bathy variables', required=True)
     parser.add_argument('-l','--output-catchments-fileName', help='Subset crosswalked catchments', required=True)
     parser.add_argument('-f','--output-flows-fileName', help='Subset crosswalked  streams', required=True)
     parser.add_argument('-r','--output-src-fileName', help='Output crosswalked synthetic rating curve table', required=True)
@@ -295,6 +296,7 @@ if __name__ == '__main__':
     input_srcbase_fileName = args['input_srcbase_fileName']
     input_bathy_fileName = args['input_bathy_fileName']
     output_bathy_fileName = args['output_bathy_fileName']
+    output_bathy_streamorder_fileName = args['output_bathy_order_fileName']
     output_catchments_fileName = args['output_catchments_fileName']
     output_flows_fileName = args['output_flows_fileName']
     output_src_fileName = args['output_src_fileName']
@@ -310,4 +312,4 @@ if __name__ == '__main__':
     small_segments_filename = args['small_segments_filename']
     calibration_mode = args['calibration_mode']
 
-    add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode)
+    add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode)
