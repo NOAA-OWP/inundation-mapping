@@ -194,10 +194,10 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
         temp_df = pd.read_csv(csv)
-        all_csv_df = all_csv_df.append(temp_df)
+        all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write csv to file
     output_csv = workspace / '_info.csv'
-    csv_df.to_csv(output_csv, index = False)
+    all_csv_df.to_csv(output_csv, index = False)
 
 if __name__ == '__main__':
     #Parse arguments
