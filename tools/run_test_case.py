@@ -84,7 +84,6 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
 
     # Get path to validation_data_{benchmark} directory and huc_dir.
     validation_data_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category)
-    
     for magnitude in magnitude_list:
         version_test_case_dir = os.path.join(version_test_case_dir_parent, magnitude)
         if not os.path.exists(version_test_case_dir):
@@ -94,18 +93,18 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
             benchmark_raster_path_list, forecast_list = [], []
             lid_dir_list = os.listdir(os.path.join(validation_data_path, current_huc))
-            lid_list, inundation_raster_list, extent_file_list = [], [], []
+            lid_list, inundation_raster_list, domain_file_list = [], [], []
             
             for lid in lid_dir_list:
                 lid_dir = os.path.join(validation_data_path, current_huc, lid)
-                benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_depth_' + magnitude + '.tif'))  # TEMP
+                benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif'))  # TEMP
                 forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
                 lid_list.append(lid)
                 inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
-                extent_file_list.append(os.path.join(lid_dir, lid + '_extent.shp'))
+                domain_file_list.append(os.path.join(lid_dir, lid + '_domain.shp'))
 
         else:
-            benchmark_raster_file = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_depth_' + magnitude + '.tif')
+            benchmark_raster_file = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_extent_' + magnitude + '.tif')
             benchmark_raster_path_list = [benchmark_raster_file]
             forecast_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
             forecast_list = [forecast_path]
@@ -115,23 +114,21 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
             benchmark_raster_path = benchmark_raster_path_list[index]
             forecast = forecast_list[index]
             inundation_raster = inundation_raster_list[index]
-            
             # Only need to define ahps_lid and ahps_extent_file for AHPS_BENCHMARK_CATEGORIES.
             if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
                 ahps_lid = lid_list[index]
-                ahps_extent_file = extent_file_list[index]
+                ahps_domain_file = domain_file_list[index]
                 mask_dict.update({ahps_lid:
-                    {'path': ahps_extent_file,
+                    {'path': ahps_domain_file,
                      'buffer': None,
                      'operation': 'include'}
                         })
         
-                if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_extent_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
+                if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_domain_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             else:  # If not in AHPS_BENCHMARK_CATEGORIES.
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
-    
             # Run inundate.
             print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
             try:
@@ -194,7 +191,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--inclusion-area', help='Path to shapefile. Contingency metrics will be produced from pixels inside of shapefile extent.', required=False, default="")
     parser.add_argument('-ib','--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
-    parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False)
+    parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -234,7 +231,7 @@ if __name__ == '__main__':
     if args['magnitude'] == '':
         if 'ble' in args['test_id'].split('_'):
             args['magnitude'] = ['100yr', '500yr']
-        elif 'ahps' in args['test_id'].split('_'):
+        elif 'nws' or 'usgs' in args['test_id'].split('_'):
             args['magnitude'] = ['action', 'minor', 'moderate', 'major']
         else:
             print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)

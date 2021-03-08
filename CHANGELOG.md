@@ -1,6 +1,39 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+<br/><br/>
 
+## v3.0.7.1 - 2021-03-02 - [PR #290](https://github.com/NOAA-OWP/cahaba/pull/290)
+
+Renamed benchmark layers in `test_cases` and updated variable names in evaluation scripts.
+
+### Changes
+ - Updated `run_test_case.py` with new benchmark layer names.
+ - Updated `run_test_case_calibration.py` with new benchmark layer names.
+ 
+<br/><br/>
+## v3.0.7.0 - 2021-03-01 - [PR #288](https://github.com/NOAA-OWP/cahaba/pull/288)
+
+Restructured the repository. This has no impact on hydrological work done in the codebase and is simply moving files and renaming directories.
+
+### Changes
+ - Moved the contents of the `lib` folder to a new folder called `src`.
+ - Moved the contents of the `tests` folder to the `tools` folder.
+ - Changed any instance of `lib` or `libDir` to `src` or `srcDir`.
+
+<br/><br/>
+## v3.0.6.0 - 2021-02-25 - [PR #276](https://github.com/NOAA-OWP/cahaba/pull/276)
+
+Enhancement that creates metric plots and summary statistics using metrics compiled by `synthesize_test_cases.py`. 
+
+### Additions
+ - Added `eval_plots.py`, which produces:
+    - Boxplots of CSI, FAR, and POD/TPR
+    - Barplot of aggregated CSI scores
+    - Scatterplot of CSI comparing two FIM versions
+    - CSV of aggregated statistics (CSI, FAR, POD/TPR)
+    - CSV of analyzed data and analyzed sites
+
+<br/><br/>
 ## v3.0.5.3 - 2021-02-23 - [PR #275](https://github.com/NOAA-OWP/cahaba/pull/275)
 
 Bug fixes to new evaluation code.
@@ -19,7 +52,7 @@ Adds HAND synthetic rating curve (SRC) datum elevation values to `hydroTable.csv
 
 ### Changes
 
- - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.cs`v.
+ - Updated `add_crosswalk.py` to included "Median_Thal_Elev_m" variable outputs in `hydroTable.csv`.
  - Renamed hydroid attribute in `rem.py` to "Median" in case we want to include other statistics in the future (e.g. min, max, range etc.).
 
 <br/><br/>
