@@ -2,6 +2,7 @@
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
+import time
 from catfim_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, flow_data
 import argparse
 from dotenv import load_dotenv
@@ -43,6 +44,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     None.
 
     '''    
+    all_start = time.time()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
@@ -67,9 +69,11 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     
     print('Determining HUC using WBD layer...')
     #Assign FIM HUC to GeoDataFrame and export to shapefile all candidate sites.
+    agg_start = time.time()
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
     out_gdf.to_file(workspace / f'candidate_sites.shp')
-    
+    agg_end = time.time()
+    print(f'agg time is {(agg_end - agg_start)/60} minutes')
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
@@ -161,7 +165,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             #Create a csv with same info as shapefile
             csv_df = pd.DataFrame()
             for threshold in ['action', 'minor', 'moderate', 'major', 'record']:
-                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'wfo': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'stage':stages[threshold], 'stage_uni':stages['units'], 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
+                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'wfo': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
                 csv_df = csv_df.append(line_df)
             #Round flow and stage columns to 2 decimal places.
             csv = csv_df.round({'q':2,'stage':2})
@@ -199,7 +203,8 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     #Write csv to file
     output_csv = workspace / '_info.csv'
     all_csv_df.to_csv(output_csv, index = False)
-
+    all_end = time.time()
+    print(f'total time is {(all_end - all_start)/60} minutes')
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Create forecast files for all nws_lid sites')
