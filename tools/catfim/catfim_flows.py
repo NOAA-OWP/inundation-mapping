@@ -132,6 +132,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             #Get various attributes of the site including lat, lon, rfc, state, county, name, flows, and stages for each threshold.
             lat = float(metadata['usgs_data']['latitude'])
             lon = float(metadata['usgs_data']['longitude'])
+            wfo = meatdata['nws_data']['wfo']
             rfc = metadata['nws_data']['rfc']
             state = metadata['nws_data']['state']
             county = metadata['nws_data']['county']
@@ -152,7 +153,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             stage_source = stages['source']
             wrds_timestamp = stages['wrds_timestamp']
             #Create a GeoDataFrame using the lat/lon information
-            df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'q_act':q_act, 'q_min':q_min, 'q_mod':q_mod, 'q_maj':q_maj, 'q_rec':q_rec, 'q_uni':flow_units, 'q_src':flow_source, 'stage_act':s_act, 'stage_min':s_min, 'stage_mod':s_mod, 'stage_maj':s_maj, 'stage_rec':s_rec, 'stage_uni':stage_units, 's_src':stage_source, 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
+            df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'wfo': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'q_act':q_act, 'q_min':q_min, 'q_mod':q_mod, 'q_maj':q_maj, 'q_rec':q_rec, 'q_uni':flow_units, 'q_src':flow_source, 'stage_act':s_act, 'stage_min':s_min, 'stage_mod':s_mod, 'stage_maj':s_maj, 'stage_rec':s_rec, 'stage_uni':stage_units, 's_src':stage_source, 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
             #Round stages and flows to nearest hundredth
             df = df.round({'q_act':2,'q_min':2,'q_mod':2,'q_maj':2,'q_rec':2,'stage_act':2,'stage_min':2,'stage_mod':2,'stage_maj':2,'stage_rec':2})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  "EPSG:4326") 
@@ -160,7 +161,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             #Create a csv with same info as shapefile
             csv_df = pd.DataFrame()
             for threshold in ['action', 'minor', 'moderate', 'major', 'record']:
-                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'stage':stages[threshold], 'stage_uni':stages['units'], 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
+                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'wfo': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'stage':stages[threshold], 'stage_uni':stages['units'], 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
                 csv_df = csv_df.append(line_df)
             #Round flow and stage columns to 2 decimal places.
             csv = csv_df.round({'q':2,'stage':2})
