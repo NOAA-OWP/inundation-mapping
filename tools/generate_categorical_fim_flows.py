@@ -3,7 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import time
-from catfim_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, flow_data
+from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, flow_data
 import argparse
 from dotenv import load_dotenv
 import os
@@ -78,7 +78,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
-    #If errors, be sure to check the must_include argument within this function!!!
+    #!!!Be sure to check the must_include argument within this function!!!
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
     
     #Loop through each aggregate unit
@@ -201,10 +201,13 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
         temp_df = pd.read_csv(csv)
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write csv to file
-    output_csv = workspace / '_info.csv'
-    all_csv_df.to_csv(output_csv, index = False)
+    all_info_csv = workspace / '_info.csv'
+    all_csv_df.to_csv(all_info_csv, index = False)
     all_end = time.time()
     print(f'total time is {(all_end - all_start)/60} minutes')
+    
+    return workspace, all_info_csv
+
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Create forecast files for all nws_lid sites')
