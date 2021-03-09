@@ -119,7 +119,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         #Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
         #Drop any metadata sites that don't have lat/lon populated◘
-        df.dropna(subset = ['usgs_data_latitude','usgs_data_longitude'], inplace = True)
+        df.dropna(subset = ['identifiers_nws_lid','usgs_data_latitude','usgs_data_longitude'], inplace = True)
         #If dataframe still has data
         if not df.empty:
             #Get horizontal datum (use usgs) and assign appropriate EPSG code
