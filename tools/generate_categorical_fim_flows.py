@@ -206,7 +206,6 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     all_end = time.time()
     print(f'total time is {(all_end - all_start)/60} minutes')
     
-    return workspace, all_info_csv
 
 if __name__ == '__main__':
     #Parse arguments
