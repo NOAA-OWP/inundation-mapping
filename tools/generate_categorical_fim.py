@@ -21,7 +21,7 @@ INPUTS_DIR = r'/data/inputs'
 magnitude_list = ['action', 'minor', 'moderate','major']
 
 # Map path to points with attributes
-all_mapped_ahps_conus_hipr = os.path.join(INPUTS_DIR, 'ahp_sites', 'all_mapped_ahps.csv')
+all_mapped_ahps_conus_hipr = os.path.join(INPUTS_DIR, 'ahp_sites', 'all_mapped_ahps_reformatted.csv')
 
 # Define necessary variables for inundation()
 hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
@@ -138,7 +138,7 @@ def run_inundation(args):
     except Exception:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
-        f.write(f"{output_extent_gpkg} - inundation error: {traceback.format_exc()}\n")
+        f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
         f.close()
 
 
@@ -256,6 +256,15 @@ def reformat_inundation_maps(args):
         # Project to Web Mercator
         extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
 
+
+        # Join attributes
+        all_mapped_ahps_conus_hipr_fl = pd.read_table(all_mapped_ahps_conus_hipr, sep=",")
+        all_mapped_ahps_conus_hipr_fl = all_mapped_ahps_conus_hipr_fl.loc[(all_mapped_ahps_conus_hipr_fl.magnitude==magnitude) & (all_mapped_ahps_conus_hipr_fl.nws_lid==lid)]
+
+        extent_poly_diss = extent_poly_diss.merge(all_mapped_ahps_conus_hipr_fl, left_on=['ahps_lid','magnitude'], right_on=['nws_lid','magnitude'])
+
+        extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
+
         # Save dissolved multipolygon
         handle = os.path.split(grid_path)[1].replace('.tif', '')
 
@@ -263,13 +272,16 @@ def reformat_inundation_maps(args):
 
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
 
-        extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
+
+        if not extent_poly_diss.empty:
+
+            extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
     except Exception as e:
         # Log and clean out the gdb so it's not merged in later
         try:
             f = open(log_file, 'a+')
-            f.write("f{diss_extent_filename} - dissolve error: {e}\n")
+            f.write(str(diss_extent_filename) + " - dissolve error: " + str(e))
             f.close()
         except:
             pass
