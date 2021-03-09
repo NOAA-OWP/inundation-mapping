@@ -3,8 +3,7 @@
 import requests
 import pandas as pd
 import geopandas as gpd
-import numpy as np
-import datetime
+
 
 def get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None ):
     '''
@@ -366,48 +365,3 @@ def flow_data(segments, flows, convert_to_cms = True):
     flow_data = flow_data.astype({'feature_id' : int , 'discharge' : float})
     return flow_data 
 
-#######################################################################
-#Function to download rating curve from API
-#######################################################################
-def get_rating_curve(rating_url, location_id):
-    '''
-    Given a single site code (ahps or USGS) get the rating curve from 
-    WRDS API and export as a DataFrame.
-
-    Parameters
-    ----------
-    rating_url : STR
-        URL to retrieve rating curve.      
-    location_id : STR
-        ID of single site as a string.
-
-    Returns
-    -------
-    rating_curve : pandas DataFrame
-        Rating curve (stage/flow/metadata) of site.
-
-    '''
-    #Define url for retrieving rating curve.
-    url = f'{rating_url}/{location_id}'
-    #Pull data from url
-    response = requests.get(url)
-    if response.ok:
-        #Save as json
-        rating_json = response.json()
-        #Extract rating curve information
-        rating_curves = rating_json['rating_curves']
-        #Define DataFrame containing rating curve
-        rating_curve = pd.DataFrame()
-        #Check to make sure only 1 rating curve returned. If site is duplicated it may return more than 1 rating curve.
-        assert rating_json['_metrics']['rating_curve_count'] == 1
-        #For each curve returned
-        for curve in rating_curves:
-            #Write rating curve to DataFrame
-            rating_curve = pd.DataFrame(curve['rating_curve'])
-            #Add timestamp to DataFrame
-            rating_curve['timestamp'] = response.headers['Date']            
-            #Add all metadata info to DataFrame
-            for key,value in curve['metadata'].items():
-                rating_curve[key] = value
-        
-        return rating_curve
