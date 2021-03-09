@@ -437,7 +437,7 @@ Tcount
 echo -e $startDiv"USGS Crosswalk $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/usgs_catchment_pixel_crosswalk.py -gages /data/temp/tsg/sample_gage_sites/evaluated_active_gages.shp -catpix $outputHucDataDir/gw_catchments_pixels.tif -flows $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -cat $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -wbd $outputHucDataDir/wbd_buffered.gpkg -dem $dem_thalwegCond -table $outputHucDataDir/hand_ref_elev_table.csv
+$srcDir/usgs_catchment_pixel_crosswalk.py -gages /data/temp/tsg/sample_gage_sites/evaluated_active_gages.shp -dem_m $outputHucDataDir/dem_meters.tif -flows $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -cat $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -wbd $outputHucDataDir/wbd_buffered.gpkg -dem_adj $dem_thalwegCond -reftable $outputHucDataDir/hand_ref_elev_table.csv -outtable $outputHucDataDir/usgs_elev_table.csv
 Tcount
 
 ## CLEANUP OUTPUTS ##

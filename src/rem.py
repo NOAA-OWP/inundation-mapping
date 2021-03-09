@@ -118,10 +118,17 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     merge_df.index.name = 'pixelcatch_id'
     merge_df.to_csv(hand_ref_elev_fileName,index=True) # export dataframe to csv file
 
-    # Merge the HAND reference elvation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
-    merge_df = merge_df.groupby(['HydroID']).median() # median value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
+    # Merge the HAND reference elevation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
+    min_by_hydroid = merge_df.groupby(['HydroID']).min() # min value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
+    min_by_hydroid.columns = ['Min_Thal_Elev_m']
+    med_by_hydroid = merge_df.groupby(['HydroID']).median() # median value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
+    med_by_hydroid.columns = ['Median_Thal_Elev_m']
+    max_by_hydroid = merge_df.groupby(['HydroID']).max() # max value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
+    max_by_hydroid.columns = ['Max_Thal_Elev_m']
     input_reaches = gpd.read_file(dem_reaches_filename)
-    input_reaches = input_reaches.merge(merge_df, on='HydroID') # merge dataframes by HydroID variable
+    input_reaches = input_reaches.merge(min_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
+    input_reaches = input_reaches.merge(med_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
+    input_reaches = input_reaches.merge(max_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
     input_reaches.to_file(dem_reaches_filename,driver=getDriver(dem_reaches_filename),index=False)
     # ------------------------------------------------------------------------------------------------------------------------ #
 
