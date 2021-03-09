@@ -36,9 +36,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
         Downstream distance (in miles) for walking down NWM network.
     wbd_path : STR
         Location of HUC geospatial data (geopackage).
-    domain : STR
-        "conus" or "hipr". When selecting nws_lid sites, the flag "rfc_forecast_pt == True is used" however when this is enabled, no sites in hi/pr are returned. To get sites in HI/PR/VI this flag is turne off and all sites in these areas are returned (which is different than how sites are queried in conus).
-
+        
     Returns
     -------
     None.
