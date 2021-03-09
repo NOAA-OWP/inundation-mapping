@@ -11,6 +11,7 @@ import fiona
 from shapely.geometry import shape
 from rasterio.mask import mask
 from rasterio.io import DatasetReader,DatasetWriter
+from rasterio.features import shapes
 from collections import OrderedDict
 import argparse
 from warnings import warn

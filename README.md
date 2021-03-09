@@ -88,12 +88,12 @@ After `fim_run.sh` completes, you are ready to evaluate the model's skill.
 
 To evaluate model skill, run the following:
 ```
-python /foss_fim/tests/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs]
+python /foss_fim/tools/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs]
 ```
 
 More information can be found by running:
 ```
-python /foss_fim/tests/synthesize_test_cases.py --help
+python /foss_fim/tools/synthesize_test_cases.py --help
 ```
 
 ----
