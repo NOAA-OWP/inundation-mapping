@@ -7,6 +7,7 @@ verify_ssl = true
 ipython = "*"
 
 [packages]
+fiona = "==1.8.17"
 geopandas = "==0.8.1"
 numba = "==0.50.1"
 pandas = "==1.0.5"
