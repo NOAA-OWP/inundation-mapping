@@ -20,9 +20,6 @@ from utils.shared_functions import getDriver
 INPUTS_DIR = r'/data/inputs'
 magnitude_list = ['action', 'minor', 'moderate','major']
 
-# Map path to points with attributes
-all_mapped_ahps_conus_hipr = os.path.join(INPUTS_DIR, 'ahp_sites', 'all_mapped_ahps_reformatted.csv')
-
 # Define necessary variables for inundation()
 hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
 mask_type, catchment_poly = 'huc', ''
@@ -142,7 +139,7 @@ def run_inundation(args):
         f.close()
 
 
-def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
+def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
 
     # Create workspace
     gpkg_dir = os.path.join(output_cat_fim_dir, 'gpkg')
@@ -176,7 +173,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
                         extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent_' + huc + '.tif')
 
                         if os.path.exists(extent_grid):
-                            procs_list.append([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude])
+                            procs_list.append([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
 
                         else:
                             try:
@@ -217,12 +214,13 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
 def reformat_inundation_maps(args):
 
     try:
-        lid          = args[0]
-        grid_path    = args[1]
-        gpkg_dir     = args[2]
-        fim_version  = args[3]
-        huc          = args[4]
-        magnitude    = args[5]
+        lid                         = args[0]
+        grid_path                   = args[1]
+        gpkg_dir                    = args[2]
+        fim_version                 = args[3]
+        huc                         = args[4]
+        magnitude                   = args[5]
+        nws_lid_attributes_filename = args[6]
 
         # Convert raster to to shapes
         with rasterio.open(grid_path) as src:
@@ -249,10 +247,10 @@ def reformat_inundation_maps(args):
         extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
 
         # Join attributes
-        all_mapped_ahps_conus_hipr_fl = pd.read_table(all_mapped_ahps_conus_hipr, sep=",")
-        all_mapped_ahps_conus_hipr_fl = all_mapped_ahps_conus_hipr_fl.loc[(all_mapped_ahps_conus_hipr_fl.magnitude==magnitude) & (all_mapped_ahps_conus_hipr_fl.nws_lid==lid)]
+        nws_lid_attributes_table = pd.read_table(nws_lid_attributes_filename, sep=",")
+        nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==lid)]
 
-        extent_poly_diss = extent_poly_diss.merge(all_mapped_ahps_conus_hipr_fl, left_on=['ahps_lid','magnitude'], right_on=['nws_lid','magnitude'])
+        extent_poly_diss = extent_poly_diss.merge(nws_lid_attributes_table, left_on=['ahps_lid','magnitude'], right_on=['nws_lid','magnitude'])
 
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
 
@@ -308,8 +306,11 @@ if __name__ == '__main__':
     # Create error log path
     log_file = os.path.join(log_dir, 'errors.log')
 
+    # Map path to points with attributes
+    nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
+
     print("Generating Categorical FIM")
     generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
-    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,log_file)
+    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,nws_lid_attributes_filename,log_file)
