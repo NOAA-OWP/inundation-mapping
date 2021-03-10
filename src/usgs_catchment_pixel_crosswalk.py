@@ -58,7 +58,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
         referenced_gage = pygeos.linear.line_interpolate_point(stream_bin_geom, gage_distance_to_line)
 
         # Convert geometries to wkb representation
-        bin_referencedgage = pygeos.io.to_wkb(referenced_gage)
+        bin_referenced_gage = pygeos.io.to_wkb(referenced_gage)
 
         # Convert to shapely geometries
         shply_referenced_gage = loads(bin_referenced_gage)
