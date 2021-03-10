@@ -2,6 +2,14 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.8.1 - 2021-03-10
+
+Patched import issue in `tools_shared_functions.py`.
+
+### Changes
+ - Changed `utils.` to `tools_` in `tools_shared_functions.py` after recent structural change to `tools` directory.
+ 
+<br/><br/>
 ## v3.0.8.0 - 2021-03-09 - [PR #279](https://github.com/NOAA-OWP/cahaba/pull/279)
 
 Refactored NWS Flood Categorical HAND FIM (CatFIM) pipeline to open source.
