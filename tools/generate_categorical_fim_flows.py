@@ -204,7 +204,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
         temp_df = pd.read_csv(csv)
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write appended _info.csvs to file
-    all_info_csv = workspace / '_info.csv'
+    all_info_csv = workspace / 'nws_lid_attributes.csv'
     all_csv_df.to_csv(all_info_csv, index = False)
     all_end = time.time()
     print(f'total time is {(all_end - all_start)/60} minutes')
