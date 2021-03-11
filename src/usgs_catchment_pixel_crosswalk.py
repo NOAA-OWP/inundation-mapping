@@ -34,12 +34,12 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     gage_data = []
 
     # Move USGS gage to stream
-for index, gage in usgs_gages.iterrows():
+    for index, gage in usgs_gages.iterrows():
 
-    print (f"usgs gage: {gage.site_no}")
-    
-    # Get stream attributes
-    hydro_id = closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].HydroID.item()
+        print (f"usgs gage: {gage.site_no}")
+
+        # Get stream attributes
+        hydro_id = closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].HydroID.item()
 
         if not np.isnan(hydro_id):
 
