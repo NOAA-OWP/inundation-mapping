@@ -2,6 +2,25 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.8.1 - 2021-03-10 - [PR #302](https://github.com/NOAA-OWP/cahaba/pull/302)
+
+Patched import issue in `tools_shared_functions.py`.
+
+### Changes
+ - Changed `utils.` to `tools_` in `tools_shared_functions.py` after recent structural change to `tools` directory.
+ 
+<br/><br/>
+## v3.0.8.0 - 2021-03-09 - [PR #279](https://github.com/NOAA-OWP/cahaba/pull/279)
+
+Refactored NWS Flood Categorical HAND FIM (CatFIM) pipeline to open source.
+
+### Changes
+ - Added `VIZ_PROJECTION` to `shared_variables.py`.
+ - Added missing library referenced in `inundation.py`.
+ - Cleaned up and converted evaluation scripts in `generate_categorical_fim.py` to open source.
+ - Removed `util` folders under `tools` directory.
+
+<br/><br/>
 ## v3.0.7.1 - 2021-03-02 - [PR #290](https://github.com/NOAA-OWP/cahaba/pull/290)
 
 Renamed benchmark layers in `test_cases` and updated variable names in evaluation scripts.
