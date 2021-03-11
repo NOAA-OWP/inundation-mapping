@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
-## v3.0.8.2 - 2021-03-11 -[PR #296](https://github.com/NOAA-OWP/cahaba/pull/296)
+## v3.0.8.2 - 2021-03-11 - [PR #296](https://github.com/NOAA-OWP/cahaba/pull/296)
 
 Enhancements to post-processing for Viz-related use-cases.
 
