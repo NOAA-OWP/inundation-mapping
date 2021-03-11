@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.8.2 - 2021-03-11 -[PR #296](https://github.com/NOAA-OWP/cahaba/pull/296)
+
+Enhancements to post-processing for Viz-related use-cases.
+
+### Changes
+ - Aggregate grids are projected to Web Mercator during `-v` runs in `fim_run.sh`.
+ - HUC6 aggregation is parallelized.
+ - Aggregate grid blocksize is changed from 256 to 1024 for faster postprocessing.
+ 
+<br/><br/>
 ## v3.0.8.1 - 2021-03-10 - [PR #302](https://github.com/NOAA-OWP/cahaba/pull/302)
 
 Patched import issue in `tools_shared_functions.py`.
