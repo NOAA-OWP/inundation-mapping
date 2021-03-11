@@ -432,14 +432,6 @@ Tstart
 $srcDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent -k $outputHucDataDir/small_segments.csv
 Tcount
 
-
-## USGS CROSSWALK ##
-echo -e $startDiv"USGS Crosswalk $hucNumber"$stopDiv
-date -u
-Tstart
-$srcDir/usgs_catchment_pixel_crosswalk.py -gages /data/temp/tsg/sample_gage_sites/evaluated_active_gages.shp -catpix $outputHucDataDir/gw_catchments_pixels.tif -flows $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -cat $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -wbd $outputHucDataDir/wbd_buffered.gpkg -dem $dem_thalwegCond -table $outputHucDataDir/hand_ref_elev_table.csv
-Tcount
-
 ## CLEANUP OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs $hucNumber"$stopDiv
 args=()
