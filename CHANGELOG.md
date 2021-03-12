@@ -2,6 +2,44 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.8.2 - 2021-03-11 - [PR #296](https://github.com/NOAA-OWP/cahaba/pull/296)
+
+Enhancements to post-processing for Viz-related use-cases.
+
+### Changes
+ - Aggregate grids are projected to Web Mercator during `-v` runs in `fim_run.sh`.
+ - HUC6 aggregation is parallelized.
+ - Aggregate grid blocksize is changed from 256 to 1024 for faster postprocessing.
+ 
+<br/><br/>
+## v3.0.8.1 - 2021-03-10 - [PR #302](https://github.com/NOAA-OWP/cahaba/pull/302)
+
+Patched import issue in `tools_shared_functions.py`.
+
+### Changes
+ - Changed `utils.` to `tools_` in `tools_shared_functions.py` after recent structural change to `tools` directory.
+ 
+<br/><br/>
+## v3.0.8.0 - 2021-03-09 - [PR #279](https://github.com/NOAA-OWP/cahaba/pull/279)
+
+Refactored NWS Flood Categorical HAND FIM (CatFIM) pipeline to open source.
+
+### Changes
+ - Added `VIZ_PROJECTION` to `shared_variables.py`.
+ - Added missing library referenced in `inundation.py`.
+ - Cleaned up and converted evaluation scripts in `generate_categorical_fim.py` to open source.
+ - Removed `util` folders under `tools` directory.
+
+<br/><br/>
+## v3.0.7.1 - 2021-03-02 - [PR #290](https://github.com/NOAA-OWP/cahaba/pull/290)
+
+Renamed benchmark layers in `test_cases` and updated variable names in evaluation scripts.
+
+### Changes
+ - Updated `run_test_case.py` with new benchmark layer names.
+ - Updated `run_test_case_calibration.py` with new benchmark layer names.
+ 
+<br/><br/>
 ## v3.0.7.0 - 2021-03-01 - [PR #288](https://github.com/NOAA-OWP/cahaba/pull/288)
 
 Restructured the repository. This has no impact on hydrological work done in the codebase and is simply moving files and renaming directories.

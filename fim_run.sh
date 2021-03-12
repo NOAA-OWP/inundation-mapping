@@ -152,5 +152,5 @@ fi
 echo "$viz"
 if [[ "$viz" -eq 1 ]]; then
     # aggregate outputs
-    python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir
+    python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 4
 fi

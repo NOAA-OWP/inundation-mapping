@@ -9,7 +9,7 @@ import csv
 import argparse
 import shutil
 
-from utils.shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
+from tools_shared_functions import get_contingency_table_from_binary_rasters, compute_stats_from_contingency_table
 from inundation import inundate
 
 TEST_CASES_DIR = r'/data/test_cases/'  # Will update.
@@ -232,7 +232,7 @@ def run_alpha_test(fim_run_dir, calib_dir, branch_name, test_id, mask_type, retu
     for return_interval in return_interval_list:
         # Construct path to validation raster and forecast file.
         benchmark_category = test_id.split('_')[1]
-        benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, return_interval, benchmark_category + '_huc_' + current_huc + '_depth_' + return_interval + '.tif')
+        benchmark_raster_path = os.path.join(TEST_CASES_DIR, 'validation_data_' + benchmark_category, current_huc, return_interval, benchmark_category + '_huc_' + current_huc + '_extent_' + return_interval + '.tif')
         if not os.path.exists(benchmark_raster_path):  # Skip loop instance if the benchmark raster doesn't exist.
             continue
 
