@@ -2,6 +2,21 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
+
+Enhancements to FIM API.
+
+### Changes
+ - `fim_run.sh` can now be run with jobs in parallel.
+ - Viz post-processing can now be selected in API interface.
+ - Jobs table shows jobs that end with errors.
+ - HUC preset lists can now be selected in interface.
+ - Better `output_handler` file writing.
+ - Overall better restart and retry handlers for networking problems.
+ - Jobs can now be canceled in API interface.
+ - Both FR and MS configs can be selected for a single job.
+ 
+<br/><br/>
 ## v3.0.8.2 - 2021-03-11 - [PR #296](https://github.com/NOAA-OWP/cahaba/pull/296)
 
 Enhancements to post-processing for Viz-related use-cases.
