@@ -18,7 +18,7 @@ from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 from utils.shared_functions import getDriver
 
 INPUTS_DIR = r'/data/inputs'
-magnitude_list = ['action', 'minor', 'moderate','major']
+magnitude_list = ['action', 'minor', 'moderate','major', 'record']
 
 # Define necessary variables for inundation()
 hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'

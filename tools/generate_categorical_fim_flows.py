@@ -7,6 +7,8 @@ from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_th
 import argparse
 from dotenv import load_dotenv
 import os
+sys.path.append('/foss_fim/src')
+from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
 load_dotenv()
 #import variables from .env file
@@ -70,7 +72,8 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     #Assign FIM HUC to GeoDataFrame and export to shapefile all candidate sites.
     agg_start = time.time()
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
-    out_gdf.to_file(workspace / f'candidate_sites.shp')
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
+    viz_out_gdf.to_file(workspace / f'candidate_sites.shp')
     agg_end = time.time()
     print(f'agg time is {(agg_end - agg_start)/60} minutes')
     #Get all possible mainstem segments
@@ -169,8 +172,8 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             h_datum = metadata['usgs_data']['latlon_datum_name']
             src_crs = crs_lookup.get(h_datum, 'EPSG:4269')            
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  src_crs) 
-            #Reproject to WGS84
-            gdf = gdf.to_csv('EPSG: 4326')
+            #Reproject to VIZ_PROJECTION
+            viz_gdf = gdf.to_csv(VIZ_PROJECTION)
             
             #Create a csv with same info as shapefile
             csv_df = pd.DataFrame()
@@ -184,7 +187,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             try:
                 #Save GeoDataFrame to shapefile format and export csv containing attributes
                 output_dir = workspace / huc / lid
-                #gdf.to_file(output_dir / f'{lid}_location.shp' )
+                viz_gdf.to_file(output_dir / f'{lid}_location.shp' )
                 csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
             except:
                 print(f'{lid} missing all flows')
@@ -199,8 +202,8 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     spatial_layers = gpd.GeoDataFrame()
     #Append all shapefile info to a geodataframe
     for location in locations_files:
-        gdf = gpd.read_file(location)
-        spatial_layers = spatial_layers.append(gdf)
+        location_gdf = gpd.read_file(location)
+        spatial_layers = spatial_layers.append(location_gdf)
     #Write appended spatial data to disk.
     output_file = workspace /'all_mapped_ahps.shp'
     spatial_layers.to_file(output_file)
