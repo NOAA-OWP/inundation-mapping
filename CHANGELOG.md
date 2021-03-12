@@ -1,13 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
-
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
- - Add ability to generate Categorical FIM flow files.
- - Generate point shapefiles of Categorical FIM sites.
- - Add flood of record category (record).
+ Preprocessing of flow files for Categorical FIM
+### Additions
+ - Generate Categorical FIM flow files for each category (action, minor, moderate, major).
+ - Generate point shapefile of Categorical FIM site.
+ - Generate csv of attribute data in shapefile.
+ - Aggregate all shapefiles and csv files into one file in parent directory.
+ - Add flood of record category.
+ ### Changes
  - Stability fixes to generate_categorical_fim.py
-
+<br/><br/>
 ## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
 
 Enhancements to FIM API.
