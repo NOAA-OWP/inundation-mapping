@@ -161,9 +161,17 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'q_act':q_act, 'q_min':q_min, 'q_mod':q_mod, 'q_maj':q_maj, 'q_rec':q_rec, 'q_uni':flow_units, 'q_src':flow_source, 'stage_act':s_act, 'stage_min':s_min, 'stage_mod':s_mod, 'stage_maj':s_maj, 'stage_rec':s_rec, 'stage_uni':stage_units, 's_src':stage_source, 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
             #Round stages and flows to nearest hundredth
             df = df.round({'q_act':2,'q_min':2,'q_mod':2,'q_maj':2,'q_rec':2,'stage_act':2,'stage_min':2,'stage_mod':2,'stage_maj':2,'stage_rec':2})
-            #Create a geodataframe using lat/lon. Assume WGS84 for CRS.
-            #gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  "EPSG:4326") 
-
+            
+            #Create a geodataframe using usgs lat/lon property from WRDS then reproject to WGS84.
+            #Define EPSG codes for possible usgs latlon datum names (NAD83WGS84 assigned NAD83)
+            crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269'}
+            #Get horizontal datum (from dataframe) and assign appropriate EPSG code, assume NAD83 if not assigned.
+            h_datum = metadata['usgs_data']['latlon_datum_name']
+            src_crs = crs_lookup.get(h_datum, 'EPSG:4269')            
+            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  src_crs) 
+            #Reproject to WGS84
+            gdf = gdf.to_csv('EPSG: 4326')
+            
             #Create a csv with same info as shapefile
             csv_df = pd.DataFrame()
             for threshold in ['action', 'minor', 'moderate', 'major', 'record']:
@@ -177,7 +185,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 #Save GeoDataFrame to shapefile format and export csv containing attributes
                 output_dir = workspace / huc / lid
                 #gdf.to_file(output_dir / f'{lid}_location.shp' )
-                csv_df.to_csv(output_dir / f'{lid}_info.csv', index = False)
+                csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
             except:
                 print(f'{lid} missing all flows')
                 message = f'{lid} missing all flows'
@@ -187,21 +195,21 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     messages_df.to_csv(workspace / f'all_messages.csv', index = False)
 
     #Recursively find all location shapefiles
-    #locations_files = list(workspace.rglob('*_location.shp'))    
-    #spatial_layers = gpd.GeoDataFrame()
+    locations_files = list(workspace.rglob('*_location.shp'))    
+    spatial_layers = gpd.GeoDataFrame()
     #Append all shapefile info to a geodataframe
-    #for location in locations_files:
-    #    gdf = gpd.read_file(location)
-    #    spatial_layers = spatial_layers.append(gdf)
+    for location in locations_files:
+        gdf = gpd.read_file(location)
+        spatial_layers = spatial_layers.append(gdf)
     #Write appended spatial data to disk.
-    #output_file = workspace /'all_mapped_ahps.shp'
-    #spatial_layers.to_file(output_file)
+    output_file = workspace /'all_mapped_ahps.shp'
+    spatial_layers.to_file(output_file)
     
     #Recursively find all *_info csv files and append
-    csv_files = list(workspace.rglob('*_info.csv'))
+    csv_files = list(workspace.rglob('*_attributes.csv'))
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
-        temp_df = pd.read_csv(csv)
+        temp_df = pd.read_csv(csv, dtype={'huc':str})
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write appended _info.csvs to file
     all_info_csv = workspace / 'nws_lid_attributes.csv'

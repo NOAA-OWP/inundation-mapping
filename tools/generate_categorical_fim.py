@@ -247,8 +247,7 @@ def reformat_inundation_maps(args):
         extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
 
         # Join attributes
-        nws_lid_attributes_table = pd.read_table(nws_lid_attributes_filename, sep=",")
-        nws_lid_attributes_table.huc = nws_lid_attributes_table.huc.astype(str).str.zfill(8)
+        nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc':str})
         nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==lid)]
 
 
