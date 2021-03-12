@@ -5,6 +5,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
  - Add ability to generate Categorical FIM flow files.
  - Generate point shapefiles of Categorical FIM sites.
+ - Add record threshold.
  - Stability fixes to generate_categorical_fim.py
 
 ## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
