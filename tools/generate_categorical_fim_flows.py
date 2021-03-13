@@ -174,7 +174,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             src_crs = crs_lookup.get(h_datum, 'EPSG:4269')            
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  src_crs) 
             #Reproject to VIZ_PROJECTION
-            viz_gdf = gdf.to_csv(VIZ_PROJECTION)
+            viz_gdf = gdf.to_crs(VIZ_PROJECTION)
             
             #Create a csv with same info as shapefile
             csv_df = pd.DataFrame()
