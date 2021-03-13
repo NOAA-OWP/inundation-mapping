@@ -972,7 +972,7 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
     if response.ok:
         thresholds_json = response.json()
         #Get metadata
-        thresholds_info = thresholds_json['stream_thresholds']
+        thresholds_info = thresholds_json['nws_stream_thresholds']
         #Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -1003,6 +1003,11 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
                 #Add timestamp WRDS data was retrieved.
                 stages['wrds_timestamp'] = response.headers['Date']
                 flows['wrds_timestamp'] = response.headers['Date']
+                #Add Site information
+                stages['nws_lid'] = threshold_data['metadata']['nws_lid']
+                flows['nws_lid'] = threshold_data['metadata']['nws_lid']
+                stages['usgs_site_code'] = threshold_data['metadata']['usgs_site_code']
+                flows['usgs_site_code'] = threshold_data['metadata']['usgs_site_code']
     return stages, flows
 
 ########################################################################

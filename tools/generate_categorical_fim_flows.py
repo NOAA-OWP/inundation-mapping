@@ -52,7 +52,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
     metadata_url = f'{API_BASE_URL}/metadata'
-    threshold_url = f'{API_BASE_URL}/threshold'
+    threshold_url = f'{API_BASE_URL}/nws_threshold'
     ###################################################################
     #Create workspace
     workspace.mkdir(exist_ok = True)
@@ -92,17 +92,17 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in list to create flow file
         for lid in nws_lids:
-            #In some instances the lid is not assigned a name, skip over these.
-            if not isinstance(lid,str):
-                print(f'{lid} is {type(lid)}')
-                continue
+        #     #In some instances the lid is not assigned a name, skip over these.
+        #     if not isinstance(lid,str):
+        #         print(f'{lid} is {type(lid)}')
+        #         continue
             #Convert lid to lower case
             lid = lid.lower()
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, location_ids = lid, physical_element = 'all', threshold = 'all', bypass_source_flag = False)
             #If stages/flows don't exist write message and exit out.
             if not (stages and flows):
-                message = f'{lid} no thresholds'
+                message = f'{lid}: missing all thresholds'
                 all_messages.append(message)
                 continue
 
@@ -135,7 +135,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                     #Write flow file to file
                     flow_info.to_csv(output_file, index = False)
                 else:
-                    message = f'{lid}_{category}_no flow'
+                    message = f'{lid}:{category}: missing calculated flow'
                     all_messages.append(message)
             #This section will produce a point file of the LID location
             #Get various attributes of the site.
@@ -192,7 +192,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
             except:
                 print(f'{lid} missing all flows')
-                message = f'{lid} missing all flows'
+                message = f'{lid}: missing all calculated flows'
                 all_messages.append(message)
     #Write out messages to file
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
