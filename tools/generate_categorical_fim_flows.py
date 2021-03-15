@@ -70,11 +70,13 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     all_dataframe = conus_dataframe.append(islands_dataframe)
     
     print('Determining HUC using WBD layer...')
-    #Assign FIM HUC to GeoDataFrame and export to shapefile all candidate sites.
+    #Assign FIM HUC to GeoDataFrame and project to VIZ PROJECTION and strip columns and reformat nws_lid
     agg_start = time.time()
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
-    viz_out_gdf.to_file(workspace / f'candidate_sites.shp')
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)    
+    viz_out_gdf.rename(columns = {'identifier': 'nwm_seg', 'identifi_1':'nws_lid'}, inplace = True)
+    viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
+    #viz_out_gdf.to_file(workspace / f'candidate_sites.shp')
     agg_end = time.time()
     print(f'agg time is {(agg_end - agg_start)/60} minutes')
     #Get all possible mainstem segments
@@ -92,17 +94,13 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in list to create flow file
         for lid in nws_lids:
-        #     #In some instances the lid is not assigned a name, skip over these.
-        #     if not isinstance(lid,str):
-        #         print(f'{lid} is {type(lid)}')
-        #         continue
             #Convert lid to lower case
             lid = lid.lower()
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, location_ids = lid, physical_element = 'all', threshold = 'all', bypass_source_flag = False)
             #If stages/flows don't exist write message and exit out.
             if not (stages and flows):
-                message = f'{lid}: missing all thresholds'
+                message = f'{lid}:missing all thresholds'
                 all_messages.append(message)
                 continue
 
@@ -116,7 +114,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             #if no segments, write message and exit out
             if not segments:
                 print(f'{lid} no segments')
-                message = f'{lid} no segments'
+                message = f'{lid}:missing nwm segments'
                 all_messages.append(message)
                 continue
             #For each flood category
@@ -135,7 +133,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                     #Write flow file to file
                     flow_info.to_csv(output_file, index = False)
                 else:
-                    message = f'{lid}:{category}: missing calculated flow'
+                    message = f'{lid}:{category}-missing calculated flow'
                     all_messages.append(message)
             #This section will produce a point file of the LID location
             #Get various attributes of the site.
@@ -192,11 +190,11 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
             except:
                 print(f'{lid} missing all flows')
-                message = f'{lid}: missing all calculated flows'
+                message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
-    #Write out messages to file
+    #Write out messages to DataFrame and write out to file
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
-    messages_df.to_csv(workspace / f'all_messages.csv', index = False)
+    #messages_df.to_csv(workspace / f'all_messages.csv', index = False)
 
     #Recursively find all location shapefiles
     locations_files = list(workspace.rglob('*_location.shp'))    
@@ -204,10 +202,10 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     #Append all shapefile info to a geodataframe
     for location in locations_files:
         location_gdf = gpd.read_file(location)
-        spatial_layers = spatial_layers.append(location_gdf)
+        spatial_layers = spatial_layers.append(location_gdf)    
     #Write appended spatial data to disk.
-    output_file = workspace /'all_mapped_ahps.shp'
-    spatial_layers.to_file(output_file)
+    # output_file = workspace /'all_mapped_ahps.shp'
+    # spatial_layers.to_file(output_file)
     
     #Recursively find all *_info csv files and append
     csv_files = list(workspace.rglob('*_attributes.csv'))
@@ -221,7 +219,44 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     all_end = time.time()
     print(f'total time is {(all_end - all_start)/60} minutes')
     
-
+    #This section populates a candidate sites(viz_out_gdf) layer with a mapped 
+    #attribute field and a status attribute field via joins with spatial_layers
+    #and messages DataFrames. The candidate sites layer will ultimately
+    #have 2 extra fields with 'mapped' indicating if CatFIM has been produced
+    #for a site and 'status' indicating why a map was not created.
+    
+    #Trim down mapped sites attributes to 'nws_lid' and populate a 'mapped' attribute field.
+    spatial_layers = spatial_layers.filter(items=['nws_lid'])
+    spatial_layers['mapped'] = 'Yes'    
+    #Join mapped layer with candidate layer, populate records that did not join with 'No' in mapped attribute field.
+    viz_out_gdf = viz_out_gdf.merge(spatial_layers, how = 'left', on = 'nws_lid')    
+    viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('No')
+    #Format the messages dataframe and prep for joining.
+    messages_df = messages_df['message'].str.split(':', n = 1, expand = True)
+    messages_df.rename(columns = {0: 'nws_lid',1:'message'}, inplace = True)
+    #Group all messages by nws_lid
+    messages_groups = messages_df.groupby(['nws_lid'])
+    #Write all messages for each site to a dictionary
+    status = {}
+    for name, group in messages_groups:
+        #Retrieve all messages for a group as a list.
+        messages = group['message'].to_list()
+        #Reduce messages for sites missing all calculated flows
+        if 'missing all calculated flows' in messages:
+            messages = ['missing all calculated flows']
+        #Join all messages to a single string
+        value = ', '.join(messages)
+        #Write message string to dictionary
+        status[name]=value
+    #Write dictionary to dataframe and prep for joining to viz_out_gdf
+    statusdf = pd.DataFrame.from_dict(status, orient = 'index', columns = ['status'])
+    statusdf.index.name = 'nws_lid'
+    #Join messages to viz_out_gdf, this add status field to candidate sites.
+    viz_out_gdf = viz_out_gdf.merge(statusdf, how = 'left', on = 'nws_lid')
+    #Write to file
+    output_file = workspace /'nws_lid_sites.shp'
+    viz_out_gdf.to_file(output_file)
+    
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Create forecast files for all nws_lid sites')
