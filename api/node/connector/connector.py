@@ -3,6 +3,7 @@ eventlet.monkey_patch()
 
 import os
 import re
+import time
 import random
 import logging
 import subprocess
@@ -40,8 +41,8 @@ def ws_disconn():
     emit('is_connected', False)
 
 @socketio.on('update')
-def ws_update(current_jobs):
-    emit('client_update', current_jobs, broadcast=True)
+def ws_update(data):
+    emit('client_update', data, broadcast=True)
 
 @socketio.on('output_handler_connected')
 def ws_output_handler_connected():
@@ -60,8 +61,7 @@ def ws_ready_for_output_handler(data):
     nice_name = data['nice_name']
     job_name = data['job_name']
     path = data['path']
-
-    print(f"handler_sid: {shared_data['handler_sid']}")
+    chunk_index = data['chunk_index']
 
     if shared_data['handler_sid'] == None:
         print("output handler not connected!")
@@ -73,58 +73,60 @@ def ws_ready_for_output_handler(data):
     directory_path = path_parts.group(1)
     file_name = path_parts.group(2)
 
+    file_read_start = time.time()
     with open(path, "rb") as binary_file:
-        print("Sending to output handler", path)
-        
         # Read and emit file chunk by chunk (50MB at a time)
-        chunk_index = 0
+        binary_file.seek(chunk_index * 52428800)
         file_chunk = binary_file.read(52428800)
-        # file_chunk = binary_file.read(104857600)
-        while file_chunk:
-            print("Sending to output handler", path, "Chunk:", chunk_index)
-            emit('new_job_outputs', {
-                'nice_name': nice_name,
+
+        if len(file_chunk) == 0:
+            print('End of File')
+            emit('file_saved', {
                 'job_name': job_name,
-                'directory_path': directory_path,
-                'file_name': file_name,
-                'file_chunk': file_chunk,
-                'chunk_index': chunk_index
-            }, room=shared_data['handler_sid'])
+                'file_path': path
+            }, room=shared_data['updater_sid'])
+            return
 
-            chunk_index += 1
-            file_chunk = binary_file.read(52428800)
-            # file_chunk = binary_file.read(104857600)
+        print("Sending to output handler", path, "Chunk:", chunk_index)
+        emit('new_job_outputs', {
+            'nice_name': nice_name,
+            'job_name': job_name,
+            'directory_path': directory_path,
+            'file_name': file_name,
+            'file_chunk': file_chunk,
+            'chunk_index': chunk_index
+        }, room=shared_data['handler_sid'])
 
-    # Send None to indicate end of file
-    print("Sending to output handler", path, "Chunk:", chunk_index, "EOF")
-    emit('new_job_outputs', {
-        'nice_name': nice_name,
-        'job_name': job_name,
-        'directory_path': directory_path,
-        'file_name': file_name,
-        'file_chunk': None,
-        'chunk_index': chunk_index
-    }, room=shared_data['handler_sid'])
-
-@socketio.on('output_handler_finished_file')
-def ws_output_handler_finished_file(data):
+@socketio.on('output_handler_finished_file_chunk')
+def output_handler_finished_file_chunk(data):
     job_name = data['job_name']
     file_path = data['file_path']
 
-    print('done saving', job_name, file_path)
-    emit('file_saved', {
+    print('done saving chunk', job_name, file_path)
+    emit('file_chunk_saved', {
         'job_name': job_name,
-        'file_path': f"/data/outputs/{job_name}/{file_path}"
+        'file_path': f"/data/outputs/{job_name}/{file_path}",
     }, room=shared_data['updater_sid'])
 
 @socketio.on('new_job')
 def ws_new_job(job_params):
     validation_errors = []
 
+    # Get Preset Option
+    preset = job_params['preset']
+
     # Validate Hucs Name Option
-    hucs = ' '.join(job_params['hucs'].replace(',', ' ').split())
-    invalid_hucs = re.search('[a-zA-Z]', hucs)
-    if invalid_hucs: validation_errors.append('Invalid Huc(s)')
+    if preset == 'custom':
+        hucs_raw = job_params['hucs'].replace(',', ' ').split()
+        parallel_jobs = len(hucs_raw)
+        hucs_type = len(hucs_raw[0])
+        hucs = ' '.join(hucs_raw)
+        invalid_hucs = re.search('[^0-9 ]', hucs)
+        if invalid_hucs: validation_errors.append('Invalid Huc(s)')
+    else:
+        hucs = f"/data/inputs/huc_lists/{preset}"
+        parallel_jobs = 0
+        hucs_type = 0
 
     # Validate Git Branch Option
     branch = ''
@@ -132,14 +134,14 @@ def ws_new_job(job_params):
     if branch_exists: branch = job_params['git_branch'].replace(' ', '_')
     else: validation_errors.append('Git Branch Does Not Exist')
 
-    # Validate Job Name Option
-    job_name = f"apijob_{job_params['job_name'].replace(' ', '_')[0:50]}_apijob_{branch}_{date.today().strftime('%d%m%Y')}_{random.randint(0, 99999)}"
-
     # Validate Extent Option
-    extent = ''
-    if job_params['extent'] == 'FR': extent = 'FR'
-    elif job_params['extent'] == 'MS': extent = 'MS'
-    else: validation_errors.append('Invalid Extent Option')
+    valid_extents = ['FR', 'MS']
+    extents = []
+    for extent in job_params['extents']:
+        if extent in valid_extents:
+            extents.append(extent)
+        else:
+            validation_errors.append('Invalid Extent Option')
 
     # Validate Configuration Option
     config_path = ''
@@ -151,19 +153,40 @@ def ws_new_job(job_params):
     if job_params['dev_run'] : dev_run = True
     else: dev_run = False
 
+    # Validate Viz Run Option
+    if job_params['viz_run'] : viz_run = True
+    else: viz_run = False
+
     if len(validation_errors) == 0:
-        # Clone github repo, with specific branch, to a temp folder
-        print(f'cd /data/temp && git clone -b {branch} {GITHUB_REPO} {job_name}')
-        subprocess.call(f'cd /data/temp && git clone -b {branch} {GITHUB_REPO} {job_name}', shell=True)
-
-        # TODO: instead of starting the job right away, add it to a queue until there are enough resources to run it. Also track things like huc count and huc type (6 or 8)
-
-        # Kick off the new job as a docker container with the new cloned repo as the volume
-        print(f"docker run -d --rm --name {job_name} -v {DATA_PATH}:/data/ -v {DATA_PATH}temp/{job_name}/:/foss_fim {DOCKER_IMAGE_PATH} fim_run.sh -u \"{hucs}\" -e {extent} -c {config_path} -n {job_name} -o {'' if dev_run else '-p'}")
-        subprocess.call(f"docker run -d --rm --name {job_name} -v {DATA_PATH}:/data/ -v {DATA_PATH}temp/{job_name}/:/foss_fim {DOCKER_IMAGE_PATH} fim_run.sh -u \"{hucs}\" -e {extent} -c {config_path} -n {job_name} -o {'' if dev_run else '-p'}", shell=True)
-        emit('job_started', 'fim_run')
+        for extent in extents:
+            # Validate Job Name Option
+            job_name = f"apijob_{job_params['job_name'].replace(' ', '_')[0:50]}_{extent}_apijob_{branch}_{date.today().strftime('%d%m%Y')}_{random.randint(0, 99999)}"
+            print(f"adding job {job_name} {branch} {preset} {hucs} {parallel_jobs} {hucs_type} {extent} {config_path} {dev_run} {viz_run}")
+            emit('add_job_to_queue', {
+                'job_name': job_name,
+                'branch': branch,
+                'hucs': hucs,
+                'parallel_jobs': parallel_jobs,
+                'hucs_type': hucs_type,
+                'extent': extent,
+                'config_path': config_path,
+                'dev_run': dev_run,
+                'viz_run': viz_run,
+            }, room=shared_data['updater_sid'])
+            print('job added')
+            emit('job_added', 'fim_run')
     else:
         emit('validation_errors', validation_errors)
+    
+    @socketio.on('cancel_job')
+    def ws_cancel_job(job_params):
+        # Validate Job Name Option
+        job_name = job_params['job_name']
+
+        emit('remove_job_from_queue', {'job_name': job_name}, room=shared_data['updater_sid'])
+        print('job canceled')
+        emit('job_canceled', 'fim_run')
+   
 
 if __name__ == '__main__':
     socketio.run(app, host="0.0.0.0", port="6000")
