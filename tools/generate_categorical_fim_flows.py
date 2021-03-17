@@ -98,11 +98,11 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
             #Check if stages are supplied, if not write message and exit. 
-            if all(stages[category]==None for category in flood_categories):
+            if all(stages.get(category, None)==None for category in flood_categories):
                 message = f'{lid}:missing threshold stages'
                 continue
             #Check if calculated flows are supplied, if not write message and exit.
-            if all(flows[category] == None for category in flood_categories):
+            if all(flows.get(category, None) == None for category in flood_categories):
                 message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 continue
@@ -169,7 +169,6 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 #Export DataFrame to csv containing attributes
                 csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
             else:
-                print(f'{lid} missing all flows')
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
         
