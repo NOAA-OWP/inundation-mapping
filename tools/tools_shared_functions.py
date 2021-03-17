@@ -728,11 +728,15 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
         metadata_list = metadata_json['locations']
         #Add timestamp of WRDS retrieval
         timestamp = response.headers['Date']
+        #Add timestamp of sources retrieval
+        nrldb_timestamp, nwis_timestamp = metadata_json['_documentation']['metadata sources']        
         #get crosswalk info (always last dictionary in list)
         *metadata_list, crosswalk_info = metadata_list
         #Update each dictionary with timestamp and crosswalk info
         for metadata in metadata_list:
             metadata.update({"wrds_timestamp": timestamp})
+            metadata.update({"nrldb_timestamp":nrldb_timestamp})
+            metadata.update({"nwis_timestamp":nwis_timestamp})
             metadata.update(crosswalk_info)
         #If count is 1
         if location_count == 1:
@@ -783,7 +787,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     huc8 = gpd.read_file(wbd_huc8_path, layer = 'WBDHU8')
     huc8 = huc8[['HUC8','name','states', 'geometry']]
     #Define EPSG codes for possible usgs latlon datum names (NAD83WGS84 assigned NAD83)
-    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269'}
+    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
     #Create empty geodataframe and define CRS for potential horizontal datums
     metadata_gdf = gpd.GeoDataFrame()
     #Iterate through each site
@@ -793,14 +797,17 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         #Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
         #Drop any metadata sites that don't have lat/lon populated
-        df.dropna(subset = ['identifiers_nws_lid','usgs_data_latitude','usgs_data_longitude'], inplace = True)
+        df.dropna(subset = ['identifiers_nws_lid','usgs_preferred_latitude', 'usgs_preferred_longitude'], inplace = True)
         #If dataframe still has data
         if not df.empty:
-            #Get horizontal datum (use usgs) and assign appropriate EPSG code
-            h_datum = df.usgs_data_latlon_datum_name.item()
-            src_crs = crs_lookup[h_datum]
-            #Convert dataframe to geodataframe using lat/lon (USGS)
-            site_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.usgs_data_longitude, df.usgs_data_latitude), crs =  src_crs)
+            #Get horizontal datum (use usgs) and assign appropriate EPSG code if not available assume NAD83
+            h_datum = df['usgs_preferred_latlon_datum_name'].item()
+            dict_crs = crs_lookup.get(h_datum,'EPSG:4269_ Assumed')
+            src_crs, *message = dict_crs.split('_')
+            #Convert dataframe to geodataframe using lat/lon (USGS). Add attribute of assigned crs (label ones that are assumed)
+            site_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['usgs_preferred_longitude'], df['usgs_preferred_latitude']), crs =  src_crs)
+            site_gdf['assigned_crs'] = src_crs + ''.join(message)
+            
             #Reproject to huc 8 crs
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
@@ -937,7 +944,7 @@ def get_nwm_segs(metadata):
 #######################################################################
 #Thresholds
 #######################################################################
-def get_thresholds(threshold_url, location_ids, physical_element = 'all', threshold = 'all', bypass_source_flag = False):
+def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
     '''
     Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
     moderate, major). Returns a dictionary for stages and one for flows.
@@ -946,17 +953,12 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
     ----------
     threshold_url : STR
         WRDS threshold API.
-    location_ids : STR
-        nws_lid code (only a single code).
-    physical_element : STR, optional
-        Physical element option. The default is 'all'.
+    select_by : STR
+        Type of site (nws_lid, usgs_site_code etc).
+    selector : STR
+        Site for selection. Must be a single site.
     threshold : STR, optional
         Threshold option. The default is 'all'.
-    bypass_source_flag : BOOL, optional
-        Special case if calculated values are not available (e.g. no rating
-        curve is available) then this allows for just a stage to be returned.
-        Used in case a flow is already known from another source, such as
-        a model. The default is False.
 
     Returns
     -------
@@ -966,13 +968,14 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
         Dictionary of flows at each threshold.
 
     '''
-
-    url = f'{threshold_url}/{physical_element}/{threshold}/{location_ids}'
-    response = requests.get(url)
+    params = {}
+    params['threshold'] = threshold
+    url = f'{threshold_url}/{select_by}/{selector}'
+    response = requests.get(url, params = params)
     if response.ok:
         thresholds_json = response.json()
         #Get metadata
-        thresholds_info = thresholds_json['nws_stream_thresholds']
+        thresholds_info = thresholds_json['value_set']
         #Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -985,29 +988,27 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
                 threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
             elif 'NRLDB' in rating_sources:
                 threshold_data = thresholds_info[rating_sources['NRLDB']]
-            #If neither USGS or NRLDB is available
+            #If neither USGS or NRLDB is available use first dictionary to get stage values.
             else:
-                #A flag option for cases where only a stage is needed for USGS scenario where a rating curve source is not available yet stages are available for the site. If flag is enabled, then stages are retrieved from the first record in thresholds_info. Typically the flows will not be populated as no rating curve is available. Flag should only be enabled when flows are already supplied by source (e.g. USGS) and threshold stages are needed.
-                if bypass_source_flag:
-                    threshold_data = thresholds_info[0]
-                else:
-                    threshold_data = []
+                threshold_data = thresholds_info[0]
             #Get stages and flows for each threshold
             if threshold_data:
                 stages = threshold_data['stage_values']
                 flows = threshold_data['calc_flow_values']
                 #Add source information to stages and flows. Flows source inside a nested dictionary. Remove key once source assigned to flows.
-                stages['source'] = threshold_data['metadata']['threshold_source']
-                flows['source'] = flows['rating_curve']['source']
+                stages['source'] = threshold_data.get('metadata').get('threshold_source')
+                flows['source'] = flows.get('rating_curve', {}).get('source')
                 flows.pop('rating_curve', None)
                 #Add timestamp WRDS data was retrieved.
                 stages['wrds_timestamp'] = response.headers['Date']
                 flows['wrds_timestamp'] = response.headers['Date']
                 #Add Site information
-                stages['nws_lid'] = threshold_data['metadata']['nws_lid']
-                flows['nws_lid'] = threshold_data['metadata']['nws_lid']
-                stages['usgs_site_code'] = threshold_data['metadata']['usgs_site_code']
-                flows['usgs_site_code'] = threshold_data['metadata']['usgs_site_code']
+                stages['nws_lid'] = threshold_data.get('metadata').get('nws_lid')
+                flows['nws_lid'] = threshold_data.get('metadata').get('nws_lid')
+                stages['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
+                flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
+                stages['units'] = threshold_data.get('metadata').get('stage_units')
+                flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
     return stages, flows
 
 ########################################################################

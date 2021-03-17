@@ -147,7 +147,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
         os.mkdir(gpkg_dir)
 
     fim_version  = os.path.basename(output_cat_fim_dir)
-    merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.gpkg')
+    merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.shp')
 
     if not os.path.exists(merged_layer): # prevents appending to existing output
 
