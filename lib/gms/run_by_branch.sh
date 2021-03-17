@@ -162,7 +162,7 @@ do
     fi
     
     # mv files to branch output directory
-    find $outputDataDir -maxdepth 1 -type f -iname "*$current_branch_id.*" -exec mv {} $branchOutputDir \;
+    find $outputDataDir -maxdepth 1 -type f -iname "*_$current_branch_id.*" -exec mv {} $branchOutputDir \;
 
 done
 

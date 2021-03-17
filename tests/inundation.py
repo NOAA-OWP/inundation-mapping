@@ -311,7 +311,8 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
 
         # make generator for inundation polygons
         inundation_polygon_generator = shapes(inundation_array,mask=inundation_array>0,connectivity=8,transform=window_transform)
-
+        print([g for g in inundation_polygon_generator])
+        inundation_polygon_generator = shapes(inundation_array,mask=inundation_array>0,connectivity=8,transform=window_transform)
         # generate records
         records = []
         for i,(g,h) in enumerate(inundation_polygon_generator):
@@ -319,7 +320,7 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
             record['geometry'] = g
             record['properties'] = {'HydroID' : int(h)}
             records += [record]
-
+        print('anything',records)
         # write out
         inundation_polygon.writerecords(records)
 

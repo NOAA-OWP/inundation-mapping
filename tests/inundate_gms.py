@@ -13,7 +13,7 @@ def Inundate_gms(
                  ):
 
     # define directories and files
-    gms_dir = os.path.join(hydrofabric_dir,'gms')
+    gms_dir = os.path.join(hydrofabric_dir,'gms_levelpath')
     rem = os.path.join(gms_dir,'{}','rem_zeroed_masked_{}.tif')
     catchments = os.path.join(gms_dir,'{}','gw_catchments_reaches_{}.tif')
     hydroTable = os.path.join(gms_dir,'{}','hydroTable_{}.csv')
@@ -27,26 +27,38 @@ def Inundate_gms(
     
     # iterate over branches
     for branch_id in tqdm(branch_ids,disable=quiet):
-       
+        if branch_id != '44': continue
         # define branch specific files
         rem_branch = rem.format(branch_id,branch_id)
         catchments_branch = catchments.format(branch_id,branch_id)
         hydroTable_branch = hydroTable.format(branch_id,branch_id)
-        inundation_polygon_file_name, inundation_polygon_extension = inundation_polygon.split('.')
-        inundation_branch_polygon = inundation_polygon_file_name + "_{}.".format(branch_id) + inundation_polygon_extension
+        inundation_branch_polygon = __append_id_to_file_name(inundation_polygon,branch_id)
+        inundation_branch_raster = __append_id_to_file_name(inundation_raster,branch_id)
+        depths_branch_raster = __append_id_to_file_name(depths_raster,branch_id)
 
         try:
             inundate(
                      rem= rem_branch,catchments = catchments_branch,catchment_poly=catchment_poly,
                      hydro_table=hydroTable_branch,forecast=forecast,
                      mask_type="filter",hucs=None,hucs_layerName=None,
-                     subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=inundation_raster,
+                     subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=inundation_branch_raster,
                      inundation_polygon=inundation_branch_polygon,
-                     depths=depths_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
+                     depths=depths_branch_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
                     )
         except Exception as e:
             print("Error on BranchID: {}".format(branch_id))
             print(e)
+
+def __append_id_to_file_name(file_name,identifier):
+
+    if file_name is not None:
+        root,extension = os.path.splitext(file_name)
+        out_file_name = root + "_{}".format(identifier) + extension
+    else:
+        out_file_name = None
+
+    return(out_file_name)
+
 if __name__ == '__main__':
 
     # parse arguments

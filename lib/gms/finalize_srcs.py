@@ -15,11 +15,12 @@ def finalize_srcs(srcbase,srcfull,hydrotable,output_srcfull=None,output_hydrotab
     srcbase.rename(columns={'CatchId':'HydroID'},inplace=True)
     srcbase = srcbase.rename(columns=lambda x: x.strip(" "))
     
+    # read and merge in attributes from base hydrofabric src full
     srcfull = pd.read_csv(srcfull, dtype={'CatchId': int})
     srcfull.rename(columns={'CatchId':'HydroID'},inplace=True)
+    srcfull = srcfull.loc[:,["ManningN","HydroID","feature_id"]].drop_duplicates(subset='HydroID')
     
-    srcbase = srcbase.merge(srcfull.loc[:,["ManningN","HydroID","feature_id"]],how='inner',left_on='HydroID',right_on='HydroID')
-    srcbase.drop_duplicates(subset='Stage',inplace=True)
+    srcbase = srcbase.merge(srcfull,how='inner',left_on='HydroID',right_on='HydroID')
 
     srcbase = srcbase.apply(pd.to_numeric,**{'errors' : 'coerce'})
     srcbase['TopWidth (m)'] = srcbase['SurfaceArea (m2)']/srcbase['LENGTHKM']/1000
@@ -39,10 +40,12 @@ def finalize_srcs(srcbase,srcfull,hydrotable,output_srcfull=None,output_hydrotab
 
     hydrotable = pd.read_csv(hydrotable)
     hydrotable.drop(columns=['stage','discharge_cms'],inplace=True)
-
+    
+    hydrotable.drop_duplicates(subset='HydroID',inplace=True)
+    #srcfull = srcfull.loc[:,["ManningN","HydroID","feature_id"]].drop_duplicates(subset='HydroID')
     hydrotable = hydrotable.merge(srcbase.loc[:,['HydroID','Stage','Discharge (m3s-1)']],how='right',left_on='HydroID',right_on='HydroID')
     hydrotable.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
-    hydrotable.drop_duplicates(subset='stage',inplace=True)
+    #hydrotable.drop_duplicates(subset='stage',inplace=True)
     
     if output_hydrotable is not None:
         hydrotable.to_csv(output_hydrotable,index=False)
