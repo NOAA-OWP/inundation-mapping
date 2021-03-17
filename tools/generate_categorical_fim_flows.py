@@ -73,7 +73,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     agg_start = time.time()
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
     viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)    
-    viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid'}, inplace = True)
+    viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
     viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
     agg_end = time.time()
     print(f'agg time is {(agg_end - agg_start)/60} minutes')
@@ -138,7 +138,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 else:
                     message = f'{lid}:{category} is missing calculated flow'
                     all_messages.append(message)
-            #This section will produce a point file of the LID location
+
             #Get various attributes of the site.
             lat = float(metadata['usgs_preferred']['latitude'])
             lon = float(metadata['usgs_preferred']['longitude'])
@@ -147,31 +147,13 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             state = metadata['nws_data']['state']
             county = metadata['nws_data']['county']
             name = metadata['nws_data']['name']
-            q_act, q_min, q_mod, q_maj, q_rec = [flows[category] for category in flood_categories]
             flow_units = flows['units']
             flow_source = flows['source']
-            s_act, s_min, s_mod, s_maj, s_rec = [stages[category] for category in flood_categories]
             stage_units = stages['units']
             stage_source = stages['source']
             wrds_timestamp = stages['wrds_timestamp']
             nrldb_timestamp = metadata['nrldb_timestamp']
             nwis_timestamp = metadata['nwis_timestamp']
-            #Create a DataFrame using the collected attributes
-            df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'q_act':q_act, 'q_min':q_min, 'q_mod':q_mod, 'q_maj':q_maj, 'q_rec':q_rec, 'q_uni':flow_units, 'q_src':flow_source, 'stage_act':s_act, 'stage_min':s_min, 'stage_mod':s_mod, 'stage_maj':s_maj, 'stage_rec':s_rec, 'stage_uni':stage_units, 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp,'lat':[lat], 'lon':[lon]})
-            #Round stages and flows to nearest hundredth
-            df = df.round({'q_act':2,'q_min':2,'q_mod':2,'q_maj':2,'q_rec':2,'stage_act':2,'stage_min':2,'stage_mod':2,'stage_maj':2,'stage_rec':2})
-            
-            #Create a geodataframe using usgs lat/lon property from WRDS then reproject to WGS84.
-            #Define EPSG codes for possible usgs latlon datum names (NAD83WGS84 assigned NAD83).
-            crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
-            #Get horizontal datum (from dataframe) and assign appropriate EPSG code, assume NAD83 if not assigned.
-            h_datum = metadata['usgs_preferred']['latlon_datum_name']
-            dict_crs = crs_lookup.get(h_datum, 'EPSG:4269_ Assumed')
-            src_crs, *message = dict_crs.split('_')            
-            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  src_crs) 
-            gdf['assigned_crs'] = src_crs + ''.join(message)
-            #Reproject to VIZ_PROJECTION
-            viz_gdf = gdf.to_crs(VIZ_PROJECTION)
             
             #Create a csv with same information as shapefile but with each threshold as new record.
             csv_df = pd.DataFrame()
@@ -179,15 +161,14 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
                 csv_df = csv_df.append(line_df)
             #Round flow and stage columns to 2 decimal places.
-            csv = csv_df.round({'q':2,'stage':2})
+            csv_df = csv_df.round({'q':2,'stage':2})
 
             #If a site folder exists (ie a flow file was written) save files containing site attributes.
-            try:
-                #Save GeoDataFrame to shapefile format and export csv containing attributes
-                output_dir = workspace / huc / lid
-                viz_gdf.to_file(output_dir / f'{lid}_location.shp' )
+            output_dir = workspace / huc / lid
+            if output_dir.exists():
+                #Export DataFrame to csv containing attributes
                 csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
-            except:
+            else:
                 print(f'{lid} missing all flows')
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
@@ -201,8 +182,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write to file
     all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
-
-    
+   
     #This section populates a shapefile of all potential sites and details
     #whether it was mapped or not (mapped field) and if not, why (status field).
     
