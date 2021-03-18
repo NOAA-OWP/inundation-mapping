@@ -15,20 +15,21 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     ## Read in the bankfull channel geometry text file
     input_bathy = pd.read_csv(input_bathy_fileName, dtype= {'COMID': int})
 
-    ## Perform merge using feature_id/COMID attributes
+    ## Merge input_bathy and modified_src_base df using feature_id/COMID attributes
     input_bathy = input_bathy.rename(columns={'COMID':'feature_id','BANKFULL_WIDTH':'BANKFULL_WIDTH (m)','BANKFULL_XSEC_AREA':'BANKFULL_XSEC_AREA (m2)'})
     modified_src_base = input_src_base.merge(input_bathy.loc[:,['feature_id','BANKFULL_WIDTH (m)','BANKFULL_XSEC_AREA (m2)']],how='left',on='feature_id')
 
     ## Use SurfaceArea variable to identify thalweg-restricted stage values for each hydroid
     ## Calculate the interrow difference in the SurfaceArea values (use this to flag disruptions to monotomically increasing sequence -> thalweg notch)
     modified_src_base['SA_diff'] = modified_src_base['SurfaceArea (m2)'].diff()
+    ## Calculate the interrow SurfaceArea ratio n/(n-1)
     modified_src_base['SA_div'] = modified_src_base['SurfaceArea (m2)'].div(modified_src_base['SurfaceArea (m2)'].shift(1))
     ## Mask SA_diff when Stage = 0 or when the SA difference value (n > n-1) is > 0 (i.e. increasing)
     modified_src_base['SA_diff'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_diff']>0),inplace=True)
     modified_src_base['SA_div'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_div']<10),inplace=True)
     ## Create new df to filter and groupby HydroID
     find_thalweg_notch = modified_src_base[['HydroID','Stage','SurfaceArea (m2)','SA_diff','SA_div']]
-    find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['Stage']<3]
+    find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['Stage']<3] # assuming thalweg burn-in is less than 3 meters
     find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['SA_div'].notnull()]
     find_thalweg_notch = find_thalweg_notch.loc[find_thalweg_notch.groupby('HydroID')['Stage'].idxmax()].reset_index(drop=True)
     ## Create another df to pull the 0-Stage SurfaceArea value and merge this to the find_thalweg_notch df
@@ -55,7 +56,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     ## filter SRC rows identified as Thalweg burned
     output_bathy['Top Width Diff (m)'].mask(output_bathy['Stage'] <= output_bathy['Thalweg_burn_elev'],inplace=True)
     ## mask out negative top width differences (avoid thalweg burn notch) **CHECK IF THIS IS NEEDED**
-    output_bathy['Top Width Diff (m)'].mask(output_bathy['Top Width Diff (m)'] < 0,inplace=True)
+    #output_bathy['Top Width Diff (m)'].mask(output_bathy['Top Width Diff (m)'] < 0,inplace=True)
     ## find index of minimum top width difference --> this will be used as the SRC "bankfull" row for future calcs
     output_bathy = output_bathy.loc[output_bathy.groupby('HydroID')['Top Width Diff (m)'].idxmin()].reset_index(drop=True)
     print('Average: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].mean()))
@@ -111,7 +112,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
 
     ## Calculate the ratio btw the lookup SRC XS_Area and the Bankfull_XSEC_AREA --> use this as a flag for potentially bad XS data
     xs_area_hydroid_lookup['bankfull_XS_ratio_flag'] = (xs_area_hydroid_lookup['bathy_calc_xs_area'] / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'])
-    ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > 5 (assynubg too large of difference to be a reliable bankfull calculation)
+    ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > 5x (assuming too large of difference to be a reliable bankfull calculation)
     xs_area_hydroid_lookup['bathy_calc_xs_area'].mask((xs_area_hydroid_lookup['bankfull_XS_ratio_flag']>5),0,inplace=True)
 
     ## Merge bathy_calc_xs_area to the modified_src_base
@@ -125,7 +126,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['WetArea (m2)_bathy_adj']/modified_src_base['WettedPerimeter (m)']
     modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0, inplace=True)
     ## mask out negative top width differences (avoid thalweg burn notch)
-    modified_src_base['HydraulicRadius (m)_bathy_adj'].mask((modified_src_base['HydraulicRadius (m)_bathy_adj']>10) & (modified_src_base['Stage']<5),inplace=True)
+    modified_src_base['HydraulicRadius (m)_bathy_adj'].mask((modified_src_base['HydraulicRadius (m)_bathy_adj']>10) & (modified_src_base['Stage']<3),inplace=True)
     ## backfill NA values created is previous step
     modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0, inplace=True)
     #modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['HydraulicRadius (m)_bathy_adj'].bfill()
@@ -134,8 +135,9 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     pow(modified_src_base['HydraulicRadius (m)_bathy_adj'],2.0/3)* \
     pow(modified_src_base['SLOPE'],0.5)/modified_src_base['ManningN']
     ## mask discharge values for stage = 0 rows in SRC (replace with 0) --> do we need SRC to start at 0??
-    modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage']== 0,0,inplace=True)
-    modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage']<= modified_src_base['Thalweg_burn_elev'],0,inplace=True)
+    modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == 0,0,inplace=True)
+    modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == modified_src_base['Thalweg_burn_elev'],0,inplace=True)
+    modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] < modified_src_base['Thalweg_burn_elev'],-999,inplace=True)
 
     ## Organize bathy calc output variables for csv
     output_bathy = output_bathy[['HydroID','order_','Stage','TopWidth (m)','BANKFULL_WIDTH (m)','Top Width Diff (m)','XS Area (m2)','BANKFULL_XSEC_AREA (m2)','XS Area Diff (m2)','XS Bankfull Area Ratio','count','median_stage_bankfull','mean_xs_area_ratio']]
@@ -143,8 +145,8 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     ## Export bathy/bankful crosswalk table for easy viewing
     output_bathy.to_csv(output_bathy_fileName,index=False)
     stream_order_bathy_ratio.to_csv(output_bathy_streamorder_fileName,index=True)
-    find_thalweg_notch.to_csv("/data/outputs/dev_bathy_rc_mods/17090012_fr_06mann_test/17090012/bathy_thalweg_notch.csv")
-    xs_area_hydroid_lookup.to_csv("/data/outputs/dev_bathy_rc_mods/17090012_fr_06mann_test/17090012/bathy_xs_area_hydroid_lookup.csv")
+    #find_thalweg_notch.to_csv("/data/outputs/dev_bathy_rc_mods/17090012_fr_06mann_test/17090012/bathy_thalweg_notch.csv")
+    #xs_area_hydroid_lookup.to_csv("/data/outputs/dev_bathy_rc_mods/17090012_fr_06mann_test/17090012/bathy_xs_area_hydroid_lookup.csv")
 
     print('Completed Bathy Calculations...')
     return(modified_src_base)
