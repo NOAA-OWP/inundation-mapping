@@ -786,8 +786,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     #Import huc8 layer as geodataframe and retain necessary columns
     huc8 = gpd.read_file(wbd_huc8_path, layer = 'WBDHU8')
     huc8 = huc8[['HUC8','name','states', 'geometry']]
-    #Define EPSG codes for possible usgs latlon datum names (NAD83WGS84 assigned NAD83)
-    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
+    #Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
+    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'WGS84': 'EPSG:4326'}
     #Create empty geodataframe and define CRS for potential horizontal datums
     metadata_gdf = gpd.GeoDataFrame()
     #Iterate through each site
@@ -800,12 +800,15 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         df.dropna(subset = ['identifiers_nws_lid','usgs_preferred_latitude', 'usgs_preferred_longitude'], inplace = True)
         #If dataframe still has data
         if not df.empty:
-            #Get horizontal datum (use usgs) and assign appropriate EPSG code if not available assume NAD83
+            #Get horizontal datum
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
+            #Look up EPSG code, if not returned Assume NAD83 as default. 
             dict_crs = crs_lookup.get(h_datum,'EPSG:4269_ Assumed')
+            #We want to know what sites were assumed, hence the split.
             src_crs, *message = dict_crs.split('_')
             #Convert dataframe to geodataframe using lat/lon (USGS). Add attribute of assigned crs (label ones that are assumed)
             site_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['usgs_preferred_longitude'], df['usgs_preferred_latitude']), crs =  src_crs)
+            #Field to indicate if a latlon datum was assumed
             site_gdf['assigned_crs'] = src_crs + ''.join(message)
             
             #Reproject to huc 8 crs
