@@ -55,7 +55,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     ###################################################################
     #Create workspace
-    workspace.mkdir(exist_ok = True)
+    workspace.mkdir(parents=True,exist_ok = True)
 
     #Return dictionary of huc (key) and sublist of ahps(value) as well as geodataframe of sites.
     print('Retrieving metadata...')
