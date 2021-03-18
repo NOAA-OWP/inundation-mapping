@@ -130,14 +130,18 @@ def run_inundation(args):
                  subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=output_extent_grid,inundation_polygon=None,
                  depths=output_depth_grid,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
-
+    
     except Exception:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
         f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
         f.close()
 
-
+    if not os.path.exists(output_extent_grid):
+        f = open(log_file, 'a+')
+        f.write(f"inundation failed for {ahps_site} {magnitude} magnitude in HUC {huc}\n")
+        f.close()
+        
 def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
 
     # Create workspace

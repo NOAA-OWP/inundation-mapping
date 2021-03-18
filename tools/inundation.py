@@ -17,6 +17,7 @@ import argparse
 from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
+import sys
 
 
 def inundate(
@@ -454,13 +455,13 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                          'HydroID':str,'stage':float,
                                          'discharge_cms':float,'LakeID' : int}
                                 )
-
+        huc_error = hydroTable.HUC.unique()
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
 
         hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
 
         if hydroTable.empty:
-            print ("All stream segments in HUC are within lake boundaries.")
+            print(f"All stream segments in HUC(s): {huc_error} are within lake boundaries.")
             sys.exit(0)
 
     elif isinstance(hydroTable,pd.DataFrame):
@@ -506,8 +507,8 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
     # join tables
     try:
         hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
-    except:
-        print ("No matching feature IDs between forecast and hydrotable.")
+    except AttributeError:
+        print (f"No matching feature IDs between forecast and hydrotable for HUC(s): {subset_hucs}")
         sys.exit(0)
 
     # initialize dictionary
