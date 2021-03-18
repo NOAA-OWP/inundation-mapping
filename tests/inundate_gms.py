@@ -13,7 +13,7 @@ def Inundate_gms(
                  ):
 
     # define directories and files
-    gms_dir = os.path.join(hydrofabric_dir,'gms_levelpath')
+    gms_dir = os.path.join(hydrofabric_dir,'gms')
     rem = os.path.join(gms_dir,'{}','rem_zeroed_masked_{}.tif')
     catchments = os.path.join(gms_dir,'{}','gw_catchments_reaches_{}.tif')
     hydroTable = os.path.join(gms_dir,'{}','hydroTable_{}.csv')
@@ -27,7 +27,7 @@ def Inundate_gms(
     
     # iterate over branches
     for branch_id in tqdm(branch_ids,disable=quiet):
-        if branch_id != '44': continue
+        
         # define branch specific files
         rem_branch = rem.format(branch_id,branch_id)
         catchments_branch = catchments.format(branch_id,branch_id)

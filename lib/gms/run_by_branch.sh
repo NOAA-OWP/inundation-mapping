@@ -13,8 +13,9 @@ T_total_start
 # echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
-inputDataDir=/data/outputs/fim3_20210301_a92212d/12090301
-outputDataDir=$inputDataDir/gms_levelpath
+#inputDataDir=/data/outputs/fim3_20210301_a92212d/12090301
+inputDataDir=/data/outputs/fim3_20210316_665f534/12090301
+outputDataDir=$inputDataDir/gms
 
 # make outputs directory
 if [ ! -d "$outputDataDir" ]; then
