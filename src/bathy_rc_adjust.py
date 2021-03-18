@@ -20,29 +20,17 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     modified_src_base = input_src_base.merge(input_bathy.loc[:,['feature_id','BANKFULL_WIDTH (m)','BANKFULL_XSEC_AREA (m2)']],how='left',on='feature_id')
 
     ## Use SurfaceArea variable to identify thalweg-restricted stage values for each hydroid
-    ## Calculate the interrow difference in the SurfaceArea values (use this to flag disruptions to monotomically increasing sequence -> thalweg notch)
-    modified_src_base['SA_diff'] = modified_src_base['SurfaceArea (m2)'].diff()
     ## Calculate the interrow SurfaceArea ratio n/(n-1)
     modified_src_base['SA_div'] = modified_src_base['SurfaceArea (m2)'].div(modified_src_base['SurfaceArea (m2)'].shift(1))
     ## Mask SA_diff when Stage = 0 or when the SA difference value (n > n-1) is > 0 (i.e. increasing)
-    modified_src_base['SA_diff'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_diff']>0),inplace=True)
     modified_src_base['SA_div'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_div']<10),inplace=True)
     ## Create new df to filter and groupby HydroID
-    find_thalweg_notch = modified_src_base[['HydroID','Stage','SurfaceArea (m2)','SA_diff','SA_div']]
+    find_thalweg_notch = modified_src_base[['HydroID','Stage','SurfaceArea (m2)','SA_div']]
     find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['Stage']<3] # assuming thalweg burn-in is less than 3 meters
     find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['SA_div'].notnull()]
     find_thalweg_notch = find_thalweg_notch.loc[find_thalweg_notch.groupby('HydroID')['Stage'].idxmax()].reset_index(drop=True)
-    ## Create another df to pull the 0-Stage SurfaceArea value and merge this to the find_thalweg_notch df
-    sa_zero_hydrodids = modified_src_base[['HydroID','Stage','SurfaceArea (m2)']]
-    sa_zero_hydrodids = sa_zero_hydrodids.loc[sa_zero_hydrodids.groupby('HydroID')['Stage'].idxmin()].reset_index(drop=True)
-    sa_zero_hydrodids = sa_zero_hydrodids.rename(columns={'SurfaceArea (m2)':'SurfaceArea (m2)_zero_stage'})
-    find_thalweg_notch = find_thalweg_notch.merge(sa_zero_hydrodids.loc[:,['HydroID','SurfaceArea (m2)_zero_stage']],how='left',on='HydroID')
-    ## Calculate difference between the SA_zero_stage and the max stage of duplicate Surface Area found in initial step
-    find_thalweg_notch['SA_Zero_Diff'] = find_thalweg_notch['SurfaceArea (m2)_zero_stage'] - find_thalweg_notch['SurfaceArea (m2)']
-    ## Add one foot to the Stage of the max thalweg-restricted --> need this to force the rating curve to start at 1st point outside the thalweg
-    find_thalweg_notch['Thalweg_burn_elev'] = find_thalweg_notch['Stage'] # + 0.3048
-    ## Filter out any cases were the SA_Zero_Diff is greater than 1 pixel different (100 m2 SA)
-    #find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['SA_Zero_Diff']>-101]
+    ## Assign thalweg_burn_elev variable to the stage value found in previous step
+    find_thalweg_notch['Thalweg_burn_elev'] = find_thalweg_notch['Stage']
     ## Merge the Thalweg_burn_elev value back into the modified SRC --> this is used to mask the discharge after Manning's equation
     modified_src_base = modified_src_base.merge(find_thalweg_notch.loc[:,['HydroID','Thalweg_burn_elev']],how='left',on='HydroID')
 
