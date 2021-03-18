@@ -497,14 +497,14 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
         # subsets HUCS
         subset_hucs_orig = subset_hucs.copy() ; subset_hucs = []
         for huc in np.unique(hydroTable.index.get_level_values('HUC')):
-        for sh in subset_hucs_orig:
-            if huc.startswith(sh):
-                subset_hucs += [huc]
+            for sh in subset_hucs_orig:
+                if huc.startswith(sh):
+                    subset_hucs += [huc]
 
         hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
 
     # join tables
-    try:   
+    try:
         hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
     except:
         print ("No matching feature IDs between forecast and hydrotable.")
