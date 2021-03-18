@@ -47,7 +47,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     -------
     None.
 
-    '''    
+    '''
+    
     all_start = time.time()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
@@ -56,6 +57,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     metadata_url = f'{API_BASE_URL}/metadata'
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     ###################################################################
+    
     #Create workspace
     workspace.mkdir(parents=True,exist_ok = True)
 
@@ -215,7 +217,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     
     #time operation
     all_end = time.time()
-    print(f'total time is {(all_end - all_start)/60} minutes')
+    print(f'total time is {round((all_end - all_start)/60),1} minutes')
     
 if __name__ == '__main__':
     #Parse arguments
