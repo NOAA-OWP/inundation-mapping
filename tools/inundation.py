@@ -461,7 +461,7 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
 
         if hydroTable.empty:
             print ("All stream segments in HUC are within lake boundaries.")
-            return
+            sys.exit(0)
 
     elif isinstance(hydroTable,pd.DataFrame):
         pass #consider checking for correct dtypes, indices, and columns
@@ -504,7 +504,11 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
         hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
 
     # join tables
-    hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    try:
+        hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    except:
+        print ("No matching feature IDs between forecast and hydrotable.")
+        sys.exit(0)
 
     # initialize dictionary
     catchmentStagesDict = typed.Dict.empty(types.int32,types.float64)

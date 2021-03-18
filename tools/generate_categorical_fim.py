@@ -104,7 +104,7 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
                                 output_depth_grid = None
 
                             # Append necessary variables to list for multiprocessing.
-                            procs_list.append([rem, catchments, catchment_poly, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file])
+                            procs_list.append([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file])
 
     # Initiate multiprocessing
     print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
@@ -116,15 +116,14 @@ def run_inundation(args):
 
     rem                 = args[0]
     catchments          = args[1]
-    catchment_poly      = args[2]
-    magnitude_flows_csv = args[3]
-    huc                 = args[4]
-    hydroTable          = args[5]
-    output_extent_grid  = args[6]
-    output_depth_grid   = args[7]
-    ahps_site           = args[8]
-    magnitude           = args[9]
-    log_file            = args[10]
+    magnitude_flows_csv = args[2]
+    huc                 = args[3]
+    hydroTable          = args[4]
+    output_extent_grid  = args[5]
+    output_depth_grid   = args[6]
+    ahps_site           = args[7]
+    magnitude           = args[8]
+    log_file            = args[9]
 
     try:
         inundate(rem,catchments,catchment_poly,hydroTable,magnitude_flows_csv,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
