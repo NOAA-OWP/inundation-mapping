@@ -11,13 +11,15 @@ import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
-load_dotenv()
-#import variables from .env file
-API_BASE_URL = os.getenv("API_BASE_URL")
-EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
-WBD_LAYER = os.getenv("WBD_LAYER")
+def get_env_paths():
+    load_dotenv()
+    #import variables from .env file
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER
 
-def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
+def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -57,7 +59,6 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     #Create workspace
     workspace.mkdir(parents=True,exist_ok = True)
 
-    #Return dictionary of huc (key) and sublist of ahps(value) as well as geodataframe of sites.
     print('Retrieving metadata...')
     #Get metadata for 'CONUS'
     conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
@@ -69,19 +70,16 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     all_lists = conus_list + islands_list
     
     print('Determining HUC using WBD layer...')
-    #Assign FIM HUC to GeoDataFrame and project to VIZ PROJECTION and strip columns and reformat nws_lid
-    agg_start = time.time()
+    #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
+    #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
+    #of all sites used later in script.
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)    
-    viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
-    viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
-    agg_end = time.time()
-    print(f'agg time is {(agg_end - agg_start)/60} minutes')
+
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
-    #The entire routine to get mainstems is harcoded in this function.
+    #The entire routine to get mainstems is hardcoded in this function.
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
     
     #Loop through each huc unit, first define message variable and flood categories.
@@ -173,6 +171,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
         
+    print('wrapping up...')
     #Recursively find all *_attributes csv files and append
     csv_files = list(workspace.rglob('*_attributes.csv'))
     all_csv_df = pd.DataFrame()
@@ -185,6 +184,11 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
    
     #This section populates a shapefile of all potential sites and details
     #whether it was mapped or not (mapped field) and if not, why (status field).
+    
+    #Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)    
+    viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
+    viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
     
     #Using list of csv_files, populate DataFrame of all nws_lids that had
     #a flow file produced and denote with "mapped" column.
@@ -219,9 +223,9 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
-    #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
     
 
-    #Run create_flow_forecast_file
-    static_flow_lids(**args)
+    #Run get_env_paths and static_flow_lids
+    API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER = get_env_paths()
+    generate_catfim_flows(**args)
