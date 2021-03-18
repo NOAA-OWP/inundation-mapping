@@ -758,8 +758,8 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
 def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     '''
     Assigns the proper FIM HUC 08 code to each site in the input DataFrame.
-    Converts input DataFrame to a GeoDataFrame using the lat/lon attributes
-    with sites containing null lat/lon removed. Reprojects GeoDataFrame
+    Converts input DataFrame to a GeoDataFrame using lat/lon attributes
+    with sites containing null nws_lid/lat/lon removed. Reprojects GeoDataFrame
     to same CRS as the HUC 08 layer. Performs a spatial join to assign the
     HUC 08 layer to the GeoDataFrame. Sites that are not assigned a HUC
     code removed as well as sites in Alaska and Canada.
@@ -815,7 +815,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
 
     #Trim metadata to only have certain fields.
     if not retain_attributes:
-        metadata_gdf = metadata_gdf[['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'geometry']]
+        metadata_gdf = metadata_gdf[['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'identifiers_usgs_site_code', 'geometry']]
     #If a list of attributes is supplied then use that list.
     elif isinstance(retain_attributes,list):
         metadata_gdf = metadata_gdf[retain_attributes]

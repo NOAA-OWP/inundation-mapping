@@ -100,6 +100,7 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             #Check if stages are supplied, if not write message and exit. 
             if all(stages.get(category, None)==None for category in flood_categories):
                 message = f'{lid}:missing threshold stages'
+                all_messages.append(message)
                 continue
             #Check if calculated flows are supplied, if not write message and exit.
             if all(flows.get(category, None) == None for category in flood_categories):
@@ -203,7 +204,9 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     
     #Join messages to populate status field to candidate sites.
     viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
-    #Write to file
+    
+    #Filter out columns and write out to file
+    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
     viz_out_gdf.to_file(workspace /'nws_lid_sites.shp')
     
     #time operation
