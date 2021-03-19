@@ -315,9 +315,6 @@ if __name__ == '__main__':
 
     # Create error log path
     log_file = os.path.join(log_dir, 'errors.log')
-    
-    #Create a nws_lid status file
-    nws_lid_mapping_status = 
 
     # Map path to points with attributes
     nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
