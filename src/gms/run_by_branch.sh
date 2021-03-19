@@ -4,7 +4,7 @@
 ##############################!/bin/bash -e
 
 ## SOURCE BASH FUNCTIONS
-source $libDir/bash_functions.env
+source $srcDir/bash_functions.env
 
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
@@ -14,7 +14,8 @@ T_total_start
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 #inputDataDir=/data/outputs/fim3_20210301_a92212d/12090301
-inputDataDir=/data/outputs/fim3_20210316_665f534/12090301
+#inputDataDir=/data/outputs/20210318_665f534_calibrated/12090301
+inputDataDir=$1
 outputDataDir=$inputDataDir/gms
 
 # make outputs directory
@@ -50,49 +51,49 @@ hucNumber=12090301
 echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/derive_level_paths.py -i $input_demDerived_reaches -b $branch_id_attribute -o $outputDataDir/demDerived_reaches_levelPaths.gpkg -d $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
+$srcDir/gms/derive_level_paths.py -i $input_demDerived_reaches -b $branch_id_attribute -o $outputDataDir/demDerived_reaches_levelPaths.gpkg -d $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
 Tcount
 
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/buffer_stream_branches.py -s $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
+$srcDir/gms/buffer_stream_branches.py -s $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputDataDir/polygons.gpkg -v 
 Tcount
 
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/clip_rasters_to_branches.py -b $outputDataDir/polygons.gpkg -i $branch_id_attribute -r $input_demThal $input_flowdir $input_slopes $input_demDerived_raster -c $outputDataDir/dem_thalwegCond.tif $outputDataDir/flowdir.tif $outputDataDir/slopes.tif $outputDataDir/demDerived.tif -v 
+$srcDir/gms/clip_rasters_to_branches.py -b $outputDataDir/polygons.gpkg -i $branch_id_attribute -r $input_demThal $input_flowdir $input_slopes $input_demDerived_raster -c $outputDataDir/dem_thalwegCond.tif $outputDataDir/flowdir.tif $outputDataDir/slopes.tif $outputDataDir/demDerived.tif -v 
 Tcount
 
 ##### EDIT DEM DERIVED POINTS TO ADD BRANCH IDS ######
 echo -e $startDiv"EDITING DEM DERIVED POINTS for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/edit_points.py -i $outputDataDir/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -r $input_demDerived_reaches_points -o $outputDataDir/demDerived_reaches_points.gpkg -p $outputDataDir/demDerived_pixels_points.gpkg
+$srcDir/gms/edit_points.py -i $outputDataDir/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -r $input_demDerived_reaches_points -o $outputDataDir/demDerived_reaches_points.gpkg -p $outputDataDir/demDerived_pixels_points.gpkg
 Tcount
 
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i $branch_id_attribute -s $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
+$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i $branch_id_attribute -s $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
 date -u
 Tstart
-$libDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst -d $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -b $branch_id_attribute
+$srcDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputDataDir/branch_id.lst -d $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -b $branch_id_attribute
 Tcount
 
 ## CREATE BRANCH LEVEL CATCH LISTS ##
 echo -e $startDiv"Create branch level catch lists in HUC: $hucNumber"$stopDiv
 date -u
 Tstart
-/foss_fim/lib/gms/subset_catch_list_by_branch_id.py -c $inputDataDir/catchment_list.txt -s $outputDataDir/demDerived_reaches_levelPaths.gpkg -o $outputDataDir/catch_list.txt -b $branch_id_attribute -l $outputDataDir/branch_id.lst -v
+$srcDir/gms/subset_catch_list_by_branch_id.py -c $inputDataDir/catchment_list.txt -s $outputDataDir/demDerived_reaches_levelPaths.gpkg -o $outputDataDir/catch_list.txt -b $branch_id_attribute -l $outputDataDir/branch_id.lst -v
 Tcount
 
 ## LOOP OVER EACH STREAM BRANCH TO DERIVE BRANCH LEVEL HYDROFABRIC ##
@@ -109,18 +110,18 @@ do
     mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_"$current_branch_id".tif -gw $outputDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputDataDir/demDerived_pixels_points_$current_branch_id.gpkg -id $outputDataDir/idFile_$current_branch_id.txt
     Tcount
 
-    # D8 REM ##
-    echo -e $startDiv"D8 REM for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
-    date -u
-    Tstart
-    $libDir/rem.py -d $outputDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputDataDir/rem_$current_branch_id.tif -t $outputDataDir/demDerived_$current_branch_id.tif 
-    Tcount
-
     ## GAGE WATERSHED FOR REACHES ##
     echo -e $startDiv"Gage Watershed for Reaches for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
     mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_$current_branch_id.tif -gw $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -o $outputDataDir/demDerived_reaches_points_$current_branch_id.gpkg -id $outputDataDir/idFile_$current_branch_id.txt
+    Tcount
+
+    # D8 REM ##
+    echo -e $startDiv"D8 REM for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
+    date -u
+    Tstart
+    $srcDir/rem.py -d $outputDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputDataDir/rem_$current_branch_id.tif -t $outputDataDir/demDerived_$current_branch_id.tif
     Tcount
 
     ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##
@@ -153,7 +154,7 @@ do
     echo -e $startDiv"Finalize catchments and model streams for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    $libDir/gms/finalize_srcs.py -b $outputDataDir/src_base_$current_branch_id.csv -w $input_hydroTable -r $outputDataDir/src_full_$current_branch_id.csv -f $input_src_full -t $outputDataDir/hydroTable_$current_branch_id.csv
+    $srcDir/gms/finalize_srcs.py -b $outputDataDir/src_base_$current_branch_id.csv -w $input_hydroTable -r $outputDataDir/src_full_$current_branch_id.csv -f $input_src_full -t $outputDataDir/hydroTable_$current_branch_id.csv
     Tcount
 
     # make branch output directory and mv files to

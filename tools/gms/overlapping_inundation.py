@@ -10,7 +10,6 @@ from scipy.optimize import newton
 from threading import Lock
 import concurrent.futures
 from numba import njit
-from glob import iglob
 
 
 class OverlapWindowMerge:

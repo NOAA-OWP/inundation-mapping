@@ -62,15 +62,15 @@ docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <i
 
 ### Acquire and Prepare Data
 ```
-/foss_fim/lib/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
+/foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
 ```
 - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
-- Please run `/foss_fim/lib/acquire_and_preprocess_inputs.py --help` for more information.
+- Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
 - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 
 ### Aggregate NHDHR Streams and Create NWM Headwater Points 
 ```
-/foss_fim/lib/aggregate_vector_inputs.py
+/foss_fim/src/aggregate_vector_inputs.py
 ```
 ### Produce Hydrofabric 
 ```
@@ -88,12 +88,12 @@ After `fim_run.sh` completes, you are ready to evaluate the model's skill.
 
 To evaluate model skill, run the following:
 ```
-python /foss_fim/tests/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs]
+python /foss_fim/tools/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs]
 ```
 
 More information can be found by running:
 ```
-python /foss_fim/tests/synthesize_test_cases.py --help
+python /foss_fim/tools/synthesize_test_cases.py --help
 ```
 
 ----
