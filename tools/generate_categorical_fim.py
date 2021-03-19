@@ -50,9 +50,9 @@ if __name__ == '__main__':
     ####################################################################
     #Define default arguments. Modify these if necessary. 
     today = date.today().strftime('%m%d%Y')
-    fim_run_dir = f'/data/previous_fim/{fim_version}/'
-    output_flows_dir = f'/data/catfim/{fim_version}/{today}/flows'
-    output_mapping_dir = f'/data/catfim/{fim_version}/{today}/mapping'
+    fim_run_dir = Path(f'/data/previous_fim/{fim_version}')
+    output_flows_dir = Path(f'/data/catfim/{fim_version}/{today}/flows')
+    output_mapping_dir = Path(f'/data/catfim/{fim_version}/{today}/mapping')
     nwm_us_search = '10'
     nwm_ds_search = '10'        
     write_depth_tiff = False
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     #Generate CatFIM flow files.
     print('Creating flow files')
     start = time.time()
-    subprocess.call(['python3','generate_categorical_fim_flows.py', 'w' , output_flows_dir, 'u', nwm_us_search, 'd', nwm_ds_search])
+    subprocess.call(['python3','generate_categorical_fim_flows.py', 'w' , str(output_flows_dir), 'u', nwm_us_search, 'd', nwm_ds_search])
     end = time.time()
     elapsed_time = round((end-start)/60,1)
     print(f'Finished creating flow files in {elapsed_time} minutes')
@@ -72,13 +72,13 @@ if __name__ == '__main__':
     #Generate CatFIM mapping.
     print('Begin mapping')
     start = time.time()
-    subprocess.call(['python3','generate_categorical_fim_mapping.py', 'r' , fim_run_dir, 's', output_flows_dir, 'o', output_mapping_dir, 'j', number_of_jobs, 'depthtiff', write_depth_tiff]) 
+    subprocess.call(['python3','generate_categorical_fim_mapping.py', 'r' , str(fim_run_dir), 's', str(output_flows_dir), 'o', str(output_mapping_dir), 'j', number_of_jobs, 'depthtiff', write_depth_tiff]) 
     end = time.time()
     elapsed_time = round((end-start)/60,1)
     print(f'Finished mapping in {elapsed_time} minutes')
     
     #Updating Mapping Status
     print('Updating mapping status')
-    update_mapping_status(output_mapping_dir, output_flows_dir)
+    update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
 
    
