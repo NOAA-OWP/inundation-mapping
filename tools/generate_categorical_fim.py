@@ -53,8 +53,8 @@ if __name__ == '__main__':
     fim_run_dir = f'/data/previous_fim/{fim_version}/'
     output_flows_dir = f'/data/catfim/{fim_version}/{today}/flows'
     output_mapping_dir = f'/data/catfim/{fim_version}/{today}/mapping'
-    nwm_us_search = 10
-    nwm_ds_search = 10        
+    nwm_us_search = '10'
+    nwm_ds_search = '10'        
     write_depth_tiff = False
     ####################################################################
     
