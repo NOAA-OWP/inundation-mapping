@@ -143,9 +143,11 @@ def run_inundation(args):
     base_file_path,extension = os.path.splitext(output_extent_grid)
     saved_extent_grid_filename = "{}_{}{}".format(base_file_path,huc,extension)
     if not os.path.exists(saved_extent_grid_filename):
-        f = open(log_file, 'a+')
-        f.write(f"lid_status_huc_{huc}:{ahps_site}:{magnitude} map failed to create\n")
-        f.close()
+        with open(log_file, 'a+') as f:
+            f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
+    elif os.path.exists(saved_extent_grid_filename):
+        with open(log_file, 'a+') as f:
+            f.write('SUCCESS_huc_{}:{}:{} map created\n'.format(huc,ahps_site,magnitude))
         
 def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
 
