@@ -137,9 +137,14 @@ def run_inundation(args):
         f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
         f.close()
 
-    if not os.path.exists(output_extent_grid):
+    #Inundation.py appends the huc code to the supplied output_extent_grid.
+    #Modify output_extent_grid to match inundation.py saved filename. 
+    #Search for this file, if it didn't create, send message to log file.
+    base_file_path,extension = os.path.splitext(output_extent_grid)
+    saved_extent_grid_filename = "{}_{}{}".format(base_file_path,huc,extension)
+    if not os.path.exists(saved_extent_grid_filename):
         f = open(log_file, 'a+')
-        f.write(f"inundation failed for {ahps_site} {magnitude} magnitude in HUC {huc}\n")
+        f.write(f"{ahps_site}:{magnitude}: failed for {huc}\n")
         f.close()
         
 def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
