@@ -208,12 +208,14 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
     
-    #Join messages to populate status field to candidate sites.
+    #Join messages to populate status field to candidate sites. Assign 
+    #status for null fields.
     viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
+    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
     
     #Filter out columns and write out to file
     viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
-    viz_out_gdf.to_file(workspace /'nws_lid_sites.shp')
+    viz_out_gdf.to_file(workspace /'nws_lid_flows_sites.shp')
     
     #time operation
     all_end = time.time()

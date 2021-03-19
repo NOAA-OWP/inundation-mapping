@@ -3,32 +3,60 @@ import subprocess
 import argparse
 import time
 from pathlib import Path
+import geopandas as gpd
+import pandas as pd
+from datetime import date
 
+def update_mapping_status(output_mapping_dir, output_flows_dir):
+    
+    #Find all LIDs with empty mapping output folders
+    subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
+    empty_nws_lids = [Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())]
+    
+    #Write list of empty nws_lids to DataFrame
+    mapping_df = pd.DataFrame({'nws_lid':empty_nws_lids})
+    mapping_df['did_it_map'] = 'No'
+    mapping_df['map_status'] = ' and all categories failed to map'
+    
+    #Import shapefile output from flows creation 
+    shapefile = Path(output_flows_dir)/'nws_lid_flows_sites.shp'
+    flows_df = gpd.read_file(shapefile)
+    
+    #Join failed sites to flows df    
+    flows_df = flows_df.merge(mapping_df, how = 'left', on = 'nws_lid')
+    
+    #Switch mapped column to no for failed sites and update status
+    flows_df.loc[flows_df['did_it_map'] == 'No', 'mapped'] = 'No'
+    flows_df.loc[flows_df['did_it_map']=='No','status'] = flows_df['status'] + flows_df['map_status']
+    
+    #Clean up GeoDataFrame and write out to file.
+    flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
+    #Output nws_lid site
+    nws_lid_path = Path(output_mapping_dir.parent) / 'nws_lid_sites.shp'
+    flows_df.to_file(nws_lid_path)
+    
 if __name__ == '__main__':
     
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
-    parser.add_argument('-f','--fim_run_dir',help='Name of directory containing outputs of fim_run.sh',required=True)
+    parser.add_argument('-f','--fim_version',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-w', '--output_workspace', help = 'Workspace where all flow files are stored.', required = True)
     parser.add_argument('-j','--number_of_jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
     args = vars(parser.parse_args())
     
     #Get arguments
-    fim_run_dir = args['fim_run_dir']
+    fim_version = args['fim_version']
     output_workspace = args['output_workspace']
     number_of_jobs = args['number_of_jobs']
     
     ####################################################################
     #Define default arguments. Modify these if necessary. 
-    #Default values are: 
-        #Upstream and downstream mainstem tracing of 10 miles
-        #Flow files stored in subdirectory "flows"
-        #Mapping files stored in subdirectory "mapping"
-        #Depth grids NOT created
+    today = date.today().strftime('%m%d%Y')
+    fim_run_dir = f'/data/previous_fim/{fim_version}/'
+    output_flows_dir = f'/data/catfim/{fim_version}/{today}/flows'
+    output_mapping_dir = f'/data/catfim/{fim_version}/{today}/mapping'
     nwm_us_search = 10
     nwm_ds_search = 10        
-    output_flows_dir = str(Path(output_workspace) / 'flows')
-    output_mapping_dir = str(Path(output_workspace) / 'mapping')    
     write_depth_tiff = False
     ####################################################################
     
@@ -50,5 +78,9 @@ if __name__ == '__main__':
     end = time.time()
     elapsed_time = round((end-start)/60,1)
     print(f'Finished mapping in {elapsed_time} minutes')
+    
+    #Updating Mapping Status
+    print('Updating mapping status')
+    update_mapping_status(output_mapping_dir, output_flows_dir)
 
    
