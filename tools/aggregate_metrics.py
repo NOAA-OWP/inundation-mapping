@@ -3,17 +3,17 @@
 import json
 import os
 import csv
-    
+
 import argparse
 
 TEST_CASES_DIR = r'/data/test_cases_new/'
 # TEMP = r'/data/temp'
 
 # Search through all previous_versions in test_cases
-from utils.shared_functions import compute_stats_from_contingency_table
+from tools_shared_functions import compute_stats_from_contingency_table
 
 def create_master_metrics_csv():
-            
+
     # Construct header
     metrics_to_write = ['true_negatives_count',
                         'false_negatives_count',
@@ -57,33 +57,33 @@ def create_master_metrics_csv():
                         'masked_perc',
                         'masked_area_km2'
                         ]
-    
+
     additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
     list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source']]
-    
+
     for benchmark_type in ['ble', 'ahps']:
-        
+
         if benchmark_type == 'ble':
-        
+
             test_cases = r'/data/test_cases'
             test_cases_list = os.listdir(test_cases)
             # AHPS test_ids
             versions_to_aggregate = ['fim_1_0_0', 'fim_2_3_3', 'fim_3_0_0_3_fr_c']
-                            
+
             for test_case in test_cases_list:
                 try:
                     int(test_case.split('_')[0])
-                    
+
                     huc = test_case.split('_')[0]
                     previous_versions = os.path.join(test_cases, test_case, 'performance_archive', 'previous_versions')
-                    
+
                     for magnitude in ['100yr', '500yr']:
                         for version in versions_to_aggregate:
                             version_dir = os.path.join(previous_versions, version)
                             magnitude_dir = os.path.join(version_dir, magnitude)
 
                             if os.path.exists(magnitude_dir):
-                                
+
                                 magnitude_dir_list = os.listdir(magnitude_dir)
                                 for f in magnitude_dir_list:
                                     if '.json' in f:
@@ -99,40 +99,40 @@ def create_master_metrics_csv():
                                             sub_list_to_append.append(full_json_path)
                                             sub_list_to_append.append(flow)
                                             sub_list_to_append.append(benchmark_source)
-                                            
+
                                             list_to_write.append(sub_list_to_append)
-                                                                                    
+
                 except ValueError:
                     pass
-                
+
         if benchmark_type == 'ahps':
-    
+
             test_cases = r'/data/test_cases_ahps_testing'
             test_cases_list = os.listdir(test_cases)
             # AHPS test_ids
-            versions_to_aggregate = ['fim_1_0_0_nws_1_21_2021', 'fim_1_0_0_usgs_1_21_2021', 
+            versions_to_aggregate = ['fim_1_0_0_nws_1_21_2021', 'fim_1_0_0_usgs_1_21_2021',
                                      'fim_2_x_ms_nws_1_21_2021', 'fim_2_x_ms_usgs_1_21_2021',
                                      'fim_3_0_0_3_ms_c_nws_1_21_2021', 'fim_3_0_0_3_ms_c_usgs_1_21_2021',
                                      'ms_xwalk_fill_missing_cal_nws', 'ms_xwalk_fill_missing_cal_usgs']
-            
+
             for test_case in test_cases_list:
                 try:
                     int(test_case.split('_')[0])
-                    
+
                     huc = test_case.split('_')[0]
                     previous_versions = os.path.join(test_cases, test_case, 'performance_archive', 'previous_versions')
-                    
+
                     for magnitude in ['action', 'minor', 'moderate', 'major']:
                         for version in versions_to_aggregate:
-                            
+
                             if 'nws' in version:
                                 benchmark_source = 'ahps_nws'
                             if 'usgs' in version:
                                 benchmark_source = 'ahps_usgs'
-                            
+
                             version_dir = os.path.join(previous_versions, version)
                             magnitude_dir = os.path.join(version_dir, magnitude)
-                            
+
                             if os.path.exists(magnitude_dir):
                                 magnitude_dir_list = os.listdir(magnitude_dir)
                                 for f in magnitude_dir_list:
@@ -147,7 +147,7 @@ def create_master_metrics_csv():
                                                 parent_dir = 'usgs_1_21_2021'
                                             if 'nws' in version:
                                                 parent_dir = 'nws_1_21_2021'
-                                                
+
                                             flow_file = os.path.join(test_cases, parent_dir, huc, nws_lid, magnitude, 'ahps_' + nws_lid + '_huc_' + huc + '_flows_' + magnitude + '.csv')
                                             if os.path.exists(flow_file):
                                                 with open(flow_file, newline='') as csv_file:
@@ -157,7 +157,7 @@ def create_master_metrics_csv():
                                                         flow = row[1]
                                                     if nws_lid == 'mcc01':
                                                         print(flow)
-                                            
+
                                             stats_dict = json.load(open(full_json_path))
                                             for metric in metrics_to_write:
                                                 sub_list_to_append.append(stats_dict[metric])
@@ -165,10 +165,10 @@ def create_master_metrics_csv():
                                             sub_list_to_append.append(flow)
                                             sub_list_to_append.append(benchmark_source)
                                             list_to_write.append(sub_list_to_append)
-                                        
+
                 except ValueError:
                     pass
-        
+
     with open(output_csv, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerows(list_to_write)
@@ -201,7 +201,7 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
     for magnitude in ['100yr', '500yr', 'action', 'minor', 'moderate', 'major']:
         huc_path_list = [['huc', 'path']]
         true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count = 0, 0, 0, 0, 0, 0
-        
+
         for test_case in test_cases_dir_list:
 
             if test_case not in ['other', 'validation_data_ble', 'validation_data_legacy', 'validation_data_ahps']:
@@ -227,11 +227,11 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
                     cell_area = json_dict['cell_area_m2']
 
                     huc_path_list.append([huc, stats_json_path])
-                
-                    
+
+
             if cell_area == 0:
                 continue
-            
+
             # Pass all sums to shared function to calculate metrics.
             stats_dict = compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area=cell_area, masked_count=masked_count)
 
@@ -239,7 +239,7 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
 
             for stat in stats_dict:
                 list_to_write.append([stat, stats_dict[stat]])
-                
+
             # Map path to output directory for aggregate metrics.
             output_file = os.path.join(aggregate_output_dir, branch + '_aggregate_metrics_' + magnitude + special_string + '.csv')
 
@@ -249,7 +249,7 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
                 csv_writer.writerows(list_to_write)
                 csv_writer.writerow([])
                 csv_writer.writerows(huc_path_list)
-    
+
             print()
             print("Finished aggregating for the '" + magnitude + "' magnitude. Aggregated metrics over " + str(len(huc_path_list)-1) + " test cases.")
             print()
