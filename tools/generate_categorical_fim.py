@@ -40,13 +40,11 @@ if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
     parser.add_argument('-f','--fim_version',help='Name of directory containing outputs of fim_run.sh',required=True)
-    parser.add_argument('-w', '--output_workspace', help = 'Workspace where all flow files are stored.', required = True)
     parser.add_argument('-j','--number_of_jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
     args = vars(parser.parse_args())
     
     #Get arguments
     fim_version = args['fim_version']
-    output_workspace = args['output_workspace']
     number_of_jobs = args['number_of_jobs']
     
     ####################################################################
