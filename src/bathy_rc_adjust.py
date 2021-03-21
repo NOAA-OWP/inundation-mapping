@@ -5,7 +5,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 
-def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName):
+def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,):
     ## Convert input_src_base featureid to integer
     if input_src_base.feature_id.dtype != 'int': input_src_base.feature_id = input_src_base.feature_id.astype(int)
 
@@ -35,7 +35,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     modified_src_base = modified_src_base.merge(find_thalweg_notch.loc[:,['HydroID','Thalweg_burn_elev']],how='left',on='HydroID')
 
     ## Calculate bankfull vs top width difference for each feature_id
-    modified_src_base['Top Width Diff (m)'] = (modified_src_base['TopWidth (m)'] - modified_src_base['BANKFULL_WIDTH (m)'])
+    modified_src_base['Top Width Diff (m)'] = (modified_src_base['TopWidth (m)'] - modified_src_base['BANKFULL_WIDTH (m)']).abs()
 
     ## Groupby HydroID and find min of Top Width Diff (m)
     output_bathy = modified_src_base[['feature_id','HydroID','order_','Stage','Thalweg_burn_elev','BANKFULL_WIDTH (m)','TopWidth (m)','XS Area (m2)','BANKFULL_XSEC_AREA (m2)','Top Width Diff (m)']]
@@ -133,8 +133,8 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     ## Export bathy/bankful crosswalk table for easy viewing
     output_bathy.to_csv(output_bathy_fileName,index=False)
     stream_order_bathy_ratio.to_csv(output_bathy_streamorder_fileName,index=True)
-    #find_thalweg_notch.to_csv("/data/outputs/dev_bathy_rc_mods/17090012_fr_06mann_test/17090012/bathy_thalweg_notch.csv")
-    #xs_area_hydroid_lookup.to_csv("/data/outputs/dev_bathy_rc_mods/17090012_fr_06mann_test/17090012/bathy_xs_area_hydroid_lookup.csv")
+    find_thalweg_notch.to_csv(output_bathy_thalweg_fileName,index=True)
+    xs_area_hydroid_lookup.to_csv(output_bathy_xs_lookup_fileName,index=True)
 
     print('Completed Bathy Calculations...')
     return(modified_src_base)
