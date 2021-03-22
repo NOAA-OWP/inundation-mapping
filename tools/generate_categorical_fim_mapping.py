@@ -241,8 +241,7 @@ def reformat_inundation_maps(args):
 
         # Aggregate shapes
         results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
-        
-        print(f'converting to shape for {huc}, {lid}, {magnitude}')                
+                       
         # convert list of shapes to polygon
         extent_poly  = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
 
@@ -255,10 +254,9 @@ def reformat_inundation_maps(args):
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
-
-        print(f'reprojecting to VIZ for {huc}, {lid}, {magnitude}')             
+            
         # Project to Web Mercator
-        extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
+        extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
         # Join attributes
         nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc':str})
@@ -325,7 +323,7 @@ if __name__ == '__main__':
     nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
 
     print("Generating Categorical FIM")
-    #generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
+    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
     post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,nws_lid_attributes_filename,log_file)
