@@ -260,7 +260,7 @@ class OverlapWindowMerge:
 
         return [final_bnds, bnds, data]
 
-    def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4):
+    def merge_rasters(self, out_fname, nodata=-2147483647, threaded=False, workers=4):
         """
         Merge multiple raster datasets
 

@@ -2,9 +2,19 @@
 # coding: utf-8
 
 from glob import glob
-from overlapping_inundation import OverlapWindowMerge
+from gms.overlapping_inundation import OverlapWindowMerge
 import argparse
 from os.path import join
+
+def Mosaic_gms_inundation(inundation_dir,mosaic=None):
+    
+    inundation_maps = glob( join(inundation_dir,'*.tif'))
+    
+    overlap = OverlapWindowMerge( inundation_maps, (30, 30) )
+
+    if mosaic is not None:
+        overlap.merge_rasters(mosaic, threaded=True, workers=4)
+
 
 if __name__ == '__main__':
 
@@ -13,10 +23,5 @@ if __name__ == '__main__':
     parser.add_argument('-m','--mosaic', help='Mosaiced inundation Maps', required=False,default=None)
 
     args = vars(parser.parse_args())
-
-    inundation_maps = glob( join(args['inundation_dir'],'*.tif'))
-
-    overlap = OverlapWindowMerge( inundation_maps, (30, 30) )
-
-    if args['mosaic'] is not None:
-        overlap.merge_rasters(args['mosaic'], threaded=True, workers=4)
+    
+    Mosaic_gms_inundation(**args)

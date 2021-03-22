@@ -2,22 +2,19 @@
 ## Immediate
 - some levelpaths yielding errors (see #242). add back -e flag once resolved
     - run `grep -in "error" /data/outputs/fim3_20210301_a92212d/gms_test2_levelpath.log` for more info
-- Fix inundate_gms??
-- Mosaic branch inundation maps
-    - Mosaic polygons vs rasters?
+- inundate_gms: "No forecast value found in passed .."
+- Mosaic branch inundation maps: still have to do polygons and depths
+- Make a singular inundate_gms and mosaic function
+    - clean up level path files when doing this
 - Evaluate with test cases
 
 
 ## Longer term
-- Derive levelpath
-    
-    - levelpaths for nested segments: 
-        - nested segments not allocated correctly in levelpath. 
-        - May need to derive arbolate sum and levelpath on a non-HUC scale (entire FIM domain scale)
 - Parallelize by unit. 
     - Needs a script comparable to fim_run or integration into fim_run
     - Need branch progress tracking or writing stdout/err to individual log file
 - Implement attribute exclusion for branching functionality (stream order 1s)
+- running branch modules separate from branch for loop
 - parameterize branch buffer distance by stream order
 - why using filtered reaches causes issues? HydroIDs not present in boths polygons and reach vectors
 - add compatibility for new rem.py

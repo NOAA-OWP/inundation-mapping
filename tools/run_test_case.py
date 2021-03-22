@@ -8,9 +8,11 @@ import argparse
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
+from gms.inundate_gms import Inundate_gms
+from gms.mosaic_gms_inundation import Mosaic_gms_inundation
+from gms.overlapping_inundation import OverlapWindowMerge
 
-
-def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True):
+def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True,gms=False):
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
@@ -52,7 +54,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
 
     # Map necessary inputs for inundation().
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
-
+    
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
     mask_dict = {'levees':
@@ -131,15 +133,34 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                     continue
             # Run inundate.
             print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
+            # The inundate adds the huc to the name so I account for that here.
+            predicted_raster_path = os.path.join(
+                                        os.path.split(inundation_raster)[0], 
+                                        os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
+                                                )  
             try:
-                inundate(
-                         rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                         subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
-                         depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
+                if gms:
+
+                    Inundate_gms(
+                                 hydrofabric_dir =fim_run_parent, forecast=forecast, 
+                                 inundation_raster=inundation_raster,
+                                 inundation_polygon=None, depths_raster=None,
+                                 quiet=False
+                                )
+                    
+                    Mosaic_gms_inundation(version_test_case_dir,mosaic=predicted_raster_path)
+
+                else:
+                    inundate(
+                             rem,catchments,catchment_poly,hydro_table,forecast,
+                             mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                             subset_hucs=current_huc,num_workers=1,aggregate=False,
+                             inundation_raster=inundation_raster,inundation_polygon=None,
+                             depths=None,out_raster_profile=None,out_vector_profile=None,
+                             quiet=True
                         )
 
                 print("-----> Inundation mapping complete.")
-                predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
 
                 # Define outputs for agreement_raster, stats_json, and stats_csv.
                 if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
@@ -192,6 +213,7 @@ if __name__ == '__main__':
     parser.add_argument('-ib','--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
+    parser.add_argument('-g','--gms',help='Creates test case for GMS',required=False, default=False, action='store_true')
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
