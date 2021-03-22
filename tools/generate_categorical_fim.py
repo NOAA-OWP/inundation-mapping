@@ -8,12 +8,30 @@ import pandas as pd
 from datetime import date
 
 def update_mapping_status(output_mapping_dir, output_flows_dir):
-    
+    '''
+    Updates the status for nws_lids from the flows subdirectory. Status
+    is updated for sites where the inundation.py routine was not able to
+    produce inundation for the supplied flow files. It is assumed that if 
+    an error occured in inundation.py that all flow files for a given site
+    experienced the error as they all would have the same nwm segments.
+
+    Parameters
+    ----------
+    output_mapping_dir : STR
+        Path to the output directory of all inundation maps.
+    output_flows_dir : STR
+        Path to the directory containing all flows.
+
+    Returns
+    -------
+    None.
+
+    '''
     #Find all LIDs with empty mapping output folders
     subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
     empty_nws_lids = [Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())]
     
-    #Write list of empty nws_lids to DataFrame
+    #Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
     mapping_df = pd.DataFrame({'nws_lid':empty_nws_lids})
     mapping_df['did_it_map'] = 'No'
     mapping_df['map_status'] = ' and all categories failed to map'
@@ -29,6 +47,14 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     flows_df.loc[flows_df['did_it_map'] == 'No', 'mapped'] = 'No'
     flows_df.loc[flows_df['did_it_map']=='No','status'] = flows_df['status'] + flows_df['map_status']
     
+    #Perform pass for HUCs where mapping was skipped due to missing data.
+    flows_hucs = [i.stem for i in Path(output_flows_dir).iterdir() if i.is_dir()]
+    mapping_hucs = [i.stem for i in Path(output_mapping_dir).iterdir() if i.is_dir()]
+    missing_mapping_hucs = list(set(flows_hucs) - set(mapping_hucs))
+    #Update status for nws_lid in missing hucs and change mapped attribute to 'No'
+    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "Yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
+    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "Yes"'), 'mapped'] = 'No'
+            
     #Clean up GeoDataFrame and write out to file.
     flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
     #Output nws_lid site
