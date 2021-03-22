@@ -145,9 +145,6 @@ def run_inundation(args):
     if not os.path.exists(saved_extent_grid_filename):
         with open(log_file, 'a+') as f:
             f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
-    elif os.path.exists(saved_extent_grid_filename):
-        with open(log_file, 'a+') as f:
-            f.write('SUCCESS_huc_{}:{}:{} map created\n'.format(huc,ahps_site,magnitude))
         
 def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
 
@@ -244,7 +241,9 @@ def reformat_inundation_maps(args):
 
         # Aggregate shapes
         results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
-
+        
+        print(f'converting to shape for {lid}')
+                
         # convert list of shapes to polygon
         extent_poly  = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
 
@@ -258,6 +257,8 @@ def reformat_inundation_maps(args):
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
 
+        print(f'reprojecting to VIZ for {lid})
+              
         # Project to Web Mercator
         extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
 
@@ -326,7 +327,7 @@ if __name__ == '__main__':
     nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
 
     print("Generating Categorical FIM")
-    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
+    #generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
     post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,nws_lid_attributes_filename,log_file)
