@@ -242,8 +242,7 @@ def reformat_inundation_maps(args):
         # Aggregate shapes
         results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
         
-        print(f'converting to shape for {lid}')
-                
+        print(f'converting to shape for {lid}')                
         # convert list of shapes to polygon
         extent_poly  = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
 
@@ -257,8 +256,7 @@ def reformat_inundation_maps(args):
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
 
-        print(f'reprojecting to VIZ for {lid})
-              
+        print(f'reprojecting to VIZ for {lid}')             
         # Project to Web Mercator
         extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
 
