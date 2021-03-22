@@ -1,5 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+
+## v3.0.11.0 - 2021-03-22 - [PR #319](https://github.com/NOAA-OWP/cahaba/pull/298)
+
+ Updates to CatFIM generation
+ 
+### Additions
+ - Added a wrapper script (generate_categorical_fim.py) that links the "flows.py" and "mapping.py" scripts.
+ - Create new "nws_lid_sites" shapefile located in same directory as the catfim_library shapefile.
+ ### Changes
+ - Renamed scripts to better describe what they do (generate_categorical_fim_flows.py and generate_categorical_fim_mapping.py).
+ - Updated the status outputs of the nws_lid_sites layer and saved it in the same directory as the merged catfim_library layer.
+ - Additional stability fixes (such as improved compatability with WRDS updates).
 <br/><br/>
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
 
