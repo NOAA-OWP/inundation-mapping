@@ -131,7 +131,7 @@ def run_inundation(args):
                  depths=output_depth_grid,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
     
-    except Exception:
+    except:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
         f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")

@@ -32,7 +32,7 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     #Clean up GeoDataFrame and write out to file.
     flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
     #Output nws_lid site
-    nws_lid_path = Path(output_mapping_dir.parent) / 'nws_lid_sites.shp'
+    nws_lid_path = Path(output_mapping_dir) / 'nws_lid_sites.shp'
     flows_df.to_file(nws_lid_path)
     
 if __name__ == '__main__':
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     start = time.time()
     subprocess.call(['python3','generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
     end = time.time()
-    elapsed_time = round((end-start)/60,1)
+    elapsed_time = (end-start)/60
     print(f'Finished creating flow files in {elapsed_time} minutes')
     
     #Generate CatFIM mapping.
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     start = time.time()
     subprocess.call(['python3','generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)]) 
     end = time.time()
-    elapsed_time = round((end-start)/60,1)
+    elapsed_time = (end-start)/60
     print(f'Finished mapping in {elapsed_time} minutes')
     
     #Updating Mapping Status
