@@ -196,12 +196,12 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     #a flow file produced and denote with "mapped" column.
     nws_lids = [file.stem.split('_attributes')[0] for file in csv_files]
     lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
-    lids_df['mapped'] = 'Yes'
+    lids_df['mapped'] = 'yes'
     
     #Identify what lids were mapped by merging with lids_df. Populate 
     #'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
-    viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('No')
+    viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
     
     #Write messages to DataFrame, split into columns, aggregate messages.
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
