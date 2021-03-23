@@ -21,7 +21,7 @@ def join_srcs(gms_data_dir,fr_data_dir):
             gms_srcs = pd.concat((gms_srcs,current_gms_src),ignore_index=True)
 
     # fr srcsi
-    fr_src_file_name = glob( join(fr_data_dir,'*',"src_full_crosswalked.csv"))[0]
+    fr_src_file_name = glob( join(fr_data_dir,"src_full_crosswalked.csv"))[0]
     fr_src = pd.read_csv( fr_src_file_name )
 
     # average out values by stage
