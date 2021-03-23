@@ -267,7 +267,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Subset vector layers')
+    parser = argparse.ArgumentParser(description='Crosswalk for MS/FR networks; calculate synthetic rating curves; update short rating curves')
     parser.add_argument('-d','--input-catchments-fileName', help='DEM derived catchments', required=True)
     parser.add_argument('-a','--input-flows-fileName', help='DEM derived streams', required=True)
     parser.add_argument('-s','--input-srcbase-fileName', help='Base synthetic rating curve table', required=True)
@@ -277,7 +277,7 @@ if __name__ == '__main__':
     parser.add_argument('-g','--output-bathy-thalweg-fileName', help='Output bathy thalweg calculation', required=True)
     parser.add_argument('-i','--output-bathy-xs-lookup-fileName', help='Output bathy XS Area lookup calculation', required=True)
     parser.add_argument('-l','--output-catchments-fileName', help='Subset crosswalked catchments', required=True)
-    parser.add_argument('-f','--output-flows-fileName', help='Subset crosswalked  streams', required=True)
+    parser.add_argument('-f','--output-flows-fileName', help='Subset crosswalked streams', required=True)
     parser.add_argument('-r','--output-src-fileName', help='Output crosswalked synthetic rating curve table', required=True)
     parser.add_argument('-j','--output-src-json-fileName',help='Output synthetic rating curve json',required=True)
     parser.add_argument('-x','--output-crosswalk-fileName',help='Crosswalk table',required=True)

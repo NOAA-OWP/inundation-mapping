@@ -5,16 +5,16 @@ import sys
 import shutil
 import argparse
 
-from utils.shared_functions import compute_contingency_stats_from_rasters
-from utils.shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
+from tools_shared_functions import compute_contingency_stats_from_rasters
+from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
 
 
 def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True):
-    
+
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
-    
+
     # Construct paths to development test results if not existent.
     if archive_results:
         version_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'official_versions', version)
@@ -28,7 +28,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         else:
             print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.".format(version=version, test_id=test_id))
             return
-        
+
     os.mkdir(version_test_case_dir_parent)
 
     print("Running the alpha test for test_id: " + test_id + ", " + version + "...")
@@ -49,13 +49,13 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
     else:
         catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
     hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')
-        
+
     # Map necessary inputs for inundation().
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
 
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
-    mask_dict = {'levees': 
+    mask_dict = {'levees':
                     {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
                      'buffer': None,
                      'operation': 'exclude'
@@ -66,7 +66,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                      'operation': 'exclude',
                      },
                 }
-            
+
     if inclusion_area != '':
         inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
         mask_dict.update({inclusion_area_name: {'path': inclusion_area,
@@ -75,7 +75,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         # Append the concatenated inclusion_area_name and buffer.
         if inclusion_area_buffer == None:
             inclusion_area_buffer = 0
-        stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm') 
+        stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm')
 
     # Check if magnitude is list of magnitudes or single value.
     magnitude_list = magnitude
@@ -88,13 +88,13 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         version_test_case_dir = os.path.join(version_test_case_dir_parent, magnitude)
         if not os.path.exists(version_test_case_dir):
             os.mkdir(version_test_case_dir)
-    
+
         # Construct path to validation raster and forecast file.
         if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
             benchmark_raster_path_list, forecast_list = [], []
             lid_dir_list = os.listdir(os.path.join(validation_data_path, current_huc))
             lid_list, inundation_raster_list, domain_file_list = [], [], []
-            
+
             for lid in lid_dir_list:
                 lid_dir = os.path.join(validation_data_path, current_huc, lid)
                 benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif'))  # TEMP
@@ -109,7 +109,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
             forecast_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
             forecast_list = [forecast_path]
             inundation_raster_list = [os.path.join(version_test_case_dir, 'inundation_extent.tif')]
-            
+
         for index in range(0, len(benchmark_raster_path_list)):
             benchmark_raster_path = benchmark_raster_path_list[index]
             forecast = forecast_list[index]
@@ -123,7 +123,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                      'buffer': None,
                      'operation': 'include'}
                         })
-        
+
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_domain_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             else:  # If not in AHPS_BENCHMARK_CATEGORIES.
@@ -137,16 +137,16 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                          subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
                          depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
                         )
-            
+
                 print("-----> Inundation mapping complete.")
                 predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
-        
+
                 # Define outputs for agreement_raster, stats_json, and stats_csv.
                 if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
                     agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
                 else:
                     agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
-         
+
                 compute_contingency_stats_from_rasters(predicted_raster_path,
                                                        benchmark_raster_path,
                                                        agreement_raster,
@@ -157,16 +157,16 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                                                        test_id=test_id,
                                                        mask_dict=mask_dict,
                                                        )
-        
+
                 if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
                     del mask_dict[ahps_lid]
-                
+
                 print(" ")
                 print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
                 print(" ")
             except Exception as e:
-                print(e)      
-        
+                print(e)
+
         if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
             # -- Delete temp files -- #
             # List all files in the output directory.
@@ -217,12 +217,12 @@ if __name__ == '__main__':
         print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. outputs/123456/123456." + ENDC)
         print()
         exit_flag = True
-    
+
     # Ensure inclusion_area path exists.
     if args['inclusion_area'] != "" and not os.path.exists(args['inclusion_area']):
         print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area (-i) " + CYAN_BOLD + args['inclusion_area'] + WHITE_BOLD + " could not be located." + ENDC)
         exit_flag = True
-        
+
     try:
         inclusion_buffer = int(args['inclusion_area_buffer'])
     except ValueError:
@@ -235,8 +235,8 @@ if __name__ == '__main__':
             args['magnitude'] = ['action', 'minor', 'moderate', 'major']
         else:
             print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)
-            exit_flag = True     
-            
+            exit_flag = True
+
     if exit_flag:
         print()
         sys.exit()

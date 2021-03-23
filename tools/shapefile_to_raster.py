@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul 14 16:19:26 2020
-
-@author: bradford.bates
-"""
+#!/usr/bin/env python3
 
 # A script to rasterise a shapefile to the same projection & pixel resolution as a reference image.
 from osgeo import ogr, gdal
@@ -28,7 +23,7 @@ Shapefile_layer = Shapefile.GetLayer()
 print("Rasterising shapefile...")
 Output = gdal.GetDriverByName(gdalformat).Create(OutputImage, Image.RasterXSize, Image.RasterYSize, 1, datatype, options=['COMPRESS=DEFLATE'])
 Output.SetProjection(Image.GetProjectionRef())
-Output.SetGeoTransform(Image.GetGeoTransform()) 
+Output.SetGeoTransform(Image.GetGeoTransform())
 
 # Write data to band 1
 Band = Output.GetRasterBand(1)

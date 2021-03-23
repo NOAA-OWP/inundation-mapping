@@ -7,11 +7,11 @@ import json
 import csv
 
 from run_test_case import run_alpha_test
-from utils.shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES
+from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES
 
 
 def create_master_metrics_csv(master_metrics_csv_output):
-            
+
     # Construct header
     metrics_to_write = ['true_negatives_count',
                         'false_negatives_count',
@@ -55,26 +55,26 @@ def create_master_metrics_csv(master_metrics_csv_output):
                         'masked_perc',
                         'masked_area_km2'
                         ]
-    
+
     additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
     list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config'] + ["calibrated"]]
-    
+
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
-    
+
     for benchmark_source in ['ble', 'nws', 'usgs']:
-        
+
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
-        
+
         if benchmark_source == 'ble':
             test_cases_list = os.listdir(benchmark_test_case_dir)
-                            
+
             for test_case in test_cases_list:
                 try:
                     int(test_case.split('_')[0])
-                    
+
                     huc = test_case.split('_')[0]
                     official_versions = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
-                    
+
                     for magnitude in ['100yr', '500yr']:
                         for version in versions_to_aggregate:
                             if '_fr' in version:
@@ -108,21 +108,21 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                             sub_list_to_append.append(benchmark_source)
                                             sub_list_to_append.append(extent_config)
                                             sub_list_to_append.append(calibrated)
-                                            
+
                                             list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
-                
+
         if benchmark_source in AHPS_BENCHMARK_CATEGORIES:
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
             for test_case in test_cases_list:
                 try:
                     int(test_case.split('_')[0])
-                    
+
                     huc = test_case.split('_')[0]
                     official_versions = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
-                    
+
                     for magnitude in ['action', 'minor', 'moderate', 'major']:
                         for version in versions_to_aggregate:
                             if '_fr' in version:
@@ -135,7 +135,7 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                 calibrated = "yes"
                             else:
                                 calibrated = "no"
-                                
+
                             version_dir = os.path.join(official_versions, version)
                             magnitude_dir = os.path.join(version_dir, magnitude)
                             if os.path.exists(magnitude_dir):
@@ -147,8 +147,8 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                         full_json_path = os.path.join(magnitude_dir, f)
                                         flow = ''
                                         if os.path.exists(full_json_path):
-                                            
-                                            # Get flow used to map.                                                
+
+                                            # Get flow used to map.
                                             flow_file = os.path.join(benchmark_test_case_dir, 'validation_data_' + benchmark_source, huc, nws_lid, magnitude, 'ahps_' + nws_lid + '_huc_' + huc + '_flows_' + magnitude + '.csv')
                                             if os.path.exists(flow_file):
                                                 with open(flow_file, newline='') as csv_file:
@@ -158,7 +158,7 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                                         flow = row[1]
                                                     if nws_lid == 'mcc01':
                                                         print(flow)
-                                            
+
                                             stats_dict = json.load(open(full_json_path))
                                             for metric in metrics_to_write:
                                                 sub_list_to_append.append(stats_dict[metric])
@@ -167,27 +167,27 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                             sub_list_to_append.append(benchmark_source)
                                             sub_list_to_append.append(extent_config)
                                             sub_list_to_append.append(calibrated)
-                                            
+
                                             list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
-        
+
     with open(master_metrics_csv_output, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerows(list_to_write)
 
 
 def process_alpha_test(args):
-    
+
     fim_run_dir = args[0]
     version = args[1]
     test_id = args[2]
     magnitude = args[3]
     archive_results = args[4]
     overwrite = args[5]
-    
-    mask_type = 'huc'    
-    
+
+    mask_type = 'huc'
+
     if archive_results == False:
         compare_to_previous = True
     else:
@@ -210,7 +210,7 @@ if __name__ == '__main__':
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
-    
+
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     config = args['config']
@@ -220,11 +220,11 @@ if __name__ == '__main__':
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
     master_metrics_csv = args['master_metrics_csv']
-    
+
     if overwrite:
         if input("Are you sure you want to overwrite metrics? y/n: ") == "n":
             quit
-        
+
     # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
     if fim_version != "all":
         previous_fim_list = [fim_version]
@@ -233,7 +233,7 @@ if __name__ == '__main__':
             previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
         elif config == 'DEV':
             previous_fim_list = os.listdir(OUTPUTS_DIR)
-    
+
     # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
     if config == 'PREV':
         archive_results = True
@@ -241,7 +241,7 @@ if __name__ == '__main__':
         archive_results = False
     else:
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
-     
+
     # List all available benchmark categories and test_cases.
     test_cases_dir_list = os.listdir(TEST_CASES_DIR)
     benchmark_category_list = []
@@ -251,41 +251,41 @@ if __name__ == '__main__':
                 benchmark_category_list.append(d.replace('_test_cases', ''))
     else:
         benchmark_category_list = [benchmark_category]
-        
+
     # Loop through benchmark categories.
     procs_list = []
     for bench_cat in benchmark_category_list:
-        
+
         # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
         bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
         bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
-    
+
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
             if 'validation' and 'other' not in test_id:
                 current_huc = test_id.split('_')[0]
                 if test_id.split('_')[1] in bench_cat:
-                
+
                     # Loop through versions.
                     for version in previous_fim_list:
                         if config == 'DEV':
                             fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
                         elif config == 'PREV':
                             fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
-                                                
+
                         # For previous versions of HAND computed at HUC6 scale
                         if not os.path.exists(fim_run_dir):
                             if config == 'DEV':
                                 fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
                             elif config == 'PREV':
-                                fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])  
-                        
+                                fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
+
                         if os.path.exists(fim_run_dir):
-                            
+
                             # If a user supplies a specia_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
-                            
+
                             # Define the magnitude lists to use, depending on test_id.
                             if 'ble' in test_id:
                                 magnitude = ['100yr', '500yr']
@@ -293,19 +293,18 @@ if __name__ == '__main__':
                                 magnitude = ['action', 'minor', 'moderate', 'major']
                             else:
                                 continue
-                        
+
                             # Either add to list to multiprocess or process serially, depending on user specification.
                             if job_number > 1:
                                 procs_list.append([fim_run_dir, version, test_id, magnitude, archive_results, overwrite])
-                            else:                            
+                            else:
                                 process_alpha_test([fim_run_dir, version, test_id, magnitude, archive_results, overwrite])
 
     # Multiprocess alpha test runs.
     if job_number > 1:
         pool = Pool(job_number)
         pool.map(process_alpha_test, procs_list)
-    
+
     # Do aggregate_metrics.
     print("Creating master metrics CSV...")
     create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv)
-    
