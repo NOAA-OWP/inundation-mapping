@@ -10,7 +10,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
  - Updated the status outputs of the `nws_lid_sites layer` and saved it in the same directory as the `merged catfim_library layer`.
  - Additional stability fixes (such as improved compatability with WRDS updates).
 ### Additions
- - Renamed `generate_categorical_fim.py` to wrap `generate_categorical_fim_flows.py` and `generate_categorical_fim_mapping.py`.
+ - Added `generate_categorical_fim.py` to wrap `generate_categorical_fim_flows.py` and `generate_categorical_fim_mapping.py`.
  - Create new `nws_lid_sites` shapefile located in same directory as the `catfim_library` shapefile.
  
 <br/><br/>
