@@ -208,6 +208,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
             # Open diss_extent
             diss_extent = gpd.read_file(diss_extent_filename)
             diss_extent['viz'] = 'yes'
+            diss_extent.rename(columns = {'ahps_lid':'nws_lid'}, inplace = True)
 
             # Write/append aggregate diss_extent
             if os.path.isfile(merged_layer):
