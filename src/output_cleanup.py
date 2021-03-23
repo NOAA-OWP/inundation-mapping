@@ -31,7 +31,11 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         'gw_catchments_reaches_filtered_addedAttributes.tif',
         'hydroTable.csv',
         'src.json',
-        'small_segments.csv'
+        'small_segments.csv',
+        'bathy_crosswalk_calcs.csv',
+        'bathy_stream_order_calcs.csv',
+        'bathy_thalweg_flag.csv',
+        'bathy_xs_area_hydroid_lookup.csv'
     ]
 
     # List of files that will be saved during a viz run

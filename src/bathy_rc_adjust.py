@@ -43,8 +43,8 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     output_bathy['Top Width Diff (m)'].mask(output_bathy['Stage']== 0,inplace=True)
     ## filter SRC rows identified as Thalweg burned
     output_bathy['Top Width Diff (m)'].mask(output_bathy['Stage'] <= output_bathy['Thalweg_burn_elev'],inplace=True)
-    ## mask out negative top width differences (avoid thalweg burn notch) **CHECK IF THIS IS NEEDED**
-    #output_bathy['Top Width Diff (m)'].mask(output_bathy['Top Width Diff (m)'] < 0,inplace=True)
+    ## ignore hydroid/featureid that did not have a valid Bankfull lookup (areas outside CONUS - i.e. Canada)
+    output_bathy = output_bathy[output_bathy['BANKFULL_XSEC_AREA (m2)'].notnull()]
     ## find index of minimum top width difference --> this will be used as the SRC "bankfull" row for future calcs
     output_bathy = output_bathy.loc[output_bathy.groupby('HydroID')['Top Width Diff (m)'].idxmin()].reset_index(drop=True)
     print('Average: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].mean()))
