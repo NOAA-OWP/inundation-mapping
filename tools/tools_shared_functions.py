@@ -729,9 +729,9 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
         #Add timestamp of WRDS retrieval
         timestamp = response.headers['Date']
         #Add timestamp of sources retrieval
-        nrldb_timestamp, nwis_timestamp = metadata_json['_documentation']['metadata sources']        
+        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata sources']        
         #get crosswalk info (always last dictionary in list)
-        *metadata_list, crosswalk_info = metadata_list
+        crosswalk_info = metadata_json['data_sources']
         #Update each dictionary with timestamp and crosswalk info
         for metadata in metadata_list:
             metadata.update({"wrds_timestamp": timestamp})
