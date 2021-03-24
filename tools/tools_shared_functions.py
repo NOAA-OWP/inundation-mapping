@@ -729,18 +729,15 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
         #Add timestamp of WRDS retrieval
         timestamp = response.headers['Date']
         #Add timestamp of sources retrieval
-        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata sources']        
+        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']        
         #get crosswalk info (always last dictionary in list)
         crosswalk_info = metadata_json['data_sources']
-        #Update each dictionary with timestamp and crosswalk info
+        #Update each dictionary with timestamp and crosswalk info also save to DataFrame.
         for metadata in metadata_list:
             metadata.update({"wrds_timestamp": timestamp})
             metadata.update({"nrldb_timestamp":nrldb_timestamp})
             metadata.update({"nwis_timestamp":nwis_timestamp})
             metadata.update(crosswalk_info)
-        #If count is 1
-        if location_count == 1:
-            metadata_list = metadata_json['locations'][0]
         metadata_dataframe = pd.json_normalize(metadata_list)
         #Replace all periods with underscores in column names
         metadata_dataframe.columns = metadata_dataframe.columns.str.replace('.','_')
