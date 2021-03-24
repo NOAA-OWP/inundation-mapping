@@ -7,7 +7,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
  Patch to synthesize_test_cases.py.
  
  ### Changes
- - Bug fix to `synthesize_test_cases.py` to allow comparison `testing` version and `official` versions.
+ - Bug fix to `synthesize_test_cases.py` to allow comparison between `testing` version and `official` versions.
 <br/><br/>
 
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
