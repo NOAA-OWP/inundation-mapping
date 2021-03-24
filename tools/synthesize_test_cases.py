@@ -61,6 +61,11 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
 
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
 
+    if dev_comparison != None:
+        iteration_list = ['official', 'comparison']
+    if dev_comparison == None:
+        iteration_list = ['official']
+
     for benchmark_source in ['ble', 'nws', 'usgs']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
         if benchmark_source == 'ble':
@@ -72,7 +77,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
 
                     huc = test_case.split('_')[0]
                     
-                    for iteration in ["official", "comparison"]:
+                    for iteration in iteration_list:
                         
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
@@ -128,7 +133,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
 
                     huc = test_case.split('_')[0]
                     
-                    for iteration in ["official", "comparison"]:
+                    for iteration in iteration_list:
                         
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
