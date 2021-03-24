@@ -55,9 +55,11 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
     flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
             
-    #Clean up GeoDataFrame and write out to file.
+    #Clean up GeoDataFrame and rename columns for consistency.
     flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
-    #Output nws_lid siteocumentation availabl
+    flows_df = flows_df.rename(columns = {'nws_lid':'ahps_lid'})
+    
+    #Write out to file
     nws_lid_path = Path(output_mapping_dir) / 'nws_lid_sites.shp'
     flows_df.to_file(nws_lid_path)
     
