@@ -3,16 +3,62 @@
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
-from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve
+from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve, aggregate_wbd_hucs
 from dotenv import load_dotenv
 import os
 import argparse
 
 load_dotenv()
 #import variables from .env file
-API_DEV_BASE_URL = os.getenv("API_DEV_BASE_URL")
+API_BASE_URL = os.getenv("API_BASE_URL")
+WBD_LAYER = os.getenv("WBD_LAYER")
 
-def usgs_rating_to_elev(workspace, list_of_gage_sites):
+def get_all_active_usgs_sites():
+    '''
+    Compile a list of all active usgs gage sites that meet certain criteria. 
+    Return a dictionary of huc (key) and list of sites (values) as well as a 
+    GeoDataFrame of all sites.
+
+    Returns
+    -------
+    None.
+
+    '''
+    metadata_url = f'{API_BASE_URL}/metadata' 
+    #Define arguments to retrieve metadata and then get metadata from WRDS
+    select_by = 'usgs_site_code'
+    selector = 'all'
+    must_include = 'usgs_data.active'
+    metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
+
+    #Filter out sites based on vertical datum quality and horizontal datum quality
+    acceptable_sites = []
+    for metadata in metadata_list:
+        usgs_data = metadata['usgs_data']
+        
+        #!!!!Modify the acceptable codes and vertical tolerances
+        acceptable_coord_acc_code = ['S']
+        acceptable_coord_method_code = ['M']
+        acceptable_alt_acc_thresh = 1
+        acceptable_alt_meth_code = ['L']
+        
+        #Test if site meets criteria.
+        if (usgs_data['coord_accuracy_code'] in acceptable_coord_acc_code and 
+            usgs_data['coord_method_code'] in acceptable_coord_method_code and
+            usgs_data['alt_accuracy_code'] < acceptable_alt_acc_thresh and 
+            usgs_data['alt_method_code'] in acceptable_alt_meth_code):
+            
+            #If an acceptable site, append to acceptable_sites list.
+            acceptable_sites.append(metadata)
+            
+    #!!!!Get a geospatial layer for all acceptable sites
+    dictionary, gdf = aggregate_wbd_hucs(acceptable_sites, Path(WBD_LAYER), retain_attributes = False)
+    
+    return dictionary, gdf     
+            
+            
+
+def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     '''
     Provided a list of usgs gage sites returns rating curves adjusted to 
     elevation NAVD. Workflow as follows:
@@ -26,12 +72,10 @@ def usgs_rating_to_elev(workspace, list_of_gage_sites):
 
     Parameters
     ----------
-    API_URL : STR
-        URL of WRDS API.
     list_of_gage_sites : LIST
         List of all gage site IDs.
     workspace : STR
-        Workspace directory where output csv is saved.
+        Directory, if specified, where output csv is saved. OPTIONAL, Default is False.
 
     Returns
     -------
@@ -41,8 +85,8 @@ def usgs_rating_to_elev(workspace, list_of_gage_sites):
 
     '''
     #Define URLs for metadata and rating curve
-    metadata_url = f'{API_DEV_BASE_URL}/metadata'
-    rating_curve_url = f'{API_DEV_BASE_URL}/rating_curve'
+    metadata_url = f'{API_BASE_URL}/metadata'
+    rating_curve_url = f'{API_BASE_URL}/rating_curve'
     
     #Define arguments to retrieve metadata and then get metadata from WRDS
     select_by = 'usgs_site_code'
@@ -84,17 +128,20 @@ def usgs_rating_to_elev(workspace, list_of_gage_sites):
         else:
             print(f'{location_ids} has no rating curve')
             continue
-    #Write rating curve dataframe to file
-    output_csv = Path(workspace)/'usgs_rating_curves.csv'
-    all_rating_curves.to_csv(output_csv, index = False)
+    #If workspace is specified, write dataframe to file.
+    if workspace:
+        #Write rating curve dataframe to file
+        output_csv = Path(workspace)/'usgs_rating_curves.csv'
+        all_rating_curves.to_csv(output_csv, index = False)
+    
     return all_rating_curves
 
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88)')
-    parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-l', '--list_of_gage_sites',  help = 'csv containing list of usgs sites supplied as a file', required = True)
-        
+    parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', action = 'store_true')
+       
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
     
