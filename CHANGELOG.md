@@ -18,9 +18,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v3.0.10.1 - 2021-03-24 - [PR #320](https://github.com/NOAA-OWP/cahaba/pull/320)
 
  Patch to synthesize_test_cases.py.
- 
+  
  ### Changes
  - Bug fix to `synthesize_test_cases.py` to allow comparison between `testing` version and `official` versions.
+
 <br/><br/>
 
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
@@ -35,6 +36,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
  - Add flood of record category.
  ### Changes
  - Stability fixes to `generate_categorical_fim.py`.
+
 <br/><br/>
 
 ## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
