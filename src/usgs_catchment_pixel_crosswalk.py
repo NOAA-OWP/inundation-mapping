@@ -13,7 +13,7 @@ from shapely.wkb import dumps, loads
 ''' Get elevation at adjusted USGS gages locations'''
 
 
-def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,ref_table_filename,output_table_filename):
+def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename):
 
     wbd_buffer = gpd.read_file(wbd_buffer_filename)
     usgs_gages = gpd.read_file(usgs_gages_filename, mask=wbd_buffer)
@@ -21,16 +21,14 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     input_flows = gpd.read_file(input_flows_filename)
     input_catchment = gpd.read_file(input_catchment_filename)
     dem_adj = rasterio.open(dem_adj_filename,'r')
-    ref_table = pd.read_csv(ref_table_filename)
-
 
     # Identify closest HydroID
     closest_catchment = gpd.sjoin(usgs_gages, input_catchment, how='left', op='within').reset_index(drop=True)
-    closest_hydro_id = closest_catchment.filter(items=['site_no','HydroID','Min_Thal_Elev_m','Median_Thal_Elev_m','Max_Thal_Elev_m'])
+    closest_hydro_id = closest_catchment.filter(items=['site_no','HydroID','Min_Thal_Elev_m','Median_Thal_Elev_m','Max_Thal_Elev_m', 'order_'])
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 
-    columns = ['usgs_gage_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev']
+    columns = ['usgs_gage_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order']
     gage_data = []
 
     # Move USGS gage to stream
@@ -40,6 +38,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
 
         # Get stream attributes
         hydro_id = closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].HydroID.item()
+        str_order = closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].order_.item()
 
         if not np.isnan(hydro_id):
 
@@ -77,12 +76,11 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
             print(f"post adjusted elevation: {dem_adj_elev}")
 
             # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
-            site_elevations = [gage.site_no, hydro_id, dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev]
+            site_elevations = [gage.site_no, hydro_id, dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str_order]
             gage_data.append(site_elevations)
 
 
     elev_table = pd.DataFrame(gage_data, columns=columns)
-    # elev_table = elev_table.merge(ref_table, on='HydroID')
 
     if not elev_table.empty:
         elev_table.to_csv(output_table_filename,index=False)
@@ -97,7 +95,6 @@ if __name__ == '__main__':
     parser.add_argument('-cat','--input-catchment-filename', help='DEM derived catchments', required=True)
     parser.add_argument('-wbd','--wbd-buffer-filename', help='WBD buffer', required=True)
     parser.add_argument('-dem_adj','--dem-adj-filename', help='Thalweg adjusted DEM', required=True)
-    parser.add_argument('-reftable','--ref-table-filename', help='Hand reference table', required=True)
     parser.add_argument('-outtable','--output-table-filename', help='Table to append data', required=True)
 
     args = vars(parser.parse_args())
@@ -108,7 +105,6 @@ if __name__ == '__main__':
     input_catchment_filename = args['input_catchment_filename']
     wbd_buffer_filename = args['wbd_buffer_filename']
     dem_adj_filename = args['dem_adj_filename']
-    ref_table_filename = args['ref_table_filename']
     output_table_filename = args['output_table_filename']
 
-    crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename, dem_adj_filename,ref_table_filename,output_table_filename)
+    crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename, dem_adj_filename,output_table_filename)
