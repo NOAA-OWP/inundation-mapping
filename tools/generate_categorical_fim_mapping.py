@@ -18,10 +18,7 @@ from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 from utils.shared_functions import getDriver
 
 INPUTS_DIR = r'/data/inputs'
-magnitude_list = ['action', 'minor', 'moderate','major']
-
-# Map path to points with attributes
-all_mapped_ahps_conus_hipr = os.path.join(INPUTS_DIR, 'ahp_sites', 'all_mapped_ahps.csv')
+magnitude_list = ['action', 'minor', 'moderate','major', 'record']
 
 # Define necessary variables for inundation()
 hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
@@ -107,7 +104,7 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
                                 output_depth_grid = None
 
                             # Append necessary variables to list for multiprocessing.
-                            procs_list.append([rem, catchments, catchment_poly, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file])
+                            procs_list.append([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file])
 
     # Initiate multiprocessing
     print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
@@ -119,38 +116,49 @@ def run_inundation(args):
 
     rem                 = args[0]
     catchments          = args[1]
-    catchment_poly      = args[2]
-    magnitude_flows_csv = args[3]
-    huc                 = args[4]
-    hydroTable          = args[5]
-    output_extent_grid  = args[6]
-    output_depth_grid   = args[7]
-    ahps_site           = args[8]
-    magnitude           = args[9]
-    log_file            = args[10]
+    magnitude_flows_csv = args[2]
+    huc                 = args[3]
+    hydroTable          = args[4]
+    output_extent_grid  = args[5]
+    output_depth_grid   = args[6]
+    ahps_site           = args[7]
+    magnitude           = args[8]
+    log_file            = args[9]
 
     try:
         inundate(rem,catchments,catchment_poly,hydroTable,magnitude_flows_csv,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
                  subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=output_extent_grid,inundation_polygon=None,
                  depths=output_depth_grid,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
-
-    except Exception:
+    
+    except:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
-        f.write(f"{output_extent_gpkg} - inundation error: {traceback.format_exc()}\n")
+        f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
         f.close()
 
-
-def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
+    #Inundation.py appends the huc code to the supplied output_extent_grid.
+    #Modify output_extent_grid to match inundation.py saved filename. 
+    #Search for this file, if it didn't create, send message to log file.
+    base_file_path,extension = os.path.splitext(output_extent_grid)
+    saved_extent_grid_filename = "{}_{}{}".format(base_file_path,huc,extension)
+    if not os.path.exists(saved_extent_grid_filename):
+        with open(log_file, 'a+') as f:
+            f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
+        
+def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
 
     # Create workspace
     gpkg_dir = os.path.join(output_cat_fim_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
 
-    fim_version  = os.path.basename(output_cat_fim_dir)
-    merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.gpkg')
+    
+    #Find the FIM version
+    norm_path = os.path.normpath(output_cat_fim_dir)
+    cat_fim_dir_parts = norm_path.split(os.sep)
+    [fim_version] = [part for part in cat_fim_dir_parts if part.startswith('fim_3')]
+    merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.shp')
 
     if not os.path.exists(merged_layer): # prevents appending to existing output
 
@@ -176,7 +184,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
                         extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent_' + huc + '.tif')
 
                         if os.path.exists(extent_grid):
-                            procs_list.append([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude])
+                            procs_list.append([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
 
                         else:
                             try:
@@ -199,6 +207,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
 
             # Open diss_extent
             diss_extent = gpd.read_file(diss_extent_filename)
+            diss_extent['viz'] = 'yes'
 
             # Write/append aggregate diss_extent
             if os.path.isfile(merged_layer):
@@ -207,14 +216,6 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
                 diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False)
 
             del diss_extent
-
-        # Join attributes
-        all_mapped_ahps_conus_hipr_fl = pd.read_table(all_mapped_ahps_conus_hipr, sep=",")
-        merged_layer_gpd = gpd.read_file(merged_layer)
-        merged_layer_gpd = merged_layer_gpd.merge(all_mapped_ahps_conus_hipr_fl, left_on='ahps_lid', right_on='nws_lid')
-
-        # Save final output
-        merged_layer_gpd.to_file(merged_layer,driver=getDriver(merged_layer),index=False)
 
         shutil.rmtree(gpkg_dir)
 
@@ -225,12 +226,13 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, log_file):
 def reformat_inundation_maps(args):
 
     try:
-        lid          = args[0]
-        grid_path    = args[1]
-        gpkg_dir     = args[2]
-        fim_version  = args[3]
-        huc          = args[4]
-        magnitude    = args[5]
+        lid                         = args[0]
+        grid_path                   = args[1]
+        gpkg_dir                    = args[2]
+        fim_version                 = args[3]
+        huc                         = args[4]
+        magnitude                   = args[5]
+        nws_lid_attributes_filename = args[6]
 
         # Convert raster to to shapes
         with rasterio.open(grid_path) as src:
@@ -239,7 +241,7 @@ def reformat_inundation_maps(args):
 
         # Aggregate shapes
         results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
-
+                       
         # convert list of shapes to polygon
         extent_poly  = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
 
@@ -252,9 +254,18 @@ def reformat_inundation_maps(args):
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
-
+            
         # Project to Web Mercator
-        extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
+        extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
+
+        # Join attributes
+        nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc':str})
+        nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==lid)]
+
+
+        extent_poly_diss = extent_poly_diss.merge(nws_lid_attributes_table, left_on=['ahps_lid','magnitude','huc'], right_on=['nws_lid','magnitude','huc'])
+
+        extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
 
         # Save dissolved multipolygon
         handle = os.path.split(grid_path)[1].replace('.tif', '')
@@ -263,13 +274,15 @@ def reformat_inundation_maps(args):
 
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
 
-        extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
+        if not extent_poly_diss.empty:
+
+            extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
     except Exception as e:
         # Log and clean out the gdb so it's not merged in later
         try:
             f = open(log_file, 'a+')
-            f.write("f{diss_extent_filename} - dissolve error: {e}\n")
+            f.write(str(diss_extent_filename) + " - dissolve error: " + str(e))
             f.close()
         except:
             pass
@@ -306,8 +319,11 @@ if __name__ == '__main__':
     # Create error log path
     log_file = os.path.join(log_dir, 'errors.log')
 
+    # Map path to points with attributes
+    nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
+
     print("Generating Categorical FIM")
     generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
-    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,log_file)
+    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,nws_lid_attributes_filename,log_file)

@@ -10,7 +10,7 @@ from run_test_case import run_alpha_test
 from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES
 
 
-def create_master_metrics_csv(master_metrics_csv_output):
+def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
 
     # Construct header
     metrics_to_write = ['true_negatives_count',
@@ -61,8 +61,12 @@ def create_master_metrics_csv(master_metrics_csv_output):
 
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
 
-    for benchmark_source in ['ble', 'nws', 'usgs']:
+    if dev_comparison != None:
+        iteration_list = ['official', 'comparison']
+    if dev_comparison == None:
+        iteration_list = ['official']
 
+    for benchmark_source in ['ble', 'nws', 'usgs']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
 
         if benchmark_source == 'ble':
@@ -73,54 +77,52 @@ def create_master_metrics_csv(master_metrics_csv_output):
                     int(test_case.split('_')[0])
 
                     huc = test_case.split('_')[0]
-                    official_versions = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
 
-                    for magnitude in ['100yr', '500yr']:
-                        for version in versions_to_aggregate:
-                            if '_fr' in version:
-                                extent_config = 'FR'
-                            elif '_ms' in version:
-                                extent_config = 'MS'
-                            else:
-                                extent_config = 'FR'
-                            if "_c" in version and version.split('_c')[1] == "":
-                                calibrated = "yes"
-                            else:
-                                calibrated = "no"
-                            version_dir = os.path.join(official_versions, version)
-                            magnitude_dir = os.path.join(version_dir, magnitude)
+                    for iteration in iteration_list:
 
-                            if os.path.exists(magnitude_dir):
-                                magnitude_dir_list = os.listdir(magnitude_dir)
-                                for f in magnitude_dir_list:
-                                    if '.json' in f:
-                                        flow = 'NA'
-                                        nws_lid = "NA"
-                                        benchmark_source = 'ble'
-                                        sub_list_to_append = [version, nws_lid, magnitude, huc]
-                                        full_json_path = os.path.join(magnitude_dir, f)
-                                        if os.path.exists(full_json_path):
-                                            stats_dict = json.load(open(full_json_path))
-                                            for metric in metrics_to_write:
-                                                sub_list_to_append.append(stats_dict[metric])
-                                            sub_list_to_append.append(full_json_path)
-                                            sub_list_to_append.append(flow)
-                                            sub_list_to_append.append(benchmark_source)
-                                            sub_list_to_append.append(extent_config)
-                                            sub_list_to_append.append(calibrated)
+                        if iteration == "official":
+                            versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
+                            versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
+                        if iteration == "comparison":
+                            versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
+                            versions_to_aggregate = [dev_comparison]
 
-                                            list_to_write.append(sub_list_to_append)
-                except ValueError:
-                    pass
+                        for magnitude in ['100yr', '500yr']:
+                            for version in versions_to_aggregate:
+                                if '_fr' in version:
+                                    extent_config = 'FR'
+                                elif '_ms' in version:
+                                    extent_config = 'MS'
+                                else:
+                                    extent_config = 'FR'
+                                if "_c" in version and version.split('_c')[1] == "":
+                                    calibrated = "yes"
+                                else:
+                                    calibrated = "no"
+                                version_dir = os.path.join(versions_to_crawl, version)
+                                magnitude_dir = os.path.join(version_dir, magnitude)
 
-        if benchmark_source in AHPS_BENCHMARK_CATEGORIES:
-            test_cases_list = os.listdir(benchmark_test_case_dir)
+                                if os.path.exists(magnitude_dir):
+                                    magnitude_dir_list = os.listdir(magnitude_dir)
+                                    for f in magnitude_dir_list:
+                                        if '.json' in f:
+                                            flow = 'NA'
+                                            nws_lid = "NA"
+                                            benchmark_source = 'ble'
+                                            sub_list_to_append = [version, nws_lid, magnitude, huc]
+                                            full_json_path = os.path.join(magnitude_dir, f)
+                                            if os.path.exists(full_json_path):
+                                                stats_dict = json.load(open(full_json_path))
+                                                for metric in metrics_to_write:
+                                                    sub_list_to_append.append(stats_dict[metric])
+                                                sub_list_to_append.append(full_json_path)
+                                                sub_list_to_append.append(flow)
+                                                sub_list_to_append.append(benchmark_source)
+                                                sub_list_to_append.append(extent_config)
+                                                sub_list_to_append.append(calibrated)
 
-            for test_case in test_cases_list:
-                try:
-                    int(test_case.split('_')[0])
+                                                list_to_write.append(sub_list_to_append)
 
-                    huc = test_case.split('_')[0]
                     official_versions = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
 
                     for magnitude in ['action', 'minor', 'moderate', 'major']:
@@ -169,6 +171,63 @@ def create_master_metrics_csv(master_metrics_csv_output):
                                             sub_list_to_append.append(calibrated)
 
                                             list_to_write.append(sub_list_to_append)
+
+                    for iteration in iteration_list:
+
+                        if iteration == "official":
+                            versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
+                            versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
+                        if iteration == "comparison":
+                            versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
+                            versions_to_aggregate = [dev_comparison]
+
+                        for magnitude in ['action', 'minor', 'moderate', 'major']:
+                            for version in versions_to_aggregate:
+                                if '_fr' in version:
+                                    extent_config = 'FR'
+                                elif '_ms' in version:
+                                    extent_config = 'MS'
+                                else:
+                                    extent_config = 'FR'
+                                if "_c" in version and version.split('_c')[1] == "":
+                                    calibrated = "yes"
+                                else:
+                                    calibrated = "no"
+
+                                version_dir = os.path.join(versions_to_crawl, version)
+                                magnitude_dir = os.path.join(version_dir, magnitude)
+                                if os.path.exists(magnitude_dir):
+                                    magnitude_dir_list = os.listdir(magnitude_dir)
+                                    for f in magnitude_dir_list:
+                                        if '.json' in f and 'total_area' not in f:
+                                            nws_lid = f[:5]
+                                            sub_list_to_append = [version, nws_lid, magnitude, huc]
+                                            full_json_path = os.path.join(magnitude_dir, f)
+                                            flow = ''
+                                            if os.path.exists(full_json_path):
+
+                                                # Get flow used to map.
+                                                flow_file = os.path.join(benchmark_test_case_dir, 'validation_data_' + benchmark_source, huc, nws_lid, magnitude, 'ahps_' + nws_lid + '_huc_' + huc + '_flows_' + magnitude + '.csv')
+                                                if os.path.exists(flow_file):
+                                                    with open(flow_file, newline='') as csv_file:
+                                                        reader = csv.reader(csv_file)
+                                                        next(reader)
+                                                        for row in reader:
+                                                            flow = row[1]
+                                                        if nws_lid == 'mcc01':
+                                                            print(flow)
+
+                                                stats_dict = json.load(open(full_json_path))
+                                                for metric in metrics_to_write:
+                                                    sub_list_to_append.append(stats_dict[metric])
+                                                sub_list_to_append.append(full_json_path)
+                                                sub_list_to_append.append(flow)
+                                                sub_list_to_append.append(benchmark_source)
+                                                sub_list_to_append.append(extent_config)
+                                                sub_list_to_append.append(calibrated)
+
+                                                list_to_write.append(sub_list_to_append)
+
                 except ValueError:
                     pass
 
@@ -307,4 +366,9 @@ if __name__ == '__main__':
 
     # Do aggregate_metrics.
     print("Creating master metrics CSV...")
-    create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv)
+
+    if config == 'DEV':
+        dev_comparison = fim_version + "_" + special_string
+    else:
+        dev_comparison = None
+    create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_comparison=dev_comparison)
