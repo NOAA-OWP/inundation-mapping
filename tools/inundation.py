@@ -17,6 +17,7 @@ import argparse
 from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
+import sys
 
 
 def inundate(
@@ -454,14 +455,14 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                          'HydroID':str,'stage':float,
                                          'discharge_cms':float,'LakeID' : int}
                                 )
-
+        huc_error = hydroTable.HUC.unique()
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
 
         hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
 
         if hydroTable.empty:
-            print ("All stream segments in HUC are within lake boundaries.")
-            return
+            print(f"All stream segments in HUC(s): {huc_error} are within lake boundaries.")
+            sys.exit(0)
 
     elif isinstance(hydroTable,pd.DataFrame):
         pass #consider checking for correct dtypes, indices, and columns
@@ -504,7 +505,11 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
         hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
 
     # join tables
-    hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    try:
+        hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    except AttributeError:
+        print (f"No matching feature IDs between forecast and hydrotable for HUC(s): {subset_hucs}")
+        sys.exit(0)
 
     # initialize dictionary
     catchmentStagesDict = typed.Dict.empty(types.int32,types.float64)
