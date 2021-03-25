@@ -1,317 +1,112 @@
 #!/usr/bin/env python3
-
-import sys
-import os
-from multiprocessing import Pool
+import subprocess
 import argparse
-import traceback
-import rasterio
+import time
+from pathlib import Path
 import geopandas as gpd
 import pandas as pd
-import shutil
-from rasterio.features import shapes
-from shapely.geometry.polygon import Polygon
-from shapely.geometry.multipolygon import MultiPolygon
-from inundation import inundate
-sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
-from utils.shared_functions import getDriver
-
-INPUTS_DIR = r'/data/inputs'
-magnitude_list = ['action', 'minor', 'moderate','major', 'record']
-
-# Define necessary variables for inundation()
-hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
-mask_type, catchment_poly = 'huc', ''
-
-
-def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif, log_file):
-
-    no_data_list = []
-    procs_list = []
-
-    source_flow_dir_list = os.listdir(source_flow_dir)
-    output_flow_dir_list = os.listdir(fim_run_dir)
-
-    # Log missing hucs
-    missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
-    missing_hucs = [huc for huc in missing_hucs if "." not in huc]
-    if len(missing_hucs) > 0:
-        f = open(log_file, 'a+')
-        f.write(f"Missing hucs from output directory: {', '.join(missing_hucs)}\n")
-        f.close()
-
-    # Loop through matching huc directories in the source_flow directory
-    matching_hucs = list(set(output_flow_dir_list) & set(source_flow_dir_list))
-    for huc in matching_hucs:
-
-        if "." not in huc:
-
-            # Get list of AHPS site directories
-            ahps_site_dir = os.path.join(source_flow_dir, huc)
-            ahps_site_dir_list = os.listdir(ahps_site_dir)
-
-            # Map paths to HAND files needed for inundation()
-            fim_run_huc_dir = os.path.join(fim_run_dir, huc)
-            rem = os.path.join(fim_run_huc_dir, 'rem_zeroed_masked.tif')
-            catchments = os.path.join(fim_run_huc_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-            hydroTable =  os.path.join(fim_run_huc_dir, 'hydroTable.csv')
-
-            exit_flag = False  # Default to False.
-
-            # Check if necessary data exist; set exit_flag to True if they don't exist
-            for f in [rem, catchments, hydroTable]:
-                if not os.path.exists(f):
-                    no_data_list.append(f)
-                    exit_flag = True
-
-            # Log missing data
-            if exit_flag == True:
-                f = open(log_file, 'a+')
-                f.write(f"Missing data for: {fim_run_huc_dir}\n")
-                f.close()
-
-            # Map path to huc directory inside out output_cat_fim_dir
-            cat_fim_huc_dir = os.path.join(output_cat_fim_dir, huc)
-            if not os.path.exists(cat_fim_huc_dir):
-                os.mkdir(cat_fim_huc_dir)
-
-            # Loop through AHPS sites
-            for ahps_site in ahps_site_dir_list:
-                # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
-                ahps_site_parent = os.path.join(ahps_site_dir, ahps_site)
-                thresholds_dir_list = os.listdir(ahps_site_parent)
-
-                # Map parent directory for all inundation output filesoutput files.
-                cat_fim_huc_ahps_dir = os.path.join(cat_fim_huc_dir, ahps_site)
-                if not os.path.exists(cat_fim_huc_ahps_dir):
-                    os.mkdir(cat_fim_huc_ahps_dir)
-
-                # Loop through thresholds/magnitudes and define inundation output files paths
-                for magnitude in thresholds_dir_list:
-
-                    if "." not in magnitude:
-
-                        magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
-
-                        if os.path.exists(magnitude_flows_csv):
-
-                            output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
-
-                            if depthtif:
-                                output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
-                            else:
-                                output_depth_grid = None
-
-                            # Append necessary variables to list for multiprocessing.
-                            procs_list.append([rem, catchments, catchment_poly, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file])
-
-    # Initiate multiprocessing
-    print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
-    pool = Pool(number_of_jobs)
-    pool.map(run_inundation, procs_list)
-
-
-def run_inundation(args):
-
-    rem                 = args[0]
-    catchments          = args[1]
-    catchment_poly      = args[2]
-    magnitude_flows_csv = args[3]
-    huc                 = args[4]
-    hydroTable          = args[5]
-    output_extent_grid  = args[6]
-    output_depth_grid   = args[7]
-    ahps_site           = args[8]
-    magnitude           = args[9]
-    log_file            = args[10]
-
-    try:
-        inundate(rem,catchments,catchment_poly,hydroTable,magnitude_flows_csv,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                 subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=output_extent_grid,inundation_polygon=None,
-                 depths=output_depth_grid,out_raster_profile=None,out_vector_profile=None,quiet=True
-                )
-
-    except Exception:
-        # Log errors and their tracebacks
-        f = open(log_file, 'a+')
-        f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
-        f.close()
-
-
-def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
-
-    # Create workspace
-    gpkg_dir = os.path.join(output_cat_fim_dir, 'gpkg')
-    if not os.path.exists(gpkg_dir):
-        os.mkdir(gpkg_dir)
-
-    fim_version  = os.path.basename(output_cat_fim_dir)
-    merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.gpkg')
-
-    if not os.path.exists(merged_layer): # prevents appending to existing output
-
-        huc_ahps_dir_list = os.listdir(output_cat_fim_dir)
-        skip_list=['errors','logs','gpkg',merged_layer]
-
-        for magnitude in magnitude_list:
-
-            procs_list = []
-
-            # Loop through all categories
-            for huc in huc_ahps_dir_list:
-
-                if huc not in skip_list:
-
-                    huc_dir = os.path.join(output_cat_fim_dir, huc)
-                    ahps_dir_list = os.listdir(huc_dir)
-
-                    # Loop through ahps sites
-                    for ahps_lid in ahps_dir_list:
-                        ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
-
-                        extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent_' + huc + '.tif')
-
-                        if os.path.exists(extent_grid):
-                            procs_list.append([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
-
-                        else:
-                            try:
-                                f = open(log_file, 'a+')
-                                f.write(f"Missing layers: {extent_gpkg}\n")
-                                f.close()
-                            except:
-                                pass
-
-            # Multiprocess with instructions
-            pool = Pool(number_of_jobs)
-            pool.map(reformat_inundation_maps, procs_list)
-
-        # Merge all layers
-        print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
-
-        for layer in os.listdir(gpkg_dir):
-
-            diss_extent_filename = os.path.join(gpkg_dir, layer)
-
-            # Open diss_extent
-            diss_extent = gpd.read_file(diss_extent_filename)
-
-            # Write/append aggregate diss_extent
-            if os.path.isfile(merged_layer):
-                diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False, mode='a')
-            else:
-                diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False)
-
-            del diss_extent
-
-        shutil.rmtree(gpkg_dir)
-
-    else:
-        print(f"{merged_layer} already exists.")
-
-
-def reformat_inundation_maps(args):
-
-    try:
-        lid                         = args[0]
-        grid_path                   = args[1]
-        gpkg_dir                    = args[2]
-        fim_version                 = args[3]
-        huc                         = args[4]
-        magnitude                   = args[5]
-        nws_lid_attributes_filename = args[6]
-
-        # Convert raster to to shapes
-        with rasterio.open(grid_path) as src:
-            image = src.read(1)
-            mask = image > 0
-
-        # Aggregate shapes
-        results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
-
-        # convert list of shapes to polygon
-        extent_poly  = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
-
-        # Dissolve polygons
-        extent_poly_diss = extent_poly.dissolve(by='extent')
-
-        # Update attributes
-        extent_poly_diss = extent_poly_diss.reset_index(drop=True)
-        extent_poly_diss['ahps_lid'] = lid
-        extent_poly_diss['magnitude'] = magnitude
-        extent_poly_diss['version'] = fim_version
-        extent_poly_diss['huc'] = huc
-
-        # Project to Web Mercator
-        extent_poly = extent_poly.to_crs(VIZ_PROJECTION)
-
-        # Join attributes
-        nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc':str})
-        nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==lid)]
-
-
-        extent_poly_diss = extent_poly_diss.merge(nws_lid_attributes_table, left_on=['ahps_lid','magnitude','huc'], right_on=['nws_lid','magnitude','huc'])
-
-        extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
-
-        # Save dissolved multipolygon
-        handle = os.path.split(grid_path)[1].replace('.tif', '')
-
-        diss_extent_filename = os.path.join(gpkg_dir, handle + "_dissolved.gpkg")
-
-        extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
-
-        if not extent_poly_diss.empty:
-
-            extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
-
-    except Exception as e:
-        # Log and clean out the gdb so it's not merged in later
-        try:
-            f = open(log_file, 'a+')
-            f.write(str(diss_extent_filename) + " - dissolve error: " + str(e))
-            f.close()
-        except:
-            pass
-
-
+from datetime import date
+
+def update_mapping_status(output_mapping_dir, output_flows_dir):
+    '''
+    Updates the status for nws_lids from the flows subdirectory. Status
+    is updated for sites where the inundation.py routine was not able to
+    produce inundation for the supplied flow files. It is assumed that if 
+    an error occured in inundation.py that all flow files for a given site
+    experienced the error as they all would have the same nwm segments.
+
+    Parameters
+    ----------
+    output_mapping_dir : STR
+        Path to the output directory of all inundation maps.
+    output_flows_dir : STR
+        Path to the directory containing all flows.
+
+    Returns
+    -------
+    None.
+
+    '''
+    #Find all LIDs with empty mapping output folders
+    subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
+    empty_nws_lids = [Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())]
+    
+    #Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
+    mapping_df = pd.DataFrame({'nws_lid':empty_nws_lids})
+    mapping_df['did_it_map'] = 'no'
+    mapping_df['map_status'] = ' and all categories failed to map'
+    
+    #Import shapefile output from flows creation 
+    shapefile = Path(output_flows_dir)/'nws_lid_flows_sites.shp'
+    flows_df = gpd.read_file(shapefile)
+    
+    #Join failed sites to flows df    
+    flows_df = flows_df.merge(mapping_df, how = 'left', on = 'nws_lid')
+    
+    #Switch mapped column to no for failed sites and update status
+    flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
+    flows_df.loc[flows_df['did_it_map']=='no','status'] = flows_df['status'] + flows_df['map_status']
+    
+    #Perform pass for HUCs where mapping was skipped due to missing data.
+    flows_hucs = [i.stem for i in Path(output_flows_dir).iterdir() if i.is_dir()]
+    mapping_hucs = [i.stem for i in Path(output_mapping_dir).iterdir() if i.is_dir()]
+    missing_mapping_hucs = list(set(flows_hucs) - set(mapping_hucs))
+    #Update status for nws_lid in missing hucs and change mapped attribute to 'no'
+    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
+    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
+            
+    #Clean up GeoDataFrame and rename columns for consistency.
+    flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
+    flows_df = flows_df.rename(columns = {'nws_lid':'ahps_lid'})
+    
+    #Write out to file
+    nws_lid_path = Path(output_mapping_dir) / 'nws_lid_sites.shp'
+    flows_df.to_file(nws_lid_path)
+    
 if __name__ == '__main__':
-
-    # Parse arguments
-    parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
-    parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
-    parser.add_argument('-s', '--source-flow-dir',help='Path to directory containing flow CSVs to use to generate categorical FIM.',required=True, default="")
-    parser.add_argument('-o', '--output-cat-fim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
-    parser.add_argument('-j','--number-of-jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
-    parser.add_argument('-depthtif','--write-depth-tiff',help='Using this option will write depth TIFFs.',required=False, action='store_true')
-
+    
+    #Parse arguments
+    parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
+    parser.add_argument('-f','--fim_version',help='Name of directory containing outputs of fim_run.sh',required=True)
+    parser.add_argument('-j','--number_of_jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
     args = vars(parser.parse_args())
+    
+    #Get arguments
+    fim_version = args['fim_version']
+    number_of_jobs = args['number_of_jobs']
+    
+    ####################################################################
+    #Define default arguments. Modify these if necessary. 
+    today = date.today().strftime('%m%d%Y')
+    fim_run_dir = Path(f'/data/previous_fim/{fim_version}')
+    output_flows_dir = Path(f'/data/catfim/{fim_version}/{today}/flows')
+    output_mapping_dir = Path(f'/data/catfim/{fim_version}/{today}/mapping')
+    nwm_us_search = '10'
+    nwm_ds_search = '10'        
+    write_depth_tiff = False
+    ####################################################################
+    
+    ####################################################################
+    #Run CatFIM scripts in sequence
+    ####################################################################
+    #Generate CatFIM flow files.
+    print('Creating flow files')
+    start = time.time()
+    subprocess.call(['python3','generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
+    end = time.time()
+    elapsed_time = (end-start)/60
+    print(f'Finished creating flow files in {elapsed_time} minutes')
+    
+    #Generate CatFIM mapping.
+    print('Begin mapping')
+    start = time.time()
+    subprocess.call(['python3','generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)]) 
+    end = time.time()
+    elapsed_time = (end-start)/60
+    print(f'Finished mapping in {elapsed_time} minutes')
+    
+    #Updating Mapping Status
+    print('Updating mapping status')
+    update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
 
-    fim_run_dir = args['fim_run_dir']
-    source_flow_dir = args['source_flow_dir']
-    output_cat_fim_dir = args['output_cat_fim_dir']
-    number_of_jobs = int(args['number_of_jobs'])
-    depthtif = args['write_depth_tiff']
-
-
-    # Create output directory
-    if not os.path.exists(output_cat_fim_dir):
-        os.mkdir(output_cat_fim_dir)
-
-    # Create log directory
-    log_dir = os.path.join(output_cat_fim_dir, 'logs')
-    if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
-
-    # Create error log path
-    log_file = os.path.join(log_dir, 'errors.log')
-
-    # Map path to points with attributes
-    nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
-
-    print("Generating Categorical FIM")
-    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
-
-    print("Aggregating Categorical FIM")
-    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,nws_lid_attributes_filename,log_file)
+   
