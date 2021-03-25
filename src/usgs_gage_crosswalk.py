@@ -9,8 +9,25 @@ import argparse
 import pygeos
 from shapely.wkb import dumps, loads
 
+''' Get elevation at adjusted USGS gages locations
 
-''' Get elevation at adjusted USGS gages locations'''
+    Parameters
+    ----------
+    usgs_gages_filename : str
+        File name of USGS stations layer.
+    dem_filename : str
+        File name of original DEM.
+    input_flows_filename : str
+        File name of FIM streams layer.
+    input_catchment_filename : str
+        File name of FIM catchment layer.
+    wbd_buffer_filename : str
+        File name of buffered wbd.
+    dem_adj_filename : str
+        File name of thalweg adjusted DEM.
+    output_table_filename : str
+        File name of output table.
+'''
 
 
 def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename):
@@ -71,10 +88,6 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
             dem_m_elev = round(list(rasterio.sample.sample_gen(dem_m,shply_referenced_gage.coords))[0].item(),2)
             dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,shply_referenced_gage.coords))[0].item(),2)
 
-            # Print elevations to log file
-            print(f"post adjusted catchment pixel ID: {dem_m_elev}")
-            print(f"post adjusted elevation: {dem_adj_elev}")
-
             # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
             site_elevations = [gage.site_no, hydro_id, dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str_order]
             gage_data.append(site_elevations)
@@ -90,7 +103,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Crosswalk USGS sites to HydroID and get elevations')
     parser.add_argument('-gages','--usgs-gages-filename', help='USGS gages', required=True)
-    parser.add_argument('-dem_m','--dem-filename',help='Catchment pixel raster',required=True)
+    parser.add_argument('-dem','--dem-filename',help='DEM',required=True)
     parser.add_argument('-flows','--input-flows-filename', help='DEM derived streams', required=True)
     parser.add_argument('-cat','--input-catchment-filename', help='DEM derived catchments', required=True)
     parser.add_argument('-wbd','--wbd-buffer-filename', help='WBD buffer', required=True)
