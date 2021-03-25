@@ -41,11 +41,11 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
 
     # Identify closest HydroID
     closest_catchment = gpd.sjoin(usgs_gages, input_catchment, how='left', op='within').reset_index(drop=True)
-    closest_hydro_id = closest_catchment.filter(items=['site_no','HydroID','Min_Thal_Elev_m','Median_Thal_Elev_m','Max_Thal_Elev_m', 'order_'])
+    closest_hydro_id = closest_catchment.filter(items=['site_no','HydroID','min_thal_elev','med_thal_elev','max_thal_elev', 'order_'])
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 
-    columns = ['usgs_gage_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order']
+    columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order']
     gage_data = []
 
     # Move USGS gage to stream
@@ -59,9 +59,9 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
 
         if not np.isnan(hydro_id):
 
-            min_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].Min_Thal_Elev_m.item(),2)
-            med_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].Median_Thal_Elev_m.item(),2)
-            max_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].Max_Thal_Elev_m.item(),2)
+            min_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].min_thal_elev.item(),2)
+            med_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].med_thal_elev.item(),2)
+            max_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].max_thal_elev.item(),2)
 
             # Convert headwater point geometries to WKB representation
             wkb_gages = dumps(gage.geometry)

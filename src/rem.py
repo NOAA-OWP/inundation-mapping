@@ -106,13 +106,21 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     gw_catchments_pixels_masked_object.close()
     thalweg_raster_object.close()
 
+    # Merge and export dictionary to to_csv
+    catchment_min_dict_df = pd.DataFrame.from_dict(catchment_min_dict, orient='index') # convert dict to dataframe
+    catchment_min_dict_df.columns = ['Median_Thal_Elev_m']
+    catchment_hydroid_dict_df = pd.DataFrame.from_dict(catchment_hydroid_dict, orient='index') # convert dict to dataframe
+    catchment_hydroid_dict_df.columns = ['HydroID']
+    merge_df = catchment_hydroid_dict_df.merge(catchment_min_dict_df, left_index=True, right_index=True)
+    merge_df.index.name = 'pixelcatch_id'
+
     # Merge the HAND reference elevation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
-    min_by_hydroid = merge_df.groupby(['HydroID']).min() # min value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
-    min_by_hydroid.columns = ['Min_Thal_Elev_m']
-    med_by_hydroid = merge_df.groupby(['HydroID']).median() # median value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
-    med_by_hydroid.columns = ['Median_Thal_Elev_m']
-    max_by_hydroid = merge_df.groupby(['HydroID']).max() # max value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
-    max_by_hydroid.columns = ['Max_Thal_Elev_m']
+    min_by_hydroid = merge_df.groupby(['HydroID']).min() # min value of all med_thal_elev for pixel catchments in each HydroID reach
+    min_by_hydroid.columns = ['min_thal_elev']
+    med_by_hydroid = merge_df.groupby(['HydroID']).median() # median value of all med_thal_elev for pixel catchments in each HydroID reach
+    med_by_hydroid.columns = ['med_thal_elev']
+    max_by_hydroid = merge_df.groupby(['HydroID']).max() # max value of all med_thal_elev for pixel catchments in each HydroID reach
+    max_by_hydroid.columns = ['max_thal_elev']
     input_reaches = gpd.read_file(dem_reaches_filename)
     input_reaches = input_reaches.merge(min_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
     input_reaches = input_reaches.merge(med_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
