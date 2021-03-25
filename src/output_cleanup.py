@@ -39,9 +39,12 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
     # List of files that will be saved during a viz run
     viz_whitelist = [
         'rem_zeroed_masked.tif',
+        'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg',
+        'demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg',
         'gw_catchments_reaches_filtered_addedAttributes.tif',
         'hydroTable.csv',
-        'src.json'
+        'src.json',
+        'small_segments.csv'
     ]
 
     # If "production" run, only keep whitelisted files
