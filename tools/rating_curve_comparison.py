@@ -63,14 +63,13 @@ def generate_rating_curve_metrics(args):
         limited_hydrotable = hydrotable.filter(items=['location_id','elevation','discharge_cfs','Source'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation', 'discharge_cfs','Source'])
 
-        rating_curves = rating_curves.append(select_usgs_gages)
+        rating_curves = limited_hydrotable.append(select_usgs_gages)
 
         # add stream order
-        stream_order = hydrotable.filter(items=['location_id','str_order'])
+        stream_order = hydrotable.filter(items=['location_id','str_order']).drop_duplicates()
         rating_curves = rating_curves.merge(stream_order, on='location_id')
-
-        rating_curves = rating_curves.rename(columns={"location_id": "USGS Gage"})
-
+        rating_curves['str_order'] = rating_curves['str_order'].astype('int')
+        rating_curves['str_order'] = rating_curves['str_order'].astype('str')
 
         generate_facet_plot(rating_curves, rc_comparison_plot_filename)
 
@@ -95,13 +94,23 @@ def generate_rating_curve_metrics(args):
         usgs_crosswalk = hydrotable.filter(items=['location_id', 'feature_id']).drop_duplicates()
 
         nwm_recurr_data_table = pd.DataFrame()
-        columns = ['usgs_gage','NRMSE','mean_abs_y_diff','percent_bias']
-        usgs_recurr_stats = []
+        usgs_recurr_data = pd.DataFrame()
 
         for index, gage in usgs_crosswalk.iterrows():
             ## Interpolate USGS/FIM elevation at NWM recurrence intervals
             # Interpolate USGS elevation at NWM recurrence intervals
-            usgs_rc = rating_curves.loc[(rating_curves["USGS Gage"]==gage.location_id) & (rating_curves.Source=="USGS")]
+            usgs_rc = rating_curves.loc[(rating_curves.location_id==gage.location_id) & (rating_curves.Source=="USGS")]
+            try:
+                # str_order = usgs_rc.str_order.unique().item()
+                usgs_rc = usgs_rc.set_index('str_order')
+                str_order = usgs_rc.index.unique()
+                usgs_rc = usgs_rc.reset_index()
+            except:
+                try:
+                    str_order = list(set(usgs_rc.str_order.to_list()))[0] # pandas is unusable sometimes
+                except:
+                    print(f"something is messed up with this site: huc {huc}, site {gage.location_id}, rating curve shape {rating_curves.shape}, rating curve columns {rating_curves.columns}, rating curve str_order column {rating_curves.str_order.head()}")
+
             usgs_pred_elev = get_reccur_intervals(usgs_rc, usgs_crosswalk,nwm_recurr_intervals_all)
 
             # handle sites missing data
@@ -109,12 +118,12 @@ def generate_rating_curve_metrics(args):
                 continue
 
             # clean up data
-            usgs_pred_elev['usgs_gage'] = gage.location_id
-            usgs_pred_elev = usgs_pred_elev.filter(items=['usgs_gage','recurr_interval', 'discharge_cfs','pred_elev'])
-            usgs_pred_elev = usgs_pred_elev.rename(columns={"pred_elev": "usgs_pred_elev"})
+            usgs_pred_elev['location_id'] = gage.location_id
+            usgs_pred_elev = usgs_pred_elev.filter(items=['location_id','recurr_interval', 'discharge_cfs','pred_elev'])
+            usgs_pred_elev = usgs_pred_elev.rename(columns={"pred_elev": "USGS"})
 
             # Interpolate FIM elevation at NWM recurrence intervals
-            fim_rc = rating_curves.loc[(rating_curves["USGS Gage"]==gage.location_id) & (rating_curves.Source=="FIM")]
+            fim_rc = rating_curves.loc[(rating_curves.location_id==gage.location_id) & (rating_curves.Source=="FIM")]
             fim_pred_elev = get_reccur_intervals(fim_rc, usgs_crosswalk,nwm_recurr_intervals_all)
 
             # handle sites missing data
@@ -123,30 +132,39 @@ def generate_rating_curve_metrics(args):
                 continue
 
             # clean up data
-            fim_pred_elev = fim_pred_elev.rename(columns={"pred_elev": "fim_pred_elev"})
-            fim_pred_elev = fim_pred_elev.filter(items=['recurr_interval', 'discharge_cfs','fim_pred_elev'])
-            usgs_pred_elev = usgs_pred_elev.merge(fim_pred_elev, on=['recurr_interval','discharge_cfs']) # str_order
+            fim_pred_elev = fim_pred_elev.rename(columns={"pred_elev": "FIM"})
+            fim_pred_elev = fim_pred_elev.filter(items=['recurr_interval', 'discharge_cfs','FIM'])
+            usgs_pred_elev = usgs_pred_elev.merge(fim_pred_elev, on=['recurr_interval','discharge_cfs'])
+
             usgs_pred_elev['HUC'] = huc
+            usgs_pred_elev['str_order'] = str_order
+
+            usgs_pred_elev = pd.melt(usgs_pred_elev, id_vars=['location_id','recurr_interval','discharge_cfs','HUC','str_order'], value_vars=['USGS','FIM'], var_name="Source", value_name='elevation')
             nwm_recurr_data_table = nwm_recurr_data_table.append(usgs_pred_elev)
 
             ## Interpolate FIM elevation at USGS observations
             # Sort stage in ascending order
-            usgs_rc = usgs_rc.sort_values('elevation',ascending=True)
-            fim_rc = fim_rc.merge(usgs_crosswalk, left_on="USGS Gage", right_on="location_id")
-            usgs_rc['pred_elev'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation'], left = np.nan, right = np.nan)
+            usgs_rc = usgs_rc.rename(columns={"elevation": "USGS"})
+            usgs_rc = usgs_rc.sort_values('USGS',ascending=True)
+            fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
 
-            usgs_rc = usgs_rc[usgs_rc['pred_elev'].notna()]
-            rc_stats_plot_filename = join(dirname(rc_comparison_plot_filename),'rating_curve_stats' + str(gage.location_id) +'.png')
+            usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation'], left = np.nan, right = np.nan)
+            usgs_rc = usgs_rc[usgs_rc['FIM'].notna()]
+            usgs_rc = usgs_rc.drop(columns=["Source"])
+
+            usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="Source", value_name='elevation')
 
             if not usgs_rc.empty:
-                gage_stats = calculate_rc_stats_stage(usgs_rc,rc_stats_plot_filename)
+                usgs_recurr_data = usgs_recurr_data.append(usgs_rc)
 
-                usgs_recurr_stats.append(gage_stats)
-
-        usgs_recurr_stats_table = pd.DataFrame(usgs_recurr_stats, columns=columns)
-
-        if not usgs_recurr_stats_table.empty:
+        # Generate stats for all sites in huc
+        if not usgs_recurr_data.empty:
+            usgs_recurr_stats_table = calculate_rc_stats_elev(usgs_recurr_data)
             usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
+
+        # Generate plots
+        fim_elev_at_USGS_rc_plot_filename = join(dirname(rc_comparison_plot_filename),'FIM_elevations_at_USGS_rc_' + str(huc) +'.png')
+        generate_facet_plot(usgs_recurr_data, fim_elev_at_USGS_rc_plot_filename)
 
         if not nwm_recurr_data_table.empty:
             nwm_recurr_data_table.to_csv(nwm_recurr_data_filename,index=False)
@@ -178,33 +196,52 @@ def aggregate_metrics(output_dir,procs_list):
             else:
                 nwm_recurr_data.to_csv(agg_nwm_recurr_flow_elev,index=False)
 
+    agg_stats = pd.read_csv(agg_nwm_recurr_flow_elev)
+    agg_recurr_stats_table = calculate_rc_stats_elev(agg_stats)
 
-def generate_facet_plot(rating_curves, rc_comparison_plot_filename):
+
+def generate_facet_plot(rc, plot_filename):
     # Filter FIM elevation based on USGS data
-    for gage in rating_curves['USGS Gage'].unique():
+    for gage in rc.location_id.unique():
 
-        min_elev = rating_curves.loc[(rating_curves['USGS Gage']==gage) & (rating_curves.Source=='USGS')].elevation.min()
-        max_elev = rating_curves.loc[(rating_curves['USGS Gage']==gage) & (rating_curves.Source=='USGS')].elevation.max()
+        min_elev = rc.loc[(rc.location_id==gage) & (rc.Source=='USGS')].elevation.min()
+        max_elev = rc.loc[(rc.location_id==gage) & (rc.Source=='USGS')].elevation.max()
 
-        rating_curves_map = rating_curves.drop(rating_curves[(rating_curves['USGS Gage']==gage) & (rating_curves.Source=='FIM') & (rating_curves.elevation > (max_elev + 2))].index)
-        rating_curves_map = rating_curves.drop(rating_curves[(rating_curves['USGS Gage']==gage) & (rating_curves.Source=='FIM') & (rating_curves.elevation < min_elev - 2)].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.Source=='FIM') & (rc.elevation > (max_elev + 2))].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.Source=='FIM') & (rc.elevation < min_elev - 2)].index)
+
+    rc = rc.rename(columns={"location_id": "USGS Gage"})
 
     ## Generate rating curve plots
     sns.set(style="ticks")
-    g = sns.FacetGrid(rating_curves_map, col="USGS Gage", hue="Source",sharex=False, sharey=False,col_wrap=3)
+    g = sns.FacetGrid(rc, col="USGS Gage", hue="Source",sharex=False, sharey=False,col_wrap=3)
     g.map(sns.scatterplot, "discharge_cfs", "elevation", palette="tab20c", marker="o")
-    g.set_axis_labels(x_var="Discharge (cfs)", y_var="Stage (ft)")
+    g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     # Adjust the arrangement of the plots
     g.fig.tight_layout(w_pad=1)
     g.add_legend()
 
-    plt.savefig(rc_comparison_plot_filename)
+    plt.savefig(plot_filename)
+    plt.close()
+
+
+    # "Rating Curve Plot ({})\nNRMSE = {}; Mean Abs Diff = {} ft; Bias = {}%".format(
+    #     station,
+    #     round(NRMSE, 2),
+    #     round(mean_abs_y_diff, 2),
+    #     round(percent_bias, 1),
+    # )
+
+    ## Change labels
+    # axes = g.axes.flatten()
+    # for ax in axes:
+    #     ax.set_xlabel("Percentage Depth")
 
 
 def get_reccur_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
 
-    usgs_site = site_rc.merge(usgs_crosswalk, left_on="USGS Gage", right_on="location_id")
+    usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
 
     if nwm_ids > 0:
@@ -218,88 +255,61 @@ def get_reccur_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
         return []
 
 
-def calculate_rc_stats_stage(rating_curve, fig_path):
-    station = rating_curve["USGS Gage"].unique().item()
+def calculate_rc_stats_elev(rc,slice_vars=None):
 
-    # Get the interpolated hand column, for now it is just the last column but THIS NEEDS TO BE BETTER FORMALIZED.
-    usgs_stage = "elevation"
-    flows = "discharge_cfs"
-    hand_stage = "pred_elev"
+    stations = rc.location_id.unique()
+    columns = ['location_id','NRMSE','mean_abs_y_diff','percent_bias']
+    rc_stats = []
 
-    # Calculate variables for NRMSE
-    rating_curve["yhat_minus_y"] = rating_curve[hand_stage] - rating_curve[usgs_stage]
-    rating_curve["yhat_minus_y_squared"] = rating_curve["yhat_minus_y"] ** 2
-    sum_y_diff = rating_curve["yhat_minus_y_squared"].sum()
+    # if slice_vars not None:
 
-    # determine number of events that are modeled
-    n = rating_curve[usgs_stage].count()
+    for station in stations:
 
-    # Determine the maximum/minimum USGS stage
-    y_max = rating_curve[usgs_stage].max()
-    y_min = rating_curve[usgs_stage].min()
+        station_rc = rc.loc[rc.location_id==station]
 
-    # Calculate NRMSE
-    NRMSE_numerator = (sum_y_diff / n) ** 0.5
-    NRMSE_denominator = y_max - y_min
-    NRMSE = NRMSE_numerator / NRMSE_denominator
+        # Collect any extra columns not associated with melt
+        col_index = list(station_rc.columns)
+        pivot_vars = ['Source','elevation']
+        col_index = [col for col in col_index if col not in pivot_vars]
 
-    # Calculate Mean Absolute Depth Difference
-    mean_abs_y_diff = abs(rating_curve["yhat_minus_y"]).mean()
+        # Unmelt elevation/Source
+        station_rc = (station_rc.set_index(col_index)
+            .pivot(columns="Source")['elevation']
+            .reset_index()
+            .rename_axis(None, axis=1)
+         )
 
-    # Calculate Percent Bias
-    percent_bias = 100 * (rating_curve["yhat_minus_y"].sum() / rating_curve[usgs_stage].sum())
+        usgs_elev = "USGS"
+        src_elev = "FIM"
 
-    ## plot USGS rating curve and HAND rating curve and display statistics
-    fig, ax = plt.subplots()
-    rating_curve.plot(
-        x=flows,
-        y=usgs_stage,
-        ax=ax,
-        legend=False,
-        style="-",
-        color="orange",
-        zorder=2,
-    )
-    rating_curve.plot(
-        x=flows,
-        y=usgs_stage,
-        ax=ax,
-        legend=False,
-        kind="scatter",
-        marker="o",
-        s=30.0,
-        color="black",
-        zorder=3,
-    )
-    rating_curve.plot(
-        x=flows, y=hand_stage, ax=ax, legend=False, style="--", color="gray", zorder=2
-    )
-    rating_curve.plot(
-        x=flows,
-        y=hand_stage,
-        ax=ax,
-        legend=False,
-        kind="scatter",
-        marker="x",
-        s=30.0,
-        color="blue",
-        zorder=3,
-    )
-    ax.set_xlabel("Flow (cfs)")
-    ax.set_ylabel("Elevation (ft)")
-    ax.legend(["USGS Curve", "HAND Curve"], loc="best")
-    ax.grid(zorder=1)
-    fig.suptitle(
-        "Rating Curve Plot ({})\nNRMSE = {}; Mean Abs Diff = {} ft; Bias = {}%".format(
-            station,
-            round(NRMSE, 2),
-            round(mean_abs_y_diff, 2),
-            round(percent_bias, 1),
-        )
-    )
-    fig.savefig(fig_path)
-    plt.close(fig)
-    return [station, NRMSE, mean_abs_y_diff, percent_bias]
+        # Calculate variables for NRMSE
+        station_rc["yhat_minus_y"] = station_rc[src_elev] - station_rc[usgs_elev]
+        station_rc["yhat_minus_y_squared"] = station_rc["yhat_minus_y"] ** 2
+        sum_y_diff = station_rc["yhat_minus_y_squared"].sum()
+
+        # determine number of events that are modeled
+        n = station_rc[usgs_elev].count()
+
+        # Determine the maximum/minimum USGS elevation
+        y_max = station_rc[usgs_elev].max()
+        y_min = station_rc[usgs_elev].min()
+
+        # Calculate NRMSE
+        NRMSE_numerator = (sum_y_diff / n) ** 0.5
+        NRMSE_denominator = y_max - y_min
+        NRMSE = NRMSE_numerator / NRMSE_denominator
+
+        # Calculate Mean Absolute Depth Difference
+        mean_abs_y_diff = abs(station_rc["yhat_minus_y"]).mean()
+
+        # Calculate Percent Bias
+        percent_bias = 100 * (station_rc["yhat_minus_y"].sum() / station_rc[usgs_elev].sum())
+
+        rc_stats.append([station, NRMSE, mean_abs_y_diff, percent_bias])
+
+    rc_stat_table = pd.DataFrame(rc_stats, columns=columns)
+
+    return rc_stat_table
 
 if __name__ == '__main__':
 

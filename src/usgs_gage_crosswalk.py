@@ -55,7 +55,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
 
         # Get stream attributes
         hydro_id = closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].HydroID.item()
-        str_order = closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].order_.item()
+        str_order = str(int(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].order_.item()))
 
         if not np.isnan(hydro_id):
 
