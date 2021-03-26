@@ -8,7 +8,6 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ### Additions
  - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots. 
- 
 <br/><br/>
 
 ## v3.0.11.0 - 2021-03-22 - [PR #319](https://github.com/NOAA-OWP/cahaba/pull/298)
