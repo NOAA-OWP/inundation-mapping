@@ -12,7 +12,12 @@ from gms.inundate_gms import Inundate_gms
 from gms.mosaic_gms_inundation import Mosaic_gms_inundation
 from gms.overlapping_inundation import OverlapWindowMerge
 
-def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True,gms=False):
+def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True,ms=None):
+
+    # check ms input
+    if ms not in {None,'MS','GMS'}:
+        raise ValueError("MS argument needs to be None, \'MS\', or \'GMS.\'")
+    
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
@@ -139,7 +144,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                                         os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
                                                 )  
             try:
-                if gms:
+                if ms == 'GMS':
 
                     Inundate_gms(
                                  hydrofabric_dir =fim_run_parent, forecast=forecast, 
@@ -149,7 +154,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                                 )
                     
                     Mosaic_gms_inundation(version_test_case_dir,mosaic=predicted_raster_path)
-
+                
                 else:
                     inundate(
                              rem,catchments,catchment_poly,hydro_table,forecast,
@@ -159,6 +164,37 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                              depths=None,out_raster_profile=None,out_vector_profile=None,
                              quiet=True
                         )
+
+                if ms=='MS':
+                    
+                    # Mainstems inundation
+                    fim_run_parent_ms = '20210318_665f534_MS_calibrated/12090301'
+                    # need new file paths for rem, catchments, catchment_poly?, hydro_table, inundation_raster
+                    rem_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'rem_zeroed_masked.tif')
+                    catchments_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'gw_catchments_reaches_filtered_addedAttributes.tif')
+                    catchment_poly_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+                    hydro_table_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'hydroTable.csv')
+                    inundation_raster_ms = os.path.join(
+                                        os.path.split(inundation_raster)[0], 
+                                        os.path.split(inundation_raster)[1].replace('.tif', '_{}_MS.tif'.format(current_huc))
+                                           )  
+                    inundation_raster_fr = os.path.join(
+                                        os.path.split(inundation_raster)[0], 
+                                        os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'_FR.tif')
+                                           )  
+                    os.rename(predicted_raster_path,inundation_raster_fr)
+                    
+                    inundate(
+                             rem_ms,catchments_ms,catchment_poly_ms,hydro_table_ms,forecast,
+                             mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                             subset_hucs=current_huc,num_workers=1,aggregate=False,
+                             inundation_raster=inundation_raster,inundation_polygon=None,
+                             depths=None,out_raster_profile=None,out_vector_profile=None,
+                             quiet=True
+                        )
+                    os.rename(predicted_raster_path,inundation_raster_ms)
+                    
+                    Mosaic_gms_inundation(version_test_case_dir,mosaic=predicted_raster_path,nodata=0)
 
                 print("-----> Inundation mapping complete.")
 
@@ -213,7 +249,7 @@ if __name__ == '__main__':
     parser.add_argument('-ib','--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
-    parser.add_argument('-g','--gms',help='Creates test case for GMS',required=False, default=False, action='store_true')
+    parser.add_argument('-s','--ms',help='Creates test case for Composite or GMS',required=False, default=None,choices=[None,'MS','GMS'])
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

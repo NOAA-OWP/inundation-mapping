@@ -7,6 +7,7 @@
 - Make a singular inundate_gms and mosaic function
     - clean up level path files when doing this
 - Evaluate with test cases
+    - clean up outputs for inundation mapping
 
 
 ## Longer term
@@ -15,6 +16,7 @@
     - Need branch progress tracking or writing stdout/err to individual log file
 - Implement attribute exclusion for branching functionality (stream order 1s)
 - running branch modules separate from branch for loop
+    - running branch modules at domain scale to avoid levelpath derivation issue at nesting points
 - parameterize branch buffer distance by stream order
 - why using filtered reaches causes issues? HydroIDs not present in boths polygons and reach vectors
 - add compatibility for new rem.py

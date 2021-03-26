@@ -286,14 +286,24 @@ class OverlapWindowMerge:
                 else:
                     data_dict[win_idx] = [idx]
 
-        agg_function = partial(np.max, axis=0)
+#        def agg_function(array,nodata,axis):
+ #           value = np.max(array,axis=axis)
+            
+            #indices_no_data = value == nodata
+  #              value = np.min(array,axis=0)
+   #         return(value)
+        
+        agg_function = partial(np.nanmax, axis=0)
+        #agg_function = partial(np.ma.MaskedArray.max, axis=0)
+        #agg_function = partial(agg_function, nodata=nodata,axis=0)
 
         meta = self.depth_rsts[0].meta
 
         meta.update(transform=self.proc_unit_transform,
                     width=self.proc_unit_width,
                     height=self.proc_unit_height,
-                    nodata=nodata)
+                    nodata=nodata,
+                    dtype=rasterio.int32)
 
         final_windows, data_windows, data = [], [], []
         for key, val in data_dict.items():
@@ -368,13 +378,12 @@ def merge_data(rst_data,
     :param nodata: nodata of final output
     :param rst_dims: dimensions of overlapping rasters
     """
-
+    
     nodata = np.array([nodata]).astype(dtype)[0]
     window_data = np.tile(float(nodata), [int(final_window.height), int(final_window.width)])
-
+    
     for data, bnds, idx in zip(rst_data, window_bnds, datasets):
         # Get indices to apply to base
-
         col_slice = slice(int(np.max([0,
                                       np.ceil(bnds.col_off * -1)])),
                           int(np.min([bnds.width,
@@ -386,16 +395,20 @@ def merge_data(rst_data,
                                       rst_dims[idx][0] - bnds.row_off])))
 
         # Assign the data to the base array with aggregate function
-        merge = [window_data[row_slice,
-                                   col_slice],
-                    data]
+        #merge = np.ma.masked_equal(np.stack([window_data[row_slice,col_slice],data], axis=0),
+        #                           nodata)
+        #np.ma.set_fill_value(merge,nodata)
+        merge = np.stack([window_data[row_slice,col_slice],data], axis=0)
+        merge[merge == nodata] = np.nan
 
         del data
-        window_data[row_slice, col_slice] = agg_function(merge)
+        wd = agg_function(merge)
+        window_data[row_slice, col_slice] = wd
         del merge
-
+        
     del rst_data, window_bnds, datasets
-
+    window_data[np.isnan(window_data)] = nodata
+    window_data = window_data.astype(dtype)
     with lock:
         rst.write_band(1, window_data.astype(dtype), window=final_window)
     del window_data
