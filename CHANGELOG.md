@@ -8,7 +8,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
  ### Changes
  - 
 ### Additions
- - Create an 'individual' directory with subdirectories of each analyzed site which contain barplots and the analyzed_data for each site.
+ - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots. 
  
 <br/><br/>
