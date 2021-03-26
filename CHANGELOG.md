@@ -4,9 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
 
  Add more detail/information to plotting capabilities.
- 
- ### Changes
- - 
+
 ### Additions
  - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots. 
