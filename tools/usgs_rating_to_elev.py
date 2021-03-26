@@ -24,37 +24,63 @@ def get_all_active_usgs_sites():
     None.
 
     '''
+    #Get metadata for all usgs_site_codes that are active in the U.S.
     metadata_url = f'{API_BASE_URL}/metadata' 
     #Define arguments to retrieve metadata and then get metadata from WRDS
-    select_by = 'usgs_site_code'
-    selector = 'all'
+    select_by = 'usgs_site_code' #'usgs_site_code'
+    selector = ['all'] #all
     must_include = 'usgs_data.active'
-    metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
+    metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
 
-    #Filter out sites based on vertical datum quality and horizontal datum quality
+    #Filter out sites based quality of site. These acceptable codes were initially
+    #decided upon and may need fin tuning. A link to the code is provided. 
+    
+    #https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
+    acceptable_coord_acc_code = ['H','1','5','S','R','B','C','D','E']
+    #https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
+    acceptable_coord_method_code = ['C','D','W','X','Y','Z','N','M','L','G','R','F','S']
+    #https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
+    acceptable_alt_acc_thresh = 1
+    #https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
+    acceptable_alt_meth_code = ['A','D','F','I','J','L','N','R','W','X','Y','Z']
+    #https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
+    acceptable_site_type = ['ST']
+    
+    #Cycle through each site and filter out if site doesn't meet criteria.
     acceptable_sites = []
     for metadata in metadata_list:
+        #Get the usgs info from each site
         usgs_data = metadata['usgs_data']
+                
+        #Get site quality attributes      
+        coord_accuracy_code = usgs_data.get('coord_accuracy_code')        
+        coord_method_code =   usgs_data.get('coord_method_code')
+        alt_accuracy_code =   usgs_data.get('alt_accuracy_code')
+        alt_method_code =     usgs_data.get('alt_method_code')
+        site_type =           usgs_data.get('site_type')
         
-        #!!!!Modify the acceptable codes and vertical tolerances
-        acceptable_coord_acc_code = ['S']
-        acceptable_coord_method_code = ['M']
-        acceptable_alt_acc_thresh = 1
-        acceptable_alt_meth_code = ['L']
+        #Check to make sure that none of the codes were null, if so skip to next.
+        if not all([coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type]):
+            continue
         
         #Test if site meets criteria.
-        if (usgs_data['coord_accuracy_code'] in acceptable_coord_acc_code and 
-            usgs_data['coord_method_code'] in acceptable_coord_method_code and
-            usgs_data['alt_accuracy_code'] < acceptable_alt_acc_thresh and 
-            usgs_data['alt_method_code'] in acceptable_alt_meth_code):
+        if (coord_accuracy_code in acceptable_coord_acc_code and 
+            coord_method_code in acceptable_coord_method_code and
+            alt_accuracy_code <= acceptable_alt_acc_thresh and 
+            alt_method_code in acceptable_alt_meth_code and
+            site_type in acceptable_site_type):
+            
+            #If nws_lid is not populated then add a dummy ID so that 'aggregate_wbd_hucs' works correctly.
+            if not metadata.get('identifiers').get('nws_lid'):
+                metadata['identifiers']['nws_lid'] = 'Bogus_ID' 
             
             #If an acceptable site, append to acceptable_sites list.
-            acceptable_sites.append(metadata)
-            
-    #!!!!Get a geospatial layer for all acceptable sites
-    dictionary, gdf = aggregate_wbd_hucs(acceptable_sites, Path(WBD_LAYER), retain_attributes = False)
+            acceptable_sites.append(metadata)  
+        
+        #Get a geospatial layer for all acceptable sites
+        dictionary, gdf = aggregate_wbd_hucs(acceptable_sites, Path(WBD_LAYER), retain_attributes = False)
     
-    return dictionary, gdf     
+    return gdf     
             
             
 
@@ -91,7 +117,22 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     #Define arguments to retrieve metadata and then get metadata from WRDS
     select_by = 'usgs_site_code'
     selector = list_of_gage_sites
-    metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
+    
+    #Since there is a limit to number characters in url, split up selector if too many sites.
+    max_sites = 200
+    if len(selector)>max_sites:
+        chunks = [selector[i:i+max_sites] for i in range(0,len(selector),max_sites)]
+        #Get metadata for each chunk
+        metadata_list = []
+        metadata_df = pd.DataFrame()
+        for chunk in chunks:
+            chunk_list, chunk_df = get_metadata(metadata_url, select_by, chunk, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
+            #Append chunk data to metadata_list/df
+            metadata_list.extend(chunk_list)
+            metadata_df = metadata_df.append(chunk_df)
+    else:
+        #If selector has less than max sites, then get metadata.
+        metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
     
     #Create DataFrame to store all appended rating curves
     all_rating_curves = pd.DataFrame()
