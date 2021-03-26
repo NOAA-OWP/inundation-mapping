@@ -8,7 +8,7 @@ import geopandas as gpd
 from plot_functions import filter_dataframe, boxplot, scatterplot, barplot
 
 
-def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False, fim_1_ms = False):
+def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False, fim_1_ms = False, site_barplots = False):
 
     '''
     Creates plots and summary statistics using metrics compiled from
@@ -47,12 +47,11 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             there are exactly two versions analyzed.
         csi_scatter_<magnitude>_<configuration>_data.csv: data used to create the
             csi_scatter_plot
-        'Individual' directory with subfolders for each site in analysis. In these
+        Optional: 'individual' directory with subfolders for each site in analysis. In these
             site subdirectories are the following files:
                 csi_<site_name>_<benchmark_source>_<configuration>.png: A barplot
                     of CSI for each version for all magnitudes for the site.
-                csi_<site_name>_<benchmark_source>_<configuration>_data.csv: A
-                    csv containing all analyzed data for an individual site.
+
 
     Parameters
     ----------
@@ -94,6 +93,10 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         Default is false. If True then fim_1 rows are duplicated with
         extent_config set to MS. This allows for FIM 1 to be included
         in MS plots/stats (helpful for nws/usgs ahps comparisons).
+    site_barplots: BOOL
+        Default is false. If True then barplots for each individual site are 
+        created. An 'individual' directory with subdirectories of each site
+        are created and the plot is located in each site subdirectory.
 
     Returns
     -------
@@ -230,14 +233,14 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         aggregate_file = output_workspace / (f'csi_aggr_{dataset_name}_{configuration.lower()}.png')
         barplot(dataframe = dataset_sums, x_field = 'magnitude', x_order = magnitude_order, y_field = 'csi', hue_field = 'version', ordered_hue = version_order, title_text = f'Aggregate {dataset_name.upper()} FIM Scores', fim_configuration = configuration, textbox_str = textbox, simplify_legend = True, dest_file = aggregate_file)
 
-        #Write out barplots of CSI for individual sites. Save these plots as well as a table of the analyzed_data for the site.
-        subset = dataset.groupby(base_resolution)
-        for site_name, site_data in subset:
-            individual_dirs = output_workspace / 'individual' / str(site_name)
-            individual_dirs.mkdir(parents = True, exist_ok = True)
-            site_file = individual_dirs / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}.png'
-            barplot(dataframe = site_data, x_field = 'magnitude', x_order = magnitude_order, y_field = 'CSI', hue_field = 'version', ordered_hue = version_order, title_text = f'{str(site_name).upper()} FIM Scores', fim_configuration = configuration, textbox_str = False, simplify_legend = True, dest_file = site_file)
-            site_data.to_csv(individual_dirs / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}_data.csv', index = False)
+        #If enabled, write out barplots of CSI for individual sites.
+        if site_barplots:
+            subset = dataset.groupby(base_resolution)
+            for site_name, site_data in subset:
+                individual_dirs = output_workspace / 'individual' / str(site_name)
+                individual_dirs.mkdir(parents = True, exist_ok = True)
+                site_file = individual_dirs / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}.png'
+                barplot(dataframe = site_data, x_field = 'magnitude', x_order = magnitude_order, y_field = 'CSI', hue_field = 'version', ordered_hue = version_order, title_text = f'{str(site_name).upper()} FIM Scores', fim_configuration = configuration, textbox_str = False, simplify_legend = True, dest_file = site_file)
 
         # Create box plots for each metric in supplied stats
         for stat in stats:
@@ -324,7 +327,8 @@ if __name__ == '__main__':
     parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
     parser.add_argument('-sp', '--spatial_ahps', help = 'If spatial point layer is desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
     parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
-
+    parser.add_argument('-sp', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
+    
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
 
@@ -356,7 +360,8 @@ if __name__ == '__main__':
     q = args['alternate_ahps_query']
     sp= args['spatial_ahps']
     f = args['fim_1_ms']
+    sp = args['site_plots']
 
     # Run eval_plots function
     if not error:
-        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial_ahps = sp, fim_1_ms = f)
+        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial_ahps = sp, fim_1_ms = f, site_barplots = sp)
