@@ -26,8 +26,8 @@ def get_all_active_usgs_sites():
     #Get metadata for all usgs_site_codes that are active in the U.S.
     metadata_url = f'{API_BASE_URL}/metadata' 
     #Define arguments to retrieve metadata and then get metadata from WRDS
-    select_by = 'usgs_site_code' #'usgs_site_code'
-    selector = ['all'] #all
+    select_by = 'usgs_site_code'
+    selector = ['all']
     must_include = 'usgs_data.active'
     metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
 
@@ -77,10 +77,10 @@ def get_all_active_usgs_sites():
             #Append acceptable site to acceptable_sites list.
             acceptable_sites.append(metadata)  
         
-        #Get a geospatial layer (gdf) for all acceptable sites
-        dictionary, gdf = aggregate_wbd_hucs(acceptable_sites, Path(WBD_LAYER), retain_attributes = False)
-        #Get a list of all sites in gdf
-        list_of_sites = gdf['identifiers_usgs_site'].to_list()
+    #Get a geospatial layer (gdf) for all acceptable sites
+    dictionary, gdf = aggregate_wbd_hucs(acceptable_sites, Path(WBD_LAYER), retain_attributes = False)
+    #Get a list of all sites in gdf
+    list_of_sites = gdf['identifiers_usgs_site_code'].to_list()
 
     return gdf, list_of_sites
             
