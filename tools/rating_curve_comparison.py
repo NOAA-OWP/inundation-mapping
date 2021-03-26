@@ -100,17 +100,9 @@ def generate_rating_curve_metrics(args):
             ## Interpolate USGS/FIM elevation at NWM recurrence intervals
             # Interpolate USGS elevation at NWM recurrence intervals
             usgs_rc = rating_curves.loc[(rating_curves.location_id==gage.location_id) & (rating_curves.Source=="USGS")]
-            try:
-                # str_order = usgs_rc.str_order.unique().item()
-                usgs_rc = usgs_rc.set_index('str_order')
-                str_order = usgs_rc.index.unique()
-                usgs_rc = usgs_rc.reset_index()
-            except:
-                try:
-                    str_order = list(set(usgs_rc.str_order.to_list()))[0] # pandas is unusable sometimes
-                except:
-                    print(f"something is messed up with this site: huc {huc}, site {gage.location_id}, rating curve shape {rating_curves.shape}, rating curve columns {rating_curves.columns}, rating curve str_order column {rating_curves.str_order.head()}")
-
+            
+            str_order = np.unique(usgs_rc.str_order)
+                        
             usgs_pred_elev = get_reccur_intervals(usgs_rc, usgs_crosswalk,nwm_recurr_intervals_all)
 
             # handle sites missing data
