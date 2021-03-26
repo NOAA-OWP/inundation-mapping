@@ -45,6 +45,14 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         csi_scatter_<magnitude>_<configuration>*.png: scatter plot comparing
             two versions for a given magnitude. This is only generated if
             there are exactly two versions analyzed.
+        csi_scatter_<magnitude>_<configuration>_data.csv: data used to create the
+            csi_scatter_plot
+        'Individual' directory with subfolders for each site in analysis. In these
+            site subdirectories are the following files:
+                csi_<site_name>_<benchmark_source>_<configuration>.png: A barplot
+                    of CSI for each version for all magnitudes for the site.
+                csi_<site_name>_<benchmark_source>_<configuration>_data.csv: A
+                    csv containing all analyzed data for an individual site.
 
     Parameters
     ----------
@@ -222,6 +230,15 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         aggregate_file = output_workspace / (f'csi_aggr_{dataset_name}_{configuration.lower()}.png')
         barplot(dataframe = dataset_sums, x_field = 'magnitude', x_order = magnitude_order, y_field = 'csi', hue_field = 'version', ordered_hue = version_order, title_text = f'Aggregate {dataset_name.upper()} FIM Scores', fim_configuration = configuration, textbox_str = textbox, simplify_legend = True, dest_file = aggregate_file)
 
+        #Write out barplots of CSI for individual sites. Save these plots as well as a table of the analyzed_data for the site.
+        subset = dataset.groupby(base_resolution)
+        for site_name, site_data in subset:
+            individual_dirs = output_workspace / 'individual' / str(site_name)
+            individual_dirs.mkdir(parents = True, exist_ok = True)
+            site_file = individual_dirs / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}.png'
+            barplot(dataframe = site_data, x_field = 'magnitude', x_order = magnitude_order, y_field = 'CSI', hue_field = 'version', ordered_hue = version_order, title_text = f'{str(site_name).upper()} FIM Scores', fim_configuration = configuration, textbox_str = False, simplify_legend = True, dest_file = site_file)
+            site_data.to_csv(individual_dirs / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}_data.csv', index = False)
+
         # Create box plots for each metric in supplied stats
         for stat in stats:
             output_file = output_workspace / (f'{stat.lower()}_{dataset_name}_{configuration.lower()}.png')
@@ -240,6 +257,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
                 dest_file = output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
                 scatterplot(dataframe = plotdf, x_field = f'CSI_{x_version}', y_field = f'CSI_{y_version}', title_text = title_text, annotate = False, dest_file = dest_file)
                 #Write out dataframe used to create scatter plots
+                plotdf['Diff (C-B)'] = plotdf[f'CSI_{y_version}'] - plotdf[f'CSI_{x_version}']
                 plotdf.to_csv(output_workspace /  f'csi_scatter_{magnitude}_{configuration.lower()}_data.csv', index = False)
 
     #######################################################################
