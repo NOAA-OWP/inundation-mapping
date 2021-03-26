@@ -16,8 +16,7 @@ WBD_LAYER = os.getenv("WBD_LAYER")
 def get_all_active_usgs_sites():
     '''
     Compile a list of all active usgs gage sites that meet certain criteria. 
-    Return a dictionary of huc (key) and list of sites (values) as well as a 
-    GeoDataFrame of all sites.
+    Return a GeoDataFrame of all sites.
 
     Returns
     -------
@@ -33,7 +32,8 @@ def get_all_active_usgs_sites():
     metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
 
     #Filter out sites based quality of site. These acceptable codes were initially
-    #decided upon and may need fin tuning. A link to the code is provided. 
+    #decided upon and may need fine tuning. A link where more information
+    #regarding the USGS attributes is provided. 
     
     #https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
     acceptable_coord_acc_code = ['H','1','5','S','R','B','C','D','E']
@@ -59,7 +59,7 @@ def get_all_active_usgs_sites():
         alt_method_code =     usgs_data.get('alt_method_code')
         site_type =           usgs_data.get('site_type')
         
-        #Check to make sure that none of the codes were null, if so skip to next.
+        #Check to make sure that none of the codes were null, if null values are found, skip to next.
         if not all([coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type]):
             continue
         
@@ -74,13 +74,15 @@ def get_all_active_usgs_sites():
             if not metadata.get('identifiers').get('nws_lid'):
                 metadata['identifiers']['nws_lid'] = 'Bogus_ID' 
             
-            #If an acceptable site, append to acceptable_sites list.
+            #Append acceptable site to acceptable_sites list.
             acceptable_sites.append(metadata)  
         
-        #Get a geospatial layer for all acceptable sites
+        #Get a geospatial layer (gdf) for all acceptable sites
         dictionary, gdf = aggregate_wbd_hucs(acceptable_sites, Path(WBD_LAYER), retain_attributes = False)
-    
-    return gdf     
+        #Get a list of all sites in gdf
+        list_of_sites = gdf['identifiers_usgs_site'].to_list()
+
+    return gdf, list_of_sites
             
             
 
