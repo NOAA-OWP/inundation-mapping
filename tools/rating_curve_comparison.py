@@ -168,6 +168,7 @@ def aggregate_metrics(output_dir,procs_list,stat_groups):
 
     agg_usgs_interp_elev_stats = join(output_dir,'agg_usgs_interp_elev_stats.csv')
     agg_nwm_recurr_flow_elev = join(output_dir,'agg_nwm_recurr_flow_elevations.csv')
+    agg_nwm_recurr_flow_elev_stats = join(output_dir,'agg_nwm_recurr_flow_elev_stats.csv')
 
     for huc in procs_list:
         if os.path.isfile(huc[3]):
@@ -191,6 +192,8 @@ def aggregate_metrics(output_dir,procs_list,stat_groups):
     agg_stats = pd.read_csv(agg_nwm_recurr_flow_elev)
     
     agg_recurr_stats_table = calculate_rc_stats_elev(agg_stats,stat_groups)
+    
+    agg_recurr_stats_table.to_csv(agg_nwm_recurr_flow_elev_stats,index=False, header=False)
 
 
 def generate_facet_plot(rc, plot_filename):
