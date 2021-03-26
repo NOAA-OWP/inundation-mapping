@@ -239,7 +239,8 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
                 title_text = f'CSI {magnitude}'
                 dest_file = output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
                 scatterplot(dataframe = plotdf, x_field = f'CSI_{x_version}', y_field = f'CSI_{y_version}', title_text = title_text, annotate = False, dest_file = dest_file)
-
+                #Write out dataframe used to create scatter plots
+                plotdf.to_csv(output_workspace /  f'csi_scatter_{magnitude}_{configuration.lower()}_data.csv', index = False)
 
     #######################################################################
     #Create spatial layers with threshold and mapping information
