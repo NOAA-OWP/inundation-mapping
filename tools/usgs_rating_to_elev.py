@@ -101,7 +101,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
 
     Parameters
     ----------
-    list_of_gage_sites : LIST or STR
+    list_of_gage_sites : LIST
         List of all gage site IDs. If all acceptable sites in CONUS are desired
         list_of_gage_sites can be passed 'all' and it will use the get_all_active_usgs_sites
         function to filter out sites that meet certain requirements across CONUS.
@@ -121,14 +121,13 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
 
     #If 'all' option passed to list of gages sites, it retrieves all acceptable sites within CONUS.
-    if list_of_gage_sites == 'all':
+    if list_of_gage_sites == ['all']:
         acceptable_sites_gdf, acceptable_sites_list, metadata_list = get_all_active_usgs_sites()
     #Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:        
         #Define arguments to retrieve metadata and then get metadata from WRDS
         select_by = 'usgs_site_code'
-        selector = list_of_gage_sites
-        
+        selector = list_of_gage_sites        
         #Since there is a limit to number characters in url, split up selector if too many sites.
         max_sites = 150
         if len(selector)>max_sites:
@@ -146,8 +145,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
             metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
     
     #Create DataFrame to store all appended rating curves
-    all_rating_curves = pd.DataFrame()
-    
+    all_rating_curves = pd.DataFrame()    
     #For each site in metadata_list
     for metadata in metadata_list:
         #Get datum information for site (only need usgs_data)
@@ -184,10 +182,11 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     if workspace:
         #Write rating curve dataframe to file
         output_csv = Path(workspace)/'usgs_rating_curves.csv'
+        output_csv.parent.mkdir(parents = True, exist_ok = True)
         all_rating_curves.to_csv(output_csv, index = False)
         
         #If 'all' option specified, write out shapefile of acceptable sites.
-        if list_of_gage_sites == 'all':
+        if list_of_gage_sites == ['all']:
             output_shapefile = Path(workspace) / 'sites.shp'
             acceptable_sites_gdf.to_file(output_shapefile)
     

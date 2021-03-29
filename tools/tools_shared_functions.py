@@ -7,6 +7,8 @@ import rasterio
 import pandas as pd
 import geopandas as gpd
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 from tools_shared_variables import (TEST_CASES_DIR, PRINTWORTHY_STATS, GO_UP_STATS, GO_DOWN_STATS,
                                     ENDC, TGREEN_BOLD, TGREEN, TRED_BOLD, TWHITE, WHITE_BOLD, CYAN_BOLD)
@@ -1180,17 +1182,26 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     params['src_height'] = 0.0        #Source vertical height
     params['t_v_frame'] = 'NAVD88'    #Target vertical datum
     params['tar_vertical_unit'] = 'm' #Target vertical height
+    
     #Call the API
-    response = requests.get(datum_url, params = params)
+    session = requests.Session()
+    retry = Retry(connect = 7, backoff_factor = 5)
+    adapter = HTTPAdapter(max_retries = retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)  
+    response = session.get(datum_url, params = params)
+
     #If succesful get the navd adjustment
     if response:
         results = response.json()
         #Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['tar_height']
         #convert meters to feet
-        adjustment_ft = round(float(adjustment) * 3.28084,2)
-    
-    return adjustment_ft        
+        adjustment_ft = round(float(adjustment) * 3.28084,2)                
+    else:
+        print('Error with vcs conversion')
+        adjustment_ft = None
+    return adjustment_ft       
 #######################################################################
 #Function to download rating curve from API
 #######################################################################
