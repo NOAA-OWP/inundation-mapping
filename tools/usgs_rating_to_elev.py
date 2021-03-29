@@ -47,7 +47,7 @@ def get_all_active_usgs_sites():
     acceptable_site_type = ['ST']
     
     #Cycle through each site and filter out if site doesn't meet criteria.
-    acceptable_sites = []
+    acceptable_sites_metadata = []
     for metadata in metadata_list:
         #Get the usgs info from each site
         usgs_data = metadata['usgs_data']
@@ -74,34 +74,38 @@ def get_all_active_usgs_sites():
             if not metadata.get('identifiers').get('nws_lid'):
                 metadata['identifiers']['nws_lid'] = 'Bogus_ID' 
             
-            #Append acceptable site to acceptable_sites list.
-            acceptable_sites.append(metadata)  
+            #Append metadata of acceptable site to acceptable_sites list.
+            acceptable_sites_metadata.append(metadata)  
         
     #Get a geospatial layer (gdf) for all acceptable sites
-    dictionary, gdf = aggregate_wbd_hucs(acceptable_sites, Path(WBD_LAYER), retain_attributes = False)
+    dictionary, gdf = aggregate_wbd_hucs(acceptable_sites_metadata, Path(WBD_LAYER), retain_attributes = False)
     #Get a list of all sites in gdf
     list_of_sites = gdf['identifiers_usgs_site_code'].to_list()
 
-    return gdf, list_of_sites
+    return gdf, list_of_sites, acceptable_sites_metadata
             
             
 
 def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     '''
-    Provided a list of usgs gage sites returns rating curves adjusted to 
-    elevation NAVD. Workflow as follows:
-        1. Get metadata for all sites supplied by user.
-        2. Extract datum information for each site.
-        3. If site is not in contiguous US skip (due to issue with datum conversions)
-        4. Convert datum if NGVD
-        5. Get rating curve for each site individually
-        6. Convert rating curve to absolute elevation (NAVD) and store in DataFrame
-        7. Append all rating curves to a master DataFrame.
+    Returns rating curves, for a set of sites, adjusted to elevation NAVD. 
+    Workflow as follows:
+        1a. If 'all' option passed, get metadata for all acceptable USGS sites in CONUS.
+        1b. If a list of sites passed, get metadata for all sites supplied by user.
+        2.  Extract datum information for each site.
+        3.  If site is not in contiguous US skip (due to issue with datum conversions)
+        4.  Convert datum if NGVD
+        5.  Get rating curve for each site individually
+        6.  Convert rating curve to absolute elevation (NAVD) and store in DataFrame
+        7.  Append all rating curves to a master DataFrame.
 
     Parameters
     ----------
-    list_of_gage_sites : LIST
-        List of all gage site IDs.
+    list_of_gage_sites : LIST or STR
+        List of all gage site IDs. If all acceptable sites in CONUS are desired
+        list_of_gage_sites can be passed 'all' and it will use the get_all_active_usgs_sites
+        function to filter out sites that meet certain requirements across CONUS.
+        
     workspace : STR
         Directory, if specified, where output csv is saved. OPTIONAL, Default is False.
 
@@ -115,26 +119,31 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     #Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
-    
-    #Define arguments to retrieve metadata and then get metadata from WRDS
-    select_by = 'usgs_site_code'
-    selector = list_of_gage_sites
-    
-    #Since there is a limit to number characters in url, split up selector if too many sites.
-    max_sites = 200
-    if len(selector)>max_sites:
-        chunks = [selector[i:i+max_sites] for i in range(0,len(selector),max_sites)]
-        #Get metadata for each chunk
-        metadata_list = []
-        metadata_df = pd.DataFrame()
-        for chunk in chunks:
-            chunk_list, chunk_df = get_metadata(metadata_url, select_by, chunk, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
-            #Append chunk data to metadata_list/df
-            metadata_list.extend(chunk_list)
-            metadata_df = metadata_df.append(chunk_df)
-    else:
-        #If selector has less than max sites, then get metadata.
-        metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
+
+    #If 'all' option passed to list of gages sites, it retrieves all acceptable sites within CONUS.
+    if list_of_gage_sites == 'all':
+        acceptable_sites_gdf, acceptable_sites_list, metadata_list = get_all_active_usgs_sites()
+    #Otherwise, if a list of sites is passed, retrieve sites from WRDS.
+    else:        
+        #Define arguments to retrieve metadata and then get metadata from WRDS
+        select_by = 'usgs_site_code'
+        selector = list_of_gage_sites
+        
+        #Since there is a limit to number characters in url, split up selector if too many sites.
+        max_sites = 150
+        if len(selector)>max_sites:
+            chunks = [selector[i:i+max_sites] for i in range(0,len(selector),max_sites)]
+            #Get metadata for each chunk
+            metadata_list = []
+            metadata_df = pd.DataFrame()
+            for chunk in chunks:
+                chunk_list, chunk_df = get_metadata(metadata_url, select_by, chunk, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
+                #Append chunk data to metadata_list/df
+                metadata_list.extend(chunk_list)
+                metadata_df = metadata_df.append(chunk_df)
+        else:
+            #If selector has less than max sites, then get metadata.
+            metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
     
     #Create DataFrame to store all appended rating curves
     all_rating_curves = pd.DataFrame()
@@ -171,11 +180,16 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
         else:
             print(f'{location_ids} has no rating curve')
             continue
-    #If workspace is specified, write dataframe to file.
+    #If workspace is specified, write data to file.
     if workspace:
         #Write rating curve dataframe to file
         output_csv = Path(workspace)/'usgs_rating_curves.csv'
         all_rating_curves.to_csv(output_csv, index = False)
+        
+        #If 'all' option specified, write out shapefile of acceptable sites.
+        if list_of_gage_sites == 'all':
+            output_shapefile = Path(workspace) / 'sites.shp'
+            acceptable_sites_gdf.to_file(output_shapefile)
     
     return all_rating_curves
 
