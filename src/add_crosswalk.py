@@ -18,11 +18,8 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_flows = gpd.read_file(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName)
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
-    #####
-    # FIX THIS LATER
-    #####
-    min_catchment_area = 0.25#float(os.environ['min_catchment_area'])
-    min_stream_length = 0.5#float(os.environ['min_stream_length'])
+    min_catchment_area = float(os.environ['min_catchment_area']) #0.25#
+    min_stream_length = float(os.environ['min_stream_length']) #0.5#
 
     if extent == 'FR':
         ## crosswalk using majority catchment method

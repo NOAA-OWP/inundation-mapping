@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
-import os
+from os import environ
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+
+sa_ratio_flag             = float(environ['surf_area_thalweg_ratio_flag']) #10x
+thal_stg_limit            = float(environ['thalweg_stg_search_max_limit']) #3m
+bankful_xs_ratio_flag     = float(environ['bankful_xs_area_ratio_flag']) #10x
+bathy_xsarea_flag         = float(environ['bathy_xs_area_chg_flag']) #5x
+thal_hyd_radius_flag      = float(environ['thalweg_hyd_radius_flag']) #10x
 
 def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,):
     ## Convert input_src_base featureid to integer
@@ -22,11 +28,11 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     ## Use SurfaceArea variable to identify thalweg-restricted stage values for each hydroid
     ## Calculate the interrow SurfaceArea ratio n/(n-1)
     modified_src_base['SA_div'] = modified_src_base['SurfaceArea (m2)'].div(modified_src_base['SurfaceArea (m2)'].shift(1))
-    ## Mask SA_diff when Stage = 0 or when the SA difference value (n > n-1) is > 0 (i.e. increasing)
-    modified_src_base['SA_div'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_div']<10),inplace=True)
+    ## Mask SA_div when Stage = 0 or when the SA_div value (n / n-1) is > threshold value (i.e. 10x)
+    modified_src_base['SA_div'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_div']<sa_ratio_flag),inplace=True)
     ## Create new df to filter and groupby HydroID
     find_thalweg_notch = modified_src_base[['HydroID','Stage','SurfaceArea (m2)','SA_div']]
-    find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['Stage']<3] # assuming thalweg burn-in is less than 3 meters
+    find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['Stage']<thal_stg_limit] # assuming thalweg burn-in is less than 3 meters
     find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['SA_div'].notnull()]
     find_thalweg_notch = find_thalweg_notch.loc[find_thalweg_notch.groupby('HydroID')['Stage'].idxmax()].reset_index(drop=True)
     ## Assign thalweg_burn_elev variable to the stage value found in previous step
@@ -39,7 +45,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
 
     ## Groupby HydroID and find min of Top Width Diff (m)
     output_bathy = modified_src_base[['feature_id','HydroID','order_','Stage','Thalweg_burn_elev','BANKFULL_WIDTH (m)','TopWidth (m)','XS Area (m2)','BANKFULL_XSEC_AREA (m2)','Top Width Diff (m)']]
-    ## filter stage = 0 rows in SRC
+    ## filter out stage = 0 rows in SRC (assuming geom at stage 0 is not a valid channel geom)
     output_bathy['Top Width Diff (m)'].mask(output_bathy['Stage']== 0,inplace=True)
     ## filter SRC rows identified as Thalweg burned
     output_bathy['Top Width Diff (m)'].mask(output_bathy['Stage'] <= output_bathy['Thalweg_burn_elev'],inplace=True)
@@ -59,10 +65,10 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     output_bathy['XS Bankfull Area Ratio'].mask((output_bathy['XS Area Diff (m2)']<0) | (output_bathy['XS Area (m2)'] == 0),inplace=True)
     ## masking negative XS Area Diff and XS Area = 0
     output_bathy['XS Area Diff (m2)'].mask((output_bathy['XS Area Diff (m2)']<0) | (output_bathy['XS Area (m2)'] == 0),inplace=True)
-    ## remove bogus values where bankfull area ratio > 10 (topwidth crosswalk issues or bad bankfull regression data points??)
-    output_bathy['XS Area Diff (m2)'].mask(output_bathy['XS Bankfull Area Ratio']>10,inplace=True)
-    ## remove bogus values where bankfull area ratio > 10 (topwidth crosswalk issues or bad bankfull regression data points??)
-    output_bathy['XS Bankfull Area Ratio'].mask(output_bathy['XS Bankfull Area Ratio']>10,inplace=True)
+    ## remove bogus values where bankfull area ratio > threshold --> 10x (topwidth crosswalk issues or bad bankfull regression data points??)
+    output_bathy['XS Area Diff (m2)'].mask(output_bathy['XS Bankfull Area Ratio']>bankful_xs_ratio_flag,inplace=True)
+    ## remove bogus values where bankfull area ratio > threshold --> 10x (topwidth crosswalk issues or bad bankfull regression data points??)
+    output_bathy['XS Bankfull Area Ratio'].mask(output_bathy['XS Bankfull Area Ratio']>bankful_xs_ratio_flag,inplace=True)
     ## Print XS Area Diff statistics
     print('Average: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].mean()))
     print('Minimum: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].min()))
@@ -100,8 +106,8 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
 
     ## Calculate the ratio btw the lookup SRC XS_Area and the Bankfull_XSEC_AREA --> use this as a flag for potentially bad XS data
     xs_area_hydroid_lookup['bankfull_XS_ratio_flag'] = (xs_area_hydroid_lookup['bathy_calc_xs_area'] / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'])
-    ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > 5x (assuming too large of difference to be a reliable bankfull calculation)
-    xs_area_hydroid_lookup['bathy_calc_xs_area'].mask((xs_area_hydroid_lookup['bankfull_XS_ratio_flag']>5),0,inplace=True)
+    ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > threshold --> 5x (assuming too large of difference to be a reliable bankfull calculation)
+    xs_area_hydroid_lookup['bathy_calc_xs_area'].mask((xs_area_hydroid_lookup['bankfull_XS_ratio_flag']>bathy_xsarea_flag),0,inplace=True)
 
     ## Merge bathy_calc_xs_area to the modified_src_base
     modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area']],how='left',on='HydroID')
@@ -114,7 +120,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['WetArea (m2)_bathy_adj']/modified_src_base['WettedPerimeter (m)']
     modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0, inplace=True)
     ## mask out negative top width differences (avoid thalweg burn notch)
-    modified_src_base['HydraulicRadius (m)_bathy_adj'].mask((modified_src_base['HydraulicRadius (m)_bathy_adj']>10) & (modified_src_base['Stage']<3),inplace=True)
+    modified_src_base['HydraulicRadius (m)_bathy_adj'].mask((modified_src_base['HydraulicRadius (m)_bathy_adj']>thal_hyd_radius_flag) & (modified_src_base['Stage']<thal_stg_limit),inplace=True)
     ## backfill NA values created is previous step
     modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0, inplace=True)
     #modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['HydraulicRadius (m)_bathy_adj'].bfill()
