@@ -5,8 +5,8 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
  Add more detail/information to plotting capabilities.
  ### Changes
- - Merge plot_functions.py into eval_plots.py and move eval_plots.py into the tools directory.
- - Remove plots subdirectory.
+ - Merge `plot_functions.py` into `eval_plots.py` and move `eval_plots.py` into the tools directory.
+ - Remove `plots` subdirectory.
 ### Additions
  - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots. 
