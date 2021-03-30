@@ -81,11 +81,12 @@ def get_all_active_usgs_sites():
     dictionary, gdf = aggregate_wbd_hucs(acceptable_sites_metadata, Path(WBD_LAYER), retain_attributes = False)
     #Get a list of all sites in gdf
     list_of_sites = gdf['identifiers_usgs_site_code'].to_list()
+    #Rename gdf fields
+    gdf.columns = gdf.columns.str.replace('identifiers_','')
 
     return gdf, list_of_sites, acceptable_sites_metadata
             
             
-
 def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     '''
     Returns rating curves, for a set of sites, adjusted to elevation NAVD. 
@@ -145,7 +146,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
             metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
     
     #Create DataFrame to store all appended rating curves
-    all_rating_curves = pd.DataFrame()    
+    all_rating_curves = pd.DataFrame()
+    missing_rating_curve = []    
     #For each site in metadata_list
     for metadata in metadata_list:
         #Get datum information for site (only need usgs_data)
@@ -176,15 +178,17 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
             #Append all rating curves to a dataframe
             all_rating_curves = all_rating_curves.append(curve)
         else:
+            missing_rating_curve.append(location_ids)
             print(f'{location_ids} has no rating curve')
             continue
+    missed_curves = pd.DataFrame(missing_rating_curve)
     #If workspace is specified, write data to file.
     if workspace:
         #Write rating curve dataframe to file
         output_csv = Path(workspace)/'usgs_rating_curves.csv'
         output_csv.parent.mkdir(parents = True, exist_ok = True)
         all_rating_curves.to_csv(output_csv, index = False)
-        
+        missed_curves.to_csv(output_csv.parent/'missed_curves.csv')
         #If 'all' option specified, write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:
             output_shapefile = Path(workspace) / 'sites.shp'
