@@ -11,6 +11,8 @@ import seaborn as sns
 from functools import reduce
 from multiprocessing import Pool
 from os.path import isfile, join, dirname
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
     Plot Rating Curves and Compare to USGS Gages
@@ -42,9 +44,9 @@ def generate_rating_curve_metrics(args):
     nwm_flow_dir                = args[6]
     huc                         = args[7]
 
-    elev_table = pd.read_csv(elev_table_filename)
-    hydrotable = pd.read_csv(hydrotable_filename)
-    usgs_gages = pd.read_csv(usgs_gages_filename)
+    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': str})
+    hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': str,'feature_id': str})
+    usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': str})
 
     # Join rating curves with elevation data
     hydrotable = hydrotable.merge(elev_table, on="HydroID")
@@ -55,21 +57,21 @@ def generate_rating_curve_metrics(args):
     if len(usgs_gages) > 0:
 
         # Adjust rating curve to elevation
-        hydrotable['elevation'] = (hydrotable.stage + hydrotable.dem_adj_elevation) * 3.28084 # convert from m to ft
+        hydrotable['elevation_ft'] = (hydrotable.stage + hydrotable.dem_adj_elevation) * 3.28084 # convert from m to ft
         # hydrotable['raw_elevation'] = (hydrotable.stage + hydrotable.dem_elevation) * 3.28084 # convert from m to ft
         hydrotable['discharge_cfs'] = hydrotable.discharge_cms * 35.3147
-        usgs_gages = usgs_gages.rename(columns={"flow": "discharge_cfs", "elevation_navd88": "elevation"})
+        usgs_gages = usgs_gages.rename(columns={"flow": "discharge_cfs", "elevation_navd88": "elevation_ft"})
 
         hydrotable['source'] = "FIM"
         usgs_gages['source'] = "USGS"
-        limited_hydrotable = hydrotable.filter(items=['location_id','elevation','discharge_cfs','source'])
-        select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation', 'discharge_cfs','source'])
+        limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
+        select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
 
         rating_curves = limited_hydrotable.append(select_usgs_gages)
 
         # Add stream order
-        stream_order = hydrotable.filter(items=['location_id','str_order']).drop_duplicates()
-        rating_curves = rating_curves.merge(stream_order, on='location_id')
+        stream_orders = hydrotable.filter(items=['location_id','str_order']).drop_duplicates()
+        rating_curves = rating_curves.merge(stream_orders, on='location_id')
         rating_curves['str_order'] = rating_curves['str_order'].astype('int')
 
         generate_facet_plot(rating_curves, rc_comparison_plot_filename)
@@ -106,6 +108,10 @@ def generate_rating_curve_metrics(args):
                 continue
 
             str_order = np.unique(usgs_rc.str_order).item()
+            try:
+                feature_id = str(gage.feature_id)
+            except:
+                print(f"huc: {huc}; gage: {gage.location_id}")
 
             usgs_pred_elev = get_reccur_intervals(usgs_rc, usgs_crosswalk,nwm_recurr_intervals_all)
 
@@ -133,22 +139,24 @@ def generate_rating_curve_metrics(args):
             usgs_pred_elev = usgs_pred_elev.merge(fim_pred_elev, on=['recurr_interval','discharge_cfs'])
 
             usgs_pred_elev['HUC'] = huc
+            usgs_pred_elev['HUC4'] = huc[0:4]
             usgs_pred_elev['str_order'] = str_order
+            usgs_pred_elev['feature_id'] = feature_id
 
-            usgs_pred_elev = pd.melt(usgs_pred_elev, id_vars=['location_id','recurr_interval','discharge_cfs','HUC','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation')
+            usgs_pred_elev = pd.melt(usgs_pred_elev, id_vars=['location_id','feature_id','recurr_interval','discharge_cfs','HUC','HUC4','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
             nwm_recurr_data_table = nwm_recurr_data_table.append(usgs_pred_elev)
 
             ## Interpolate FIM elevation at USGS observations
             # Sort stage in ascending order
-            usgs_rc = usgs_rc.rename(columns={"elevation": "USGS"})
+            usgs_rc = usgs_rc.rename(columns={"elevation_ft": "USGS"})
             usgs_rc = usgs_rc.sort_values('USGS',ascending=True)
             fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
 
-            usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation'], left = np.nan, right = np.nan)
+            usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation_ft'], left = np.nan, right = np.nan)
             usgs_rc = usgs_rc[usgs_rc['FIM'].notna()]
             usgs_rc = usgs_rc.drop(columns=["source"])
 
-            usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation')
+            usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
 
             if not usgs_rc.empty:
                 usgs_recurr_data = usgs_recurr_data.append(usgs_rc)
@@ -158,11 +166,13 @@ def generate_rating_curve_metrics(args):
             usgs_recurr_stats_table = calculate_rc_stats_elev(usgs_recurr_data)
             usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
 
-        # Generate plots
-        fim_elev_at_USGS_rc_plot_filename = join(dirname(rc_comparison_plot_filename),'FIM_elevations_at_USGS_rc_' + str(huc) +'.png')
-        generate_facet_plot(usgs_recurr_data, fim_elev_at_USGS_rc_plot_filename)
+        # Generate plots (not currently being used)
+        # fim_elev_at_USGS_rc_plot_filename = join(dirname(rc_comparison_plot_filename),'FIM_elevations_at_USGS_rc_' + str(huc) +'.png')
+        # generate_facet_plot(usgs_recurr_data, fim_elev_at_USGS_rc_plot_filename)
 
         if not nwm_recurr_data_table.empty:
+            nwm_recurr_data_table.discharge_cfs = np.round(nwm_recurr_data_table.discharge_cfs,2)
+            nwm_recurr_data_table.elevation_ft = np.round(nwm_recurr_data_table.elevation_ft,2)
             nwm_recurr_data_table.to_csv(nwm_recurr_data_filename,index=False)
 
     else:
@@ -204,18 +214,24 @@ def generate_facet_plot(rc, plot_filename):
     # Filter FIM elevation based on USGS data
     for gage in rc.location_id.unique():
 
-        min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation.min()
-        max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation.max()
+        min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.min()
+        max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.max()
 
-        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation > (max_elev + 2))].index)
-        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation < min_elev - 2)].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft > (max_elev + 2))].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2)].index)
 
     rc = rc.rename(columns={"location_id": "USGS Gage"})
 
     ## Generate rating curve plots
+    num_plots = len(rc["USGS Gage"].unique())
+    if num_plots > 3:
+        columns = num_plots // 3
+    else:
+        columns = 1
+
     sns.set(style="ticks")
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source",sharex=False, sharey=False,col_wrap=3)
-    g.map(sns.scatterplot, "discharge_cfs", "elevation", palette="tab20c", marker="o")
+    g = sns.FacetGrid(rc, col="USGS Gage", hue="source",sharex=False, sharey=False,col_wrap=columns)
+    g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     # Adjust the arrangement of the plots
@@ -234,7 +250,7 @@ def get_reccur_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
     if nwm_ids > 0:
 
         nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[nwm_recurr_intervals.feature_id==usgs_site.feature_id.drop_duplicates().item()]
-        nwm_recurr_intervals['pred_elev'] = np.interp(nwm_recurr_intervals.discharge_cfs.values, usgs_site['discharge_cfs'], usgs_site['elevation'], left = np.nan, right = np.nan)
+        nwm_recurr_intervals['pred_elev'] = np.interp(nwm_recurr_intervals.discharge_cfs.values, usgs_site['discharge_cfs'], usgs_site['elevation_ft'], left = np.nan, right = np.nan)
 
         return nwm_recurr_intervals
 
@@ -249,12 +265,12 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
 
     # Collect any extra columns not associated with melt
     col_index = list(rc.columns)
-    pivot_vars = ['source','elevation']
+    pivot_vars = ['source','elevation_ft']
     col_index = [col for col in col_index if col not in pivot_vars]
 
     # Unmelt elevation/source
     rc_unmelt = (rc.set_index(col_index)
-        .pivot(columns="source")['elevation']
+        .pivot(columns="source")['elevation_ft']
         .reset_index()
         .rename_axis(None, axis=1)
      )
@@ -284,22 +300,22 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
         .reset_index(stat_groups, drop = False).rename({0: "y_min"}, axis=1)
 
     # Collect variables for NRMSE
-    NRMSE_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [sum_y_diff, n, y_max, y_min])
-    NRMSE_table_group = NRMSE_table.groupby(stat_groups)
+    nrmse_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [sum_y_diff, n, y_max, y_min])
+    nrmse_table_group = nrmse_table.groupby(stat_groups)
 
-    # Calculate NRMSE
-    NRMSE = NRMSE_table_group.apply(lambda x: ((x['sum_y_diff'] / x['n']) ** 0.5)/x['y_max'] - x['y_min'])\
-        .reset_index(stat_groups, drop = False).rename({0: "NRMSE"}, axis=1)
+    # Calculate nrmse
+    nrmse = nrmse_table_group.apply(lambda x: ((x['sum_y_diff'] / x['n']) ** 0.5)/x['y_max'] - x['y_min'])\
+        .reset_index(stat_groups, drop = False).rename({0: "nrmse"}, axis=1)
 
     # Calculate Mean Absolute Depth Difference
     mean_abs_y_diff = station_rc.apply(lambda x: abs(x["yhat_minus_y"]).mean())\
-        .reset_index(stat_groups, drop = False).rename({0: "mean_abs_y_diff"}, axis=1)
+        .reset_index(stat_groups, drop = False).rename({0: "mean_abs_y_diff_ft"}, axis=1)
 
     # Calculate Percent Bias
     percent_bias = station_rc.apply(lambda x: 100 * (x["yhat_minus_y"].sum()/x[usgs_elev].sum()))\
         .reset_index(stat_groups, drop = False).rename({0: "percent_bias"}, axis=1)
 
-    rc_stat_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [NRMSE, mean_abs_y_diff, percent_bias])
+    rc_stat_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [nrmse, mean_abs_y_diff, percent_bias])
 
 
     return rc_stat_table
@@ -326,14 +342,15 @@ if __name__ == '__main__':
 
     huc_list  = os.listdir(output_dir)
     for huc in huc_list:
-        elev_table_filename = join(output_dir,huc,'usgs_elev_table.csv')
-        hydrotable_filename = join(output_dir,huc,'hydroTable.csv')
-        usgs_recurr_stats_filename = join(output_dir,huc,'usgs_interpolated_elevation_stats.csv')
-        nwm_recurr_data_filename = join(output_dir,huc,'nwm_recurrence_flow_elevations.csv')
-        rc_comparison_plot_filename = join(output_dir,huc,'FIM-USGS_rating_curve_comparison.png')
+        if huc != 'logs':
+            elev_table_filename = join(output_dir,huc,'usgs_elev_table.csv')
+            hydrotable_filename = join(output_dir,huc,'hydroTable.csv')
+            usgs_recurr_stats_filename = join(output_dir,huc,'usgs_interpolated_elevation_stats.csv')
+            nwm_recurr_data_filename = join(output_dir,huc,'nwm_recurrence_flow_elevations.csv')
+            rc_comparison_plot_filename = join(output_dir,huc,'FIM-USGS_rating_curve_comparison.png')
 
-        if isfile(elev_table_filename):
-            procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir,huc])
+            if isfile(elev_table_filename):
+                procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir,huc])
 
     # Initiate multiprocessing
     print(f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs")

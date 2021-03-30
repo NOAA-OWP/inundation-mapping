@@ -39,20 +39,22 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     input_catchment = gpd.read_file(input_catchment_filename)
     dem_adj = rasterio.open(dem_adj_filename,'r')
 
+    if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+
     # Identify closest HydroID
     closest_catchment = gpd.sjoin(usgs_gages, input_catchment, how='left', op='within').reset_index(drop=True)
     closest_hydro_id = closest_catchment.filter(items=['site_no','HydroID','min_thal_elev','med_thal_elev','max_thal_elev', 'order_'])
+    closest_hydro_id = closest_hydro_id.dropna()
 
-    if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+    # Get USGS gages that are within catchment boundaries
+    usgs_gages = usgs_gages.loc[usgs_gages.site_no.isin(list(closest_hydro_id.site_no))]
 
     columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order']
     gage_data = []
 
     # Move USGS gage to stream
     for index, gage in usgs_gages.iterrows():
-
         print (f"usgs gage: {gage.site_no}")
-
         # Get stream attributes
         hydro_id = closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].HydroID.item()
         str_order = str(int(closest_hydro_id.loc[closest_hydro_id.site_no==gage.site_no].order_.item()))
@@ -89,7 +91,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
             dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,shply_referenced_gage.coords))[0].item(),2)
 
             # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
-            site_elevations = [gage.site_no, hydro_id, dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str_order]
+            site_elevations = [str(gage.site_no), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order)]
             gage_data.append(site_elevations)
 
 
