@@ -103,6 +103,13 @@ do
     #[ "$current_branch_id" -ne "15080120" ] && continue
     echo -e $startDiv$startDiv"Processing branch_id: $current_branch_id in HUC: $hucNumber ..."$stopDiv$stopDiv
 
+    ## SPLIT DERIVED REACHES ##
+    echo -e $startDiv"Split Derived Reaches $hucNumber"$stopDiv
+    date -u
+    Tstart
+    $srcDir/split_flows.py $outputDataDir/demDerived_reaches_levelPaths_dissolved_$current_branch_id.gpkg $outputDataDir/dem_thalwegCond_$current_branch_id.tif $outputDataDir/demDerived_reaches_split_$current_branch_id.gpkg $outputDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg $inputDataDir/wbd8_clp.gpkg $inputDataDir/nwm_lakes_proj_subset.gpkg
+    Tcount
+
     ## GAGE WATERSHED FOR PIXELS ##
     echo -e $startDiv"Gage Watershed for Pixels for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
@@ -114,7 +121,7 @@ do
     echo -e $startDiv"Gage Watershed for Reaches for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_$current_branch_id.tif -gw $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -o $outputDataDir/demDerived_reaches_points_$current_branch_id.gpkg -id $outputDataDir/idFile_$current_branch_id.txt
+    mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputDataDir/flowdir_$current_branch_id.tif -gw $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -o $outputDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -id $outputDataDir/idFile_$current_branch_id.txt
     Tcount
 
     # D8 REM ##

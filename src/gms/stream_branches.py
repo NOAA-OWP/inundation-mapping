@@ -9,6 +9,8 @@ from fiona.errors import DriverError
 from collections import deque
 import numpy as np
 from tqdm import tqdm
+from shapely.ops import linemerge
+from shapely.geometry import MultiLineString
 
 class StreamNetwork(gpd.GeoDataFrame):
 
@@ -313,6 +315,11 @@ class StreamNetwork(gpd.GeoDataFrame):
         self['bids_temp'] = self.loc[:,branch_id_attribute].copy()
         self = self.dissolve(by=branch_id_attribute)
         self.rename(columns={'bids_temp' : branch_id_attribute},inplace=True)
+        
+        # merges each multi-line string to a sigular linestring
+        for lpid,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose)):
+            if isinstance(row.geometry,MultiLineString):
+                self.loc[lpid,'geometry'] = linemerge(self.loc[lpid,'geometry'])
         
         #self[branch_id_attribute] = bids
         self = StreamNetwork(self,branch_id_attribute=branch_id_attribute,

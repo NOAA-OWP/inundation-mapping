@@ -20,6 +20,7 @@
 - parameterize branch buffer distance by stream order
 - why using filtered reaches causes issues? HydroIDs not present in boths polygons and reach vectors
 - add compatibility for new rem.py
+- do re-split reaches have unique ID's or does that not matter
 
 # FIM 3 To Do for GMS
 - rem.py is current bottleneck. Optimize
