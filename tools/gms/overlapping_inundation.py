@@ -10,6 +10,8 @@ from scipy.optimize import newton
 from threading import Lock
 import concurrent.futures
 from numba import njit
+import geopandas as gpd
+from rasterio.mask import mask
 
 
 class OverlapWindowMerge:
@@ -82,10 +84,6 @@ class OverlapWindowMerge:
         """
         Get transform, width, height, and bbox of final dataset
 
-        :param x: float of compare
-        :param v: float representing min bound
-        :param z: float representing max bound
-        :param y: float representing resolution
         :return: Affine transform, int width, int height, dict bounds
         """
 
@@ -247,6 +245,9 @@ class OverlapWindowMerge:
             bnds.append(bnd)
 
             # Read raster data with window
+            read_data = self.depth_rsts[ds].read(1, window=bnd).astype(np.float32)
+            # Convert all no data to nan values
+            read_data[read_data == self.depth_rsts[ds].meta['nodata']] = np.nan
             data.append(self.depth_rsts[ds].read(1, window=bnd).astype(np.float32))
             del bnd
 
@@ -260,7 +261,7 @@ class OverlapWindowMerge:
 
         return [final_bnds, bnds, data]
 
-    def merge_rasters(self, out_fname, nodata=-2147483647, threaded=False, workers=4):
+    def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4):
         """
         Merge multiple raster datasets
 
@@ -286,24 +287,16 @@ class OverlapWindowMerge:
                 else:
                     data_dict[win_idx] = [idx]
 
-#        def agg_function(array,nodata,axis):
- #           value = np.max(array,axis=axis)
-            
-            #indices_no_data = value == nodata
-  #              value = np.min(array,axis=0)
-   #         return(value)
-        
         agg_function = partial(np.nanmax, axis=0)
-        #agg_function = partial(np.ma.MaskedArray.max, axis=0)
-        #agg_function = partial(agg_function, nodata=nodata,axis=0)
 
         meta = self.depth_rsts[0].meta
 
         meta.update(transform=self.proc_unit_transform,
                     width=self.proc_unit_width,
                     height=self.proc_unit_height,
-                    nodata=nodata,
-                    dtype=rasterio.int32)
+                    nodata=nodata,blockxsize=256,
+                    blockysize=256, tiled=True,
+                    compress='lzw')
 
         final_windows, data_windows, data = [], [], []
         for key, val in data_dict.items():
@@ -348,6 +341,38 @@ class OverlapWindowMerge:
                                  data_dict.values()
                                  )
 
+    def mask_mosaic(self,mosaic,polys,polys_layer=None,outfile=None):
+        
+        #rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)
+        
+        # input rem
+        if isinstance(mosaic,str):
+            mosaic = rasterio.open(mosaic)
+        elif isinstance(mosaic,rasterio.DatasetReader):
+            pass
+        else:
+            raise TypeError("Pass rasterio dataset or filepath for mosaic")
+
+        if isinstance(polys,str):
+            polys=gpd.read_file(polys,layer=polys_layer)
+        elif isinstance(polys,gpd.GeoDataFrame):
+            pass
+        else:
+            raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
+
+        #fossid = huc['properties']['fossid']
+        #if polys.HydroID.dtype != 'str': polys.HydroID = polys.HydroID.astype(str)
+        #polys=polys[polys.HydroID.str.startswith(fossid)]
+        mosaic_array, window_transform = mask(mosaic,polys['geometry'],crop=True,indexes=1)
+        
+        if outfile:
+            out_profile = mosaic.profile
+            out_profile.update(height=mosaic_array.shape[0],width=mosaic_array.shape[1],
+                                      transform = window_transform, driver= 'GTiff',
+                                      blockxsize=256, blockysize=256, tiled=True, compress='lzw')
+
+            with rasterio.open(outfile,'w',**out_profile) as otfi:
+                otfi.write(mosaic_array,indexes=1)
 
 # Quasi multi write
 # Throughput achieved assuming processing time is not identical between windows
@@ -378,12 +403,13 @@ def merge_data(rst_data,
     :param nodata: nodata of final output
     :param rst_dims: dimensions of overlapping rasters
     """
-    
+
     nodata = np.array([nodata]).astype(dtype)[0]
     window_data = np.tile(float(nodata), [int(final_window.height), int(final_window.width)])
-    
+
     for data, bnds, idx in zip(rst_data, window_bnds, datasets):
         # Get indices to apply to base
+
         col_slice = slice(int(np.max([0,
                                       np.ceil(bnds.col_off * -1)])),
                           int(np.min([bnds.width,
@@ -395,20 +421,17 @@ def merge_data(rst_data,
                                       rst_dims[idx][0] - bnds.row_off])))
 
         # Assign the data to the base array with aggregate function
-        #merge = np.ma.masked_equal(np.stack([window_data[row_slice,col_slice],data], axis=0),
-        #                           nodata)
-        #np.ma.set_fill_value(merge,nodata)
-        merge = np.stack([window_data[row_slice,col_slice],data], axis=0)
-        merge[merge == nodata] = np.nan
+        merge = [window_data[row_slice,
+                                   col_slice],
+                    data]
 
         del data
-        wd = agg_function(merge)
-        window_data[row_slice, col_slice] = wd
+        window_data[row_slice, col_slice] = agg_function(merge)
+        window_data[np.isnan(window_data)] = nodata
         del merge
-        
+
     del rst_data, window_bnds, datasets
-    window_data[np.isnan(window_data)] = nodata
-    window_data = window_data.astype(dtype)
+
     with lock:
         rst.write_band(1, window_data.astype(dtype), window=final_window)
     del window_data
@@ -417,6 +440,7 @@ def merge_data(rst_data,
 if __name__ == '__main__':
     import time
     # import tracemalloc
+    import glob
 
     # print('start', time.localtime())
     # project_path = r'../documentation/data'
@@ -430,12 +454,22 @@ if __name__ == '__main__':
 
     # tracemalloc.start()
     print('start', time.localtime())
-    project_path = r'../documentation/data'
-    overlap = OverlapWindowMerge([project_path + '/rnr_inundation_031403_2020092000.tif',
-                                  project_path + '/nwm_resampled.tif'
-                                 ],
-                                 (30, 30))
-    overlap.merge_rasters(project_path + '/merged_final5.tif', threaded=True, workers=4)
+    # project_path = r'../documentation/data'
+    # project_path = '*/mosaicing_data/1_fr_ms_composite'
+    # overlap = OverlapWindowMerge([project_path + '/inundation_extent_12090301_FR.tif',
+    #                               project_path + '/inundation_extent_12090301_MS.tif'
+    #                              ],
+    #                              (30, 30))
+    # overlap.merge_rasters(project_path + '/merged_final5.tif', threaded=True, workers=4, nodata=0)
+
+    # tracemalloc.start()
+    print('start', time.localtime())
+    # project_path = r'../documentation/data'
+    # project_path = '*/mosaicing_data/2_gms'
+    # a = glob.glob(project_path + '/inundation*.tif')
+    # overlap = OverlapWindowMerge(a,
+    #                              (30, 30))
+    # overlap.merge_rasters(project_path + '/merged_final5.tif', threaded=True, workers=4, nodata=-2e9)
     # current, peak = tracemalloc.get_traced_memory()
     # print(f"Current memory usage is {current / 10 ** 6}MB; Peak was {peak / 10 ** 6}MB")
     # tracemalloc.stop()

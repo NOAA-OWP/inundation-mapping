@@ -153,7 +153,8 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                                  quiet=False
                                 )
                     
-                    Mosaic_gms_inundation(version_test_case_dir,mosaic=predicted_raster_path)
+                    Mosaic_gms_inundation(version_test_case_dir,
+                                          mosaic=predicted_raster_path,mask=catchment_poly)
                 
                 else:
                     inundate(
@@ -170,6 +171,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                     # Mainstems inundation
                     fim_run_parent_ms = '20210318_665f534_MS_calibrated/12090301'
                     # need new file paths for rem, catchments, catchment_poly?, hydro_table, inundation_raster
+                    
                     rem_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'rem_zeroed_masked.tif')
                     catchments_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'gw_catchments_reaches_filtered_addedAttributes.tif')
                     catchment_poly_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
@@ -194,7 +196,8 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                         )
                     os.rename(predicted_raster_path,inundation_raster_ms)
                     
-                    Mosaic_gms_inundation(version_test_case_dir,mosaic=predicted_raster_path,nodata=0)
+                    Mosaic_gms_inundation(version_test_case_dir,mosaic=predicted_raster_path,
+                                          nodata=0,mask=catchment_poly)
 
                 print("-----> Inundation mapping complete.")
 
