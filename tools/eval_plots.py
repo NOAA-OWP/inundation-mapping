@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
+import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import VIZ_PROJECTION
 from dotenv import load_dotenv
@@ -629,21 +630,24 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         
         '''
         ###############################################################
-        #If user wants to append information such as what maps or flows were used for evaluation.
+        #If user wants to append information such as what maps or flows were used for evaluation. This is already tested.
         #User must supply the extent layer generated from preprocessing NWS/USGS datasets.
+        ###############################################################
         #Read extent layer to GeoDataFrame and drop the geometry column
         evaluated_ahps_extent = gpd.read_file(/Path/to/extent/layer/generated/during/preprocessing)        
         evaluated_ahps_extent.drop(columns = ['geometry'], inplace = True)
-        #Re-arrange dataset to get flows
-        flows = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action_Q','minor_Q','moderate_Q','major_Q'], var_name = 'category', value_name = 'eval_Q')
-        flows['category'] = flows['category'].str.split('_', 1, expand = True)
-        #Re-arrange dataset to get maps
-        maps = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action','minor','moderate','major'], var_name = 'category', value_name = 'eval_maps')
+        #Re-arrange dataset to get flows used for evaluation
+        flows = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action_Q','minor_Q','moderate_Q','major_Q'], var_name = 'magnitude', value_name = 'eval_Q')
+        flows['magnitude'] = flows['magnitude'].str.split('_', 1, expand = True)
+        #Re-arrange dataset to get maps used for evaluation
+        maps = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action','minor','moderate','major'], var_name = 'magnitude', value_name = 'eval_maps')
         maps['eval_maps'] = maps['eval_maps'].str.split('\\').str[-1]
         #Merge flows and maps into single DataFrame
-        flows_maps = pd.merge(flows,maps, how = 'left', left_on = ['nws_lid','source','category'], right_on = ['nws_lid','source','category'])        
+        flows_maps = pd.merge(flows,maps, how = 'left', left_on = ['nws_lid','source','magnitude'], right_on = ['nws_lid','source','magnitude'])        
         # combine flows_maps to spatial layer (gdf)
-        joined = joined.merge(flows_maps, on = 'nws_lid')
+        joined = joined.merge(flows_maps, left_on = ['nws_lid','magnitude','source'], right_on = ['nws_lid','magnitude','source'])
+        #Write to file
+        joined.to_file(Path(workspace)/'fim_performance_points.shp')
         '''
         ################################################################
         #This section joins ble (FR) metrics to a spatial layer of HUCs.
