@@ -10,6 +10,14 @@ import seaborn as sns
 import re
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import VIZ_PROJECTION
+from dotenv import load_dotenv
+from tools_shared_functions import aggregate_wbd_hucs, get_metadata
+
+#Get variables from .env file.
+load_dotenv()
+WBD_LAYER = os.getenv("WBD_LAYER")
+API_BASE_URL = os.getenv("API_BASE_URL")
+
 #########################################################################
 #Create boxplot
 #########################################################################
@@ -328,7 +336,7 @@ def filter_dataframe(dataframe, unique_field):
 ##############################################################################
 #Main function to analyze metric csv.
 ##############################################################################
-def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False, fim_1_ms = False, site_barplots = False):
+def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial = False, fim_1_ms = False, site_barplots = False):
 
     '''
     Creates plots and summary statistics using metrics compiled from
@@ -590,65 +598,65 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         ###############################################################
         #This section will join ahps metrics to a spatial point layer
         ###############################################################
-        # Read in supplied shapefile layers
-        # Layer containing metadata for each site (feature_id, wfo, etc)
-        # Convert nws_lid to lower case
-        ahps_metadata = gpd.read_file(spatial_ahps['metadata'])
-        ahps_metadata['nws_lid'] = ahps_metadata['nws_lid'].str.lower()
-        metadata_crs = ahps_metadata.crs
-
-        # Extent layer generated from preprocessing NWS/USGS datasets
-        evaluated_ahps_extent = gpd.read_file(spatial_ahps['evaluated'])
-
-        # Extent layer generated from static ahps library preprocessing
-        static_library = gpd.read_file(spatial_ahps['static'])
-
-        # Fields to keep
-        # Get list of fields to keep in merge
-        preserved_static_library_fields = ['nws_lid'] + [i for i in static_library.columns if i.startswith(('Q','S'))]
-        # Get list of fields to keep in merge
-        preserved_evaluated_ahps_fields = ['nws_lid', 'source', 'geometry'] + [i for i in evaluated_ahps_extent.columns if i.startswith(('action','minor','moderate','major'))]
-
-        # Join tables to evaluated_ahps_extent
-        evaluated_ahps_extent = evaluated_ahps_extent[preserved_evaluated_ahps_fields]
-        evaluated_ahps_extent = evaluated_ahps_extent.merge(ahps_metadata, on = 'nws_lid')
-        evaluated_ahps_extent['geometry'] = evaluated_ahps_extent['geometry_y']
-        evaluated_ahps_extent.drop(columns = ['geometry_y','geometry_x'], inplace = True)
-        evaluated_ahps_extent = evaluated_ahps_extent.merge(static_library[preserved_static_library_fields], on = 'nws_lid')
-
-        # Join dataset metrics to evaluated_ahps_extent data
-        final_join = pd.DataFrame()
-        for (dataset_name, configuration), (dataset, sites) in all_datasets.items():
-            # Only select ahps from dataset if config is MS
-            if dataset_name in ['usgs','nws'] and configuration == 'MS':
-                # Select records from evaluated_ahps_extent that match the dataset name
-                subset = evaluated_ahps_extent.query(f'source == "{dataset_name}"')
-                # Join to dataset
-                dataset_with_subset = dataset.merge(subset, on = 'nws_lid')
-                # Append rows to final_join dataframe
-                final_join = final_join.append(dataset_with_subset)
-
-        # Modify version field
-        final_join['version'] = final_join.version.str.split('_nws|_usgs').str[0]
-
-        # Create geodataframe
-        gdf = gpd.GeoDataFrame(final_join, geometry = final_join['geometry'], crs = metadata_crs)
-        #Convert to VIZ crs
-        gdf = gdf.to_crs(VIZ_PROJECTION)
-        #Write to file
-        gdf.to_file(Path(workspace) / 'fim_performance_points.shp')
-
+        
+        #Get point data for ahps sites
+        #Get metrics for usgs and nws benchmark sources
+        usgs_dataset,sites = all_datasets.get(('usgs','MS'))
+        nws_dataset, sites = all_datasets.get(('nws','MS'))
+        #Append usgs/nws dataframes and filter unnecessary columns and rename remaining.
+        all_ahps_datasets = usgs_dataset.append(nws_dataset)
+        all_ahps_datasets = all_ahps_datasets.filter(['huc','nws_lid','version','magnitude','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source'])
+        all_ahps_datasets.rename(columns = {'benchmark_source':'source'}, inplace = True)
+        
+        #Get spatial data from WRDS
+        #Get metadata from WRDS API
+        select_by = 'nws_lid'
+        selector = list(all_ahps_datasets.nws_lid.unique())
+        metadata_url = f'{API_BASE_URL}/metadata'
+        metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector)
+        #Create geospatial data from WRDS output
+        dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes = True)
+        #Trim out unecessary columns and rename remaining columns
+        gdf = gdf.filter(['identifiers_nws_lid', 'nws_data_name', 'identifiers_nwm_feature_id','nws_data_wfo','nws_data_state','nws_data_county','geometry'])
+        gdf.rename(columns = {'identifiers_nws_lid':'nws_lid', 'nws_data_name':'lid_name','identifiers_nwm_feature_id':'feature_id','nws_data_wfo':'wfo','nws_data_state':'state','nws_data_county':'county','HUC8':'huc8'}, inplace = True)
+        
+        #Join spatial data to metric data        
+        gdf['nws_lid'] = gdf['nws_lid'].str.lower()        
+        joined = gdf.merge(all_ahps_datasets, on = 'nws_lid')
+        #Project to VIZ projection and write to file
+        joined = joined.to_crs(VIZ_PROJECTION)
+        joined.to_file(Path(workspace) / 'fim_performance_points.shp')
+        
+        '''
+        ###############################################################
+        #If user wants to append information such as what maps or flows were used for evaluation.
+        #User must supply the extent layer generated from preprocessing NWS/USGS datasets.
+        #Read extent layer to GeoDataFrame and drop the geometry column
+        evaluated_ahps_extent = gpd.read_file(/Path/to/extent/layer/generated/during/preprocessing)        
+        evaluated_ahps_extent.drop(columns = ['geometry'], inplace = True)
+        #Re-arrange dataset to get flows
+        flows = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action_Q','minor_Q','moderate_Q','major_Q'], var_name = 'category', value_name = 'eval_Q')
+        flows['category'] = flows['category'].str.split('_', 1, expand = True)
+        #Re-arrange dataset to get maps
+        maps = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action','minor','moderate','major'], var_name = 'category', value_name = 'eval_maps')
+        maps['eval_maps'] = maps['eval_maps'].str.split('\\').str[-1]
+        #Merge flows and maps into single DataFrame
+        flows_maps = pd.merge(flows,maps, how = 'left', left_on = ['nws_lid','source','category'], right_on = ['nws_lid','source','category'])        
+        # combine flows_maps to spatial layer (gdf)
+        gdf_merged = gdf.merge(flows_maps, on = 'nws_lid')
+        '''
         ################################################################
         #This section joins ble (FR) metrics to a spatial layer of HUCs.
         ################################################################
         #Read in HUC spatial layer
         wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')
         #Select BLE, FR dataset.
-        dataset, sites = all_datasets.get(('ble','FR'))              
+        ble_dataset, sites = all_datasets.get(('ble','FR'))              
         #Join metrics to HUC spatial layer
-        wbd_with_metrics = wbd_gdf.merge(dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
+        wbd_with_metrics = wbd_gdf.merge(ble_dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
         #Filter out unnecessary columns
         wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
+        wbd_with_metrics.rename(columns = {'benchmark_source':'source'}, inplace = True )
         #Project to VIZ projection
         wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
         #Write out to file
@@ -664,7 +672,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
     parser.add_argument('-s', '--stats', help = 'List of statistics (abbrev to 3 letters) to be plotted/aggregated', nargs = '+', default = ['CSI','TPR','FAR'], required = False)
     parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
-    parser.add_argument('-sp', '--spatial_ahps', help = 'If spatial point layer is desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
+    parser.add_argument('-sp', '--spatial', help = 'If spatial layers are desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
     parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
     parser.add_argument('-i', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
     
@@ -674,21 +682,21 @@ if __name__ == '__main__':
     # If errors occur reassign error to True
     error = False
     # Create dictionary if file specified for spatial_ahps
-    if args['spatial_ahps']:
+    if args['spatial']:
         # Create dictionary
         spatial_dict = {}
-        with open(args['spatial_ahps']) as file:
+        with open(args['spatial']) as file:
             for line in file:
                 key, value = line.strip('\n').split(',')
                 spatial_dict[key] = Path(value)
-        args['spatial_ahps'] = spatial_dict
+        args['spatial'] = spatial_dict
         # Check that all required keys are present and overwrite args with spatial_dict
         required_keys = set(['metadata', 'evaluated', 'static'])
         if required_keys - spatial_dict.keys():
           print('\n Required keys are: metadata, evaluated, static')
           error = True
         else:
-            args['spatial_ahps'] = spatial_dict
+            args['spatial'] = spatial_dict
 
 
     # Finalize Variables
@@ -697,10 +705,10 @@ if __name__ == '__main__':
     v = args['versions']
     s = args['stats']
     q = args['alternate_ahps_query']
-    sp= args['spatial_ahps']
+    sp= args['spatial']
     f = args['fim_1_ms']
     i = args['site_plots']
 
     # Run eval_plots function
     if not error:
-        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial_ahps = sp, fim_1_ms = f, site_barplots = i)
+        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial = sp, fim_1_ms = f, site_barplots = i)
