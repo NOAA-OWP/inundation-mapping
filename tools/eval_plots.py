@@ -677,7 +677,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
     parser.add_argument('-s', '--stats', help = 'List of statistics (abbrev to 3 letters) to be plotted/aggregated', nargs = '+', default = ['CSI','TPR','FAR'], required = False)
     parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
-    parser.add_argument('-sp', '--spatial', help = 'If enabled, creates spatial layers with metrics populated in attribute table.', default = False, required = False)
+    parser.add_argument('-sp', '--spatial', help = 'If enabled, creates spatial layers with metrics populated in attribute table.', action = 'store_true', required = False)
     parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
     parser.add_argument('-i', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
     
