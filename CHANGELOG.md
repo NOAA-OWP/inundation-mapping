@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v3.0.14.0 - 2021-03-26 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
+
+ Fix spatial option when creating plots
+ ### Changes
+ - Remove required file dependencies from spatial option. Does require the WBD layer which should be specified in .env file. 
+ - Produces outputs in a format consistent with requirements needed for publishing.
+### Additions
+ - Creates 2 shapefiles:
+ - fim_performance_points.shp -- This layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
+ - fim_performance_polys.shp -- This layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
+<br/><br/>
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
 
  Add more detail/information to plotting capabilities.
