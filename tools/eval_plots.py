@@ -8,6 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
+sys.path.append('/foss_fim/src')
+from utils.shared_variables import VIZ_PROJECTION
 #########################################################################
 #Create boxplot
 #########################################################################
@@ -426,7 +428,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     '''
 
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
-    csv_df = pd.read_csv(metrics_csv)
+    csv_df = pd.read_csv(metrics_csv, dtype = {'huc':str})
 
     # fim_1_ms flag enables FIM 1 to be shown on MS plots/stats
     if fim_1_ms:
@@ -584,8 +586,10 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     #######################################################################
     #Create spatial layers with threshold and mapping information
     ########################################################################
-    if spatial_ahps:
-
+    if spatial:
+        ###############################################################
+        #This section will join ahps metrics to a spatial point layer
+        ###############################################################
         # Read in supplied shapefile layers
         # Layer containing metadata for each site (feature_id, wfo, etc)
         # Convert nws_lid to lower case
@@ -627,12 +631,29 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         # Modify version field
         final_join['version'] = final_join.version.str.split('_nws|_usgs').str[0]
 
-        # Write geodataframe to file
+        # Create geodataframe
         gdf = gpd.GeoDataFrame(final_join, geometry = final_join['geometry'], crs = metadata_crs)
-        output_shapefile = Path(workspace) / 'nws_usgs_site_info.shp'
-        gdf.to_file(output_shapefile)
+        #Convert to VIZ crs
+        gdf = gdf.to_crs(VIZ_PROJECTION)
+        #Write to file
+        gdf.to_file(Path(workspace) / 'fim_performance_points.shp')
 
-
+        ################################################################
+        #This section joins ble (FR) metrics to a spatial layer of HUCs.
+        ################################################################
+        #Read in HUC spatial layer
+        wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')
+        #Select BLE, FR dataset.
+        dataset, sites = all_datasets.get(('ble','FR'))              
+        #Join metrics to HUC spatial layer
+        wbd_with_metrics = wbd_gdf.merge(dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
+        #Filter out unnecessary columns
+        wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
+        #Project to VIZ projection
+        wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
+        #Write out to file
+        wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
+        
 
 #######################################################################
 if __name__ == '__main__':
