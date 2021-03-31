@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
+
+ Add more detail/information to plotting capabilities.
+ ### Changes
+ - Merge `plot_functions.py` into `eval_plots.py` and move `eval_plots.py` into the tools directory.
+ - Remove `plots` subdirectory.
+### Additions
+ - Optional argument to create barplots of CSI for each individual site.
+ - Create a csv containing the data used to create the scatterplots. 
+<br/><br/>
+
 ## v3.0.11.0 - 2021-03-22 - [PR #319](https://github.com/NOAA-OWP/cahaba/pull/298)
 
  Improvements to CatFIM service source data generation.
