@@ -58,21 +58,21 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     nhd_streams = gpd.read_file(nhd_streams_filename, mask = wbd_buffer)
 
     ## identify local headwater stream segments
-    nhd_streams_subset = gpd.read_file(nhd_streams_filename, mask = wbd)
-    nhd_streams_subset = nhd_streams_subset.loc[~nhd_streams_subset.FromNode.isin(list(set(nhd_streams_subset.ToNode) & set(nhd_streams_subset.FromNode)))]
-    nhd_streams_subset = nhd_streams_subset[~nhd_streams_subset['is_headwater']]
-
-    if not nhd_streams_subset.empty:
-        nhd_streams_subset = nhd_streams_subset.reset_index(drop=True)
-        start_coords = []
-        NHDPlusIDs = []
-        for index, linestring in enumerate(nhd_streams_subset.geometry):
-            start_coords = start_coords + [linestring.coords[-1]]
-            NHDPlusIDs = NHDPlusIDs + [nhd_streams_subset.iloc[index].NHDPlusID]
-
-        start_geoms = [Point(point) for point in start_coords]
-        local_headwaters = gpd.GeoDataFrame({'NHDPlusID': NHDPlusIDs,'geometry': start_geoms}, crs=projection, geometry='geometry')
-        nhd_headwaters = nhd_headwaters.append(local_headwaters)
+    # nhd_streams_subset = gpd.read_file(nhd_streams_filename, mask = wbd)
+    # nhd_streams_subset = nhd_streams_subset.loc[~nhd_streams_subset.FromNode.isin(list(set(nhd_streams_subset.ToNode) & set(nhd_streams_subset.FromNode)))]
+    # nhd_streams_subset = nhd_streams_subset[~nhd_streams_subset['is_headwater']]
+    #
+    # if not nhd_streams_subset.empty:
+    #     nhd_streams_subset = nhd_streams_subset.reset_index(drop=True)
+    #     start_coords = []
+    #     NHDPlusIDs = []
+    #     for index, linestring in enumerate(nhd_streams_subset.geometry):
+    #         start_coords = start_coords + [linestring.coords[-1]]
+    #         NHDPlusIDs = NHDPlusIDs + [nhd_streams_subset.iloc[index].NHDPlusID]
+    #
+    #     start_geoms = [Point(point) for point in start_coords]
+    #     local_headwaters = gpd.GeoDataFrame({'NHDPlusID': NHDPlusIDs,'geometry': start_geoms}, crs=projection, geometry='geometry')
+    #     nhd_headwaters = nhd_headwaters.append(local_headwaters)
 
         # nhd_streams = nhd_streams.loc[~nhd_streams.NHDPlusID.isin(NHDPlusIDs)]
 

@@ -15,7 +15,7 @@ from utils.shared_functions import getDriver
 
 def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
 
-    # identify true headwater segments
+    # Identify true headwater segments
     if nhd_streams['headwaters_id'].dtype=='int':
         nhd_streams_adj = nhd_streams.loc[(nhd_streams.headwaters_id > 0) & (nhd_streams.downstream_of_headwater == False),:].copy()
         if headwaters[headwater_id].dtype != 'int': headwaters[headwater_id] = headwaters[headwater_id].astype(int)
@@ -32,16 +32,16 @@ def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
 
     for index, point in headwater_limited.iterrows():
 
-        # convert headwaterpoint geometries to WKB representation
+        # Convert headwaterpoint geometries to WKB representation
         wkb_points = dumps(point.geometry)
 
-        # create pygeos headwaterpoint geometries from WKB representation
+        # Create pygeos headwaterpoint geometries from WKB representation
         pointbin_geom = pygeos.io.from_wkb(wkb_points)
 
         # Closest segment to headwater
         closest_stream = nhd_streams_adj.loc[nhd_streams_adj["headwaters_id"]==point[headwater_id]]
 
-        try: # seeing inconsistent geometry objects even after exploding nhd_streams_adj; not sure why this is
+        try: # Seeing inconsistent geometry objects even after exploding nhd_streams_adj; not sure why this is
             closest_stream =closest_stream.explode()
         except:
             pass
@@ -56,39 +56,41 @@ def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
         pointdistancetoline = pygeos.linear.line_locate_point(streambin_geom, pointbin_geom)
         referencedpoint = pygeos.linear.line_interpolate_point(streambin_geom, pointdistancetoline)
 
-        # convert geometries to wkb representation
+        # Convert geometries to wkb representation
         bin_referencedpoint = pygeos.io.to_wkb(referencedpoint)
 
-        # convert to shapely geometries
+        # Convert to shapely geometries
         shply_referencedpoint = loads(bin_referencedpoint)
         shply_linestring = loads(wkb_closest_stream)
         headpoint = Point(shply_referencedpoint.coords)
         cumulative_line = []
         relativedistlst = []
 
-        # collect all nhd stream segment linestring verticies
+        # Collect all nhd stream segment linestring verticies
         for point in zip(*shply_linestring.coords.xy):
             cumulative_line = cumulative_line + [point]
             relativedist = shply_linestring.project(Point(point))
             relativedistlst = relativedistlst + [relativedist]
 
-        # add linear referenced headwater point to closest nhd stream segment
+        # Add linear referenced headwater point to closest nhd stream segment
         if not headpoint in cumulative_line:
             cumulative_line = cumulative_line + [headpoint]
             relativedist = shply_linestring.project(headpoint)
             relativedistlst = relativedistlst + [relativedist]
 
-        # sort by relative line distance to place headwater point in linestring
+        # Sort by relative line distance to place headwater point in linestring
         sortline = pd.DataFrame({'geom' : cumulative_line, 'dist' : relativedistlst}).sort_values('dist')
         shply_linestring = LineString(sortline.geom.tolist())
         referencedpoints = referencedpoints + [headpoint]
 
-        # split the new linestring at the new headwater point
+        # Split the new linestring at the new headwater point
         try:
+
             line1,line2 = split(shply_linestring, headpoint)
             headwaterstreams = headwaterstreams + [LineString(line1)]
             nhd_streams.loc[nhd_streams.NHDPlusID==closest_stream.NHDPlusID.values[0],'geometry'] = LineString(line1)
         except:
+
             line1 = split(shply_linestring, headpoint)
             headwaterstreams = headwaterstreams + [LineString(line1[0])]
             nhd_streams.loc[nhd_streams.NHDPlusID==closest_stream.NHDPlusID.values[0],'geometry'] = LineString(line1[0])
@@ -98,9 +100,9 @@ def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
     try:
         del nhd_streams_adj, headwaters, headwater_limited, headwaterstreams, referencedpoints, cumulative_line, relativedistlst
     except:
-        print ('issue deleting adjusted stream variables for huc ' + str(huc))
+        print (f"issue deleting adjusted stream variables for huc {str(huc)}")
 
-    ## identify ajusted nhd headwaters
+    # Identify ajusted nhd headwaters
     # print('Identify NHD headwater points',flush=True)
     nhd_headwater_streams_adj = nhd_streams.loc[nhd_streams['is_headwater'],:]
     nhd_headwater_streams_adj = nhd_headwater_streams_adj.explode()
