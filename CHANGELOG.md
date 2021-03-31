@@ -8,6 +8,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
  ### Changes
  - Remove required file dependencies from spatial option. Does require the WBD layer which should be specified in .env file. 
  - Produces outputs in a format consistent with requirements needed for publishing.
+ - Preserves leading zeros in huc information for all outputs from eval_plots.py
 ### Additions
  - Creates 2 shapefiles:
  - fim_performance_points.shp -- This layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
