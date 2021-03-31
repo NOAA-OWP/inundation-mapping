@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
+import os
 import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import VIZ_PROJECTION
