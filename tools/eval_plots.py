@@ -643,7 +643,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         #Merge flows and maps into single DataFrame
         flows_maps = pd.merge(flows,maps, how = 'left', left_on = ['nws_lid','source','category'], right_on = ['nws_lid','source','category'])        
         # combine flows_maps to spatial layer (gdf)
-        gdf_merged = gdf.merge(flows_maps, on = 'nws_lid')
+        joined = joined.merge(flows_maps, on = 'nws_lid')
         '''
         ################################################################
         #This section joins ble (FR) metrics to a spatial layer of HUCs.
@@ -672,32 +672,12 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
     parser.add_argument('-s', '--stats', help = 'List of statistics (abbrev to 3 letters) to be plotted/aggregated', nargs = '+', default = ['CSI','TPR','FAR'], required = False)
     parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
-    parser.add_argument('-sp', '--spatial', help = 'If spatial layers are desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
+    parser.add_argument('-sp', '--spatial', help = 'If enabled, creates spatial layers with metrics populated in attribute table.', default = False, required = False)
     parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
     parser.add_argument('-i', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
     
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
-
-    # If errors occur reassign error to True
-    error = False
-    # Create dictionary if file specified for spatial_ahps
-    if args['spatial']:
-        # Create dictionary
-        spatial_dict = {}
-        with open(args['spatial']) as file:
-            for line in file:
-                key, value = line.strip('\n').split(',')
-                spatial_dict[key] = Path(value)
-        args['spatial'] = spatial_dict
-        # Check that all required keys are present and overwrite args with spatial_dict
-        required_keys = set(['metadata', 'evaluated', 'static'])
-        if required_keys - spatial_dict.keys():
-          print('\n Required keys are: metadata, evaluated, static')
-          error = True
-        else:
-            args['spatial'] = spatial_dict
-
 
     # Finalize Variables
     m = args['metrics_csv']
@@ -710,5 +690,4 @@ if __name__ == '__main__':
     i = args['site_plots']
 
     # Run eval_plots function
-    if not error:
-        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial = sp, fim_1_ms = f, site_barplots = i)
+    eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial = sp, fim_1_ms = f, site_barplots = i)
