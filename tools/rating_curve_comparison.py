@@ -160,7 +160,7 @@ def generate_rating_curve_metrics(args):
             usgs_pred_elev = pd.melt(usgs_pred_elev, id_vars=['location_id','feature_id','recurr_interval','discharge_cfs','HUC','HUC4','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
             nwm_recurr_data_table = nwm_recurr_data_table.append(usgs_pred_elev)
 
-            # Interpolate FIM elevation at USGS observations (not currently being used)
+            # Interpolate FIM elevation at USGS observations
             fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
             usgs_rc = usgs_rc.rename(columns={"elevation_ft": "USGS"})
 
@@ -183,7 +183,7 @@ def generate_rating_curve_metrics(args):
             usgs_recurr_stats_table = calculate_rc_stats_elev(usgs_recurr_data)
             usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
 
-        # # Generate plots
+        # # Generate plots (not currently being used)
         # fim_elev_at_USGS_rc_plot_filename = join(dirname(rc_comparison_plot_filename),'FIM_elevations_at_USGS_rc_' + str(huc) +'.png')
         # generate_facet_plot(usgs_recurr_data, fim_elev_at_USGS_rc_plot_filename)
 
@@ -237,6 +237,7 @@ def aggregate_metrics(output_dir,procs_list,stat_groups):
 
 
 def generate_facet_plot(rc, plot_filename):
+
     # Filter FIM elevation based on USGS data
     for gage in rc.location_id.unique():
 
@@ -364,12 +365,6 @@ if __name__ == '__main__':
     nwm_flow_dir = args['nwm_flow_dir']
     number_of_jobs = args['number_of_jobs']
     stat_groups = args['stat_groups']
-
-    # fim_dir= 'data/outputs/dev-usgs-crosswalk_PR_ms_c'
-    # output_dir= 'data/tools/rating_curve_comparison/dev-usgs-crosswalk_PR_ms_c'
-    # usgs_gages_filename= 'data/temp/tsg/usgs_rating_curve/usgs_rating_curves.csv'
-    # nwm_flow_dir= '/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data'
-    # stat_groups= 'recurr_interval'
 
     # Open log file
     sys.__stdout__ = sys.stdout
