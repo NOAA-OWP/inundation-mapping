@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v3.0.12.1 - 2021-03-26 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
+
+ Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
+ 
+ ### Changes
+ - Removes file dependencies from spatial option. Does require the WBD layer which should be specified in `.env` file. 
+ - Produces outputs in a format consistent with requirements needed for publishing.
+ - Preserves leading zeros in huc information for all outputs from `eval_plots.py`.
+
+### Additions
+- Creates `fim_performance_points.shp`: this layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
+- Creates `fim_performance_polys.shp`: this layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
+<br/><br/>
+
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
 
  Add more detail/information to plotting capabilities.
