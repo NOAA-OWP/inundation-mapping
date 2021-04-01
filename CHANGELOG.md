@@ -13,7 +13,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ### Additions
 - Creates `fim_performance_points.shp`: this layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
-- Creates `fim_performance_polys.shp` -- This layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
+- Creates `fim_performance_polys.shp`: this layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
 <br/><br/>
 
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
