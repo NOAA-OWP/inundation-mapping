@@ -200,7 +200,7 @@ if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88)')
     parser.add_argument('-l', '--list_of_gage_sites',  help = 'csv containing list of usgs sites supplied as a file', nargs = '+', required = True)
-    parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', action = 'store_true')
+    parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', default = False, required = False)
        
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
