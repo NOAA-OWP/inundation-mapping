@@ -335,7 +335,7 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
         .reset_index(stat_groups, drop = False).rename({0: "nrmse"}, axis=1)
 
     # Calculate Mean Absolute Depth Difference
-    mean_abs_y_diff = station_rc.apply(lambda x: (abs(x["yhat_minus_y"]).mean() / x["location_id"].count()))\
+    mean_abs_y_diff = station_rc.apply(lambda x: (abs(x["yhat_minus_y"]).mean()))\
         .reset_index(stat_groups, drop = False).rename({0: "mean_abs_y_diff_ft"}, axis=1)
 
     # Calculate Percent Bias
