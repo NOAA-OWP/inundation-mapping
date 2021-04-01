@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v3.0.12.1 - 2021-03-26 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
+## v3.0.12.1 - 2021-03-31 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
 
  Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
  
