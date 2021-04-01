@@ -161,27 +161,27 @@ def generate_rating_curve_metrics(args):
             nwm_recurr_data_table = nwm_recurr_data_table.append(usgs_pred_elev)
 
             # Interpolate FIM elevation at USGS observations
-            fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
-            usgs_rc = usgs_rc.rename(columns={"elevation_ft": "USGS"})
-
-            # Sort stage in ascending order
-            usgs_rc = usgs_rc.sort_values('USGS',ascending=True)
-
-            # Interpolate FIM elevation at USGS observations
-            usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation_ft'], left = np.nan, right = np.nan)
-            usgs_rc = usgs_rc[usgs_rc['FIM'].notna()]
-            usgs_rc = usgs_rc.drop(columns=["source"])
-
-            # Melt dataframe
-            usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
-
-            if not usgs_rc.empty:
-                usgs_recurr_data = usgs_recurr_data.append(usgs_rc)
+            # fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
+            # usgs_rc = usgs_rc.rename(columns={"elevation_ft": "USGS"})
+            #
+            # # Sort stage in ascending order
+            # usgs_rc = usgs_rc.sort_values('USGS',ascending=True)
+            #
+            # # Interpolate FIM elevation at USGS observations
+            # usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation_ft'], left = np.nan, right = np.nan)
+            # usgs_rc = usgs_rc[usgs_rc['FIM'].notna()]
+            # usgs_rc = usgs_rc.drop(columns=["source"])
+            #
+            # # Melt dataframe
+            # usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
+            #
+            # if not usgs_rc.empty:
+            #     usgs_recurr_data = usgs_recurr_data.append(usgs_rc)
 
         # Generate stats for all sites in huc
-        if not usgs_recurr_data.empty:
-            usgs_recurr_stats_table = calculate_rc_stats_elev(usgs_recurr_data)
-            usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
+        # if not usgs_recurr_data.empty:
+        #     usgs_recurr_stats_table = calculate_rc_stats_elev(usgs_recurr_data)
+        #     usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
 
         # # Generate plots (not currently being used)
         # fim_elev_at_USGS_rc_plot_filename = join(dirname(rc_comparison_plot_filename),'FIM_elevations_at_USGS_rc_' + str(huc) +'.png')
@@ -197,26 +197,26 @@ def generate_rating_curve_metrics(args):
 
 def aggregate_metrics(output_dir,procs_list,stat_groups):
 
-    agg_usgs_interp_elev_stats = join(output_dir,'agg_usgs_interp_elev_stats.csv')
+    # agg_usgs_interp_elev_stats = join(output_dir,'agg_usgs_interp_elev_stats.csv')
     agg_nwm_recurr_flow_elev = join(output_dir,'agg_nwm_recurr_flow_elevations.csv')
     agg_nwm_recurr_flow_elev_stats = join(output_dir,f"agg_nwm_recurr_flow_elev_stats_{'_'.join(stat_groups)}.csv")
 
-    if os.path.isfile(agg_usgs_interp_elev_stats):
-        os.remove(agg_usgs_interp_elev_stats)
+    # if os.path.isfile(agg_usgs_interp_elev_stats):
+    #     os.remove(agg_usgs_interp_elev_stats)
     if os.path.isfile(agg_nwm_recurr_flow_elev):
         os.remove(agg_nwm_recurr_flow_elev)
     if os.path.isfile(agg_nwm_recurr_flow_elev_stats):
         os.remove(agg_nwm_recurr_flow_elev_stats)
 
     for huc in procs_list:
-        if os.path.isfile(huc[3]):
-            usgs_recurr_stats = pd.read_csv(huc[3])
-
-            # Write/append usgs_recurr_stats
-            if os.path.isfile(agg_usgs_interp_elev_stats):
-                usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False, mode='a',header=False)
-            else:
-                usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False)
+        # if os.path.isfile(huc[3]):
+        #     usgs_recurr_stats = pd.read_csv(huc[3])
+        #
+        #     # Write/append usgs_recurr_stats
+        #     if os.path.isfile(agg_usgs_interp_elev_stats):
+        #         usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False, mode='a',header=False)
+        #     else:
+        #         usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False)
 
         if os.path.isfile(huc[4]):
             nwm_recurr_data = pd.read_csv(huc[4],dtype={'location_id': str,
