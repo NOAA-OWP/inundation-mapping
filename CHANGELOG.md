@@ -1,27 +1,42 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.12.2 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
+
+Created tool to compare synthetic rating curve with benchmark rating curve (sierra test). resolves issue #293; resolves issue #308
+ 
+### Changes
+ - update `aggregate_fim_outputs.py` call argument in `fim_run.sh` from 4 jobs to 6 jobs (optimizing API performance)
+ - reroutes median elevation data from `add_crosswalk.py` and `rem.py` to new file (depreciating `hand_ref_elev_table.csv`)
+ - adding new files to `viz_whitelist` in `output_cleanup.py`
+
+### Additions
+ - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in run_by_unit.py with elevation and additional attributes at USGS gages. 
+ - `rating_curve_comparison.py`: post-processing script to plot and calculate metrics between synthetic rating curves and USGS rating curve data. 
+<br/><br/>
 
 ## v3.0.12.1 - 2021-03-31 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
 
- Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
+Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
  
- ### Changes
+### Changes
  - Removes file dependencies from spatial option. Does require the WBD layer which should be specified in `.env` file. 
  - Produces outputs in a format consistent with requirements needed for publishing.
  - Preserves leading zeros in huc information for all outputs from `eval_plots.py`.
 
 ### Additions
-- Creates `fim_performance_points.shp`: this layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
-- Creates `fim_performance_polys.shp`: this layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
+ - Creates `fim_performance_points.shp`: this layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
+ - Creates `fim_performance_polys.shp`: this layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
 <br/><br/>
 
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
 
- Add more detail/information to plotting capabilities.
- ### Changes
+Add more detail/information to plotting capabilities.
+
+### Changes
  - Merge `plot_functions.py` into `eval_plots.py` and move `eval_plots.py` into the tools directory.
  - Remove `plots` subdirectory.
+ - 
 ### Additions
  - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots. 
@@ -29,30 +44,29 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.11.0 - 2021-03-22 - [PR #319](https://github.com/NOAA-OWP/cahaba/pull/298)
 
- Improvements to CatFIM service source data generation.
+Improvements to CatFIM service source data generation.
  
- ### Changes
+### Changes
  - Renamed `generate_categorical_fim.py` to `generate_categorical_fim_mapping.py`.
  - Updated the status outputs of the `nws_lid_sites layer` and saved it in the same directory as the `merged catfim_library layer`.
  - Additional stability fixes (such as improved compatability with WRDS updates).
+ 
 ### Additions
  - Added `generate_categorical_fim.py` to wrap `generate_categorical_fim_flows.py` and `generate_categorical_fim_mapping.py`.
  - Create new `nws_lid_sites` shapefile located in same directory as the `catfim_library` shapefile.
- 
 <br/><br/>
 
 ## v3.0.10.1 - 2021-03-24 - [PR #320](https://github.com/NOAA-OWP/cahaba/pull/320)
 
- Patch to synthesize_test_cases.py.
+Patch to synthesize_test_cases.py.
   
- ### Changes
+### Changes
  - Bug fix to `synthesize_test_cases.py` to allow comparison between `testing` version and `official` versions.
-
 <br/><br/>
 
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
 
- Preprocessing of flow files for Categorical FIM.
+Preprocessing of flow files for Categorical FIM.
  
 ### Additions
  - Generate Categorical FIM flow files for each category (action, minor, moderate, major).
@@ -60,9 +74,9 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
  - Generate csv of attribute data in shapefile.
  - Aggregate all shapefiles and csv files into one file in parent directory.
  - Add flood of record category.
+ 
  ### Changes
  - Stability fixes to `generate_categorical_fim.py`.
-
 <br/><br/>
 
 ## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
