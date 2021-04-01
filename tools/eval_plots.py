@@ -381,6 +381,12 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             site subdirectories are the following files:
                 csi_<site_name>_<benchmark_source>_<configuration>.png: A barplot
                     of CSI for each version for all magnitudes for the site.
+        Optional (if spatial argument supplied): 
+            fim_performance_points.shp -- A shapefile of ahps points with 
+            metrics contained in attribute table.
+            fim_performance_polys.shp -- A shapefile of huc8 polygons with
+            metrics contained in attribute table.
+            
 
 
     Parameters
@@ -409,16 +415,15 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         The default is false. Currently the default ahps query is same
         as done for apg goals. If a different query is desired it can be
         supplied and it will supercede the default query.
-    spatial_ahps : DICTIONARY, optional
-        The default is false. A dictionary with keys as follows:
-            'static': Path to AHPS point file created during creation of
-                FIM 3 static libraries.
-            'evaluated': Path to extent file created during the creation
-                of the NWS/USGS AHPS preprocessing.
-            'metadata': Path to previously created file that contains
-                metadata about each site (feature_id, wfo, rfc and etc).
-        No spatial layers will be created if set to False, if a dictionary
-        is supplied then a spatial layer is produced.
+    spatial : BOOL, optional
+        Creates spatial datasets of the base unit (ble: huc polygon, ahps: point) 
+        with metrics contained in attribute tables. The geospatial data is 
+        either supplied in the .env file (WBD Huc layer) or from WRDS (ahps).
+        The outputs are consistent with requirements set forth by the vizualization team.
+        Additionally, there is a commented out section where if the user
+        passes the extent files generated during creation of nws/usgs ahps
+        preprocessing, the actual maps and flows used for evaluation are
+        appended to the ahps shapefile output. 
     fim_1_ms: BOOL
         Default is false. If True then fim_1 rows are duplicated with
         extent_config set to MS. This allows for FIM 1 to be included
