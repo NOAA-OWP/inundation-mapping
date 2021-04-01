@@ -212,6 +212,8 @@ if __name__ == '__main__':
             with open(args['list_of_gage_sites']) as f:
                 sites = f.read().splitlines()
             args['list_of_gage_sites'] = sites
-                
+
+    l = args['list_of_gage_sites']
+    w = args['workspace']            
     #Run create_flow_forecast_file
-    usgs_rating_to_elev(**args)
+    usgs_rating_to_elev(list_of_gage_sites = l, workspace=w)
