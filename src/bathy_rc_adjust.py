@@ -88,6 +88,9 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     stream_order_bathy_ratio_count = output_bathy[['order_','Stage']]
     stream_order_bathy_ratio_count = output_bathy.groupby('order_').agg(count_total=('Stage','count'))
     stream_order_bathy_ratio = stream_order_bathy_ratio.merge(stream_order_bathy_ratio_count,how='left',on='order_')
+    ## Fill any remaining null values: mean_xs_area_ratio --> 1 median_stage_bankfull --> 0
+    stream_order_bathy_ratio['mean_xs_area_ratio'].mask(stream_order_bathy_ratio['mean_xs_area_ratio'].isnull(),1,inplace=True)
+    stream_order_bathy_ratio['median_stage_bankfull'].mask(stream_order_bathy_ratio['median_stage_bankfull'].isnull(),0,inplace=True)
     print(stream_order_bathy_ratio.head)
 
     ## Combine SRC df and df of XS Area for each hydroid and matching stage and order from bins above

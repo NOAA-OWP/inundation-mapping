@@ -11,9 +11,9 @@ import re
 #########################################################################
 #Create boxplot
 #########################################################################
-def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, dest_file = False):      
+def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, dest_file = False):
     '''
-    Create boxplots. 
+    Create boxplots.
 
     Parameters
     ----------
@@ -32,10 +32,10 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     fim_configuration: STR
         Configuration of FIM (FR or MS or Composite).
     simplify_legend : BOOL, optional
-        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
+        If True, it will simplify legend to FIM 1, FIM 2, FIM 3.
         The default is False.
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False 
+        If STR provide the full path to the figure to be saved. If False
         no plot is saved to disk. The default is False.
 
     Returns
@@ -61,17 +61,17 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
     axes.legend(markerscale = 2, fontsize =20, loc = 'lower left')
-    
+
     #If simple legend desired
     if simplify_legend:
-        #trim labels to FIM 1, FIM 2, and the FIM 3 version    
+        #trim labels to FIM 1, FIM 2, and the FIM 3 version
         handles, org_labels = axes.get_legend_handles_labels()
         label_dict = {}
         for label in org_labels:
             if 'fim_1' in label:
                 label_dict[label] = 'FIM 1'
             elif 'fim_2' in label:
-                label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()                  
+                label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
             elif 'fim_3' in label:
                 label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
@@ -84,7 +84,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         if y_field == 'FAR':
             legend_location = 'upper right'
         else:
-            legend_location = 'lower left' 
+            legend_location = 'lower left'
         #rename legend labels to the simplified labels.
         axes.legend(handles, new_labels, markerscale = 2, fontsize = 20, loc = legend_location, ncol = int(np.ceil(len(new_labels)/7)))
     #Print textbox if supplied
@@ -102,9 +102,9 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
 #########################################################################
 #Create scatter plot
 #########################################################################
-def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annotate = False, dest_file = False):      
+def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annotate = False, dest_file = False):
     '''
-    Create boxplots. 
+    Create boxplots.
 
     Parameters
     ----------
@@ -115,11 +115,11 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
     y_field : STR
         Field to use for the y-axis (Assumes FIM 3)
     title_text : STR
-        Text for plot title.    
+        Text for plot title.
     stats_text : STR or BOOL
         Text for stats to place on chart. Default is false (no stats printed)
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False 
+        If STR provide the full path to the figure to be saved. If False
         no plot is saved to disk. The default is False.
 
     Returnsy
@@ -131,15 +131,15 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 
     #initialize plot
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(15, 10))
-    
+
     #Use seaborn to plot the boxplot
     axes=sns.scatterplot(data=dataframe, x=x_field, y=y_field, color = 'black', s = 150)
-    
+
     #Set xticks and yticks and background horizontal line.
     axes.set(ylim=(0.0,1.0),yticks = np.arange(0,1.1,0.1))
     axes.set(xlim=(0.0,1.0),xticks = np.arange(0,1.1,0.1))
-    axes.grid(b=True, which='major', axis='both')    
-    
+    axes.grid(b=True, which='major', axis='both')
+
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
 
@@ -154,7 +154,7 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 
     #set title of plot
     axes.set_title(f'{title_text}',fontsize=20, weight = 'bold')
-   
+
     if annotate:
         #Set text for labels
         box_props = dict(boxstyle='round', facecolor='white', alpha=0.5)
@@ -176,9 +176,9 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 #########################################################################
 #Create barplot
 #########################################################################
-def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, display_values = False, dest_file = False):      
+def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, display_values = False, dest_file = False):
     '''
-    Create barplots. 
+    Create barplots.
 
     Parameters
     ----------
@@ -197,13 +197,13 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     fim_configuration: STR
         Configuration of FIM (FR or MS or Composite).
     simplify_legend : BOOL, optional
-        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
+        If True, it will simplify legend to FIM 1, FIM 2, FIM 3.
         Default is False.
     display_values : BOOL, optional
-        If True, Y values will be displayed above bars. 
+        If True, Y values will be displayed above bars.
         Default is False.
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False 
+        If STR provide the full path to the figure to be saved. If False
         no plot is saved to disk. Default is False.
 
     Returns
@@ -231,7 +231,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     axes.legend(markerscale = 2, fontsize =20, loc = 'upper right')
     #If simple legend desired
     if simplify_legend:
-        #trim labels to FIM 1, FIM 2, FIM 3    
+        #trim labels to FIM 1, FIM 2, FIM 3
         handles, org_labels = axes.get_legend_handles_labels()
         label_dict = {}
         for label in org_labels:
@@ -262,8 +262,8 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             axes.text(patch.get_x()+patch.get_width()/2.,
                     patch.get_height(),
                     '{:1.3f}'.format(value),
-                    ha="center", fontsize=18)  
-    
+                    ha="center", fontsize=18)
+
     #If figure to be saved to disk, then do so, otherwise return fig
     if dest_file:
         fig.savefig(dest_file)
@@ -276,12 +276,12 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
 def filter_dataframe(dataframe, unique_field):
     '''
 
-    This script will filter out the sites (or hucs) which are not consistently 
-    found for all versions for a given magnitude. For example, an AHPS 
-    lid site must have output for all 3 versions (fim1, fim2, fim3) for 
-    a given magnitude (eg action) otherwise that lid is filtered out. 
-    Likewise for a BLE a huc must have output for all 3 versions 
-    (fim1, fim2, fim3) for a given magnitude (eg 100yr) otherwise it is 
+    This script will filter out the sites (or hucs) which are not consistently
+    found for all versions for a given magnitude. For example, an AHPS
+    lid site must have output for all 3 versions (fim1, fim2, fim3) for
+    a given magnitude (eg action) otherwise that lid is filtered out.
+    Likewise for a BLE a huc must have output for all 3 versions
+    (fim1, fim2, fim3) for a given magnitude (eg 100yr) otherwise it is
     filtered out.
 
     Parameters
@@ -295,12 +295,12 @@ def filter_dataframe(dataframe, unique_field):
     Returns
     -------
     final_filtered_dataframe : Pandas Dataframe
-        Filtered dataframe that contains only common sites (lids or hucs) between versions for each magnitude. For example, for AHPS all sites which were run for each version for a given magnitude will be kept or for ble, all hucs which ran for all versions for a given magnitude. 
+        Filtered dataframe that contains only common sites (lids or hucs) between versions for each magnitude. For example, for AHPS all sites which were run for each version for a given magnitude will be kept or for ble, all hucs which ran for all versions for a given magnitude.
     unique_sites: DICT
         The sites that were included in the dataframe for each magnitude.
 
     '''
-    
+
     #Get lists of sites for each magnitude/version
     unique_sites = dataframe.groupby(['magnitude','version'])[unique_field].agg('unique')
     #Get unique magnitudes
@@ -319,8 +319,8 @@ def filter_dataframe(dataframe, unique_field):
         #Query filtered dataframe and only include data associated with the common sites for that magnitude
         filtered_common_sites = dataframe.query(f'magnitude == "{magnitude}" & {unique_field} in @common_sites_per_magnitude')
         #Append the data for each magnitude to a final dataframe that will contain data for all common sites for all magnitudes.
-        final_filtered_dataframe = final_filtered_dataframe.append(filtered_common_sites, ignore_index = True)            
-    
+        final_filtered_dataframe = final_filtered_dataframe.append(filtered_common_sites, ignore_index = True)
+
     return final_filtered_dataframe, all_unique_sites
 ##############################################################################
 ##############################################################################
@@ -412,7 +412,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         extent_config set to MS. This allows for FIM 1 to be included
         in MS plots/stats (helpful for nws/usgs ahps comparisons).
     site_barplots: BOOL
-        Default is false. If True then barplots for each individual site are 
+        Default is false. If True then barplots for each individual site are
         created. An 'individual' directory with subdirectories of each site
         are created and the plot is located in each site subdirectory.
 
@@ -453,21 +453,21 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     versions for a given magnitude. The final filtered dataset is written
     to a dictionary with the key (benchmark source, extent config)
     and values (filtered dataframe, common sites). '''
-    
+
     all_datasets = {}
     for (benchmark_source, extent_configuration), benchmark_metrics in benchmark_by_source:
 
         '''If source is usgs/nws define the base resolution and query
         (use alternate query if passed). Append filtered datasets to
         all_datasets dictionary.'''
-        
+
         if benchmark_source in ['usgs','nws']:
 
             # Set the base processing unit for the ahps runs.
             base_resolution = 'nws_lid'
 
             #Default query (used for APG) it could be that bad_sites should be modified. If so pass an alternate query using the "alternate_ahps_query"
-            bad_sites = ['grfi2','ksdm7','hohn4','rwdn4']
+            bad_sites = ['grfi2','ksdm7','hohn4','rwdn4','efdn7','kilo1','chin7','segt2','eagi1','levk1','trbf1']
             query = "not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites"
 
             # If alternate ahps evaluation query argument is passed, use that.
@@ -523,7 +523,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         # Get all versions in dataset
         all_versions = list(dataset.version.unique())
         version_order = []
-        
+
         # If versions are not specified then use all available versions and assign to versions_list
         if not versions:
             versions_list = all_versions
@@ -646,7 +646,7 @@ if __name__ == '__main__':
     parser.add_argument('-sp', '--spatial_ahps', help = 'If spatial point layer is desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
     parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
     parser.add_argument('-i', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
-    
+
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
 
