@@ -321,7 +321,7 @@ echo -e $startDiv"D8 REM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/rem.tif ] && \
-$srcDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $demDerived_streamPixels -i $outputHucDataDir/gw_catchments_reaches.tif -r $outputHucDataDir/hand_ref_elev_table.csv -s $outputHucDataDir/demDerived_reaches_split.gpkg
+$srcDir/rem.py -d $dem_thalwegCond -w $outputHucDataDir/gw_catchments_pixels.tif -o $outputHucDataDir/rem.tif -t $demDerived_streamPixels -i $outputHucDataDir/gw_catchments_reaches.tif -s $outputHucDataDir/demDerived_reaches_split.gpkg
 Tcount
 
 ## DINF DISTANCE DOWN ##
@@ -430,6 +430,14 @@ date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
 $srcDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent -k $outputHucDataDir/small_segments.csv
+Tcount
+
+
+## USGS CROSSWALK ##
+echo -e $startDiv"USGS Crosswalk $hucNumber"$stopDiv
+date -u
+Tstart
+$srcDir/usgs_gage_crosswalk.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -dem $outputHucDataDir/dem_meters.tif -flows $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -cat $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -wbd $outputHucDataDir/wbd_buffered.gpkg -dem_adj $dem_thalwegCond -outtable $outputHucDataDir/usgs_elev_table.csv
 Tcount
 
 ## CLEANUP OUTPUTS ##
