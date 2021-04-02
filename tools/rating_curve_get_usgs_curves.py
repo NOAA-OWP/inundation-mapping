@@ -176,7 +176,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
         #Adjust datum to NAVD88 if needed. If datum unknown, skip site.
         if usgs['vcs'] == 'NGVD29':
             #To prevent time-out errors
-            time.sleep(1)
+            time.sleep(2)
             #Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
             datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
@@ -215,7 +215,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
         #If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:            
             acceptable_sites_gdf = acceptable_sites_gdf.to_crs(PREP_PROJECTION)
-            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
+            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages_newway.gpkg', layer = 'usgs_gages', driver = 'GPKG')
     
     return all_rating_curves
 
