@@ -181,7 +181,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
         if usgs['vcs'] == 'NGVD29':
             time.sleep(2)
             #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
-            datum_adj_ft, response = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
+            datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
             print(f"converted {usgs['usgs_site_code']}")
         else:
