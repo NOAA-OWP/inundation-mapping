@@ -11,29 +11,11 @@ import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
-load_dotenv()
+
 #import variables from .env file
+load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL")
 WBD_LAYER = os.getenv("WBD_LAYER")
-
-def check_rating_ageQ(workspace):
-    '''
-    Checks if rating curve csv exists in specified workspace and suggests
-    updating if older than 1 month. 
-
-    Returns
-    -------
-    None.
-
-    '''    
-    ratings_csv = Path(workspace) / 'usgs_rating_curves.csv'
-    if ratings_csv.is_file():
-        modification_time = ratings_csv.stat().st_mtime
-        current_time = time.time()
-        ratings_csv_age = (current_time - modification_time)/86400
-        if ratings_csv_age > 1:
-            check = f'{ratings_csv} is {round(ratings_csv_age,0)} days old, consider updating.'
-    return check
 
 def get_all_active_usgs_sites():
     '''
@@ -191,7 +173,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
             print(f'{location_ids} has no rating curve')
             continue
 
-        #Adjust datum to NAVD88 if needed
+        #Adjust datum to NAVD88 if needed. If datum unknown, skip site.
         if usgs['vcs'] == 'NGVD29':
             #To prevent time-out errors
             time.sleep(1)
@@ -203,6 +185,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
             navd88_datum = usgs['datum']
             print(f"{usgs['usgs_site_code']} is fine")
         else:
+            missing_rating_curve.append(location_ids)
             print(f"{usgs['usgs_site_code']} datum unknown")
             continue
 
@@ -214,12 +197,9 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
         curve['elevation_navd88'] = curve['stage'] + navd88_datum
         #Append all rating curves to a dataframe
         all_rating_curves = all_rating_curves.append(curve)        
-    
-    #Rename columns to required names
-    #all_rating_curves.rename(columns = {'location_id':'site_no'}, inplace = True)
+
+    #Rename columns and add attribute indicating if rating curve exists
     acceptable_sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
-    
-    #Add attribute in gages GeoDataFrame to indicate if rating curve available
     sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
     acceptable_sites_gdf = acceptable_sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
     acceptable_sites_gdf.fillna({'curve':'no'},inplace = True)    

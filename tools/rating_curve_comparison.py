@@ -13,6 +13,8 @@ from multiprocessing import Pool
 from os.path import isfile, join, dirname
 import shutil
 import warnings
+from pathlib import Path
+import time
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
@@ -33,6 +35,26 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     stat_groups : str
         string of columns to group eval metrics.
 """
+def check_file_age(file):
+    '''
+    Checks if file exists, determines the file age, and recommends
+    updating if older than 1 month. 
+
+    Returns
+    -------
+    None.
+
+    '''    
+    file = Path(file)
+    if file.is_file():
+        modification_time = file.stat().st_mtime
+        current_time = time.time()
+        file_age_days = (current_time - modification_time)/86400
+        if file_age_days > 30:
+            check = f'{file.name} is {int(file_age_days)} days old, consider updating.\nUpdate with rating_curve_get_usgs_data.py'
+        else:
+            check = f'{file.name} is {int(file_age_days)} days old.'
+    return check
 
 # recurr_intervals = ['recurr_1_5_cms.csv','recurr_5_0_cms.csv','recurr_10_0_cms.csv']
 
@@ -373,6 +395,9 @@ if __name__ == '__main__':
     os.makedirs(plots_dir, exist_ok=True)
     tables_dir = join(output_dir,'tables')
     os.makedirs(tables_dir, exist_ok=True)
+
+    #Check age of gages csv and recommend updating if older than 30 days.
+    print(check_file_age(usgs_gages_filename))
 
     # Open log file
     sys.__stdout__ = sys.stdout
