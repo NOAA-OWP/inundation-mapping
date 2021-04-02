@@ -180,10 +180,10 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
             #Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
             datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-            print(f"converted {usgs['usgs_site_code']}")
+
         elif usgs['vcs'] == 'NAVD88':
             navd88_datum = usgs['datum']
-            print(f"{usgs['usgs_site_code']} is fine")
+
         else:
             missing_rating_curve.append(location_ids)
             print(f"{usgs['usgs_site_code']} datum unknown")
