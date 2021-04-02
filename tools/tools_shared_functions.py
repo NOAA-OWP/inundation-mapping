@@ -1184,12 +1184,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     params['tar_vertical_unit'] = 'm' #Target vertical height
     
     #Call the API
-    session = requests.Session()
-    retry = Retry(connect = 5, backoff_factor = 1)
-    adapter = HTTPAdapter(max_retries = retry)
-    session.mount('http://', adapter)
-    session.mount('https://', adapter)  
-    response = session.get(datum_url, params = params)
+    response = requests.get(datum_url, params = params)
     #If succesful get the navd adjustment
     if response:
         results = response.json()

@@ -7,6 +7,9 @@ from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get
 from dotenv import load_dotenv
 import os
 import argparse
+import sys
+sys.path.append('/foss_fim/src')
+from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
 load_dotenv()
 #import variables from .env file
@@ -16,8 +19,7 @@ WBD_LAYER = os.getenv("WBD_LAYER")
 def check_rating_ageQ(workspace):
     '''
     Checks if rating curve csv exists in specified workspace and suggests
-    updating if older than 1 month. To update, pass "all" when calling the 
-    -l argument.
+    updating if older than 1 month. 
 
     Returns
     -------
@@ -30,8 +32,8 @@ def check_rating_ageQ(workspace):
         current_time = time.time()
         ratings_csv_age = (current_time - modification_time)/86400
         if ratings_csv_age > 1:
-            print(f'{ratings_csv} is {round(ratings_csv_age,0)} days old, consider updating.')
-
+            check = f'{ratings_csv} is {round(ratings_csv_age,0)} days old, consider updating.'
+    return check
 
 def get_all_active_usgs_sites():
     '''
@@ -172,58 +174,68 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     missing_rating_curve = []    
     #For each site in metadata_list
     for metadata in metadata_list:
-        #Get datum information for site (only need usgs_data)
-        nws, usgs = get_datum(metadata)
-        #Filter out sites that are not in contiguous US, issue with NGVD to NAVD conversion
-        if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
-            continue
-        #Adjust datum to NAVD88 if needed
-        if usgs['vcs'] == 'NGVD29':
-            time.sleep(2)
-            #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
-            datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
-            navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-            print(f"converted {usgs['usgs_site_code']}")
-        else:
-            navd88_datum = usgs['datum']
-            print(f"{usgs['usgs_site_code']} is fine")
-
         
-        #Get rating curve (only passing single site, convert to list)
+        #Get datum information for site (only need usgs_data)
+        nws, usgs = get_datum(metadata)        
+        
+        #Filter out sites that are not in contiguous US. If this section is removed be sure to test with datum adjustment section (region will need changed)
+        if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
+            continue        
+        
+        #Get rating curve for site
         location_ids = usgs['usgs_site_code']
         curve = get_rating_curve(rating_curve_url, location_ids = [location_ids])
-        #Check to make sure a curve was returned
-        if not curve.empty:
-            #Adjust rating curve with NAVD88 datum
-            curve['active'] = usgs['active']
-            curve['datum'] = usgs['datum']
-            curve['datum_vcs'] = usgs['vcs']
-            curve['navd88_datum'] = navd88_datum
-            curve['elevation_navd88'] = curve['stage'] + navd88_datum
-        
-            #Append all rating curves to a dataframe
-            all_rating_curves = all_rating_curves.append(curve)
-        else:
+        #If no rating curve was returned, skip site.
+        if curve.empty:
             missing_rating_curve.append(location_ids)
             print(f'{location_ids} has no rating curve')
             continue
+
+        #Adjust datum to NAVD88 if needed
+        if usgs['vcs'] == 'NGVD29':
+            #To prevent time-out errors
+            time.sleep(1)
+            #Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
+            datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
+            navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
+            print(f"converted {usgs['usgs_site_code']}")
+        elif usgs['vcs'] == 'NAVD88':
+            navd88_datum = usgs['datum']
+            print(f"{usgs['usgs_site_code']} is fine")
+        else:
+            print(f"{usgs['usgs_site_code']} datum unknown")
+            continue
+
+        #Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
+        curve['active'] = usgs['active']
+        curve['datum'] = usgs['datum']
+        curve['datum_vcs'] = usgs['vcs']
+        curve['navd88_datum'] = navd88_datum
+        curve['elevation_navd88'] = curve['stage'] + navd88_datum
+        #Append all rating curves to a dataframe
+        all_rating_curves = all_rating_curves.append(curve)        
     
     #Rename columns to required names
-    all_rating_curves.rename(columns = {'location_id':'site_no'}, inplace = True)
-    acceptable_sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'site_no'}, inplace = True)
+    #all_rating_curves.rename(columns = {'location_id':'site_no'}, inplace = True)
+    acceptable_sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
     
+    #Add attribute in gages GeoDataFrame to indicate if rating curve available
+    sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
+    acceptable_sites_gdf = acceptable_sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
+    acceptable_sites_gdf.fillna({'curve':'no'},inplace = True)    
+   
     #If workspace is specified, write data to file.
     if workspace:
         #Write rating curve dataframe to file
-        output_csv = Path(workspace) / 'usgs_rating_curves.csv'
         Path(workspace).mkdir(parents = True, exist_ok = True)
-        all_rating_curves.to_csv(output_csv, index = False)
+        all_rating_curves.to_csv(Path(workspace) / 'usgs_rating_curves.csv', index = False)
         #Save out missed_rating curves to file.
         missed_curves = pd.DataFrame({'missed_site':missing_rating_curve})
         missed_curves.to_csv(Path(workspace) / 'unavailable_curves.csv', index = False)
-        #If 'all' option specified, write out shapefile of acceptable sites.
-        if list_of_gage_sites == ['all']:
-            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg')
+        #If 'all' option specified, reproject then write out shapefile of acceptable sites.
+        if list_of_gage_sites == ['all']:            
+            acceptable_sites_gdf = acceptable_sites_gdf.to_crs(PREP_PROJECTION)
+            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
     
     return all_rating_curves
 
@@ -236,13 +248,12 @@ if __name__ == '__main__':
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 
-    #Check if csv is supplied    
-    if len(args['list_of_gage_sites']) == 1:    
-        if args['list_of_gage_sites'][0].endswith('.csv'):        
-            #Convert csv list to python list
-            with open(args['list_of_gage_sites']) as f:
-                sites = f.read().splitlines()
-            args['list_of_gage_sites'] = sites
+    #Check if csv is supplied       
+    if args['list_of_gage_sites'][0].endswith('.csv'):        
+        #Convert csv list to python list
+        with open(args['list_of_gage_sites']) as f:
+            sites = f.read().splitlines()
+        args['list_of_gage_sites'] = sites
 
     l = args['list_of_gage_sites']
     w = args['workspace']            
