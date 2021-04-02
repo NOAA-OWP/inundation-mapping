@@ -51,7 +51,7 @@ def check_file_age(file):
         current_time = time.time()
         file_age_days = (current_time - modification_time)/86400
         if file_age_days > 30:
-            check = f'{file.name} is {int(file_age_days)} days old, consider updating.\nUpdate with rating_curve_get_usgs_data.py'
+            check = f'{file.name} is {int(file_age_days)} days old, consider updating.\nUpdate with rating_curve_get_usgs_curves.py'
         else:
             check = f'{file.name} is {int(file_age_days)} days old.'
     return check
