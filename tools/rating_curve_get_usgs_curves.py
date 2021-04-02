@@ -208,7 +208,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
     if workspace:
         #Write rating curve dataframe to file
         Path(workspace).mkdir(parents = True, exist_ok = True)
-        all_rating_curves.to_csv(Path(workspace) / 'usgs_rating_curves.csv', index = False)
+        all_rating_curves.to_csv(Path(workspace) / 'usgs_rating_curves_newway.csv', index = False)
         #Save out missed_rating curves to file.
         missed_curves = pd.DataFrame({'missed_site':missing_rating_curve})
         missed_curves.to_csv(Path(workspace) / 'unavailable_curves.csv', index = False)
