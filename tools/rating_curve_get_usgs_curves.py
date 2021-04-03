@@ -11,6 +11,11 @@ import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
+'''
+This script calls the NOAA Tidal API for datum conversions. Experience shows that
+running script outside of business hours seems to be most consistent way
+to avoid API errors.
+'''
 
 #import variables from .env file
 load_dotenv()
@@ -91,7 +96,7 @@ def get_all_active_usgs_sites():
     return gdf, list_of_sites, acceptable_sites_metadata
             
             
-def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
+def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1):
     '''
     Returns rating curves, for a set of sites, adjusted to elevation NAVD. 
     Workflow as follows:
@@ -113,6 +118,11 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
         
     workspace : STR
         Directory, if specified, where output csv is saved. OPTIONAL, Default is False.
+    
+    sleep_time: INT
+        Amount of time to rest between API calls. The Tidal API appears to 
+        error out more during business hours. Increasing sleep_time may help.
+        
 
     Returns
     -------
@@ -176,7 +186,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
         #Adjust datum to NAVD88 if needed. If datum unknown, skip site.
         if usgs['vcs'] == 'NGVD29':
             #To prevent time-out errors
-            time.sleep(2)
+            time.sleep(sleep_time)
             #Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
             datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
@@ -221,9 +231,10 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False):
 
 if __name__ == '__main__':
     #Parse arguments
-    parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88)')
+    parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88).\nRecommend running outside of business hours as NOAA tidal API (used for datum conversions) seems to error out.\nIf error occurs try increasing sleep time (from default of 1).')
     parser.add_argument('-l', '--list_of_gage_sites',  help = '"all" for all active usgs sites, specify individual sites separated by space, or provide a csv of sites (one per line).', nargs = '+', required = True)
     parser.add_argument('-w', '--workspace', help = 'Directory where all outputs will be stored.', default = False, required = False)
+    parser.add_argument('-t', '--sleep_timer', help = 'How long to rest between datum API calls', default = 1, required = False)
        
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -236,6 +247,7 @@ if __name__ == '__main__':
         args['list_of_gage_sites'] = sites
 
     l = args['list_of_gage_sites']
-    w = args['workspace']            
+    w = args['workspace'] 
+    t = int(args['sleep_timer'])           
     #Run create_flow_forecast_file
-    usgs_rating_to_elev(list_of_gage_sites = l, workspace=w)
+    usgs_rating_to_elev(list_of_gage_sites = l, workspace=w, sleep_time = t)
