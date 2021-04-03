@@ -208,14 +208,23 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
             time.sleep(sleep_time)
             #Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
             datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
+
+            #If datum API failed, print message and skip site.
+            if not datum_adj_ft:
+                missing_rating_curve.append(location_ids)
+                print(f"{location_ids} API call failed!!")
+                continue
+
+            #If datum adjustment succeeded, calculate datum in NAVD88            
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
+
 
         elif usgs['vcs'] == 'NAVD88':
             navd88_datum = usgs['datum']
 
         else:
             missing_rating_curve.append(location_ids)
-            print(f"{usgs['usgs_site_code']} datum unknown")
+            print(f"{location_ids} datum unknown")
             continue
 
         #Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
