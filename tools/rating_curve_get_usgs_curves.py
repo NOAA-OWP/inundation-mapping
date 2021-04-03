@@ -14,7 +14,9 @@ from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
 running script outside of business hours seems to be most consistent way
-to avoid API errors.
+to avoid API errors. Currently configured to get rating curve data within
+CONUS. Tidal API call may need to be modified to get datum conversions for 
+AK, HI, PR/VI.
 '''
 
 #import variables from .env file
@@ -98,7 +100,10 @@ def get_all_active_usgs_sites():
             
 def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     '''
-    Returns rating curves, for a set of sites, adjusted to elevation NAVD. 
+
+    Returns rating curves, for a set of sites, adjusted to elevation NAVD.
+    Currently configured to get rating curve data within CONUS. Tidal API 
+    call may need to be modified to get datum conversions for AK, HI, PR/VI.
     Workflow as follows:
         1a. If 'all' option passed, get metadata for all acceptable USGS sites in CONUS.
         1b. If a list of sites passed, get metadata for all sites supplied by user.
@@ -109,6 +114,20 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         6.  Convert rating curve to absolute elevation (NAVD) and store in DataFrame
         7.  Append all rating curves to a master DataFrame.
 
+    
+    Outputs, if a workspace is specified, are:
+        usgs_rating_curves.csv -- A csv containing USGS rating curve as well
+        as datum adjustment and rating curve expressed as an elevation (NAVD88).
+        ONLY SITES IN CONUS ARE CURRENTLY LISTED IN THIS CSV. To get 
+        additional sites, the Tidal API will need to be reconfigured and tested.
+        
+        unavailable_curves.csv -- A csv containing sites that do not have
+        rating curve information.
+        
+        (if all option passed) usgs_gages.gpkg -- a point layer containing ALL USGS gage sites that meet
+        certain criteria. In the attribute table is a 'curve' column that will indicate if a rating
+        curve is provided in "usgs_rating_curves.csv"
+       
     Parameters
     ----------
     list_of_gage_sites : LIST
@@ -231,7 +250,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
 
 if __name__ == '__main__':
     #Parse arguments
-    parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88).\nRecommend running outside of business hours to reduce API related errors.\nIf error occurs try increasing sleep time (from default of 1).')
+    parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88).\nCurrently configured to get rating curves within CONUS.\nRecommend running outside of business hours to reduce API related errors.\nIf error occurs try increasing sleep time (from default of 1).')
     parser.add_argument('-l', '--list_of_gage_sites',  help = '"all" for all active usgs sites, specify individual sites separated by space, or provide a csv of sites (one per line).', nargs = '+', required = True)
     parser.add_argument('-w', '--workspace', help = 'Directory where all outputs will be stored.', default = False, required = False)
     parser.add_argument('-t', '--sleep_timer', help = 'How long to rest between datum API calls', default = 1, required = False)
