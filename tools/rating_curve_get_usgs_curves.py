@@ -231,7 +231,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1):
 
 if __name__ == '__main__':
     #Parse arguments
-    parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88).\nRecommend running outside of business hours as NOAA tidal API (used for datum conversions) seems to error out.\nIf error occurs try increasing sleep time (from default of 1).')
+    parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88).\nRecommend running outside of business hours to reduce API related errors.\nIf error occurs try increasing sleep time (from default of 1).')
     parser.add_argument('-l', '--list_of_gage_sites',  help = '"all" for all active usgs sites, specify individual sites separated by space, or provide a csv of sites (one per line).', nargs = '+', required = True)
     parser.add_argument('-w', '--workspace', help = 'Directory where all outputs will be stored.', default = False, required = False)
     parser.add_argument('-t', '--sleep_timer', help = 'How long to rest between datum API calls', default = 1, required = False)
