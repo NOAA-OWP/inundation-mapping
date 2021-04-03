@@ -212,7 +212,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
             #If datum API failed, print message and skip site.
             if not datum_adj_ft:
                 missing_rating_curve.append(location_ids)
-                print(f"{location_ids} API call failed!!")
+                print(f"{location_ids} datum adjustment failed!!")
                 continue
 
             #If datum adjustment succeeded, calculate datum in NAVD88            
