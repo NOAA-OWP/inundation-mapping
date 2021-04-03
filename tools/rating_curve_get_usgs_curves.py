@@ -96,7 +96,7 @@ def get_all_active_usgs_sites():
     return gdf, list_of_sites, acceptable_sites_metadata
             
             
-def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1):
+def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     '''
     Returns rating curves, for a set of sites, adjusted to elevation NAVD. 
     Workflow as follows:
@@ -119,7 +119,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1):
     workspace : STR
         Directory, if specified, where output csv is saved. OPTIONAL, Default is False.
     
-    sleep_time: INT
+    sleep_time: FLOAT
         Amount of time to rest between API calls. The Tidal API appears to 
         error out more during business hours. Increasing sleep_time may help.
         
@@ -248,6 +248,6 @@ if __name__ == '__main__':
 
     l = args['list_of_gage_sites']
     w = args['workspace'] 
-    t = int(args['sleep_timer'])           
+    t = float(args['sleep_timer'])           
     #Run create_flow_forecast_file
     usgs_rating_to_elev(list_of_gage_sites = l, workspace=w, sleep_time = t)
