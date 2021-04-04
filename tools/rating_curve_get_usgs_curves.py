@@ -121,8 +121,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         ONLY SITES IN CONUS ARE CURRENTLY LISTED IN THIS CSV. To get 
         additional sites, the Tidal API will need to be reconfigured and tested.
         
-        unavailable_curves.csv -- A csv containing sites that do not have
-        rating curve information.
+        log.csv -- A csv containing runtime messages.
         
         (if all option passed) usgs_gages.gpkg -- a point layer containing ALL USGS gage sites that meet
         certain criteria. In the attribute table is a 'curve' column that will indicate if a rating
@@ -182,7 +181,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     #Create DataFrame to store all appended rating curves
     print('processing metadata')
     all_rating_curves = pd.DataFrame()
-    missing_rating_curve = []    
+    regular_messages = []    
+    api_failure_messages=[]
     #For each site in metadata_list
     for metadata in metadata_list:
         
@@ -198,8 +198,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         curve = get_rating_curve(rating_curve_url, location_ids = [location_ids])
         #If no rating curve was returned, skip site.
         if curve.empty:
-            missing_rating_curve.append(location_ids)
-            print(f'{location_ids} has no rating curve')
+            message = f'{location_ids}: has no rating curve'
+            regular_messages.append(message)
             continue
 
         #Adjust datum to NAVD88 if needed. If datum unknown, skip site.
@@ -211,20 +211,24 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
 
             #If datum API failed, print message and skip site.
             if not datum_adj_ft:
-                missing_rating_curve.append(location_ids)
-                print(f"{location_ids} datum adjustment failed!!")
+                api_message = f"{location_ids}: datum adjustment failed!!"
+                api_failure_messages.append(api_message)
+                print(api_message)
                 continue
 
             #If datum adjustment succeeded, calculate datum in NAVD88            
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-
+            message = f'{location_ids}:succesfully converted NGVD29 to NAVD88'
+            regular_messages.append(message)
 
         elif usgs['vcs'] == 'NAVD88':
             navd88_datum = usgs['datum']
+            message = f'{location_ids}: already NAVD88'
+            regular_messages.append(message)
 
         else:
-            missing_rating_curve.append(location_ids)
-            print(f"{location_ids} datum unknown")
+            message = f"{location_ids}: datum unknown"
+            regular_messages.append(message)
             continue
 
         #Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
@@ -247,9 +251,12 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         #Write rating curve dataframe to file
         Path(workspace).mkdir(parents = True, exist_ok = True)
         all_rating_curves.to_csv(Path(workspace) / 'usgs_rating_curves_newway.csv', index = False)
-        #Save out missed_rating curves to file.
-        missed_curves = pd.DataFrame({'missed_site':missing_rating_curve})
-        missed_curves.to_csv(Path(workspace) / 'unavailable_curves.csv', index = False)
+        #Save out messages to file.
+        first_line = [f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSIONS']
+        api_failure_messages = first_line + api_failure_messages
+        regular_messages = api_failure_messages + regular_messages                
+        all_messages = pd.DataFrame({'Messages':regular_messages})
+        all_messages.to_csv(Path(workspace) / 'log.csv', index = False)
         #If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:            
             acceptable_sites_gdf = acceptable_sites_gdf.to_crs(PREP_PROJECTION)
@@ -262,7 +269,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Retrieve USGS rating curves adjusted to elevation (NAVD88).\nCurrently configured to get rating curves within CONUS.\nRecommend running outside of business hours to reduce API related errors.\nIf error occurs try increasing sleep time (from default of 1).')
     parser.add_argument('-l', '--list_of_gage_sites',  help = '"all" for all active usgs sites, specify individual sites separated by space, or provide a csv of sites (one per line).', nargs = '+', required = True)
     parser.add_argument('-w', '--workspace', help = 'Directory where all outputs will be stored.', default = False, required = False)
-    parser.add_argument('-t', '--sleep_timer', help = 'How long to rest between datum API calls', default = 1, required = False)
+    parser.add_argument('-t', '--sleep_timer', help = 'How long to rest between datum API calls', default = 1.0, required = False)
        
     #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
