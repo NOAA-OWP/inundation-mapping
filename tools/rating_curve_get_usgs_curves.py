@@ -250,9 +250,9 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     if workspace:
         #Write rating curve dataframe to file
         Path(workspace).mkdir(parents = True, exist_ok = True)
-        all_rating_curves.to_csv(Path(workspace) / 'usgs_rating_curves_newway.csv', index = False)
+        all_rating_curves.to_csv(Path(workspace) / 'usgs_rating_curves.csv', index = False)
         #Save out messages to file.
-        first_line = [f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSIONS']
+        first_line = [f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSION ISSUES']
         api_failure_messages = first_line + api_failure_messages
         regular_messages = api_failure_messages + regular_messages                
         all_messages = pd.DataFrame({'Messages':regular_messages})
@@ -260,7 +260,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         #If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:            
             acceptable_sites_gdf = acceptable_sites_gdf.to_crs(PREP_PROJECTION)
-            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages_newway.gpkg', layer = 'usgs_gages', driver = 'GPKG')
+            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
     
     return all_rating_curves
 

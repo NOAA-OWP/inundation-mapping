@@ -1193,7 +1193,6 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
         #convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084,2)                
     else:
-        print('Error with vcs conversion')
         adjustment_ft = None
     return adjustment_ft       
 #######################################################################
