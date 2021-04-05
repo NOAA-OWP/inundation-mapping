@@ -1,14 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.12.2 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
+## v3.0.13.0 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
 
-Created tool to compare synthetic rating curve with benchmark rating curve (sierra test). resolves issue #293; resolves issue #308
+Created tool to compare synthetic rating curve with benchmark rating curve (Sierra Test).
  
 ### Changes
- - update `aggregate_fim_outputs.py` call argument in `fim_run.sh` from 4 jobs to 6 jobs (optimizing API performance)
- - reroutes median elevation data from `add_crosswalk.py` and `rem.py` to new file (depreciating `hand_ref_elev_table.csv`)
- - adding new files to `viz_whitelist` in `output_cleanup.py`
+ - Update `aggregate_fim_outputs.py` call argument in `fim_run.sh` from 4 jobs to 6 jobs, to optimize API performance.
+ - Reroutes median elevation data from `add_crosswalk.py` and `rem.py` to new file (depreciating `hand_ref_elev_table.csv`).
+ - Adds new files to `viz_whitelist` in `output_cleanup.py`.
 
 ### Additions
  - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in run_by_unit.py with elevation and additional attributes at USGS gages. 
