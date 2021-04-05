@@ -6,8 +6,8 @@ Create tool to retrieve rating curves from USGS sites and convert to elevation (
  
 ### Changes
  - Modify `usgs_gage_crosswalk.py` to:
-    1) look for `location_id` instead of `site_no` attribute field in `usgs_gages.gpkg` file.
-    2) Filter out gages that do not have rating curves included in the `usgs_rating_curves.csv`
+    1) Look for `location_id` instead of `site_no` attribute field in `usgs_gages.gpkg` file.
+    2) Filter out gages that do not have rating curves included in the `usgs_rating_curves.csv`.
  - Modify `rating_curve_comparison.py` to perform a check on the age of the user specified `usgs_rating_curves.csv` and alert user to the age of the file and recommend updating if file is older the 30 days.
 
 ### Additions
