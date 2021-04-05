@@ -12,9 +12,9 @@ Create tool to retrieve rating curves from USGS sites and convert to elevation (
 
 ### Additions
  - Add `rating_curve_get_usgs_curves.py`. This script will generate the following files:
- 1) usgs_rating_curves.csv: A csv file that contains rating curves (including converted to NAVD88 elevation) for USGS gages in a format that is compatible with  `rating_curve_comparisons.py`. As it is is currently configured, only gages within CONUS will have rating curve data.
- 2) log.csv: A log file that records status for each gage and includes error messages.
- 3) usgs_gages.gpkg: A geospatial layer (in FIM projection) of all active USGS gages that meet a predefined criteria. Additionally, the `curve` attribute indicates whether a rating curve is found in the `usgs_rating_curves.csv`. This spatial file is only generated if the `all` option is passed with the `-l` argument.
+     1) usgs_rating_curves.csv: A csv file that contains rating curves (including converted to NAVD88 elevation) for USGS gages in a format that is compatible with  `rating_curve_comparisons.py`. As it is is currently configured, only gages within CONUS will have rating curve data.
+     2) `log.csv`: A log file that records status for each gage and includes error messages.
+     3) `usgs_gages.gpkg`: A geospatial layer (in FIM projection) of all active USGS gages that meet a predefined criteria. Additionally, the `curve` attribute indicates whether a rating curve is found in the `usgs_rating_curves.csv`. This spatial file is only generated if the `all` option is passed with the `-l` argument.
 <br/><br/>
 ## v3.0.13.0 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
 
