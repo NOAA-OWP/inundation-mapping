@@ -210,7 +210,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
             datum_adj_ft = ngvd_to_navd_ft(datum_info = usgs, region = 'contiguous')
 
             #If datum API failed, print message and skip site.
-            if not datum_adj_ft:
+            if datum_adj_ft is None:
                 api_message = f"{location_ids}: datum adjustment failed!!"
                 api_failure_messages.append(api_message)
                 print(api_message)
