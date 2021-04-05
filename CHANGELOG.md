@@ -11,7 +11,7 @@ Created tool to compare synthetic rating curve with benchmark rating curve (Sier
  - Adds new files to `viz_whitelist` in `output_cleanup.py`.
 
 ### Additions
- - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in run_by_unit.py with elevation and additional attributes at USGS gages. 
+ - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in `run_by_unit.py` with elevation and additional attributes at USGS gages. 
  - `rating_curve_comparison.py`: post-processing script to plot and calculate metrics between synthetic rating curves and USGS rating curve data. 
 <br/><br/>
 
