@@ -83,7 +83,7 @@ Tcount
 if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/nhd_headwater_points_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    rm -rf $outputHucDataDir
+    # rm -rf $outputHucDataDir
     exit 0
   fi
 fi
@@ -100,7 +100,7 @@ echo -e $startDiv"Clip DEM $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem.tif ] && \
-gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Int32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputHucDataDir/dem.tif
+gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Int32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=128" -co "BLOCKYSIZE=128" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputHucDataDir/dem.tif
 Tcount
 
 ## GET RASTER METADATA
@@ -114,15 +114,17 @@ echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-gdal_rasterize -l nld_subset_levees -3d -at -init -9999 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
+gdal_rasterize -l nld_subset_levees -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
 Tcount
+
+echo -e $startDiv"NO DATA VALUE $ndv"$stopDiv
 
 ## CONVERT TO METERS ##
 echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_meters.tif ] && \
-gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="A/100" --NoDataValue=$ndv
+gdal_calc.py --quiet --type=Float32 --overwrite --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="A/100" --NoDataValue=$ndv
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
@@ -156,7 +158,7 @@ echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwr
 date -u
 Tstart
 [ -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,((B>-9999)*0.3048))" --NoDataValue=$ndv
+gdal_calc.py --quiet  --co "BLOCKXSIZE=256" --co "BLOCKYSIZE=256" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters_3.tif" --calc="maximum(A,((B>float(-9999.0))*float(0.3048)))" --NoDataValue=$ndv
 Tcount
 
 ## DEM Reconditioning ##
@@ -263,7 +265,7 @@ Tcount
 
 if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
   echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  rm -rf $outputHucDataDir
+  # rm -rf $outputHucDataDir
   exit 0
 fi
 
@@ -277,7 +279,7 @@ if [ "$extent" = "MS" ]; then
 
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    rm -rf $outputHucDataDir
+    # rm -rf $outputHucDataDir
     exit 0
   fi
 
@@ -357,7 +359,7 @@ $srcDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_
 
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  rm -rf $outputHucDataDir
+  # rm -rf $outputHucDataDir
   exit 0
 fi
 Tcount
