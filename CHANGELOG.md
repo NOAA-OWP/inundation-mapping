@@ -1,17 +1,32 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## v3.0.14.0 - 2021-04-05 - [PR #338](https://github.com/NOAA-OWP/cahaba/pull/338)
 
-## v3.0.12.2 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
-
-Created tool to compare synthetic rating curve with benchmark rating curve (sierra test). resolves issue #293; resolves issue #308
+Create tool to retrieve rating curves from USGS sites and convert to elevation (NAVD88). Intended to be used as part of the Sierra Test.
  
 ### Changes
- - update `aggregate_fim_outputs.py` call argument in `fim_run.sh` from 4 jobs to 6 jobs (optimizing API performance)
- - reroutes median elevation data from `add_crosswalk.py` and `rem.py` to new file (depreciating `hand_ref_elev_table.csv`)
- - adding new files to `viz_whitelist` in `output_cleanup.py`
+ - Modify `usgs_gage_crosswalk.py` to:
+    1) Look for `location_id` instead of `site_no` attribute field in `usgs_gages.gpkg` file.
+    2) Filter out gages that do not have rating curves included in the `usgs_rating_curves.csv`.
+ - Modify `rating_curve_comparison.py` to perform a check on the age of the user specified `usgs_rating_curves.csv` and alert user to the age of the file and recommend updating if file is older the 30 days.
 
 ### Additions
- - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in run_by_unit.py with elevation and additional attributes at USGS gages. 
+ - Add `rating_curve_get_usgs_curves.py`. This script will generate the following files:
+     1) `usgs_rating_curves.csv`: A csv file that contains rating curves (including converted to NAVD88 elevation) for USGS gages in a format that is compatible with  `rating_curve_comparisons.py`. As it is is currently configured, only gages within CONUS will have rating curve data.
+     2) `log.csv`: A log file that records status for each gage and includes error messages.
+     3) `usgs_gages.gpkg`: A geospatial layer (in FIM projection) of all active USGS gages that meet a predefined criteria. Additionally, the `curve` attribute indicates whether a rating curve is found in the `usgs_rating_curves.csv`. This spatial file is only generated if the `all` option is passed with the `-l` argument.
+<br/><br/>
+## v3.0.13.0 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
+
+Created tool to compare synthetic rating curve with benchmark rating curve (Sierra Test).
+ 
+### Changes
+ - Update `aggregate_fim_outputs.py` call argument in `fim_run.sh` from 4 jobs to 6 jobs, to optimize API performance.
+ - Reroutes median elevation data from `add_crosswalk.py` and `rem.py` to new file (depreciating `hand_ref_elev_table.csv`).
+ - Adds new files to `viz_whitelist` in `output_cleanup.py`.
+
+### Additions
+ - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in `run_by_unit.py` with elevation and additional attributes at USGS gages. 
  - `rating_curve_comparison.py`: post-processing script to plot and calculate metrics between synthetic rating curves and USGS rating curve data. 
 <br/><br/>
 
@@ -36,7 +51,7 @@ Add more detail/information to plotting capabilities.
 ### Changes
  - Merge `plot_functions.py` into `eval_plots.py` and move `eval_plots.py` into the tools directory.
  - Remove `plots` subdirectory.
- - 
+
 ### Additions
  - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots. 
