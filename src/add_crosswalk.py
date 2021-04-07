@@ -212,7 +212,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
     ## bathy estimation integration in synthetic rating curve calculations
-    if bathy_src_calc == True:
+    if (bathy_src_calc == True and extent == 'MS'):
         output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
     else:
         print('Note: NOT using bathy estimation approach to modify the SRC...')
