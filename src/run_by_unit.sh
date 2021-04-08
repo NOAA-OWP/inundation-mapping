@@ -425,13 +425,12 @@ $taudemDir/catchhydrogeo -hand $outputHucDataDir/rem_zeroed_masked.tif -catch $o
 Tcount
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
-echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
+echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
-$srcDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent -k $outputHucDataDir/small_segments.csv
+$srcDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -u $inputDataDir/bathymetry/BANKFULL_CONUS.txt -v $outputHucDataDir/bathy_crosswalk_calcs.csv -e $outputHucDataDir/bathy_stream_order_calcs.csv -g $outputHucDataDir/bathy_thalweg_flag.csv -i $outputHucDataDir/bathy_xs_area_hydroid_lookup.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent -k $outputHucDataDir/small_segments.csv
 Tcount
-
 
 ## USGS CROSSWALK ##
 echo -e $startDiv"USGS Crosswalk $hucNumber"$stopDiv
