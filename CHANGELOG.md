@@ -5,16 +5,16 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Implementing a prototype technique to estimate the missing bathymetric component in the HAND-derived synthetic rating curves. The new Bathymetric Adjusted Rating Curve (BARC) function is built within the fim_run workflow and will ingest bankfull geometry estimates provided by the user to modify the cross section area used in the synthetic rating curve generation.
 
 ### Changes
- - add_crosswalk.py: outputs the streamorder variables to src_full_crosswalked.csv and calls the new bathy_rc_adjust.py if bathy env variable set to True and extent=MS
- - run_by_unit.sh: added a new csv outputs for reviewing BARC calculations
- - params_template.env & params_calibrated.env: added new BARC function variables and on/off toggle variable
- - eval_plots.py: added additional AHPS eval sites to list of "bad_sites" due to issues with MS flowlines
+ - `add_crosswalk.py` outputs the stream order variables to `src_full_crosswalked.csv` and calls the new `bathy_rc_adjust.py` if bathy env variable set to True and `extent=MS`.
+ - `run_by_unit.sh` includes a new csv outputs for reviewing BARC calculations.
+ - `params_template.env` & `params_calibrated.env` contain new BARC function input variables and on/off toggle variable.
+ - `eval_plots.py` now includes additional AHPS eval sites in the list of "bad_sites" (flagged issues with MS flowlines).
 
 ### Additions
- - bathy_rc_adjust.py:
-    - imports the existing synthetic rating curve table and the bankfull geometry estimates (topwidth and xs area per COMID)
-    - performs new synthetic rating curve calculations
-    - flags issues with the thalweg-notch artifact
+ - `bathy_rc_adjust.py`:
+    - Imports the existing synthetic rating curve table and the bankfull geometry input data (topwidth and cross seciont area per COMID).
+    - Performs new synthetic rating curve calculations with bathymetry estimation modifications.
+    - Flags issues with the thalweg-notch artifact.
 <br/><br/>
 ## v3.0.14.0 - 2021-04-05 - [PR #338](https://github.com/NOAA-OWP/cahaba/pull/338)
 
