@@ -10,6 +10,7 @@ import argparse
 import sys
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
+from time import sleep
 
 def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
 
@@ -19,7 +20,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
     min_catchment_area = float(os.environ['min_catchment_area'])
     min_stream_length = float(os.environ['min_stream_length'])
-
+    
     if extent == 'FR':
         ## crosswalk using majority catchment method
 
@@ -99,7 +100,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
         output_flows = input_flows.merge(crosswalk,on='HydroID')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
-
+    
     # read in manning's n values
     if calibration_mode == False:
         with open(mannings_n, "r") as read_file:
@@ -115,12 +116,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if output_flows.NextDownID.dtype != 'int': output_flows.NextDownID = output_flows.NextDownID.astype(int)
 
     # Adjust short model reach rating curves
+    """
     print("Adjusting model reach rating curves")
     sml_segs = pd.DataFrame()
 
     # replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
-
+        
         if output_flows["areasqkm"][stream_index] < min_catchment_area and output_flows["LengthKm"][stream_index] < min_stream_length and output_flows["LakeID"][stream_index] < 0:
 
             short_id = output_flows['HydroID'][stream_index]
@@ -162,11 +164,14 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             sml_segs = sml_segs.append({'short_id':short_id, 'update_id':update_id, 'str_order':str_order}, ignore_index=True)
 
     print("Number of short reaches [{} < {} and {} < {}] = {}".format("areasqkm", min_catchment_area, "LengthKm", min_stream_length, len(sml_segs)))
+    """
 
     # calculate src_full
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
     if input_src_base.CatchId.dtype != 'int': input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
+    #print(output_flows[["ManningN","HydroID","order_"]])
+    #print(input_src_base);sleep(5)
     input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID']],left_on='CatchId',right_on='HydroID')
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
@@ -186,6 +191,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_src = input_src_base.drop(columns=['CatchId'])
     if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
 
+    """
     # update rating curves
     if len(sml_segs) > 0:
 
@@ -200,7 +206,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
             for src_index, src_stage in new_values.iterrows():
                 output_src.loc[(output_src['HydroID']== short_id) & (output_src['Stage']== src_stage[0]),['Discharge (m3s-1)']] = src_stage[1]
-
+    """
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
     elif extent == 'MS':
@@ -208,7 +214,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
-
+    
     # make hydroTable
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
@@ -220,9 +226,11 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:,[FIM_ID,'HUC8']],how='left',on=FIM_ID)
 
     if output_flows.HydroID.dtype != 'str': output_flows.HydroID = output_flows.HydroID.astype(str)
-    output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID','Median_Thal_Elev_m']],how='left',on='HydroID')
+    #print(output_hydro_table.columns,output_flows.columns);exit()
+    #output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID','Median_Thal_Elev_m']],how='left',on='HydroID')
+    output_hydro_table = output_hydro_table.merge(output_flows.loc[:,['HydroID','LakeID']],how='left',on='HydroID')
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
-    output_hydro_table['Median_Thal_Elev_m'] = output_hydro_table['Median_Thal_Elev_m'].astype(float).round(2)
+    #output_hydro_table['Median_Thal_Elev_m'] = output_hydro_table['Median_Thal_Elev_m'].astype(float).round(2)
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
     if output_hydro_table.HUC.dtype != 'str': output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
 

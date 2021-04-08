@@ -169,7 +169,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                 if ms=='MS':
                     
                     # Mainstems inundation
-                    fim_run_parent_ms = '20210318_665f534_MS_calibrated/12090301'
+                    fim_run_parent_ms = '20210318_665f534_MS/12090301'
                     # need new file paths for rem, catchments, catchment_poly?, hydro_table, inundation_raster
                     
                     rem_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'rem_zeroed_masked.tif')

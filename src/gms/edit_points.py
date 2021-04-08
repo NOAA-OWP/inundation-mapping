@@ -13,6 +13,7 @@ def Edit_points(stream_reaches,branch_id_attribute,reach_points,
     if verbose:
         print("Loading files ...")
     stream_reaches = gpd.read_file(stream_reaches)
+    stream_reaches = stream_reaches.astype({'HydroID':int})
 
     reach_points=gpd.read_file(reach_points)
     reach_points['HydroID'] = reach_points['id'].copy()

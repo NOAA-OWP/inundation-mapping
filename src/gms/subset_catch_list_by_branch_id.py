@@ -6,7 +6,7 @@ from stream_branches import StreamNetwork
 from os.path import splitext
 import argparse
 
-def Subset_catch_list(catch_list,stream_network,branch_id_attribute,branch_id_list,out_catch_list=None,verbose=False):
+def Subset_catch_list(catch_list,stream_network,branch_id_attribute,branch_id_list=None,out_catch_list=None,verbose=False):
 
     if verbose:
         print("Loading files ....")
@@ -15,7 +15,7 @@ def Subset_catch_list(catch_list,stream_network,branch_id_attribute,branch_id_li
     catch_list = pd.read_csv(catch_list,sep=" ",header=None,skiprows=1)
     catch_list.rename(columns={0:"HydroID",1:"slopes",2:"lengthKM",3:"areasqkm"},inplace=True)
     stream_network = StreamNetwork.from_file(stream_network,branch_id_attribute=branch_id_attribute)
-    #print(catch_list,stream_network)
+    stream_network = StreamNetwork(stream_network.astype({'HydroID':int}),branch_id_attribute=branch_id_attribute)
 
     if verbose:
         print("Merging HydroIDs ... ")
@@ -24,10 +24,12 @@ def Subset_catch_list(catch_list,stream_network,branch_id_attribute,branch_id_li
     unique_branch_ids = catch_list.loc[:,branch_id_attribute].sort_values().unique()
     base_file_path,extension = splitext(out_catch_list)
 
-    # write unique branch ids to file
-    if verbose: 
-        print("Writing branch id list ...")
-    unique_branch_ids.tofile(branch_id_list,sep="\n")
+    if branch_id_list:
+        # write unique branch ids to file
+        if verbose: 
+            print("Writing branch id list ...")
+    
+        unique_branch_ids.tofile(branch_id_list,sep="\n")
 
     if verbose:
         print("Writing catch list subsets ...")

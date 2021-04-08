@@ -28,17 +28,20 @@ fi
 
 ## TEMP ##
 ## SET VARIABLES AND FILE INPUTS ##
+source /foss_fim/config/params_calibrated.env
 branch_id_attribute=levpa_id
 branch_buffer_distance_meters=7000
-ncores_gw=1
+#manning_n="/foss_fim/config/mannings_default.json"
+#min_catchment_area=0.25
+#min_stream_length=0.5
+#ncores_gw=1
 input_demThal=$inputDataDir/dem_thalwegCond.tif
 input_flowdir=$inputDataDir/flowdir_d8_burned_filled.tif
 input_slopes=$inputDataDir/slopes_d8_dem_meters.tif
 input_demDerived_raster=$inputDataDir/demDerived_streamPixels.tif
-input_demDerived_reaches=$inputDataDir/demDerived_reaches_split.gpkg
+input_demDerived_reaches=$inputDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg
 input_demDerived_reaches_points=$inputDataDir/demDerived_reaches_split_points.gpkg
 input_demDerived_pixel_points=$inputDataDir/flows_points_pixels.gpkg
-input_catchment_list=$inputDataDir/catchment_list.txt
 input_stage_list=$inputDataDir/stage.txt
 input_hydroTable=$inputDataDir/hydroTable.csv
 input_src_full=$inputDataDir/src_full_crosswalked.csv
@@ -79,7 +82,7 @@ Tcount
 echo -e $startDiv"Subsetting vectors to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i $branch_id_attribute -s $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
+$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputDataDir/polygons.gpkg -i $branch_id_attribute -s $outputDataDir/demDerived_reaches_levelPaths.gpkg $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -o $outputDataDir/demDerived_reaches_levelPaths.gpkg $outputDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputDataDir/demDerived_reaches_points.gpkg $outputDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## CREATE BRANCHID LIST FILE
@@ -93,7 +96,8 @@ Tcount
 echo -e $startDiv"Create branch level catch lists in HUC: $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/subset_catch_list_by_branch_id.py -c $inputDataDir/catchment_list.txt -s $outputDataDir/demDerived_reaches_levelPaths.gpkg -o $outputDataDir/catch_list.txt -b $branch_id_attribute -l $outputDataDir/branch_id.lst -v
+#$srcDir/gms/subset_catch_list_by_branch_id.py -c $inputDataDir/catchment_list.txt -s $outputDataDir/demDerived_reaches_levelPaths.gpkg -o $outputDataDir/catch_list.txt -b $branch_id_attribute -l $outputDataDir/branch_id.lst -v
+$srcDir/gms/subset_catch_list_by_branch_id.py -c $inputDataDir/catchment_list.txt -s $outputDataDir/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -l $outputDataDir/branch_id.lst -v
 Tcount
 
 ## LOOP OVER EACH STREAM BRANCH TO DERIVE BRANCH LEVEL HYDROFABRIC ##
@@ -149,19 +153,29 @@ do
     date -u
     gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputDataDir/slopes_$current_branch_id.tif -B $outputDataDir/gw_catchments_reaches_$current_branch_id.tif --calc="A*(B>0)" --NoDataValue=$ndv --outfile=$outputDataDir/slopes_masked_$current_branch_id.tif
     Tcount
+    
+    ## MAKE CATCHMENT AND STAGE FILES ##
+    echo -e $startDiv"Generate Catchment List and Stage List Files $hucNumber"$stopDiv
+    date -u
+    Tstart
+    $srcDir/make_stages_and_catchlist.py $outputDataDir/demDerived_reaches_split_$current_branch_id.gpkg $outputDataDir/gw_catchments_reaches_$current_branch_id.gpkg $outputDataDir/stage_$current_branch_id.txt $outputDataDir/catch_list_$current_branch_id.txt $stage_min_meters $stage_interval_meters $stage_max_meters
+    Tcount
+
 
     ## HYDRAULIC PROPERTIES ##
     echo -e $startDiv"Sample reach averaged parameters for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    $taudemDir/catchhydrogeo -hand $outputDataDir/rem_zeroed_masked_$current_branch_id.tif -catch $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -catchlist $outputDataDir/catch_list_$current_branch_id.txt -slp $outputDataDir/slopes_masked_$current_branch_id.tif -h $input_stage_list -table $outputDataDir/src_base_$current_branch_id.csv
+    $taudemDir/catchhydrogeo -hand $outputDataDir/rem_zeroed_masked_$current_branch_id.tif -catch $outputDataDir/gw_catchments_reaches_$current_branch_id.tif -catchlist $outputDataDir/catch_list_$current_branch_id.txt -slp $outputDataDir/slopes_masked_$current_branch_id.tif -h $outputDataDir/stage_$current_branch_id.txt -table $outputDataDir/src_base_$current_branch_id.csv
     Tcount
 
     ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
     echo -e $startDiv"Finalize catchments and model streams for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    $srcDir/gms/finalize_srcs.py -b $outputDataDir/src_base_$current_branch_id.csv -w $input_hydroTable -r $outputDataDir/src_full_$current_branch_id.csv -f $input_src_full -t $outputDataDir/hydroTable_$current_branch_id.csv
+    #$srcDir/gms/finalize_srcs.py -b $outputDataDir/src_base_$current_branch_id.csv -w $input_hydroTable -r $outputDataDir/src_full_$current_branch_id.csv -f $input_src_full -t $outputDataDir/hydroTable_$current_branch_id.csv
+    $srcDir/add_crosswalk.py -d $outputDataDir/gw_catchments_reaches_$current_branch_id.gpkg -a $outputDataDir/demDerived_reaches_split_$current_branch_id.gpkg -s $outputDataDir/src_base_$current_branch_id.csv -l $outputDataDir/gw_catchments_reaches_crosswalked_$current_branch_id.gpkg -f $outputDataDir/demDerived_reaches_split_crosswalked_$current_branch_id.gpkg -r $outputDataDir/src_full_$current_branch_id.csv -j $outputDataDir/src_$current_branch_id.json -x $outputDataDir/crosswalk_table_$current_branch_id.csv -t $outputDataDir/hydroTable_$current_branch_id.csv -w $inputDataDir/wbd8_clp.gpkg -b $inputDataDir/nwm_subset_streams.gpkg -y $inputDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $inputDataDir/nwm_catchments_proj_subset.gpkg -p MS -k $outputDataDir/small_segments.csv
+
     Tcount
 
     # make branch output directory and mv files to

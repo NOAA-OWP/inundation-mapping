@@ -21,6 +21,8 @@
 - why using filtered reaches causes issues? HydroIDs not present in boths polygons and reach vectors
 - add compatibility for new rem.py
 - do re-split reaches have unique ID's or does that not matter
+- compatability for new rem.py (check add_crosswalk.py too)
+- compatability for checking small reaches in add_crosswalk.py
 
 # FIM 3 To Do for GMS
 - rem.py is current bottleneck. Optimize

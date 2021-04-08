@@ -23,7 +23,11 @@ hydroIDs = flows['HydroID'].tolist()
 len_of_hydroIDs = len(hydroIDs)
 slopes = flows['S0'].tolist()
 lengthkm = flows['LengthKm'].tolist()
-areasqkm = catchments['areasqkm'].tolist()
+
+try:
+    areasqkm = catchments['areasqkm'].tolist()
+except KeyError:
+    areasqkm = catchments['geometry'].area/ 10**6
 
 
 stages_max = stages_max + stages_interval

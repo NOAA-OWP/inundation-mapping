@@ -215,7 +215,7 @@ class OverlapWindowMerge:
         """
         Return data windows and final bounds of window
 
-        :param wind_idx: int window index
+        :param win_idx: int window index
         :param datasets: list of int representing dataset inx
         :param path_points: list of bbox for windows
         :param bbox: list of ul/br coords of windows
@@ -247,8 +247,8 @@ class OverlapWindowMerge:
             # Read raster data with window
             read_data = self.depth_rsts[ds].read(1, window=bnd).astype(np.float32)
             # Convert all no data to nan values
-            read_data[read_data == self.depth_rsts[ds].meta['nodata']] = np.nan
-            data.append(self.depth_rsts[ds].read(1, window=bnd).astype(np.float32))
+            read_data[read_data == np.float32(self.depth_rsts[ds].meta['nodata'])] = np.nan
+            data.append(read_data)
             del bnd
 
         final_bnds = from_bounds(window[0][1],
@@ -404,8 +404,8 @@ def merge_data(rst_data,
     :param rst_dims: dimensions of overlapping rasters
     """
 
-    nodata = np.array([nodata]).astype(dtype)[0]
-    window_data = np.tile(float(nodata), [int(final_window.height), int(final_window.width)])
+    nan_tile = np.array([np.nan]).astype(dtype)[0]
+    window_data = np.tile(float(nan_tile), [int(final_window.height), int(final_window.width)])
 
     for data, bnds, idx in zip(rst_data, window_bnds, datasets):
         # Get indices to apply to base
@@ -420,10 +420,14 @@ def merge_data(rst_data,
                           int(np.min([bnds.height,
                                       rst_dims[idx][0] - bnds.row_off])))
 
+        win_shape = window_data[row_slice, col_slice].shape
+
+        if not np.all(np.sign(np.array(win_shape) - np.array(data.shape)) > 0):
+            data = data[:win_shape[0], :win_shape[1]]
         # Assign the data to the base array with aggregate function
         merge = [window_data[row_slice,
-                                   col_slice],
-                    data]
+                             col_slice],
+                 data]
 
         del data
         window_data[row_slice, col_slice] = agg_function(merge)
@@ -431,6 +435,8 @@ def merge_data(rst_data,
         del merge
 
     del rst_data, window_bnds, datasets
+
+    window_data[(window_data == nan_tile) | (np.isnan(window_data))] = nodata
 
     with lock:
         rst.write_band(1, window_data.astype(dtype), window=final_window)
@@ -473,4 +479,12 @@ if __name__ == '__main__':
     # current, peak = tracemalloc.get_traced_memory()
     # print(f"Current memory usage is {current / 10 ** 6}MB; Peak was {peak / 10 ** 6}MB")
     # tracemalloc.stop()
+
+    project_path = '*'
+    overlap = OverlapWindowMerge([project_path + '/nwm_resampled.tif',
+                                  project_path + '/rnr_inundation_031403_2020092000.tif'
+                                 ],
+                                 (1, 1))
+    overlap.merge_rasters(project_path + '/merged_final5.tif', threaded=False, workers=4)
+
     print('end', time.localtime())
