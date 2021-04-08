@@ -12,7 +12,7 @@ Implementing a prototype technique to estimate the missing bathymetric component
 
 ### Additions
  - `bathy_rc_adjust.py`:
-    - Imports the existing synthetic rating curve table and the bankfull geometry input data (topwidth and cross seciont area per COMID).
+    - Imports the existing synthetic rating curve table and the bankfull geometry input data (topwidth and cross section area per COMID).
     - Performs new synthetic rating curve calculations with bathymetry estimation modifications.
     - Flags issues with the thalweg-notch artifact.
 <br/><br/>
