@@ -3,9 +3,9 @@
 import os
 from osgeo import gdal
 import sys
-import shutil
-from multiprocessing import Pool
 sys.path.append('/foss_fim/src')
+from multiprocessing import Pool
+import argparse
 from reproject_dem.py import reproject_dem
 from utils.shared_functions import update_raster_profile
 from utils.shared_variables import PREP_PROJECTION, PREP_PROJECTION_CM
@@ -13,7 +13,7 @@ from utils.shared_variables import PREP_PROJECTION, PREP_PROJECTION_CM
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Burn in NLD elevations')
+    parser = argparse.ArgumentParser(description='Reproject Elevation rasters and update profile')
     parser.add_argument('-dem_dir','--dem-dir', help='DEM filename', required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
     parser.add_argument('-nodata','--nodata-val', help='DEM nodata value', required=False,type=float,default=-9999.0)

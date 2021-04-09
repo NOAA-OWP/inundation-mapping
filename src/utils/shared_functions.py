@@ -89,25 +89,49 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
     gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)
 
 
-def update_raster_profile(elev_cm_filename,elev_m_filename,projection,nodata_val=-9999.0,blocksize=None):
+def update_raster_profile(args):
+
+    elev_cm_filename   = args[0]
+    elev_m_filename    = args[1]
+    projection         = args[2]
+    nodata_val         = args[3]
+    blocksize          = args[4]
+    keep_intermediate  = args[5]
+
+    if isinstance(blocksize, int):
+        pass
+    elif isinstance(blocksize,str):
+        blocksize = int(blocksize)
+    elif isinstance(blocksize,float):
+        blocksize = int(blocksize)
+    else:
+        raise TypeError("Pass integer for blocksize")
+
+    assert elev_cm_filename.endswith('.tif'), "input raster needs to be a tif"
 
     # Update nodata value and convert from cm to meters
     dem_cm = rasterio.open(elev_cm_filename)
+
     no_data = dem_cm.nodata
     data = dem_cm.read(1)
-    dem_m = np.where(data == int(no_data), -9999.0, (data/100).astype(rasterio.float32))
+
+    dem_m = np.where(data == int(no_data), nodata_val, (data/100).astype(rasterio.float32))
+
     del data
 
     dem_m_profile = dem_cm.profile.copy()
-    dem_m_profile.update(driver='GTiff',tiled=True,nodata=-9999.0,dtype='float32',compress='lzw',interleave='band')
+
+    dem_m_profile.update(driver='GTiff',tiled=True,nodata=nodata_val,
+                         blockxsize=blocksize, blockysize=blocksize,
+                         dtype='float32',crs=projection,compress='lzw',interleave='band')
 
     with rasterio.open(elev_m_filename, "w", **dem_m_profile, BIGTIFF='YES') as dest:
         dest.write(dem_m, indexes = 1)
 
-    # os.remove(elev_cm_filename)
-
+    if keep_intermediate == False:
+        os.remove(elev_cm_filename)
+        
     dem_cm.close()
-    dem_m.close()
 
 
 '''
