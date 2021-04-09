@@ -6,7 +6,7 @@ import sys
 sys.path.append('/foss_fim/src')
 from multiprocessing import Pool
 import argparse
-from reproject_dem.py import reproject_dem
+from utils.reproject_dem import reproject_dem
 from utils.shared_functions import update_raster_profile
 from utils.shared_variables import PREP_PROJECTION, PREP_PROJECTION_CM
 
@@ -51,5 +51,6 @@ if __name__ == '__main__':
             profile_procs_list.append([elev_cm_proj, elev_m,PREP_PROJECTION,nodata_val,blocksize,keep_intermediate])
 
     # Multiprocess update profile
-    pool = Pool(3) #number_of_jobs (max jobs = 3 on the VM)
+    pool = Pool(2) #number_of_jobs (max jobs = 2 on the VM)
+    # TODO read in windows becasue gdal rasters are massive
     pool.map(update_raster_profile, profile_procs_list)
