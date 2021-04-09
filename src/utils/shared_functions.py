@@ -130,7 +130,8 @@ def update_raster_profile(args):
 
     if keep_intermediate == False:
         os.remove(elev_cm_filename)
-        
+
+    del dem_m
     dem_cm.close()
 
 
