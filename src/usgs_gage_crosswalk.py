@@ -45,7 +45,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     usgs_gages = usgs_gages.query('curve == "yes"')
 
     #if extent is mainstems, additional filter to remove gages not on mainstems.
-    if extent.lower() == "ms":
+    if extent == "MS":
         usgs_gages = usgs_gages.query('mainstem == "yes"')
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
