@@ -3,7 +3,7 @@ import time
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
-from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve, aggregate_wbd_hucs
+from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve, aggregate_wbd_hucs, mainstem_nwm_segs
 from dotenv import load_dotenv
 import os
 import argparse
@@ -23,6 +23,7 @@ AK, HI, PR/VI.
 load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL")
 WBD_LAYER = os.getenv("WBD_LAYER")
+EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
 
 def get_all_active_usgs_sites():
     '''
@@ -245,7 +246,18 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
     acceptable_sites_gdf = acceptable_sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
     acceptable_sites_gdf.fillna({'curve':'no'},inplace = True)    
-   
+    #Add mainstems attribute to acceptable sites
+    print('Attributing mainstems sites')
+    #Import list of evaluated sites
+    list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
+    #The entire routine to get mainstems is hardcoded in this function.
+    ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
+    ms_segs = list(ms_segs)
+    #Populate mainstems attribute field
+    acceptable_sites_gdf['mainstem'] = 'no'
+    acceptable_sites_gdf.loc[acceptable_sites_gdf.eval('nwm_feature_id in @ms_segs'),'mainstem'] = 'yes' 
+    
+    
     #If workspace is specified, write data to file.
     if workspace:
         #Write rating curve dataframe to file

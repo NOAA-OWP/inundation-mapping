@@ -42,7 +42,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     dem_adj = rasterio.open(dem_adj_filename,'r')
 
     #Query out usgs_gages that don't have rating curve data
-    usgs_gages = usgs_gages.query('curve == "yes"')
+    usgs_gages = usgs_gages.query('curve == "yes" & mainstem == "yes"')
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 
