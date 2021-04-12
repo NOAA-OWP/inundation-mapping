@@ -32,7 +32,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 '''
 
 
-def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename):
+def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent):
 
     wbd_buffer = gpd.read_file(wbd_buffer_filename)
     usgs_gages = gpd.read_file(usgs_gages_filename, mask=wbd_buffer)
@@ -42,7 +42,11 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     dem_adj = rasterio.open(dem_adj_filename,'r')
 
     #Query out usgs_gages that don't have rating curve data
-    usgs_gages = usgs_gages.query('curve == "yes" & mainstem == "yes"')
+    usgs_gages = usgs_gages.query('curve == "yes"')
+
+    #if extent is mainstems, additional filter to remove gages not on mainstems.
+    if extent.lower() == "ms":
+        usgs_gages = usgs_gages.query('mainstem == "yes"')
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 
@@ -113,7 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('-wbd','--wbd-buffer-filename', help='WBD buffer', required=True)
     parser.add_argument('-dem_adj','--dem-adj-filename', help='Thalweg adjusted DEM', required=True)
     parser.add_argument('-outtable','--output-table-filename', help='Table to append data', required=True)
-
+    parser.add_argument('-e', '--extent', help="extent configuration entered by user when running fim_run.sh", required = True)
     args = vars(parser.parse_args())
 
     usgs_gages_filename = args['usgs_gages_filename']
@@ -123,5 +127,6 @@ if __name__ == '__main__':
     wbd_buffer_filename = args['wbd_buffer_filename']
     dem_adj_filename = args['dem_adj_filename']
     output_table_filename = args['output_table_filename']
+    extent = args['extent']
 
-    crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename, dem_adj_filename,output_table_filename)
+    crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename, dem_adj_filename,output_table_filename, extent)
