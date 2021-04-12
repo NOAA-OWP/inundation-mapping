@@ -255,7 +255,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     ms_segs = list(ms_segs)
     #Populate mainstems attribute field
     acceptable_sites_gdf['mainstem'] = 'no'
-    acceptable_sites_gdf.loc[acceptable_sites_gdf.eval('nwm_feature_id in @ms_segs'),'mainstem'] = 'yes' 
+    acceptable_sites_gdf.loc[acceptable_sites_gdf.eval('feature_id in @ms_segs'),'mainstem'] = 'yes' 
     
     
     #If workspace is specified, write data to file.
