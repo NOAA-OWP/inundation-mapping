@@ -141,6 +141,7 @@ The enhanced variant of Priority-Flood is implemented and made available by \cit
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Stream Thalweg Elevation Conditioning}
+\label{sssec:stream_thalweg_elevation_conditioning}
 %
 Thalweg elevations are critical components of relative elevation based inundation mapping thus much is performed to ensure the best available, monotonically decreasing elevations are derived prior to normalizing of elevations.
 In order to prevent situations where the burned thalweg and the thalweg endemic to DEM run parallel to one another, the normalized excavation algorithm \cite{saunders1999preparation} is used to seek a zonal (nearest neighbor) elevation minimum for each thalweg pixel. 
@@ -165,6 +166,8 @@ This procedure enforces the location of streams and ensures that thalweg elevati
 \subsection{Deriving FIM Hydrofabric}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
+The FIM Hydrofabric is defined here as the collection of geospatial datasets that are used for converting NWM discharges into inundation extents.
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Flow Directions and Flats Resolution}
 \label{ssec:flow_direction_and_flat_resolution}
@@ -184,6 +187,7 @@ OWP FIM 3 utilized a CyberGIS implementation of the D-8 flow direction algorithm
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Deriving FIM Stream Network}
+\label{sssec:deriving_fim_stream_network}
 %
 \note[Fernando Aristizabal]{For Brian Avant}
 The derivations of relative elevations and catchments from the newly conditioned DEM involves re-deriving a new FIM stream network. 
@@ -195,19 +199,27 @@ Each stream link in this derived FIM stream network is split into equidistant re
 Stream links are defined here as segments of rivers discretized by junctions with other NWM river segments.
 Stream links are then further segmented at NWM lakes and HUC8 boundaries.
 Discretizing at NWM lakes isolates reaches and catchments associated with lakes and reservoirs to avoid mapping them using the Manning's equation and could potentially enable volume based mapping in the future as a feature enhancement.
+Based on previous research, splitting each remaining stream link into equi-distant reaches not to exceed a parameterized value of 1.5km helps improve synthetic rating curve and mapping skill \cite{garousi2019terrain,godbout2019error,zheng2018geoflood}.
+Small reaches can lead to unrealistic variances in channel geometries while too large reaches can lead to grouping too much geometry variance into one parametrized unit.
 Additionally every reach (and later catchment) is assigned a globally unique identifier based on the HUC 8 membership.
-
-Now that the stream network has been re-derived using the hydro-conditioning techniques previously discussed, the split stream reaches need to cross-walked to the forecast stream network which is that of the National Water Model's.
+This stream network is important since it drives the HAND calculation and derivation of catchments.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Catchments}
 %
-
+Catchments were derived using the D8 connectivity established by \citeA{o1984extraction}.
+Gages set at the pixel center points of the delineated stream lines explained in section \ref{sssec:deriving_fim_stream_network}.
+The gages act as root nodes in a tree structure and the connectivity is traversed to derive the contributing area for each gage.
+Two sets of catchments are derived, one of which assigns the contributing area for each thalweg pixel which is used for relative elevation calculation.
+The other catchments is derived for the contributing area for each stream reach as defined in section \ref{sssec:deriving_fim_stream_network}. 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Relative Elevation Model}
+\subsubsection{Height Above Nearest Drainage}
 %
-
+Once the pixel level catchments are derived the final relative elevations can be computed.
+Every non-thalweg elevation is substracted from the thalweg elevation within the same pixel-level catchment.
+The DEM used for this operation is the DEM resulting from the thalweg conditioning procedures described in section \ref{sssec:stream_thalweg_elevation_conditioning}.
+Outside of the excavated channel from the AGREE DEM method, the native non-drainage enforced elevations are used to reduce sources of error in relative elevations due to pit filling. 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Synthetic Rating Curves}
