@@ -366,11 +366,6 @@ if __name__ == '__main__':
     number_of_jobs = args['number_of_jobs']
     stat_groups = args['stat_groups']
 
-    # Open log file
-    sys.__stdout__ = sys.stdout
-    log_file = open(join(output_dir,'rating_curve_comparison.log'),"w")
-    sys.stdout = log_file
-
     stat_groups = stat_groups.split()
     procs_list = []
 
@@ -378,6 +373,11 @@ if __name__ == '__main__':
     os.makedirs(plots_dir, exist_ok=True)
     tables_dir = join(output_dir,'tables')
     os.makedirs(tables_dir, exist_ok=True)
+
+    # Open log file
+    sys.__stdout__ = sys.stdout
+    log_file = open(join(output_dir,'rating_curve_comparison.log'),"w")
+    sys.stdout = log_file
 
     huc_list  = os.listdir(fim_dir)
     for huc in huc_list:

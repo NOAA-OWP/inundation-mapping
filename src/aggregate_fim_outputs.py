@@ -88,8 +88,8 @@ def aggregate_fim_outputs(args):
 
     ## aggregate rasters
     # aggregate file paths
-    rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}_unprj.tif')
-    catchment_mosaic = os.path.join(huc6_dir,f'catchments_{huc6}_unprj.tif')
+    rem_mosaic = os.path.join(huc6_dir,f'hand_grid_{huc6}_prepprj.tif')
+    catchment_mosaic = os.path.join(huc6_dir,f'catchments_{huc6}_prepprj.tif')
 
     if huc6 not in huc_list:
 
@@ -155,28 +155,28 @@ def aggregate_fim_outputs(args):
         shutil.copy(catchment_filename, catchment_mosaic)
 
     ## reproject rasters
-    reproject_raster(rem_mosaic)
+    reproject_raster(rem_mosaic,VIZ_PROJECTION)
     os.remove(rem_mosaic)
 
-    reproject_raster(catchment_mosaic)
+    reproject_raster(catchment_mosaic,VIZ_PROJECTION)
     os.remove(catchment_mosaic)
 
 
-def reproject_raster(raster_name):
+def reproject_raster(raster_name,reprojection):
 
     with rasterio.open(raster_name) as src:
         transform, width, height = calculate_default_transform(
-            src.crs, VIZ_PROJECTION, src.width, src.height, *src.bounds)
+            src.crs, reprojection, src.width, src.height, *src.bounds)
         kwargs = src.meta.copy()
         kwargs.update({
-            'crs': VIZ_PROJECTION,
+            'crs': reprojection,
             'transform': transform,
             'width': width,
             'height': height,
             'compress': 'lzw'
         })
 
-        raster_proj_rename = os.path.split(raster_name)[1].replace('_unprj.tif', '.tif')
+        raster_proj_rename = os.path.split(raster_name)[1].replace('_prepprj.tif', '.tif')
         raster_proj_dir = os.path.join(os.path.dirname(raster_name), raster_proj_rename)
 
         with rasterio.open(raster_proj_dir, 'w', **kwargs, tiled=True, blockxsize=1024, blockysize=1024, BIGTIFF='YES') as dst:
@@ -187,7 +187,7 @@ def reproject_raster(raster_name):
                 src_transform=src.transform,
                 src_crs=src.crs,
                 dst_transform=transform,
-                dst_crs=VIZ_PROJECTION,
+                dst_crs=reprojection,
                 resampling=Resampling.nearest)
     del src, dst
 

@@ -117,7 +117,7 @@ def adjust_headwaters(huc,nhd_streams,headwaters,headwater_id):
 
     del nhd_headwater_streams_adj
 
-    return(nhd_streams, nhd_headwater_points_adj)
+    return nhd_streams, nhd_headwater_points_adj
 
 if __name__ == '__main__':
 

@@ -55,13 +55,13 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
 
     # subset nhd streams
     print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nhd_streams = gpd.read_file(nhd_streams_filename, mask = wbd_buffer)
+    nhd_streams = gpd.read_file(nhd_streams_filename, mask = wbd)
 
-    ## identify local headwater stream segments
+    # identify local headwater stream segments
     # nhd_streams_subset = gpd.read_file(nhd_streams_filename, mask = wbd)
     # nhd_streams_subset = nhd_streams_subset.loc[~nhd_streams_subset.FromNode.isin(list(set(nhd_streams_subset.ToNode) & set(nhd_streams_subset.FromNode)))]
     # nhd_streams_subset = nhd_streams_subset[~nhd_streams_subset['is_headwater']]
-    #
+
     # if not nhd_streams_subset.empty:
     #     nhd_streams_subset = nhd_streams_subset.reset_index(drop=True)
     #     start_coords = []

@@ -83,3 +83,68 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
     gdf.crs = PREP_PROJECTION
     gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)
+
+
+def update_raster_profile(elev_cm_filename,elev_m_filename):
+
+    # Update nodata value and convert from cm to meters
+    dem_cm = rasterio.open(elev_cm_filename)
+    no_data = dem_cm.nodata
+    data = dem_cm.read(1)
+    dem_m = np.where(dem_cm == int(no_data), -9999.0, (dem_cm/100).astype(rasterio.float32))
+
+    dem_m_profile = dem_cm.profile.copy()
+    dem_m_profile.update(driver='GTiff',tiled=True,nodata=-9999.0,dtype='float32',compress='lzw',interleave='band')
+
+    with rasterio.open(elev_m_filename, "w", **dem_m_profile, BIGTIFF='YES') as dest:
+        dest.write(dem_m, indexes = 1)
+
+    dem_cm.close()
+
+
+
+# raster_list = ['2002','2003','2004','2005','2006','2007','2008','2101','2102','2201','2202','2203','0430']
+def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_raster_name=None):
+
+    if blocksize is not None:
+        if isinstance(blocksize, int):
+            pass
+        elif isinstance(blocksize,str):
+            blocksize = int(blocksize)
+        elif isinstance(blocksize,float):
+
+            blocksize = int(blocksize)
+        else:
+            raise TypeError("Pass integer for blocksize")
+    else:
+        blocksize = 256
+
+    assert input_raster_name.endswith('.tif'), "input raster needs to be a tif"
+
+    with rasterio.open(input_raster_name) as src:
+        transform, width, height = calculate_default_transform(
+            src.crs, reprojection, src.width, src.height, *src.bounds)
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': reprojection,
+            'transform': transform,
+            'width': width,
+            'height': height,
+            'compress': 'lzw'
+        })
+
+        if reprojected_raster_name is None:
+            reprojected_raster_name = input_raster_name
+
+        assert reprojected_raster_name.endswith('.tif'), "output raster needs to be a tif"
+
+        with rasterio.open(reprojected_raster_name, 'w', **kwargs, tiled=True, blockxsize=blocksize, blockysize=blocksize, BIGTIFF='YES') as dst:
+            reproject(
+                source=rasterio.band(src, 1),
+                destination=rasterio.band(dst, 1),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=reprojection,
+                resampling=Resampling.nearest)
+    del src, dst
