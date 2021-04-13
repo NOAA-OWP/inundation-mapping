@@ -41,12 +41,12 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     input_catchment = gpd.read_file(input_catchment_filename)
     dem_adj = rasterio.open(dem_adj_filename,'r')
 
-    #Query out usgs_gages that don't have rating curve data
-    usgs_gages = usgs_gages.query('curve == "yes"')
-
-    #if extent is mainstems, additional filter to remove gages not on mainstems.
+    #MS extent use gages that are mainstem
     if extent == "MS":
-        usgs_gages = usgs_gages.query('mainstem == "yes"')
+        usgs_gages = usgs_gages.query('curve == "yes" & mainstem == "yes"')
+    #FR extent use gages that are not mainstem
+    if extent == "FR":
+        usgs_gages = usgs_gages.query('curve == "yes" & mainstem == "no"')
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 
