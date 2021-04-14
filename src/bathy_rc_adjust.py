@@ -119,7 +119,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
         ## Calculate the ratio btw the lookup SRC XS_Area and the Bankfull_XSEC_AREA --> use this as a flag for potentially bad XS data
         xs_area_hydroid_lookup['bankfull_XS_ratio_flag'] = (xs_area_hydroid_lookup['bathy_calc_xs_area'] / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'])
         ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > threshold --> 5x (assuming too large of difference to be a reliable bankfull calculation)
-        xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(xs_area_hydroid_lookup['bankfull_XS_ratio_flag']>bathy_xsarea_flag),xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'],inplace=True)
+        xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(xs_area_hydroid_lookup['bankfull_XS_ratio_flag']>bathy_xsarea_flag,xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'],inplace=True)
         xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(xs_area_hydroid_lookup['bankfull_XS_ratio_flag'].isnull(),0,inplace=True)
 
         ## Merge bathy_calc_xs_area to the modified_src_base
