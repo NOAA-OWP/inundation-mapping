@@ -40,7 +40,7 @@ The following input data sources should be downloaded and preprocessed prior to 
 - `acquire_and_preprocess_inputs.py`
 - `aggregate_nhd_hr_streams.py`
 
-**Please note:** For the following two datasets, please contact Brad Bates (bradford.bates@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
+**Please note:** For the following two datasets, please contact Mark Glaudemans (mark.glaudemans@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
 
 ### NWM Hydrofabric
 - `nwm_flows.gpkg`
@@ -84,7 +84,7 @@ fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_
 ## Evaluating Inundation Map Performance
 After `fim_run.sh` completes, you are ready to evaluate the model's skill.
 
-**Please note:** You will need access to the test_cases benchmark data. You can acquire the benchmark data from Brad Bates (bradford.bates@noaa.gov). As mentioned before, a long term data sharing solution is still in the works.
+**Please note:** You will need access to the test_cases benchmark data. Please contact Mark Glaudemans for access to these data (mark.glaudemans@noaa.gov). As mentioned before, a long term data sharing solution is still in the works.
 
 To evaluate model skill, run the following:
 ```
