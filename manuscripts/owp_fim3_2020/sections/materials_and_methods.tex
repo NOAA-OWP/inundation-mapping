@@ -224,6 +224,23 @@ Outside of the excavated channel from the AGREE DEM method, the native non-drain
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Synthetic Rating Curves}
 %
+ A method for converting forecast river discharges from the NWM to stages or river depths is necessary for producing FIMs with HAND. 
+For one-dimensional models such as the NWM, the typical procedure for establishing this conversion is to determine the stage-discharge relationship sampling data from the DEM known as a synthetic rating curve with cross-sections \cite{quintero2021development,di2011hydraulic}. 
+For this application, we utilized the reach averaged approach for developing synthetic rating curves (SRC) \cite{zheng2018river}.
+The reach averaged approach seeks to sample the geometry parameters in the Manning's equation \cite{gauckler1867etudes,manning1890flow} on a reach scale then dividing those by length. 
+The reach average Manning's formula is derived to be 
+
+\begin{equation}
+\label{eq:reach_averaged_mannings_equation}
+\textbf{Q}[y] = \frac{1}{n} \frac{V[y]^{5/3}S^{1/2}}{L B[y]^{2/3}} 
+\end{equation}
+
+where Q is discharge, y indicates the stage, n is the Manning's n roughness coefficient, V is volume at stage y, S is channel slope, L is along flow length, and B is wetted bed area at stage y.
+All units are international given the 1 numerator above n.
+The reach averaged method has been evaluated to ...
+The reach averaged parameters are sampled from the thalweg conditioned AGREE DEM using TauDEM's catchhydrogeo utility.
+
+The Manning's n values are tuned ... 
 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
