@@ -7,15 +7,6 @@ T_total_start
 ## SOURCE BASH FUNCTIONS
 source $srcDir/bash_functions.env
 
-# make outputs directory
-if [ ! -d "$outputGmsDataDir" ]; then
-    mkdir -p $outputGmsDataDir
-else # remove contents if already exists
-    rm -rf $outputGmsDataDir
-    mkdir -p $outputGmsDataDir
-fi
-
-## TEMP ##
 ## SET VARIABLES AND FILE INPUTS ##
 source /foss_fim/config/params_calibrated.env
 hucNumber="$1"
@@ -33,6 +24,15 @@ input_src_full=$outputHucDataDir/src_full_crosswalked.csv
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 outputHucDataDir=$outputRunDataDir/$hucNumber
 outputGmsDataDir=$outputHucDataDir/gms
+
+# make outputs directory
+if [ ! -d "$outputGmsDataDir" ]; then
+    mkdir -p $outputGmsDataDir
+else # remove contents if already exists
+    rm -rf $outputGmsDataDir
+    mkdir -p $outputGmsDataDir
+fi
+
 
 ## ECHO PARAMETERS
 echo -e $startDiv"Parameter Values"
@@ -55,18 +55,21 @@ echo -e "memfree=$memfree"
 echo -e "branch_id_attribute=$branch_id_attribute"
 echo -e "branch_buffer_distance_meters=$branch_buffer_distance_meters"$stopDiv
 
+
+##### SUBSET Levelpaths to HUC
+
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/buffer_stream_branches.py -s $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputGmsDataDir/polygons.gpkg -v 
+$srcDir/gms/buffer_stream_branches.py -s $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputRunDataDir/aggregate_fim_outputs/polygons.gpkg -v 
 Tcount
 
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/clip_rasters_to_branches.py -b $outputGmsDataDir/polygons.gpkg -i $branch_id_attribute -r $input_demThal $input_flowdir $input_slopes $input_demDerived_raster -c $outputGmsDataDir/dem_thalwegCond.tif $outputGmsDataDir/flowdir.tif $outputGmsDataDir/slopes.tif $outputGmsDataDir/demDerived.tif -v 
+$srcDir/gms/clip_rasters_to_branches.py -b $outputRunDataDir/aggregate_fim_outputs/polygons.gpkg -i $branch_id_attribute -r $input_demThal $input_flowdir $input_slopes $input_demDerived_raster -c $outputGmsDataDir/dem_thalwegCond.tif $outputGmsDataDir/flowdir.tif $outputGmsDataDir/slopes.tif $outputGmsDataDir/demDerived.tif -v 
 Tcount
 
 ##### EDIT DEM DERIVED POINTS TO ADD BRANCH IDS ######

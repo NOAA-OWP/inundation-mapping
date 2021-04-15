@@ -167,7 +167,7 @@ ogrmerge.py -f GPKG -single -overwrite_ds -o $outputRunDataDir/aggregate_fim_out
 
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths"$stopDiv
-$srcDir/gms/derive_level_paths.py -i $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg -b $branch_id_attribute -o $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -d $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
+$srcDir/gms/derive_level_paths.py -i $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg -b $branch_id_attribute -o $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths.gpkg -d $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths_dissolved.gpkg -v
 
 ## RUN GMS ##
 if [ -f "$hucList" ]; then
