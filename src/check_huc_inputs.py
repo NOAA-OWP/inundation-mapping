@@ -7,7 +7,7 @@ from glob import glob
 def __read_included_files(parent_dir_path):
 
     filename_patterns = glob(os.path.join(parent_dir_path,'included_huc*.lst'))
-
+    
     accepted_hucs_set = set()
     for filename in filename_patterns:
 
