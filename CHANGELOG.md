@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v3.0.15.2 - 2021-04-16 - [PR #359](https://github.com/NOAA-OWP/cahaba/pull/359)
 
-Hotfix to preserve desired files when production flag used in fim_run. 
+Hotfix to preserve desired files when production flag used in `fim_run.sh`. 
 ## Changes
 
 - Fixed production whitelisted files.
