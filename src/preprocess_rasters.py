@@ -37,8 +37,8 @@ if __name__ == '__main__':
         reproject_procs_list.append([raster_dir, elev_cm, elev_cm_proj, PREP_PROJECTION_CM])
 
     # Multiprocess reprojection
-    pool = Pool(number_of_jobs)
-    pool.map(reproject_dem, reproject_procs_list)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(reproject_dem, reproject_procs_list)
 
     profile_procs_list = []
 
@@ -51,6 +51,6 @@ if __name__ == '__main__':
             profile_procs_list.append([elev_cm_proj, elev_m,PREP_PROJECTION,nodata_val,blocksize,keep_intermediate])
 
     # Multiprocess update profile
-    pool = Pool(2) #number_of_jobs (max jobs = 2 on the VM)
-    # TODO read in windows becasue gdal rasters are massive
-    pool.map(update_raster_profile, profile_procs_list)
+    with Pool(processes=2) as pool:
+        # TODO read in windows becasue gdal rasters are massive
+        pool.map(update_raster_profile, profile_procs_list)

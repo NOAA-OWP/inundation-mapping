@@ -46,5 +46,5 @@ if __name__ == '__main__':
         reproject_procs_list.append([raster_dir, elev_cm, elev_cm_proj, PREP_PROJECTION_CM])
 
     # Multiprocess reprojection
-    pool = Pool(number_of_jobs)
-    pool.map(reproject_dem, reproject_procs_list)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(reproject_dem, reproject_procs_list)

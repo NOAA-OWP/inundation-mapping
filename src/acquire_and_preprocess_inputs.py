@@ -26,7 +26,7 @@ from utils.shared_variables import (NHD_URL_PARENT,
 
 from utils.shared_functions import (pull_file, run_system_command,
                                     subset_wbd_gpkg, delete_file,
-                                    getDriver, update_raster_profile)
+                                    getDriver)
 
 NHDPLUS_VECTORS_DIRNAME = 'nhdplus_vectors'
 NHDPLUS_RASTERS_DIRNAME = 'nhdplus_rasters'
@@ -183,14 +183,6 @@ def pull_and_prepare_nhd_data(args):
     if not os.path.exists(elev_cm_tif) or overwrite_nhd:
         pull_file(nhd_raster_download_url, nhd_raster_extraction_path)
         os.system("7za e {nhd_raster_extraction_path} -o{nhd_raster_parent_dir} elev_cm.tif -r ".format(nhd_raster_extraction_path=nhd_raster_extraction_path, nhd_raster_parent_dir=nhd_raster_parent_dir))
-
-        # Check and update projection for elev_cm_tif
-        print(f"checking projection of {elev_cm_tif}")
-        reproject_raster(elev_cm_tif,PREP_PROJECTION_CM,512)
-
-        # Update DEM nodata values and convert to meters
-        elev_m_tif = os.path.join(nhd_raster_parent_dir, 'elev_m.tif')
-        update_raster_profile(elev_cm_tif,elev_m_tif)
 
         file_list = os.listdir(nhd_raster_parent_dir)
         for f in file_list:
