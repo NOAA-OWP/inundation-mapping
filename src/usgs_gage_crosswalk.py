@@ -9,7 +9,7 @@ import argparse
 import pygeos
 from shapely.wkb import dumps, loads
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter("ignore")
 
 ''' Get elevation at adjusted USGS gages locations
 
