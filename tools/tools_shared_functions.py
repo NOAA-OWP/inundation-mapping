@@ -7,9 +7,17 @@ import rasterio
 import pandas as pd
 import geopandas as gpd
 import requests
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-
+import numpy as np
+import pathlib
+import rasterio.shutil
+from rasterio.warp import calculate_default_transform, reproject, Resampling
+import rasterio.crs
+from rasterio.merge import merge
+from rasterio import features
+from shapely.geometry import shape
+from shapely.geometry import Polygon
+from shapely.geometry import MultiPolygon
+import re
 from tools_shared_variables import (TEST_CASES_DIR, PRINTWORTHY_STATS, GO_UP_STATS, GO_DOWN_STATS,
                                     ENDC, TGREEN_BOLD, TGREEN, TRED_BOLD, TWHITE, WHITE_BOLD, CYAN_BOLD)
 
@@ -1255,3 +1263,299 @@ def get_rating_curve(rating_curve_url, location_ids):
                 continue
 
     return all_curves
+#######################################################################
+#Following Functions used for preprocesing of AHPS sites (NWS and USGS)
+########################################################################
+    
+#######################################################################
+#Function to return a correct maps.
+########################################################################
+def select_grids(dataframe, stages, datum88, buffer):
+    '''
+    Given a DataFrame (in a specific format), and a dictionary of stages, and the datum (in navd88). 
+    loop through the available inundation datasets and find the datasets that are equal to or immediately above the thresholds and only return 1 dataset per threshold (if any).
+
+    Parameters
+    ----------
+    dataframe : DataFrame
+        DataFrame that has to be in a specific format and contains the stages and paths to the inundation datasets.
+    stages : DICT
+        Dictionary of thresholds (key) and stages (values)
+    datum88: FLOAT
+        The datum associated with the LID that is pre-converted to NAVD88 (if needed)
+    buffer: Float
+        Interval which the uppder bound can be assigned. For example, Threshold + buffer = upper bound. Recommended to make buffer 0.1 greater than desired interval as code selects maps < and not <=
+
+    Returns
+    -------
+    maps : DICT
+        Dictionary of threshold (key) and inundation dataset path (value)
+    map_flows: DICT
+        Dictionary of threshold (key) and flows in CFS rounded to the nearest whole number associated with the selected maps (value)
+
+    '''
+    #Define threshold categories
+    thresholds = ['action', 'minor', 'moderate', 'major']
+    maps = {}
+    map_flows={}
+    #For each threshold, pick the appropriate map for analysis.
+    for i,threshold in enumerate(thresholds):
+        #Check if stage is None
+        if not stages[threshold] is None:
+            #Define the threshold floor elevation (navd88).
+            lower_bound = round((stages[threshold] + datum88),1)
+            #Define the threshold ceiling (navd88)
+            upper_bound = round((stages[threshold] + datum88 + buffer),1)
+            #For thresholds that are action, minor, moderate
+            if threshold in ['action', 'minor', 'moderate']:
+                #Make sure the next threshold has a valid stage
+                if stages[thresholds[i+1]] is None:
+                    next_threshold = upper_bound
+                else:
+                    #Determine what the next threshold elevation is.
+                    next_threshold = round((stages[thresholds[i+1]] + datum88),1)
+               #Make sure the upper_bound is not greater than the next threshold, if it is then reassign upper_bound.
+                if upper_bound > next_threshold:
+                    upper_bound = next_threshold                
+                #Get the single map which meets the criteria.
+                value = dataframe.query(f'({lower_bound}<=elevation) & (elevation<{upper_bound})')['elevation'].min()
+            #For major threshold
+            else:
+                #Get the single map which meets criteria.
+                value = dataframe.query(f'({lower_bound}<=elevation) & (elevation<{upper_bound})')['elevation'].min()
+    
+            #If the selected value is a number
+            if np.isfinite(value):
+                #Get the map path and the flow associated with the map (rounded to nearest whole number)
+                map_path = dataframe.query(f'elevation == {value}')['path'].item()
+                map_flow = round(dataframe.query(f'elevation == {value}')['flow'].item(),0)
+                #Check to see if map_flow is valid (if beyond rating_curve it is nan)
+                if not np.isfinite(map_flow):
+                    map_path = 'No Flow'
+                    map_flow = 'No Flow'
+                                    
+            #If the selected value is not a number (or interpolated flow is nan caused by elevation of map which is beyond rating curve range), then map_path and map_flows are both set to 'No Map'. 
+            else: 
+                map_path = 'No Map' 
+                map_flow = 'No Map' 
+        else:
+            map_path = 'No Threshold'
+            map_flow = 'No Threshold'
+        
+        #Write map paths and flows to dictionary        
+        maps[threshold] = map_path
+        map_flows[threshold] = map_flow
+    
+    #Get the maximum inundation map (using elevation) and this will be the domain extent
+    max_value = dataframe['elevation'].max()
+    map_path = dataframe.query(f'elevation == {max_value}')['path'].item()
+    map_flow = 'Not Used'
+    maps['extent'] = map_path
+    map_flows['extent'] = map_flow
+    
+    return maps,map_flows
+
+#######################################################################
+#Process AHPS Extent Grid (Fill Holes)
+#######################################################################
+def process_extent(extent, profile, output_raster = False):
+    '''
+    Convert raster to feature (using raster_to_feature), the footprint is used so all raster values are set to 1 where there is data.
+    fill all donut holes in resulting feature. 
+    Filled geometry is then converted back to raster using same raster properties as input profile. 
+    Output raster will have be encoded as follows:
+        filled footprint (wet) = 1
+        remaining area in raster domain (dry) = 0
+        NoData = 3
+
+    Parameters
+    ----------
+    extent : Rasterio Dataset Reader
+        Path to extent raster
+    extent_profile: Rasterio Profile
+        profile related to the extent argument
+    output_raster: STR
+        Path to output raster. If no path supplied, then no raster is written to disk. default = False
+
+    Returns (If no output raster specified)
+    -------
+    extent_filled_raster : rasterio dataset
+        Extent raster with filled donut holes
+    profile : rasterio profile
+        Profile associated with extent_filled_raster
+
+    '''
+        
+    #Convert extent to feature and explode geometry
+    poly_extent = raster_to_feature(extent, profile, footprint_only = True)
+    poly_extent = poly_extent.explode()
+    
+    #Fill holes in extent
+    poly_extent_fill_holes=MultiPolygon(Polygon(p.exterior) for p in poly_extent['geometry'])
+    # loop through the filled polygons and insert the new geometry
+    for i in range(len(poly_extent_fill_holes)):
+        poly_extent.loc[i,'geometry'] = poly_extent_fill_holes[i]
+    
+    #Dissolve filled holes with main map and explode
+    poly_extent['dissolve_field'] = 1
+    poly_extent = poly_extent.dissolve(by = 'dissolve_field')
+    poly_extent = poly_extent.explode()
+    poly_extent = poly_extent.reset_index()
+    
+    #Convert filled polygon back to raster
+    extent_filled_raster = features.rasterize(((geometry, 1) for geometry in poly_extent['geometry']), fill = 0, dtype = 'int32',transform = profile['transform'], out_shape = (profile['height'], profile['width']))
+    
+    #Update profile properties (dtype and no data)
+    profile.update(dtype = rasterio.int32)
+    profile.update(nodata=0)
+    
+    #Check if output raster is specified. If so, the write extent filled raster to disk. 
+    if output_raster:
+        with rasterio.Env():
+            with rasterio.open(output_raster, 'w', **profile) as dst:
+                dst.write(extent_filled_raster, 1)
+    #If no output raster is supplied the return the rasterio array and profile.
+    else:
+        return extent_filled_raster, profile
+########################################################################
+#Convert raster to polygon
+########################################################################
+def raster_to_feature(grid, profile_override = False, footprint_only = False):
+    '''
+    Given a grid path, convert to vector, dissolved by grid value, in GeoDataFrame format.
+
+    Parameters
+    ----------
+    grid_path : pathlib path OR rasterio Dataset Reader
+        Path to grid or a rasterio Dataset Reader
+    profile_override: rasterio Profile
+        Default is False, If a rasterio Profile is supplied, it will dictate the transform and crs.
+    footprint_only: BOOL
+        If true, dataset will be divided by itself to remove all unique values. If False, all values in grid will be carried through on raster to feature conversion. default = False
+
+    Returns
+    -------
+    dissolve_geodatabase : GeoDataFrame
+        Dissolved (by gridvalue) vector data in GeoDataFrame.
+
+    '''
+    #Determine what format input grid is:
+    #If a pathlib path, open with rasterio
+    if isinstance(grid, pathlib.PurePath):
+        dataset = rasterio.open(grid)
+    #If a rasterio dataset object, assign to dataset
+    elif isinstance(grid, rasterio.DatasetReader):
+        dataset = grid
+
+    #Get data/mask and profile properties from dataset
+    data = dataset.read(1)
+    msk = dataset.read_masks(1)   
+    data_transform = dataset.transform
+    coord_sys = dataset.crs
+
+    #If a profile override was supplied, use it to get the transform and coordinate system.
+    if profile_override:
+        data_transform = profile_override['transform']
+        coord_sys = profile_override['crs']
+    
+    #If a footprint of the raster is desired, convert all data values to 1
+    if footprint_only:
+        data[msk == 255] = 1   
+    
+    #Convert grid to feature
+    spatial = []
+    values = []
+    for geom, val in rasterio.features.shapes(data, mask = msk, transform = data_transform):
+        spatial.append(shape(geom))
+        values.append(val)        
+    spatial_geodataframe = gpd.GeoDataFrame({'values': values,'geometry':spatial }, crs = coord_sys)
+    dissolve_geodataframe = spatial_geodataframe.dissolve(by = 'values')
+    return dissolve_geodataframe
+########################################################################
+#Create AHPS Benchmark Grid
+########################################################################
+def process_grid(benchmark, benchmark_profile, domain, domain_profile, reference_raster):
+    '''
+    Given a benchmark grid and profile, a domain rasterio dataset and profile, and a reference raster, 
+    Match the benchmark dataset to the domain extent and create a classified grid convert to:
+        0 (no data footprint of domain)
+        1 (data footprint of domain)
+        2 (data footprint of benchmark)
+    Then reproject classified benchmark grid to match reference grid resolution and crs. 
+    Output is an array of values and a profile.
+
+    Parameters
+    ----------
+    benchmark : rasterio dataset
+        Rasterio dataset of the benchmark dataset for a given threshold
+    benchmark_profile : rasterio profile
+        A potentially modified profile to the benchmark dataset.
+    domain: rasterio dataset
+        Rasterio dataset of the domain grid (the maximum available grid for a given site)
+    domain_profile: rasterio profile
+        A potentially modified profile of the domain dataset.
+    reference_raster : pathlib Path
+        Path to reference dataset.
+
+    Returns
+    -------
+    boolean_benchmark : numpy Array
+        Array of values for the benchmark_boolean grid.
+    profile : rasterio profile
+        Updated, final profile of the boolean_benchmark grid. 
+
+    '''
+    
+    #Make benchmark have same dimensions as domain (Assume domain has same CRS as benchmark)
+    #Get source CRS (benchmark and domain assumed to be same CRS)
+    source_crs = benchmark_profile['crs'].to_wkt()
+    #Get domain data
+    domain_arr = domain.read(1)
+    #Get benchmark data
+    benchmark_arr = benchmark.read(1)
+    #Create empty array with same dimensions as domain
+    benchmark_fit_to_domain = np.empty(domain_arr.shape)
+    #Make benchmark have same footprint as domain (Assume domain has same CRS as benchmark)
+    reproject(benchmark_arr, 
+              destination = benchmark_fit_to_domain,
+              src_transform = benchmark.transform, 
+              src_crs = source_crs,
+              src_nodata = benchmark.nodata,
+              dst_transform = domain.transform, 
+              dst_crs = source_crs,
+              dst_nodata = benchmark.nodata,
+              dst_resolution = source_crs,
+              resampling = Resampling.bilinear)    
+    #Convert fitted benchmark dataset to boolean. 0 = NODATA Regions and 1 = Data Regions
+    benchmark_fit_to_domain_bool = np.where(benchmark_fit_to_domain == benchmark.nodata,0,1)
+    #Merge domain datamask and benchmark data mask. New_nodata_value (2) = Domain NO DATA footprint, 0 = NO DATA for benchmark (within data region of domain), 1 = DATA region of benchmark.
+    new_nodata_value = 2
+    classified_benchmark = np.where(domain_arr == domain.nodata, new_nodata_value, benchmark_fit_to_domain_bool)
+    
+    ##Reproject classified benchmark to reference raster crs and resolution.
+    #Read in reference raster
+    reference = rasterio.open(reference_raster)
+    #Determine the new transform and dimensions of reprojected/resampled classified benchmark dataset whos width, height, and bounds are same as domain dataset.
+    new_benchmark_transform, new_benchmark_width, new_benchmark_height = calculate_default_transform(source_crs, reference.crs, domain.width, domain.height, *domain.bounds, resolution = reference.res)   
+    #Define an empty array that is same dimensions as output by the "calculate_default_transform" command. 
+    classified_benchmark_projected = np.empty((new_benchmark_height,new_benchmark_width), dtype=np.uint8) 
+    #Reproject and resample the classified benchmark dataset. Nearest Neighbor resampling due to integer values of classified benchmark.
+    reproject(classified_benchmark, 
+              destination = classified_benchmark_projected,
+              src_transform = domain.transform, 
+              src_crs = source_crs,
+              src_nodata = new_nodata_value,
+              dst_transform = new_benchmark_transform, 
+              dst_crs = reference.crs,
+              dst_nodata = new_nodata_value,
+              dst_resolution = reference.res,
+              resampling = Resampling.nearest)
+    
+    #Update profile using reference profile as base (data type, NODATA, transform, width/height).
+    profile = reference.profile
+    profile.update(transform = new_benchmark_transform)
+    profile.update(dtype = rasterio.uint8)
+    profile.update(nodata = new_nodata_value) 
+    profile.update (width = new_benchmark_width)
+    profile.update(height = new_benchmark_height)   
+    return classified_benchmark_projected, profile
