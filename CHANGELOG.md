@@ -1,5 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## v3.0.15.3 - 2021-04-19 - [PR #358](https://github.com/NOAA-OWP/cahaba/pull/358)
+
+Preprocess NHDPlus HR rasters for consistent projections, nodata values, and convert from cm to meters. Resolves issue #300 and vlab ticket #89057
+
+## Additions
+- `preprocess_rasters.py` reprojects raster, converts to meters, and updates nodata value to -9999
+- Cleaned up log messages from `bathy_rc_adjust.py` and `usgs_gage_crosswalk.py`
+- Outputs paths updated in `generate_categorical_fim_mapping.py` and `generate_categorical_fim.py`
+- `update_raster_profile` cleans up raster crs, blocksize, nodata values, and converts elevation grids from cm to meters
+- `reproject_dem.py` imports gdal to reproject elevation rasters because an error was occurring when using rasterio
+
+## Changes
+- burn_in_levees.py replaces the gdal_calc.py command to resolve inconsistent outputs with burned in levee values
+
 ## v3.0.15.2 - 2021-04-16 - [PR #359](https://github.com/NOAA-OWP/cahaba/pull/359)
 
 Hotfix to preserve desired files when production flag used in `fim_run.sh`. 
