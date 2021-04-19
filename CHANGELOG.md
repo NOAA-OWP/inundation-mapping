@@ -14,6 +14,7 @@ Preprocess NHDPlus HR rasters for consistent projections, nodata values, and con
 ## Changes
 - `burn_in_levees.py` replaces the `gdal_calc.py` command to resolve inconsistent outputs with burned in levee values.
 
+<br/><br/>
 ## v3.0.15.2 - 2021-04-16 - [PR #359](https://github.com/NOAA-OWP/cahaba/pull/359)
 
 Hotfix to preserve desired files when production flag used in `fim_run.sh`. 
