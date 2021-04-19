@@ -11,7 +11,7 @@ import geopandas as gpd
 from utils.shared_functions import getDriver
 
 
-def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, hand_ref_elev_fileName, dem_reaches_filename):
+def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, dem_reaches_filename):
     """
         Calculates REM/HAND/Detrended DEM
 
@@ -25,8 +25,6 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
             File name of output relative elevation raster.
         hydroid_fileName : str
             File name of the hydroid raster (i.e. gw_catchments_reaches.tif)
-        hand_ref_elev_fileName
-            File name of the output csv containing list of hydroid values and HAND zero/reference elev
         dem_reaches_filename
             File name of the reaches layer to populate HAND elevation attribute values and overwrite as output
 
@@ -108,7 +106,6 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     gw_catchments_pixels_masked_object.close()
     thalweg_raster_object.close()
 
-###############################################
     # Merge and export dictionary to to_csv
     catchment_min_dict_df = pd.DataFrame.from_dict(catchment_min_dict, orient='index') # convert dict to dataframe
     catchment_min_dict_df.columns = ['Median_Thal_Elev_m']
@@ -116,12 +113,18 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     catchment_hydroid_dict_df.columns = ['HydroID']
     merge_df = catchment_hydroid_dict_df.merge(catchment_min_dict_df, left_index=True, right_index=True)
     merge_df.index.name = 'pixelcatch_id'
-    merge_df.to_csv(hand_ref_elev_fileName,index=True) # export dataframe to csv file
 
-    # Merge the HAND reference elvation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
-    merge_df = merge_df.groupby(['HydroID']).median() # median value of all Median_Thal_Elev_m for pixel catchments in each HydroID reach
+    # Merge the HAND reference elevation by HydroID dataframe with the demDerived_reaches layer (add new layer attribute)
+    min_by_hydroid = merge_df.groupby(['HydroID']).min() # min value of all med_thal_elev for pixel catchments in each HydroID reach
+    min_by_hydroid.columns = ['min_thal_elev']
+    med_by_hydroid = merge_df.groupby(['HydroID']).median() # median value of all med_thal_elev for pixel catchments in each HydroID reach
+    med_by_hydroid.columns = ['med_thal_elev']
+    max_by_hydroid = merge_df.groupby(['HydroID']).max() # max value of all med_thal_elev for pixel catchments in each HydroID reach
+    max_by_hydroid.columns = ['max_thal_elev']
     input_reaches = gpd.read_file(dem_reaches_filename)
-    input_reaches = input_reaches.merge(merge_df, on='HydroID') # merge dataframes by HydroID variable
+    input_reaches = input_reaches.merge(min_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
+    input_reaches = input_reaches.merge(med_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
+    input_reaches = input_reaches.merge(max_by_hydroid, on='HydroID') # merge dataframes by HydroID variable
     input_reaches.to_file(dem_reaches_filename,driver=getDriver(dem_reaches_filename),index=False)
     # ------------------------------------------------------------------------------------------------------------------------ #
 
@@ -171,7 +174,6 @@ if __name__ == '__main__':
     parser.add_argument('-t','--thalweg-raster',help='A binary raster representing the thalweg. 1 for thalweg, 0 for non-thalweg.',required=True)
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     parser.add_argument('-i','--hydroid', help='HydroID raster to use within project path', required=True)
-    parser.add_argument('-r','--hand_ref_elev_table',help='Output table of HAND reference elev by catchment',required=True)
     parser.add_argument('-s','--dem_reaches_in_out',help='DEM derived reach layer to join HAND reference elevation attribute',required=True)
 
 
@@ -184,7 +186,6 @@ if __name__ == '__main__':
     rem_fileName = args['rem']
     thalweg_raster = args['thalweg_raster']
     hydroid_fileName = args['hydroid']
-    hand_ref_elev_fileName = args['hand_ref_elev_table']
     dem_reaches_filename = args['dem_reaches_in_out']
 
-    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, hand_ref_elev_fileName, dem_reaches_filename)
+    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, dem_reaches_filename)

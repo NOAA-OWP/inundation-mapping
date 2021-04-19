@@ -11,13 +11,15 @@ import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
-load_dotenv()
-#import variables from .env file
-API_BASE_URL = os.getenv("API_BASE_URL")
-EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
-WBD_LAYER = os.getenv("WBD_LAYER")
+def get_env_paths():
+    load_dotenv()
+    #import variables from .env file
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER
 
-def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
+def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -45,19 +47,20 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     -------
     None.
 
-    '''    
+    '''
+    
     all_start = time.time()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
     metadata_url = f'{API_BASE_URL}/metadata'
-    threshold_url = f'{API_BASE_URL}/threshold'
+    threshold_url = f'{API_BASE_URL}/nws_threshold'
     ###################################################################
+    
     #Create workspace
-    workspace.mkdir(exist_ok = True)
+    workspace.mkdir(parents=True,exist_ok = True)
 
-    #Return dictionary of huc (key) and sublist of ahps(value) as well as geodataframe of sites.
     print('Retrieving metadata...')
     #Get metadata for 'CONUS'
     conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
@@ -67,42 +70,41 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
     
     #Append the dataframes and lists
     all_lists = conus_list + islands_list
-    all_dataframe = conus_dataframe.append(islands_dataframe)
     
     print('Determining HUC using WBD layer...')
-    #Assign FIM HUC to GeoDataFrame and export to shapefile all candidate sites.
-    agg_start = time.time()
+    #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
+    #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
+    #of all sites used later in script.
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
-    viz_out_gdf.to_file(workspace / f'candidate_sites.shp')
-    agg_end = time.time()
-    print(f'agg time is {(agg_end - agg_start)/60} minutes')
+
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
-    #The entire routine to get mainstems is harcoded in this function.
+    #The entire routine to get mainstems is hardcoded in this function.
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
     
-    #Loop through each huc unit
+    #Loop through each huc unit, first define message variable and flood categories.
     all_messages = []
+    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
     for huc in huc_dictionary:
         print(f'Iterating through {huc}')
         #Get list of nws_lids
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in list to create flow file
         for lid in nws_lids:
-            #In some instances the lid is not assigned a name, skip over these.
-            if not isinstance(lid,str):
-                print(f'{lid} is {type(lid)}')
-                continue
             #Convert lid to lower case
             lid = lid.lower()
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-            stages, flows = get_thresholds(threshold_url = threshold_url, location_ids = lid, physical_element = 'all', threshold = 'all', bypass_source_flag = False)
-            #If stages/flows don't exist write message and exit out.
-            if not (stages and flows):
-                message = f'{lid} no thresholds'
+            stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
+            #Check if stages are supplied, if not write message and exit. 
+            if all(stages.get(category, None)==None for category in flood_categories):
+                message = f'{lid}:missing threshold stages'
+                all_messages.append(message)
+                continue
+            #Check if calculated flows are supplied, if not write message and exit.
+            if all(flows.get(category, None) == None for category in flood_categories):
+                message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 continue
 
@@ -116,11 +118,11 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
             #if no segments, write message and exit out
             if not segments:
                 print(f'{lid} no segments')
-                message = f'{lid} no segments'
+                message = f'{lid}:missing nwm segments'
                 all_messages.append(message)
                 continue
             #For each flood category
-            for category in ['action', 'minor', 'moderate', 'major', 'record']:
+            for category in flood_categories:
                 #Get the flow
                 flow = flows[category]
                 #If there is a valid flow value, write a flow file.
@@ -135,102 +137,99 @@ def static_flow_lids(workspace, nwm_us_search, nwm_ds_search):
                     #Write flow file to file
                     flow_info.to_csv(output_file, index = False)
                 else:
-                    message = f'{lid}_{category}_no flow'
+                    message = f'{lid}:{category} is missing calculated flow'
                     all_messages.append(message)
-            #This section will produce a point file of the LID location
+
             #Get various attributes of the site.
-            lat = float(metadata['usgs_data']['latitude'])
-            lon = float(metadata['usgs_data']['longitude'])
+            lat = float(metadata['usgs_preferred']['latitude'])
+            lon = float(metadata['usgs_preferred']['longitude'])
             wfo = metadata['nws_data']['wfo']
             rfc = metadata['nws_data']['rfc']
             state = metadata['nws_data']['state']
             county = metadata['nws_data']['county']
             name = metadata['nws_data']['name']
-            q_act = flows['action']
-            q_min = flows['minor']
-            q_mod = flows['moderate']
-            q_maj = flows['major']
-            q_rec = flows['record']
             flow_units = flows['units']
             flow_source = flows['source']
-            s_act = stages['action']
-            s_min = stages['minor']
-            s_mod = stages['moderate']
-            s_maj = stages['major']
-            s_rec = stages['record']
             stage_units = stages['units']
             stage_source = stages['source']
             wrds_timestamp = stages['wrds_timestamp']
-            #Create a DataFrame using the collected attributes
-            df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'q_act':q_act, 'q_min':q_min, 'q_mod':q_mod, 'q_maj':q_maj, 'q_rec':q_rec, 'q_uni':flow_units, 'q_src':flow_source, 'stage_act':s_act, 'stage_min':s_min, 'stage_mod':s_mod, 'stage_maj':s_maj, 'stage_rec':s_rec, 'stage_uni':stage_units, 's_src':stage_source, 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
-            #Round stages and flows to nearest hundredth
-            df = df.round({'q_act':2,'q_min':2,'q_mod':2,'q_maj':2,'q_rec':2,'stage_act':2,'stage_min':2,'stage_mod':2,'stage_maj':2,'stage_rec':2})
+            nrldb_timestamp = metadata['nrldb_timestamp']
+            nwis_timestamp = metadata['nwis_timestamp']
             
-            #Create a geodataframe using usgs lat/lon property from WRDS then reproject to WGS84.
-            #Define EPSG codes for possible usgs latlon datum names (NAD83WGS84 assigned NAD83)
-            crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269'}
-            #Get horizontal datum (from dataframe) and assign appropriate EPSG code, assume NAD83 if not assigned.
-            h_datum = metadata['usgs_data']['latlon_datum_name']
-            src_crs = crs_lookup.get(h_datum, 'EPSG:4269')            
-            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['lon'], df['lat']), crs =  src_crs) 
-            #Reproject to VIZ_PROJECTION
-            viz_gdf = gdf.to_csv(VIZ_PROJECTION)
-            
-            #Create a csv with same info as shapefile
+            #Create a csv with same information as shapefile but with each threshold as new record.
             csv_df = pd.DataFrame()
-            for threshold in ['action', 'minor', 'moderate', 'major', 'record']:
-                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'lat':[lat], 'lon':[lon]})
+            for threshold in flood_categories:
+                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
                 csv_df = csv_df.append(line_df)
             #Round flow and stage columns to 2 decimal places.
-            csv = csv_df.round({'q':2,'stage':2})
+            csv_df = csv_df.round({'q':2,'stage':2})
 
             #If a site folder exists (ie a flow file was written) save files containing site attributes.
-            try:
-                #Save GeoDataFrame to shapefile format and export csv containing attributes
-                output_dir = workspace / huc / lid
-                viz_gdf.to_file(output_dir / f'{lid}_location.shp' )
+            output_dir = workspace / huc / lid
+            if output_dir.exists():
+                #Export DataFrame to csv containing attributes
                 csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
-            except:
-                print(f'{lid} missing all flows')
-                message = f'{lid} missing all flows'
+            else:
+                message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
-    #Write out messages to file
-    messages_df  = pd.DataFrame(all_messages, columns = ['message'])
-    messages_df.to_csv(workspace / f'all_messages.csv', index = False)
-
-    #Recursively find all location shapefiles
-    locations_files = list(workspace.rglob('*_location.shp'))    
-    spatial_layers = gpd.GeoDataFrame()
-    #Append all shapefile info to a geodataframe
-    for location in locations_files:
-        location_gdf = gpd.read_file(location)
-        spatial_layers = spatial_layers.append(location_gdf)
-    #Write appended spatial data to disk.
-    output_file = workspace /'all_mapped_ahps.shp'
-    spatial_layers.to_file(output_file)
-    
-    #Recursively find all *_info csv files and append
+        
+    print('wrapping up...')
+    #Recursively find all *_attributes csv files and append
     csv_files = list(workspace.rglob('*_attributes.csv'))
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
+        #Huc has to be read in as string to preserve leading zeros.
         temp_df = pd.read_csv(csv, dtype={'huc':str})
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
-    #Write appended _info.csvs to file
-    all_info_csv = workspace / 'nws_lid_attributes.csv'
-    all_csv_df.to_csv(all_info_csv, index = False)
-    all_end = time.time()
-    print(f'total time is {(all_end - all_start)/60} minutes')
+    #Write to file
+    all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
+   
+    #This section populates a shapefile of all potential sites and details
+    #whether it was mapped or not (mapped field) and if not, why (status field).
     
-
+    #Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)    
+    viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
+    viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
+    
+    #Using list of csv_files, populate DataFrame of all nws_lids that had
+    #a flow file produced and denote with "mapped" column.
+    nws_lids = [file.stem.split('_attributes')[0] for file in csv_files]
+    lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
+    lids_df['mapped'] = 'yes'
+    
+    #Identify what lids were mapped by merging with lids_df. Populate 
+    #'mapped' column with 'No' if sites did not map.
+    viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
+    viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
+    
+    #Write messages to DataFrame, split into columns, aggregate messages.
+    messages_df  = pd.DataFrame(all_messages, columns = ['message'])
+    messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
+    status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+    
+    #Join messages to populate status field to candidate sites. Assign 
+    #status for null fields.
+    viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
+    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
+    
+    #Filter out columns and write out to file
+    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
+    viz_out_gdf.to_file(workspace /'nws_lid_flows_sites.shp')
+    
+    #time operation
+    all_end = time.time()
+    print(f'total time is {round((all_end - all_start)/60),1} minutes')
+    
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Create forecast files for all nws_lid sites')
     parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
-    #Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
     
 
-    #Run create_flow_forecast_file
-    static_flow_lids(**args)
+    #Run get_env_paths and static_flow_lids
+    API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER = get_env_paths()
+    generate_catfim_flows(**args)

@@ -7,6 +7,8 @@ import rasterio
 import pandas as pd
 import geopandas as gpd
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 from tools_shared_variables import (TEST_CASES_DIR, PRINTWORTHY_STATS, GO_UP_STATS, GO_DOWN_STATS,
                                     ENDC, TGREEN_BOLD, TGREEN, TRED_BOLD, TWHITE, WHITE_BOLD, CYAN_BOLD)
@@ -728,15 +730,16 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
         metadata_list = metadata_json['locations']
         #Add timestamp of WRDS retrieval
         timestamp = response.headers['Date']
+        #Add timestamp of sources retrieval
+        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']        
         #get crosswalk info (always last dictionary in list)
-        *metadata_list, crosswalk_info = metadata_list
-        #Update each dictionary with timestamp and crosswalk info
+        crosswalk_info = metadata_json['data_sources']
+        #Update each dictionary with timestamp and crosswalk info also save to DataFrame.
         for metadata in metadata_list:
             metadata.update({"wrds_timestamp": timestamp})
+            metadata.update({"nrldb_timestamp":nrldb_timestamp})
+            metadata.update({"nwis_timestamp":nwis_timestamp})
             metadata.update(crosswalk_info)
-        #If count is 1
-        if location_count == 1:
-            metadata_list = metadata_json['locations'][0]
         metadata_dataframe = pd.json_normalize(metadata_list)
         #Replace all periods with underscores in column names
         metadata_dataframe.columns = metadata_dataframe.columns.str.replace('.','_')
@@ -754,8 +757,8 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
 def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     '''
     Assigns the proper FIM HUC 08 code to each site in the input DataFrame.
-    Converts input DataFrame to a GeoDataFrame using the lat/lon attributes
-    with sites containing null lat/lon removed. Reprojects GeoDataFrame
+    Converts input DataFrame to a GeoDataFrame using lat/lon attributes
+    with sites containing null nws_lid/lat/lon removed. Reprojects GeoDataFrame
     to same CRS as the HUC 08 layer. Performs a spatial join to assign the
     HUC 08 layer to the GeoDataFrame. Sites that are not assigned a HUC
     code removed as well as sites in Alaska and Canada.
@@ -782,8 +785,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     #Import huc8 layer as geodataframe and retain necessary columns
     huc8 = gpd.read_file(wbd_huc8_path, layer = 'WBDHU8')
     huc8 = huc8[['HUC8','name','states', 'geometry']]
-    #Define EPSG codes for possible usgs latlon datum names (NAD83WGS84 assigned NAD83)
-    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'NAD83WGS84': 'EPSG:4269'}
+    #Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
+    crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'WGS84': 'EPSG:4326'}
     #Create empty geodataframe and define CRS for potential horizontal datums
     metadata_gdf = gpd.GeoDataFrame()
     #Iterate through each site
@@ -793,14 +796,20 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         #Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
         #Drop any metadata sites that don't have lat/lon populated
-        df.dropna(subset = ['identifiers_nws_lid','usgs_data_latitude','usgs_data_longitude'], inplace = True)
+        df.dropna(subset = ['identifiers_nws_lid','usgs_preferred_latitude', 'usgs_preferred_longitude'], inplace = True)
         #If dataframe still has data
         if not df.empty:
-            #Get horizontal datum (use usgs) and assign appropriate EPSG code
-            h_datum = df.usgs_data_latlon_datum_name.item()
-            src_crs = crs_lookup[h_datum]
-            #Convert dataframe to geodataframe using lat/lon (USGS)
-            site_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.usgs_data_longitude, df.usgs_data_latitude), crs =  src_crs)
+            #Get horizontal datum
+            h_datum = df['usgs_preferred_latlon_datum_name'].item()
+            #Look up EPSG code, if not returned Assume NAD83 as default. 
+            dict_crs = crs_lookup.get(h_datum,'EPSG:4269_ Assumed')
+            #We want to know what sites were assumed, hence the split.
+            src_crs, *message = dict_crs.split('_')
+            #Convert dataframe to geodataframe using lat/lon (USGS). Add attribute of assigned crs (label ones that are assumed)
+            site_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['usgs_preferred_longitude'], df['usgs_preferred_latitude']), crs =  src_crs)
+            #Field to indicate if a latlon datum was assumed
+            site_gdf['assigned_crs'] = src_crs + ''.join(message)
+            
             #Reproject to huc 8 crs
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
@@ -808,7 +817,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
 
     #Trim metadata to only have certain fields.
     if not retain_attributes:
-        metadata_gdf = metadata_gdf[['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'geometry']]
+        metadata_gdf = metadata_gdf[['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'identifiers_usgs_site_code', 'geometry']]
     #If a list of attributes is supplied then use that list.
     elif isinstance(retain_attributes,list):
         metadata_gdf = metadata_gdf[retain_attributes]
@@ -937,7 +946,7 @@ def get_nwm_segs(metadata):
 #######################################################################
 #Thresholds
 #######################################################################
-def get_thresholds(threshold_url, location_ids, physical_element = 'all', threshold = 'all', bypass_source_flag = False):
+def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
     '''
     Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
     moderate, major). Returns a dictionary for stages and one for flows.
@@ -946,17 +955,12 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
     ----------
     threshold_url : STR
         WRDS threshold API.
-    location_ids : STR
-        nws_lid code (only a single code).
-    physical_element : STR, optional
-        Physical element option. The default is 'all'.
+    select_by : STR
+        Type of site (nws_lid, usgs_site_code etc).
+    selector : STR
+        Site for selection. Must be a single site.
     threshold : STR, optional
         Threshold option. The default is 'all'.
-    bypass_source_flag : BOOL, optional
-        Special case if calculated values are not available (e.g. no rating
-        curve is available) then this allows for just a stage to be returned.
-        Used in case a flow is already known from another source, such as
-        a model. The default is False.
 
     Returns
     -------
@@ -966,13 +970,14 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
         Dictionary of flows at each threshold.
 
     '''
-
-    url = f'{threshold_url}/{physical_element}/{threshold}/{location_ids}'
-    response = requests.get(url)
+    params = {}
+    params['threshold'] = threshold
+    url = f'{threshold_url}/{select_by}/{selector}'
+    response = requests.get(url, params = params)
     if response.ok:
         thresholds_json = response.json()
         #Get metadata
-        thresholds_info = thresholds_json['stream_thresholds']
+        thresholds_info = thresholds_json['value_set']
         #Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -985,24 +990,27 @@ def get_thresholds(threshold_url, location_ids, physical_element = 'all', thresh
                 threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
             elif 'NRLDB' in rating_sources:
                 threshold_data = thresholds_info[rating_sources['NRLDB']]
-            #If neither USGS or NRLDB is available
+            #If neither USGS or NRLDB is available use first dictionary to get stage values.
             else:
-                #A flag option for cases where only a stage is needed for USGS scenario where a rating curve source is not available yet stages are available for the site. If flag is enabled, then stages are retrieved from the first record in thresholds_info. Typically the flows will not be populated as no rating curve is available. Flag should only be enabled when flows are already supplied by source (e.g. USGS) and threshold stages are needed.
-                if bypass_source_flag:
-                    threshold_data = thresholds_info[0]
-                else:
-                    threshold_data = []
+                threshold_data = thresholds_info[0]
             #Get stages and flows for each threshold
             if threshold_data:
                 stages = threshold_data['stage_values']
                 flows = threshold_data['calc_flow_values']
                 #Add source information to stages and flows. Flows source inside a nested dictionary. Remove key once source assigned to flows.
-                stages['source'] = threshold_data['metadata']['threshold_source']
-                flows['source'] = flows['rating_curve']['source']
+                stages['source'] = threshold_data.get('metadata').get('threshold_source')
+                flows['source'] = flows.get('rating_curve', {}).get('source')
                 flows.pop('rating_curve', None)
                 #Add timestamp WRDS data was retrieved.
                 stages['wrds_timestamp'] = response.headers['Date']
                 flows['wrds_timestamp'] = response.headers['Date']
+                #Add Site information
+                stages['nws_lid'] = threshold_data.get('metadata').get('nws_lid')
+                flows['nws_lid'] = threshold_data.get('metadata').get('nws_lid')
+                stages['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
+                flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
+                stages['units'] = threshold_data.get('metadata').get('stage_units')
+                flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
     return stages, flows
 
 ########################################################################
@@ -1039,3 +1047,211 @@ def flow_data(segments, flows, convert_to_cms = True):
     flow_data = pd.DataFrame({'feature_id':segments, 'discharge':flows_cms})
     flow_data = flow_data.astype({'feature_id' : int , 'discharge' : float})
     return flow_data
+#######################################################################
+#Function to get datum information
+#######################################################################
+def get_datum(metadata):
+    '''
+    Given a record from the metadata endpoint, retrieve important information
+    related to the datum and site from both NWS and USGS sources. This information
+    is saved to a dictionary with common keys. USGS has more data available so
+    it has more keys. 
+
+    Parameters
+    ----------
+    metadata : DICT
+        Single record from the get_metadata function. Must iterate through
+        the get_metadata output list. 
+
+    Returns
+    -------
+    nws_datums : DICT
+        Dictionary of NWS data.
+    usgs_datums : DICT
+        Dictionary of USGS Data.
+
+    '''
+    #Get site and datum information from nws sub-dictionary. Use consistent naming between USGS and NWS sources.
+    nws_datums = {}
+    nws_datums['nws_lid'] = metadata['identifiers']['nws_lid']
+    nws_datums['usgs_site_code'] = metadata['identifiers']['usgs_site_code']
+    nws_datums['state'] = metadata['nws_data']['state']
+    nws_datums['datum'] = metadata['nws_data']['zero_datum']
+    nws_datums['vcs'] = metadata['nws_data']['vertical_datum_name']
+    nws_datums['lat'] = metadata['nws_data']['latitude']
+    nws_datums['lon'] = metadata['nws_data']['longitude']
+    nws_datums['crs'] = metadata['nws_data']['horizontal_datum_name']
+    nws_datums['source'] = 'nws_data'
+    
+    #Get site and datum information from usgs_data sub-dictionary. Use consistent naming between USGS and NWS sources.
+    usgs_datums = {}
+    usgs_datums['nws_lid'] = metadata['identifiers']['nws_lid']
+    usgs_datums['usgs_site_code'] = metadata['identifiers']['usgs_site_code']
+    usgs_datums['active'] = metadata['usgs_data']['active']
+    usgs_datums['state'] = metadata['usgs_data']['state']
+    usgs_datums['datum'] = metadata['usgs_data']['altitude']
+    usgs_datums['vcs'] = metadata['usgs_data']['alt_datum_code']
+    usgs_datums['datum_acy'] = metadata['usgs_data']['alt_accuracy_code']
+    usgs_datums['datum_meth'] = metadata['usgs_data']['alt_method_code']
+    usgs_datums['lat'] = metadata['usgs_data']['latitude']
+    usgs_datums['lon'] = metadata['usgs_data']['longitude']
+    usgs_datums['crs'] = metadata['usgs_data']['latlon_datum_name']
+    usgs_datums['source'] = 'usgs_data' 
+    
+    return nws_datums, usgs_datums
+########################################################################
+#Function to convert horizontal datums
+########################################################################
+def convert_latlon_datum(lat,lon,src_crs,dest_crs):
+    '''
+    Converts latitude and longitude datum from a source CRS to a dest CRS 
+    using geopandas and returns the projected latitude and longitude coordinates.
+
+    Parameters
+    ----------
+    lat : FLOAT
+        Input Latitude.
+    lon : FLOAT
+        Input Longitude.
+    src_crs : STR
+        CRS associated with input lat/lon. Geopandas must recognize code.
+    dest_crs : STR
+        Target CRS that lat/lon will be projected to. Geopandas must recognize code.
+
+    Returns
+    -------
+    new_lat : FLOAT
+        Reprojected latitude coordinate in dest_crs.
+    new_lon : FLOAT
+        Reprojected longitude coordinate in dest_crs.
+
+    '''
+    
+    #Create a temporary DataFrame containing the input lat/lon.
+    temp_df = pd.DataFrame({'lat':[lat],'lon':[lon]})
+    #Convert dataframe to a GeoDataFrame using the lat/lon coords. Input CRS is assigned.
+    temp_gdf = gpd.GeoDataFrame(temp_df, geometry=gpd.points_from_xy(temp_df.lon, temp_df.lat), crs =  src_crs)
+    #Reproject GeoDataFrame to destination CRS.
+    reproject = temp_gdf.to_crs(dest_crs)
+    #Get new Lat/Lon coordinates from the geometry data.
+    new_lat,new_lon = [reproject.geometry.y.item(), reproject.geometry.x.item()]
+    return new_lat, new_lon
+#######################################################################
+#Function to get conversion adjustment NGVD to NAVD in FEET
+#######################################################################
+def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
+    '''
+    Given the lat/lon, retrieve the adjustment from NGVD29 to NAVD88 in feet. 
+    Uses NOAA tidal API to get conversion factor. Requires that lat/lon is
+    in NAD27 crs. If input lat/lon are not NAD27 then these coords are 
+    reprojected to NAD27 and the reproject coords are used to get adjustment.
+    There appears to be an issue when region is not in contiguous US.
+
+    Parameters
+    ----------
+    lat : FLOAT
+        Latitude.
+    lon : FLOAT
+        Longitude.
+
+    Returns
+    -------
+    datum_adj_ft : FLOAT
+        Vertical adjustment in feet, from NGVD29 to NAVD88, and rounded to nearest hundredth.
+
+    '''
+    #If crs is not NAD 27, convert crs to NAD27 and get adjusted lat lon
+    if datum_info['crs'] != 'NAD27':
+        lat, lon = convert_latlon_datum(datum_info['lat'],datum_info['lon'],datum_info['crs'],'NAD27')
+    else:
+        #Otherwise assume lat/lon is in NAD27.
+        lat = datum_info['lat']
+        lon = datum_info['lon']
+    
+    #Define url for datum API
+    datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/tidal'     
+    
+    #Define parameters. Hard code most parameters to convert NGVD to NAVD.    
+    params = {}
+    params['lat'] = lat
+    params['lon'] = lon
+    params['region'] = region
+    params['s_h_frame'] = 'NAD27'     #Source CRS
+    params['s_v_frame'] = 'NGVD29'    #Source vertical coord datum
+    params['s_vertical_unit'] = 'm'   #Source vertical units
+    params['src_height'] = 0.0        #Source vertical height
+    params['t_v_frame'] = 'NAVD88'    #Target vertical datum
+    params['tar_vertical_unit'] = 'm' #Target vertical height
+    
+    #Call the API
+    response = requests.get(datum_url, params = params)
+    #If succesful get the navd adjustment
+    if response:
+        results = response.json()
+        #Get adjustment in meters (NGVD29 to NAVD88)
+        adjustment = results['tar_height']
+        #convert meters to feet
+        adjustment_ft = round(float(adjustment) * 3.28084,2)                
+    else:
+        adjustment_ft = None
+    return adjustment_ft       
+#######################################################################
+#Function to download rating curve from API
+#######################################################################
+def get_rating_curve(rating_curve_url, location_ids):
+    '''
+    Given list of location_ids (nws_lids, usgs_site_codes, etc) get the 
+    rating curve from WRDS API and export as a DataFrame.
+
+    Parameters
+    ----------
+    rating_curve_url : STR
+        URL to retrieve rating curve
+    location_ids : LIST
+        List of location ids. Can be nws_lid or usgs_site_codes.
+
+    Returns
+    -------
+    all_curves : pandas DataFrame
+        Rating curves from input list as well as other site information.
+
+    '''
+    #Define DataFrame to contain all returned curves.
+    all_curves = pd.DataFrame()
+    
+    #Define call to retrieve all rating curve information from WRDS.
+    joined_location_ids = '%2C'.join(location_ids)
+    url = f'{rating_curve_url}/{joined_location_ids}'
+    
+    #Call the API 
+    response = requests.get(url)
+
+    #If successful
+    if response.ok:
+
+        #Write return to json and extract the rating curves
+        site_json = response.json()
+        rating_curves_list = site_json['rating_curves']
+
+        #For each curve returned
+        for curve in rating_curves_list:
+            #Check if a curve was populated (e.g wasn't blank)
+            if curve:
+
+                #Write rating curve to pandas dataframe as well as site attributes
+                curve_df = pd.DataFrame(curve['rating_curve'],dtype=float)
+
+                #Add other information such as site, site type, source, units, and timestamp.
+                curve_df['location_id'] = curve['metadata']['location_id']
+                curve_df['location_type'] = curve['metadata']['id_type']
+                curve_df['source'] = curve['metadata']['source']
+                curve_df['flow_units'] = curve['metadata']['flow_unit']
+                curve_df['stage_units'] = curve['metadata']['stage_unit']
+                curve_df['wrds_timestamp'] = response.headers['Date']
+
+                #Append rating curve to DataFrame containing all curves
+                all_curves = all_curves.append(curve_df)
+            else:
+                continue
+
+    return all_curves
