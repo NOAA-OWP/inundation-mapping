@@ -83,7 +83,7 @@ Tcount
 if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/nhd_headwater_points_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    # rm -rf $outputHucDataDir
+    rm -rf $outputHucDataDir
     exit 0
   fi
 fi
@@ -103,13 +103,6 @@ Tstart
 gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputHucDataDir/dem_meters.tif
 Tcount
 
-## CHECK DEM NODATA
-echo -e $startDiv"Check DEM Nodata $hucNumber"$stopDiv
-date -u
-Tstart
-$srcDir/check_dem_nodata.py -in_dem $outputHucDataDir/dem.tif -out_dem $outputHucDataDir/dem_nodata.tif
-Tcount
-
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
@@ -121,7 +114,6 @@ echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-<<<<<<< HEAD
 gdal_rasterize -l nld_subset_levees -3d -at -init -9999 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
 Tcount
 
@@ -263,7 +255,7 @@ Tcount
 
 if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
   echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  # rm -rf $outputHucDataDir
+  rm -rf $outputHucDataDir
   exit 0
 fi
 
@@ -277,7 +269,7 @@ if [ "$extent" = "MS" ]; then
 
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-    # rm -rf $outputHucDataDir
+    rm -rf $outputHucDataDir
     exit 0
   fi
 
@@ -357,7 +349,7 @@ $srcDir/filter_catchments_and_add_attributes.py $outputHucDataDir/gw_catchments_
 
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  # rm -rf $outputHucDataDir
+  rm -rf $outputHucDataDir
   exit 0
 fi
 Tcount
