@@ -13,6 +13,8 @@ from multiprocessing import Pool
 from os.path import isfile, join, dirname
 import shutil
 import warnings
+from pathlib import Path
+import time
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
@@ -33,6 +35,27 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     stat_groups : str
         string of columns to group eval metrics.
 """
+
+def check_file_age(file):
+    '''
+    Checks if file exists, determines the file age, and recommends
+    updating if older than 1 month.
+
+    Returns
+    -------
+    None.
+
+    '''
+    file = Path(file)
+    if file.is_file():
+        modification_time = file.stat().st_mtime
+        current_time = time.time()
+        file_age_days = (current_time - modification_time)/86400
+        if file_age_days > 30:
+            check = f'{file.name} is {int(file_age_days)} days old, consider updating.\nUpdate with rating_curve_get_usgs_curves.py'
+        else:
+            check = f'{file.name} is {int(file_age_days)} days old.'
+    return check
 
 # recurr_intervals = ['recurr_1_5_cms.csv','recurr_5_0_cms.csv','recurr_10_0_cms.csv']
 
@@ -161,27 +184,27 @@ def generate_rating_curve_metrics(args):
             nwm_recurr_data_table = nwm_recurr_data_table.append(usgs_pred_elev)
 
             # Interpolate FIM elevation at USGS observations
-            fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
-            usgs_rc = usgs_rc.rename(columns={"elevation_ft": "USGS"})
-
-            # Sort stage in ascending order
-            usgs_rc = usgs_rc.sort_values('USGS',ascending=True)
-
-            # Interpolate FIM elevation at USGS observations
-            usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation_ft'], left = np.nan, right = np.nan)
-            usgs_rc = usgs_rc[usgs_rc['FIM'].notna()]
-            usgs_rc = usgs_rc.drop(columns=["source"])
-
-            # Melt dataframe
-            usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
-
-            if not usgs_rc.empty:
-                usgs_recurr_data = usgs_recurr_data.append(usgs_rc)
+            # fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
+            # usgs_rc = usgs_rc.rename(columns={"elevation_ft": "USGS"})
+            #
+            # # Sort stage in ascending order
+            # usgs_rc = usgs_rc.sort_values('USGS',ascending=True)
+            #
+            # # Interpolate FIM elevation at USGS observations
+            # usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation_ft'], left = np.nan, right = np.nan)
+            # usgs_rc = usgs_rc[usgs_rc['FIM'].notna()]
+            # usgs_rc = usgs_rc.drop(columns=["source"])
+            #
+            # # Melt dataframe
+            # usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
+            #
+            # if not usgs_rc.empty:
+            #     usgs_recurr_data = usgs_recurr_data.append(usgs_rc)
 
         # Generate stats for all sites in huc
-        if not usgs_recurr_data.empty:
-            usgs_recurr_stats_table = calculate_rc_stats_elev(usgs_recurr_data)
-            usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
+        # if not usgs_recurr_data.empty:
+        #     usgs_recurr_stats_table = calculate_rc_stats_elev(usgs_recurr_data)
+        #     usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
 
         # # Generate plots (not currently being used)
         # fim_elev_at_USGS_rc_plot_filename = join(dirname(rc_comparison_plot_filename),'FIM_elevations_at_USGS_rc_' + str(huc) +'.png')
@@ -197,26 +220,26 @@ def generate_rating_curve_metrics(args):
 
 def aggregate_metrics(output_dir,procs_list,stat_groups):
 
-    agg_usgs_interp_elev_stats = join(output_dir,'agg_usgs_interp_elev_stats.csv')
+    # agg_usgs_interp_elev_stats = join(output_dir,'agg_usgs_interp_elev_stats.csv')
     agg_nwm_recurr_flow_elev = join(output_dir,'agg_nwm_recurr_flow_elevations.csv')
     agg_nwm_recurr_flow_elev_stats = join(output_dir,f"agg_nwm_recurr_flow_elev_stats_{'_'.join(stat_groups)}.csv")
 
-    if os.path.isfile(agg_usgs_interp_elev_stats):
-        os.remove(agg_usgs_interp_elev_stats)
+    # if os.path.isfile(agg_usgs_interp_elev_stats):
+    #     os.remove(agg_usgs_interp_elev_stats)
     if os.path.isfile(agg_nwm_recurr_flow_elev):
         os.remove(agg_nwm_recurr_flow_elev)
     if os.path.isfile(agg_nwm_recurr_flow_elev_stats):
         os.remove(agg_nwm_recurr_flow_elev_stats)
 
     for huc in procs_list:
-        if os.path.isfile(huc[3]):
-            usgs_recurr_stats = pd.read_csv(huc[3])
-
-            # Write/append usgs_recurr_stats
-            if os.path.isfile(agg_usgs_interp_elev_stats):
-                usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False, mode='a',header=False)
-            else:
-                usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False)
+        # if os.path.isfile(huc[3]):
+        #     usgs_recurr_stats = pd.read_csv(huc[3])
+        #
+        #     # Write/append usgs_recurr_stats
+        #     if os.path.isfile(agg_usgs_interp_elev_stats):
+        #         usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False, mode='a',header=False)
+        #     else:
+        #         usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False)
 
         if os.path.isfile(huc[4]):
             nwm_recurr_data = pd.read_csv(huc[4],dtype={'location_id': str,
@@ -335,7 +358,7 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
         .reset_index(stat_groups, drop = False).rename({0: "nrmse"}, axis=1)
 
     # Calculate Mean Absolute Depth Difference
-    mean_abs_y_diff = station_rc.apply(lambda x: (abs(x["yhat_minus_y"]).mean() / x["location_id"].count()))\
+    mean_abs_y_diff = station_rc.apply(lambda x: (abs(x["yhat_minus_y"]).mean()))\
         .reset_index(stat_groups, drop = False).rename({0: "mean_abs_y_diff_ft"}, axis=1)
 
     # Calculate Percent Bias
@@ -373,6 +396,9 @@ if __name__ == '__main__':
     os.makedirs(plots_dir, exist_ok=True)
     tables_dir = join(output_dir,'tables')
     os.makedirs(tables_dir, exist_ok=True)
+
+    #Check age of gages csv and recommend updating if older than 30 days.
+    print(check_file_age(usgs_gages_filename))
 
     # Open log file
     sys.__stdout__ = sys.stdout

@@ -8,12 +8,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
+import os
+import sys
+sys.path.append('/foss_fim/src')
+from utils.shared_variables import VIZ_PROJECTION
+from dotenv import load_dotenv
+from tools_shared_functions import aggregate_wbd_hucs, get_metadata
+
+#Get variables from .env file.
+load_dotenv()
+WBD_LAYER = os.getenv("WBD_LAYER")
+API_BASE_URL = os.getenv("API_BASE_URL")
+
 #########################################################################
 #Create boxplot
 #########################################################################
-def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, dest_file = False):      
+def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, dest_file = False):
     '''
-    Create boxplots. 
+    Create boxplots.
 
     Parameters
     ----------
@@ -32,10 +44,10 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     fim_configuration: STR
         Configuration of FIM (FR or MS or Composite).
     simplify_legend : BOOL, optional
-        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
+        If True, it will simplify legend to FIM 1, FIM 2, FIM 3.
         The default is False.
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False 
+        If STR provide the full path to the figure to be saved. If False
         no plot is saved to disk. The default is False.
 
     Returns
@@ -61,17 +73,17 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
     axes.legend(markerscale = 2, fontsize =20, loc = 'lower left')
-    
+
     #If simple legend desired
     if simplify_legend:
-        #trim labels to FIM 1, FIM 2, and the FIM 3 version    
+        #trim labels to FIM 1, FIM 2, and the FIM 3 version
         handles, org_labels = axes.get_legend_handles_labels()
         label_dict = {}
         for label in org_labels:
             if 'fim_1' in label:
                 label_dict[label] = 'FIM 1'
             elif 'fim_2' in label:
-                label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()                  
+                label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
             elif 'fim_3' in label:
                 label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
@@ -84,7 +96,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         if y_field == 'FAR':
             legend_location = 'upper right'
         else:
-            legend_location = 'lower left' 
+            legend_location = 'lower left'
         #rename legend labels to the simplified labels.
         axes.legend(handles, new_labels, markerscale = 2, fontsize = 20, loc = legend_location, ncol = int(np.ceil(len(new_labels)/7)))
     #Print textbox if supplied
@@ -102,9 +114,9 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
 #########################################################################
 #Create scatter plot
 #########################################################################
-def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annotate = False, dest_file = False):      
+def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annotate = False, dest_file = False):
     '''
-    Create boxplots. 
+    Create boxplots.
 
     Parameters
     ----------
@@ -115,11 +127,11 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
     y_field : STR
         Field to use for the y-axis (Assumes FIM 3)
     title_text : STR
-        Text for plot title.    
+        Text for plot title.
     stats_text : STR or BOOL
         Text for stats to place on chart. Default is false (no stats printed)
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False 
+        If STR provide the full path to the figure to be saved. If False
         no plot is saved to disk. The default is False.
 
     Returnsy
@@ -131,15 +143,15 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 
     #initialize plot
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(15, 10))
-    
+
     #Use seaborn to plot the boxplot
     axes=sns.scatterplot(data=dataframe, x=x_field, y=y_field, color = 'black', s = 150)
-    
+
     #Set xticks and yticks and background horizontal line.
     axes.set(ylim=(0.0,1.0),yticks = np.arange(0,1.1,0.1))
     axes.set(xlim=(0.0,1.0),xticks = np.arange(0,1.1,0.1))
-    axes.grid(b=True, which='major', axis='both')    
-    
+    axes.grid(b=True, which='major', axis='both')
+
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
 
@@ -154,7 +166,7 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 
     #set title of plot
     axes.set_title(f'{title_text}',fontsize=20, weight = 'bold')
-   
+
     if annotate:
         #Set text for labels
         box_props = dict(boxstyle='round', facecolor='white', alpha=0.5)
@@ -176,9 +188,9 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 #########################################################################
 #Create barplot
 #########################################################################
-def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, display_values = False, dest_file = False):      
+def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, display_values = False, dest_file = False):
     '''
-    Create barplots. 
+    Create barplots.
 
     Parameters
     ----------
@@ -197,13 +209,13 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     fim_configuration: STR
         Configuration of FIM (FR or MS or Composite).
     simplify_legend : BOOL, optional
-        If True, it will simplify legend to FIM 1, FIM 2, FIM 3. 
+        If True, it will simplify legend to FIM 1, FIM 2, FIM 3.
         Default is False.
     display_values : BOOL, optional
-        If True, Y values will be displayed above bars. 
+        If True, Y values will be displayed above bars.
         Default is False.
     dest_file : STR or BOOL, optional
-        If STR provide the full path to the figure to be saved. If False 
+        If STR provide the full path to the figure to be saved. If False
         no plot is saved to disk. Default is False.
 
     Returns
@@ -231,7 +243,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
     axes.legend(markerscale = 2, fontsize =20, loc = 'upper right')
     #If simple legend desired
     if simplify_legend:
-        #trim labels to FIM 1, FIM 2, FIM 3    
+        #trim labels to FIM 1, FIM 2, FIM 3
         handles, org_labels = axes.get_legend_handles_labels()
         label_dict = {}
         for label in org_labels:
@@ -262,8 +274,8 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             axes.text(patch.get_x()+patch.get_width()/2.,
                     patch.get_height(),
                     '{:1.3f}'.format(value),
-                    ha="center", fontsize=18)  
-    
+                    ha="center", fontsize=18)
+
     #If figure to be saved to disk, then do so, otherwise return fig
     if dest_file:
         fig.savefig(dest_file)
@@ -276,12 +288,12 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
 def filter_dataframe(dataframe, unique_field):
     '''
 
-    This script will filter out the sites (or hucs) which are not consistently 
-    found for all versions for a given magnitude. For example, an AHPS 
-    lid site must have output for all 3 versions (fim1, fim2, fim3) for 
-    a given magnitude (eg action) otherwise that lid is filtered out. 
-    Likewise for a BLE a huc must have output for all 3 versions 
-    (fim1, fim2, fim3) for a given magnitude (eg 100yr) otherwise it is 
+    This script will filter out the sites (or hucs) which are not consistently
+    found for all versions for a given magnitude. For example, an AHPS
+    lid site must have output for all 3 versions (fim1, fim2, fim3) for
+    a given magnitude (eg action) otherwise that lid is filtered out.
+    Likewise for a BLE a huc must have output for all 3 versions
+    (fim1, fim2, fim3) for a given magnitude (eg 100yr) otherwise it is
     filtered out.
 
     Parameters
@@ -295,12 +307,12 @@ def filter_dataframe(dataframe, unique_field):
     Returns
     -------
     final_filtered_dataframe : Pandas Dataframe
-        Filtered dataframe that contains only common sites (lids or hucs) between versions for each magnitude. For example, for AHPS all sites which were run for each version for a given magnitude will be kept or for ble, all hucs which ran for all versions for a given magnitude. 
+        Filtered dataframe that contains only common sites (lids or hucs) between versions for each magnitude. For example, for AHPS all sites which were run for each version for a given magnitude will be kept or for ble, all hucs which ran for all versions for a given magnitude.
     unique_sites: DICT
         The sites that were included in the dataframe for each magnitude.
 
     '''
-    
+
     #Get lists of sites for each magnitude/version
     unique_sites = dataframe.groupby(['magnitude','version'])[unique_field].agg('unique')
     #Get unique magnitudes
@@ -319,14 +331,14 @@ def filter_dataframe(dataframe, unique_field):
         #Query filtered dataframe and only include data associated with the common sites for that magnitude
         filtered_common_sites = dataframe.query(f'magnitude == "{magnitude}" & {unique_field} in @common_sites_per_magnitude')
         #Append the data for each magnitude to a final dataframe that will contain data for all common sites for all magnitudes.
-        final_filtered_dataframe = final_filtered_dataframe.append(filtered_common_sites, ignore_index = True)            
-    
+        final_filtered_dataframe = final_filtered_dataframe.append(filtered_common_sites, ignore_index = True)
+
     return final_filtered_dataframe, all_unique_sites
 ##############################################################################
 ##############################################################################
 #Main function to analyze metric csv.
 ##############################################################################
-def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial_ahps = False, fim_1_ms = False, site_barplots = False):
+def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial = False, fim_1_ms = False, site_barplots = False):
 
     '''
     Creates plots and summary statistics using metrics compiled from
@@ -369,6 +381,12 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             site subdirectories are the following files:
                 csi_<site_name>_<benchmark_source>_<configuration>.png: A barplot
                     of CSI for each version for all magnitudes for the site.
+        Optional (if spatial argument supplied): 
+            fim_performance_points.shp -- A shapefile of ahps points with 
+            metrics contained in attribute table.
+            fim_performance_polys.shp -- A shapefile of huc8 polygons with
+            metrics contained in attribute table.
+            
 
 
     Parameters
@@ -397,22 +415,21 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         The default is false. Currently the default ahps query is same
         as done for apg goals. If a different query is desired it can be
         supplied and it will supercede the default query.
-    spatial_ahps : DICTIONARY, optional
-        The default is false. A dictionary with keys as follows:
-            'static': Path to AHPS point file created during creation of
-                FIM 3 static libraries.
-            'evaluated': Path to extent file created during the creation
-                of the NWS/USGS AHPS preprocessing.
-            'metadata': Path to previously created file that contains
-                metadata about each site (feature_id, wfo, rfc and etc).
-        No spatial layers will be created if set to False, if a dictionary
-        is supplied then a spatial layer is produced.
+    spatial : BOOL, optional
+        Creates spatial datasets of the base unit (ble: huc polygon, ahps: point) 
+        with metrics contained in attribute tables. The geospatial data is 
+        either supplied in the .env file (WBD Huc layer) or from WRDS (ahps).
+        The outputs are consistent with requirements set forth by the vizualization team.
+        Additionally, there is a commented out section where if the user
+        passes the extent files generated during creation of nws/usgs ahps
+        preprocessing, the actual maps and flows used for evaluation are
+        appended to the ahps shapefile output. 
     fim_1_ms: BOOL
         Default is false. If True then fim_1 rows are duplicated with
         extent_config set to MS. This allows for FIM 1 to be included
         in MS plots/stats (helpful for nws/usgs ahps comparisons).
     site_barplots: BOOL
-        Default is false. If True then barplots for each individual site are 
+        Default is false. If True then barplots for each individual site are
         created. An 'individual' directory with subdirectories of each site
         are created and the plot is located in each site subdirectory.
 
@@ -426,7 +443,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     '''
 
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
-    csv_df = pd.read_csv(metrics_csv)
+    csv_df = pd.read_csv(metrics_csv, dtype = {'huc':str})
 
     # fim_1_ms flag enables FIM 1 to be shown on MS plots/stats
     if fim_1_ms:
@@ -453,21 +470,21 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     versions for a given magnitude. The final filtered dataset is written
     to a dictionary with the key (benchmark source, extent config)
     and values (filtered dataframe, common sites). '''
-    
+
     all_datasets = {}
     for (benchmark_source, extent_configuration), benchmark_metrics in benchmark_by_source:
 
         '''If source is usgs/nws define the base resolution and query
         (use alternate query if passed). Append filtered datasets to
         all_datasets dictionary.'''
-        
+
         if benchmark_source in ['usgs','nws']:
 
             # Set the base processing unit for the ahps runs.
             base_resolution = 'nws_lid'
 
             #Default query (used for APG) it could be that bad_sites should be modified. If so pass an alternate query using the "alternate_ahps_query"
-            bad_sites = ['grfi2','ksdm7','hohn4','rwdn4']
+            bad_sites = ['grfi2','ksdm7','hohn4','rwdn4','efdn7','kilo1','chin7','segt2','eagi1','levk1','trbf1']
             query = "not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites"
 
             # If alternate ahps evaluation query argument is passed, use that.
@@ -523,7 +540,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         # Get all versions in dataset
         all_versions = list(dataset.version.unique())
         version_order = []
-        
+
         # If versions are not specified then use all available versions and assign to versions_list
         if not versions:
             versions_list = all_versions
@@ -584,55 +601,77 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     #######################################################################
     #Create spatial layers with threshold and mapping information
     ########################################################################
-    if spatial_ahps:
-
-        # Read in supplied shapefile layers
-        # Layer containing metadata for each site (feature_id, wfo, etc)
-        # Convert nws_lid to lower case
-        ahps_metadata = gpd.read_file(spatial_ahps['metadata'])
-        ahps_metadata['nws_lid'] = ahps_metadata['nws_lid'].str.lower()
-        metadata_crs = ahps_metadata.crs
-
-        # Extent layer generated from preprocessing NWS/USGS datasets
-        evaluated_ahps_extent = gpd.read_file(spatial_ahps['evaluated'])
-
-        # Extent layer generated from static ahps library preprocessing
-        static_library = gpd.read_file(spatial_ahps['static'])
-
-        # Fields to keep
-        # Get list of fields to keep in merge
-        preserved_static_library_fields = ['nws_lid'] + [i for i in static_library.columns if i.startswith(('Q','S'))]
-        # Get list of fields to keep in merge
-        preserved_evaluated_ahps_fields = ['nws_lid', 'source', 'geometry'] + [i for i in evaluated_ahps_extent.columns if i.startswith(('action','minor','moderate','major'))]
-
-        # Join tables to evaluated_ahps_extent
-        evaluated_ahps_extent = evaluated_ahps_extent[preserved_evaluated_ahps_fields]
-        evaluated_ahps_extent = evaluated_ahps_extent.merge(ahps_metadata, on = 'nws_lid')
-        evaluated_ahps_extent['geometry'] = evaluated_ahps_extent['geometry_y']
-        evaluated_ahps_extent.drop(columns = ['geometry_y','geometry_x'], inplace = True)
-        evaluated_ahps_extent = evaluated_ahps_extent.merge(static_library[preserved_static_library_fields], on = 'nws_lid')
-
-        # Join dataset metrics to evaluated_ahps_extent data
-        final_join = pd.DataFrame()
-        for (dataset_name, configuration), (dataset, sites) in all_datasets.items():
-            # Only select ahps from dataset if config is MS
-            if dataset_name in ['usgs','nws'] and configuration == 'MS':
-                # Select records from evaluated_ahps_extent that match the dataset name
-                subset = evaluated_ahps_extent.query(f'source == "{dataset_name}"')
-                # Join to dataset
-                dataset_with_subset = dataset.merge(subset, on = 'nws_lid')
-                # Append rows to final_join dataframe
-                final_join = final_join.append(dataset_with_subset)
-
-        # Modify version field
-        final_join['version'] = final_join.version.str.split('_nws|_usgs').str[0]
-
-        # Write geodataframe to file
-        gdf = gpd.GeoDataFrame(final_join, geometry = final_join['geometry'], crs = metadata_crs)
-        output_shapefile = Path(workspace) / 'nws_usgs_site_info.shp'
-        gdf.to_file(output_shapefile)
-
-
+    if spatial:
+        ###############################################################
+        #This section will join ahps metrics to a spatial point layer
+        ###############################################################
+        
+        #Get point data for ahps sites
+        #Get metrics for usgs and nws benchmark sources
+        usgs_dataset,sites = all_datasets.get(('usgs','MS'))
+        nws_dataset, sites = all_datasets.get(('nws','MS'))
+        #Append usgs/nws dataframes and filter unnecessary columns and rename remaining.
+        all_ahps_datasets = usgs_dataset.append(nws_dataset)
+        all_ahps_datasets = all_ahps_datasets.filter(['huc','nws_lid','version','magnitude','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source'])
+        all_ahps_datasets.rename(columns = {'benchmark_source':'source'}, inplace = True)
+        
+        #Get spatial data from WRDS
+        #Get metadata from WRDS API
+        select_by = 'nws_lid'
+        selector = list(all_ahps_datasets.nws_lid.unique())
+        metadata_url = f'{API_BASE_URL}/metadata'
+        metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector)
+        #Create geospatial data from WRDS output
+        dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes = True)
+        #Trim out unecessary columns and rename remaining columns
+        gdf = gdf.filter(['identifiers_nws_lid', 'nws_data_name', 'identifiers_nwm_feature_id','nws_data_wfo','nws_data_state','nws_data_county','geometry'])
+        gdf.rename(columns = {'identifiers_nws_lid':'nws_lid', 'nws_data_name':'lid_name','identifiers_nwm_feature_id':'feature_id','nws_data_wfo':'wfo','nws_data_state':'state','nws_data_county':'county','HUC8':'huc8'}, inplace = True)
+        
+        #Join spatial data to metric data        
+        gdf['nws_lid'] = gdf['nws_lid'].str.lower()        
+        joined = gdf.merge(all_ahps_datasets, on = 'nws_lid')
+        #Project to VIZ projection and write to file
+        joined = joined.to_crs(VIZ_PROJECTION)
+        joined.to_file(Path(workspace) / 'fim_performance_points.shp')
+        
+        '''
+        ###############################################################
+        #If user wants to append information such as what maps or flows were used for evaluation. This is already tested.
+        #User must supply the extent layer generated from preprocessing NWS/USGS datasets.
+        ###############################################################
+        #Read extent layer to GeoDataFrame and drop the geometry column
+        evaluated_ahps_extent = gpd.read_file(/Path/to/extent/layer/generated/during/preprocessing)        
+        evaluated_ahps_extent.drop(columns = ['geometry'], inplace = True)
+        #Re-arrange dataset to get flows used for evaluation
+        flows = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action_Q','minor_Q','moderate_Q','major_Q'], var_name = 'magnitude', value_name = 'eval_Q')
+        flows['magnitude'] = flows['magnitude'].str.split('_', 1, expand = True)
+        #Re-arrange dataset to get maps used for evaluation
+        maps = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action','minor','moderate','major'], var_name = 'magnitude', value_name = 'eval_maps')
+        maps['eval_maps'] = maps['eval_maps'].str.split('\\').str[-1]
+        #Merge flows and maps into single DataFrame
+        flows_maps = pd.merge(flows,maps, how = 'left', left_on = ['nws_lid','source','magnitude'], right_on = ['nws_lid','source','magnitude'])        
+        # combine flows_maps to spatial layer (gdf)
+        joined = joined.merge(flows_maps, left_on = ['nws_lid','magnitude','source'], right_on = ['nws_lid','magnitude','source'])
+        #Write to file
+        joined.to_file(Path(workspace)/'fim_performance_points.shp')
+        '''
+        ################################################################
+        #This section joins ble (FR) metrics to a spatial layer of HUCs.
+        ################################################################
+        #Read in HUC spatial layer
+        wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')
+        #Select BLE, FR dataset.
+        ble_dataset, sites = all_datasets.get(('ble','FR'))              
+        #Join metrics to HUC spatial layer
+        wbd_with_metrics = wbd_gdf.merge(ble_dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
+        #Filter out unnecessary columns
+        wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
+        wbd_with_metrics.rename(columns = {'benchmark_source':'source'}, inplace = True )
+        #Project to VIZ projection
+        wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
+        #Write out to file
+        wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
+        
 
 #######################################################################
 if __name__ == '__main__':
@@ -643,32 +682,12 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
     parser.add_argument('-s', '--stats', help = 'List of statistics (abbrev to 3 letters) to be plotted/aggregated', nargs = '+', default = ['CSI','TPR','FAR'], required = False)
     parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
-    parser.add_argument('-sp', '--spatial_ahps', help = 'If spatial point layer is desired, supply a csv with 3 lines of the following format: metadata, path/to/metadata/shapefile\nevaluated, path/to/evaluated/shapefile\nstatic, path/to/static/shapefile.', default = False, required = False)
+    parser.add_argument('-sp', '--spatial', help = 'If enabled, creates spatial layers with metrics populated in attribute table.', action = 'store_true', required = False)
     parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
     parser.add_argument('-i', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
-    
+
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
-
-    # If errors occur reassign error to True
-    error = False
-    # Create dictionary if file specified for spatial_ahps
-    if args['spatial_ahps']:
-        # Create dictionary
-        spatial_dict = {}
-        with open(args['spatial_ahps']) as file:
-            for line in file:
-                key, value = line.strip('\n').split(',')
-                spatial_dict[key] = Path(value)
-        args['spatial_ahps'] = spatial_dict
-        # Check that all required keys are present and overwrite args with spatial_dict
-        required_keys = set(['metadata', 'evaluated', 'static'])
-        if required_keys - spatial_dict.keys():
-          print('\n Required keys are: metadata, evaluated, static')
-          error = True
-        else:
-            args['spatial_ahps'] = spatial_dict
-
 
     # Finalize Variables
     m = args['metrics_csv']
@@ -676,10 +695,9 @@ if __name__ == '__main__':
     v = args['versions']
     s = args['stats']
     q = args['alternate_ahps_query']
-    sp= args['spatial_ahps']
+    sp= args['spatial']
     f = args['fim_1_ms']
     i = args['site_plots']
 
     # Run eval_plots function
-    if not error:
-        eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial_ahps = sp, fim_1_ms = f, site_barplots = i)
+    eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial = sp, fim_1_ms = f, site_barplots = i)

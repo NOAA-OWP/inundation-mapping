@@ -32,7 +32,7 @@ hucUnitLength=${#hucNumber}
 huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
-input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_cm.tif
+input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
@@ -99,8 +99,8 @@ Tcount
 echo -e $startDiv"Clip DEM $hucNumber"$stopDiv
 date -u
 Tstart
-[ ! -f $outputHucDataDir/dem.tif ] && \
-gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Int32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputHucDataDir/dem.tif
+[ ! -f $outputHucDataDir/dem_meters.tif ] && \
+gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputHucDataDir/dem_meters.tif
 Tcount
 
 ## CHECK DEM NODATA
@@ -114,22 +114,15 @@ Tcount
 echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
 Tstart
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputHucDataDir/dem_nodata.tif)
+read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputHucDataDir/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/nld_rasterized_elev.tif ] && [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
+<<<<<<< HEAD
 gdal_rasterize -l nld_subset_levees -3d -at -init -9999 -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputHucDataDir/nld_rasterized_elev.tif
-Tcount
-
-## CONVERT TO METERS ##
-echo -e $startDiv"Convert DEM to Meters $hucNumber"$stopDiv
-date -u
-Tstart
-[ ! -f $outputHucDataDir/dem_meters.tif ] && \
-gdal_calc.py --quiet --type=Float32 --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_nodata.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="A/100" --NoDataValue=$ndv
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
@@ -163,7 +156,7 @@ echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwr
 date -u
 Tstart
 [ -f $outputHucDataDir/nld_rasterized_elev.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --NoDataValue $ndv --co "BLOCKXSIZE=512" --co "BLOCKYSIZE=512" --co "TILED=YES" --co "COMPRESS=LZW" --co "BIGTIFF=YES" -A $outputHucDataDir/dem_meters.tif -B $outputHucDataDir/nld_rasterized_elev.tif --outfile="$outputHucDataDir/dem_meters.tif" --calc="maximum(A,((B>-9999)*0.3048))" --NoDataValue=$ndv
+$srcDir/burn_in_levees.py -dem $outputHucDataDir/dem_meters.tif -nld $outputHucDataDir/nld_rasterized_elev.tif -out $outputHucDataDir/dem_meters.tif
 Tcount
 
 ## DEM Reconditioning ##
@@ -432,11 +425,18 @@ $taudemDir/catchhydrogeo -hand $outputHucDataDir/rem_zeroed_masked.tif -catch $o
 Tcount
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
-echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv
+echo -e $startDiv"Finalize catchments and model streams $hucNumber"$stopDiv output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg ] && \
-$srcDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent -k $outputHucDataDir/small_segments.csv
+$srcDir/add_crosswalk.py -d $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -s $outputHucDataDir/src_base.csv -u $inputDataDir/bathymetry/BANKFULL_CONUS.txt -v $outputHucDataDir/bathy_crosswalk_calcs.csv -e $outputHucDataDir/bathy_stream_order_calcs.csv -g $outputHucDataDir/bathy_thalweg_flag.csv -i $outputHucDataDir/bathy_xs_area_hydroid_lookup.csv -l $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputHucDataDir/src_full_crosswalked.csv -j $outputHucDataDir/src.json -x $outputHucDataDir/crosswalk_table.csv -t $outputHucDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $input_NWM_Catchments -p $extent -k $outputHucDataDir/small_segments.csv
+Tcount
+
+## USGS CROSSWALK ##
+echo -e $startDiv"USGS Crosswalk $hucNumber"$stopDiv
+date -u
+Tstart
+$srcDir/usgs_gage_crosswalk.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -dem $outputHucDataDir/dem_meters.tif -flows $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -cat $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -wbd $outputHucDataDir/wbd_buffered.gpkg -dem_adj $dem_thalwegCond -outtable $outputHucDataDir/usgs_elev_table.csv -e $extent
 Tcount
 
 
