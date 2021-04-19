@@ -38,6 +38,7 @@ The following input data sources should be downloaded and preprocessed prior to 
 
 ### NHDPlus HR datasets
 - `acquire_and_preprocess_inputs.py`
+- `preprocess_rasters.py`
 - `aggregate_nhd_hr_streams.py`
 
 **Please note:** For the following two datasets, please contact Mark Glaudemans (mark.glaudemans@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
@@ -68,11 +69,11 @@ docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <i
 - Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
 - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 
-### Aggregate NHDHR Streams and Create NWM Headwater Points 
+### Aggregate NHDHR Streams and Create NWM Headwater Points
 ```
 /foss_fim/src/aggregate_vector_inputs.py
 ```
-### Produce Hydrofabric 
+### Produce Hydrofabric
 ```
 fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>
 ```
