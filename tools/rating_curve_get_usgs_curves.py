@@ -23,6 +23,8 @@ AK, HI, PR/VI.
 load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL")
 WBD_LAYER = os.getenv("WBD_LAYER")
+EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
+NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
 
 def get_all_active_usgs_sites():
     '''
@@ -245,7 +247,16 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
     acceptable_sites_gdf = acceptable_sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
     acceptable_sites_gdf.fillna({'curve':'no'},inplace = True)    
-   
+    #Add mainstems attribute to acceptable sites
+    print('Attributing mainstems sites')
+    #Import mainstems segments used in run_by_unit.sh
+    ms_df = gpd.read_file(NWM_FLOWS_MS)
+    ms_segs = ms_df.ID.astype(str).to_list()
+    #Populate mainstems attribute field
+    acceptable_sites_gdf['mainstem'] = 'no'
+    acceptable_sites_gdf.loc[acceptable_sites_gdf.eval('feature_id in @ms_segs'),'mainstem'] = 'yes' 
+    
+    
     #If workspace is specified, write data to file.
     if workspace:
         #Write rating curve dataframe to file
