@@ -1,5 +1,9 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## v3.0.15.4 - 2021-04-20 - [PR #356](https://github.com/NOAA-OWP/cahaba/pull/356)
+
+Closing all multiprocessing Pool objects in repo.
+<br/><br/>
 ## v3.0.15.3 - 2021-04-19 - [PR #358](https://github.com/NOAA-OWP/cahaba/pull/358)
 
 Preprocess NHDPlus HR rasters for consistent projections, nodata values, and convert from cm to meters.
