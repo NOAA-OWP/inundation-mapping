@@ -108,8 +108,8 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
 
     # Initiate multiprocessing
     print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
-    pool = Pool(number_of_jobs)
-    pool.map(run_inundation, procs_list)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(run_inundation, procs_list)
 
 
 def run_inundation(args):
@@ -153,7 +153,6 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
 
-
     # Find the FIM version
     fim_version  = os.path.basename(output_cat_fim_dir)
     merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.shp')
@@ -193,8 +192,8 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
                                 pass
 
             # Multiprocess with instructions
-            pool = Pool(number_of_jobs)
-            pool.map(reformat_inundation_maps, procs_list)
+            with Pool(processes=number_of_jobs) as pool:
+                pool.map(reformat_inundation_maps, procs_list)
 
         # Merge all layers
         print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
