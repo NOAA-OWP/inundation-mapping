@@ -12,9 +12,19 @@ from collections import defaultdict
 from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wbd_hucs, get_thresholds, get_datum, ngvd_to_navd_ft, get_rating_curve, select_grids, get_nwm_segs, flow_data, process_extent, process_grid, raster_to_feature
 import argparse
 from dotenv import load_dotenv
+import os
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
+
+def get_env_paths():
+    load_dotenv()
+    #import variables from .env file
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    USGS_URL = os.getenv("USGS_URL")   
+    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, USGS_URL
 ###############################################################################
 #Get USGS Site metadata
 ###############################################################################
@@ -148,27 +158,17 @@ def get_all_usgs_gridnames():
 #source_dir = Path(r'path/to/usgs/downloads')
 #destination = Path(r'path/to/preprocessed/usgs/data')
 #reference_raster= Path(r'path/to/reference raster') 
-
-def get_env_paths():
-    load_dotenv()
-    #import variables from .env file
-    API_BASE_URL = os.getenv("API_BASE_URL")
-    EVALUATED_SITES_CSV = Path(os.getenv("EVALUATED_SITES_CSV"))
-    WBD_LAYER = Path(os.getenv("WBD_LAYER"))
-    USGS_URL = os.getenv("USGS_URL")   
-    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, USGS_URL
-
 def preprocess_usgs(source_dir, destination, reference_raster):
     '''
     Preprocess USGS AHPS datasets.
 
     Parameters
     ----------
-    source_dir : Pathlib Path
+    source_dir : str
         Path to USGS Benchmark Datasets (AHPS)
-    destination : Pathlib Path
+    destination : str
         Path to output directory of preprocessed datasets.
-    reference_raster : Pathlib Path
+    reference_raster : str
         Path to reference raster for benchmark binary raster creation.
 
     Returns
@@ -177,7 +177,9 @@ def preprocess_usgs(source_dir, destination, reference_raster):
 
     '''
     
-    
+    source_dir = Path(source_dir)
+    destination = Path(destination)
+    reference_raster = Path(reference_raster)
     metadata_url = f'{API_BASE_URL}/metadata' 
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
@@ -253,7 +255,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             continue        
         
         #Adjust datum to NAVD88 if needed
-        if datum_data.get('vcs') == 'NGVD29':
+        if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929']:
             #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
             datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
             datum88 = round(datum + datum_adj_ft, 2)
@@ -339,7 +341,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             rating_curve['datum'] = datum
             
             #If VCS is NGVD29 add rating curve elevation (in NGVD) as well as the NAVD88 datum
-            if vcs == 'NGVD29':        
+            if vcs in ['NGVD29', 'NGVD 1929']:        
                 #Add field with raw elevation conversion (datum + stage)
                 rating_curve['elevation_ngvd29'] = rating_curve['stage'] + datum
                 #Add field with adjusted NAVD88 datum
@@ -461,6 +463,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             
         else: 
             print(f'{code} missing all flows')
+    return 
 
 if __name__ == '__main__':
     #Parse arguments
