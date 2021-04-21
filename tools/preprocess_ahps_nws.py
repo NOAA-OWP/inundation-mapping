@@ -85,7 +85,10 @@ def preprocess_nws(source_dir, destination, reference_raster):
             continue
         
         #determine source of interpolated threshold flows, this will be the rating curve that will be used.
-        rating_curve_source = flows['source']
+        rating_curve_source = flows.get('source')
+        if rating_curve_source is None:
+            print(f'skipping {code} no rating curve source')
+            continue
     
         #Custom workaround for bmbp1 to get a datum supplied in metadata. Although a USGS ID is given, no datum information. A nws supplied datum is supplied.
         if code == 'bmpb1':
@@ -105,9 +108,23 @@ def preprocess_nws(source_dir, destination, reference_raster):
         if datum is None:
             print(f'{code} is missing datum')
             continue        
+
+        #Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
+        # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7 
+        # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
+        if code in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhppi','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
+            datum_data.update(crs = 'NAD83')
+        
+        #bgwn7, eagi1 vertical datum unknown, assume navd88
+        #fatw3 USGS data indicates vcs is NAVD88.
+        #wlln7 USGS data indicates vcs is NGVD29.
+        if code in ['bgwn7','eagi1','fatw3']:
+            datum_data.update(vcs = 'NAVD88')
+        elif code == 'wlln7':
+            datum_data.update(vcs = 'NGVD29')
         
         #Adjust datum to NAVD88 if needed
-        if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929']:
+        if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929']:
             #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
             datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
             datum88 = round(datum + datum_adj_ft, 2)
@@ -121,10 +138,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
             site = [metadata.get('identifiers').get('usgs_site_code')]
             
         rating_curve = get_rating_curve(rating_curve_url, site)
-        #If rating curve is not present, skip site
-        if rating_curve.empty:
-            print(f'skipping {code} no rating curve')
-            continue     
+    
         #Add elevation fields to rating curve
         #Add field with vertical coordinate system
         vcs = datum_data['vcs']
