@@ -2,6 +2,7 @@
 
 import os
 from os.path import splitext
+import fiona
 
 def getDriver(fileName):
 
@@ -83,3 +84,14 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
     gdf.crs = PREP_PROJECTION
     gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)
+
+
+def get_fossid_from_huc8(huc8_id,foss_id_attribute='fossid',
+                         hucs=os.path.join(os.environ['inputDataDir'],'wbd','WBD_National.gpkg'),
+                         hucs_layerName=None):
+
+    hucs = fiona.open(hucs,'r',layer=hucs_layerName)
+
+    for huc in hucs:
+        if huc['properties']['HUC8'] == huc8_id:
+            return(huc['properties'][foss_id_attribute])

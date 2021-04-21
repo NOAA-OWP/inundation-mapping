@@ -10,6 +10,10 @@ source $srcDir/bash_functions.env
 ## SET VARIABLES AND FILE INPUTS ##
 source /foss_fim/config/params_calibrated.env
 hucNumber="$1"
+
+outputHucDataDir=$outputRunDataDir/$hucNumber
+outputGmsDataDir=$outputHucDataDir/gms
+
 input_demThal=$outputHucDataDir/dem_thalwegCond.tif
 input_flowdir=$outputHucDataDir/flowdir_d8_burned_filled.tif
 input_slopes=$outputHucDataDir/slopes_d8_dem_meters.tif
@@ -20,10 +24,6 @@ input_demDerived_pixel_points=$outputHucDataDir/flows_points_pixels.gpkg
 input_stage_list=$outputHucDataDir/stage.txt
 input_hydroTable=$outputHucDataDir/hydroTable.csv
 input_src_full=$outputHucDataDir/src_full_crosswalked.csv
-
-## SET OUTPUT DIRECTORY FOR UNIT ##
-outputHucDataDir=$outputRunDataDir/$hucNumber
-outputGmsDataDir=$outputHucDataDir/gms
 
 # make outputs directory
 if [ ! -d "$outputGmsDataDir" ]; then
@@ -56,8 +56,6 @@ echo -e "branch_id_attribute=$branch_id_attribute"
 echo -e "branch_buffer_distance_meters=$branch_buffer_distance_meters"$stopDiv
 
 
-##### SUBSET Levelpaths to HUC
-
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv
 date -u
@@ -76,28 +74,28 @@ Tcount
 echo -e $startDiv"EDITING DEM DERIVED POINTS for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/edit_points.py -i $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -r $input_demDerived_reaches_points -o $outputGmsDataDir/demDerived_reaches_points.gpkg -p $outputGmsDataDir/demDerived_pixels_points.gpkg
+$srcDir/gms/edit_points.py -i $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -r $input_demDerived_reaches_points -o $outputGmsDataDir/demDerived_reaches_points.gpkg -p $outputGmsDataDir/demDerived_pixels_points.gpkg
 Tcount
 
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputGmsDataDir/polygons.gpkg -i $branch_id_attribute -s $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg -o $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg -v
+$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputRunDataDir/aggregate_fim_outputs/polygons.gpkg -i $branch_id_attribute -s $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths.gpkg $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths_dissolved.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg -o $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputGmsDataDir/branch_id.lst -d $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -b $branch_id_attribute
+$srcDir/gms/generate_branch_list.py -t $input_hydroTable -c $outputGmsDataDir/branch_id.lst -d $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths_dissolved.gpkg -b $branch_id_attribute
 Tcount
 
 ## CREATE BRANCH LEVEL CATCH LISTS ##
 echo -e $startDiv"Create branch level catch lists in HUC: $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/subset_catch_list_by_branch_id.py -c $outputHucDataDir/catchment_list.txt -s $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -l $outputGmsDataDir/branch_id.lst -v
+$srcDir/gms/subset_catch_list_by_branch_id.py -c $outputHucDataDir/catchment_list.txt -s $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -l $outputGmsDataDir/branch_id.lst -v
 Tcount
 
 ## GET RASTER METADATA

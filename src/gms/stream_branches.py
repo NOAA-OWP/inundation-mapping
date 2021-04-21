@@ -94,6 +94,79 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
+    def derive_nodes(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',reach_id_attribute='NHDPlusID',
+                     outlet_linestring_index=0,node_prefix=None,max_node_digits=8,verbose=False):
+        
+        if verbose:
+            print("Deriving nodes ...")
+
+        # check outlet parameter and set inlet index
+        if outlet_linestring_index == 0:
+            inlet_linestring_index = -1
+        elif outlet_linestring_index == -1:
+            inlet_linestring_index = 0
+        else:
+            raise ValueError("Pass 0 or -1 for outlet_linestring_index argument.")
+        
+        # set node prefix to string
+        if node_prefix is None:
+            node_prefix=''
+        
+        # handle digits and values for node ids
+        max_post_node_digits = max_node_digits - len(node_prefix)
+        max_node_value = int('9' * max_post_node_digits)
+
+        # sets index of stream branches as reach id attribute
+        if self.index.name != reach_id_attribute:
+            self.set_index(reach_id_attribute,drop=True,inplace=True)
+        
+        inlet_coordinates, outlet_coordinates = dict(), dict()
+        node_coordinates = dict()
+        toNodes, fromNodes = [None] * len(self),[None] * len(self)
+        current_node_id = '1'.zfill(max_post_node_digits)
+
+        for i,(reach_id,row) in enumerate(self.iterrows()):
+            
+            # get foss id for node_prefix
+            node_prefix = reach_id[0:4]
+
+            reach_coordinates = list(row['geometry'].coords)
+
+            inlet_coordinate = reach_coordinates[inlet_linestring_index]
+            outlet_coordinate = reach_coordinates[outlet_linestring_index]
+            
+            if inlet_coordinate not in node_coordinates:
+                current_node_id_with_prefix = node_prefix + current_node_id
+                node_coordinates[inlet_coordinate] = current_node_id_with_prefix
+                fromNodes[i] = current_node_id_with_prefix
+                
+                current_node_id = int(current_node_id.lstrip('0')) + 1
+                if current_node_id > max_node_value:
+                    raise ValueError('Current Node ID exceeding max. Look at source code to change.')
+                current_node_id = str(current_node_id).zfill(max_post_node_digits)
+
+            else:
+                fromNodes[i] = node_coordinates[inlet_coordinate]
+
+            if outlet_coordinate not in node_coordinates:
+                current_node_id_with_prefix = node_prefix + current_node_id
+                node_coordinates[outlet_coordinate] = current_node_id_with_prefix
+                toNodes[i] = current_node_id_with_prefix
+
+                current_node_id = int(current_node_id.lstrip('0')) + 1
+                if current_node_id > max_node_value:
+                    raise ValueError('Current Node ID exceeding max. Look at source code to change.')
+                current_node_id = str(current_node_id).zfill(max_node_digits)
+
+            else:
+                toNodes[i] = node_coordinates[outlet_coordinate]
+
+        self.loc[:,fromNode_attribute] = fromNodes
+        self.loc[:,toNode_attribute] = toNodes
+        
+        return(self)
+
+
     def derive_outlets(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',outlets_attribute='outlet_id',
                        verbose=False):
 
@@ -160,6 +233,9 @@ class StreamNetwork(gpd.GeoDataFrame):
         self[branch_id_attribute] = [-1] * len(self)
         all_toNodes = set(self[toNode_attribute].unique())
 
+        # progress bar
+        progress = tqdm(total=len(self),disable=(not verbose))
+
         # add outlets to queue, visited set. Assign branch id to outlets too
         bid = 1
         for reach_id,row in self.iterrows():
@@ -172,6 +248,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 
                 Q.append(reach_id)
                 visited.add(reach_id)
+                progress.update(1)
 
         # alternative means of adding outlets to queue, to visited, and assigning branch id's to outlets
         """
@@ -241,11 +318,19 @@ class StreamNetwork(gpd.GeoDataFrame):
         
         if verbose:
             print("Deriving arbolate sum ...")
-
+        
         # sets index of stream branches as reach id attribute
         if self.index.name != reach_id_attribute:
             self.set_index(reach_id_attribute,drop=True,inplace=True)
 
+        # find upstream and downstream dictionaries
+        upstreams,downstreams = dict(),dict()
+        
+        #if verbose: print('   Making upstream and downstream dictionaries')
+        for reach_id,row in tqdm(self.iterrows(),disable=(not verbose),total=len(self), desc='Upstream and downstream dictionaries'):
+            downstreams[reach_id] = self.index[ self[fromNode_attribute] == row[toNode_attribute] ].tolist() 
+            upstreams[reach_id] = self.index[ self[toNode_attribute] == row[fromNode_attribute] ].tolist()
+        
         # initialize queue, visited set, with inlet reach ids
         inlet_reach_ids = self.index[self[inlets_attribute] >= 0].tolist()
         S = deque(inlet_reach_ids)
@@ -255,10 +340,13 @@ class StreamNetwork(gpd.GeoDataFrame):
         self[arbolate_sum_attribute] = self.geometry.length * length_conversion_factor_to_km 
         all_fromNodes = set(self[fromNode_attribute].unique())
         
+        # progress bar
+        progress = tqdm(total=len(self),disable=(not verbose), desc= "arbolate sums")
+
         # depth-first traversal
         # while stack contains reaches
         while S:
-
+            
             # pop current reach id from queue
             current_reach_id = S.pop()
             
@@ -267,30 +355,44 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             # if current reach id is not visited, save arbolate sum, and mark as visited
             if current_reach_id not in visited:
-                arbolate_sum_of_last_non_visited_reach = self.loc[current_reach_id,arbolate_sum_attribute]
+                #arbolate_sum_of_last_non_visited_reach = self.loc[current_reach_id,arbolate_sum_attribute]
                 visited.add(current_reach_id)
+                progress.update(n=1)
 
             # get to Node of current reach
-            current_toNode = self.at[current_reach_id,toNode_attribute]
+            #current_toNode = self.at[current_reach_id,toNode_attribute]
+            downstream_ids = downstreams[current_reach_id]
             
             # identify downstreams by finding if toNode exists in set of all fromNodes
-            if current_toNode in all_fromNodes:
+            #if current_toNode in all_fromNodes:
+            if downstream_ids:
                 
                 # get boolean mask of downstream reaches and their reach id's
-                downstream_bool_mask = self[fromNode_attribute] == current_toNode
-                downstream_ids = self.index[downstream_bool_mask].tolist()
+                #downstream_bool_mask = self[fromNode_attribute] == current_toNode
+                #downstream_ids = self.index[downstream_bool_mask].tolist()
                 
                 for ds in downstream_ids:
                     
+                    # figure out of all upstream reaches of ds have been visited
+                    #ds_fromNode = self.at[ds,fromNode_attribute]
+                    #upstream_of_ds_bool_mask = self[toNode_attribute] == ds_fromNode
+                    #upstream_of_ds_ids = set( self.index[upstream_of_ds_bool_mask].tolist() )
+                    upstream_of_ds_ids = set(upstreams[ds])
+                    all_upstream_ids_of_ds_are_visited = upstream_of_ds_ids.issubset(visited)
+                    
                     # append downstream to stack
-                    S.append(ds)
+                    if all_upstream_ids_of_ds_are_visited:
+                        S.append(ds)
 
                     # if not visited, add current reach arbolate sum, else add the arbolate sum of last non-visited reach
-                    if ds not in visited:
-                        self.loc[ds,arbolate_sum_attribute] += current_reach_arbolate_sum
-                    else:
-                        self.loc[ds,arbolate_sum_attribute] += arbolate_sum_of_last_non_visited_reach
-                    
+                    self.loc[ds,arbolate_sum_attribute] += current_reach_arbolate_sum
+                    #if ds not in visited:
+                    #    self.loc[ds,arbolate_sum_attribute] += current_reach_arbolate_sum
+                    #else:
+                    #    self.loc[ds,arbolate_sum_attribute] += arbolate_sum_of_last_non_visited_reach
+        
+        progress.close()
+
         return(self)
 
 
