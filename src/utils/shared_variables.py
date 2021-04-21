@@ -39,20 +39,23 @@ OVERWRITE_ALL = 'OVERWRITE_ALL'
 
 ## Input Paths and Directories
 # Directories
-src_dir = '/foss_fim/src'
-input_dir ='data/inputs'
-nhdplus_rasters_dir = os.path.join(input_dir,'nhdplus_rasters')
-nhdplus_vectors_dir = os.path.join(input_dir,'nhdplus_vectors')
-nwm_hydrofabric_dir = os.path.join(input_dir,'nwm_hydrofabric')
-wbd_dir = os.path.join(input_dir,'wbd')
-ahps_dir = os.path.join(input_dir,'ahp_sites')
-nhdplus_vectors_aggregate_dir = os.path.join(input_dir,'nhdplus_vectors_aggregate')
+os.environ['src_dir'] = '/foss_fim/src'
+os.environ['input_dir'] = 'data/inputs'
+
+os.environ['nhdplus_rasters_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_rasters')
+os.environ['nhdplus_vectors_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors')
+os.environ['nwm_dir'] = os.path.join(os.environ.get('input_dir'),'nwm_hydrofabric')
+os.environ['wbd_dir'] = os.path.join(os.environ.get('input_dir'),'wbd')
+os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahp_sites')
+os.environ['nhdplus_aggregate_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors_aggregate')
 
 # File Paths
-wbd_filename = os.path.join(wbd_dir, 'WBD_National.gpkg')
-nwm_streams_fr_filename = os.path.join(nwm_hydrofabric_dir,'nwm_flows.gpkg')
-nwm_streams_ms_filename = os.path.join(nwm_hydrofabric_dir,'nwm_flows_ms.gpkg')
-nwm_headwaters_filename = os.path.join(nwm_hydrofabric_dir,'nwm_headwaters.gpkg')
-nwm_huc4_intersections_ms_filename = os.path.join(nwm_hydrofabric_dir,'nwm_ms_huc4_intersections.gpkg')
-nwm_huc4_intersections_fr_filename = os.path.join(nwm_hydrofabric_dir,'nwm_fr_huc4_intersections.gpkg')
-ahps_headwaters_filename = os.path.join(ahps_dir,'nws_lid.gpkg')
+os.environ['wbd_filename'] = os.path.join(os.environ.get('wbd_dir'),'WBD_National.gpkg')
+os.environ['nwm_streams_orig_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_flows_original.gpkg')
+os.environ['nwm_streams_all_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_flows.gpkg')
+os.environ['nwm_headwaters_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_headwaters.gpkg')
+os.environ['nwm_huc4_intersections_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_huc4_intersections.gpkg')
+os.environ['nwm_huc8_intersections_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_huc8_intersections.gpkg')
+os.environ['ahps_filename'] = os.path.join(os.environ.get('ahps_dir'),'nws_lid.gpkg')
+os.environ['agg_nhd_headwaters_adj_fileName'] = os.path.join(os.environ.get('nhdplus_aggregate_dir'),'agg_nhd_headwaters_adjusted.gpkg')
+os.environ['agg_nhd_streams_adj_fileName'] = os.path.join(os.environ.get('nhdplus_aggregate_dir'),'agg_nhd_streams_adj.gpkg')
