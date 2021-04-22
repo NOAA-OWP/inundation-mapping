@@ -431,7 +431,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                 rating_curve['lat'] = datum_data['lat']
                 rating_curve['lon'] = datum_data['lon']
                 rating_curve.to_csv(rating_curve_output, index = False)
-                f.write('{code} : Rating curve needed to interpolate flow\n')
+                f.write(f'{code} : Rating curve needed to interpolate flow\n')
             
             #Write the interpolated flows to file
             df_output = ahps_directory / (f'{code}_flows.csv')
