@@ -60,6 +60,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
     #Find depth grid subfolder
     for code in ahps_codes:
         f.write(f'{code} : Processing\n')
+        print(f'processing {code}')
         #'mnda2' is in Alaska outside of NWM domain.
         if code in ['mnda2']:
             f.write(f'{code} : skipping because outside of NWM domain\n')
@@ -334,7 +335,9 @@ def preprocess_nws(source_dir, destination, reference_raster):
     for i in attribute_files:
         attribute_df = pd.read_csv(i, dtype={'huc':str})
         all_attributes = all_attributes.append(attribute_df)
-    all_attributes.to_csv(destination / 'attributes.csv', index = False)    
+    
+    if not all_attributes.empty:
+        all_attributes.to_csv(destination / 'attributes.csv', index = False)    
     return
 
 if __name__ == '__main__':
