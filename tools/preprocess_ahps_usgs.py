@@ -350,11 +350,6 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                     #Create output directory
                     outputdir = destination / huc / code / i
                     outputdir.mkdir(parents = True, exist_ok = True)
-                    #Create the guts of the flow file.
-                    flow_info = flow_data(segments,flow) 
-                    #Write out the flow file to csv
-                    output_flow_file = outputdir / (f'ahps_{code}_huc_{huc}_flows_{i}.csv')
-                    flow_info.to_csv(output_flow_file, index = False)
                     
                     #Create Binary Grids, first create domain of analysis, then create binary grid
                     
@@ -389,6 +384,12 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                     domain.close()
                     filled_domain.close()
                     benchmark.close()
+                    
+                    #Create the guts of the flow file.
+                    flow_info = flow_data(segments,flow) 
+                    #Write out the flow file to csv
+                    output_flow_file = outputdir / (f'ahps_{code}_huc_{huc}_flows_{i}.csv')
+                    flow_info.to_csv(output_flow_file, index = False)
                     
         except:
             f.write(f'{code} : Unable to preprocess benchmark grids\n')      
