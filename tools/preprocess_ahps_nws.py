@@ -5,8 +5,6 @@ from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 import rasterio
-import requests
-import re
 from collections import defaultdict
 from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wbd_hucs, get_thresholds, get_datum, ngvd_to_navd_ft, get_rating_curve, select_grids, get_nwm_segs, flow_data, process_extent, process_grid, raster_to_feature
 import argparse
@@ -41,6 +39,12 @@ def preprocess_nws(source_dir, destination, reference_raster):
     metadata_url = f'{API_BASE_URL}/metadata' 
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
+    log_file = destination / 'log.txt'
+    
+    #Write a run-time log file
+    destination.mkdir(parents = True, exist_ok = True)
+    log_file = destination / 'log.txt'
+    f = open(log_file, 'a+')
     
     #Define distance (in miles) to search for nwm segments
     nwm_ds_search = 10
@@ -55,10 +59,10 @@ def preprocess_nws(source_dir, destination, reference_raster):
     
     #Find depth grid subfolder
     for code in ahps_codes:
-        print(code)
+        f.write(f'{code} : Processing\n')
         #'mnda2' is in Alaska outside of NWM domain.
         if code in ['mnda2']:
-            print(f'skipping {code}')
+            f.write(f'{code} : skipping because outside of NWM domain\n')
             continue
            
         #Get metadata of site and search for NWM segments x miles upstream/x miles downstream
@@ -81,20 +85,15 @@ def preprocess_nws(source_dir, destination, reference_raster):
         #Make sure at least one valid threshold is supplied from WRDS.
         threshold_categories = ['action','minor','moderate','major'] 
         if not any([stages[threshold] for threshold in threshold_categories]):
-            print(f'skipping {code} no threshold stages avialable')
+            f.write(f'{code} : skipping because no threshold stages available\n')
             continue
         
         #determine source of interpolated threshold flows, this will be the rating curve that will be used.
         rating_curve_source = flows.get('source')
         if rating_curve_source is None:
-            print(f'skipping {code} no rating curve source')
+            f.write(f'{code} : skipping because no rating curve source\n')
             continue
-    
-        #Custom workaround for bmbp1 to get a datum supplied in metadata. Although a USGS ID is given, no datum information. A nws supplied datum is supplied.
-        if code == 'bmpb1':
-            rating_curve_source = 'USGS Rating Depot'
-            print(f'{code} workaround')
-    
+        
         #Get the datum and adjust to NAVD if necessary.
         nws, usgs = get_datum(metadata)
         datum_data = {}
@@ -106,18 +105,19 @@ def preprocess_nws(source_dir, destination, reference_raster):
         #If datum not supplied, skip to new site
         datum = datum_data.get('datum', None)
         if datum is None:
-            print(f'{code} is missing datum')
+            f.write(f'{code} : skipping because site is missing datum\n')
             continue        
 
         #Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
         # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7 
         # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
-        if code in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhppi','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
+        if code in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
             datum_data.update(crs = 'NAD83')
         
+        #Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. If NGVD29 it is converted to NAVD88.
         #bgwn7, eagi1 vertical datum unknown, assume navd88
-        #fatw3 USGS data indicates vcs is NAVD88.
-        #wlln7 USGS data indicates vcs is NGVD29.
+        #fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
+        #wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
         if code in ['bgwn7','eagi1','fatw3']:
             datum_data.update(vcs = 'NAVD88')
         elif code == 'wlln7':
@@ -191,7 +191,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
             #Optional, append all dataframes
             all_df = all_df.append(df)
         else: 
-            print(f'{code} has no grids')
+            f.write(f'{code} : Site has no benchmark grids\n')
        
         #Select the appropriate threshold grid for evaluation. Using the supplied threshold stages and the calculated map stages. 
         grids,grid_flows = select_grids(df, stages, datum88, 1.1)
@@ -203,7 +203,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
             df['stage'] = df['elevation']
             #Select grids using flows
             grids, grid_flows = select_grids(df, flows, datum88, 500)
-            print(f'{code} workaround')
+            f.write(f'{code} : Site workaround grids names based on flows not elevation\n')
     
         #Obtain NWM segments that are on ms to apply flows
         segments = get_nwm_segs(metadata)
@@ -277,7 +277,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     benchmark.close()
                                            
         except:
-            print(f'issue with {code}')                
+            f.write(f'{code} : Unable to preprocess benchmark grids.')                
         #Process extents, only create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code
         if ahps_directory.exists():
@@ -320,7 +320,11 @@ def preprocess_nws(source_dir, destination, reference_raster):
             df.to_csv(df_output, index = False)
         
         else: 
-            print(f'{code} missing all flows')
+            f.write(f'{code} : Unable to evaluate site, missing all flows\n')
+    
+    #Close log file.
+    f.close()
+    
     return
 
 if __name__ == '__main__':

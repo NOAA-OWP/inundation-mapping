@@ -7,7 +7,6 @@ import pandas as pd
 import geopandas as gpd
 import rasterio
 import requests
-import re
 from collections import defaultdict
 from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wbd_hucs, get_thresholds, get_datum, ngvd_to_navd_ft, get_rating_curve, select_grids, get_nwm_segs, flow_data, process_extent, process_grid, raster_to_feature
 import argparse
@@ -23,8 +22,8 @@ def get_env_paths():
     API_BASE_URL = os.getenv("API_BASE_URL")
     EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
     WBD_LAYER = os.getenv("WBD_LAYER")
-    USGS_URL = os.getenv("USGS_URL")   
-    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, USGS_URL
+    USGS_METADATA_URL = os.getenv("USGS_METADATA_URL")   
+    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, USGS_METADATA_URL
 ###############################################################################
 #Get USGS Site metadata
 ###############################################################################
@@ -36,7 +35,7 @@ def usgs_site_metadata(code):
     ----------
     code : STR
         AHPS code.
-    USGS_URL : STR
+    USGS_METADATA_URL : STR
         URL for USGS datasets.
 
     Returns
@@ -47,7 +46,7 @@ def usgs_site_metadata(code):
     # Make sure code is lower case
     code = code.lower()
     # Get site metadata from USGS API using ahps code
-    site_url = f'{USGS_URL}/server/rest/services/FIMMapper/sites/MapServer/0/query?where=AHPS_ID+%3D+%27{code}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'
+    site_url = f'{USGS_METADATA_URL}/server/rest/services/FIMMapper/sites/MapServer/0/query?where=AHPS_ID+%3D+%27{code}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'
     #Get data from API
     response = requests.get(site_url)
     #If response is valid, then get metadata and save to dictionary
@@ -87,11 +86,11 @@ def usgs_grid_metadata(code, has_grid_override = False):
     multi_site = site_metadata['MULTI_SITE']    
     #Grid metadata located at one of three URLs
     if multi_site == 0 and has_grids == 1:
-        grids_url = f'{USGS_URL}/server/rest/services/FIMMapper/floodExtents/MapServer/0/query?where=USGSID+%3D+%27{site_no}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'
+        grids_url = f'{USGS_METADATA_URL}/server/rest/services/FIMMapper/floodExtents/MapServer/0/query?where=USGSID+%3D+%27{site_no}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'
     elif multi_site > 0 and multi_site < 3 and has_grids == 1:
-        grids_url = f'{USGS_URL}/server/rest/services/FIMMapper/floodExtentsMulti/MapServer/0/query?where=USGSID_1+%3D+%27{site_no}%27+OR+USGSID_2+%3D+%27{site_no}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'
+        grids_url = f'{USGS_METADATA_URL}/server/rest/services/FIMMapper/floodExtentsMulti/MapServer/0/query?where=USGSID_1+%3D+%27{site_no}%27+OR+USGSID_2+%3D+%27{site_no}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'
     elif multi_site == 3 and has_grids == 1:
-        grids_url = f'{USGS_URL}/server/rest/services/FIMMapper/floodExtentsThreeSites/MapServer/0/query?where=USGSID_1+%3D+%27{site_no}%27+OR+USGSID_2+%3D+%27{site_no}%27+OR+USGSID_3+%3D+%27{site_no}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'            
+        grids_url = f'{USGS_METADATA_URL}/server/rest/services/FIMMapper/floodExtentsThreeSites/MapServer/0/query?where=USGSID_1+%3D+%27{site_no}%27+OR+USGSID_2+%3D+%27{site_no}%27+OR+USGSID_3+%3D+%27{site_no}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'            
     #Only get metadata on grids if site has grids available
     if has_grids == 1:
         #Get data from API
@@ -128,7 +127,7 @@ def get_all_usgs_gridnames():
     #loop through each site and append the grid name to a list.
     for i in sites:
         #Get gridnames
-        url = f'{USGS_URL}/server/rest/services/FIMMapper/{i}/MapServer?f=pjson'
+        url = f'{USGS_METADATA_URL}/server/rest/services/FIMMapper/{i}/MapServer?f=pjson'
         response = requests.get(url)
         site_json = response.json()
         info = site_json['layers']
@@ -183,6 +182,12 @@ def preprocess_usgs(source_dir, destination, reference_raster):
     metadata_url = f'{API_BASE_URL}/metadata' 
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
+    
+    #Write log file
+    destination.mkdir(parents=True, exist_ok = True)
+    log_file = destination / 'log.txt'
+    f = open(log_file, 'a+')
+    
     #Define distance (in miles) to search for nwm segments
     nwm_ds_search = 10
     nwm_us_search = 10
@@ -196,7 +201,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
     
     for code in ahps_codes:
-        print(code)
+        f.write(f'{code} : Processing\n')
         #For a given code, find all inundation grids under that code.
         code = code.lower()
           
@@ -217,7 +222,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         #Sites with incomplete grids (used polys to convert to grids) --> 'roun6'
         ahps_dir = source_dir / code / 'depth_grids'
         if code in ['cfmm8','kilo1','stak1', 'sasi3', 'nori3', 'nmso1', 'kcdm7', 'knym7', 'mcri2','ptvn6','tmai4', 'roun6']:        
-            print(f'{code} custom workaround')
+            f.write(f'{code} : Custom workaround related to benchmark data (mismatch crs, no grid data, etc)\n')
             ahps_dir = source_dir / code / 'custom'
     
         #Get thresholds (action/minor/moderate/major flows and stages), if not available exit.
@@ -230,7 +235,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         #Make sure at least one valid threshold is supplied from WRDS.
         threshold_categories = ['action','minor','moderate','major'] 
         if not any([stages[threshold] for threshold in threshold_categories]):
-            print(f'skipping {code} no threshold stages avialable')
+            f.write(f'{code} : Skipping because no threshold stages available\n')
             continue
     
         #We need to adjust stages to elevations using the datum adjustment. This next section finds the datum adjustment.
@@ -251,10 +256,18 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         #If datum not supplied, skip to new site
         datum = datum_data.get('datum', None)
         if datum is None:
-            print(f'{code} is missing datum')
+            f.write(f'{code}: Skipping because of missing datum\n')
             continue        
+
+        #Custom workaround, some sites have poorly defined crs. CRS requuired for ngvd to navd conversions
+        # Assumed NAVD88 (no info from USGS or NWS metadata): kynm7, ksvm7, yesg1
+        # Assigned NAVD88 because USGS metadata indicates NAD83: arnm7, grfi2, kctm7, nast1, nhri3, roun6, vllm7
+        # Assigned NAVD88 (reported NAVD 1988): cmtl1
+        if code in ['arnm7', 'cmtl1','grfi2','kctm7','knym7','ksvm7','nast1','nhri3','roun6','vllm7','yesg1']:
+            #Update crs to NAD83 (some are assumed, others have USGS info indicating NAD83 crs)
+            datum_data.update(crs = 'NAD83')
         
-        #Adjust datum to NAVD88 if needed
+        #Adjust datum to NAVD88 if needed (Assumes that if vcs not NGVD29 or NGVD 1929 it is in NAVD88)
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929']:
             #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
             datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
@@ -267,20 +280,20 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         #Special exception for kilo1, where it has attribute (has_grids == 0) yet there is grid metadata and polygons were converted to grids.
         if code == 'kilo1':
             grid_override = True
-            print(f'{code} custom workaround')
+            f.write(f'{code} : Custom workaround related to "has_grids" attribute')
         else: 
             grid_override = False        
         #get grid metadata (metadata includes, elevation/stage/flow and etc for each site). If empty exit.
         grid_metadata = usgs_grid_metadata(code, has_grid_override=grid_override)
         if not grid_metadata:
-            print(f'skipping {code} no grid metadata available')
+            f.write(f'{code} : Skipping because no grid metadata available\n')
             continue
          
         #Get paths of all grids that have been downloaded, if no grids available for site then exit.
         grid_paths = [grids for grids in ahps_dir.glob('*.tif*') if grids.suffix in ['.tif', '.tiff']]
         grid_names = [name.stem for name in grid_paths]
         if not grid_paths:
-            print(f'skipping {code} no grids downloaded')
+            f.write(f'{code} : Skipping because no benchmark grids available\n')
             continue
         
         # Iterate through grid_metadata and add the path to the dictionary as well as an indicator of whether the path exists.
@@ -300,7 +313,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         df = df.query('path_exist == True')
         #Prior to renaming columns do a check to make sure single site (will add functionality for multi-sites later)
         if not 'QCFS' in df.columns:
-            print(f'skipping {code} multisite')
+            f.write(f'{code} : Skipping because multisite\n')
             continue
         #Rename columns to match NWS AHPS data structure, this only applies to single USGS sites, if a multisite the columns are different from QCFS.
         df.rename(columns = {'QCFS':'flow', 'STAGE':'stage', 'ELEV':'elevation'}, inplace=True)
@@ -312,7 +325,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         #Accomodate for vdsg1 (upon inspection WRDS API reports thresholds in elevation instead of stage for this site)
         if code == 'vdsg1':
             df['stage'] = df['elevation']
-            print(f'{code} custom workaround')
+            f.write(f'{code} : Custom workaround because thresholds are reported as elevations\n')
         
         #Define rating curve as empty dataframe, populate if needed.
         rating_curve = pd.DataFrame()        
@@ -328,7 +341,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
     
             #If rating curve is not present, skip site
             if rating_curve.empty:
-                print(f'skipping {code} no rating curve')
+                f.write(f'{code} : Skipping because no rating curve\n')
                 continue
             #Add elevation fields to rating curve
             #Add field with vertical coordinate system
@@ -416,7 +429,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                     benchmark.close()
                     
         except:
-            print(f'issue with {code}')      
+            f.write(f'{code} : Unable to preprocess benchmark grids\n')      
     
         #Create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code
@@ -455,14 +468,17 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                 rating_curve['lat'] = datum_data['lat']
                 rating_curve['lon'] = datum_data['lon']
                 rating_curve.to_csv(rating_curve_output, index = False)
-                print(f'{code} rc needed')
+                f.write('{code} : Rating curve needed to interpolate flow\n')
             
             #Write the interpolated flows to file
             df_output = ahps_directory / (f'{code}_flows.csv')
             df.to_csv(df_output, index = False)
             
         else: 
-            print(f'{code} missing all flows')
+            f.write(f'{code} : Unable to evaluate site, missing all flows\n')
+    
+    f.close()
+    
     return 
 
 if __name__ == '__main__':
@@ -475,5 +491,5 @@ if __name__ == '__main__':
     
 
     #Run get_env_paths and static_flow_lids
-    API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, USGS_URL = get_env_paths()
+    API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, USGS_METADATA_URL = get_env_paths()
     preprocess_usgs(**args)
