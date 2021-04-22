@@ -12,6 +12,7 @@ from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wb
 import argparse
 from dotenv import load_dotenv
 import os
+import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
@@ -107,45 +108,7 @@ def usgs_grid_metadata(code, has_grid_override = False):
     else: 
         appended_dictionary = {}
     return appended_dictionary
-###############################################################################
-#Get all usgs grids available for download. This step is required because the grid metadata API returns gridID as an integer and truncates leading zeros found in grid names.
-###############################################################################            
-def get_all_usgs_gridnames():
-    '''
-    Retrieve all the available grids for download from USGS. This is necessary as the grid metadata available from USGS API doesn't preserve leading zeros.
 
-    Returns
-    -------
-    grid_lookup : collections.defaultdict
-        Dictionary with shortname as the key and a list of gridnames associated with a given shortname as values.
-    '''
-    
-    #Grid names are split between 4 websites
-    sites = ['grids_1', 'grids_2', 'grids_3', 'grids_4']
-    #Append all grid names to this variable
-    grid_names = []
-    #loop through each site and append the grid name to a list.
-    for i in sites:
-        #Get gridnames
-        url = f'{USGS_METADATA_URL}/server/rest/services/FIMMapper/{i}/MapServer?f=pjson'
-        response = requests.get(url)
-        site_json = response.json()
-        info = site_json['layers']
-        #Loop through all grid info and extract the grid name.
-        for i in info:
-            grid_name = i['name']
-            grid_names.append(grid_name)
-    #Create dictionary with key of shortname and values being list of grids available.    
-    grid_lookup = defaultdict(list)
-    for i in grid_names:
-        #define key (shortname) and value (gridname)
-        key = i.split('_')[0]
-        value = i   
-        grid_lookup[key].append(value)
-    return grid_lookup
-
-########################################################################
-########################################################################
 
 ########################################################
 #Preprocess USGS FIM

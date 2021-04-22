@@ -10,6 +10,7 @@ from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wb
 import argparse
 from dotenv import load_dotenv
 import os
+import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
