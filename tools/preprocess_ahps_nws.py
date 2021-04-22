@@ -218,10 +218,9 @@ def preprocess_nws(source_dir, destination, reference_raster):
                 extent = grids['extent']
                 #Make sure that flow and flow grid are valid
                 if not grid in ['No Map', 'No Threshold', 'No Flow']:
-                    #Create output directory
+                    #define output directory (to be created later)
                     outputdir = destination / huc / code / i
-                    outputdir.mkdir(parents = True, exist_ok = True)                                
-    
+                                  
                     #Create Binary Grids, first create domain of analysis, then create binary grid
                     
                     #Domain extent is largest floodmap in the static library WITH holes filled
@@ -259,7 +258,9 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     boolean_benchmark, boolean_profile = process_grid(benchmark, benchmark_profile, filled_domain, filled_domain_profile, reference_raster)    
                     
                     #Output binary benchmark grid and flow file to destination
+                    outputdir.mkdir(parents = True, exist_ok = True)  
                     output_raster = outputdir / (f'ahps_{code}_huc_{huc}_depth_{i}.tif')
+                    
                     with rasterio.Env():
                         with rasterio.open(output_raster, 'w', **boolean_profile) as dst:
                             dst.write(boolean_benchmark,1) 

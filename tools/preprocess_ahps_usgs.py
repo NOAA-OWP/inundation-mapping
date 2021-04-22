@@ -347,9 +347,8 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                 extent = grids['extent']
                 #Make sure that flow and flow grid are valid
                 if not grid in ['No Map', 'No Threshold', 'No Flow']:
-                    #Create output directory
-                    outputdir = destination / huc / code / i
-                    outputdir.mkdir(parents = True, exist_ok = True)
+                    #Define output directory (to be created later)
+                    outputdir = destination / huc / code / i                    
                     
                     #Create Binary Grids, first create domain of analysis, then create binary grid
                     
@@ -375,6 +374,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                     boolean_benchmark, boolean_profile = process_grid(benchmark, benchmark_profile, filled_domain, filled_domain_profile, reference_raster)    
                                     
                     #Output binary benchmark grid and flow file to destination
+                    outputdir.mkdir(parents = True, exist_ok = True)
                     output_raster = outputdir / (f'ahps_{code}_huc_{huc}_depth_{i}.tif')
                     with rasterio.Env():
                         with rasterio.open(output_raster, 'w', **boolean_profile) as dst:

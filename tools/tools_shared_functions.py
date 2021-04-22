@@ -1411,6 +1411,8 @@ def process_extent(extent, profile, output_raster = False):
     
     #Check if output raster is specified. If so, the write extent filled raster to disk. 
     if output_raster:
+        #Create directory
+        Path(output_raster).parent.mkdir(parents = True, exist_ok = True)
         with rasterio.Env():
             with rasterio.open(output_raster, 'w', **profile) as dst:
                 dst.write(extent_filled_raster, 1)
