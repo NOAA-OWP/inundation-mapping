@@ -5,10 +5,13 @@ from dotenv import load_dotenv
 import os
 import argparse
 import requests
+from collections import defaultdict
+import urllib
 
 load_dotenv()
 USGS_DOWNLOAD_URL = os.getenv("USGS_DOWNLOAD_URL")
 USGS_METADATA_URL = os.getenv("USGS_METADATA_URL")   
+EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
 ###############################################################################
 #Get all usgs grids available for download. This step is required because the grid metadata API returns gridID as an integer and truncates leading zeros found in grid names.
 ###############################################################################            
@@ -45,7 +48,36 @@ def get_all_usgs_gridnames():
         value = i   
         grid_lookup[key].append(value)
     return grid_lookup
+###############################################################################
+#Get USGS Site metadata
+###############################################################################
+def usgs_site_metadata(code):
+    '''
+    Retrieves site metadata from USGS API and saves output as dictionary. Information used includes shortname and site number.
+    
+    Parameters
+    ----------
+    code : STR
+        AHPS code.
+    USGS_METADATA_URL : STR
+        URL for USGS datasets.
 
+    Returns
+    -------
+    site_metadata : DICT
+        Output metadata for an AHPS site.
+    '''
+    # Make sure code is lower case
+    code = code.lower()
+    # Get site metadata from USGS API using ahps code
+    site_url = f'{USGS_METADATA_URL}/server/rest/services/FIMMapper/sites/MapServer/0/query?where=AHPS_ID+%3D+%27{code}%27&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&f=pjson'
+    #Get data from API
+    response = requests.get(site_url)
+    #If response is valid, then get metadata and save to dictionary
+    if response.ok:
+        response_json = response.json()
+        site_metadata = response_json['features'][0]['attributes']
+    return site_metadata
 ########################################################################
 #Get USGS Benchmark Grids
 ########################################################################
@@ -70,7 +102,8 @@ def obtain_usgs_data(workspace):
     #Get all names of grids available for download from USGS website.
     grid_lookup = get_all_usgs_gridnames()
     #List of target ahps codes. In "ahps_dictionary.py" we defined a dictionary (ahps_lookup) that contains all ahps codes and their sources.
-    target_ahps_codes = ahps_lookup['USGS'] + ahps_lookup['Both']
+    target_ahps_codes = pd.read_csv(EVALUATED_SITES_CSV)
+    target_ahps_codes = target_ahps_codes.query('Source in ["Both","USGS"]')['Total_List'].to_list()
     #Loop through all codes in the target_ahps_codes list.
     all_messages = []
     for code in target_ahps_codes:
