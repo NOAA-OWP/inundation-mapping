@@ -4,6 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 import argparse
+import requests
 
 load_dotenv()
 USGS_DOWNLOAD_URL = os.getenv("USGS_DOWNLOAD_URL")
