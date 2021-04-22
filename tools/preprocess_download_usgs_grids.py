@@ -7,6 +7,7 @@ import argparse
 import requests
 from collections import defaultdict
 import urllib
+import pandas as pd
 
 load_dotenv()
 USGS_DOWNLOAD_URL = os.getenv("USGS_DOWNLOAD_URL")
