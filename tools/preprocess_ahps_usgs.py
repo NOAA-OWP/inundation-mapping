@@ -291,7 +291,6 @@ def preprocess_usgs(source_dir, destination, reference_raster):
          
         #Get paths of all grids that have been downloaded, if no grids available for site then exit.
         grid_paths = [grids for grids in ahps_dir.glob('*.tif*') if grids.suffix in ['.tif', '.tiff']]
-        grid_names = [name.stem for name in grid_paths]
         if not grid_paths:
             f.write(f'{code} : Skipping because no benchmark grids available\n')
             continue
@@ -479,6 +478,14 @@ def preprocess_usgs(source_dir, destination, reference_raster):
     
     f.close()
     
+    #Combine all attribute files
+    attribute_files = list(destination.rglob('*_attributes.csv'))
+    all_attributes = pd.DataFrame()
+    for i in attribute_files:
+        attribute_df = pd.read_csv(i, dtype={'huc':str})
+        all_attributes = all_attributes.append(attribute_df)
+    all_attributes.to_csv(destination / 'attributes.csv', index = False)
+            
     return 
 
 if __name__ == '__main__':

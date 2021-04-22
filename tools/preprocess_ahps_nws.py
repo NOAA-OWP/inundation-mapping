@@ -51,7 +51,6 @@ def preprocess_nws(source_dir, destination, reference_raster):
     nwm_us_search = 10
     #The NWS data was downloaded and unzipped. The ahps folder (with 5 digit code as folder name) was cut and pasted into a separate directory. So the ahps_codes iterates through that parent directory to get all of the AHPS codes that have data. 
     ahps_codes = [i.name for i in source_dir.glob('*') if i.is_dir() and len(i.name) == 5]
-    all_df = pd.DataFrame()
     #Get mainstems NWM segments
     #Workaround for sites in 02030103 and 02030104, many are not rfc_forecast_point = True
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
@@ -187,9 +186,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
             df['flow'] = np.interp(df['elevation'], rating_curve['elevation_navd88'], rating_curve['flow'], left = np.nan, right = np.nan)        
             #Assign flow source to reflect interpolation from rc
             df['flow_source'] = f'interpolated from {rating_curve_source} rating curve'
-            
-            #Optional, append all dataframes
-            all_df = all_df.append(df)
+
         else: 
             f.write(f'{code} : Site has no benchmark grids\n')
        
@@ -325,6 +322,13 @@ def preprocess_nws(source_dir, destination, reference_raster):
     #Close log file.
     f.close()
     
+    #Combine all attribute files
+    attribute_files = list(destination.rglob('*_attributes.csv'))
+    all_attributes = pd.DataFrame()
+    for i in attribute_files:
+        attribute_df = pd.read_csv(i, dtype={'huc':str})
+        all_attributes = all_attributes.append(attribute_df)
+    all_attributes.to_csv(destination / 'attributes.csv', index = False)    
     return
 
 if __name__ == '__main__':
