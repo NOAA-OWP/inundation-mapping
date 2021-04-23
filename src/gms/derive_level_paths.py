@@ -12,8 +12,8 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
                        ):
 
     # getting foss_id of huc8
-    foss_id = get_fossid_from_huc8(huc8_id=huc_id,foss_id_attribute='fossid',
-                                   hucs_layerName='WBDHU8')
+    #foss_id = get_fossid_from_huc8(huc8_id=huc_id,foss_id_attribute='fossid',
+                                   #hucs_layerName='WBDHU8')
     
     if verbose:
         print("Deriving level paths ...")
@@ -35,12 +35,20 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
     stream_network = stream_network.derive_outlets(toNode_attribute,fromNode_attribute,verbose=verbose)
     stream_network = stream_network.derive_inlets(toNode_attribute,fromNode_attribute,verbose=verbose)
 
+    # derive up and downstream networks
+    upstreams, downstreams = stream_network.make_up_and_downstream_dictionaries(
+                                                                         reach_id_attribute='HydroID',
+                                                                         toNode_attribute=toNode_attribute,
+                                                                         fromNode_attribute=fromNode_attribute,
+                                                                         verbose=True
+                                                                         )
+
     # derive arbolate sum
     stream_network = stream_network.get_arbolate_sum(arbolate_sum_attribute='arbolate_sum',
                                                      inlets_attribute='inlet_id',
                                                      reach_id_attribute='HydroID',
-                                                     toNode_attribute=toNode_attribute,
-                                                     fromNode_attribute=fromNode_attribute,
+                                                     upstreams=upstreams,
+                                                     downstreams=downstreams,
                                                      length_conversion_factor_to_km = 0.001,
                                                      verbose=verbose
                                                     )
@@ -48,6 +56,7 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
     # derive stream branches
     stream_network = stream_network.derive_stream_branches( toNode_attribute=toNode_attribute,
                                                             fromNode_attribute=fromNode_attribute,
+                                                            upstreams=upstreams,
                                                             branch_id_attribute=branch_id_attribute,
                                                             reach_id_attribute='HydroID',
                                                             comparison_attributes='arbolate_sum',
@@ -56,6 +65,8 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
                                                            )
     
     if out_stream_network is not None:
+        if verbose:
+            print("Writing stream branches ...")
         stream_network.write(out_stream_network,index=True)
     
     if out_stream_network_dissolved is not None:

@@ -10,7 +10,7 @@ from collections import deque
 import numpy as np
 from tqdm import tqdm
 from shapely.ops import linemerge
-from shapely.geometry import MultiLineString
+from shapely.geometry import MultiLineString, LineString
 
 class StreamNetwork(gpd.GeoDataFrame):
 
@@ -207,16 +207,16 @@ class StreamNetwork(gpd.GeoDataFrame):
 
     def derive_stream_branches(self,toNode_attribute='ToNode',
                                fromNode_attribute='FromNode',
+                               upstreams=None,
                                outlet_attribute='outlet_id',
                                branch_id_attribute='branchID',
                                reach_id_attribute='NHDPlusID',
                                comparison_attributes='StreamOrde',
                                comparison_function=max,
+                               max_branch_id_digits=6,
                                verbose=False):
 
         """ Derives stream branches """
-        if verbose:
-            print("Deriving stream branches ..")
 
         # checks inputs
         allowed_comparison_function = {max,min}
@@ -227,15 +227,22 @@ class StreamNetwork(gpd.GeoDataFrame):
         if self.index.name != reach_id_attribute:
             self.set_index(reach_id_attribute,drop=True,inplace=True)
 
+        # make upstream and downstream dictionaries if none are passed
+        if upstreams is None:
+            upstreams,_ = self.make_up_and_downstream_dictionaries(reach_id_attribute=reach_id_attribute,
+                                                                   toNode_attribute=toNode_attribute,
+                                                                   fromNode_attribute=fromNode_attribute,
+                                                                   verbose=verbose)
+        
         # initialize empty queue, visited set, branch attribute column, and all toNodes set
         Q = deque()
         visited = set()
         self[branch_id_attribute] = [-1] * len(self)
-        all_toNodes = set(self[toNode_attribute].unique())
 
         # progress bar
-        progress = tqdm(total=len(self),disable=(not verbose))
+        progress = tqdm(total=len(self),disable=(not verbose),desc='Stream branches')
 
+        """
         # add outlets to queue, visited set. Assign branch id to outlets too
         bid = 1
         for reach_id,row in self.iterrows():
@@ -252,13 +259,16 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # alternative means of adding outlets to queue, to visited, and assigning branch id's to outlets
         """
-        outlet_boolean_mask = self[outlet_attribue] >= 0
+        outlet_boolean_mask = self[outlet_attribute] >= 0
         outlet_reach_ids = self.index[outlet_boolean_mask].tolist()
-        self.loc[outlet_reach_ids,branch_id_attribute] = range(1,len(outlet_reach_ids)+1)
-        for rid in outlet_reach_ids:
-            Q.append(rid)
-            visited.add(rid)
-        """
+
+        branch_ids = [ h[0:4] + str(b+1).zfill(max_branch_id_digits) for b,h in enumerate(outlet_reach_ids) ]
+
+        self.loc[outlet_reach_ids,branch_id_attribute] = branch_ids
+        Q = deque(outlet_reach_ids)
+        visited = set(outlet_reach_ids)
+        bid = int(branch_ids[-1][-max_branch_id_digits:].lstrip('0')) + 1
+        progress.update(bid-1)
 
         # breath-first traversal
         # while queue contains reaches
@@ -266,21 +276,20 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             # pop current reach id from queue
             current_reach_id = Q.popleft()
+            
+            # update progress
+            progress.update(1)
 
             # get current reach stream order and branch id
             current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
             current_reach_branch_id = self.at[current_reach_id,branch_id_attribute]
 
-            # get from Node of current reach
-            current_fromNode = self.at[current_reach_id,fromNode_attribute]
+            # get upstream ids
+            upstream_ids = upstreams[current_reach_id]
 
             # identify upstreams by finding if fromNode exists in set of all toNodes
-            if current_fromNode in all_toNodes:
+            if upstream_ids:
                 
-                # get boolean mask of upstream reaches and their reach id's
-                upstream_bool_mask = self[toNode_attribute] == current_fromNode
-                upstream_ids = self.index[upstream_bool_mask].tolist()
-
                 # determine if each upstream has been visited or not
                 not_visited_upstream_ids = [] # list to save not visited upstreams
                 for us in upstream_ids:
@@ -300,24 +309,25 @@ class StreamNetwork(gpd.GeoDataFrame):
                     upstream_reaches_compare_values = self.loc[not_visited_upstream_ids,comparison_attributes]
                     matching_value = comparison_function(upstream_reaches_compare_values)
                     
+                    matches = 0 # if upstream matches are more than 1, limits to only one match
                     for usrcv,nvus in zip(upstream_reaches_compare_values,not_visited_upstream_ids):
-                        if usrcv == matching_value:
+                        if (usrcv == matching_value) & (matches == 0):
                             self.at[nvus,branch_id_attribute] = current_reach_branch_id
+                            matches += 1
                         else:
-                            self.at[nvus,branch_id_attribute] = bid
+                            branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
+                            self.at[nvus,branch_id_attribute] = branch_id
                             bid += 1
+        
+        progress.close()
 
         return(self)
 
 
-    def get_arbolate_sum(self,arbolate_sum_attribute='arbolate_sum',inlets_attribute='inlet_id',
-                         reach_id_attribute='NHDPlusID',toNode_attribute='toNodes',
-                         fromNode_attribute='fromNodes',length_conversion_factor_to_km = 0.001,
-                         verbose=False
-                        ):
-        
-        if verbose:
-            print("Deriving arbolate sum ...")
+    def make_up_and_downstream_dictionaries(self,reach_id_attribute='NHDPlusID',
+                                            toNode_attribute='ToNode',
+                                            fromNode_attribute='FromNode',
+                                            verbose=False):
         
         # sets index of stream branches as reach id attribute
         if self.index.name != reach_id_attribute:
@@ -326,11 +336,34 @@ class StreamNetwork(gpd.GeoDataFrame):
         # find upstream and downstream dictionaries
         upstreams,downstreams = dict(),dict()
         
-        #if verbose: print('   Making upstream and downstream dictionaries')
-        for reach_id,row in tqdm(self.iterrows(),disable=(not verbose),total=len(self), desc='Upstream and downstream dictionaries'):
+        for reach_id,row in tqdm(self.iterrows(),disable=(not verbose),
+                                 total=len(self), desc='Upstream and downstream dictionaries'):
+            
             downstreams[reach_id] = self.index[ self[fromNode_attribute] == row[toNode_attribute] ].tolist() 
             upstreams[reach_id] = self.index[ self[toNode_attribute] == row[fromNode_attribute] ].tolist()
         
+        return(upstreams,downstreams)
+
+
+    def get_arbolate_sum(self,arbolate_sum_attribute='arbolate_sum',inlets_attribute='inlet_id',
+                         reach_id_attribute='NHDPlusID',length_conversion_factor_to_km = 0.001,
+                         upstreams=None, downstreams=None,
+                         toNode_attribute='ToNode',
+                         fromNode_attribute='FromNode',
+                         verbose=False
+                        ):
+        
+        # sets index of stream branches as reach id attribute
+        if self.index.name != reach_id_attribute:
+            self.set_index(reach_id_attribute,drop=True,inplace=True)
+
+        # make upstream and downstream dictionaries if none are passed
+        if (upstreams is None) | (downstreams is None):
+            upstreams, downstreams = self.make_up_and_downstream_dictionaries(reach_id_attribute=reach_id_attribute,
+                                                                              toNode_attribute=toNode_attribute,
+                                                                              fromNode_attribute=fromNode_attribute,
+                                                                              verbose=verbose)
+
         # initialize queue, visited set, with inlet reach ids
         inlet_reach_ids = self.index[self[inlets_attribute] >= 0].tolist()
         S = deque(inlet_reach_ids)
@@ -338,10 +371,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # initialize arbolate sum, make length km column, make all from nodes set
         self[arbolate_sum_attribute] = self.geometry.length * length_conversion_factor_to_km 
-        all_fromNodes = set(self[fromNode_attribute].unique())
         
         # progress bar
-        progress = tqdm(total=len(self),disable=(not verbose), desc= "arbolate sums")
+        progress = tqdm(total=len(self),disable=(not verbose), desc= "Arbolate sums")
 
         # depth-first traversal
         # while stack contains reaches
@@ -353,30 +385,19 @@ class StreamNetwork(gpd.GeoDataFrame):
             # current arbolate sum
             current_reach_arbolate_sum = self.at[current_reach_id,arbolate_sum_attribute]
 
-            # if current reach id is not visited, save arbolate sum, and mark as visited
+            # if current reach id is not visited mark as visited
             if current_reach_id not in visited:
-                #arbolate_sum_of_last_non_visited_reach = self.loc[current_reach_id,arbolate_sum_attribute]
                 visited.add(current_reach_id)
                 progress.update(n=1)
 
-            # get to Node of current reach
-            #current_toNode = self.at[current_reach_id,toNode_attribute]
+            # get downstream ids
             downstream_ids = downstreams[current_reach_id]
             
-            # identify downstreams by finding if toNode exists in set of all fromNodes
-            #if current_toNode in all_fromNodes:
             if downstream_ids:
-                
-                # get boolean mask of downstream reaches and their reach id's
-                #downstream_bool_mask = self[fromNode_attribute] == current_toNode
-                #downstream_ids = self.index[downstream_bool_mask].tolist()
                 
                 for ds in downstream_ids:
                     
                     # figure out of all upstream reaches of ds have been visited
-                    #ds_fromNode = self.at[ds,fromNode_attribute]
-                    #upstream_of_ds_bool_mask = self[toNode_attribute] == ds_fromNode
-                    #upstream_of_ds_ids = set( self.index[upstream_of_ds_bool_mask].tolist() )
                     upstream_of_ds_ids = set(upstreams[ds])
                     all_upstream_ids_of_ds_are_visited = upstream_of_ds_ids.issubset(visited)
                     
@@ -384,12 +405,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     if all_upstream_ids_of_ds_are_visited:
                         S.append(ds)
 
-                    # if not visited, add current reach arbolate sum, else add the arbolate sum of last non-visited reach
                     self.loc[ds,arbolate_sum_attribute] += current_reach_arbolate_sum
-                    #if ds not in visited:
-                    #    self.loc[ds,arbolate_sum_attribute] += current_reach_arbolate_sum
-                    #else:
-                    #    self.loc[ds,arbolate_sum_attribute] += arbolate_sum_of_last_non_visited_reach
         
         progress.close()
 
@@ -408,18 +424,13 @@ class StreamNetwork(gpd.GeoDataFrame):
             exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
             self = self.loc[exclude_indices,:]
 
-        # save branch ids
-        #print(self.columns)
-        #self.sort_values(axis=1,by=branch_id_attribute,inplace=True)
-        #bids = self.loc[:,branch_id_attribute].unique().tolist()
-
         # dissolve lines
         self['bids_temp'] = self.loc[:,branch_id_attribute].copy()
         self = self.dissolve(by=branch_id_attribute)
         self.rename(columns={'bids_temp' : branch_id_attribute},inplace=True)
         
         # merges each multi-line string to a sigular linestring
-        for lpid,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose)):
+        for lpid,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc="Merging mult-part geoms"):
             if isinstance(row.geometry,MultiLineString):
                 self.loc[lpid,'geometry'] = linemerge(self.loc[lpid,'geometry'])
         
