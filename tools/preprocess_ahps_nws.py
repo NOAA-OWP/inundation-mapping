@@ -278,14 +278,12 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     output_flow_file = outputdir / (f'ahps_{code}_huc_{huc}_flows_{i}.csv')
                     flow_info.to_csv(output_flow_file, index = False)
                     
-                    
-
-                                           
         except Exception as e:
             f.write(f'{code} : Error preprocessing benchmark\n{repr(e)}\n')
             f.write(traceback.format_exc())
             f.write('\n')
-            print(repr(e))                
+            print(repr(e)) 
+            print(traceback.format_exc())               
         #Process extents, only create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code
         if ahps_directory.exists():
