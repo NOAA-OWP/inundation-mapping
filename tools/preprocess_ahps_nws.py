@@ -281,7 +281,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
 
                                            
         except Exception as e:
-            f.write(f'{code} : Error preprocessing benchmark\n{e}\n')
+            f.write(f'{code} : Error preprocessing benchmark\n{repr(e)}\n')
             print(e)               
         #Process extents, only create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code

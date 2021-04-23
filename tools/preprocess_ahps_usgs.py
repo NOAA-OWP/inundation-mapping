@@ -393,7 +393,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                     flow_info.to_csv(output_flow_file, index = False)
                     
         except Exception as e:
-            f.write(f'{code} : Error preprocessing benchmark\n{e}\n')
+            f.write(f'{code} : Error preprocessing benchmark\n{repr(e)}\n')
             print(e) 
         #Create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code
