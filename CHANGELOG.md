@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v3.0.15.6 - 2021-04-23 - [PR #365](https://github.com/NOAA-OWP/cahaba/pull/365)
 
-Implement CatFIM threshold flows to sierra test and add AHPS benchmark preprocessing scripts.
+Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preprocessing scripts.
 
 ## Additions
 -Produce CatFIM flows file when running rating_curve_get_usgs_gages.py
