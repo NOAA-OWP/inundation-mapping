@@ -397,7 +397,6 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             f.write(f'{code} : Error preprocessing benchmark\n{repr(e)}\n')
             f.write(traceback.format_exc())
             f.write('\n')
-            print(repr(e)) 
             print(traceback.format_exc())
         #Create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code
