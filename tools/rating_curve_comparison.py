@@ -38,13 +38,13 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 def check_file_age(file):
     '''
     Checks if file exists, determines the file age, and recommends
-    updating if older than 1 month. 
+    updating if older than 1 month.
 
     Returns
     -------
     None.
 
-    '''    
+    '''
     file = Path(file)
     if file.is_file():
         modification_time = file.stat().st_mtime
@@ -67,7 +67,8 @@ def generate_rating_curve_metrics(args):
     nwm_recurr_data_filename    = args[4]
     rc_comparison_plot_filename = args[5]
     nwm_flow_dir                = args[6]
-    huc                         = args[7]
+    catfim_flows_filename       = args[7]
+    huc                         = args[8]
 
     elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': str})
     hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': str,'feature_id': str})
@@ -106,7 +107,7 @@ def generate_rating_curve_metrics(args):
         recurr_1_5_yr_filename = join(nwm_flow_dir,'recurr_1_5_cms.csv')
         recurr_5_yr_filename = join(nwm_flow_dir,'recurr_5_0_cms.csv')
         recurr_10_yr_filename = join(nwm_flow_dir,'recurr_10_0_cms.csv')
-
+        
         # Update column names
         recurr_1_5_yr = pd.read_csv(recurr_1_5_yr_filename,dtype={'feature_id': str})
         recurr_1_5_yr = recurr_1_5_yr.rename(columns={"discharge": "1.5"})
@@ -114,13 +115,18 @@ def generate_rating_curve_metrics(args):
         recurr_5_yr = recurr_5_yr.rename(columns={"discharge": "5.0"})
         recurr_10_yr = pd.read_csv(recurr_10_yr_filename,dtype={'feature_id': str})
         recurr_10_yr = recurr_10_yr.rename(columns={"discharge": "10.0"})
-
+                        
         # Merge NWM recurr intervals into a single layer
         nwm_recurr_intervals_all = reduce(lambda x,y: pd.merge(x,y, on='feature_id', how='outer'), [recurr_1_5_yr, recurr_5_yr, recurr_10_yr])
         nwm_recurr_intervals_all = pd.melt(nwm_recurr_intervals_all, id_vars=['feature_id'], value_vars=['1.5','5.0','10.0'], var_name='recurr_interval', value_name='discharge_cms')
+        
+        # Append catfim data (already set up in format similar to nwm_recurr_intervals_all)
+        cat_fim = pd.read_csv(catfim_flows_filename, dtype={'feature_id':str})
+        nwm_recurr_intervals_all = nwm_recurr_intervals_all.append(cat_fim)
+        
+        # Convert discharge to cfs and filter
         nwm_recurr_intervals_all['discharge_cfs'] = nwm_recurr_intervals_all.discharge_cms * 35.3147
         nwm_recurr_intervals_all = nwm_recurr_intervals_all.filter(items=['discharge_cfs', 'recurr_interval','feature_id']).drop_duplicates()
-
 
         # Identify unique gages
         usgs_crosswalk = hydrotable.filter(items=['location_id', 'feature_id']).drop_duplicates()
@@ -376,6 +382,7 @@ if __name__ == '__main__':
     parser.add_argument('-output_dir','--output-dir', help='rating curves output folder', required=True)
     parser.add_argument('-gages','--usgs-gages-filename',help='USGS rating curves',required=True)
     parser.add_argument('-flows','--nwm-flow-dir',help='NWM recurrence flows dir',required=True)
+    parser.add_argument('-catfim', '--catfim-flows-filename', help='Categorical FIM flows file',required = True)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-group','--stat-groups',help='column(s) to group stats',required=False)
 
@@ -385,6 +392,7 @@ if __name__ == '__main__':
     output_dir = args['output_dir']
     usgs_gages_filename = args['usgs_gages_filename']
     nwm_flow_dir = args['nwm_flow_dir']
+    catfim_flows_filename = args['catfim_flows_filename']
     number_of_jobs = args['number_of_jobs']
     stat_groups = args['stat_groups']
 
@@ -415,12 +423,12 @@ if __name__ == '__main__':
             rc_comparison_plot_filename = join(plots_dir,f"FIM-USGS_rating_curve_comparison_{huc}.png")
 
             if isfile(elev_table_filename):
-                procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir,huc])
+                procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
 
     # Initiate multiprocessing
     print(f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs")
-    pool = Pool(number_of_jobs)
-    pool.map(generate_rating_curve_metrics, procs_list)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(generate_rating_curve_metrics, procs_list)
 
     print(f"Aggregating rating curve metrics for {len(procs_list)} hucs")
     aggregate_metrics(output_dir,procs_list,stat_groups)

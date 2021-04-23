@@ -107,8 +107,8 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
             #wbd_gpkg_list.append(output_gpkg)
             #procs_list.append(['ogr2ogr -overwrite -progress -f GPKG -t_srs "{projection}" {output_gpkg} {wbd_gdb_path} {wbd_layer}'.format(output_gpkg=output_gpkg, wbd_gdb_path=wbd_gdb_path, wbd_layer=wbd_layer, projection=PREP_PROJECTION)])
 
-        #pool = Pool(num_workers)
-        #pool.map(run_system_command, procs_list)
+        # with Pool(processes=num_workers) as pool:
+            # pool.map(run_system_command, procs_list)
 
         # Subset WBD layers to CONUS and add to single geopackage.
         #print("Subsetting WBD layers to CONUS...")
@@ -150,9 +150,8 @@ def pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_prei
         output_gpkg = os.path.join(nwm_hydrofabric_directory, nwm_layer + '_proj.gpkg')
         procs_list.append(['ogr2ogr -overwrite -progress -f GPKG -t_srs "{projection}" {output_gpkg} {nwm_hydrofabric_gdb} {nwm_layer}'.format(projection=PREP_PROJECTION, output_gpkg=output_gpkg, nwm_hydrofabric_gdb=nwm_hydrofabric_gdb, nwm_layer=nwm_layer)])
 
-    pool = Pool(num_workers)
-    pool.map(run_system_command, procs_list)
-    pool.close()
+    with Pool(processes=num_workers) as pool:
+        pool.map(run_system_command, procs_list)
 
 
 def pull_and_prepare_nhd_data(args):
@@ -349,8 +348,9 @@ def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, ov
         nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd])
 
     # Pull and prepare NHD data.
-    #pool = Pool(num_workers)
-    #pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    # with Pool(processes=num_workers) as pool:
+        # pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+
     for huc in nhd_procs_list:
         try:
             pull_and_prepare_nhd_data(huc)
