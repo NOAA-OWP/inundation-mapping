@@ -1,5 +1,12 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## v3.0.15.5 - 2021-04-20 - [PR #363](https://github.com/NOAA-OWP/cahaba/pull/363)
+
+Prevent eval_plots.py from erroring out when spatial argument enabled if certain datasets not analyzed.
+
+## Changes
+- Add check to make sure analyzed dataset is available prior to creating spatial dataset.
+<br/><br/>
 ## v3.0.15.4 - 2021-04-20 - [PR #356](https://github.com/NOAA-OWP/cahaba/pull/356)
 
 Closing all multiprocessing Pool objects in repo.

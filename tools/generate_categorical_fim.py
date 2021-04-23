@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # Generate CatFIM flow files
     print('Creating flow files')
     start = time.time()
-    subprocess.call(['python3','foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
+    subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
     end = time.time()
     elapsed_time = (end-start)/60
     print(f'Finished creating flow files in {elapsed_time} minutes')
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     # Generate CatFIM mapping
     print('Begin mapping')
     start = time.time()
-    subprocess.call(['python3','foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
+    subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
     end = time.time()
     elapsed_time = (end-start)/60
     print(f'Finished mapping in {elapsed_time} minutes')
