@@ -9,6 +9,7 @@ import geopandas as gpd
 import requests
 import numpy as np
 import pathlib
+from pathlib import Path
 import rasterio.shutil
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import rasterio.crs
