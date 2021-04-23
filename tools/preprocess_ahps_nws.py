@@ -10,6 +10,7 @@ from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wb
 import argparse
 from dotenv import load_dotenv
 import os
+import traceback
 import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
@@ -282,7 +283,9 @@ def preprocess_nws(source_dir, destination, reference_raster):
                                            
         except Exception as e:
             f.write(f'{code} : Error preprocessing benchmark\n{repr(e)}\n')
-            print(e)               
+            f.write(traceback.format_exc())
+            f.write('\n')
+            print(repr(e))                
         #Process extents, only create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code
         if ahps_directory.exists():

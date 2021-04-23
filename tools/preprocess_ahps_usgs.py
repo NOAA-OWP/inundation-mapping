@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import os
 import sys
 sys.path.append('/foss_fim/src')
+import traceback
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
 
@@ -394,7 +395,9 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                     
         except Exception as e:
             f.write(f'{code} : Error preprocessing benchmark\n{repr(e)}\n')
-            print(e) 
+            f.write(traceback.format_exc())
+            f.write('\n')
+            print(repr(e)) 
         #Create extent if ahps code subfolder is present in destination directory.
         ahps_directory = destination / huc / code
         if ahps_directory.exists():
