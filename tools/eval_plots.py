@@ -605,73 +605,56 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         ###############################################################
         #This section will join ahps metrics to a spatial point layer
         ###############################################################
-        
-        #Get point data for ahps sites
-        #Get metrics for usgs and nws benchmark sources
-        usgs_dataset,sites = all_datasets.get(('usgs','MS'))
-        nws_dataset, sites = all_datasets.get(('nws','MS'))
-        #Append usgs/nws dataframes and filter unnecessary columns and rename remaining.
-        all_ahps_datasets = usgs_dataset.append(nws_dataset)
-        all_ahps_datasets = all_ahps_datasets.filter(['huc','nws_lid','version','magnitude','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source'])
-        all_ahps_datasets.rename(columns = {'benchmark_source':'source'}, inplace = True)
-        
-        #Get spatial data from WRDS
-        #Get metadata from WRDS API
-        select_by = 'nws_lid'
-        selector = list(all_ahps_datasets.nws_lid.unique())
-        metadata_url = f'{API_BASE_URL}/metadata'
-        metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector)
-        #Create geospatial data from WRDS output
-        dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes = True)
-        #Trim out unecessary columns and rename remaining columns
-        gdf = gdf.filter(['identifiers_nws_lid', 'nws_data_name', 'identifiers_nwm_feature_id','nws_data_wfo','nws_data_state','nws_data_county','geometry'])
-        gdf.rename(columns = {'identifiers_nws_lid':'nws_lid', 'nws_data_name':'lid_name','identifiers_nwm_feature_id':'feature_id','nws_data_wfo':'wfo','nws_data_state':'state','nws_data_county':'county','HUC8':'huc8'}, inplace = True)
-        
-        #Join spatial data to metric data        
-        gdf['nws_lid'] = gdf['nws_lid'].str.lower()        
-        joined = gdf.merge(all_ahps_datasets, on = 'nws_lid')
-        #Project to VIZ projection and write to file
-        joined = joined.to_crs(VIZ_PROJECTION)
-        joined.to_file(Path(workspace) / 'fim_performance_points.shp')
-        
-        '''
-        ###############################################################
-        #If user wants to append information such as what maps or flows were used for evaluation. This is already tested.
-        #User must supply the extent layer generated from preprocessing NWS/USGS datasets.
-        ###############################################################
-        #Read extent layer to GeoDataFrame and drop the geometry column
-        evaluated_ahps_extent = gpd.read_file(/Path/to/extent/layer/generated/during/preprocessing)        
-        evaluated_ahps_extent.drop(columns = ['geometry'], inplace = True)
-        #Re-arrange dataset to get flows used for evaluation
-        flows = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action_Q','minor_Q','moderate_Q','major_Q'], var_name = 'magnitude', value_name = 'eval_Q')
-        flows['magnitude'] = flows['magnitude'].str.split('_', 1, expand = True)
-        #Re-arrange dataset to get maps used for evaluation
-        maps = pd.melt(evaluated_ahps_extent, id_vars = ['nws_lid','source'], value_vars = ['action','minor','moderate','major'], var_name = 'magnitude', value_name = 'eval_maps')
-        maps['eval_maps'] = maps['eval_maps'].str.split('\\').str[-1]
-        #Merge flows and maps into single DataFrame
-        flows_maps = pd.merge(flows,maps, how = 'left', left_on = ['nws_lid','source','magnitude'], right_on = ['nws_lid','source','magnitude'])        
-        # combine flows_maps to spatial layer (gdf)
-        joined = joined.merge(flows_maps, left_on = ['nws_lid','magnitude','source'], right_on = ['nws_lid','magnitude','source'])
-        #Write to file
-        joined.to_file(Path(workspace)/'fim_performance_points.shp')
-        '''
+        if all_datasets.get(('nws','MS')) and all_datasets.get(('usgs','MS')):
+            #Get point data for ahps sites
+            #Get metrics for usgs and nws benchmark sources
+            usgs_dataset,sites = all_datasets.get(('usgs','MS'))
+            nws_dataset, sites = all_datasets.get(('nws','MS'))
+            #Append usgs/nws dataframes and filter unnecessary columns and rename remaining.
+            all_ahps_datasets = usgs_dataset.append(nws_dataset)
+            all_ahps_datasets = all_ahps_datasets.filter(['huc','nws_lid','version','magnitude','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source'])
+            all_ahps_datasets.rename(columns = {'benchmark_source':'source'}, inplace = True)
+            
+            #Get spatial data from WRDS
+            #Get metadata from WRDS API
+            select_by = 'nws_lid'
+            selector = list(all_ahps_datasets.nws_lid.unique())
+            metadata_url = f'{API_BASE_URL}/metadata'
+            metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector)
+            #Create geospatial data from WRDS output
+            dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes = True)
+            #Trim out unecessary columns and rename remaining columns
+            gdf = gdf.filter(['identifiers_nws_lid', 'nws_data_name', 'identifiers_nwm_feature_id','nws_data_wfo','nws_data_state','nws_data_county','geometry'])
+            gdf.rename(columns = {'identifiers_nws_lid':'nws_lid', 'nws_data_name':'lid_name','identifiers_nwm_feature_id':'feature_id','nws_data_wfo':'wfo','nws_data_state':'state','nws_data_county':'county','HUC8':'huc8'}, inplace = True)
+            
+            #Join spatial data to metric data        
+            gdf['nws_lid'] = gdf['nws_lid'].str.lower()        
+            joined = gdf.merge(all_ahps_datasets, on = 'nws_lid')
+            #Project to VIZ projection and write to file
+            joined = joined.to_crs(VIZ_PROJECTION)
+            joined.to_file(Path(workspace) / 'fim_performance_points.shp')
+        else:
+            print('NWS/USGS MS datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a MS version.')
+            
         ################################################################
         #This section joins ble (FR) metrics to a spatial layer of HUCs.
         ################################################################
-        #Read in HUC spatial layer
-        wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')
-        #Select BLE, FR dataset.
-        ble_dataset, sites = all_datasets.get(('ble','FR'))              
-        #Join metrics to HUC spatial layer
-        wbd_with_metrics = wbd_gdf.merge(ble_dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
-        #Filter out unnecessary columns
-        wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
-        wbd_with_metrics.rename(columns = {'benchmark_source':'source'}, inplace = True )
-        #Project to VIZ projection
-        wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
-        #Write out to file
-        wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
-        
+        if all_datasets.get(('ble','FR')):            
+            #Select BLE, FR dataset.
+            ble_dataset, sites = all_datasets.get(('ble','FR'))         
+            #Read in HUC spatial layer
+            wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')             
+            #Join metrics to HUC spatial layer
+            wbd_with_metrics = wbd_gdf.merge(ble_dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
+            #Filter out unnecessary columns
+            wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
+            wbd_with_metrics.rename(columns = {'benchmark_source':'source'}, inplace = True )
+            #Project to VIZ projection
+            wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
+            #Write out to file
+            wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
+        else:
+            print('BLE FR datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a FR version')
 
 #######################################################################
 if __name__ == '__main__':

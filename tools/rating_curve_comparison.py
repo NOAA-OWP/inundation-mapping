@@ -420,8 +420,8 @@ if __name__ == '__main__':
 
     # Initiate multiprocessing
     print(f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs")
-    pool = Pool(number_of_jobs)
-    pool.map(generate_rating_curve_metrics, procs_list)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(generate_rating_curve_metrics, procs_list)
 
     print(f"Aggregating rating curve metrics for {len(procs_list)} hucs")
     aggregate_metrics(output_dir,procs_list,stat_groups)

@@ -218,5 +218,5 @@ if __name__ == '__main__':
         procs_list.append([fim_outputs_directory,huc6,limited_huc_list])
 
     print(f"aggregating {len(huc_list)} hucs to HUC6 scale using {number_of_jobs} jobs")
-    pool = Pool(number_of_jobs)
-    pool.map(aggregate_fim_outputs, procs_list)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(aggregate_fim_outputs, procs_list)
