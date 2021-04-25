@@ -183,7 +183,8 @@ if __name__ == '__main__':
     parser.add_argument('-a','--headwaters-filename',help='Headwaters points layer name',required=True,type=str)
     parser.add_argument('-s','--subset-nhd-streams-fileName',help='Output streams layer name',required=False,type=str,default=None)
     parser.add_argument('-i','--headwater-id',help='Headwater points ID column',required=True)
-    parser.add_argument('-i','--nwm-intersections-filename',help='NWM HUC4 intersection points',required=True)
+    parser.add_argument('-c','--nwm-intersections-filename',help='NWM HUC4 intersection points',required=True)
+    parser.add_argument('-d','--mainstem-flag',help='flag for mainstems network',required=False,default=False)
 
     args = vars(parser.parse_args())
 
@@ -195,8 +196,9 @@ if __name__ == '__main__':
     subset_nhd_streams_fileName = args['subset_nhd_streams_fileName']
     headwater_id = args['headwater_id']
     nwm_intersections_filename = args['nwm_intersections_filename']
+    mainstem_flag = args['mainstem_flag']
 
-    subset_streams_gdf = subset_nhd_network(huc_number,huc4_mask,selected_wbd8,nhd_streams,headwaters_filename,headwater_id,nwm_intersections_filename)
+    subset_streams_gdf = subset_nhd_network(huc_number,huc4_mask,selected_wbd8,nhd_streams,headwaters_filename,headwater_id,nwm_intersections_filename,mainstem_flag=False)
 
     if subset_nhd_streams_fileName is not None:
         subset_streams_gdf.to_file(subset_nhd_streams_fileName,driver=getDriver(subset_nhd_streams_fileName),index=False)

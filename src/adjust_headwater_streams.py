@@ -3,8 +3,6 @@
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-from os.path import splitext
-from tqdm import tqdm
 import argparse
 import pygeos
 from shapely.geometry import Point,LineString
@@ -14,6 +12,7 @@ from utils.shared_variables import PREP_PROJECTION
 from utils.shared_functions import getDriver
 import warnings
 warnings.simplefilter("ignore")
+
 
 def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
 
@@ -26,8 +25,18 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
     headwater_limited = nwm_headwaters.merge(nhd_streams_adj[["headwaters_id","mainstem"]],left_on="site_id", right_on="headwaters_id",how='right')
     headwater_limited = headwater_limited.drop(columns=['headwaters_id'])
 
+    nws_lid_limited = nws_lids.merge(nhd_streams[["nws_lid"]],left_on="site_id", right_on="nws_lid",how='right')
+    nws_lid_limited = nws_lid_limited.loc[nws_lid_limited.nws_lid!='']
+    nws_lid_limited = nws_lid_limited.drop(columns=['nws_lid'])
+
+    # Check for issues in nws_lid layer
+    if len(nws_lid_limited) < len(nws_lids):
+        missing_nws_lids = list(set(nws_lids.site_id) - set(nws_lid_limited.site_id))
+        print (f"nws lid(s) {missing_nws_lids} missing from aggregare dataset")
+
     # Combine NWM headwaters and AHPS sites to be snapped to NHDPlus HR segments
-    headwater_pts = headwater_limited.append(nws_lids)
+    headwater_pts = headwater_limited.append(nws_lid_limited)
+    headwater_pts = headwater_pts.reset_index(drop=True)
 
     if headwater_pts is not None:
 
@@ -75,9 +84,9 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
             headpoint = Point(shply_referencedpoint.coords)
 
             if point.pt_type == 'nwm_headwater':
-
                 cumulative_line = []
                 relativedistlst = []
+
                 # Collect all nhd stream segment linestring verticies
                 for point in zip(*shply_linestring.coords.xy):
                     cumulative_line = cumulative_line + [point]
@@ -104,6 +113,12 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
                     line1 = split(shply_linestring, headpoint)
                     headwaterstreams = headwaterstreams + [LineString(line1[0])]
                     nhd_streams.loc[nhd_streams.NHDPlusID==closest_stream.NHDPlusID.values[0],'geometry'] = LineString(line1[0])
+
+                try:
+                    del cumulative_line, relativedistlst
+                except:
+                    print (f"issue deleting adjusted stream variables for huc {huc}")
+
             else:
                 snapped_ahps = snapped_ahps + [headpoint]
                 nws_lid = nws_lid + [point[headwater_id]]
@@ -111,10 +126,9 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
         nhd_streams = nhd_streams.drop(columns=['is_relevant_stream', 'headwaters_id', 'downstream_of_headwater'])
 
         try:
-            del nhd_streams_adj, headwaters, headwater_limited, headwaterstreams, referencedpoints, cumulative_line, relativedistlst
+            del nhd_streams_adj, headwater_limited, referencedpoints, headwaterstreams
         except:
-            print (f"issue deleting adjusted stream variables for huc {str(huc)}")
-
+            print (f"issue deleting adjusted stream variables for huc {huc}")
 
         # Create snapped ahps sites
         if len(snapped_ahps) > 0:
@@ -150,21 +164,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='adjust headwater stream geometery based on headwater start points')
     parser.add_argument('-f','--huc',help='huc number',required=True)
     parser.add_argument('-l','--nhd-streams',help='NHDPlus HR geodataframe',required=True)
-    parser.add_argument('-p','--headwaters',help='Headwater points layer',required=True,type=str)
+    parser.add_argument('-p','--nwm-headwaters',help='Headwater points layer',required=True,type=str)
     parser.add_argument('-s','--subset-nhd-streams-fileName',help='Output streams layer name',required=False,type=str,default=None)
-    parser.add_argument('-s','--adj-headwater-points-fileName',help='Output adj headwater points layer name',required=False,type=str,default=None)
+    parser.add_argument('-a','--adj-headwater-points-fileName',help='Output adj headwater points layer name',required=False,type=str,default=None)
     parser.add_argument('-g','--headwater-points-fileName',help='Output headwater points layer name',required=False,type=str,default=None)
-    parser.add_argument('-i','--headwater-id',help='Output headwaters points',required=True)
+    parser.add_argument('-b','--nws-lids',help='NWS lid points',required=True)
+    parser.add_argument('-i','--headwater-id',help='Headwater id column name',required=True)
 
     args = vars(parser.parse_args())
 
-    adj_streams_gdf,adj_headwaters_gdf = adjust_headwaters(huc,nhd_streams,headwaters,headwater_id)
+    adj_streams_gdf, adj_headwaters_gdf = adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id)
 
     if subset_nhd_streams_fileName is not None:
-        adj_streams_gdf.to_file(args['subset_nhd_streams_fileName'],driver=getDriver(args['subset_nhd_streams_fileName']),index=False)
+        adj_streams_gdf.to_file(args['subset_nhd_streams_fileName'],driver=getDriver(args['subset_nhd_streams_fileName']))
 
     if headwater_points_fileName is not None:
-        headwater_points_fileName.to_file(args['headwater_points_fileName'],driver=getDriver(args['headwater_points_fileName']),index=False)
+        headwater_points_fileName.to_file(args['headwater_points_fileName'],driver=getDriver(args['headwater_points_fileName']))
 
     if adj_headwater_points_fileName is not None:
-        adj_headwaters_gdf.to_file(args['adj_headwater_points_fileName'],driver=getDriver(args['adj_headwater_points_fileName']),index=False)
+        adj_headwaters_gdf.to_file(args['adj_headwater_points_fileName'],driver=getDriver(args['adj_headwater_points_fileName']))

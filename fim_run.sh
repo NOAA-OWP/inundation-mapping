@@ -115,7 +115,7 @@ export input_nwm_lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
 export input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
 export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
 export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
-export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adjusted.gpkg
+export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
 
 ## Input handling ##
 $srcDir/check_huc_inputs.py -u "$hucList"
