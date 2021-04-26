@@ -32,7 +32,7 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
     # Check for issues in nws_lid layer
     if len(nws_lid_limited) < len(nws_lids):
         missing_nws_lids = list(set(nws_lids.site_id) - set(nws_lid_limited.site_id))
-        print (f"nws lid(s) {missing_nws_lids} missing from aggregare dataset")
+        print (f"nws lid(s) {missing_nws_lids} missing from aggregate dataset in huc {huc}")
 
     # Combine NWM headwaters and AHPS sites to be snapped to NHDPlus HR segments
     headwater_pts = headwater_limited.append(nws_lid_limited)
