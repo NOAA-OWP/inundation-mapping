@@ -94,6 +94,10 @@ if [ "$runName" = "" ]
 then
     usage
 fi
+if [ "$overwrite" = "" ]
+then
+    overwrite=0
+fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
@@ -132,7 +136,7 @@ $srcDir/check_huc_inputs.py -u "$hucList"
 if [ -d "$outputRunDataDir" ] && [ "$overwrite" -eq 1 ]; then
     rm -rf "$outputRunDataDir"
 elif [ -d "$outputRunDataDir" ] && [ "$overwrite_gms" -eq 1 ]; then
-    find $outputRunDataDir -iname "gms" -type d -delete
+    find $outputRunDataDir -iname "gms" -type d -exec rm -rf {} +
 elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
     echo "$runName data directories already exist. Use -o/--overwrite to continue"
     exit 1
@@ -140,19 +144,19 @@ fi
 mkdir -p $outputRunDataDir/logs
 
 ## RUN ##
-if [ -f "$hucList" ]; then
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-    else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-    fi
-else
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-    else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-    fi
-fi
+#if [ -f "$hucList" ]; then
+#    if [ "$jobLimit" -eq 1 ]; then
+#        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+#    else
+#        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+#    fi
+#else
+#    if [ "$jobLimit" -eq 1 ]; then
+#        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+#    else
+#        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+#    fi
+#fi
 
 echo "$viz"
 if [[ "$viz" -eq 1 ]]; then
@@ -161,13 +165,13 @@ if [[ "$viz" -eq 1 ]]; then
 fi
 
 ## MERGE DEM DERIVED NETWORKS ##
-echo -e $startDiv"Merging River Networks"$stopDiv
-mkdir $outputRunDataDir/aggregate_fim_outputs
-ogrmerge.py -f GPKG -single -overwrite_ds -o $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg $outputRunDataDir/*/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg
+#echo -e $startDiv"Merging River Networks"$stopDiv
+#mkdir $outputRunDataDir/aggregate_fim_outputs
+#ogrmerge.py -f GPKG -single -overwrite_ds -o $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg $outputRunDataDir/*/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg
 
 ## DERIVE LEVELPATH  ##
-echo -e $startDiv"Generating Level Paths"$stopDiv
-$srcDir/gms/derive_level_paths.py -i $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg -b $branch_id_attribute -o $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths.gpkg -d $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths_dissolved.gpkg -v
+#echo -e $startDiv"Generating Level Paths"$stopDiv
+#$srcDir/gms/derive_level_paths.py -i $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg -b $branch_id_attribute -o $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths.gpkg -d $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths_dissolved.gpkg -v
 
 ## RUN GMS ##
 if [ -f "$hucList" ]; then
