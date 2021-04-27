@@ -570,10 +570,10 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
 
         #If enabled, write out barplots of CSI for individual sites.
         if site_barplots:
+            individual_dirs = output_workspace / 'individual'
+            individual_dirs.mkdir(parents = True, exist_ok = True)
             subset = dataset.groupby(base_resolution)
             for site_name, site_data in subset:
-                individual_dirs = output_workspace / 'individual' / str(site_name)
-                individual_dirs.mkdir(parents = True, exist_ok = True)
                 site_file = individual_dirs / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}.png'
                 barplot(dataframe = site_data, x_field = 'magnitude', x_order = magnitude_order, y_field = 'CSI', hue_field = 'version', ordered_hue = version_order, title_text = f'{str(site_name).upper()} FIM Scores', fim_configuration = configuration, textbox_str = False, simplify_legend = True, dest_file = site_file)
 
