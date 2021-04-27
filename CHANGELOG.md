@@ -5,14 +5,13 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preprocessing scripts.
 
 ## Additions
--Produce CatFIM flows file when running rating_curve_get_usgs_gages.py
-
--Several scripts to preprocess AHPS benchmark data. Requires numerous file dependencies not available on Cahaba.
+- Produce CatFIM flows file when running `rating_curve_get_usgs_gages.py`.
+- Several scripts to preprocess AHPS benchmark data. Requires numerous file dependencies not available through Cahaba.
 
 ## Changes
-- Modify rating_curve_comparison to ingest CatFIM threshold flows in calculations
-- Modify eval_plots to save all site specific bar plots in same parent directory instead of in subdirectories
-- Add variables to env.template for AHPS benchmark preprocessing.
+- Modify `rating_curve_comparison.py` to ingest CatFIM threshold flows in calculations.
+- Modify `eval_plots.py` to save all site specific bar plots in same parent directory instead of in subdirectories.
+- Add variables to `env.template` for AHPS benchmark preprocessing.
 
 <br/><br/>
 ## v3.0.15.5 - 2021-04-20 - [PR #363](https://github.com/NOAA-OWP/cahaba/pull/363)
