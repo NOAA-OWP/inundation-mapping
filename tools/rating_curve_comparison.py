@@ -54,7 +54,8 @@ def check_file_age(file):
             check = f'{file.name} is {int(file_age_days)} days old, consider updating.\nUpdate with rating_curve_get_usgs_curves.py'
         else:
             check = f'{file.name} is {int(file_age_days)} days old.'
-    return check
+
+        return check
 
 # recurr_intervals = ['recurr_1_5_cms.csv','recurr_5_0_cms.csv','recurr_10_0_cms.csv']
 
@@ -107,7 +108,7 @@ def generate_rating_curve_metrics(args):
         recurr_1_5_yr_filename = join(nwm_flow_dir,'recurr_1_5_cms.csv')
         recurr_5_yr_filename = join(nwm_flow_dir,'recurr_5_0_cms.csv')
         recurr_10_yr_filename = join(nwm_flow_dir,'recurr_10_0_cms.csv')
-        
+
         # Update column names
         recurr_1_5_yr = pd.read_csv(recurr_1_5_yr_filename,dtype={'feature_id': str})
         recurr_1_5_yr = recurr_1_5_yr.rename(columns={"discharge": "1.5"})
@@ -115,15 +116,15 @@ def generate_rating_curve_metrics(args):
         recurr_5_yr = recurr_5_yr.rename(columns={"discharge": "5.0"})
         recurr_10_yr = pd.read_csv(recurr_10_yr_filename,dtype={'feature_id': str})
         recurr_10_yr = recurr_10_yr.rename(columns={"discharge": "10.0"})
-                        
+
         # Merge NWM recurr intervals into a single layer
         nwm_recurr_intervals_all = reduce(lambda x,y: pd.merge(x,y, on='feature_id', how='outer'), [recurr_1_5_yr, recurr_5_yr, recurr_10_yr])
         nwm_recurr_intervals_all = pd.melt(nwm_recurr_intervals_all, id_vars=['feature_id'], value_vars=['1.5','5.0','10.0'], var_name='recurr_interval', value_name='discharge_cms')
-        
+
         # Append catfim data (already set up in format similar to nwm_recurr_intervals_all)
         cat_fim = pd.read_csv(catfim_flows_filename, dtype={'feature_id':str})
         nwm_recurr_intervals_all = nwm_recurr_intervals_all.append(cat_fim)
-        
+
         # Convert discharge to cfs and filter
         nwm_recurr_intervals_all['discharge_cfs'] = nwm_recurr_intervals_all.discharge_cms * 35.3147
         nwm_recurr_intervals_all = nwm_recurr_intervals_all.filter(items=['discharge_cfs', 'recurr_interval','feature_id']).drop_duplicates()
@@ -378,13 +379,13 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='generate rating curve plots and tables for FIM and USGS gages')
-    parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True)
-    parser.add_argument('-output_dir','--output-dir', help='rating curves output folder', required=True)
-    parser.add_argument('-gages','--usgs-gages-filename',help='USGS rating curves',required=True)
-    parser.add_argument('-flows','--nwm-flow-dir',help='NWM recurrence flows dir',required=True)
-    parser.add_argument('-catfim', '--catfim-flows-filename', help='Categorical FIM flows file',required = True)
+    parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
+    parser.add_argument('-output_dir','--output-dir', help='rating curves output folder', required=True,type=str)
+    parser.add_argument('-gages','--usgs-gages-filename',help='USGS rating curves',required=True,type=str)
+    parser.add_argument('-flows','--nwm-flow-dir',help='NWM recurrence flows dir',required=True,type=str)
+    parser.add_argument('-catfim', '--catfim-flows-filename', help='Categorical FIM flows file',required = True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
-    parser.add_argument('-group','--stat-groups',help='column(s) to group stats',required=False)
+    parser.add_argument('-group','--stat-groups',help='column(s) to group stats',required=False,type=str)
 
     args = vars(parser.parse_args())
 
