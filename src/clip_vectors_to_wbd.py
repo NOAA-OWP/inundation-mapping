@@ -22,52 +22,32 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         landsea.to_file(subset_landsea_filename,driver=getDriver(subset_landsea_filename),index=False)
     del landsea
 
-    # find intersecting lakes and writeout
+    # Find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_lakes = gpd.read_file(nwm_lakes_filename, mask = wbd_buffer)
 
     if not nwm_lakes.empty:
-        # perform fill process to remove holes/islands in the NWM lake polygons
+        # Perform fill process to remove holes/islands in the NWM lake polygons
         nwm_lakes = nwm_lakes.explode()
         nwm_lakes_fill_holes=MultiPolygon(Polygon(p.exterior) for p in nwm_lakes['geometry']) # remove donut hole geometries
-        # loop through the filled polygons and insert the new geometry
+        # Loop through the filled polygons and insert the new geometry
         for i in range(len(nwm_lakes_fill_holes)):
             nwm_lakes.loc[i,'geometry'] = nwm_lakes_fill_holes[i]
         nwm_lakes.to_file(subset_nwm_lakes_filename,driver=getDriver(subset_nwm_lakes_filename),index=False)
     del nwm_lakes
 
-    # find intersecting levee lines
+    # Find intersecting levee lines
     print("Subsetting NLD levee lines for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nld_lines = gpd.read_file(nld_lines_filename, mask = wbd_buffer)
     if not nld_lines.empty:
         nld_lines.to_file(subset_nld_lines_filename,driver=getDriver(subset_nld_lines_filename),index=False)
     del nld_lines
 
-    # find intersecting nwm_catchments
-    print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nwm_catchments = gpd.read_file(nwm_catchments_filename, mask = wbd_buffer)
-    if extent == 'MS':
-        nwm_catchments = nwm_catchments.loc[nwm_catchments.mainstem==1]
-    nwm_catchments.to_file(subset_nwm_catchments_filename,driver=getDriver(subset_nwm_catchments_filename),index=False)
-    del nwm_catchments
-
-    # subset nhd headwaters
+    # Subset nhd headwaters
     print("Subsetting NHD Headwater Points for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nhd_headwaters = gpd.read_file(nhd_headwaters_filename, mask = wbd_buffer)
     if extent == 'MS':
         nhd_headwaters = nhd_headwaters.loc[nhd_headwaters.mainstem==1]
-
-    # subset nhd streams
-    print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nhd_streams = gpd.read_file(nhd_streams_filename, mask = wbd)
-    if extent == 'MS':
-        nhd_streams = nhd_streams.loc[nhd_streams.mainstem==1]
-
-    if len(nhd_streams) > 0:
-        nhd_streams.to_file(subset_nhd_streams_filename,driver=getDriver(subset_nhd_streams_filename),index=False)
-    else:
-        print ("No NHD streams within HUC " + str(hucCode) +  " boundaries.")
-        sys.exit(0)
 
     if len(nhd_headwaters) > 0:
         nhd_headwaters.to_file(subset_nhd_headwaters_filename,driver=getDriver(subset_nhd_headwaters_filename),index=False)
@@ -76,7 +56,41 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         print ("No headwater point(s) within HUC " + str(hucCode) +  " boundaries.")
         sys.exit(0)
 
-    # subset nwm streams
+    # Subset nhd streams
+    print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+    nhd_streams = gpd.read_file(nhd_streams_filename, mask = wbd_buffer)
+    if extent == 'MS':
+        nhd_streams = nhd_streams.loc[nhd_streams.mainstem==1]
+
+    if len(nhd_streams) > 0:
+        # Find incoming stream segments (to WBD buffer) and identify which are upstream
+        threshold_segments = gpd.overlay(nhd_streams, wbd_buffer, how='symmetric_difference')
+        from_list = threshold_segments.FromNode.to_list()
+        to_list = nhd_streams.ToNode.to_list()
+        missing_segments = list(set(from_list) - set(to_list))
+
+        # Remove incoming stream segment so it won't be routed as outflow during hydroconditioning
+        nhd_streams = nhd_streams.loc[~nhd_streams.FromNode.isin(missing_segments)]
+
+        nhd_streams.to_file(subset_nhd_streams_filename,driver=getDriver(subset_nhd_streams_filename),index=False)
+    else:
+        print ("No NHD streams within HUC " + str(hucCode) +  " boundaries.")
+        sys.exit(0)
+
+        # Find intersecting nwm_catchments
+        print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+        nwm_catchments = gpd.read_file(nwm_catchments_filename, mask = wbd_buffer)
+        if extent == 'MS':
+            nwm_catchments = nwm_catchments.loc[nwm_catchments.mainstem==1]
+
+        if len(nwm_catchments) > 0:
+            nwm_catchments.to_file(subset_nwm_catchments_filename,driver=getDriver(subset_nwm_catchments_filename),index=False)
+        else:
+            print ("No NHD catchments within HUC " + str(hucCode) +  " boundaries.")
+            sys.exit(0)
+        del nwm_catchments
+
+    # Subset nwm streams
     print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd_buffer)
     if extent == 'MS':
