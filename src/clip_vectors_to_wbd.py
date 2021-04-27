@@ -51,10 +51,10 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
 
     if len(nhd_headwaters) > 0:
         nhd_headwaters.to_file(subset_nhd_headwaters_filename,driver=getDriver(subset_nhd_headwaters_filename),index=False)
-        del nhd_headwaters, nhd_streams
     else:
         print ("No headwater point(s) within HUC " + str(hucCode) +  " boundaries.")
         sys.exit(0)
+    del nhd_headwaters
 
     # Subset nhd streams
     print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
@@ -76,19 +76,20 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     else:
         print ("No NHD streams within HUC " + str(hucCode) +  " boundaries.")
         sys.exit(0)
+    del nhd_streams
 
-        # Find intersecting nwm_catchments
-        print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-        nwm_catchments = gpd.read_file(nwm_catchments_filename, mask = wbd_buffer)
-        if extent == 'MS':
-            nwm_catchments = nwm_catchments.loc[nwm_catchments.mainstem==1]
+    # Find intersecting nwm_catchments
+    print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+    nwm_catchments = gpd.read_file(nwm_catchments_filename, mask = wbd_buffer)
+    if extent == 'MS':
+        nwm_catchments = nwm_catchments.loc[nwm_catchments.mainstem==1]
 
-        if len(nwm_catchments) > 0:
-            nwm_catchments.to_file(subset_nwm_catchments_filename,driver=getDriver(subset_nwm_catchments_filename),index=False)
-        else:
-            print ("No NHD catchments within HUC " + str(hucCode) +  " boundaries.")
-            sys.exit(0)
-        del nwm_catchments
+    if len(nwm_catchments) > 0:
+        nwm_catchments.to_file(subset_nwm_catchments_filename,driver=getDriver(subset_nwm_catchments_filename),index=False)
+    else:
+        print ("No NHD catchments within HUC " + str(hucCode) +  " boundaries.")
+        sys.exit(0)
+    del nwm_catchments
 
     # Subset nwm streams
     print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
