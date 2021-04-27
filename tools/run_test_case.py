@@ -132,38 +132,41 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
             # Run inundate.
             print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
             try:
-                inundate(
+                inundate_test = inundate(
                          rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
                          subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
                          depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
                         )
+                if inundate_test == 0:
+                    print("-----> Inundation mapping complete.")
+                    predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
 
-                print("-----> Inundation mapping complete.")
-                predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
+                    # Define outputs for agreement_raster, stats_json, and stats_csv.
+                    if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
+                        agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
+                    else:
+                        agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
 
-                # Define outputs for agreement_raster, stats_json, and stats_csv.
-                if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
-                    agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
-                else:
-                    agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
+                    compute_contingency_stats_from_rasters(predicted_raster_path,
+                                                           benchmark_raster_path,
+                                                           agreement_raster,
+                                                           stats_csv=stats_csv,
+                                                           stats_json=stats_json,
+                                                           mask_values=[],
+                                                           stats_modes_list=stats_modes_list,
+                                                           test_id=test_id,
+                                                           mask_dict=mask_dict,
+                                                           )
 
-                compute_contingency_stats_from_rasters(predicted_raster_path,
-                                                       benchmark_raster_path,
-                                                       agreement_raster,
-                                                       stats_csv=stats_csv,
-                                                       stats_json=stats_json,
-                                                       mask_values=[],
-                                                       stats_modes_list=stats_modes_list,
-                                                       test_id=test_id,
-                                                       mask_dict=mask_dict,
-                                                       )
+                    if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
+                        del mask_dict[ahps_lid]
 
-                if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
-                    del mask_dict[ahps_lid]
-
-                print(" ")
-                print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
-                print(" ")
+                    print(" ")
+                    print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
+                    print(" ")
+                elif inundate_test == 1:
+                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
+                    return
             except Exception as e:
                 print(e)
 
