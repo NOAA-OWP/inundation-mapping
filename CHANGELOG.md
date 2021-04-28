@@ -7,6 +7,7 @@ Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Re
 ## Changes
 - refactored `inundation.py` and `run_test_case.py` to handle exceptions without using `sys.exit()`.
 
+<br/><br/>
 ## v3.0.15.6 - 2021-04-23 - [PR #365](https://github.com/NOAA-OWP/cahaba/pull/365)
 
 Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preprocessing scripts.
@@ -27,11 +28,12 @@ Prevent eval_plots.py from erroring out when spatial argument enabled if certain
 
 ## Changes
 - Add check to make sure analyzed dataset is available prior to creating spatial dataset.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.15.4 - 2021-04-20 - [PR #356](https://github.com/NOAA-OWP/cahaba/pull/356)
 
 Closing all multiprocessing Pool objects in repo.
+
 <br/><br/>
 ## v3.0.15.3 - 2021-04-19 - [PR #358](https://github.com/NOAA-OWP/cahaba/pull/358)
 
