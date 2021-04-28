@@ -1,5 +1,6 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+<br/><br/>
 ## v3.0.15.7 - 2021-04-28 - [PR #367](https://github.com/NOAA-OWP/cahaba/pull/367)
 
 Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Resolves issue #351
@@ -53,6 +54,7 @@ Preprocess NHDPlus HR rasters for consistent projections, nodata values, and con
 ## v3.0.15.2 - 2021-04-16 - [PR #359](https://github.com/NOAA-OWP/cahaba/pull/359)
 
 Hotfix to preserve desired files when production flag used in `fim_run.sh`. 
+
 ## Changes
 
 - Fixed production whitelisted files.
@@ -61,6 +63,7 @@ Hotfix to preserve desired files when production flag used in `fim_run.sh`.
 ## v3.0.15.1 - 2021-04-13 - [PR #355](https://github.com/NOAA-OWP/cahaba/pull/355)
 
 Sierra test considered all USGS gage locations to be mainstems even though many actually occurred with tributaries. This resulted in unrealistic comparisons as incorrect gages were assigned to mainstems segments. This feature branch identifies gages that are on mainstems via attribute field. 
+
 ## Changes
 
 - Modifies `usgs_gage_crosswalk.py` to filter out gages from the `usgs_gages.gpkg` layer such that for a "MS" run, only consider gages that contain rating curve information (via `curve` attribute) and are also mainstems gages (via `mainstems` attribute). 
@@ -74,7 +77,6 @@ Sierra test considered all USGS gage locations to be mainstems even though many 
 - Adds the `extent` argument specified by user when running `fim_run.sh` to `usgs_gage_crosswalk.py`.
 
 <br/><br/>
-
 ## v3.0.15.0 - 2021-04-08 - [PR #340](https://github.com/NOAA-OWP/cahaba/pull/340)
 
 Implementing a prototype technique to estimate the missing bathymetric component in the HAND-derived synthetic rating curves. The new Bathymetric Adjusted Rating Curve (BARC) function is built within the `fim_run.sh` workflow and will ingest bankfull geometry estimates provided by the user to modify the cross section area used in the synthetic rating curve generation.
@@ -90,6 +92,7 @@ Implementing a prototype technique to estimate the missing bathymetric component
     - Imports the existing synthetic rating curve table and the bankfull geometry input data (topwidth and cross section area per COMID).
     - Performs new synthetic rating curve calculations with bathymetry estimation modifications.
     - Flags issues with the thalweg-notch artifact.
+
 <br/><br/>
 ## v3.0.14.0 - 2021-04-05 - [PR #338](https://github.com/NOAA-OWP/cahaba/pull/338)
 
@@ -106,6 +109,7 @@ Create tool to retrieve rating curves from USGS sites and convert to elevation (
      1) `usgs_rating_curves.csv`: A csv file that contains rating curves (including converted to NAVD88 elevation) for USGS gages in a format that is compatible with  `rating_curve_comparisons.py`. As it is is currently configured, only gages within CONUS will have rating curve data.
      2) `log.csv`: A log file that records status for each gage and includes error messages.
      3) `usgs_gages.gpkg`: A geospatial layer (in FIM projection) of all active USGS gages that meet a predefined criteria. Additionally, the `curve` attribute indicates whether a rating curve is found in the `usgs_rating_curves.csv`. This spatial file is only generated if the `all` option is passed with the `-l` argument.
+
 <br/><br/>
 ## v3.0.13.0 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
 
@@ -119,8 +123,8 @@ Created tool to compare synthetic rating curve with benchmark rating curve (Sier
 ### Additions
  - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in `run_by_unit.py` with elevation and additional attributes at USGS gages.
  - `rating_curve_comparison.py`: post-processing script to plot and calculate metrics between synthetic rating curves and USGS rating curve data.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.12.1 - 2021-03-31 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
 
 Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
@@ -133,8 +137,8 @@ Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
 ### Additions
  - Creates `fim_performance_points.shp`: this layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
  - Creates `fim_performance_polys.shp`: this layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
 
 Add more detail/information to plotting capabilities.
@@ -146,8 +150,8 @@ Add more detail/information to plotting capabilities.
 ### Additions
  - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.11.0 - 2021-03-22 - [PR #319](https://github.com/NOAA-OWP/cahaba/pull/298)
 
 Improvements to CatFIM service source data generation.
@@ -160,16 +164,16 @@ Improvements to CatFIM service source data generation.
 ### Additions
  - Added `generate_categorical_fim.py` to wrap `generate_categorical_fim_flows.py` and `generate_categorical_fim_mapping.py`.
  - Create new `nws_lid_sites` shapefile located in same directory as the `catfim_library` shapefile.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.10.1 - 2021-03-24 - [PR #320](https://github.com/NOAA-OWP/cahaba/pull/320)
 
 Patch to synthesize_test_cases.py.
 
 ### Changes
  - Bug fix to `synthesize_test_cases.py` to allow comparison between `testing` version and `official` versions.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
 
 Preprocessing of flow files for Categorical FIM.
@@ -183,8 +187,8 @@ Preprocessing of flow files for Categorical FIM.
 
  ### Changes
  - Stability fixes to `generate_categorical_fim.py`.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
 
 Enhancements to FIM API.
