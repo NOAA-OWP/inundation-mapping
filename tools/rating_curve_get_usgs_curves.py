@@ -3,7 +3,7 @@ import time
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
-from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve, aggregate_wbd_hucs
+from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve, aggregate_wbd_hucs, get_thresholds, flow_data
 from dotenv import load_dotenv
 import os
 import argparse
@@ -99,7 +99,73 @@ def get_all_active_usgs_sites():
 
     return gdf, list_of_sites, acceptable_sites_metadata
             
-            
+##############################################################################
+#Generate categorical flows for each category across all sites.
+##############################################################################
+def write_categorical_flow_files(metadata, workspace):
+    '''
+    Writes flow files of each category for every feature_id in the input metadata.
+    Written to supply input flow files of all gage sites for each flood category.
+
+    Parameters
+    ----------
+    metadata : DICT
+        Dictionary of metadata from WRDS (e.g. output from get_all_active_usgs_sites).
+    workspace : STR
+        Path to workspace where flow files will be saved.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    threshold_url = f'{API_BASE_URL}/nws_threshold'
+    workspace = Path(workspace)
+    workspace.mkdir(parents = True, exist_ok = True)
+    #For each site in metadata 
+    all_data = pd.DataFrame()
+    
+    for site in metadata:
+        #Get the feature_id and usgs_site_code
+        feature_id = site.get('identifiers').get('nwm_feature_id')
+        usgs_code = site.get('identifiers').get('usgs_site_code')
+        nws_lid = site.get('identifiers').get('nws_lid')
+        
+        #thresholds only provided for valid nws_lid.
+        if nws_lid == 'Bogus_ID':
+            continue
+        
+        #if invalid feature_id skip to next site
+        if feature_id is None:
+            continue
+        
+        #Get the stages and flows
+        stages, flows = get_thresholds(threshold_url, select_by = 'nws_lid', selector = nws_lid, threshold = 'all')
+        
+        #For each flood category
+        for category in ['action','minor','moderate','major']:
+            #Get flow
+            flow = flows.get(category, None)
+            #If flow or feature id are not valid, skip to next site
+            if flow is None:
+                continue
+            #Otherwise, write 'guts' of a flow file and append to a master DataFrame.
+            else:
+                data = flow_data([feature_id], flow, convert_to_cms = True)
+                data['recurr_interval'] = category            
+                data['nws_lid'] = nws_lid
+                data['location_id'] = usgs_code
+                data = data.rename(columns = {'discharge':'discharge_cms'})
+                #Append site data to master DataFrame
+                all_data = all_data.append(data, ignore_index = True)
+    
+    #Write CatFIM flows to file
+    final_data = all_data[['feature_id','discharge_cms', 'recurr_interval']]
+    final_data.to_csv(workspace / f'catfim_flows_cms.csv', index = False)
+    return all_data
+###############################################################################
+           
 def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     '''
 
@@ -272,6 +338,9 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         if list_of_gage_sites == ['all']:            
             acceptable_sites_gdf = acceptable_sites_gdf.to_crs(PREP_PROJECTION)
             acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
+        
+        #Write out flow files for each threshold across all sites
+        all_data = write_categorical_flow_files(metadata_list, workspace)
     
     return all_rating_curves
 
@@ -295,5 +364,7 @@ if __name__ == '__main__':
     l = args['list_of_gage_sites']
     w = args['workspace'] 
     t = float(args['sleep_timer'])           
-    #Run create_flow_forecast_file
+    
+    #Generate USGS rating curves
     usgs_rating_to_elev(list_of_gage_sites = l, workspace=w, sleep_time = t)
+    
