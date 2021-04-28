@@ -1,5 +1,12 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## v3.0.15.7 - 2021-04-28 - [PR #367](https://github.com/NOAA-OWP/cahaba/pull/367)
+
+Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Resolves issue #351
+
+## Changes
+- refactored `inundation.py` and `run_test_case.py` to handle exceptions without using `sys.exit()`.
+
 ## v3.0.15.6 - 2021-04-23 - [PR #365](https://github.com/NOAA-OWP/cahaba/pull/365)
 
 Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preprocessing scripts.
