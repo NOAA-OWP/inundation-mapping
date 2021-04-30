@@ -144,19 +144,19 @@ fi
 mkdir -p $outputRunDataDir/logs
 
 ## RUN ##
-#if [ -f "$hucList" ]; then
-#    if [ "$jobLimit" -eq 1 ]; then
-#        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-#    else
-#        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-#    fi
-#else
-#    if [ "$jobLimit" -eq 1 ]; then
-#        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-#    else
-#        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-#    fi
-#fi
+if [ -f "$hucList" ]; then
+    if [ "$jobLimit" -eq 1 ]; then
+        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+    else
+        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+    fi
+else
+    if [ "$jobLimit" -eq 1 ]; then
+        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+    else
+        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+    fi
+fi
 
 echo "$viz"
 if [[ "$viz" -eq 1 ]]; then
@@ -164,14 +164,6 @@ if [[ "$viz" -eq 1 ]]; then
     python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 4
 fi
 
-## MERGE DEM DERIVED NETWORKS ##
-#echo -e $startDiv"Merging River Networks"$stopDiv
-#mkdir $outputRunDataDir/aggregate_fim_outputs
-#ogrmerge.py -f GPKG -single -overwrite_ds -o $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg $outputRunDataDir/*/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg
-
-## DERIVE LEVELPATH  ##
-#echo -e $startDiv"Generating Level Paths"$stopDiv
-#$srcDir/gms/derive_level_paths.py -i $outputRunDataDir/aggregate_fim_outputs/demDerived_merged.gpkg -b $branch_id_attribute -o $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths.gpkg -d $outputRunDataDir/aggregate_fim_outputs/demDerived_reaches_levelPaths_dissolved.gpkg -v
 
 ## RUN GMS ##
 if [ -f "$hucList" ]; then

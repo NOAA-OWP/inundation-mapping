@@ -70,7 +70,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
         if benchmark_source == 'ble':
             test_cases_list = os.listdir(benchmark_test_case_dir)
-
+            
             for test_case in test_cases_list:
                 try:
                     int(test_case.split('_')[0])
@@ -81,17 +81,20 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                         
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
-                            versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
+                            #versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
+                            versions_to_aggregate = os.listdir(versions_to_crawl)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             versions_to_aggregate = [dev_comparison]
-        
+                        
                         for magnitude in ['100yr', '500yr']:
                             for version in versions_to_aggregate:
                                 if '_fr' in version:
                                     extent_config = 'FR'
                                 elif '_ms' in version:
                                     extent_config = 'MS'
+                                elif '_gms' in version:
+                                    extent_config = 'GMS'
                                 else:
                                     extent_config = 'FR'
                                 if "_c" in version and version.split('_c')[1] == "":
@@ -100,9 +103,10 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                     calibrated = "no"
                                 version_dir = os.path.join(versions_to_crawl, version)
                                 magnitude_dir = os.path.join(version_dir, magnitude)
-    
+                                
                                 if os.path.exists(magnitude_dir):
                                     magnitude_dir_list = os.listdir(magnitude_dir)
+                                    
                                     for f in magnitude_dir_list:
                                         if '.json' in f:
                                             flow = 'NA'
@@ -123,7 +127,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
-
+        
         if benchmark_source in AHPS_BENCHMARK_CATEGORIES:
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
@@ -190,7 +194,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
-
+    
     with open(master_metrics_csv_output, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerows(list_to_write)
@@ -204,6 +208,7 @@ def process_alpha_test(args):
     magnitude = args[3]
     archive_results = args[4]
     overwrite = args[5]
+    ms = args[6]
 
     mask_type = 'huc'
 
@@ -213,7 +218,7 @@ def process_alpha_test(args):
         compare_to_previous = False
 
     try:
-        run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type, overwrite=overwrite)
+        run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type, overwrite=overwrite,ms=ms)
     except Exception as e:
         print(e)
 
@@ -229,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
+    parser.add_argument('-t','--ms',help='Creates test case for Composite or GMS',required=False, default=None,choices=[None,'MS','GMS'])
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -239,6 +245,7 @@ if __name__ == '__main__':
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
     master_metrics_csv = args['master_metrics_csv']
+    ms = args['ms']
 
     if overwrite:
         if input("Are you sure you want to overwrite metrics? y/n: ") == "n":
@@ -278,7 +285,7 @@ if __name__ == '__main__':
         # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
         bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
         bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
-
+        
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
             if 'validation' and 'other' not in test_id:
@@ -315,9 +322,11 @@ if __name__ == '__main__':
 
                             # Either add to list to multiprocess or process serially, depending on user specification.
                             if job_number > 1:
-                                procs_list.append([fim_run_dir, version, test_id, magnitude, archive_results, overwrite])
+                                procs_list.append([fim_run_dir, version, test_id, magnitude, 
+                                                   archive_results, overwrite, ms])
                             else:
-                                process_alpha_test([fim_run_dir, version, test_id, magnitude, archive_results, overwrite])
+                                process_alpha_test([fim_run_dir, version, test_id, magnitude, 
+                                                    archive_results, overwrite, ms])
 
     # Multiprocess alpha test runs.
     if job_number > 1:
@@ -328,7 +337,11 @@ if __name__ == '__main__':
     print("Creating master metrics CSV...")
     
     if config == 'DEV':
-        dev_comparison = fim_version + "_" + special_string
+        if len(special_string) > 0:
+            dev_comparison = fim_version + "_" + special_string
+        else:
+            dev_comparison = fim_version
     else:
         dev_comparison = None
+    
     create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_comparison=dev_comparison)

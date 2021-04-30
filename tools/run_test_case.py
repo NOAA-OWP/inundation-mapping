@@ -9,15 +9,15 @@ from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
 from gms.inundate_gms import Inundate_gms
-from gms.mosaic_gms_inundation import Mosaic_gms_inundation
+from gms.mosaic_gms_inundation import Mosaic_inundation
 from gms.overlapping_inundation import OverlapWindowMerge
+from glob import glob
 
 def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True,ms=None):
 
     # check ms input
     if ms not in {None,'MS','GMS'}:
         raise ValueError("MS argument needs to be None, \'MS\', or \'GMS.\'")
-    
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
@@ -36,7 +36,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
             print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.".format(version=version, test_id=test_id))
             return
 
-    os.mkdir(version_test_case_dir_parent)
+    os.makedirs(version_test_case_dir_parent)
 
     print("Running the alpha test for test_id: " + test_id + ", " + version + "...")
     stats_modes_list = ['total_area']
@@ -153,8 +153,9 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                                  quiet=False
                                 )
                     
-                    Mosaic_gms_inundation(version_test_case_dir,
-                                          mosaic=predicted_raster_path,mask=catchment_poly)
+                    inundation_maps = glob( os.path.join(version_test_case_dir,'*.tif'))
+                    Mosaic_inundation(inundation_maps,mosaic=predicted_raster_path,
+                                      mask=catchment_poly)
                 
                 else:
                     inundate(
@@ -196,8 +197,9 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                         )
                     os.rename(predicted_raster_path,inundation_raster_ms)
                     
-                    Mosaic_gms_inundation(version_test_case_dir,mosaic=predicted_raster_path,
-                                          nodata=0,mask=catchment_poly)
+                    inundation_maps = glob( os.path.join(version_test_case_dir,'*.tif'))
+                    Mosaic_inundation(inundation_maps,mosaic=predicted_raster_path,
+                                      nodata=0,mask=catchment_poly)
 
                 print("-----> Inundation mapping complete.")
 
