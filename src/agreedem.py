@@ -45,8 +45,6 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # Import dem layer and river layer and get dem profile.
     elev = rasterio.open(dem)
     dem_profile = elev.profile
-    if elev.nodata == 0.0:
-        dem_profile.update(nodata = -999)
 
     rivers = rasterio.open(rivers_raster)
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 # Projections.
 #PREP_PROJECTION = "+proj=aea +datum=NAD83 +x_0=0.0 +y_0=0.0 +lon_0=96dW +lat_0=23dN +lat_1=29d30'N +lat_2=45d30'N +towgs84=-0.9956000824677655,1.901299877314078,0.5215002840524426,0.02591500053005733,0.009425998542707753,0.01159900118427752,-0.00062000005129903 +no_defs +units=m"
 PREP_PROJECTION_CM = 'PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Albers"],PARAMETER["false_easting",0.0],PARAMETER["false_northing",0.0],PARAMETER["central_meridian",-96.0],PARAMETER["standard_parallel_1",29.5],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_origin",23.0],UNIT["Meter",1.0],VERTCS["NAVD_1988",VDATUM["North_American_Vertical_Datum_1988"],PARAMETER["Vertical_Shift",0.0],PARAMETER["Direction",1.0],UNIT["Centimeter",0.01]]]'
@@ -34,3 +36,28 @@ CONUS_STATE_LIST = {"AL", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
 OVERWRITE_WBD = 'OVERWRITE_WBD'
 OVERWRITE_NHD = 'OVERWRITE_NHD'
 OVERWRITE_ALL = 'OVERWRITE_ALL'
+
+## Input Paths and Directories
+# Directories
+os.environ['src_dir'] = '/foss_fim/src'
+os.environ['input_dir'] = 'data/inputs'
+
+os.environ['nhdplus_rasters_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_rasters')
+os.environ['nhdplus_vectors_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors')
+os.environ['nwm_dir'] = os.path.join(os.environ.get('input_dir'),'nwm_hydrofabric')
+os.environ['wbd_dir'] = os.path.join(os.environ.get('input_dir'),'wbd')
+os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahp_sites')
+os.environ['nhdplus_aggregate_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors_aggregate')
+
+# File Paths
+os.environ['wbd_filename'] = os.path.join(os.environ.get('wbd_dir'),'WBD_National.gpkg')
+os.environ['nwm_streams_orig_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_flows_original.gpkg')
+os.environ['nwm_streams_all_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_flows.gpkg')
+os.environ['nwm_headwaters_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_headwaters.gpkg')
+os.environ['nwm_huc4_intersections_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_huc4_intersections.gpkg')
+os.environ['nhd_huc8_intersections_filename'] = os.path.join(os.environ.get('nwm_dir'),'nhd_huc8_intersections.gpkg')
+os.environ['ahps_filename'] = os.path.join(os.environ.get('ahps_dir'),'nws_lid.gpkg')
+os.environ['agg_nhd_headwaters_adj_fileName'] = os.path.join(os.environ.get('nhdplus_aggregate_dir'),'agg_nhd_headwaters_adj.gpkg')
+os.environ['agg_nhd_streams_adj_fileName'] = os.path.join(os.environ.get('nhdplus_aggregate_dir'),'agg_nhd_streams_adj.gpkg')
+os.environ['nwm_catchments_orig_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_catchments_original.gpkg')
+os.environ['nwm_catchments_all_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_catchments.gpkg')
