@@ -169,8 +169,8 @@ def generate_nws_lid(workspace):
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Create spatial data of nws_lid points attributed with mainstems and colocated.')
+    parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)    
     args = vars(parser.parse_args())
     
-
     #Run get_env_paths and static_flow_lids
     generate_nws_lid(**args)
