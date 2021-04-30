@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+## v3.0.15.9 - 2021-04-30 - [PR #372](https://github.com/NOAA-OWP/cahaba/pull/372)
+
+Generate nws_lid.gpkg.  Addresses issue #368
+
+## Additions
+- Generate nws_lid.gpkg with attributes indicating if site is a headwater nws_lid as well as if it is co-located with another nws_lid which is referenced to the same nwm_feature_id segment. 
+
+<br/><br/>
 ## v3.0.15.8 - 2021-04-29 - [PR #371](https://github.com/NOAA-OWP/cahaba/pull/371)
 
 Refactor NHDPlus HR preprocessing workflow. Resolves issue #238
