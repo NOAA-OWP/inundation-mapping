@@ -9,7 +9,7 @@ from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
 from gms.inundate_gms import Inundate_gms
-from gms.mosaic_gms_inundation import Mosaic_inundation
+from gms.mosaic_inundation import Mosaic_inundation
 from gms.overlapping_inundation import OverlapWindowMerge
 from glob import glob
 
