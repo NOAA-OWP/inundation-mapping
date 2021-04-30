@@ -40,6 +40,7 @@ def generate_nws_lid(workspace):
     
     ##############################################################################
     #Get all nws_lid points
+    print('retrieving metadata ..')
     
     metadata_url = f'{API_BASE_URL}/metadata/'
     #Trace downstream from all rfc_forecast_point.
@@ -105,6 +106,7 @@ def generate_nws_lid(workspace):
             downstream[int(key)].append(int(value))
     ###############################################################################
     #Walk downstream the network and identify headwater points
+    print('Traversing network..')
     
     #Import NWM file and create dictionary of network and create the NWM network dictionary.
     nwm_gdf = gpd.read_file(NWM_FILE)
@@ -146,7 +148,8 @@ def generate_nws_lid(workspace):
     
     ##############################################################################
     #Get Spatial data and populate headwater/duplicate attributes
-                
+    print('Attributing nws_lid layer..')
+            
     #Geodataframe from all_lists, reproject, and reset index.
     trash, nws_lid_gdf = aggregate_wbd_hucs(all_lists, WBD_LAYER, retain_attributes = False)
     nws_lid_gdf.columns = [name.replace('identifiers_','') for name in nws_lid_gdf.columns]
