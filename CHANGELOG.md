@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+## v3.0.15.8 - 2021-04-29 - [PR #371](https://github.com/NOAA-OWP/cahaba/pull/371)
+
+Refactor NHDPlus HR preprocessing workflow. Resolves issue #238
+
+## Changes
+- Consolidate NHD streams, NWM catchments, and headwaters MS and FR layers with `mainstem` column.
+- HUC8 intersections are included in the input headwaters layer.
+- `clip_vectors_to_wbd.py` removes incoming stream segment from the selected layers. 
+
+<br/><br/>
 ## v3.0.15.7 - 2021-04-28 - [PR #367](https://github.com/NOAA-OWP/cahaba/pull/367)
 
 Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Resolves issue #351
