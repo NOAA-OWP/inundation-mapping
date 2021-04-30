@@ -162,7 +162,7 @@ def generate_nws_lid(workspace):
     #Join attributes, remove sites with no assigned nwm_feature_id and write to file
     joined = nws_lid_gdf.merge(attributes, on='nws_lid', how = 'left')
     joined.dropna(subset =['nwm_feature_id'], inplace = True)
-    joined.to_file(Path(workspace) / 'nws_lid.gpkg')
+    joined.to_file(Path(workspace) / 'nws_lid.gpkg', driver = 'GPKG')
 
 
 
