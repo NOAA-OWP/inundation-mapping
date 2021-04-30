@@ -40,7 +40,7 @@ def generate_nws_lid(workspace):
     
     ##############################################################################
     #Get all nws_lid points
-    print('retrieving metadata ..')
+    print('Retrieving metadata ..')
     
     metadata_url = f'{API_BASE_URL}/metadata/'
     #Trace downstream from all rfc_forecast_point.
