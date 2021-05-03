@@ -139,14 +139,21 @@ $srcDir/burn_in_levees.py -dem $outputHucDataDir/dem_meters.tif -nld $outputHucD
 Tcount
 
 ## DEM Reconditioning ##
-# Using AGREE methodology, hydroenforce the DEM so that it is consistent
-# with the supplied stream network. This allows for more realistic catchment
-# delineation which is ultimately reflected in the output FIM mapping.
+# Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
+# This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/dem_burned.tif ] && \
 $srcDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+Tcount
+
+## CHECK THALWEG DROP ##
+echo -e $startDiv"Check Thalweg Drop $hucNumber"$stopDiv
+date -u
+Tstart
+[ -f $outputHucDataDir/dem_burned.tif ] && \
+$srcDir/thalweg_drop_check.py -d $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -o $outputHucDataDir/dem_burned.tif
 Tcount
 
 ## PIT REMOVE BURNED DEM ##

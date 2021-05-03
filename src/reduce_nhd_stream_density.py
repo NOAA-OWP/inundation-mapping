@@ -37,6 +37,7 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
 
             # Masking headwaters by HUC8
             headwaters_mask = gpd.read_file(headwaters_filename, mask = huc8_mask)
+            # headwaters_mask = headwaters_mask.loc[headwaters_mask.headwater=True]
             headwaters_mask = headwaters_mask.reset_index(drop=True)
 
             # Masking subset streams by HUC8
@@ -64,6 +65,12 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
                 streams_subset[id_col] = n
 
                 # Find stream segment closest to headwater point
+                # co_located_sites = headwaters_mask.loc[headwaters_mask.co_located==True].to_list()
+                # true_headwater_sites = headwaters_mask.loc[headwaters_mask.co_located==False].to_list()
+
+                # additional headwaters = function_to_determine_true_headwater(co_located_sites)
+                # headwaters_mask = true_headwater_sites.append(additional)
+
                 for index, point in headwaters_mask.iterrows():
 
                     # Convert headwaterpoint geometries to WKB representation
