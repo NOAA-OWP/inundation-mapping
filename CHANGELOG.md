@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
-## v3.0.15.9 - 2021-05-03 - [PR #372] (https://github.com/NOAA-OWP/cahaba/pull/372)
+## v3.0.15.9 - 2021-05-03 - [PR #372](https://github.com/NOAA-OWP/cahaba/pull/372)
 
 Generate `nws_lid.gpkg`.
 
