@@ -13,8 +13,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
 
     # Get wbd buffer
     wbd = gpd.read_file(wbd_filename)
-    wbd_buffer = wbd.copy()
-    wbd_buffer['geometry'] = wbd.buffer(wbd_buffer_distance)
+    wbd_buffer = wbd.geometry.buffer(wbd_buffer_distance,resolution=32)
     projection = wbd_buffer.crs
 
     gl_lakes = gpd.read_file(great_lakes_filename, mask = wbd_buffer)
