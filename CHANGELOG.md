@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+## v3.0.15.10 - 2021-05-04 - [PR #375](https://github.com/NOAA-OWP/cahaba/pull/375)
+
+Remove Great Lakes coastlines from WBD buffer.
+
+## Additions
+- gl_water_polygons.gpkg layer is used to mask out Great Lakes boundaries and remove NHDPlus HR coastline segments.
+
+<br/><br/>
 ## v3.0.15.9 - 2021-05-03 - [PR #372](https://github.com/NOAA-OWP/cahaba/pull/372)
 
 Generate `nws_lid.gpkg`.
