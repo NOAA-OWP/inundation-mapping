@@ -5,7 +5,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Remove Great Lakes coastlines from WBD buffer.
 
-## Additions
+## Changes
 - gl_water_polygons.gpkg layer is used to mask out Great Lakes boundaries and remove NHDPlus HR coastline segments.
 
 <br/><br/>
