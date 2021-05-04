@@ -89,6 +89,7 @@ def find_nwm_incoming_streams(nwm_streams_,wbd,huc_unit):
 
     # Input wbd
     if isinstance(wbd,str):
+
         layer = f"WBDHU{huc_unit}"
         wbd = gpd.read_file(wbd, layer=layer)
     elif isinstance(wbd,gpd.GeoDataFrame):
@@ -175,6 +176,7 @@ def find_nwm_incoming_streams(nwm_streams_,wbd,huc_unit):
 
     huc_intersection = gpd.GeoDataFrame({'geometry': intersecting_points, 'NHDPlusID': nhdplus_ids,'mainstem': mainstem_flag},crs=nwm_streams.crs,geometry='geometry')
     huc_intersection = huc_intersection.drop_duplicates()
+
     del nwm_streams,wbd
 
     return huc_intersection
@@ -233,6 +235,7 @@ def subset_stream_networks(args, huc):
     nwm_headwater_id = 'ID'
     ahps_headwater_id = 'nws_lid'
     headwater_pts_id = 'site_id'
+
     column_order = ['pt_type', headwater_pts_id, 'mainstem', 'geometry']
     nhd_streams_filename = os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_agg.gpkg')
 
@@ -247,6 +250,7 @@ def subset_stream_networks(args, huc):
     huc_mask = huc_mask.reset_index(drop=True)
 
     if len(selected_wbd8.HUC8) > 0:
+
         selected_wbd8 = selected_wbd8.reset_index(drop=True)
 
         # Identify FR/NWM headwaters and subset HR network
@@ -265,17 +269,17 @@ def subset_stream_networks(args, huc):
 
         # Load nws lids
         nws_lids = gpd.read_file(ahps_filename, mask=huc_mask)
-        nws_lids = nws_lids.drop(columns=['name','nwm_featur'])
+        nws_lids = nws_lids.drop(columns=['name','nwm_feature_id','usgs_site_code','states','HUC8','is_headwater', 'is_colocated'])
         nws_lids = nws_lids.rename(columns={"nws_lid": headwater_pts_id})
         nws_lids['pt_type'] = 'nws_lid'
         nws_lids['mainstem'] = True
 
         if (len(nwm_headwaters) > 0) or (len(nws_lids) > 0):
+
             # Adjust FR/NWM headwater segments
             adj_nhd_streams_all, adj_nhd_headwater_points = adjust_headwaters(huc,nhd_streams_all,nwm_headwaters,nws_lids,headwater_pts_id)
 
             adj_nhd_headwater_points = adj_nhd_headwater_points[column_order]
-
             nhd_huc8_intersections['pt_type'] = 'nhd_huc8_intersections'
             nhd_huc8_intersections = nhd_huc8_intersections.rename(columns={"NHDPlusID": headwater_pts_id})
             nhd_huc8_intersections = nhd_huc8_intersections[column_order]
@@ -290,7 +294,9 @@ def subset_stream_networks(args, huc):
             adj_nhd_headwater_points_all.to_file(adj_nhd_headwaters_all_fileName,driver=getDriver(adj_nhd_headwaters_all_fileName),index=False)
 
             del adj_nhd_streams_all, adj_nhd_headwater_points_all
+
         else:
+
             print (f"skipping headwater adjustments for HUC: {huc}")
 
         del nhd_streams_fr
@@ -330,6 +336,7 @@ def aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileNam
 def clean_up_intermediate_files(nhdplus_vectors_dir):
 
     for huc in os.listdir(nhdplus_vectors_dir):
+
         agg_path= os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_agg.gpkg')
         streams_adj_path= os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_adj.gpkg')
         headwater_adj_path= os.path.join(nhdplus_vectors_dir,huc,'nhd' + str(huc) + '_headwaters_adj.gpkg')
@@ -390,11 +397,11 @@ if(__name__=='__main__'):
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Preprocess nhd hr and add attributes
-        # collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
+        collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
         # Subset nhd hr network
         subset_results = [executor.submit(subset_stream_networks, subset_arg_list, str(huc)) for huc in missing_subsets]
 
-    # del wbd4,wbd8
+    del wbd4,wbd8
 
     # Aggregate fr and ms nhd netowrks for entire nwm domain
     aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list)

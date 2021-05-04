@@ -63,6 +63,11 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         nhd_streams = nhd_streams.loc[nhd_streams.mainstem==1]
 
     if len(nhd_streams) > 0:
+
+        # Get headwater segments
+        # nhd_streams['is_headwater'] = False
+        # nhd_streams_headwaters = nhd_streams.loc[~(nhd_streams.nws_lid=='') & (nhd_streams.is_headwater==True)]
+
         # Find incoming stream segments (to WBD buffer) and identify which are upstream
         threshold_segments = gpd.overlay(nhd_streams, wbd_buffer, how='symmetric_difference')
         from_list = threshold_segments.FromNode.to_list()

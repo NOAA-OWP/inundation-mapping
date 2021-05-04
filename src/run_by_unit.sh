@@ -148,14 +148,6 @@ Tstart
 $srcDir/agreedem.py -r $outputHucDataDir/flows_grid_boolean.tif -d $outputHucDataDir/dem_meters.tif -w $outputHucDataDir -g $outputHucDataDir/temp_work -o $outputHucDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
 Tcount
 
-## CHECK THALWEG DROP ##
-echo -e $startDiv"Check Thalweg Drop $hucNumber"$stopDiv
-date -u
-Tstart
-[ -f $outputHucDataDir/dem_burned.tif ] && \
-$srcDir/thalweg_drop_check.py -d $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -o $outputHucDataDir/dem_burned.tif
-Tcount
-
 ## PIT REMOVE BURNED DEM ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber"$stopDiv
 date -u

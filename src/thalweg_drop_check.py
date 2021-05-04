@@ -115,35 +115,36 @@ def get_downstream_segments(streams, headwater_col,flag_column):
 # Collect elevation values from multiple grids along each individual reach point
 
 # Get all vertices
-split_points = []
-stream_ids = []
-dem_m_elev = []
-dem_burned_elev = []
-dem_burned_filled_elev = []
-dem_lat_thal_adj_elev = []
-dem_thal_adj_elev = []
-index_count = []
-count = 0
-for index, segment in stream_path.iterrows():
-    lineString = segment.geometry
-    # x,y = lineString.coords.xy
-    # count = len(x)
-    for point in zip(*lineString.coords.xy):
-        stream_ids = stream_ids + [segment.NHDPlusID]
-        split_points = split_points + [Point(point)]
-        count = count + 1
-        index_count = index_count + [count]
-        dem_m_elev = dem_m_elev + [np.array(list(dem_meters.sample((Point(point).coords), indexes=1))).item()]
-        dem_burned_elev = dem_burned_elev + [np.array(list(dem_burned.sample((Point(point).coords), indexes=1))).item()]
-        dem_burned_filled_elev = dem_burned_filled_elev + [np.array(list(dem_burned_filled.sample((Point(point).coords), indexes=1))).item()]
-        dem_lat_thal_adj_elev = dem_lat_thal_adj_elev + [np.array(list(dem_lateral_thalweg_adj.sample((Point(point).coords), indexes=1))).item()]
-        dem_thal_adj_elev = dem_thal_adj_elev + [np.array(list(dem_thalwegCond.sample((Point(point).coords), indexes=1))).item()]
+for index, path in stream_path.iterrows():
+    split_points = []
+    stream_ids = []
+    dem_m_elev = []
+    dem_burned_elev = []
+    dem_burned_filled_elev = []
+    dem_lat_thal_adj_elev = []
+    dem_thal_adj_elev = []
+    index_count = []
+    count = 0
+    headwater_id =
+    for index, segment in path.iterrows():
+        lineString = segment.geometry
 
-dem_m_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_m', 'elevation_m': dem_m_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
-# dem_burned_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_burned', 'elevation_m': dem_burned_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
-dem_burned_filled_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_burned_filled', 'elevation_m': dem_burned_filled_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
-dem_lat_thal_adj_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_lat_thal_adj', 'elevation_m': dem_lat_thal_adj_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
-dem_thal_adj_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'thal_adj_dem', 'elevation_m': dem_thal_adj_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
+        for point in zip(*lineString.coords.xy):
+            stream_ids = stream_ids + [segment.NHDPlusID]
+            split_points = split_points + [Point(point)]
+            count = count + 1
+            index_count = index_count + [count]
+            dem_m_elev = dem_m_elev + [np.array(list(dem_meters.sample((Point(point).coords), indexes=1))).item()]
+            dem_burned_elev = dem_burned_elev + [np.array(list(dem_burned.sample((Point(point).coords), indexes=1))).item()]
+            dem_burned_filled_elev = dem_burned_filled_elev + [np.array(list(dem_burned_filled.sample((Point(point).coords), indexes=1))).item()]
+            dem_lat_thal_adj_elev = dem_lat_thal_adj_elev + [np.array(list(dem_lateral_thalweg_adj.sample((Point(point).coords), indexes=1))).item()]
+            dem_thal_adj_elev = dem_thal_adj_elev + [np.array(list(dem_thalwegCond.sample((Point(point).coords), indexes=1))).item()]
+
+    dem_m_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_m', 'elevation_m': dem_m_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
+    # dem_burned_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_burned', 'elevation_m': dem_burned_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
+    dem_burned_filled_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_burned_filled', 'elevation_m': dem_burned_filled_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
+    dem_lat_thal_adj_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'dem_lat_thal_adj', 'elevation_m': dem_lat_thal_adj_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
+    dem_thal_adj_pts = gpd.GeoDataFrame({'NHDPlusID': stream_ids, 'source': 'thal_adj_dem', 'elevation_m': dem_thal_adj_elev, 'index_count': index_count, 'geometry': split_points}, crs=reaches.crs, geometry='geometry')
 
 burnline_points = dem_m_pts.append([dem_thal_adj_pts,dem_lat_thal_adj_pts]) # dem_burned_pts, dem_burned_filled_pts,
 
