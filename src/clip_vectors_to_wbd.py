@@ -22,14 +22,11 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         print("Masking Great Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
 
         # Buffer Great Lakes boundary
-        lakes_buffer = gl_lakes.copy()
-        lakes_buffer['geometry'] = gl_lakes.buffer(lake_buffer_distance)
+        gl_lakes = gl_lakes.geometry.buffer(lake_buffer_distance)
 
         # Removed buffered GL from WBD buffer
-        wbd_buffer = gpd.overlay(wbd_buffer, lakes_buffer, how='difference')
+        wbd_buffer = gpd.overlay(wbd_buffer, gl_lakes, how='difference')
         wbd_buffer.to_file(wbd_buffer_filename,driver=getDriver(wbd_buffer_filename),index=False)
-
-        del lakes_buffer
 
     else:
         wbd_buffer.to_file(wbd_buffer_filename,driver=getDriver(wbd_buffer_filename),index=False)
