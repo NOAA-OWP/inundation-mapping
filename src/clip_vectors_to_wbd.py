@@ -13,25 +13,28 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
 
     # Get wbd buffer
     wbd = gpd.read_file(wbd_filename)
-    wbd_buffer = wbd.geometry.buffer(wbd_buffer_distance,resolution=32)
+    wbd_buffer = wbd.copy()
+    wbd_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance,resolution=32)
     projection = wbd_buffer.crs
 
-    gl_lakes = gpd.read_file(great_lakes_filename, mask = wbd_buffer)
+    great_lakes = gpd.read_file(great_lakes_filename, mask = wbd_buffer)
 
-    if not gl_lakes.empty:
+    if not great_lakes.empty:
         print("Masking Great Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
 
         # Buffer Great Lakes boundary
-        gl_lakes = gl_lakes.geometry.buffer(lake_buffer_distance)
+        great_lakes['geometry'] = great_lakes.buffer(lake_buffer_distance)
 
         # Removed buffered GL from WBD buffer
-        wbd_buffer = gpd.overlay(wbd_buffer, gl_lakes, how='difference')
+        wbd_buffer = gpd.overlay(wbd_buffer, great_lakes, how='difference')
+        wbd_buffer = wbd_buffer[['geometry']]
         wbd_buffer.to_file(wbd_buffer_filename,driver=getDriver(wbd_buffer_filename),index=False)
 
     else:
+        wbd_buffer = wbd_buffer[['geometry']]
         wbd_buffer.to_file(wbd_buffer_filename,driver=getDriver(wbd_buffer_filename),index=False)
 
-    del gl_lakes
+    del great_lakes
 
     # Clip ocean water polygon for future masking ocean areas (where applicable)
     landsea = gpd.read_file(landsea_filename, mask = wbd_buffer)
