@@ -48,6 +48,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     # Find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_lakes = gpd.read_file(nwm_lakes_filename, mask = wbd_buffer)
+    nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
     if not nwm_lakes.empty:
         # Perform fill process to remove holes/islands in the NWM lake polygons
