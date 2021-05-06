@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
-## v3.0.15.10 - 2021-05-05 - [PR #375](https://github.com/NOAA-OWP/cahaba/pull/375)
+## v3.0.15.10 - 2021-05-06 - [PR #375](https://github.com/NOAA-OWP/cahaba/pull/375)
 
 Remove Great Lakes coastlines from WBD buffer.
 
