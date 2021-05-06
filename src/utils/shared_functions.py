@@ -148,6 +148,7 @@ reproject_dem is not stored in the shared_functions.py because rasterio and
 gdal bindings are not entirely compatible: https://rasterio.readthedocs.io/en/latest/topics/switch.html
 
 '''
+
 def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_raster_name=None):
 
     if blocksize is not None:
