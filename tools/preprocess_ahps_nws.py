@@ -226,7 +226,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     #Create Binary Grids, first create domain of analysis, then create binary grid
                     
                     #Domain extent is largest floodmap in the static library WITH holes filled
-                    filled_domain_raster = outputdir.parent / f'{code}_domain.tif'
+                    filled_domain_raster = outputdir.parent / f'{code}_filled_orig_domain.tif'
     
                     #Open benchmark data as a rasterio object.
                     benchmark = rasterio.open(grid)
@@ -286,8 +286,11 @@ def preprocess_nws(source_dir, destination, reference_raster):
         #Wrapup for ahps sites that were processed.
         ahps_directory = destination / huc / code
         if ahps_directory.exists():
-            #Convert domain raster to shapefile.
-            filled_extent = ahps_directory / f'{code}_domain.tif' 
+            #Delete original filled domain raster (it is an intermediate file to create benchmark data)
+            orig_domain_grid = ahps_directory / f'{code}_filled_orig_domain.tif'
+            orig_domain_grid.unlink() 
+            #Create domain shapefile from any benchmark grid for site (each benchmark has domain footprint, value = 0).
+            filled_extent = list(ahps_directory.rglob('*_extent_*.tif'))[0]
             domain_gpd = raster_to_feature(grid = filled_extent, profile_override = False, footprint_only = True)           
             domain_gpd['nws_lid'] = code
             domain_gpd.to_file(ahps_directory / f'{code}_domain.shp')
