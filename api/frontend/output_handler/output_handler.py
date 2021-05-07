@@ -6,7 +6,6 @@ import socketio
 SOCKET_URL = os.environ.get('SOCKET_URL')
 
 def handle_outputs(data):
-    nice_name = data['nice_name']
     job_name = data['job_name']
     directory_path = data['directory_path']
     file_name = data['file_name']
@@ -18,16 +17,15 @@ def handle_outputs(data):
     if chunk_index == 0:
         mode = 'wb'
         try:
-            os.makedirs(f"/data/outputs/{nice_name}/{directory_path}")
+            os.makedirs(directory_path)
         except:
             pass
         
     # Write binary data to file
-    with open(f"/data/outputs/{nice_name}/{directory_path}/{file_name}", mode) as binary_file:
+    with open(f"{directory_path}/{file_name}", mode) as binary_file:
         print(f"Writing chunk {chunk_index} for file {directory_path}/{file_name}")
         binary_file.write(file_chunk)
 
-    # TODO: Write an emit that will trigger the next chunk to be sent.
     sio.emit('output_handler_finished_file_chunk', {'job_name': job_name, 'file_path': f"{directory_path}/{file_name}"})
 
 sio = socketio.Client()
