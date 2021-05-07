@@ -8,7 +8,7 @@ import numpy as np
 sa_ratio_flag             = float(environ['surf_area_thalweg_ratio_flag']) #10x
 thal_stg_limit            = float(environ['thalweg_stg_search_max_limit']) #3m
 bankful_xs_ratio_flag     = float(environ['bankful_xs_area_ratio_flag']) #10x
-bathy_xsarea_flag         = float(environ['bathy_xs_area_chg_flag']) #5x
+bathy_xsarea_flag         = float(environ['bathy_xs_area_chg_flag']) #1x
 thal_hyd_radius_flag      = float(environ['thalweg_hyd_radius_flag']) #10x
 
 def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,):
