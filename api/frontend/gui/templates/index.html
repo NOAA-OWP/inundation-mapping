@@ -59,6 +59,7 @@
 
                 color: black;
                 background-color: white;
+                font-size: 0.9rem;
 
                 transition: all 0.1s linear;
 
@@ -135,6 +136,27 @@
 
             .start-button:hover {
                 background-color: #093568;
+            }
+
+            #release-button {
+                display: flex;
+                width: 100%;
+                height: 100%;
+
+                align-items: center;
+                justify-content: center;
+
+                font-size: 1.2rem;
+                color: white;
+                background-color: #28be99;
+                cursor: pointer;
+
+                transition: all 0.5s linear;
+                pointer-events: inherit;
+            }
+
+            #release-button:hover, #release-button.active {
+                background-color: #09685b;
             }
 
             .form-field {
@@ -224,15 +246,40 @@
         <!-- <h1>FIM Run API</h1> -->
         <div id="request-container">
             <div id="request-tabs-container">
+                <div class="request-tab" onclick="selectForm(event, 'release')">Release</div>
                 <div class="request-tab active" onclick="selectForm(event, 'fim-run')">FIM Run</div>
                 <div class="request-tab" onclick="selectForm(event, 'calibration')">Calibration</div>
                 <div class="request-tab" onclick="selectForm(event, 'preprocessing')">Pre-processing</div>
+            </div>
+            <div id="release" class="request-form" style="display: None;">
+                <div class="form-content">
+                    <h3 style="margin: 0;">FIM Version</h3>
+                    <div class="container-horizontal" style="width: 10rem;">
+                        <span>FIM_3_</span>
+                        <input type="text" id="release-job-version-major" class="form-field" placeholder="0"></input>
+                        <span>_</span>
+                        <input type="text" id="release-job-version-minor" class="form-field" placeholder="0"></input>
+                        <span>_</span>
+                        <input type="text" id="release-job-version-patch" class="form-field" placeholder="0"></input>
+                    </div>
+                    <h3 style="margin: 0;">Previous Major FIM Version</h3>
+                    <div class="container-horizontal" style="width: 10rem;">
+                        <span>FIM_3_</span>
+                        <input type="text" id="prev-release-job-version-major" class="form-field" placeholder="0"></input>
+                        <span>_</span>
+                        <input type="text" id="prev-release-job-version-minor" class="form-field" placeholder="0"></input>
+                        <span>_</span>
+                        <input type="text" id="prev-release-job-version-patch" class="form-field" placeholder="0"></input>
+                    </div>
+                    <div class="error-list" id="release-errors"></div>
+                </div>
+                <div class="start-button not-connected" onclick="submitRequest('release')">Not Connected</div>
             </div>
             <div id="fim-run" class="request-form">
                 <div class="form-content">
                     <h3 style="margin: 0;">Basic</h3>
                     <div class="container-horizontal">
-                        <input type="text" id="job-name" class="form-field" placeholder="Job Name"></input>
+                        <input type="text" id="fim-run-job-name" class="form-field" placeholder="Job Name"></input>
                         <select id="presets-list" class="form-field" onchange="presetListSelected(event)"></select>
                         <input type="text" id="hucs" class="form-field" placeholder="HUC(s)" style="display: none;"></input>
                         <input type="text" id="git-branch" class="form-field" placeholder="Git Branch"></input>
@@ -271,7 +318,7 @@
     
                     </div>
                 </div>
-                <div class="start-button not-connected" onclick="submitRequest('fim-run')">Not Connected</div>
+                <div class="start-button not-connected" onclick="submitRequest('fim_run')">Not Connected</div>
             </div>
             <div id="calibration" class="request-form" style="display: None;">
                 Calibration stuff goes here
@@ -370,7 +417,7 @@
                 socket.on('job_added', job_type => {
                     document.querySelector('#request-container').classList.remove('loading')
                     if (job_type === 'fim_run') {
-                        document.querySelector('#job-name').value = ''
+                        document.querySelector('#fim-run-job-name').value = ''
                         document.querySelector('#hucs').value = ''
                         document.querySelector('#git-branch').value = ''
                         document.querySelector("input[name='dev-run']").checked = false
@@ -380,6 +427,15 @@
                         document.querySelector("input[name='extent'][value='FR']").checked = true
                         document.querySelector("input[name='extent'][value='MS']").checked = false
                         document.querySelector('#fim-run-errors').innerHTML = ''
+                    } else if (job_type === 'release') {
+                        console.log('release job has been added')
+                        document.querySelector('#release-job-version-major').value = ''
+                        document.querySelector('#release-job-version-minor').value = ''
+                        document.querySelector('#release-job-version-patch').value = ''
+                        document.querySelector('#prev-release-job-version-major').value = ''
+                        document.querySelector('#prev-release-job-version-minor').value = ''
+                        document.querySelector('#prev-release-job-version-patch').value = ''
+                        document.querySelector('#release-errors').innerHTML = ''
                     }
                 })
                 socket.on('job_canceled', () => {
@@ -387,39 +443,73 @@
                 })
             })
 
-            // Fim_run related code
             const submitRequest = requestName => {
-                let validation_errors = []
-                const job_name = document.querySelector('#job-name').value
-                const preset = document.querySelector('#presets-list').value
-                const hucs = document.querySelector('#hucs').value
-                const git_branch = document.querySelector('#git-branch').value
-                const dev_run = document.querySelector("input[name='dev-run']").checked
-                const viz_run = document.querySelector("input[name='viz-run']").checked
-                const configuration =  Array.from(document.querySelectorAll("input[name='configuration']")).filter(c => c.checked)[0].value
-                const extents =  Array.from(document.querySelectorAll("input[name='extent']")).filter(c => c.checked).map(c => c.value)
+                if (requestName === 'fim_run'){
+                    // Fim_run related code
+                    let validation_errors = []
+                    const job_name = document.querySelector('#fim-run-job-name').value
+                    const preset = document.querySelector('#presets-list').value
+                    const hucs = document.querySelector('#hucs').value
+                    const git_branch = document.querySelector('#git-branch').value
+                    const dev_run = document.querySelector("input[name='dev-run']").checked
+                    const viz_run = document.querySelector("input[name='viz-run']").checked
+                    const configuration =  Array.from(document.querySelectorAll("input[name='configuration']")).filter(c => c.checked)[0].value
+                    const extents =  Array.from(document.querySelectorAll("input[name='extent']")).filter(c => c.checked).map(c => c.value)
 
-                if (job_name === '') validation_errors.push('Job Name Cannot Be Empty')
-                if (preset === 'custom' && hucs === '') validation_errors.push('Huc(s) Cannot Be Empty')
-                if (git_branch === '') validation_errors.push('Git Branch Cannot Be Empty')
+                    if (job_name === '') validation_errors.push('Job Name Cannot Be Empty')
+                    if (preset === 'custom' && hucs === '') validation_errors.push('Huc(s) Cannot Be Empty')
+                    if (git_branch === '') validation_errors.push('Git Branch Cannot Be Empty')
 
-                if (validation_errors.length > 0){
-                    document.querySelector('#fim-run-errors').innerHTML = validation_errors.map(e => `<span>${e}</span>`).join('')
-                    return
+                    if (validation_errors.length > 0){
+                        document.querySelector('#fim-run-errors').innerHTML = validation_errors.map(e => `<span>${e}</span>`).join('')
+                        return
+                    }
+
+                    document.querySelector('#request-container').classList.add('loading')
+                    
+                    socket.emit('new_job', {
+                        job_type: 'fim_run',
+                        job_name,
+                        preset,
+                        hucs,
+                        git_branch,
+                        dev_run,
+                        viz_run,
+                        configuration,
+                        extents
+                    })
+                } else if (requestName === 'release'){
+                    // Release related code
+                    let validation_errors = []
+                    const job_version_major = document.querySelector('#release-job-version-major').value
+                    const job_version_minor = document.querySelector('#release-job-version-minor').value
+                    const job_version_patch = document.querySelector('#release-job-version-patch').value
+                    const prev_job_version_major = document.querySelector('#prev-release-job-version-major').value
+                    const prev_job_version_minor = document.querySelector('#prev-release-job-version-minor').value
+                    const prev_job_version_patch = document.querySelector('#prev-release-job-version-patch').value
+
+                    if (job_version_major === '' || job_version_minor === '' || job_version_patch === '')
+                        validation_errors.push('Fim Version must be completely filled out')
+                    if (prev_job_version_major === '' || prev_job_version_minor === '' || prev_job_version_patch === '')
+                        validation_errors.push('Previous Major Fim Version must be completely filled out')
+
+                    if (validation_errors.length > 0){
+                        document.querySelector('#release-errors').innerHTML = validation_errors.map(e => `<span>${e}</span>`).join('')
+                        return
+                    }
+
+                    document.querySelector('#request-container').classList.add('loading')
+
+                    socket.emit('new_job', {
+                        job_type: 'release',
+                        job_version_major,
+                        job_version_minor,
+                        job_version_patch,
+                        prev_job_version_major,
+                        prev_job_version_minor,
+                        prev_job_version_patch
+                    })
                 }
-
-                document.querySelector('#request-container').classList.add('loading')
-                
-                socket.emit('new_job', {
-                    job_name,
-                    preset,
-                    hucs,
-                    git_branch,
-                    dev_run,
-                    viz_run,
-                    configuration,
-                    extents
-                })
             }
 
             const disableDevRun = e => {

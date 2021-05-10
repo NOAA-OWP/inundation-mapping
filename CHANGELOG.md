@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+## v3.0.16.0 - 2021-05-07 - [PR #378](https://github.com/NOAA-OWP/cahaba/pull/378)
+
+New "Release" feature added to the FIM API. This feature will allow for automated FIM, CatFIM, and relevant metrics to be generated when a new FIM Version is released. See [#373](https://github.com/NOAA-OWP/cahaba/issues/373) for more detailed steps that take place in this feature.
+
+## Additions
+- Added new window to the UI in `api/frontend/gui/templates/index.html`.
+- Added new job type to `api/node/connector/connector.py` to allow these release jobs to run.
+- Added additional logic in `api/node/updater/updater.py` to run the new eval and CatFIM scripts used in the release feature.
+
+## Changes
+- Updated `api/frontend/output_handler/output_handler.py` to allow for copying more broad ranges of file paths instead of only the `/data/outputs` directory.
+
+<br/><br/>
+## v3.0.15.10 - 2021-05-06 - [PR #375](https://github.com/NOAA-OWP/cahaba/pull/375)
+
+Remove Great Lakes coastlines from WBD buffer.
+
+## Changes
+- `gl_water_polygons.gpkg` layer is used to mask out Great Lakes boundaries and remove NHDPlus HR coastline segments.
+
+<br/><br/>
 ## v3.0.15.9 - 2021-05-03 - [PR #372](https://github.com/NOAA-OWP/cahaba/pull/372)
 
 Generate `nws_lid.gpkg`.
