@@ -287,7 +287,7 @@ def generate_facet_plot(rc, plot_filename):
         columns = 1
 
     sns.set(style="ticks")
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source",sharex=False, sharey=False,col_wrap=columns)
+    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
     g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
