@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+## v3.0.16.1 - 2021-05-11 - [PR #380](https://github.com/NOAA-OWP/cahaba/pull/380)
+
+The current version of Eventlet used in the Connector module of the FIM API is outdated and vulnerable. This update bumps the version to the patched version.
+
+## Changes
+- Updated `api/node/connector/requirements.txt` to have the Eventlet version as 0.31.0
+
+<br/><br/>
 ## v3.0.16.0 - 2021-05-07 - [PR #378](https://github.com/NOAA-OWP/cahaba/pull/378)
 
 New "Release" feature added to the FIM API. This feature will allow for automated FIM, CatFIM, and relevant metrics to be generated when a new FIM Version is released. See [#373](https://github.com/NOAA-OWP/cahaba/issues/373) for more detailed steps that take place in this feature.
