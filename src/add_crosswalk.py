@@ -52,6 +52,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     elif extent == 'MS':
         ## crosswalk using stream segment midpoint method
         input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
+        input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem==1]
         input_nwmcat = input_nwmcat.rename(columns={'ID':'feature_id'})
         if input_nwmcat.feature_id.dtype != 'int': input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
         input_nwmcat=input_nwmcat.set_index('feature_id')

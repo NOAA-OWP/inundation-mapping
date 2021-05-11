@@ -76,16 +76,16 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                     int(test_case.split('_')[0])
 
                     huc = test_case.split('_')[0]
-                    
+
                     for iteration in iteration_list:
-                        
+
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             versions_to_aggregate = [dev_comparison]
-        
+
                         for magnitude in ['100yr', '500yr']:
                             for version in versions_to_aggregate:
                                 if '_fr' in version:
@@ -100,7 +100,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                     calibrated = "no"
                                 version_dir = os.path.join(versions_to_crawl, version)
                                 magnitude_dir = os.path.join(version_dir, magnitude)
-    
+
                                 if os.path.exists(magnitude_dir):
                                     magnitude_dir_list = os.listdir(magnitude_dir)
                                     for f in magnitude_dir_list:
@@ -119,7 +119,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                 sub_list_to_append.append(benchmark_source)
                                                 sub_list_to_append.append(extent_config)
                                                 sub_list_to_append.append(calibrated)
-    
+
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
@@ -132,9 +132,9 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                     int(test_case.split('_')[0])
 
                     huc = test_case.split('_')[0]
-                    
+
                     for iteration in iteration_list:
-                        
+
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
@@ -154,7 +154,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                     calibrated = "yes"
                                 else:
                                     calibrated = "no"
-    
+
                                 version_dir = os.path.join(versions_to_crawl, version)
                                 magnitude_dir = os.path.join(version_dir, magnitude)
                                 if os.path.exists(magnitude_dir):
@@ -166,7 +166,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                             full_json_path = os.path.join(magnitude_dir, f)
                                             flow = ''
                                             if os.path.exists(full_json_path):
-    
+
                                                 # Get flow used to map.
                                                 flow_file = os.path.join(benchmark_test_case_dir, 'validation_data_' + benchmark_source, huc, nws_lid, magnitude, 'ahps_' + nws_lid + '_huc_' + huc + '_flows_' + magnitude + '.csv')
                                                 if os.path.exists(flow_file):
@@ -177,7 +177,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                             flow = row[1]
                                                         if nws_lid == 'mcc01':
                                                             print(flow)
-    
+
                                                 stats_dict = json.load(open(full_json_path))
                                                 for metric in metrics_to_write:
                                                     sub_list_to_append.append(stats_dict[metric])
@@ -186,7 +186,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                 sub_list_to_append.append(benchmark_source)
                                                 sub_list_to_append.append(extent_config)
                                                 sub_list_to_append.append(calibrated)
-    
+
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
@@ -321,12 +321,12 @@ if __name__ == '__main__':
 
     # Multiprocess alpha test runs.
     if job_number > 1:
-        pool = Pool(job_number)
-        pool.map(process_alpha_test, procs_list)
+        with Pool(processes=job_number) as pool:
+            pool.map(process_alpha_test, procs_list)
 
     # Do aggregate_metrics.
     print("Creating master metrics CSV...")
-    
+
     if config == 'DEV':
         dev_comparison = fim_version + "_" + special_string
     else:

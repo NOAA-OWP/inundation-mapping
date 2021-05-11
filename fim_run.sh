@@ -111,17 +111,12 @@ logFile=$outputRunDataDir/logs/summary.log
 
 ## Define inputs
 export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
-export input_NWM_Lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
-export input_NWM_Catchments_fr=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
-export input_NWM_Catchments_ms=$inputDataDir/nwm_hydrofabric/nwm_catchments_ms.gpkg
-export input_NWM_Flows_fr=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
-export input_NWM_Flows_ms=$inputDataDir/nwm_hydrofabric/nwm_flows_ms.gpkg
-export input_NWM_Headwaters=$inputDataDir/nwm_hydrofabric/nwm_headwaters.gpkg
-export input_nhd_flowlines_fr=$inputDataDir/nhdplus_vectors_aggregate/NHDPlusBurnLineEvent_fr_adjusted.gpkg
-export input_nhd_flowlines_ms=$inputDataDir/nhdplus_vectors_aggregate/NHDPlusBurnLineEvent_ms_adjusted.gpkg
-export input_nhd_headwaters_fr=$inputDataDir/nhdplus_vectors_aggregate/nhd_headwaters_adjusted_fr.gpkg
-export input_nhd_headwaters_ms=$inputDataDir/nhdplus_vectors_aggregate/nhd_headwaters_adjusted_ms.gpkg
-
+export input_nwm_lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
+export input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
+export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
+export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
+export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
+export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 ## Input handling ##
 $srcDir/check_huc_inputs.py -u "$hucList"
 
