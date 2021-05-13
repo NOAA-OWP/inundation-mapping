@@ -96,6 +96,10 @@ def preprocess_nws(source_dir, destination, reference_raster):
             f.write(f'{code} : skipping because no rating curve source\n')
             continue
         
+        #Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
+        if code == 'bmbp1':
+            rating_curve_source = 'NRLDB'
+        
         #Get the datum and adjust to NAVD if necessary.
         nws, usgs = get_datum(metadata)
         datum_data = {}
@@ -115,6 +119,10 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
         if code in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
             datum_data.update(crs = 'NAD83')
+        
+        #Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
+        if code == 'bmbp1':
+            datum_data.update(crs = 'NAD27')
         
         #Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. If NGVD29 it is converted to NAVD88.
         #bgwn7, eagi1 vertical datum unknown, assume navd88
