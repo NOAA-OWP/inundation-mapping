@@ -3,6 +3,7 @@
 import os
 import sys
 import geopandas as gpd
+sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION
 from shapely.geometry import Point, LineString
 import rasterio
@@ -35,7 +36,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
         Number of jobs.
 """
 
-huc_dir,stream_type,point_density,huc,dem_meters_filename,dem_lateral_thalweg_adj_filename,dem_thalwegCond_filename,profile_plots_filename,profile_gpkg_filename,profile_table_filename=procs_list[0]
 def compare_thalweg(args):
 
     huc_dir                             = args[0]
@@ -359,13 +359,14 @@ if __name__ == '__main__':
         pool.map(compare_thalweg, procs_list)
 
     # Append all elevation change spatial layers to a single gpkg
-    table_list  = os.listdir(spatial_dir)
+    spatial_list  = os.listdir(spatial_dir)
     agg_thalweg_elevations_gpkg_fileName = os.path.join(output_dir, f"agg_thalweg_elevation_changes_{point_density}_{stream_type}.gpkg")
     agg_thalweg_elevation_table_fileName = os.path.join(output_dir, f"agg_thalweg_elevation_changes_{point_density}_{stream_type}.csv")
-    for table in table_list:
+    for table in spatial_list:
 
         huc_gpd = gpd.read_file(os.path.join(spatial_dir,table))
-        # Write aggregate table
+
+        # Write aggregate layer
         if os.path.isfile(agg_thalweg_elevations_gpkg_fileName):
             huc_gpd.to_file(agg_thalweg_elevations_gpkg_fileName,driver=getDriver(agg_thalweg_elevations_gpkg_fileName),index=False, mode='a')
         else:
