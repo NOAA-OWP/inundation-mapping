@@ -7,7 +7,7 @@ from os.path import splitext
 from shapely.geometry import MultiPolygon,Polygon,Point
 from utils.shared_functions import getDriver
 
-def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,dissolveLinks=False):
+def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent):
 
     hucUnitLength = len(str(hucCode))
 
@@ -63,10 +63,6 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         nhd_streams = nhd_streams.loc[nhd_streams.mainstem==1]
 
     if len(nhd_streams) > 0:
-
-        # Get headwater segments
-        # nhd_streams['is_headwater'] = False
-        # nhd_streams_headwaters = nhd_streams.loc[~(nhd_streams.nws_lid=='') & (nhd_streams.is_headwater==True)]
 
         # Find incoming stream segments (to WBD buffer) and identify which are upstream
         threshold_segments = gpd.overlay(nhd_streams, wbd_buffer, how='symmetric_difference')
@@ -125,7 +121,6 @@ if __name__ == '__main__':
     parser.add_argument('-b','--subset-nwm-streams',help='NWM streams subset',required=True)
     parser.add_argument('-x','--subset-landsea',help='LandSea subset',required=True)
     parser.add_argument('-extent','--extent',help='FIM extent',required=True)
-    parser.add_argument('-o','--dissolve-links',help='remove multi-line strings',action="store_true",default=False)
 
 
     args = vars(parser.parse_args())
@@ -148,6 +143,5 @@ if __name__ == '__main__':
     subset_nwm_streams_filename = args['subset_nwm_streams']
     subset_landsea_filename = args['subset_landsea']
     extent = args['extent']
-    dissolveLinks = args['dissolve_links']
 
-    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,dissolveLinks)
+    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent)

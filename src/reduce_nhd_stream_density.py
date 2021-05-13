@@ -71,10 +71,10 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
                 for index, point in headwaters_mask.iterrows():
 
                     # Convert headwaterpoint geometries to WKB representation
-                    wkb_points = dumps(point.geometry)
+                    wkb_point = dumps(point.geometry)
 
                     # Create pygeos headwaterpoint geometries from WKB representation
-                    pointbin_geom = pygeos.io.from_wkb(wkb_points)
+                    pointbin_geom = pygeos.io.from_wkb(wkb_point)
 
                     # Distance to each stream segment
                     distances = pygeos.measurement.distance(streambin_geom, pointbin_geom)
