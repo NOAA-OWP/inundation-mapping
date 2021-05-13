@@ -166,7 +166,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                     print(" ")
                 elif inundate_test == 1:
                     print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
-                    return
+                    #return
             except Exception as e:
                 print(e)
 
