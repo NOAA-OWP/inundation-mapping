@@ -7,14 +7,38 @@ from os.path import splitext
 from shapely.geometry import MultiPolygon,Polygon,Point
 from utils.shared_functions import getDriver
 
-def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent):
+
+def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance):
 
     hucUnitLength = len(str(hucCode))
 
     # Get wbd buffer
     wbd = gpd.read_file(wbd_filename)
-    wbd_buffer = gpd.read_file(wbd_buffer_filename)
+    wbd_buffer = wbd.copy()
+    wbd_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance,resolution=32)
     projection = wbd_buffer.crs
+
+    great_lakes = gpd.read_file(great_lakes_filename, mask = wbd_buffer).reset_index(drop=True)
+
+    if not great_lakes.empty:
+        print("Masking Great Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
+
+        # Clip excess lake area
+        great_lakes = gpd.clip(great_lakes, wbd_buffer)
+
+        # Buffer remaining lake area
+        great_lakes.geometry = great_lakes.buffer(lake_buffer_distance)
+
+        # Removed buffered GL from WBD buffer
+        wbd_buffer = gpd.overlay(wbd_buffer, great_lakes, how='difference')
+        wbd_buffer = wbd_buffer[['geometry']]
+        wbd_buffer.to_file(wbd_buffer_filename,driver=getDriver(wbd_buffer_filename),index=False)
+
+    else:
+        wbd_buffer = wbd_buffer[['geometry']]
+        wbd_buffer.to_file(wbd_buffer_filename,driver=getDriver(wbd_buffer_filename),index=False)
+
+    del great_lakes
 
     # Clip ocean water polygon for future masking ocean areas (where applicable)
     landsea = gpd.read_file(landsea_filename, mask = wbd_buffer)
@@ -25,6 +49,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     # Find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nwm_lakes = gpd.read_file(nwm_lakes_filename, mask = wbd_buffer)
+    nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
     if not nwm_lakes.empty:
         # Perform fill process to remove holes/islands in the NWM lake polygons
@@ -59,6 +84,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     # Subset nhd streams
     print("Querying NHD Streams for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nhd_streams = gpd.read_file(nhd_streams_filename, mask = wbd_buffer)
+
     if extent == 'MS':
         nhd_streams = nhd_streams.loc[nhd_streams.mainstem==1]
 
@@ -121,7 +147,9 @@ if __name__ == '__main__':
     parser.add_argument('-b','--subset-nwm-streams',help='NWM streams subset',required=True)
     parser.add_argument('-x','--subset-landsea',help='LandSea subset',required=True)
     parser.add_argument('-extent','--extent',help='FIM extent',required=True)
-
+    parser.add_argument('-gl','--great-lakes-filename',help='Great Lakes layer',required=True)
+    parser.add_argument('-wb','--wbd-buffer-distance',help='WBD Mask buffer distance',required=True,type=int)
+    parser.add_argument('-lb','--lake-buffer-distance',help='Great Lakes Mask buffer distance',required=True,type=int)
 
     args = vars(parser.parse_args())
 
@@ -143,5 +171,9 @@ if __name__ == '__main__':
     subset_nwm_streams_filename = args['subset_nwm_streams']
     subset_landsea_filename = args['subset_landsea']
     extent = args['extent']
+    great_lakes_filename = args['great_lakes_filename']
+    wbd_buffer_distance = args['wbd_buffer_distance']
+    lake_buffer_distance  = args['lake_buffer_distance']
+    dissolveLinks = args['dissolve_links']
 
-    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent)
+    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance)
