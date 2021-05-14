@@ -16,6 +16,8 @@ from collections import deque
 from os.path import join
 from multiprocessing import Pool
 from utils.shared_functions import getDriver
+from rasterio import features
+from reachID_grid_to_vector_points import convert_grid_cells_to_points
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -36,6 +38,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
         Number of jobs.
 """
 
+
+# huc_dir,stream_type,point_density,huc,dem_meters_filename,dem_lateral_thalweg_adj_filename,dem_thalwegCond_filename,profile_plots_filename ,profile_gpkg_filename,profile_table_filename = procs_list[0]
 def compare_thalweg(args):
 
     huc_dir                             = args[0]
@@ -93,24 +97,31 @@ def compare_thalweg(args):
 
     # Collect headwater streams
     single_stream_paths = []
+    dem_meters = rasterio.open(dem_meters_filename,'r')
+    index_option = 'reachID'
     for index, headwater_site in enumerate(headwater_list):
-
         stream_path = get_downstream_segments(streams.copy(),'nws_lid', headwater_site,'downstream',stream_id,stream_type)
-
-        stream_path["headwater_path"] = headwater_site
         stream_path = stream_path.reset_index(drop=True)
         stream_path = stream_path.sort_values(by=['downstream_count'])
-        single_stream_paths = single_stream_paths + [stream_path.loc[stream_path.downstream==True]]
-        print(f"length of {headwater_site} path: {len(stream_path.loc[stream_path.downstream==True])}")
+        stream_path = stream_path.loc[stream_path.downstream==True]
+        if stream_type == 'burnline':
+            geom_value = []
+            for index, segment in stream_path.iterrows():
+                geom_value = geom_value + [(segment.geometry, segment.downstream_count)]
+            nhd_reaches_raster = features.rasterize(shapes=geom_value , out_shape=[dem_meters.height, dem_meters.width],fill=dem_meters.nodata,transform=dem_meters.transform, all_touched=True, dtype=np.float32)
+            out_dem_filename = os.path.join(huc_dir,'NHDPlusBurnLineEvent_raster.tif')
+            with rasterio.open(out_dem_filename, "w", **dem_meters.profile, BIGTIFF='YES') as dest:
+                dest.write(nhd_reaches_raster, indexes = 1)
+            stream_path = convert_grid_cells_to_points(out_dem_filename,index_option)
+        stream_path["headwater_path"] = headwater_site
+        single_stream_paths = single_stream_paths + [stream_path]
+        print(f"length of {headwater_site} path: {len(stream_path)}")
 
     # Collect elevation values from multiple grids along each individual reach point
-    dem_meters = rasterio.open(dem_meters_filename,'r')
     dem_lateral_thalweg_adj = rasterio.open(dem_lateral_thalweg_adj_filename,'r')
     dem_thalwegCond = rasterio.open(dem_thalwegCond_filename,'r')
-
     thalweg_points = gpd.GeoDataFrame()
     for path in single_stream_paths:
-
         split_points = []
         stream_ids = []
         dem_m_elev = []
@@ -119,55 +130,49 @@ def compare_thalweg(args):
         dem_thal_adj_elev = []
         headwater_path = []
         index_count = []
-
         for index, segment in path.iterrows():
-
             if stream_type == 'derived':
                 linestring = segment.geometry
-
-            elif stream_type == 'burnline':
-                linestring = LineString(segment.geometry.coords[::-1])
-
-            if point_density == 'midpoints':
-
-                midpoint = linestring.interpolate(0.5,normalized=True)
-                stream_ids = stream_ids + [segment[stream_id]]
-                split_points = split_points + [midpoint]
-                index_count = index_count + [segment.downstream_count]
-                dem_m_elev = dem_m_elev + [np.array(list(dem_meters.sample((Point(midpoint).coords), indexes=1))).item()]
-                dem_lat_thal_adj_elev = dem_lat_thal_adj_elev + [np.array(list(dem_lateral_thalweg_adj.sample((Point(midpoint).coords), indexes=1))).item()]
-                dem_thal_adj_elev = dem_thal_adj_elev + [np.array(list(dem_thalwegCond.sample((Point(midpoint).coords), indexes=1))).item()]
-                headwater_path = headwater_path + [segment.headwater_path]
-
-            elif point_density == 'all_points':
-
-                count=0
-                for point in zip(*linestring.coords.xy):
+                if point_density == 'midpoints':
+                    midpoint = linestring.interpolate(0.5,normalized=True)
                     stream_ids = stream_ids + [segment[stream_id]]
-                    split_points = split_points + [Point(point)]
-                    count = count + 1
-                    index_count = index_count + [segment.downstream_count*1000 + count]
-                    dem_m_elev = dem_m_elev + [np.array(list(dem_meters.sample((Point(point).coords), indexes=1))).item()]
-                    dem_lat_thal_adj_elev = dem_lat_thal_adj_elev + [np.array(list(dem_lateral_thalweg_adj.sample((Point(point).coords), indexes=1))).item()]
-                    dem_thal_adj_elev = dem_thal_adj_elev + [np.array(list(dem_thalwegCond.sample((Point(point).coords), indexes=1))).item()]
+                    split_points = split_points + [midpoint]
+                    index_count = index_count + [segment.downstream_count]
+                    dem_m_elev = dem_m_elev + [np.array(list(dem_meters.sample((Point(midpoint).coords), indexes=1))).item()]
+                    dem_lat_thal_adj_elev = dem_lat_thal_adj_elev + [np.array(list(dem_lateral_thalweg_adj.sample((Point(midpoint).coords), indexes=1))).item()]
+                    dem_thal_adj_elev = dem_thal_adj_elev + [np.array(list(dem_thalwegCond.sample((Point(midpoint).coords), indexes=1))).item()]
                     headwater_path = headwater_path + [segment.headwater_path]
-
+                elif point_density == 'all_points':
+                    count=0
+                    for point in zip(*linestring.coords.xy):
+                        stream_ids = stream_ids + [segment[stream_id]]
+                        split_points = split_points + [Point(point)]
+                        count = count + 1
+                        index_count = index_count + [segment.downstream_count*1000 + count]
+                        dem_m_elev = dem_m_elev + [np.array(list(dem_meters.sample((Point(point).coords), indexes=1))).item()]
+                        dem_lat_thal_adj_elev = dem_lat_thal_adj_elev + [np.array(list(dem_lateral_thalweg_adj.sample((Point(point).coords), indexes=1))).item()]
+                        dem_thal_adj_elev = dem_thal_adj_elev + [np.array(list(dem_thalwegCond.sample((Point(point).coords), indexes=1))).item()]
+                        headwater_path = headwater_path + [segment.headwater_path]
+            elif stream_type == 'burnline':
+                stream_ids = stream_ids + [segment['id']]
+                split_points = split_points + [Point(segment.geometry)]
+                index_count = index_count + [segment['id']]
+                dem_m_elev = dem_m_elev + [np.array(list(dem_meters.sample((Point(segment.geometry).coords), indexes=1))).item()]
+                dem_lat_thal_adj_elev = dem_lat_thal_adj_elev + [np.array(list(dem_lateral_thalweg_adj.sample((Point(segment.geometry).coords), indexes=1))).item()]
+                dem_thal_adj_elev = dem_thal_adj_elev + [np.array(list(dem_thalwegCond.sample((Point(segment.geometry).coords), indexes=1))).item()]
+                headwater_path = headwater_path + [segment.headwater_path]
         # gpd.GeoDataFrame({**data, "source": "dem_m"})
         dem_m_pts = gpd.GeoDataFrame({'stream_id': stream_ids, 'source': 'dem_m', 'elevation_m': dem_m_elev, 'headwater_path': headwater_path, 'index_count': index_count, 'geometry': split_points}, crs=path.crs, geometry='geometry')
         dem_lat_thal_adj_pts = gpd.GeoDataFrame({'stream_id': stream_ids, 'source': 'dem_lat_thal_adj', 'elevation_m': dem_lat_thal_adj_elev, 'headwater_path': headwater_path, 'index_count': index_count, 'geometry': split_points}, crs=path.crs, geometry='geometry')
         dem_thal_adj_pts = gpd.GeoDataFrame({'stream_id': stream_ids, 'source': 'thal_adj_dem', 'elevation_m': dem_thal_adj_elev, 'headwater_path': headwater_path, 'index_count': index_count, 'geometry': split_points}, crs=path.crs, geometry='geometry')
-
         for raster in [dem_m_pts,dem_lat_thal_adj_pts,dem_thal_adj_pts]:
-
             raster = raster.sort_values(by=['index_count'])
             raster.set_index('index_count',inplace=True,drop=True)
             raster = raster.reset_index(drop=True)
             raster.index.names = ['index_count']
             raster = raster.reset_index(drop=False)
             thalweg_points = thalweg_points.append(raster,ignore_index = True)
-
             del raster
-
         del dem_m_pts,dem_lat_thal_adj_pts,dem_thal_adj_pts
 
     del dem_lateral_thalweg_adj,dem_thalwegCond,dem_meters
@@ -206,7 +211,6 @@ def compare_thalweg(args):
         print(f"huc {huc} has {len(thalweg_points)} thalweg points")
 
 def get_downstream_segments(streams, headwater_col,headwater_id,flag_column,stream_id,stream_type):
-
     streams[flag_column] = False
     streams['downstream_count'] = -9
     streams.loc[streams[headwater_col]==headwater_id,flag_column] = True
@@ -217,30 +221,26 @@ def get_downstream_segments(streams, headwater_col,headwater_id,flag_column,stre
     visited = set()
 
     while Q:
-
         q = Q.popleft()
 
         if q in visited:
             continue
 
         visited.add(q)
+
         count = count + 1
-
         if stream_type == 'burnline':
-
             toNode,DnLevelPat = streams.loc[q,['ToNode','DnLevelPat']]
             downstream_ids = streams.loc[streams['FromNode'] == toNode,:].index.tolist()
-
             # If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
-            if len(set(downstream_ids)) > 1: # special case: remove duplicate NHDPlusIDs
 
+            if len(set(downstream_ids)) > 1: # special case: remove duplicate NHDPlusIDs
                 relevant_ids = [segment for segment in downstream_ids if DnLevelPat == streams.loc[segment,'LevelPathI']]
 
             else:
                 relevant_ids = downstream_ids
 
         elif stream_type == 'derived':
-
             toNode = streams.loc[q,['NextDownID']].item()
             relevant_ids = streams.loc[streams[stream_id] == toNode,:].index.tolist()
 
@@ -248,7 +248,6 @@ def get_downstream_segments(streams, headwater_col,headwater_id,flag_column,stre
         streams.loc[relevant_ids,'downstream_count'] = count
 
         for i in relevant_ids:
-
             if i not in visited:
                 Q.append(i)
 
@@ -329,7 +328,7 @@ if __name__ == '__main__':
 
     plots_dir = join(output_dir,'plots')
     os.makedirs(plots_dir, exist_ok=True)
-    spatial_dir = os.path.join(output_dir,'tables')
+    spatial_dir = os.path.join(output_dir,'spatial_layers')
     os.makedirs(spatial_dir, exist_ok=True)
 
     # Open log file
@@ -347,7 +346,7 @@ if __name__ == '__main__':
             dem_lateral_thalweg_adj_filename = os.path.join(huc_dir,'dem_lateral_thalweg_adj.tif')
             dem_thalwegCond_filename = os.path.join(huc_dir,'dem_thalwegCond.tif')
             profile_plots_filename = os.path.join(plots_dir,f"profile_drop_plots_{huc}_{point_density}_{stream_type}.png")
-            profile_gpkg_filename = os.path.join(huc_dir,f"thalweg_points_{huc}_{point_density}_{stream_type}.gpkg")
+            profile_gpkg_filename = os.path.join(spatial_dir,f"thalweg_elevation_changes_{huc}_{point_density}_{stream_type}.gpkg")
             profile_table_filename = os.path.join(spatial_dir,f"thalweg_elevation_changes_{huc}_{point_density}_{stream_type}.csv")
 
             procs_list.append([huc_dir,stream_type,point_density,huc,dem_meters_filename,dem_lateral_thalweg_adj_filename,dem_thalwegCond_filename,profile_plots_filename,profile_gpkg_filename,profile_table_filename])
@@ -362,9 +361,9 @@ if __name__ == '__main__':
     spatial_list  = os.listdir(spatial_dir)
     agg_thalweg_elevations_gpkg_fileName = os.path.join(output_dir, f"agg_thalweg_elevation_changes_{point_density}_{stream_type}.gpkg")
     agg_thalweg_elevation_table_fileName = os.path.join(output_dir, f"agg_thalweg_elevation_changes_{point_density}_{stream_type}.csv")
-    for table in spatial_list:
+    for layer in spatial_list:
 
-        huc_gpd = gpd.read_file(os.path.join(spatial_dir,table))
+        huc_gpd = gpd.read_file(os.path.join(spatial_dir,layer))
 
         # Write aggregate layer
         if os.path.isfile(agg_thalweg_elevations_gpkg_fileName):
@@ -375,7 +374,7 @@ if __name__ == '__main__':
         del huc_gpd
 
     # Create csv of elevation table
-    huc_table = pd.read_csv(agg_thalweg_elevations_gpkg_fileName)
+    huc_table = gpd.read_file(agg_thalweg_elevations_gpkg_fileName)
     huc_table.to_csv(agg_thalweg_elevation_table_fileName,index=False)
 
     # Close log file
