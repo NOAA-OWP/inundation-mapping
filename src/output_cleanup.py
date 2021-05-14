@@ -41,7 +41,11 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         'hand_ref_elev_table.csv',
         'dem_lateral_thalweg_adj.tif',
         'dem_thalwegCond.tif',
-        'dem_meters.tif'
+        'dem_meters.tif',
+        'demDerived_reaches_split.gpkg',
+        'nhd_headwater_points_subset.gpkg',
+        'wbd.gpkg',
+        'NHDPlusBurnLineEvent_subset.gpkg'
     ]
 
     # List of files that will be saved during a viz run

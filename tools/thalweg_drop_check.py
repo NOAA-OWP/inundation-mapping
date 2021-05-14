@@ -39,7 +39,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 """
 
 
-# huc_dir,stream_type,point_density,huc,dem_meters_filename,dem_lateral_thalweg_adj_filename,dem_thalwegCond_filename,profile_plots_filename ,profile_gpkg_filename,profile_table_filename = procs_list[0]
 def compare_thalweg(args):
 
     huc_dir                             = args[0]
@@ -52,6 +51,7 @@ def compare_thalweg(args):
     profile_plots_filename              = args[7]
     profile_gpkg_filename               = args[8]
     profile_table_filename              = args[9]
+    flows_grid_boolean_filename         = args[10]
 
     if stream_type == 'derived':
 
@@ -107,8 +107,12 @@ def compare_thalweg(args):
         if stream_type == 'burnline':
             geom_value = []
             for index, segment in stream_path.iterrows():
-                geom_value = geom_value + [(segment.geometry, segment.downstream_count)]
+                lineString = LineString(segment.geometry.coords[::-1])
+                geom_value = geom_value + [(lineString, segment.downstream_count)]
             nhd_reaches_raster = features.rasterize(shapes=geom_value , out_shape=[dem_meters.height, dem_meters.width],fill=dem_meters.nodata,transform=dem_meters.transform, all_touched=True, dtype=np.float32)
+            flow_bool = rasterio.open(flows_grid_boolean_filename)
+            flow_bool_data = flow_bool.read(1)
+            nhd_reaches_raster = np.where(flow_bool_data == int(0), -9999.0, (nhd_reaches_raster).astype(rasterio.float32))
             out_dem_filename = os.path.join(huc_dir,'NHDPlusBurnLineEvent_raster.tif')
             with rasterio.open(out_dem_filename, "w", **dem_meters.profile, BIGTIFF='YES') as dest:
                 dest.write(nhd_reaches_raster, indexes = 1)
@@ -179,7 +183,7 @@ def compare_thalweg(args):
 
     try:
         # Remove nodata_pts and convert elevation to ft
-        thalweg_points = thalweg_points.loc[thalweg_points.elevation_m>-9999.0]
+        thalweg_points = thalweg_points.loc[thalweg_points.elevation_m > 0.0]
         thalweg_points.elevation_m =  np.round(thalweg_points.elevation_m,3)
         thalweg_points['elevation_ft'] =  np.round(thalweg_points.elevation_m*3.28084,3)
 
@@ -211,6 +215,7 @@ def compare_thalweg(args):
         print(f"huc {huc} has {len(thalweg_points)} thalweg points")
 
 def get_downstream_segments(streams, headwater_col,headwater_id,flag_column,stream_id,stream_type):
+
     streams[flag_column] = False
     streams['downstream_count'] = -9
     streams.loc[streams[headwater_col]==headwater_id,flag_column] = True
@@ -230,17 +235,21 @@ def get_downstream_segments(streams, headwater_col,headwater_id,flag_column,stre
 
         count = count + 1
         if stream_type == 'burnline':
+
             toNode,DnLevelPat = streams.loc[q,['ToNode','DnLevelPat']]
             downstream_ids = streams.loc[streams['FromNode'] == toNode,:].index.tolist()
-            # If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
 
+            # If multiple downstream_ids are returned select the ids that are along the main flow path (i.e. exclude segments that are diversions)
             if len(set(downstream_ids)) > 1: # special case: remove duplicate NHDPlusIDs
+
                 relevant_ids = [segment for segment in downstream_ids if DnLevelPat == streams.loc[segment,'LevelPathI']]
 
             else:
+
                 relevant_ids = downstream_ids
 
         elif stream_type == 'derived':
+
             toNode = streams.loc[q,['NextDownID']].item()
             relevant_ids = streams.loc[streams[stream_id] == toNode,:].index.tolist()
 
@@ -248,6 +257,7 @@ def get_downstream_segments(streams, headwater_col,headwater_id,flag_column,stre
         streams.loc[relevant_ids,'downstream_count'] = count
 
         for i in relevant_ids:
+
             if i not in visited:
                 Q.append(i)
 
@@ -257,27 +267,21 @@ def get_downstream_segments(streams, headwater_col,headwater_id,flag_column,stre
 
 
 def plot_profile(elevation_table,profile_plots_filename):
-
     num_plots = len(elevation_table.headwater_path.unique())
     unique_rasters = elevation_table.source.unique()
-
     if num_plots > 3:
         columns = int(np.ceil(num_plots / 3))
     else:
         columns = 1
-
     # palette = dict(zip(unique_rasters, sns.color_palette(n_colors=len(unique_rasters))))
     # palette.update({'dem_m':'gray'})
     sns.set(style="ticks")
-
     if len(unique_rasters) > 1:
         g = sns.FacetGrid(elevation_table, col="headwater_path", hue="source", hue_order=['dem_m', 'dem_lat_thal_adj', 'thal_adj_dem'], sharex=False, sharey=False,col_wrap=columns)
     else:
         g = sns.FacetGrid(elevation_table, col="headwater_path", hue="source", sharex=False, sharey=False,col_wrap=columns)
-
     g.map(sns.lineplot, "index_count", "elevation_ft", palette="tab20c")
     g.set_axis_labels(x_var="Longitudinal Profile (index)", y_var="Elevation (ft)")
-
     # Iterate thorugh each axis to get individual y-axis bounds
     for ax in g.axes.flat:
         mins = []
@@ -288,11 +292,9 @@ def plot_profile(elevation_table,profile_plots_filename):
         min_y = min(mins) - (max(maxes) - min(mins))/10
         max_y = max(maxes) + (max(maxes) - min(mins))/10
         ax.set_ylim(min_y,max_y)
-
     # if len(unique_rasters) > 1:
     #     ax.lines[0].set_linestyle("--")
     #     ax.lines[0].set_color('gray')
-
     # box = ax.get_position()
     # ax.set_position([box.x0, box.y0 + box.height * 0.1,box.width, box.height * 0.9])
     # Adjust the arrangement of the plots
@@ -300,7 +302,6 @@ def plot_profile(elevation_table,profile_plots_filename):
     g.add_legend()
     # plt.legend(bbox_to_anchor=(1.04,0.5), loc="center left", borderaxespad=0)
     plt.subplots_adjust(bottom=0.25)
-
     plt.savefig(profile_plots_filename)
     plt.close()
 
@@ -342,6 +343,7 @@ if __name__ == '__main__':
         if huc != 'logs':
 
             huc_dir = os.path.join(fim_dir,huc)
+            flows_grid_boolean_filename = os.path.join(huc_dir,'flows_grid_boolean.tif')
             dem_meters_filename = os.path.join(huc_dir,'dem_meters.tif')
             dem_lateral_thalweg_adj_filename = os.path.join(huc_dir,'dem_lateral_thalweg_adj.tif')
             dem_thalwegCond_filename = os.path.join(huc_dir,'dem_thalwegCond.tif')
@@ -349,7 +351,7 @@ if __name__ == '__main__':
             profile_gpkg_filename = os.path.join(spatial_dir,f"thalweg_elevation_changes_{huc}_{point_density}_{stream_type}.gpkg")
             profile_table_filename = os.path.join(spatial_dir,f"thalweg_elevation_changes_{huc}_{point_density}_{stream_type}.csv")
 
-            procs_list.append([huc_dir,stream_type,point_density,huc,dem_meters_filename,dem_lateral_thalweg_adj_filename,dem_thalwegCond_filename,profile_plots_filename,profile_gpkg_filename,profile_table_filename])
+            procs_list.append([huc_dir,stream_type,point_density,huc,dem_meters_filename,dem_lateral_thalweg_adj_filename,dem_thalwegCond_filename,profile_plots_filename,profile_gpkg_filename,profile_table_filename,flows_grid_boolean_filename])
 
     # Initiate multiprocessing
     print(f"Generating thalweg elevation profiles for {len(procs_list)} hucs using {number_of_jobs} jobs")

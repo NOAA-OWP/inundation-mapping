@@ -42,7 +42,7 @@ def convert_grid_cells_to_points(raster,index_option,output_points_filename=Fals
         points[i-1] = Point(x,y)
         if index_option == 'reachID':
             reachID = np.array(list(raster.sample((Point(x,y).coords), indexes=1))).item() # check this; needs to add raster cell value + index
-            id[i-1] = reachID*1000 + i #reachID + i/100
+            id[i-1] = reachID*10000 + i #reachID + i/100
         elif (index_option == 'featureID') |(index_option == 'pixelID'):
             id[i-1] = i
         i += 1
