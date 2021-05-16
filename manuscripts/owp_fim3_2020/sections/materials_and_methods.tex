@@ -72,6 +72,7 @@ An enhancement of OWP FIM v2 `Cahaba' over previous FIM versions is the support 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Hydro-conditioning}
+\label{ssec:hydro_conditioning}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 The DEM from the NED is subject to a series of hydro-conditioning procedures to enhance it's suitability for riverine flood inundation mapping. 
@@ -160,6 +161,7 @@ This procedure enforces the location of streams and ensures that thalweg elevati
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Deriving FIM Hydrofabric}
+\label{ssec:deriving_fim_hydrofabric}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 The FIM Hydrofabric is defined here as the collection of geospatial datasets that are used for converting NWM discharges into inundation extents.
@@ -272,12 +274,24 @@ We present two successive methods implemented that reduce drainage densities by 
 \subsubsection{NWS Replace and Route Mainstems}
 \label{ssec:unary_stream_order}
 %
-
+The RnR configuration of the NWM seeks to replace NWM forecasts by assimilating best available AHPS forecasts and routing them downstream.
+The RnR Mainstems (MS) network is a subset of the NWM full-resolution (FR) network at and downstream of AHPS forecast points.
+The RnR MS network, or simply MS, comprises about 200 thousand km of stream length which is less than 4\% of the FR total stream length of 5.5 million km.
+HAND was originally derived for this stream network to enhance mapping skill along these critical MS \cite{djokic2019arc}. 
+The inundation derived from this stream network is mosaiced or composited with the inundation from the FR network to form composite (C) FIMs. 
+Within each HAND processing unit (HUC 4, 6, 8), you'll typically only find a MS stream network of stream order 1.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Generalized Mainstems}
 \label{ssec:unary_stream_order}
 %
+To further the efforts implmented by MS, we sought to derive HAND at a level-path scale.
+Level-path groups flow paths by maximizing the length of each flow path and minimizing the number of level path identifiers within a given domain. 
+Starting at the outlet, a unique level-path is propogated upstream. 
+At every confluence, the direction of maximum flow path length is sought to propogate the current level-path identifier.
+For the remaining parent reaches of the given junction, a new level-path identifier is assigned and the process recursively continues with them.
+Each HUC 4,6,or 8 is discretized into level-paths indepedently and relevant inputs are assigned to each level-path processing unit given a buffer of 7 km.
+At the level-path scale, the methods in Section \ref{ssec:deriving_fim_hydrofabric} are executed while the methods in Section \ref{ssec:hydro_conditioning} are still completed at the HUC scale.
 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -302,9 +316,35 @@ By not using the same HEC-RAS derived discharges and FIM extents, we are able to
 We elected to spatially intersect the HEC-RAS cross sections with the NWM stream network assigning the 1\% and 0.2\% flow rates with each NWM reach. 
 To handle multiple intersections, we opted to use a filter to select the median discharge value attributed to each NWM reach.
 This partially handles the influence of neighboring cross sections that could cause flow discontinuties and mass conservation issues.
+Additionally, the stream network of the FEMA furnished models are of higher stream densities and bifurcation ratios leading to a signicant amount of false negatives (FN) (under-prediction) along headwater streams with Horton-Strahler orders of one due to the lack of representation of these additional headwater streams in the NWM network.
 While the limitions are noted, this method does best detangle the influence of exogeneous variables that we do not wish to study in this comparison.
 
-
+The metrics employed in this study to evaluate inundation extents include critical success index (CSI), probability of detection (POD), and false alarm ratio (FAR) and presented in equations \ref{eq:csi}, \ref{eq:pod}, \ref{eq:far}, respectively.
+To calculate these secondary metrics, one must define three primary metrics including true positives (TP) which is predicted wet and wet in benchmark dataset.
+The two types of errors consist of false positives (FP), or type I errors, which is dry in benchmark but predicted wet and false negatives (FN), or type II errors, which is wet in benchmark by predicted dry. 
+Lastly, the reader may come across true negatives (TN) which is defined as dry in both the benchmark and predicted datasets.
+Maximizing POD indicates a model's ability to detect the given threat of interest, inundation, while minimizing FAR is sought to indicate a models ability in reducing FN errors.
+The NWS denotes CSI a good proxy for measuring a forecasting systems utility in protecting life and property and has been shown to be optimized mathematically when $POD = 1 - FAR$ \cite{gerapetritis2004behavior}.
+While these metrics are commonly employed in the evaluation of FIM and binary weather prediction communities in general, they do come with some notable limitations including frequency dependence in the case of CSI and FAR \cite{gerapetritis2004behavior,stephens2014problems,schaefer1990critical,jolliffe2012forecast}.
+Thus frequency dependent statistics should be used with caution. 
+%
+\begin{equation}
+\label{eq:csi}
+CSI = \frac{TP}{TP + FN + FP}
+\end{equation}
+%
+\begin{equation}
+\label{eq:pod}
+POD = \frac{TP}{TP + FN}
+\end{equation}
+%
+\begin{equation}
+\label{eq:far}
+FAR = \frac{FP}{TP + FP}
+\end{equation}
+%
 Calibrating the Manning's n values is very important for optimizing the skill of inundation extent forecasts \cite{zheng2018river,garousi2019terrain}.
-\note[Fernando Aristizabal]{For Brian Avant} In this study we propose a simplified parameterization of roughness by stream order and tune inundation performance relative to the validation data set 
+\note[Fernando Aristizabal]{For Brian Avant} In this study we propose a simplified parameterization of roughness by stream order and tune inundation performance relative to the validation data set.
+For every combination of stream order (from 1 to 14) and Manning's n value (from X.XX to X.XX), synthetic rating curves are generated and compared to the FEMA inundation extents.
+The optimal C
 %
