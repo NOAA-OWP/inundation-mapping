@@ -1,3 +1,96 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Results}
+\label{sec:results}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Computational Performance}
+\label{ssec:compuational_performance}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+All computational experiments were conducted on an Amazon Web Services (AWS) Elastic Cloud Compute (EC2) T3 instance (2x-large size) with 4 cores, 2 threads per core, and 32GB of random access memory (RAM).
+An Elastic Block Storage (EBS) solid state drive (SSD) of the general purpose 2 (gp2) type was used for 2TB of storage.
+All tests took place within the project's Docker image providing the operating system and software dependencies.
+Table \ref{tab:comp_results} details the computational metrics including CPU time, RAM usage, and data storage footprint for both the hydrofabric production and NRT generation of FIMs.
+For the hydrofabric production, computational results were produced for the entire NWM FIM domain noted in \ref{ssec:datasets}.
+For the NRT production of FIM from the hydrofabric, computational results were aggregated for the 48 HUC study area.
+Computation of the depths and inundation rasters as well as the inundation in polygon form are included in this anaylsis.
+Only a subset of NWM FIM domain ever gets mapped for operational purposes to avoid computational burdens by applying a 1.5\% NWM recurrence flow threshold.
+
+
+\begin{table}
+\caption{Descriptive computational statistics for `Cahaba' hydrofabric and NRT FIM production.}
+\label{tab:comp_results}
+\centering
+\begin{tabular}{|p{3cm}|p{3cm}|p{3cm}|p{3cm}|}
+%\hline
+%"" & \multicolumn{7}{l}{CPU Time (Hrs)} & \multicolumn{7}{l}{RAM (GB)} \\
+\hline
+Variable & Statistic & Hydrofabric & FIM \\
+\hline
+\multirow{7}{*}{CPU Time (hrs)} &
+n$^{a}$ & XX & XX \\ 
+\cline{2-4}
+& Sum  & XX & XX \\ 
+\cline{2-4}
+& Mean & XX & XX \\ 
+\cline{2-4}
+& Median & XX & XX \\ 
+\cline{2-4}
+& SD$^{b}$ & XX & XX \\ 
+\cline{2-4}
+& Max & XX & XX \\ 
+\cline{2-4}
+& Min & XX & XX \\ 
+\hline
+\multirow{7}{*}{RAM (GB)} &
+n$^{a}$ & XX & XX \\
+\cline{2-4}
+& Sum  & XX & XX \\
+\cline{2-4}
+& Mean & XX & XX \\
+\cline{2-4}
+& Median & XX & XX \\
+\cline{2-4}
+& SD$^{b}$ & XX & XX \\
+\cline{2-4}
+& Max & XX & XX \\
+\cline{2-4}
+& Min & XX & XX \\
+\hline
+\multirow{7}{*}{Data Storage (GB)} &
+n$^{a}$ & XX & XX \\
+\cline{2-4}
+& Sum  & XX & XX \\
+\cline{2-4}
+& Mean & XX & XX \\
+\cline{2-4}
+& Median & XX & XX \\
+\cline{2-4}
+& Std.Dev.$^{b}$ & XX & XX \\
+\cline{2-4}
+& Max & XX & XX \\
+\cline{2-4}
+& Min & XX & XX \\
+\hline
+\multicolumn{2}{l}{$^{a}$Sample size. $^{b}$Standard Deviation}
+\end{tabular}
+\end{table}
+
+For comparison purposes, OWP FIM v1 measured that the entire CONUS area excepting a few HUC6's took 1.34 CPU years \cite{liu2016cybergis}. 
+OWP FIM v2, developed by \citeA{djokic2019arc}, was estimated to take 0.55 CPU years for the entire NWM stream resolution but lacked the ability to run in parallel on HPC environments.
+By utilizing solid programming practices and optimal algorithm selection, we were able to reduce computational requirements while enhancing hydrologic performance.
+
+% TEST SCRIPT: 
+% for huc in $(cat /data/temp/ble_test_cases_fa_20210418.lst); do echo HUC: $huc; /usr/bin/time -v /foss_fim/tools/inundation.py -r /data/outputs/first_gms_batch_test/"$huc"/rem_zeroed_masked.tif -c /data/outputs/first_gms_batch_test/"$huc"/gw_catchments_reaches_filtered_addedAttributes.tif -b /data/outputs/first_gms_batch_test/"$huc"/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -t /data/outputs/first_gms_batch_test/"$huc"/hydroTable.csv -f /data/test_cases/ble_test_cases/validation_data_ble/"$huc"/100yr/ble_huc_"$huc"_flows_100yr.csv -p /data/temp/inundation_py_benchmarking_for_manuscript/inundation_"$huc".gpkg -m filter -i /data/temp/inundation_py_benchmarking_for_manuscript/inundation_"$huc".tif -d /data/temp/inundation_py_benchmarking_for_manuscript/depths_"$huc".tif -u /data/inputs/wbd/WBD_National.gpkg -l WBDHU8 -q | tee /data/temp/inundation_py_benchmarking_for_manuscript/test_1.log; done
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Mapping Performance}
+\label{ssec:mapping_performance}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+

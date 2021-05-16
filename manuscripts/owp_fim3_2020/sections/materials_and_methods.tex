@@ -11,7 +11,7 @@ FIM 3 is a fully operational pipeline of software tools to help acquire datasets
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 OWP FIM exclusively utilizes free and open source software dependencies including Python 3, GDAL, TauDEM, Geographic Resource Analysis Support System (GRASS), GNU Parallel, and MPICH \cite{python382,gdal2020,tarboton2005terrain,grass2020,tange2015gnu,amer2021mpich}.
-Within the Python 3 ecosystem, many common packages are employed including but not limited RichDEM, GeoPandas, Rasterio, Rasterstats, and Numba \cite{barnes2018richdem,jordahl2014geopandas,lam2015numba}. 
+Within the Python 3 ecosystem, many common packages are employed including but not limited to RichDEM, GeoPandas, Rasterio, Rasterstats, and Numba \cite{barnes2018richdem,jordahl2014geopandas,lam2015numba}. 
 To simplify setup and enhance portability across host operating systems OWP FIM packages all dependencies up in Docker image (\url{https://docs.docker.com/engine/install/}). 
 A user only need to install Docker on their host machine and build the image from the provided recipe. 
 
@@ -20,45 +20,55 @@ Producing the FIM hydrofabric produces the datasets required to make an inundati
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Datasets}
+\label{ssec:datasets}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-All data sources used within FIM 3 are publicly available from a variety of government sources including the USGS, NWC, Federal Emergency Management Agency (FEMA), and US Army Core of Engineers (USACE) to enhance reproducibility and collaboration among government, academia, and industry.
+Most data sources used within FIM 3 are publicly available from a variety of government sources including the USGS, NWC, Federal Emergency Management Agency (FEMA), and US Army Core of Engineers (USACE) to enhance reproducibility and collaboration among government, academia, and industry.
 The National Hydrography Dataset Plus High Resolution (NHDPlusHR) Beta Version is the latest hydrography dataset used for land surface hydrologic modeling in the US \cite{moore2019user}. 
 It is used in conjunction with the hydrofabric of the NWM V2.1 to help define flowlines for FIM 3 while the NWM hydrofabric is also used to define reservoirs for exclusion and catchments to cross-walk to for forecasting purposes.
-The AHPS forecast points are required to determine the RnR downstream segments in order to define the RnR Mainstems (MS).
 For enforcing levee data into the NED DEMs, the USACE National Levee Database (NLD) is used via burning feature elevations \cite{engineers2016national}.
-Additionally, FEMA Base Level Engineering (BLE) from Region 6 (parts of Texas, Oklahoma, Arkansas, Louisiana and New Mexico) 1\% (100 year) and 0.2\% (500 year) datasets are used as validation in this study. 
+Additionally, FEMA Base Level Engineering (BLE) from Region 6 (parts of Texas, Oklahoma, Arkansas, Louisiana and New Mexico) 1\% (100 year) and 0.2\% (500 year) datasets are used as validation in this study \cite{fema2021base,fema2021estimated}. 
 These BLE datasets are provided at the watershed scale (HUC8) utilizing best available simulations and DEMs.
-The full input datasets sorted by source are listed below:
+The full input datasets presented by source are list in Table \ref{tab:data}.
+\note[Fernando Aristizabal]{Check Brian Avant, Trevor Grout, Bradford Bates, Ryan Spies}
 %
-\begin{enumerate}
-\item{USGS - NHDPlusHR Beta}
-    \begin{enumerate}
-    \item{\textit{BurnLineEvents:} flowlines used by NHDPlusHR for hydro-enforcing DEM}
-    \item{\textit{Value-Added Attributes:} database of additional attributes referenced to flowlines that enhance navigation, analysis, and display}
-    \item{\textit{DEM:} DEM from National Elevation Dataset (NED) in 10m (or 1/3 arc-second) spatial resolution with vertical units in centimeters \cite{gesch2002national}}
-    \end{enumerate}
-\item{NOAA OWP - NWM V2.1 Hydrofabric}
-    \begin{enumerate}
-    \item{\textit{flowlines:} stream network center lines used for NWM routing and forecasting}
-    \item{\textit{reach level catchments:} surface drainage area corresponding to each river reach}
-    \item{\textit{waterbodies:} includes reservoirs, lakes, and others that are modeled within the NWM}
-    \end{enumerate}
-\item{USACE - NLD}
-    \begin{enumerate}
-    \item{\textit{Levee elevations:} Top of levee elevations are gathered with in the NLD provided by USACE for hydro-enforcement}
-    \end{enumerate}
-\item{Land Sea Border}
-\item{FEMA BLE}
-    \begin{enumerate}
-    \item{\textit{cross-sections:} cross-sections and associated data for associating 1\% and 0.2\% recurrence discharges with NWM reaches}
-    \item{\textit{flood inundation maps:} FIMs produced by BLE at the two recurrence intervals for comparison with FIMs from OWP FIM versions}
-    \end{enumerate}
-\item{NOAA OWP - AHPS Forecast Points}
-    \begin{enumerate}
-    \item{\textit{AHPS:} Collection AHPS forecast points to associate to RnR Mainstems}
-    \end{enumerate}
-\end{enumerate}
+
+\begin{table}
+\caption{Data sources, names, and descriptions.}
+\label{tab:data}
+\centering
+\begin{tabular}{|p{2cm}|p{4cm}|p{8cm}|}
+%\begin{tabular}{l c c}
+\hline
+Source & Name & Description \\
+\hline
+USGS & NHDPlusHR BurnLineEvents & Stream lines used by NHDPlus HR for hydro-enforcement \\
+\hline
+USGS & NHDPlusHR Value-Added Attributes & Database of additional attributes associated with the BurnLineEvents that enhance navigation, analysis, and display \\
+\hline
+USGS & NHDPlusHR DEM & DEM used for NHDPlus HR at 1/3 arc-second (10m) spatial resolution and vertical units in centimeters \\
+\hline
+NOAA-OWP & NWM Streams & Stream network center lines used by NWM for routing and forecasting \\
+\hline
+NOAA-OWP & NWM Catchments & Surface drainage area corresponding to each reach in the NWM \\
+\hline
+NOAA-OWP & NWM Waterbodies & Waterbodies considered by the NWM as resevoirs or lakes \\
+\hline
+USACE & NLD & Levee database of locations and elevations  \\
+\hline
+WHERE? & Land-Sea Border & Border of land and sea and land and Great Lakes \\
+\hline
+FEMA & Cross-Sections & HEC-RAS cross-sections used for modeling in BLE datasets. Include discharges for 1\% and 0.2\% recurrence interval events \\
+\hline
+FEMA & Flood Inundation Extents & Extents produced by FEMA BLE for 1\% and 0.2\% recurrence interval events \\
+\hline
+\multicolumn{2}{l}{$^{a}$Footnote text here.}
+\end{tabular}
+\end{table}
+
+Areas with all the required data (from the NWM and the USGS) are labeled as the FIM domain. 
+\note[Fernando Aristizabal]{For Nick Chadwich} This includes XXXX HUC4's, XXX HUC'6s, and XX HUC8's.
+An enhancement of OWP FIM v2 `Cahaba' over previous FIM versions is the support for Hawaii and Puerto Rico which the NWM v2.1 will cover.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Hydro-conditioning}
@@ -200,7 +210,8 @@ Stream links are defined here as segments of rivers discretized by junctions wit
 Stream links are then further segmented at NWM lakes and HUC8 boundaries.
 Discretizing at NWM lakes isolates reaches and catchments associated with lakes and reservoirs to avoid mapping them using the Manning's equation and could potentially enable volume based mapping in the future as a feature enhancement.
 Based on previous research, splitting each remaining stream link into equi-distant reaches not to exceed a parameterized value of 1.5km helps improve synthetic rating curve and mapping skill \cite{garousi2019terrain,godbout2019error,zheng2018geoflood}.
-Small reaches can lead to unrealistic variances in channel geometries while too large reaches can lead to grouping too much geometry variance into one parametrized unit.
+Small reaches can lead to unrealistic variances in channel geometries while oversized reaches can lead to grouping too much geometry variance into one parametrized unit.
+Section \ref{sssec:synthetic_rating_curve} details the derivation of the synthetic rating curves and the dependence on channel length. 
 Additionally every reach (and later catchment) is assigned a globally unique identifier based on the HUC 8 membership.
 This stream network is important since it drives the HAND calculation and derivation of catchments.
 %
@@ -223,6 +234,7 @@ Outside of the excavated channel from the AGREE DEM method, the native non-drain
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Synthetic Rating Curves}
+\label{sssec:synthetic_rating_curve}
 %
  A method for converting forecast river discharges from the NWM to stages or river depths is necessary for producing FIMs with HAND. 
 For one-dimensional models such as the NWM, the typical procedure for establishing this conversion is to determine the stage-discharge relationship sampling data from the DEM known as a synthetic rating curve with cross-sections \cite{quintero2021development,di2011hydraulic}. 
@@ -237,25 +249,36 @@ The reach average Manning's formula is derived to be
 
 where Q is discharge, y indicates the stage, n is the Manning's n roughness coefficient, V is volume at stage y, S is channel slope, L is along flow length, and B is wetted bed area at stage y.
 All units are international given the 1 numerator above n.
-The reach averaged method has been evaluated to ...
-The reach averaged parameters are sampled from the thalweg conditioned AGREE DEM using TauDEM's catchhydrogeo utility.
-
-The Manning's n values are tuned ... 
-
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{RnR Mainstems Method}
-%
-
+The reach averaged method has been compared to rating curves from Hydrologic Engineering Center\'s River Analysis System (HEC-RAS) and USGS gages yielding comparable results for estimating the river bottom elevation profile, channel width at given stages, and stage-discharge relationships \cite{zheng2018river}.
+The reach averaged geometry parameters including number of cells, bed area, and volume are sampled from the thalweg conditioned AGREE DEM using TauDEM's catchhydrogeo utility.
+Using the split reaches described in Section \ref{sssec:deriving_fim_stream_network}, the channel slope is sampled from the thalweg conditioned DEM at the end points of the reaches while the same reaches are used to the channel length.
+Calibration of the Manning's n roughness coefficient is conducted by optimizing inundation extent performance to a benchmark dataset best described in Section \ref{ssec:evaluation_and_calibration}. 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Inundation Mapping}
+\label{ssec:inundation_mapping}
 %
-
+The FIM hydrofabric consisting of the relative elevations grid, catchments grid, catchment polygons, rating curve, and cross-walking data are all used to convert forecasts from the NWM into forecasts extents.
+For operational situations, one would cache the FIM hydrofabric then either produce libraries of FIM for a sample of discharges or stages or also produce the FIM in near real-time (NRT).
+From the cached FIM hydrofabric and design or forecast discharges including those extracted from the NWM, inundation maps can be generated at HUC 4, 6, or 8 spatial processing units in a rapid, parallel operation. 
+The discharges are associated with NWM reach identifiers and cross-walked over to reach identifiers in the FIM hydrofabric.
+Once associated to a mapping stream network, 
+the catchments grid encoded with the reach identifiers are used to map
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Evaluation and Testing}
+\subsection{Evaluation and Calibration}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{ssec:evaluation_and_calibration}
 %
+Evaluation of the OWP-FIM V3 Cahaba is conducted by comparison to the HEC-RAS 1D derived models produced by FEMA region 6 \cite{fema2021base,fema2021estimated}.
+The maps to the 1\% recurrence flow (1 in 100 year) and the 0.2\% recurrence flow (1 in 500 year) are furnished by FEMA so we used those corresponding discharges and mapping extents for evaluation.
+By not using the same HEC-RAS derived discharges and FIM extents, we are able to separate out errors imputed by hydrology, forcings, hydraulic routing, etc that we would have potentially seen if we used NWM forecasted discharges.
+We elected to spatially intersect the HEC-RAS cross sections with the NWM stream network assigning the 1\% and 0.2\% flow rates with each NWM reach. 
+To handle multiple intersections, we opted to use a filter to select the median discharge value attributed to each NWM reach.
+This partially handles the influence of neighboring cross sections that could cause flow discontinuties and mass conservation issues.
+While the limitions are noted, this method does best detangle the influence of exogeneous variables that we do not wish to study in this comparison.
 
+
+Calibrating the Manning's n values is very important for optimizing the skill of inundation extent forecasts \cite{zheng2018river,garousi2019terrain}.
+\note[Fernando Aristizabal]{For Brian Avant} In this study we propose a simplified parameterization of roughness by stream order and tune inundation performance relative to the validation data set 
 %

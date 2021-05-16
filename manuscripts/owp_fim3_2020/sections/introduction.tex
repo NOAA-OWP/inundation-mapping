@@ -65,18 +65,6 @@ HAND normalizes topography along the nearest drainage path and its been demonstr
 The terrain index as even gone on to provide additional utility in the observation of riverine flood inundation mapping from remote sensing especially in areas of high electromagnetic interference such as vegetated and anthropogenic areas \cite{aristizabal2020high,shastry2019using,huang2017comparison,twele2016sentinel}.
 \citeA{zheng2018river} developed methodology for determine stage-discharge relationships known as synthetic rating curves (SRC) by sampling reach-averaged parameters from HAND datasets and inputting into the Manning's equation \cite{gauckler1867etudes,manning1890flow}.
 This collection of methods, coupling HAND with SRCs, has been experimented and compared to other sources of FIM including engineering scale models, in-situ observation, and remote sensing based observation with solid results in large spatial scale applications \cite{godbout2019error,johnson2019integrated,garousi2019terrain,nobre2016hand,afshari2018comparison,zheng2018geoflood,teng2015rapid,teng2017flood,zhang2018comparative}.
-
-Many of those assessing HAND's efficacy for producing FIM have noted opportunities for improvement. 
-\citeA{godbout2019error} found how reach length and slope are important parameters for maximizing mapping skill with the moderate values performing best. 
-The colinearity of reach length and slope led \citeA{godbout2019error} to propose that reaches of extreme lengths performed worse because of the extreme slope values, a parameter directly represented in Manning's equation. 
-Issues with the reach-average approaches have been documented in \citeA{tuozzolo2019impact} where large within reach variance of the roughness Manning's n coefficient have been observed.
-These works motivate splitting junction to junction reaches into smaller and equidistant segments for better averaging behavior and SRC representation. 
-Furthermore, \citeAgarousi2019terrain} noted improvements to mapping efficacy by conditioning monotonically decreasing thalweg elevations, adjusting the Manning's n roughness coefficient, and using higher resolution (3m) Digital Elevation Model's (DEM) derived from light detection and ranging (Lidar).
-Use of higher resolution DEMs in that study was motivated by previous work with Lidar DEMs and least-cost thalweg derivations \cite{zheng2018geoflood}.
-Further work by \citeA{johnson2019integrated} noted the general under-prediction of HAND and suggested tuning the Manning's n parameter to better align SRC's with observations. 
-Additionally, the sensitivity to low topographic relief and channel slope have been observed \cite{johnson2019integrated,godbout2019error}. 
-Catchment boundary issues are noted where the interconnection of catchments are not properly accounted for \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
-These findings suggesting improvements to HAND require advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM (CFIM).
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{HAND Implementations}
@@ -98,25 +86,20 @@ In addition to the domestic work done in the US, some studies have expanded upon
 \subsection{OWP FIM 3.0 `Cahaba'}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-A study is proposed to introduce and evaluate the development of OWP FIM V3.0 which utilizes some of the latest mapping techniques along with a few novel developments in a computationally friendly framework. 
-FIM 3 was asked to meet a series of requirements to enhance its utility for continental scale FIM from the National Water Model for operational forecasting and to ensure long-term success in future developments. 
-The requirements were
-%
-\begin{enumerate}
-\item use easily accessible, open-source dependencies to promote free-use and open-access community development and research.
-\item excellent single-core computational and memory performance with favorable, time and space complexities,
-\item ability to parallelize across multiple cores and nodes within HPC or cloud compute environments,
-\item preprocessing functionality within package pipeline to acquire and process input artifacts,
-\item rapid inundation mapping capabilities to go from FIM hydrofabric datasets to forecast FIMs from NWM,
-\item automated testing functionality to ensure modifications enhance forecast skill when compared to external sources,
-\item ability to produce depth forecasts,
-\item full NWM domain coverage (including Hawaii and Puerto Rico),
-\item provide initial mitigation to catchment boundary issues at RnR mainstems,
-\item and improved FIM forecasting skill when compared to FIM V1.0 and V2.0.
-\end{enumerate} 
-%
-To meet these higher specifications for the next generation of authoritative FIM capabilities, the OWP FIM V3.0 `Cahaba' was developed. 
-It meets all the specifications listed above including version on version improvement of FIM skill due to the implementation of new developments in HAND techniques. 
+Many of those assessing HAND's efficacy for producing FIM have noted opportunities for improvement. 
+\citeA{godbout2019error} found how reach length and slope are important parameters for maximizing mapping skill with the moderate values performing best. 
+The colinearity of reach length and slope led \citeA{godbout2019error} to propose that reaches of extreme lengths performed worse because of the extreme slope values, a parameter directly represented in Manning's equation. 
+Issues with the reach-average approaches have been documented in \citeA{tuozzolo2019impact} where large within reach variance of the roughness Manning's n coefficient have been observed.
+These works motivate splitting junction to junction reaches into smaller and equidistant segments for better averaging behavior and SRC representation. 
+Furthermore, \citeA{garousi2019terrain} noted improvements to mapping efficacy by conditioning monotonically decreasing thalweg elevations, adjusting the Manning's n roughness coefficient, and using higher resolution (3m) Digital Elevation Model's (DEM) derived from light detection and ranging (Lidar).
+Use of higher resolution DEMs in that study was motivated by previous work with Lidar DEMs and least-cost thalweg derivations \cite{zheng2018geoflood}.
+Further work by \citeA{johnson2019integrated} noted the general under-prediction of HAND and suggested tuning the Manning's n parameter to better align SRC's with observations. 
+Additionally, the sensitivity to low topographic relief and channel slope have been observed \cite{johnson2019integrated,godbout2019error}. 
+Most notably, HAND has been shown to demonstrate sensitivity to drainage network density known colloaquially as the catchment boundary problem \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
+This sensitivity is noted at higher order streams with large flows and low Froude numbers and is manifested by a constriction in the inundation extents at the junction location.
+These findings suggest improvements to HAND are required that utilize advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM (CFIM).
+
+A study is proposed to introduce and evaluate the development of OWP FIM V3.0 `Cahaba' which utilizes some of the latest mapping techniques along with a few novel developments in a computationally friendly framework. 
 The following methods and results describe the work in more detail and demonstrates its efficacy in producing enhanced FIM from the NWM for operational forecast applications. 
-Furthermore, it enables the contribution from the broader hydro-community as further advances are made in this developing area of research.
+Furthermore, it enables the contribution from the broader hydro-community through its use of open-source code as further advances are made in this developing area of research.
 %
