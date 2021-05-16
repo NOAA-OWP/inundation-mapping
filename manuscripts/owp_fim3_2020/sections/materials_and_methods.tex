@@ -110,15 +110,7 @@ This results in a stream network that has the same density as the NWM V2.1 flowl
 The pruned stream network is then utilized to hydro-enforce the DEM with a methodology developed by \citeA{hellweger1997agree} known as the AGREE DEM Surface Reconditioning System. 
 The AGREE algorithm seeks to burn artificially deep thalweg elevations by a uniform value known as sharp drop. 
 The modification continues by excavating an area of a given buffer distance from the thalweg by a depth proportional to the distance from the channel given by the smooth drop. 
-The resulting enforcement of the thalweg and general bathymetric region results in a cross-section resembling a trapezoidal shape with a significantly lower elevation along the thalweg line only as can be seen in Figure \ref{fig:agree_dem_cross_section}.
-%
-\begin{figure}[h!]
-\centering
-\includegraphics[scale=1.0]{figures/agree_dem_cross_section.jpg}
-\caption{Placeholder for AGREE DEM illustration}
-\label{fig:agree_dem_cross_section}
-\end{figure}
-%
+The resulting enforcement of the thalweg and general bathymetric region results in a cross-section resembling a trapezoidal shape with a significantly lower elevation along the thalweg line only.
 In total, the AGREE algorithm requires three parameters including the buffer distance, smooth drop, and sharp drop. 
 Using simple thalweg burning techniques as opposed to the full AGREE method helps prevent distortions in the delineation of streams as well as the catchment boundaries \cite{saunders1995grid,saunders1996gis,mizgalewicz1996modeling,hellweger1997agree,quenzer1998gis,baker2006comparison}.
 \citeA{baker2006comparison} noted AGREE produced satisfactory results when compared to other enforcement especially when computational costs are considered. 
@@ -131,17 +123,11 @@ Downsides to the technique include the possibility of exhibiting parallel stream
 The National Elevation Dataset at 10m resolution lacks sufficient representation of fine grain features such as levees and embankments.
 In order to better represent the influences of these features upon hydraulics and inundation extents, the National Levee Database (NLD) published by USACE was used to enforce elevations within the 10m DEM.
 %
-%\begin{figure}[h!]
-%\centering
-%\includegraphics[scale=1.0]{figures/levee_histogram.jpg}
-%\caption{Placeholder for figure demonstrating histogram of elevation differences. May have too many results figures to allow for one}
-%\label{fig:levee_histogram}
-%\end{figure}
-%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Depression Filling}
+\label{sssec:depression_filling}
 %
-Local depressions are a naturally occurring features of a DEM but must be addressed if a connected drainage network with continuous catchments are to be derived for flood modeling purposes.
+Local depressions are naturally occurring features of a DEM but must be addressed if a connected drainage network with continuous catchments are to be derived for flood modeling purposes.
 The conditioned DEM was removed of depressions by filling areas with pits while preserving the stream and levee information previously enforced.
 Priority-Flood developed by \citeA{barnes2014priority} is an algorithm for filling said depressions and shown to have improved performance over early works in the field by \citeA{jenson1988extracting} implemented in \citeA{tarboton2005terrain} as well as \citeA{planchon2002fast}.
 The depression filling algorithm used in our pipeline is a Priority-Flood variant developed by \cite{zhou2016efficient} with enhanced single-thread performance and a time complexity of O(n log n) for floating point grids.
@@ -253,6 +239,46 @@ The reach averaged method has been compared to rating curves from Hydrologic Eng
 The reach averaged geometry parameters including number of cells, bed area, and volume are sampled from the thalweg conditioned AGREE DEM using TauDEM's catchhydrogeo utility.
 Using the split reaches described in Section \ref{sssec:deriving_fim_stream_network}, the channel slope is sampled from the thalweg conditioned DEM at the end points of the reaches while the same reaches are used to the channel length.
 Calibration of the Manning's n roughness coefficient is conducted by optimizing inundation extent performance to a benchmark dataset best described in Section \ref{ssec:evaluation_and_calibration}. 
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Unary Stream Order}
+\label{ssec:unary_stream_order}
+%
+FIM skill has been shown to be sensitive to the drainage density of the stream network employed as the datum for HAND \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
+In our evaluations, we note negative effects at the confluence of lower flow tributaries with higher flow rivers partly due to the independent nature of the catchments within HAND methods.
+Figure \ref{fig:confluence_problem_statement} illustrates this exact situation where two tributatries converge with a higher order stream segment. 
+A `Cahaba' FIM is generated and compared with a FEMA 100 year extent (please see sections \ref{ssec:evaluation_and_calibration} for more details) showing significant under-prediction in inundation extent
+The higher discharge along the mainstem of 1,900 cubic meters per second (CMS) does not translate to the lower flow rates along the tributaries of 84 and 195 CMS. 
+This is due to a lack of representation of backwater conditions in the hydraulic routing techniques used.
+As a parallel problem, there is excess water accumulated along the mainstem that cannot extend in either a fluvial or pluvial manner beyond the boundaries of the mainstem catchments.
+
+\begin{figure}[h!]
+\centering
+%\includegraphics[scale=1.0]{figures/headwaters.jpg}
+\caption{}
+\label{fig:confluence_problem_statement}
+\end{figure}
+%
+The limitation imposed by using stream networks of Horton-Strahler stream order \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} greater than one for HAND can be described mathematically with Graph Theory.
+Assume a drainage area denoted by special case of a fully connected, directed acyclic graph known as a tree, G, with all nodes (or reaches) directed from the leaf nodes (or headwater reaches) toward a singular root node $r_0$ known as the outlet in the application's field.
+Assume a singluar subgraph of G where by a new root node,$r_n$, is introduced that represents another stream location.
+n is used here to index possible root nodes which are a subset of G.
+Ensuring $r_n$ is itself an inner node (has upstream drainage) disconnects G into $G_0$ and $G_n$ thus removing influence of conditions at $r_0$ upon $G_n$.
+HAND seeks to divide drainage areas into reach scale catchments that are independent of one another.
+We intend to demonstrate how introduction of stream orders greater than one can generate errors at confluences.
+We present two successive methods implemented that reduce drainage densities by reducing Horton-Strahler stream orders of the networks employed and test our presented hypothesis that unary stream order networks enhance FIM performance skill with HAND.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{NWS Replace and Route Mainstems}
+\label{ssec:unary_stream_order}
+%
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Generalized Mainstems}
+\label{ssec:unary_stream_order}
+%
+
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Inundation Mapping}

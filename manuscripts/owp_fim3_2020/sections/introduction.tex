@@ -3,11 +3,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Flooding is one of the most significant natural disasters in the United States (US) affecting both the loss of life and property. 
-In 2017 and 2019, river and flash flooding combined represented the leading cause of death among all natural disasters and second to deaths from heat wave in 2018 \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018}. 
+In 2017 and 2019, river and flash flooding combined represented the leading cause of death among all natural disasters and second in 2018 \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018}. 
 More than an average of 104 deaths per year are attributed to flood events from the 10 year period ending in 2019 \cite{us_department_of_commerce_2020}. 
-Within that 10 year window, the most common activity victims were partaking in was driving when compared to other common activities leading to death \cite{us_department_of_commerce_2020}.
-With respect to property damages, river and flash flooding have contributed to 60.7, 1.6, and 3.7 billion non-inflation adjusted US dollars in the annual periods of 2017 to 2019, respectively \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018}. 
-The large spike in damages for 2017 can be attributed to the Hurricane Harvey event that primarily affected Texas in August. 
+With respect to property damages, river and flash flooding have contributed to 60.7, 1.6, and 3.7 billion non-inflation adjusted US dollars in the annual periods of 2017 to 2019, respectively \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018} with the large spike in 2017 attributed to the Hurricane Harvey event along the Gulf coast. 
 Unencouragingly, the trends related to flood damages and fatalities have been steadily increasing over recent decades. \cite{mallakpour2015changing,downton2005reanalysis,kunkel1999temporal,pielke2000precipitation,corringham2019effect}. 
 Some are expecting that the hydrologic cycle will intensify which will lead to more extreme precipitation in some areas along with a greater risk of flooding \cite{tabari2020climate,milly2002increasing,wing2018estimates}. 
 Increasing trends in frequency and risk are not uniform across spatial regions with work by \citeA{slater2016recent} indicating that trends are increasing across the US Midwest/Great Lakes region while decreasing in coastal Southeast, Southwest and California.
@@ -90,7 +88,6 @@ Many of those assessing HAND's efficacy for producing FIM have noted opportuniti
 \citeA{godbout2019error} found how reach length and slope are important parameters for maximizing mapping skill with the moderate values performing best. 
 The colinearity of reach length and slope led \citeA{godbout2019error} to propose that reaches of extreme lengths performed worse because of the extreme slope values, a parameter directly represented in Manning's equation. 
 Issues with the reach-average approaches have been documented in \citeA{tuozzolo2019impact} where large within reach variance of the roughness Manning's n coefficient have been observed.
-These works motivate splitting junction to junction reaches into smaller and equidistant segments for better averaging behavior and SRC representation. 
 Furthermore, \citeA{garousi2019terrain} noted improvements to mapping efficacy by conditioning monotonically decreasing thalweg elevations, adjusting the Manning's n roughness coefficient, and using higher resolution (3m) Digital Elevation Model's (DEM) derived from light detection and ranging (Lidar).
 Use of higher resolution DEMs in that study was motivated by previous work with Lidar DEMs and least-cost thalweg derivations \cite{zheng2018geoflood}.
 Further work by \citeA{johnson2019integrated} noted the general under-prediction of HAND and suggested tuning the Manning's n parameter to better align SRC's with observations. 
@@ -100,6 +97,7 @@ This sensitivity is noted at higher order streams with large flows and low Froud
 These findings suggest improvements to HAND are required that utilize advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM (CFIM).
 
 A study is proposed to introduce and evaluate the development of OWP FIM V3.0 `Cahaba' which utilizes some of the latest mapping techniques along with a few novel developments in a computationally friendly framework. 
-The following methods and results describe the work in more detail and demonstrates its efficacy in producing enhanced FIM from the NWM for operational forecast applications. 
+Most notably this study demonstrates how FIM performance skill with HAND can be improved by reducing Horton-Strahler stream orders \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} of the stream networks.
+The following methods and results describe the work in more detail and demonstrates its efficacy in producing enhanced FIM for the NWM for operational forecast applications. 
 Furthermore, it enables the contribution from the broader hydro-community through its use of open-source code as further advances are made in this developing area of research.
 %
