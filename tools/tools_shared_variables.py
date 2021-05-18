@@ -10,6 +10,20 @@ PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
 GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc']
 
+# Variables for eval_plots.py
+BAD_SITES = ['grfi2',# Bad crosswalk from USGS to AHPS
+             'ksdm7',# Large areas entirely within levee protected area (CSI of 0)
+             'hohn4',# Mainstems did not extend far enough upstream
+             'rwdn4',# Mainstems did not extend far enough upstream.
+             'efdn7',# Limited upstream mapping
+             'kilo1',# Limited upstream mapping
+             'chin7',# Limited upstream mapping
+             'segt2',# Limited upstream mapping
+             'eagi1',# Missing large portions of FIM
+             'levk1',# Missing large portions of FIM
+             'trbf1']# Limited upstream mapping
+DISCARD_AHPS_QUERY = "not flow.isnull() & masked_perc<97 & not nws_lid in @BAD_SITES"
+
 # Colors.
 ENDC = '\033[m'
 TGREEN_BOLD = '\033[32;1m'
