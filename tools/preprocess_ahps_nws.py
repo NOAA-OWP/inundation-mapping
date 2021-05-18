@@ -96,6 +96,10 @@ def preprocess_nws(source_dir, destination, reference_raster):
             f.write(f'{code} : skipping because no rating curve source\n')
             continue
         
+        #Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
+        if code == 'bmbp1':
+            rating_curve_source = 'NRLDB'
+        
         #Get the datum and adjust to NAVD if necessary.
         nws, usgs = get_datum(metadata)
         datum_data = {}
@@ -115,6 +119,10 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
         if code in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
             datum_data.update(crs = 'NAD83')
+        
+        #Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
+        if code == 'bmbp1':
+            datum_data.update(crs = 'NAD27')
         
         #Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. If NGVD29 it is converted to NAVD88.
         #bgwn7, eagi1 vertical datum unknown, assume navd88
@@ -226,7 +234,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     #Create Binary Grids, first create domain of analysis, then create binary grid
                     
                     #Domain extent is largest floodmap in the static library WITH holes filled
-                    filled_domain_raster = outputdir.parent / f'{code}_extent.tif'
+                    filled_domain_raster = outputdir.parent / f'{code}_filled_orig_domain.tif'
     
                     #Open benchmark data as a rasterio object.
                     benchmark = rasterio.open(grid)
@@ -261,7 +269,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     
                     #Output binary benchmark grid and flow file to destination
                     outputdir.mkdir(parents = True, exist_ok = True)  
-                    output_raster = outputdir / (f'ahps_{code}_huc_{huc}_depth_{i}.tif')
+                    output_raster = outputdir / (f'ahps_{code}_huc_{huc}_extent_{i}.tif')
                     
                     with rasterio.Env():
                         with rasterio.open(output_raster, 'w', **boolean_profile) as dst:
@@ -283,14 +291,17 @@ def preprocess_nws(source_dir, destination, reference_raster):
             f.write(traceback.format_exc())
             f.write('\n')
             print(traceback.format_exc())               
-        #Process extents, only create extent if ahps code subfolder is present in destination directory.
+        #Wrapup for ahps sites that were processed.
         ahps_directory = destination / huc / code
         if ahps_directory.exists():
-            #Delete extent raster
-            filled_extent = ahps_directory / f'{code}_extent.tif' 
-            if filled_extent.exists:
-                filled_extent.unlink()              
-    
+            #Delete original filled domain raster (it is an intermediate file to create benchmark data)
+            orig_domain_grid = ahps_directory / f'{code}_filled_orig_domain.tif'
+            orig_domain_grid.unlink() 
+            #Create domain shapefile from any benchmark grid for site (each benchmark has domain footprint, value = 0).
+            filled_extent = list(ahps_directory.rglob('*_extent_*.tif'))[0]
+            domain_gpd = raster_to_feature(grid = filled_extent, profile_override = False, footprint_only = True)           
+            domain_gpd['nws_lid'] = code
+            domain_gpd.to_file(ahps_directory / f'{code}_domain.shp')
             #Populate attribute information for site
             grids_attributes = pd.DataFrame(data=grids.items(), columns = ['magnitude','path'])
             flows_attributes = pd.DataFrame(data=grid_flows.items(), columns=['magnitude','grid_flow_cfs'])
