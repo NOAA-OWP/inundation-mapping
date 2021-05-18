@@ -7,7 +7,7 @@ Modifications and fixes to run_test_case.py, eval_plots.py, and ahps preprocessi
 
 ## Changes
 - Comment out return statement causing run_test_case.py to skip over sites/hucs when calculating contingency rasters.
-- Pull bad sites list and query to filter out bad sites from metrics calculations to the tools_shared_variables.py
+- Move bad sites list and query statement used to filter out bad sites to the tools_shared_variables.py
 - Add print statements in eval_plots.py detailing the bad sites used and the query used to filter out bad sites
 - Update ahps preprocessing scripts to produce a domain shapefile
 - Change output filenames produced in ahps preprocessing scripts
