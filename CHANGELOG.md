@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+## v3.0.16.2 - 2021-05-18 - [PR #378](https://github.com/NOAA-OWP/cahaba/pull/378)
+
+Modifications and fixes to run_test_case.py, eval_plots.py, and ahps preprocessing scripts.
+
+## Changes
+- Comment out return statement causing run_test_case.py to skip over sites/hucs when calculating contingency rasters.
+- Pull bad sites list and query to filter out bad sites from metrics calculations to the tools_shared_variables.py
+- Add print statements in eval_plots.py detailing the bad sites used and the query used to filter out bad sites
+- Update ahps preprocessing scripts to produce a domain shapefile
+- Change output filenames produced in ahps preprocessing scripts
+- Update workarounds for some sites in ahps preprocessing scripts
+
+<br/><br/>
 ## v3.0.16.1 - 2021-05-11 - [PR #380](https://github.com/NOAA-OWP/cahaba/pull/380)
 
 The current version of Eventlet used in the Connector module of the FIM API is outdated and vulnerable. This update bumps the version to the patched version.
