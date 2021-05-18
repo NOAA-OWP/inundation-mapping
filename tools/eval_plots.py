@@ -481,8 +481,6 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             base_resolution = 'nws_lid'
 
             # Filter the dataset based on query (IMPORTED FROM TOOLS_SHARED_VARIABLES.py)
-            print('The following AHPS sites are discarded:  ' + ', '.join(BAD_SITES))
-            print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
             ahps_metrics = benchmark_metrics.query(DISCARD_AHPS_QUERY)
 
             # Filter out all instances where the base_resolution doesn't exist across all desired fim versions for a given magnitude
@@ -672,5 +670,6 @@ if __name__ == '__main__':
     i = args['site_plots']
 
     # Run eval_plots function
-
+    print('The following AHPS sites are discarded:  ' + ', '.join(BAD_SITES))
+    print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
     eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, spatial = sp, fim_1_ms = f, site_barplots = i)
