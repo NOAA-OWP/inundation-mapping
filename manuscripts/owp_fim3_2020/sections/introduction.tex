@@ -3,7 +3,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Flooding is one of the most significant natural disasters in the United States (US) affecting both the loss of life and property. 
-In 2017 and 2019, river and flash flooding combined represented the leading cause of death among all natural disasters and second in 2018 \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018}. 
+In 2017 and 2019, river and flash flooding combined represented the leading cause of death and the second leading cause in 2018 among all natural disasters in the US \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018}. 
 More than an average of 104 deaths per year are attributed to flood events from the 10 year period ending in 2019 \cite{us_department_of_commerce_2020}. 
 With respect to property damages, river and flash flooding have contributed to 60.7, 1.6, and 3.7 billion non-inflation adjusted US dollars in the annual periods of 2017 to 2019, respectively \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018} with the large spike in 2017 attributed to the Hurricane Harvey event along the Gulf coast. 
 Unencouragingly, the trends related to flood damages and fatalities have been steadily increasing over recent decades. \cite{mallakpour2015changing,downton2005reanalysis,kunkel1999temporal,pielke2000precipitation,corringham2019effect}. 
@@ -15,29 +15,23 @@ Increasing trends in frequency and risk are not uniform across spatial regions w
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Operational flood forecasting systems are primary tools in developing accurate forecasts for public awareness prior to life or property damaging events occur. 
-One of these operational systems is the Advanced Hydrologic Prediction System (AHPS) maintained by National Oceanic Atmospheric Administration (NOAA) National Weather Service (NWS) with approximately 3,781 forecast points across the US at typically short forecast horizons of 24 or 72 hours \cite{mcenery2005noaa}.
-AHPS provides forecasting services in the form of ensemble stream flows at 3,781 forecast points illustrated in Figure \ref{fig:all_ahps_points} and flood inundation maps (FIM) at 188 of those forecast points shown in Figure \ref{fig:fim_ahps_points}.
-\note{Fernando A}{Combine Figure 1 and 2 with one figure: All AHPS forecast points with no inundation extents one color and with extents other color for entire US if needed}
+One of these operational systems is the Advanced Hydrologic Prediction System (AHPS) maintained by National Oceanic Atmospheric Administration (NOAA) National Weather Service (NWS) with more than 3,000 forecast points across the US at typically short forecast horizons of 24 or 72 hours \cite{mcenery2005noaa}.
+AHPS provides forecasting services in the form of ensemble stream flows at more than 3,000 forecast points and flood inundation maps (FIM) at more than 150 of those locations shown in Figure \ref{fig:forecast_points}.
+Besides the AHPS forecast points, we display in Figure \ref{fig:forecast_points} two forecasting networks relevant to the National Water Model (NWM) which will be introduced in Section \ref{ssec:national_water_model}.
 AHPS implements a series of advances including model calibration techniques \cite{zhang2003hydrologic,hogue2003multi,duan2003global,gupta2003advances,parada2003multi}, distributed modeling approaches \cite{reed2004overall,koren2004hydrology,duan2002results}, ensemble forecasting \cite{day1985extended,seo2000simulation,mullusky2002simplified,herr2002simplified}, enhanced data analysis procedures \cite{mcenery2005noaa}, flood-forecasting inundation maps \cite{cajina2002fldview}, hydraulic routing models \cite{fread1973technique,cajina2002fldview}, and multisensor precipitation techniques \cite{breidenbach1999accounting,kondragunta2001outlier,seo2002real,bonnin1996noaa}.
-On an approximate basis, there is only one forecast point every 1,455 km of river and one forecast point with FIM every 29,261 km.
+On an approximate basis, there is only one forecast point every 1,450 km of river and one forecast point with FIM every 29,000 km.
 Despite the AHPS advances in operational flood forecasting, it lacks sufficient spatial coverage and long-range forecast horizons.
 %
 \begin{figure}[h!]
 \centering
-\includegraphics[scale=2.0]{figures/ahps_all_forecast_points.jpg}
-\caption{All 3,781 forecast points in United States' Advanced Hydrologic Prediction System for lower 48 states and Alaska. No forecast points in Hawaii or territories. From: water.weather.gov/ahps}
-\label{fig:all_ahps_points}
-\end{figure}
-%
-\begin{figure}[h!]
-\centering
-\includegraphics[scale=2.0]{figures/ahps_fim_forecast_points_conus.jpg}
-\caption{All 188 forecast points in United States' Advanced Hydrologic Prediction System with flood inundation mapping capabilities. One forecast point near Juneau, Alaska not shown. No forecast points in Hawaii or remaining territories. From: water.weather.gov/ahps}
-\label{fig:fim_ahps_points}
+\includegraphics[scale=1.0]{figures/forecast_points.jpg}
+\caption{Forecast points with and without FIM in United States' Advanced Hydrologic Prediction System. Also show are the National Water Model stream networks at the full resolution (FR) and Replace and Reroute (RnR) Mainstems (MS) resolution.}
+\label{fig:forecast_points}
 \end{figure}
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{National Water Model}
+\label{ssec:national_water_model}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Additional work is required to fill-in the gaps that the AHPS leaves in terms of spatial and temporal coverage.
@@ -47,6 +41,7 @@ The NWM enhances but does not replace the spatial and temporal domain of the cur
 It's simply an additional model to be used in the forecasting and early warning decision making.
 Furthermore, the NWM as of V1.2 has implemented not only assimilation of real-time United States Geological Survey (USGS) stage discharges but also assimilation of flow forecasts from the AHPS forecast points which are in turn routed downstream and updated whenever a new point is reached. 
 This configuration of the NWM is known as `Replace and Route' or `RnR' and is used to enhance the forecasting skill of the NWM with the best available regional-scale data.
+Figure \ref{ssec:national_water_model} shows Full-Resolution (FR) modeling stream network as well as the RnR mainstems (MS) network.
 
 The National Hydrography Dataset Plus (NHDPlus) V2.1 is the basis for the hydrofabric in the NWM due to its comprehensive use with the hydrologic communities' stakeholders \cite{mckay2012nhdplus}. 
 The term hydrofabric is used within the NWM jargon to describe the subset of hydrography comprised of geospatial datasets required for hydrologic modeling including but not limited to stream networks, catchments, channel properties, and elevation data. 
@@ -61,7 +56,7 @@ As a result of high computational costs and large spatial domains, the need for 
 HAND normalizes topography along the nearest drainage path and its been demonstrated to be a good proxy and indicator of a series of important environmental conditions including soil environments, landscape classes, soil gravitational potentials, geomorphologies, soil moisture, and ground water dynamics \cite{renno2008hand,nobre2011height}. 
 \citeA{nobre2016hand} showed evidence for utilizing the drainage normalizing HAND dataset as a proxy for flood potential to make static flood inundation maps from known stages.
 The terrain index as even gone on to provide additional utility in the observation of riverine flood inundation mapping from remote sensing especially in areas of high electromagnetic interference such as vegetated and anthropogenic areas \cite{aristizabal2020high,shastry2019using,huang2017comparison,twele2016sentinel}.
-\citeA{zheng2018river} developed methodology for determine stage-discharge relationships known as synthetic rating curves (SRC) by sampling reach-averaged parameters from HAND datasets and inputting into the Manning's equation \cite{gauckler1867etudes,manning1890flow}.
+\citeA{zheng2018river} developed methodology for determining stage-discharge relationships known as synthetic rating curves (SRC) by sampling reach-averaged parameters from HAND datasets and inputting into the Manning's equation \cite{gauckler1867etudes,manning1890flow}.
 This collection of methods, coupling HAND with SRCs, has been experimented and compared to other sources of FIM including engineering scale models, in-situ observation, and remote sensing based observation with solid results in large spatial scale applications \cite{godbout2019error,johnson2019integrated,garousi2019terrain,nobre2016hand,afshari2018comparison,zheng2018geoflood,teng2015rapid,teng2017flood,zhang2018comparative}.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -75,8 +70,7 @@ By allocating 31 nodes at 20 cores per for a total of 620 available cores to the
 Originally, NFIE utilized the National Hydrography Dataset (NHD) Plus Medium Resolution (MR) to etch or burn flowlines prior to further conditioning but more recent work has advanced this to the more current NHDPlus High Resolution (HR) \cite{liu2020height}. 
 The original NFIE dataset was employed by the NWC to produce forecast FIM from the NWM for use within its network of RFC's for additional guidance in hydro-blind regions and tagged as OWP's FIM V1.0.
 Further work by \citeA{djokic2019arc}, implemented a series of improvements to HAND including equidistant reaches, updates to use with NHDPlusHR hydrography, and AGREE-DEM reconditioning \cite{hellweger1997agree} into an ESRI Arc-Hydro workflow with use in ArcGIS and tagged as OWP FIM V2.0. 
-More notably the software added the ability to derive drainage potentials on a per mainstem basis as originally conceptualized by \citeA{mcgehee2016modified}.
-Mainstem is generally used here as defined in \citeA{blodgett2020mainstems} but only available in mainstems downstream of forecast AHPS points within the workflow introduced by \citeA{djokic2019arc}.
+More notably the software added the ability to derive drainage potentials on both the NWM FR and MS stream networks which leverages the lower drainage density and Horton-Strahler stream order of the MS network.
 Overall, the software package is estimated to run CONUS at the full-resolution in 0.55 CPU years in a desktop setting.
 In addition to the domestic work done in the US, some studies have expanded upon HAND to cover global domains at 30m resolutions \cite{yamazaki2019merit,donchyts2016global}.
 %
@@ -94,7 +88,7 @@ Further work by \citeA{johnson2019integrated} noted the general under-prediction
 Additionally, the sensitivity to low topographic relief and channel slope have been observed \cite{johnson2019integrated,godbout2019error}. 
 Most notably, HAND has been shown to demonstrate sensitivity to drainage network density known colloaquially as the catchment boundary problem \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
 This sensitivity is noted at higher order streams with large flows and low Froude numbers and is manifested by a constriction in the inundation extents at the junction location.
-These findings suggest improvements to HAND are required that utilize advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM (CFIM).
+These findings suggest improvements to HAND are required that utilize advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM.
 
 A study is proposed to introduce and evaluate the development of OWP FIM V3.0 `Cahaba' which utilizes some of the latest mapping techniques along with a few novel developments in a computationally friendly framework. 
 Most notably this study demonstrates how FIM performance skill with HAND can be improved by reducing Horton-Strahler stream orders \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} of the stream networks.
