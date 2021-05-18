@@ -670,6 +670,6 @@ if __name__ == '__main__':
     i = args['site_plots']
 
     # Run eval_plots function
-    print('The following AHPS sites are discarded:  ' + ', '.join(BAD_SITES))
+    print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
     eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, spatial = sp, fim_1_ms = f, site_barplots = i)
