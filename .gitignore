@@ -17,3 +17,6 @@ manuscripts/**/*.bbl
 manuscripts/**/*.blg
 manuscripts/**/prev
 .vscode/
+**/.DS_Store
+**/*_pytest.py
+
