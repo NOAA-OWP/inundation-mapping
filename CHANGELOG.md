@@ -1,17 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
-## v3.0.16.2 - 2021-05-18 - [PR #384](https://github.com/NOAA-OWP/cahaba/pull/384)
+## v3.0.16.2 - 2021-05-18 - [PR #384] (https://github.com/NOAA-OWP/cahaba/pull/384)
 
-Modifications and fixes to run_test_case.py, eval_plots.py, and ahps preprocessing scripts.
+Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preprocessing scripts.
 
 ## Changes
-- Comment out return statement causing run_test_case.py to skip over sites/hucs when calculating contingency rasters.
-- Move bad sites list and query statement used to filter out bad sites to the tools_shared_variables.py
-- Add print statements in eval_plots.py detailing the bad sites used and the query used to filter out bad sites
-- Update ahps preprocessing scripts to produce a domain shapefile
-- Change output filenames produced in ahps preprocessing scripts
-- Update workarounds for some sites in ahps preprocessing scripts
+- Comment out return statement causing `run_test_case.py` to skip over sites/hucs when calculating contingency rasters.
+- Move bad sites list and query statement used to filter out bad sites to the `tools_shared_variables.py`.
+- Add print statements in `eval_plots.py` detailing the bad sites used and the query used to filter out bad sites.
+- Update AHPS preprocessing scripts to produce a domain shapefile.
+- Change output filenames produced in ahps preprocessing scripts.
+- Update workarounds for some sites in ahps preprocessing scripts.
 
 <br/><br/>
 ## v3.0.16.1 - 2021-05-11 - [PR #380](https://github.com/NOAA-OWP/cahaba/pull/380)
