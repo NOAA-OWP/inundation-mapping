@@ -13,11 +13,14 @@ from gms.mosaic_inundation import Mosaic_inundation
 from gms.overlapping_inundation import OverlapWindowMerge
 from glob import glob
 
-def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True,ms=None):
+def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True, ms=None, fr_run_dir=None):
 
     # check ms input
     if ms not in {None,'MS','GMS'}:
         raise ValueError("MS argument needs to be None, \'MS\', or \'GMS.\'")
+
+    if (ms == "MS") & (fr_run_dir is None):
+        raise ValueError("fr_run_dir argument needs to be specified with MS configuration")
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
@@ -32,11 +35,13 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
     if os.path.exists(version_test_case_dir_parent):
         if overwrite == True:
             shutil.rmtree(version_test_case_dir_parent)
+        elif ms == 'MS':
+            pass
         else:
             print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.".format(version=version, test_id=test_id))
             return
 
-    os.makedirs(version_test_case_dir_parent)
+    os.makedirs(version_test_case_dir_parent,exist_ok=True)
 
     print("Running the alpha test for test_id: " + test_id + ", " + version + "...")
     stats_modes_list = ['total_area']
@@ -147,7 +152,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                 if ms == 'GMS':
 
                     Inundate_gms(
-                                 hydrofabric_dir =fim_run_parent, forecast=forecast, 
+                                 hydrofabric_dir=fim_run_parent, forecast=forecast, 
                                  inundation_raster=inundation_raster,
                                  inundation_polygon=None, depths_raster=None,
                                  quiet=False
@@ -155,7 +160,8 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                     
                     inundation_maps = glob( os.path.join(version_test_case_dir,'*.tif'))
                     Mosaic_inundation(inundation_maps,mosaic=predicted_raster_path,
-                                      mask=catchment_poly)
+                                      mask=catchment_poly,remove_inputs=True,
+                                      verbose=True)
                 
                 else:
                     inundate(
@@ -170,36 +176,39 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                 if ms=='MS':
                     
                     # Mainstems inundation
-                    fim_run_parent_ms = '20210318_665f534_MS/12090301'
+                    fr_run_parent = os.path.join(os.environ['outputDataDir'], fr_run_dir,current_huc)
+                    assert os.path.exists(fr_run_parent), "Cannot locate " + fr_run_parent
                     # need new file paths for rem, catchments, catchment_poly?, hydro_table, inundation_raster
                     
-                    rem_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'rem_zeroed_masked.tif')
-                    catchments_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'gw_catchments_reaches_filtered_addedAttributes.tif')
-                    catchment_poly_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-                    hydro_table_ms = os.path.join(os.environ['outputDataDir'],fim_run_parent_ms,'hydroTable.csv')
+                    #rem_fr = os.path.join(os.environ['outputDataDir'],fr_run_parent,'rem_zeroed_masked.tif')
+                    #catchments_fr = os.path.join(os.environ['outputDataDir'],fr_run_parent,'gw_catchments_reaches_filtered_addedAttributes.tif')
+                    #catchment_poly_fr = os.path.join(os.environ['outputDataDir'],fr_run_parent,'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+                    #hydro_table_fr = os.path.join(os.environ['outputDataDir'],fr_run_parent,'hydroTable.csv')
                     inundation_raster_ms = os.path.join(
                                         os.path.split(inundation_raster)[0], 
                                         os.path.split(inundation_raster)[1].replace('.tif', '_{}_MS.tif'.format(current_huc))
                                            )  
                     inundation_raster_fr = os.path.join(
-                                        os.path.split(inundation_raster)[0], 
-                                        os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'_FR.tif')
+                                        os.path.split(version_test_case_dir_parent)[0],
+                                        fr_run_dir,
+                                        magnitude,
+                                        os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
                                            )  
-                    os.rename(predicted_raster_path,inundation_raster_fr)
-                    
-                    inundate(
-                             rem_ms,catchments_ms,catchment_poly_ms,hydro_table_ms,forecast,
-                             mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                             subset_hucs=current_huc,num_workers=1,aggregate=False,
-                             inundation_raster=inundation_raster,inundation_polygon=None,
-                             depths=None,out_raster_profile=None,out_vector_profile=None,
-                             quiet=True
-                        )
                     os.rename(predicted_raster_path,inundation_raster_ms)
+
+                    #inundate(
+                    #         rem_fr,catchments_ms,catchment_poly_ms,hydro_table_ms,forecast,
+                    #         mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                    #         subset_hucs=current_huc,num_workers=1,aggregate=False,
+                    #         inundation_raster=inundation_raster,inundation_polygon=None,
+                    #         depths=None,out_raster_profile=None,out_vector_profile=None,
+                    #         quiet=True
+                    #    )
                     
-                    inundation_maps = glob( os.path.join(version_test_case_dir,'*.tif'))
+                    inundation_maps = [inundation_raster_fr,inundation_raster_ms]
                     Mosaic_inundation(inundation_maps,mosaic=predicted_raster_path,
-                                      nodata=0,mask=catchment_poly)
+                                      nodata=0,mask=catchment_poly,remove_inputs=False,
+                                      verbose=True)
 
                 print("-----> Inundation mapping complete.")
 
@@ -255,6 +264,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
     parser.add_argument('-s','--ms',help='Creates test case for Composite or GMS',required=False, default=None,choices=[None,'MS','GMS'])
+    parser.add_argument('-d','--fr-run-dir',help='Name of directory containing outputs of fim_run.sh for FR configuration',required=False,default=None)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

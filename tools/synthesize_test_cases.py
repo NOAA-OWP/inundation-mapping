@@ -209,6 +209,7 @@ def process_alpha_test(args):
     archive_results = args[4]
     overwrite = args[5]
     ms = args[6]
+    fr_run_dir = args[7]
 
     mask_type = 'huc'
 
@@ -218,7 +219,7 @@ def process_alpha_test(args):
         compare_to_previous = False
 
     try:
-        run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type, overwrite=overwrite,ms=ms)
+        run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type, overwrite=overwrite,ms=ms,fr_run_dir=fr_run_dir)
     except Exception as e:
         print(e)
 
@@ -235,6 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
     parser.add_argument('-t','--ms',help='Creates test case for Composite or GMS',required=False, default=None,choices=[None,'MS','GMS'])
+    parser.add_argument('-d','--fr-run-dir',help='Name of directory containing outputs of fim_run.sh for FR configuration',required=False,default=None)
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -246,6 +248,7 @@ if __name__ == '__main__':
     overwrite = args['overwrite']
     master_metrics_csv = args['master_metrics_csv']
     ms = args['ms']
+    fr_run_dir = args['fr_run_dir']
 
     if overwrite:
         if input("Are you sure you want to overwrite metrics? y/n: ") == "n":
@@ -323,10 +326,12 @@ if __name__ == '__main__':
                             # Either add to list to multiprocess or process serially, depending on user specification.
                             if job_number > 1:
                                 procs_list.append([fim_run_dir, version, test_id, magnitude, 
-                                                   archive_results, overwrite, ms])
+                                                   archive_results, overwrite, ms,fr_run_dir
+                                                  ])
                             else:
                                 process_alpha_test([fim_run_dir, version, test_id, magnitude, 
-                                                    archive_results, overwrite, ms])
+                                                    archive_results, overwrite, ms, fr_run_dir
+                                                  ])
 
     # Multiprocess alpha test runs.
     if job_number > 1:

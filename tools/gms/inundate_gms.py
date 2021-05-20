@@ -25,6 +25,23 @@ def Inundate_gms(
     if not quiet:
         print("Inundating branches ...")
     
+    # collect output filenames
+    if inundation_raster is not None:
+        inundation_raster_fileNames = [None] * len(branch_ids)
+    else:
+        inundation_raster_fileNames = None
+    if depths_raster is not None:
+        depths_raster_fileNames = [None] * len(branch_ids)
+    else:
+        depths_raster_fileNames = None
+    if inundation_polygon is not None:
+        inundation_polygon_fileNames = [None] * len(branch_ids)
+    else:
+        inundation_polygon_fileNames = None
+
+    # file names index generator
+    gen = iter(range(len(branch_ids)))
+
     # iterate over branches
     for branch_id in tqdm(branch_ids,disable=quiet):
         
@@ -45,9 +62,27 @@ def Inundate_gms(
                      inundation_polygon=inundation_branch_polygon,
                      depths=depths_branch_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
                     )
+            
+            # get index of filename outputs
+            idx = next(gen)
+
+            if inundation_branch_raster is not None:
+                inundation_raster_fileNames[idx] = inundation_branch_raster
+            if inundation_branch_polygon is not None:
+                inundation_polygon_fileNames[idx] = inundation_branch_polygon
+            if depths_branch_raster is not None:
+                depths_raster_fileNames[idx] = depths_branch_raster
+
         except Exception as e:
-            print("Error on BranchID: {}".format(branch_id))
-            print(e)
+            #print("Error on BranchID: {}".format(branch_id))
+            #print(e)
+            pass
+
+    return(
+            inundation_raster_fileNames,
+            inundation_polygon_fileNames,
+            depths_raster_fileNames
+           )
 
 def __append_id_to_file_name(file_name,identifier):
 
