@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+
+## v3.0.16.3 - 2021-05-21 - [PR #388](https://github.com/NOAA-OWP/cahaba/pull/388)
+
+Enhancement and bug fixes to `synthesize_test_cases.py`.
+
+## Changes
+- Addresses a bug where AHPS sites without benchmark data were receiving a CSI of 0 in the master metrics CSV produced by `synthesize_test_cases.py`.
+- Includes a feature enhancement to `synthesize_test_cases.py` that allows for the inclusion of user-specified testing versions in the master metrics CSV.
+- Removes some of the print statements used by `synthesize_test_cases.py`.
+
+<br/><br/>
 ## v3.0.16.2 - 2021-05-18 - [PR #384](https://github.com/NOAA-OWP/cahaba/pull/384)
 
 Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preprocessing scripts.
