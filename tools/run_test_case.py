@@ -135,7 +135,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             # Run inundate.
-            print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
+#            print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
             try:
                 inundate_test = inundate(
                          rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
@@ -143,7 +143,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                          depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
                         )
                 if inundate_test == 0:
-                    print("-----> Inundation mapping complete.")
+#                    print("-----> Inundation mapping complete.")
                     predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
 
                     # Define outputs for agreement_raster, stats_json, and stats_csv.
@@ -167,10 +167,11 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                         del mask_dict[ahps_lid]
 
                     print(" ")
-                    print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
+                    print("Evaluation metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
                     print(" ")
                 elif inundate_test == 1:
-                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
+                    pass
+#                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
                     #return
             except Exception as e:
                 print(e)
