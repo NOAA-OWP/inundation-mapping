@@ -281,6 +281,7 @@ if __name__ == '__main__':
 
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
+
             if 'validation' and 'other' not in test_id:
                 current_huc = test_id.split('_')[0]
                 if test_id.split('_')[1] in bench_cat:

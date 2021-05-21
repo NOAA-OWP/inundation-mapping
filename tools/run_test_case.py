@@ -97,12 +97,16 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
 
             for lid in lid_dir_list:
                 lid_dir = os.path.join(validation_data_path, current_huc, lid)
-                benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif'))  # TEMP
-                forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
-                lid_list.append(lid)
-                inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
-                domain_file_list.append(os.path.join(lid_dir, lid + '_domain.shp'))
-
+                benchmark_lid_raster_path = os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif')
+                
+                # Only compare if the benchmark data exist.
+                if os.path.exists(benchmark_lid_raster_path):
+                    benchmark_raster_path_list.append(benchmark_lid_raster_path)  # TEMP
+                    forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
+                    lid_list.append(lid)
+                    inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
+                    domain_file_list.append(os.path.join(lid_dir, lid + '_domain.shp'))
+                    
         else:
             benchmark_raster_file = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_extent_' + magnitude + '.tif')
             benchmark_raster_path_list = [benchmark_raster_file]
@@ -124,6 +128,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                      'operation': 'include'}
                         })
 
+                
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_domain_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             else:  # If not in AHPS_BENCHMARK_CATEGORIES.
