@@ -97,12 +97,16 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
 
             for lid in lid_dir_list:
                 lid_dir = os.path.join(validation_data_path, current_huc, lid)
-                benchmark_raster_path_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif'))  # TEMP
-                forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
-                lid_list.append(lid)
-                inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
-                domain_file_list.append(os.path.join(lid_dir, lid + '_domain.shp'))
-
+                benchmark_lid_raster_path = os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif')
+                
+                # Only compare if the benchmark data exist.
+                if os.path.exists(benchmark_lid_raster_path):
+                    benchmark_raster_path_list.append(benchmark_lid_raster_path)  # TEMP
+                    forecast_list.append(os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_flows_' + magnitude + '.csv'))  # TEMP
+                    lid_list.append(lid)
+                    inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
+                    domain_file_list.append(os.path.join(lid_dir, lid + '_domain.shp'))
+                    
         else:
             benchmark_raster_file = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_extent_' + magnitude + '.tif')
             benchmark_raster_path_list = [benchmark_raster_file]
@@ -124,13 +128,14 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                      'operation': 'include'}
                         })
 
+                
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_domain_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             else:  # If not in AHPS_BENCHMARK_CATEGORIES.
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             # Run inundate.
-            print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
+#            print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
             try:
                 inundate_test = inundate(
                          rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
@@ -138,7 +143,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                          depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
                         )
                 if inundate_test == 0:
-                    print("-----> Inundation mapping complete.")
+#                    print("-----> Inundation mapping complete.")
                     predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
 
                     # Define outputs for agreement_raster, stats_json, and stats_csv.
@@ -162,11 +167,12 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                         del mask_dict[ahps_lid]
 
                     print(" ")
-                    print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
+                    print("Evaluation metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
                     print(" ")
                 elif inundate_test == 1:
-                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
-                    return
+                    pass
+#                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
+                    #return
             except Exception as e:
                 print(e)
 

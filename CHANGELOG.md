@@ -1,6 +1,38 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+
+## v3.0.16.3 - 2021-05-21 - [PR #388](https://github.com/NOAA-OWP/cahaba/pull/388)
+
+Enhancement and bug fixes to `synthesize_test_cases.py`.
+
+## Changes
+- Addresses a bug where AHPS sites without benchmark data were receiving a CSI of 0 in the master metrics CSV produced by `synthesize_test_cases.py`.
+- Includes a feature enhancement to `synthesize_test_cases.py` that allows for the inclusion of user-specified testing versions in the master metrics CSV.
+- Removes some of the print statements used by `synthesize_test_cases.py`.
+
+<br/><br/>
+## v3.0.16.2 - 2021-05-18 - [PR #384](https://github.com/NOAA-OWP/cahaba/pull/384)
+
+Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preprocessing scripts.
+
+## Changes
+- Comment out return statement causing `run_test_case.py` to skip over sites/hucs when calculating contingency rasters.
+- Move bad sites list and query statement used to filter out bad sites to the `tools_shared_variables.py`.
+- Add print statements in `eval_plots.py` detailing the bad sites used and the query used to filter out bad sites.
+- Update AHPS preprocessing scripts to produce a domain shapefile.
+- Change output filenames produced in ahps preprocessing scripts.
+- Update workarounds for some sites in ahps preprocessing scripts.
+
+<br/><br/>
+## v3.0.16.1 - 2021-05-11 - [PR #380](https://github.com/NOAA-OWP/cahaba/pull/380)
+
+The current version of Eventlet used in the Connector module of the FIM API is outdated and vulnerable. This update bumps the version to the patched version.
+
+## Changes
+- Updated `api/node/connector/requirements.txt` to have the Eventlet version as 0.31.0
+
+<br/><br/>
 ## v3.0.16.0 - 2021-05-07 - [PR #378](https://github.com/NOAA-OWP/cahaba/pull/378)
 
 New "Release" feature added to the FIM API. This feature will allow for automated FIM, CatFIM, and relevant metrics to be generated when a new FIM Version is released. See [#373](https://github.com/NOAA-OWP/cahaba/issues/373) for more detailed steps that take place in this feature.
