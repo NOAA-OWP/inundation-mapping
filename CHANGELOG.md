@@ -1,9 +1,9 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
-## v3.0.16.5 - 2021-05-25 - [PR #395](https://github.com/NOAA-OWP/cahaba/pull/395)
+## v3.0.XX.X - 2021-05-XX - [PR #395](https://github.com/NOAA-OWP/cahaba/pull/395)
 
-Fix incorrectly assigned attributes in nws_lid.gpkg layer created from the "generate_nws_lid.py" script
+Bug fix to the `generate_nws_lid.py` script
 
 ## Changes
 - Fixes incorrectly assigned attribute field "is_headwater" for some sites in the nws_lid.gpkg layer.
