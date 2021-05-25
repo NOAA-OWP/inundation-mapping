@@ -127,10 +127,12 @@ def generate_nws_lid(workspace):
             [to_node] = network[from_node]
             #Walk downstream from target
             while to_node>0:
-                [to_node] = network[to_node]
                 #Check if to_node is in targets list
                 if to_node in targets:
-                    sub_dict[to_node] = 'not_headwater'    
+                    sub_dict[to_node] = 'not_headwater'  
+                #Assign downstream ID as to_node
+                [to_node] = network[to_node]
+  
         #Append status to master dictionary
         all_dicts.update(sub_dict)
     
