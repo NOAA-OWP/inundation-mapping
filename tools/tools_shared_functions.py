@@ -493,7 +493,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     import geopandas as gpd
     from shapely.geometry import box
 
-    print("-----> Evaluating performance across the total area...")
+#    print("-----> Evaluating performance across the total area...")
     # Load rasters.
     benchmark_src = rasterio.open(benchmark_raster_path)
     predicted_src = rasterio.open(predicted_raster_path)
@@ -553,7 +553,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                 if poly_all.empty:
                     continue
 
-                print("-----> Masking at " + poly_layer + "...")
+#                print("-----> Masking at " + poly_layer + "...")
                 #Project layer to reference crs.
                 poly_all_proj = poly_all.to_crs(reference.crs)
                 # check if there are any lakes within our reference raster extent.
@@ -636,7 +636,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                 if poly_all.empty:
                     continue
 
-                print("-----> Evaluating performance at " + poly_layer + "...")
+#                print("-----> Evaluating performance at " + poly_layer + "...")
                 #Project layer to reference crs.
                 poly_all_proj = poly_all.to_crs(reference.crs)
                 # check if there are any lakes within our reference raster extent.

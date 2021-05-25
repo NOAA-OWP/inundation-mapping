@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import numpy as np
 import pathlib
 from pathlib import Path
@@ -355,7 +354,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                     #Create Binary Grids, first create domain of analysis, then create binary grid
                     
                     #Domain extent is largest floodmap in the static library WITH holes filled
-                    filled_domain_raster = outputdir.parent / f'{code}_extent.tif'
+                    filled_domain_raster = outputdir.parent / f'{code}_filled_orig_domain.tif'
                     #Create a domain raster if it does not exist.
                     if not filled_domain_raster.exists():
                         #Open extent data as rasterio object
@@ -377,7 +376,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                                     
                     #Output binary benchmark grid and flow file to destination
                     outputdir.mkdir(parents = True, exist_ok = True)
-                    output_raster = outputdir / (f'ahps_{code}_huc_{huc}_depth_{i}.tif')
+                    output_raster = outputdir / (f'ahps_{code}_huc_{huc}_extent_{i}.tif')
                     with rasterio.Env():
                         with rasterio.open(output_raster, 'w', **boolean_profile) as dst:
                             dst.write(boolean_benchmark,1)
@@ -398,14 +397,17 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             f.write(traceback.format_exc())
             f.write('\n')
             print(traceback.format_exc())
-        #Create extent if ahps code subfolder is present in destination directory.
+        #Wrapup for ahps sites that were processed.
         ahps_directory = destination / huc / code
         if ahps_directory.exists():
-            #Delete extent raster
-            filled_extent = ahps_directory / f'{code}_extent.tif' 
-            if filled_extent.exists:
-                filled_extent.unlink()            
-    
+            #Delete original filled domain raster (it is an intermediate file to create benchmark data)
+            orig_domain_grid = ahps_directory / f'{code}_filled_orig_domain.tif'
+            orig_domain_grid.unlink()            
+            #Create domain shapefile from any benchmark grid for site (each benchmark has domain footprint, value = 0).
+            filled_extent = list(ahps_directory.rglob('*_extent_*.tif'))[0]
+            domain_gpd = raster_to_feature(grid = filled_extent, profile_override = False, footprint_only = True)           
+            domain_gpd['nws_lid'] = code
+            domain_gpd.to_file(ahps_directory / f'{code}_domain.shp')   
             #Populate attribute information for site
             grids_attributes = pd.DataFrame(data=grids.items(), columns = ['magnitude','path'])
             flows_attributes = pd.DataFrame(data=grid_flows.items(), columns=['magnitude','grid_flow_cfs'])
