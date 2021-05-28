@@ -11,6 +11,7 @@ import numpy as np
 from tqdm import tqdm
 from shapely.ops import linemerge
 from shapely.geometry import MultiLineString, LineString
+from shapely.strtree import STRtree
 
 class StreamNetwork(gpd.GeoDataFrame):
 
@@ -20,11 +21,12 @@ class StreamNetwork(gpd.GeoDataFrame):
     attribute_excluded = None
 
     def __init__(self,*args,**kwargs):
-
-        branch_id_attribute = kwargs.pop("branch_id_attribute",None)
-        values_excluded = kwargs.pop("values_excluded",None)
-        attribute_excluded = kwargs.pop("attribute_excluded",None)
-
+        
+        if kwargs:
+            branch_id_attribute = kwargs.pop("branch_id_attribute",None)
+            values_excluded = kwargs.pop("values_excluded",None)
+            attribute_excluded = kwargs.pop("attribute_excluded",None)
+        
         super().__init__(*args,**kwargs)
         
         self.branch_id_attribute = branch_id_attribute
@@ -128,7 +130,10 @@ class StreamNetwork(gpd.GeoDataFrame):
         for i,(reach_id,row) in enumerate(self.iterrows()):
             
             # get foss id for node_prefix
-            node_prefix = reach_id[0:4]
+            if len(node_prefix) > 0:
+                current_node_prefix = node_prefix
+            else:
+                current_node_prefix = str(reach_id)[0:4]
 
             reach_coordinates = list(row['geometry'].coords)
 
@@ -136,7 +141,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             outlet_coordinate = reach_coordinates[outlet_linestring_index]
             
             if inlet_coordinate not in node_coordinates:
-                current_node_id_with_prefix = node_prefix + current_node_id
+                current_node_id_with_prefix = current_node_prefix + current_node_id
                 node_coordinates[inlet_coordinate] = current_node_id_with_prefix
                 fromNodes[i] = current_node_id_with_prefix
                 
@@ -149,14 +154,14 @@ class StreamNetwork(gpd.GeoDataFrame):
                 fromNodes[i] = node_coordinates[inlet_coordinate]
 
             if outlet_coordinate not in node_coordinates:
-                current_node_id_with_prefix = node_prefix + current_node_id
+                current_node_id_with_prefix = current_node_prefix + current_node_id
                 node_coordinates[outlet_coordinate] = current_node_id_with_prefix
                 toNodes[i] = current_node_id_with_prefix
 
                 current_node_id = int(current_node_id.lstrip('0')) + 1
                 if current_node_id > max_node_value:
                     raise ValueError('Current Node ID exceeding max. Look at source code to change.')
-                current_node_id = str(current_node_id).zfill(max_node_digits)
+                current_node_id = str(current_node_id).zfill(max_post_node_digits)
 
             else:
                 toNodes[i] = node_coordinates[outlet_coordinate]
@@ -262,7 +267,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         outlet_boolean_mask = self[outlet_attribute] >= 0
         outlet_reach_ids = self.index[outlet_boolean_mask].tolist()
 
-        branch_ids = [ h[0:4] + str(b+1).zfill(max_branch_id_digits) for b,h in enumerate(outlet_reach_ids) ]
+        branch_ids = [ str(h)[0:4] + str(b+1).zfill(max_branch_id_digits) for b,h in enumerate(outlet_reach_ids) ]
 
         self.loc[outlet_reach_ids,branch_id_attribute] = branch_ids
         Q = deque(outlet_reach_ids)
@@ -457,6 +462,81 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return(self)
 
+    def derive_segments(self,inlets_attribute='inlet_id', reach_id_attribute='NHDPlusID'):
+        pass
+
+
+    def conflate_branches(self,target_stream_network,branch_id_attribute_left='branch_id',
+                          branch_id_attribute_right='branch_id', left_order_attribute='order_',
+                          right_order_attribute='order_',
+                          crosswalk_attribute='crosswalk_id', verbose=False):
+        
+        # get unique stream orders
+        orders = self.loc[:,right_order_attribute].unique()
+
+        # make a dictionary of STR trees for every stream order
+        trees = { o:STRtree(target_stream_network.geometry.tolist()) for o in orders }
+
+        # make the crosswalk id attribute and set index
+        self.loc[:,crosswalk_attribute] = [None] * len(self)
+        self.set_index(branch_id_attribute_left,inplace=True)
+
+        # loop through rows of self
+        for idx,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc="Conflating branches"):
+
+            g = row['geometry']
+            o = row[left_order_attribute]
+            
+            tree = trees[o]
+
+            # find nearest geom in target and its index
+            matching_geom = tree.nearest(g)
+            match_idx = target_stream_network.geometry == matching_geom
+            
+            # get the branch ids
+            right_branch_id = int(target_stream_network.loc[match_idx,branch_id_attribute_left])
+            left_branch_id = idx
+
+            # save the target matching branch id 
+            self.loc[left_branch_id,crosswalk_attribute] = right_branch_id
+
+        # reset indices
+        self.reset_index(inplace=True,drop=False)
+
+        return(self)
+        
+
+    def conflate_reaches_in_branches(self,left_branch_id='levpa_id',right_branch_id='levpa_id'):
+
+        
+        return(self)
+
+
+    def clip(self,mask,keep_geom_type=False,verbose=False):
+
+        if verbose:
+            print("Clipping streams to mask ...")
+        
+        # load mask
+        if isinstance(mask,gpd.GeoDataFrame):
+            pass
+        elif isinstance(mask,str):
+            mask = gpd.read_file(mask)
+        else:
+            raise TypeError("mask needs to be GeoDataFame or path to vector file")
+
+
+        branch_id_attribute = self.branch_id_attribute 
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+    
+        self = StreamNetwork(
+                             gpd.clip(self,mask,keep_geom_type).reset_index(drop=True),
+                             branch_id_attribute=branch_id_attribute,
+                             attribute_excluded=attribute_excluded,
+                             values_excluded=values_excluded)
+
+        return(self)
 
 
 class StreamBranchPolygons(StreamNetwork):

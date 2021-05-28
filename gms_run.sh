@@ -133,9 +133,9 @@ export input_nhd_headwaters_ms=$inputDataDir/nhdplus_vectors_aggregate/nhd_headw
 $srcDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
-if [ -d "$outputRunDataDir" ] && [ "$overwrite" -eq 1 ]; then
+if [[ ( -d "$outputRunDataDir" ) && ( "$overwrite" -eq 1 ) && ( ( "$extent" -eq "FR" ) || ( "$extent" -eq "MS" ) ) ]]; then
     rm -rf "$outputRunDataDir"
-elif [ -d "$outputRunDataDir" ] && [ "$overwrite_gms" -eq 1 ]; then
+elif [[ -d "$outputRunDataDir" && "$overwrite_gms" -eq 1 && "$extent" -eq "GMS" ]]; then
     find $outputRunDataDir -iname "gms" -type d -exec rm -rf {} +
 elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
     echo "$runName data directories already exist. Use -o/--overwrite to continue"
@@ -144,38 +144,45 @@ fi
 mkdir -p $outputRunDataDir/logs
 
 ## RUN ##
-if [ -f "$hucList" ]; then
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+if [[ ( ( "$extent" = "GMS" ) && ( "$overwrite" -eq 1 ) ) || ( ( "$extent" = "FR" ) || ( "$extent" = "MS" ) ) ]]; then
+    echo FR11 ; exit 1
+    if [ -f "$hucList" ]; then
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+        else
+            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+        fi
     else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+        else
+            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+        fi
     fi
-else
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-    else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-    fi
-fi
 
-echo "$viz"
-if [[ "$viz" -eq 1 ]]; then
-    # aggregate outputs
-    python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 4
+    echo "$viz"
+    if [[ "$viz" -eq 1 ]]; then
+        # aggregate outputs
+        python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 4
+    fi
 fi
 
 
 ## RUN GMS ##
-if [ -f "$hucList" ]; then
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $hucList
+if [ "$extent" = "GMS" ]; then
+    if [ -f "$hucList" ]; then
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $hucList
+        else
+            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $hucList
+        fi
     else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $hucList
-    fi
-else
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh ::: $hucList
-    else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh ::: $hucList
+        if [ "$jobLimit" -eq 1 ]; then
+            parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh ::: $hucList
+        else
+            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh ::: $hucList
+        fi
     fi
 fi
+
+# clean-up

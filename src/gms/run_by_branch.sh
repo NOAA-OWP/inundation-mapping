@@ -57,7 +57,6 @@ echo -e "memfree=$memfree"
 echo -e "branch_id_attribute=$branch_id_attribute"
 echo -e "branch_buffer_distance_meters=$branch_buffer_distance_meters"$stopDiv
 
-
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 $srcDir/gms/derive_level_paths.py -i $input_demDerived_reaches -b $branch_id_attribute -o $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -d $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
@@ -179,7 +178,7 @@ do
     echo -e $startDiv"Finalize catchments and model streams for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     date -u
     Tstart
-    $srcDir/add_crosswalk.py -d $outputGmsDataDir/gw_catchments_reaches_$current_branch_id.gpkg -a $outputGmsDataDir/demDerived_reaches_split_$current_branch_id.gpkg -s $outputGmsDataDir/src_base_$current_branch_id.csv -u $inputDataDir/bathymetry/BANKFULL_CONUS.txt -v $outputGmsDataDir/bathy_crosswalk_calcs.csv -e $outputGmsDataDir/bathy_stream_order_calcs.csv -g $outputGmsDataDir/bathy_thalweg_flag.csv -i $outputGmsDataDir/bathy_xs_area_hydroid_lookup.csv -l $outputGmsDataDir/gw_catchments_reaches_crosswalked_$current_branch_id.gpkg -f $outputGmsDataDir/demDerived_reaches_split_crosswalked_$current_branch_id.gpkg -r $outputGmsDataDir/src_full_$current_branch_id.csv -j $outputGmsDataDir/src_$current_branch_id.json -x $outputGmsDataDir/crosswalk_table_$current_branch_id.csv -t $outputGmsDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $outputHucDataDir/nwm_catchments_proj_subset.gpkg -p MS -k $outputGmsDataDir/small_segments.csv
+    $srcDir/add_crosswalk.py -d $outputGmsDataDir/gw_catchments_reaches_$current_branch_id.gpkg -a $outputGmsDataDir/demDerived_reaches_split_$current_branch_id.gpkg -s $outputGmsDataDir/src_base_$current_branch_id.csv -u $inputDataDir/bathymetry/BANKFULL_CONUS.txt -v $outputGmsDataDir/bathy_crosswalk_calcs_$current_branch_id.csv -e $outputGmsDataDir/bathy_stream_order_calcs_$current_branch_id.csv -g $outputGmsDataDir/bathy_thalweg_flag_$current_branch_id.csv -i $outputGmsDataDir/bathy_xs_area_hydroid_lookup_$current_branch_id.csv -l $outputGmsDataDir/gw_catchments_reaches_crosswalked_$current_branch_id.gpkg -f $outputGmsDataDir/demDerived_reaches_split_crosswalked_$current_branch_id.gpkg -r $outputGmsDataDir/src_full_$current_branch_id.csv -j $outputGmsDataDir/src_$current_branch_id.json -x $outputGmsDataDir/crosswalk_table_$current_branch_id.csv -t $outputGmsDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $outputHucDataDir/nwm_catchments_proj_subset.gpkg -p MS -k $outputGmsDataDir/small_segments.csv
     Tcount
 
     # make branch output directory and mv files to
@@ -188,6 +187,14 @@ do
         mkdir -p $branchOutputDir
     fi
     
+    if [ "$production" -eq 1 ]; then
+        echo -e $startDiv"Remove files for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
+        
+        cd $outputGmsDataDir
+        rm -f flowdir_$current_branch_id.tif stage_$current_branch_id.txt src_base_$current_branch_id.csv src_$current_branch_id.json demDerived_reaches_split_points_$current_branch_id.gpkg dem_thalwegCond_$current_branch_id.tif demDerived_pixels_points_$current_branch_id.gpkg demDerived_reaches_levelPaths_$current_branch_id.gpkg demDerived_reaches_levelPaths_dissolved_$current_branch_id.gpkg demDerived_reaches_$current_branch_id.gpkg idFile_$current_branch_id.txt demDerived_$current_branch_id.tif crosswalk_table_$current_branch_id.csv catch_list_$current_branch_id.txt gw_catchments_pixels_$current_branch_id.tif slopes_$current_branch_id.tif slopes_masked_$current_branch_id.tif demDerived_reaches_$current_branch_id.gpkg bathy_crosswalk_calcs_$current_branch_id.csv bathy_stream_order_calcs_$current_branch_id.csv bathy_thalweg_flag_$current_branch_id.csv bathy_xs_area_hydroid_lookup_$current_branch_id.csv demDerived_reaches_points_$current_branch_id.gpkg demDerived_reaches_split_$current_branch_id.gpkg rem_$current_branch_id.tif demDerived_reaches_points_$current_branch_id.gpkg
+        cd $OLDPWD
+    fi
+
     # mv files to branch output directory
     find $outputGmsDataDir -maxdepth 1 -type f -iname "*_$current_branch_id.*" -exec mv {} $branchOutputDir \;
 
@@ -195,15 +202,15 @@ done
 
 # TEMP: Remove files that are not in catchlist
 # rasters
-find $outputGmsDataDir -maxdepth 1 -type f -iname "dem_thalwegCond_*.tif" -delete
-find $outputGmsDataDir -maxdepth 1 -type f -iname "flowdir_*.tif" -delete
-find $outputGmsDataDir -maxdepth 1 -type f -iname "slopes_*.tif" -delete
-find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_*.tif" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "dem_thalwegCond_*.tif" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "flowdir_*.tif" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "slopes_*.tif" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_*.tif" -delete
 
 # vectors
-find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_reaches_*.gpkg" -delete
-find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_reaches_points_*.gpkg" -delete
-find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_pixels_points_*.gpkg" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_reaches_*.gpkg" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_reaches_points_*.gpkg" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "demDerived_pixels_points_*.gpkg" -delete
 
 # other
-find $outputGmsDataDir -maxdepth 1 -type f -iname "idFile_*.txt" -delete
+#find $outputGmsDataDir -maxdepth 1 -type f -iname "idFile_*.txt" -delete
