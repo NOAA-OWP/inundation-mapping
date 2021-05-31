@@ -69,7 +69,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         plt.axhline(y=ytick,color='black',linestyle = '--',linewidth = 1,alpha = 0.1)
     #Define y axis label and x axis label.
     axes.set_ylabel(f'{y_field}',fontsize='xx-large',weight = 'bold')
-    axes.set_xlabel('',fontsize=0,weight = 'bold')
+    axes.set_xlabel('Flood Magnitude',fontsize=0,weight = 'bold')
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
     axes.legend(markerscale = 2, fontsize =20, loc = 'lower left')
@@ -237,7 +237,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         plt.axhline(y=ytick,color='black',linestyle = '--',linewidth = 1,alpha = 0.1)
     #Define y axis label and x axis label.
     axes.set_ylabel(f'{y_field.upper()}',fontsize='xx-large',weight = 'bold')
-    axes.set_xlabel('',fontsize=0,weight = 'bold')
+    axes.set_xlabel('Flood Magnitude',fontsize=0,weight = 'bold')
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
     axes.legend(markerscale = 2, fontsize =20, loc = 'upper right')

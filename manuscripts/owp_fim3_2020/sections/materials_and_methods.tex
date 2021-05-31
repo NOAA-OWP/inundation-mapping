@@ -328,8 +328,10 @@ In the case of MS, the n value is 2 for the FR and MS inundation sources while f
 \label{ssec:evaluation_and_calibration}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
+\note[Fernando Aristizabal]{For Trevor Grout and Brad Bates}
 Evaluation of the OWP-FIM V3 Cahaba is conducted by comparison to the HEC-RAS 1D derived models produced by FEMA region 6 \cite{fema2021base,fema2021estimated}.
 The maps to the 1\% recurrence flow (1 in 100 year) and the 0.2\% recurrence flow (1 in 500 year) are furnished by FEMA so we used those corresponding discharges and mapping extents for evaluation.
+We did exclude NWM V2.1 Reservoirs buffered to XXXm from evaluation because these are not properly accounted for in the inundation.
 By not using the same HEC-RAS derived discharges and FIM extents, we are able to separate out errors imputed by hydrology, forcings, hydraulic routing, etc that we would have potentially seen if we used NWM forecasted discharges.
 We elected to spatially intersect the HEC-RAS cross sections with the NWM stream network assigning the 1\% and 0.2\% flow rates with each NWM reach. 
 To handle multiple intersections, we opted to use a filter to select the median discharge value attributed to each NWM reach.
