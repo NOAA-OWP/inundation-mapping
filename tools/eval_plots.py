@@ -14,6 +14,7 @@ sys.path.append('/foss_fim/src')
 from utils.shared_variables import VIZ_PROJECTION
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
+from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 
 #Get variables from .env file.
 load_dotenv()
@@ -69,7 +70,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         plt.axhline(y=ytick,color='black',linestyle = '--',linewidth = 1,alpha = 0.1)
     #Define y axis label and x axis label.
     axes.set_ylabel(f'{y_field}',fontsize='xx-large',weight = 'bold')
-    axes.set_xlabel('Flood Magnitude',fontsize=0,weight = 'bold')
+    axes.set_xlabel('',fontsize=0,weight = 'bold')
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
     axes.legend(markerscale = 2, fontsize =20, loc = 'lower left')
@@ -237,7 +238,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         plt.axhline(y=ytick,color='black',linestyle = '--',linewidth = 1,alpha = 0.1)
     #Define y axis label and x axis label.
     axes.set_ylabel(f'{y_field.upper()}',fontsize='xx-large',weight = 'bold')
-    axes.set_xlabel('Flood Magnitude',fontsize=0,weight = 'bold')
+    axes.set_xlabel('',fontsize=0,weight = 'bold')
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
     axes.legend(markerscale = 2, fontsize =20, loc = 'upper right')
@@ -338,7 +339,7 @@ def filter_dataframe(dataframe, unique_field):
 ##############################################################################
 #Main function to analyze metric csv.
 ##############################################################################
-def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , alternate_ahps_query = False, spatial = False, fim_1_ms = False, site_barplots = False):
+def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'] , spatial = False, fim_1_ms = False, site_barplots = False):
 
     '''
     Creates plots and summary statistics using metrics compiled from
@@ -411,10 +412,6 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         A list of statistics to be plotted. Must be identical to column
         field in metrics_csv. CSI, POD, TPR are currently calculated, if
         additional statistics are desired formulas would need to be coded.
-    alternate_ahps_query : STRING, optional
-        The default is false. Currently the default ahps query is same
-        as done for apg goals. If a different query is desired it can be
-        supplied and it will supercede the default query.
     spatial : BOOL, optional
         Creates spatial datasets of the base unit (ble: huc polygon, ahps: point) 
         with metrics contained in attribute tables. The geospatial data is 
@@ -483,16 +480,8 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             # Set the base processing unit for the ahps runs.
             base_resolution = 'nws_lid'
 
-            #Default query (used for APG) it could be that bad_sites should be modified. If so pass an alternate query using the "alternate_ahps_query"
-            bad_sites = ['grfi2','ksdm7','hohn4','rwdn4','efdn7','kilo1','chin7','segt2','eagi1','levk1','trbf1']
-            query = "not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites"
-
-            # If alternate ahps evaluation query argument is passed, use that.
-            if alternate_ahps_query:
-                query = alternate_ahps_query
-
-            # Filter the dataset based on query
-            ahps_metrics = benchmark_metrics.query(query)
+            # Filter the dataset based on query (IMPORTED FROM TOOLS_SHARED_VARIABLES.py)
+            ahps_metrics = benchmark_metrics.query(DISCARD_AHPS_QUERY)
 
             # Filter out all instances where the base_resolution doesn't exist across all desired fim versions for a given magnitude
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(ahps_metrics, base_resolution)
@@ -659,12 +648,11 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
 #######################################################################
 if __name__ == '__main__':
     # Parse arguments
-    parser = argparse.ArgumentParser(description = 'Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)')
+    parser = argparse.ArgumentParser(description = f'Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)')
     parser.add_argument('-m','--metrics_csv', help = 'Metrics csv created from synthesize test cases.', required = True)
     parser.add_argument('-w', '--workspace', help = 'Output workspace', required = True)
     parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
     parser.add_argument('-s', '--stats', help = 'List of statistics (abbrev to 3 letters) to be plotted/aggregated', nargs = '+', default = ['CSI','TPR','FAR'], required = False)
-    parser.add_argument('-q', '--alternate_ahps_query',help = 'Alternate filter query for AHPS. Default is: "not nws_lid.isnull() & not flow.isnull() & masked_perc<97 & not nws_lid in @bad_sites" where bad_sites are (grfi2,ksdm7,hohn4,rwdn4)', default = False, required = False)
     parser.add_argument('-sp', '--spatial', help = 'If enabled, creates spatial layers with metrics populated in attribute table.', action = 'store_true', required = False)
     parser.add_argument('-f', '--fim_1_ms', help = 'If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats', action = 'store_true', required = False)
     parser.add_argument('-i', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
@@ -677,10 +665,11 @@ if __name__ == '__main__':
     w = args['workspace']
     v = args['versions']
     s = args['stats']
-    q = args['alternate_ahps_query']
     sp= args['spatial']
     f = args['fim_1_ms']
     i = args['site_plots']
 
     # Run eval_plots function
-    eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, alternate_ahps_query = q, spatial = sp, fim_1_ms = f, site_barplots = i)
+    print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
+    print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
+    eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, spatial = sp, fim_1_ms = f, site_barplots = i)
