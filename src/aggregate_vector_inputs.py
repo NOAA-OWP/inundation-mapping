@@ -184,7 +184,8 @@ def find_nwm_incoming_streams(nwm_streams_,wbd,huc_unit):
 
 def collect_stream_attributes(nhdplus_vectors_dir, huc):
 
-    print ('Starting huc: ' + str(huc))
+    print (f"Starting attribute collection for HUC {huc}",flush=True)
+
     # Collecting NHDPlus HR attributes
     burnline_filename = os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '.gpkg')
     vaa_filename = os.path.join(nhdplus_vectors_dir,huc,'NHDPlusFlowLineVAA' + str(huc) + '.gpkg')
@@ -216,10 +217,10 @@ def collect_stream_attributes(nhdplus_vectors_dir, huc):
         nhd_streams.to_file(nhd_streams_agg_fileName,driver=getDriver(nhd_streams_agg_fileName),index=False)
         del nhd_streams
 
-        print ('finished huc: ' + str(huc))
+        print (f"finished attribute collection for HUC {huc}",flush=True)
 
     else:
-        print ('missing data for huc ' + str(huc))
+        print (f"missing data for HUC {huc}",flush=True)
 
 
 def subset_stream_networks(args, huc):
@@ -231,7 +232,7 @@ def subset_stream_networks(args, huc):
     nhdplus_vectors_dir                = args[4]
     nwm_huc4_intersections_filename    = args[5]
 
-    print("starting HUC " + str(huc),flush=True)
+    print(f"starting stream subset for HUC {huc}",flush=True)
     nwm_headwater_id = 'ID'
     ahps_headwater_id = 'nws_lid'
     headwater_pts_id = 'site_id'
@@ -297,7 +298,7 @@ def subset_stream_networks(args, huc):
 
         else:
 
-            print (f"skipping headwater adjustments for HUC: {huc}")
+            print (f"skipping headwater adjustments for HUC {huc}")
 
         del nhd_streams_fr
 
@@ -393,11 +394,11 @@ if(__name__=='__main__'):
             missing_subsets = missing_subsets + [huc]
 
     print (f"running subset_results on {len(missing_subsets)} HUC4s")
-    num_workers=11
+    num_workers=8
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Preprocess nhd hr and add attributes
-        collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
+        # collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
         # Subset nhd hr network
         subset_results = [executor.submit(subset_stream_networks, subset_arg_list, str(huc)) for huc in missing_subsets]
 
