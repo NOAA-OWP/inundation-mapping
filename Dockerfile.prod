@@ -4,7 +4,7 @@ WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
 ARG depDir=/dependencies
-ARG taudemVersion=bf9417172225a9ce2462f11138c72c569c253a1a
+ARG taudemVersion=8519cf0c61d280945473491d51ba368196146ce0
 ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
 ENV DEBIAN_FRONTEND noninteractive
 ENV taudemDir=$depDir/taudem/bin
