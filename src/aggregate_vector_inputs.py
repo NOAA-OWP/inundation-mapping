@@ -255,10 +255,16 @@ def subset_stream_networks(args, huc):
         selected_wbd8 = selected_wbd8.reset_index(drop=True)
 
         # Identify FR/NWM headwaters and subset HR network
-        nhd_streams_fr = subset_nhd_network(huc,huc_mask,selected_wbd8,nhd_streams_filename,nwm_headwaters_filename,nwm_headwater_id,nwm_huc4_intersections_filename)
+        try:
+            nhd_streams_fr = subset_nhd_network(huc,huc_mask,selected_wbd8,nhd_streams_filename,nwm_headwaters_filename,nwm_headwater_id,nwm_huc4_intersections_filename)
+        except:
+            print (f"Error subsetting NHD HR network for HUC {huc}",flush=True)
 
         # Identify nhd mainstem streams
-        nhd_streams_all = subset_nhd_network(huc,huc_mask,selected_wbd8,nhd_streams_fr,ahps_filename,ahps_headwater_id,nwm_huc4_intersections_filename,True)
+        try:
+            nhd_streams_all = subset_nhd_network(huc,huc_mask,selected_wbd8,nhd_streams_fr,ahps_filename,ahps_headwater_id,nwm_huc4_intersections_filename,True)
+        except:
+            print (f"Error identifing MS network for HUC {huc}",flush=True)
 
         # Identify HUC8 intersection points
         nhd_huc8_intersections = find_nwm_incoming_streams(nhd_streams_all,selected_wbd8,8)
@@ -302,6 +308,7 @@ def subset_stream_networks(args, huc):
 
         del nhd_streams_fr
 
+    print(f"finished stream subset for HUC {huc}",flush=True)
 
 def aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list):
 
@@ -394,7 +401,7 @@ if(__name__=='__main__'):
             missing_subsets = missing_subsets + [huc]
 
     print (f"running subset_results on {len(missing_subsets)} HUC4s")
-    num_workers=8
+    num_workers=11
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Preprocess nhd hr and add attributes
@@ -404,7 +411,8 @@ if(__name__=='__main__'):
 
     del wbd4,wbd8
 
-    # Aggregate fr and ms nhd netowrks for entire nwm domain
+    # Aggregate subset nhd networks for entire nwm domain
+    print ('Aggregating subset NHD networks for entire NWM domain')
     aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list)
 
     # Remove intermediate files
