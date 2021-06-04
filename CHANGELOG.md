@@ -8,6 +8,7 @@ Bug fix to the `generate_nws_lid.py` script
 
 ## Changes
 - Fixes incorrectly assigned attribute field "is_headwater" for some sites in the nws_lid.gpkg layer.
+- updated `agg_nhd_headwaters_adj.gpkg`, `agg_nhd_streams_adj.gpkg`, `nwm_flows.gpkg`, and `nwm_catchments.gpkg` input layers using latest NWS LIDs.
 
 <br/><br/>
 ## v3.0.17.0 - 2021-06-04 - [PR #393](https://github.com/NOAA-OWP/cahaba/pull/393)
