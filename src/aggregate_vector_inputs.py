@@ -400,12 +400,12 @@ if(__name__=='__main__'):
         if not os.path.isfile(streams_adj_path):
             missing_subsets = missing_subsets + [huc]
 
-    print (f"running subset_results on {len(missing_subsets)} HUC4s")
+    print (f"Subsetting stream network for {len(missing_subsets)} HUC4s")
     num_workers=11
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Preprocess nhd hr and add attributes
-        # collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
+        collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
         # Subset nhd hr network
         subset_results = [executor.submit(subset_stream_networks, subset_arg_list, str(huc)) for huc in missing_subsets]
 
