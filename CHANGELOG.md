@@ -3,14 +3,14 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
 ## v3.0.17.0 - 2021-06-04 - PR #393
-BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and allow user to choose input bankfull geometry
+BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and allow user to choose input bankfull geometry.
 
 ## Changes
 
 - Added new env variable to control which input file is used for the bankfull geometry input to bathy estimation workflow.
 - Modified the bathymetry cross section area calculation to cap the additional area value so that it cannot exceed the bankfull cross section area value for each stream segment (bankfull value obtained from regression equation dataset).
-- Modified the rating_curve_comparison.py plot output to always put the FIM rating curve on top of the USGS rating curve (avoids USGS points covering FIM).
-- Created a new aggregate csv file (aggregates for all hucs) for all of the usgs_elev_table.csv files (one per huc).
+- Modified the `rating_curve_comparison.py` plot output to always put the FIM rating curve on top of the USGS rating curve (avoids USGS points covering FIM).
+- Created a new aggregate csv file (aggregates for all hucs) for all of the `usgs_elev_table.csv` files (one per huc).
 - Evaluate the FIM Bathymetry Adjusted Rating Curve (BARC) tool performance using the estimated bankfull geometry dataset derived for the NWM route link dataset.
 
 <br/><br/>
