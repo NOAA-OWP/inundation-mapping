@@ -13,6 +13,7 @@ BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and a
 - Created a new aggregate csv file (aggregates for all hucs) for all of the usgs_elev_table.csv files (one per huc).
 - Evaluate the FIM Bathymetry Adjusted Rating Curve (BARC) tool performance using the estimated bankfull geometry dataset derived for the NWM route link dataset.
 
+<br/><br/>
 ## v3.0.16.3 - 2021-05-21 - [PR #388](https://github.com/NOAA-OWP/cahaba/pull/388)
 
 Enhancement and bug fixes to `synthesize_test_cases.py`.
