@@ -10,15 +10,17 @@ from gms import stream_branches as sb
 from shapely.geometry import MultiLineString
 
 
-def Crosswalk_nwm_demDerived(nwm_streams,demDerived,wbd=None,crosswalk=None,node_prefix=None,outfile=None,verbose=False):
+def Crosswalk_nwm_demDerived(nwm_streams, demDerived, wbd=None, node_prefix=None, sampling_size=None, 
+                             crosswalk_outfile=None, 
+                             demDerived_outfile=None, nwm_outfile=None, verbose=False):
     
-    nwm_streams = Add_traversal_to_NWM(nwm_streams,node_prefix=node_prefix,
-                                       outfile='/data/temp/continuity/nwm_streams_level_path.gpkg',
-                                       verbose=verbose)
-    
-    # clip nwm_streams
-    if wbd is not None:
-        nwm_streams = nwm_streams.clip(wbd,keep_geom_type=True,verbose=verbose)
+    # load nwm streams
+    if isinstance(nwm_streams,sb.StreamNetwork):
+        pass
+    elif isinstance(nwm_streams,str):
+        nwm_streams = sb.StreamNetwork.from_file(nwm_streams)
+    else:
+        raise TypeError("For nwm_streams pass file path string or GeoDataFrame object")
 
     # load demDerived
     if isinstance(demDerived,sb.StreamNetwork):
@@ -28,15 +30,49 @@ def Crosswalk_nwm_demDerived(nwm_streams,demDerived,wbd=None,crosswalk=None,node
     else:
         raise TypeError("demDerived pass file path string or GeoDataFrame object")
 
+    # clip nwm_streams
+    if wbd is not None:
+        nwm_streams = nwm_streams.clip(wbd,keep_geom_type=True,verbose=verbose)
+
+    # build traversal to nwm 
+    nwm_streams = Add_traversal_to_NWM(nwm_streams,node_prefix=node_prefix,
+                                       outfile=nwm_outfile,
+                                       verbose=verbose)
+
+    # create points for nwm and demDerived networks
+    nwm_points = nwm_streams.explode_to_points(reach_id_attribute='ID', sampling_size=sampling_size, 
+                                               verbose=verbose)
+    demDerived_points = demDerived.explode_to_points(reach_id_attribute='HydroID', sampling_size=sampling_size, 
+                                                     verbose=verbose)
+    
+    # conflate points
+    crosswalk_table = sb.StreamNetwork.conflate_points(demDerived_points, nwm_points,
+                                                         source_reach_id_attribute='HydroID',
+                                                         target_reach_id_attribute='ID',
+                                                         verbose=verbose)
+    
+    # merge crosswalk table
+    crosswalk_table.rename(columns={'ID':'feature_id'},inplace=True)
+    demDerived.drop(columns='feature_id',inplace=True,errors='raise')
+    demDerived['HydroID'] = demDerived['HydroID'].astype(int)
+    demDerived = demDerived.merge(crosswalk_table, how='left', left_on='HydroID', right_index=True)
+
+    """
     demDerived = demDerived.conflate_branches(target_stream_network=nwm_streams,branch_id_attribute_left='levpa_id',
                                                 branch_id_attribute_right='levpa_id',
                                                 left_order_attribute='order_', right_order_attribute='order_',
                                                 crosswalk_attribute='nwm_levpa_id',
                                                 verbose=verbose)
+    """
 
-    if outfile is not None:
-        demDerived.write(outfile,index=False,verbose=verbose)
+    if demDerived_outfile is not None:
+        demDerived.write(demDerived_outfile,index=False,verbose=verbose)
 
+    if crosswalk_outfile is not None:
+        crosswalk_table.to_csv(crosswalk_outfile,index=True)
+
+    #print(demDerived, crosswalk_table)
+    return(demDerived, crosswalk_table)
 
 
 def Add_traversal_to_NWM(nwm_streams,node_prefix=None,outfile=None,verbose=False):
@@ -60,7 +96,6 @@ def Add_traversal_to_NWM(nwm_streams,node_prefix=None,outfile=None,verbose=False
                                            reach_id_attribute='ID',
                                            outlet_linestring_index=-1,node_prefix=node_prefix,
                                            max_node_digits=8,verbose=verbose)
-
     # inlets and outlets
     nwm_streams = nwm_streams.derive_outlets(toNode_attribute='To_Node',fromNode_attribute='From_Node',
                                              outlets_attribute='outlet_id',verbose=verbose)
@@ -94,8 +129,8 @@ def Add_traversal_to_NWM(nwm_streams,node_prefix=None,outfile=None,verbose=False
                                max_branch_id_digits=6,
                                verbose=verbose)
 
-    nwm_streams = nwm_streams.dissolve_by_branch(branch_id_attribute='levpa_id', attribute_excluded=None,
-                                                 values_excluded=None, verbose=verbose)
+    #nwm_streams = nwm_streams.dissolve_by_branch(branch_id_attribute='levpa_id', attribute_excluded=None,
+    #                                             values_excluded=None, verbose=verbose)
     
     nwm_streams.reset_index(drop=True,inplace=True)
 
@@ -111,9 +146,11 @@ if __name__ == '__main__':
     parser.add_argument('-n','--nwm-streams', help='NWM Streams', required=True)
     parser.add_argument('-d','--demDerived', help='demDerived Streams', required=True)
     parser.add_argument('-w','--wbd', help='WBD File', required=False,default=None)
-    parser.add_argument('-c','--crosswalk', help='Crosswalk File', required=False,default=None)
     parser.add_argument('-p','--node-prefix', help='Node Prefix', required=False,default=None)
-    parser.add_argument('-o','--outfile', help='Streams Outfile', required=False, default=None)
+    parser.add_argument('-a','--sampling-size', help='Sample size for Points', required=False,default=None,type=int)
+    parser.add_argument('-c','--crosswalk-outfile', help='Crosswalk Out File', required=False,default=None)
+    parser.add_argument('-e','--demDerived-outfile', help='demDerived Out File', required=False,default=None)
+    parser.add_argument('-m','--nwm-outfile', help='NWM Streams Out File', required=False,default=None)
     parser.add_argument('-v','--verbose', help='Verbose', required=False,default=False,action='store_true')
 
     kwargs = vars(parser.parse_args())

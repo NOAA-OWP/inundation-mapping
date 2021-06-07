@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import geopandas as gpd
+import pandas as pd
 import rasterio
 from rasterio.mask import mask
 from rasterio.io import DatasetReader
@@ -10,8 +11,10 @@ from collections import deque
 import numpy as np
 from tqdm import tqdm
 from shapely.ops import linemerge
-from shapely.geometry import MultiLineString, LineString
+from shapely.geometry import MultiLineString, LineString, MultiPoint
 from shapely.strtree import STRtree
+from random import sample
+from scipy.stats import mode
 
 class StreamNetwork(gpd.GeoDataFrame):
 
@@ -70,6 +73,20 @@ class StreamNetwork(gpd.GeoDataFrame):
         self.to_file(fileName, driver=driver, layer=layer, index=index)
 
 
+    def merge(self,*args,**kwargs):
+        branch_id_attribute = self.branch_id_attribute
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+
+        self = super().merge(*args,**kwargs)
+
+        self = StreamNetwork(self,branch_id_attribute=branch_id_attribute,
+                             attribute_excluded=attribute_excluded,
+                             values_excluded=values_excluded)
+
+        return(self)
+
+
     def merge_stream_branches(self,stream_branch_dataset,on='NHDPlusID',branch_id_attribute='LevelPathI',attributes='StreamOrde',stream_branch_layer_name=None):
 
         """ Merges stream branch id attribute from another vector file """
@@ -119,16 +136,18 @@ class StreamNetwork(gpd.GeoDataFrame):
         max_node_value = int('9' * max_post_node_digits)
 
         # sets index of stream branches as reach id attribute
-        if self.index.name != reach_id_attribute:
-            self.set_index(reach_id_attribute,drop=True,inplace=True)
+        #if self.index.name != reach_id_attribute:
+            #self.set_index(reach_id_attribute,drop=True,inplace=True)
         
         inlet_coordinates, outlet_coordinates = dict(), dict()
         node_coordinates = dict()
         toNodes, fromNodes = [None] * len(self),[None] * len(self)
         current_node_id = '1'.zfill(max_post_node_digits)
 
-        for i,(reach_id,row) in enumerate(self.iterrows()):
+        for i,(_,row) in enumerate(self.iterrows()):
             
+            reach_id = row[reach_id_attribute]
+
             # get foss id for node_prefix
             if len(node_prefix) > 0:
                 current_node_prefix = node_prefix
@@ -168,6 +187,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         self.loc[:,fromNode_attribute] = fromNodes
         self.loc[:,toNode_attribute] = toNodes
+        
         
         return(self)
 
@@ -229,8 +249,10 @@ class StreamNetwork(gpd.GeoDataFrame):
             raise ValueError(f"Only {allowed_comparison_function} comparison functions allowed")
 
         # sets index of stream branches as reach id attribute
+        reset_index = False
         if self.index.name != reach_id_attribute:
             self.set_index(reach_id_attribute,drop=True,inplace=True)
+            reset_index = True
 
         # make upstream and downstream dictionaries if none are passed
         if upstreams is None:
@@ -326,6 +348,9 @@ class StreamNetwork(gpd.GeoDataFrame):
         
         progress.close()
 
+        if reset_index:
+            self.reset_index(drop=False,inplace=True)
+
         return(self)
 
 
@@ -335,17 +360,18 @@ class StreamNetwork(gpd.GeoDataFrame):
                                             verbose=False):
         
         # sets index of stream branches as reach id attribute
-        if self.index.name != reach_id_attribute:
-            self.set_index(reach_id_attribute,drop=True,inplace=True)
+        #if self.index.name != reach_id_attribute:
+        #    self.set_index(reach_id_attribute,drop=True,inplace=True)
 
         # find upstream and downstream dictionaries
         upstreams,downstreams = dict(),dict()
         
-        for reach_id,row in tqdm(self.iterrows(),disable=(not verbose),
-                                 total=len(self), desc='Upstream and downstream dictionaries'):
+        for _, row in tqdm(self.iterrows(),disable=(not verbose),
+                           total=len(self), desc='Upstream and downstream dictionaries'):
             
-            downstreams[reach_id] = self.index[ self[fromNode_attribute] == row[toNode_attribute] ].tolist() 
-            upstreams[reach_id] = self.index[ self[toNode_attribute] == row[fromNode_attribute] ].tolist()
+            reach_id = row[reach_id_attribute]
+            downstreams[reach_id] = self.loc[ self[fromNode_attribute] == row[toNode_attribute] , reach_id_attribute].tolist() 
+            upstreams[reach_id] = self.loc[ self[toNode_attribute] == row[fromNode_attribute] , reach_id_attribute].tolist()
         
         return(upstreams,downstreams)
 
@@ -359,8 +385,10 @@ class StreamNetwork(gpd.GeoDataFrame):
                         ):
         
         # sets index of stream branches as reach id attribute
+        reset_index = False
         if self.index.name != reach_id_attribute:
             self.set_index(reach_id_attribute,drop=True,inplace=True)
+            reset_index = True
 
         # make upstream and downstream dictionaries if none are passed
         if (upstreams is None) | (downstreams is None):
@@ -413,6 +441,9 @@ class StreamNetwork(gpd.GeoDataFrame):
                     self.loc[ds,arbolate_sum_attribute] += current_reach_arbolate_sum
         
         progress.close()
+    
+        if reset_index:
+            self.reset_index(drop=False,inplace=True)
 
         return(self)
 
@@ -506,10 +537,81 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
         
 
-    def conflate_reaches_in_branches(self,left_branch_id='levpa_id',right_branch_id='levpa_id'):
-
+    def explode_to_points(self,reach_id_attribute='NHDPlusID', sampling_size=None,
+                          verbose=False):
         
-        return(self)
+        points_gdf = self.copy()
+        points_gdf.reset_index(inplace=True,drop=True)
+
+        all_exploded_points = [None] * len(points_gdf)
+        for idx,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc='Exploding Points'):
+            
+            geom = row['geometry']
+            
+            exploded_points = [p for p in iter(geom.coords)]
+
+            if sampling_size is None:
+                exploded_points = MultiPoint(exploded_points)
+            else:
+                try:
+                    exploded_points = MultiPoint( sample(exploded_points,sampling_size) )
+                except ValueError:
+                    exploded_points = MultiPoint( exploded_points )
+            
+            all_exploded_points[idx] = exploded_points
+
+        points_gdf['geometry'] = all_exploded_points
+        
+        points_gdf = points_gdf.explode()
+        points_gdf.reset_index(inplace=True,drop=True)
+
+        return(points_gdf)
+
+
+    @staticmethod
+    def conflate_points(source_points,target_points,source_reach_id_attribute,target_reach_id_attribute,verbose=False):
+
+        tree = STRtree(target_points.geometry.tolist())
+
+        # find matching geometry
+        matches_dict = dict.fromkeys(source_points.loc[:,source_reach_id_attribute].astype(int).tolist(),[])
+        for idx,row in tqdm(source_points.iterrows(),total=len(source_points),disable=(not verbose),desc="Conflating points"):
+
+            geom = row['geometry']
+            nearest_target_point = tree.nearest(geom)
+            match_idx = target_points.index[target_points.geometry == nearest_target_point].tolist()
+            
+            if len(match_idx) > 1:
+                match_idx = match_idx[0]
+            else:
+                match_idx = match_idx[0]
+
+            matched_id = int(target_points.loc[match_idx,target_reach_id_attribute])
+            source_id = int(row[source_reach_id_attribute])
+            matches_dict[source_id] = matches_dict[source_id] + [matched_id]
+
+            #if len(matches_dict[source_id])>1:
+            #    print(matches_dict[source_id])
+
+        # get mode of matches
+        if verbose:
+            print("Finding mode of matches ...")
+
+        for source_id,matches in matches_dict.items():
+            majority = mode(matches).mode
+            matches_dict[source_id] = majority[0]
+        
+        
+        # make dataframe
+        if verbose:
+            print("Generating crosswalk table ...")
+
+        crosswalk_table = pd.DataFrame.from_dict(matches_dict,orient='index',
+                                                 columns=[target_reach_id_attribute])
+        crosswalk_table.index.name = source_reach_id_attribute
+
+
+        return(crosswalk_table)
 
 
     def clip(self,mask,keep_geom_type=False,verbose=False):

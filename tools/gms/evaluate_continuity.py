@@ -6,7 +6,8 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 
-def evaluate_continuity(stream_network_file,forecast_file,confluences_only=False,plot_file=None):
+def evaluate_continuity(stream_network_file,forecast_file,stream_network_outfile=None,
+                        confluences_only=False,plot_file=None):
 
     stream_network = gpd.read_file(stream_network_file)
     forecast = pd.read_csv(forecast_file)
@@ -41,6 +42,7 @@ def evaluate_continuity(stream_network_file,forecast_file,confluences_only=False
         stream_network = stream_network.loc[confluence_bool,:]
 
     actual_discharges, expected_discharges = [], []
+    expected_dischages_dict = dict()
     for idx,reach in stream_network.iterrows():
     
         hydroId = reach['HydroID']
@@ -48,13 +50,20 @@ def evaluate_continuity(stream_network_file,forecast_file,confluences_only=False
         try:
             upstream_discharges = upstream_dictionary[hydroId]
         except KeyError:
+            expected_dischages_dict[hydroId] = 0
             continue
 
         actual_discharges += [reach['discharge']]
         expected_discharges += [np.sum(upstream_discharges)]
+        expected_dischages_dict[hydroId] = np.sum(upstream_discharges)
 
 
     actual_discharges, expected_discharges = np.array(actual_discharges), np.array(expected_discharges)
+
+    # add to stream_network
+    expected_discharges_df = pd.DataFrame.from_dict(expected_dischages_dict,orient='index',
+                                                    columns=['expected_discharges'])
+    stream_network = stream_network.merge(expected_discharges_df, left_on='HydroID', right_index=True, how='left')
     
     number_of_reaches = len(stream_network)
     SMAPE = smape(actual_discharges,expected_discharges)
@@ -95,8 +104,10 @@ def evaluate_continuity(stream_network_file,forecast_file,confluences_only=False
     if plot_file is not None:
         fig.savefig(plot_file)
 
+    if stream_network_outfile is not None:
+        stream_network.to_file(stream_network_outfile,index=False,driver='GPKG')
 
-    return
+    return(stream_network)
 
 
 def smape(predicted,actual):
@@ -114,6 +125,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluating continuity')
     parser.add_argument('-s','--stream-network-file',help='Stream Network',required=True)
     parser.add_argument('-f','--forecast-file',help='Forecast File',required=True)
+    parser.add_argument('-o','--stream-network-outfile',help='Stream Network Outfile',required=False,default=None)
     parser.add_argument('-c','--confluences-only',help='Only at confluence reaches',required=False,default=False,action='store_true')
     parser.add_argument('-p','--plot-file',help='Plot File',required=False,default=None)
 
