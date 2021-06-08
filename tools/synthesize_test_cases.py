@@ -10,7 +10,7 @@ from run_test_case import run_alpha_test
 from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES
 
 
-def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
+def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
 
     # Construct header
     metrics_to_write = ['true_negatives_count',
@@ -61,9 +61,9 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
 
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
 
-    if dev_comparison != None:
+    if len(dev_versions_to_include_list) > 0:
         iteration_list = ['official', 'comparison']
-    if dev_comparison == None:
+    else:
         iteration_list = ['official']
 
     for benchmark_source in ['ble', 'nws', 'usgs']:
@@ -84,7 +84,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
-                            versions_to_aggregate = [dev_comparison]
+                            versions_to_aggregate = dev_versions_to_include_list
 
                         for magnitude in ['100yr', '500yr']:
                             for version in versions_to_aggregate:
@@ -140,7 +140,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
-                            versions_to_aggregate = [dev_comparison]
+                            versions_to_aggregate = dev_versions_to_include_list
 
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
@@ -228,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
+    parser.add_argument('-dc', '--dev-version-to-compare', nargs='+', help='Specify the name(s) of a dev (testing) version to include in master metrics CSV. Pass a space-delimited list.',required=False)
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
 
     # Assign variables from arguments.
@@ -238,6 +239,7 @@ if __name__ == '__main__':
     special_string = args['special_string']
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
+    dev_versions_to_compare = args['dev_version_to_compare']
     master_metrics_csv = args['master_metrics_csv']
 
     if overwrite:
@@ -301,7 +303,7 @@ if __name__ == '__main__':
 
                         if os.path.exists(fim_run_dir):
 
-                            # If a user supplies a specia_string (-s), then add it to the end of the created dirs.
+                            # If a user supplies a special_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
 
@@ -323,12 +325,15 @@ if __name__ == '__main__':
     if job_number > 1:
         with Pool(processes=job_number) as pool:
             pool.map(process_alpha_test, procs_list)
+            
+    if config == 'DEV':
+        if dev_versions_to_compare != None:
+            dev_versions_to_include_list = dev_versions_to_compare + [version]
+        else:
+            dev_versions_to_include_list = [version]
+    if config == 'PREV':
+        dev_versions_to_include_list = []
 
     # Do aggregate_metrics.
     print("Creating master metrics CSV...")
-
-    if config == 'DEV':
-        dev_comparison = fim_version + "_" + special_string
-    else:
-        dev_comparison = None
-    create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_comparison=dev_comparison)
+    create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_versions_to_include_list=dev_versions_to_include_list)
