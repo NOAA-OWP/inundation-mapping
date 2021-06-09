@@ -9,6 +9,7 @@ import numpy as np
 import argparse
 from r_grow_distance import r_grow_distance
 
+@profile
 def stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace):
     '''
     This function will assign a unique ID for each stream pixel and writes to file. It then uses this raster to run GRASS r.grow.distance tool to create the allocation and proximity rasters required to complete the lateral thalweg conditioning. 
