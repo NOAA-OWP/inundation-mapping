@@ -2,11 +2,160 @@
 import os
 import argparse
 from multiprocessing import Pool
-
+import csv
+import json
 
 from tools_shared_variables import TEST_CASES_DIR
 from tools_shared_functions import compute_contingency_stats_from_rasters
 
+
+def create_master_metrics_csv_alt(master_metrics_csv_output, json_list, version):
+
+    # Construct header
+    metrics_to_write = ['true_negatives_count',
+                        'false_negatives_count',
+                        'true_positives_count',
+                        'false_positives_count',
+                        'contingency_tot_count',
+                        'cell_area_m2',
+                        'TP_area_km2',
+                        'FP_area_km2',
+                        'TN_area_km2',
+                        'FN_area_km2',
+                        'contingency_tot_area_km2',
+                        'predPositive_area_km2',
+                        'predNegative_area_km2',
+                        'obsPositive_area_km2',
+                        'obsNegative_area_km2',
+                        'positiveDiff_area_km2',
+                        'CSI',
+                        'FAR',
+                        'TPR',
+                        'TNR',
+                        'PPV',
+                        'NPV',
+                        'ACC',
+                        'Bal_ACC',
+                        'MCC',
+                        'EQUITABLE_THREAT_SCORE',
+                        'PREVALENCE',
+                        'BIAS',
+                        'F1_SCORE',
+                        'TP_perc',
+                        'FP_perc',
+                        'TN_perc',
+                        'FN_perc',
+                        'predPositive_perc',
+                        'predNegative_perc',
+                        'obsPositive_perc',
+                        'obsNegative_perc',
+                        'positiveDiff_perc',
+                        'masked_count',
+                        'masked_perc',
+                        'masked_area_km2'
+                        ]
+
+    additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
+    list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config'] + ["calibrated"]]
+
+
+
+    for full_json_path in json_list:
+         
+         # Parse variables from json path.
+        split_json_handle = os.path.split(full_json_path)[1].split('_')
+        
+        benchmark_source = split_json_handle[2]
+        huc = split_json_handle[1]
+        nws_lid = split_json_handle[0]
+        magnitude = split_json_handle[3].replace('.json', '')
+                  
+        real_json_path = os.path.join(os.path.split(full_json_path)[0], nws_lid + '_b0m_stats.json')
+        
+        sub_list_to_append = [version, nws_lid, magnitude, huc]
+        
+        stats_dict = json.load(open(real_json_path))
+        for metric in metrics_to_write:
+            sub_list_to_append.append(stats_dict[metric])
+        sub_list_to_append.append(real_json_path)
+        sub_list_to_append.append('NA')
+        sub_list_to_append.append(benchmark_source)
+        sub_list_to_append.append('MS')
+        sub_list_to_append.append('yes')
+        
+        list_to_write.append(sub_list_to_append)
+
+
+    with open(master_metrics_csv_output, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerows(list_to_write)
+
+
+    """
+    for benchmark_source in ['nws', 'usgs']:
+        benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
+
+        test_cases_list = os.listdir(benchmark_test_case_dir)
+
+        for test_case in test_cases_list:
+            try:
+                int(test_case.split('_')[0])
+
+                huc = test_case.split('_')[0]
+
+                for iteration in iteration_list:
+
+                    for magnitude in ['action', 'minor', 'moderate', 'major']:
+                        for version in versions_to_aggregate:
+                            if '_fr' in version:
+                                extent_config = 'FR'
+                            elif '_ms' in version:
+                                extent_config = 'MS'
+                            else:
+                                extent_config = 'FR'
+                            if "_c" in version and version.split('_c')[1] == "":
+                                calibrated = "yes"
+                            else:
+                                calibrated = "no"
+
+                            version_dir = os.path.join(versions_to_crawl, version)
+                            magnitude_dir = os.path.join(version_dir, magnitude)
+                            if os.path.exists(magnitude_dir):
+                                magnitude_dir_list = os.listdir(magnitude_dir)
+                                for f in magnitude_dir_list:
+                                    if '.json' in f and 'total_area' not in f:
+                                        nws_lid = f[:5]
+                                        sub_list_to_append = [version, nws_lid, magnitude, huc]
+                                        full_json_path = os.path.join(magnitude_dir, f)
+                                        flow = ''
+                                        if os.path.exists(full_json_path):
+
+                                            # Get flow used to map.
+                                            flow_file = os.path.join(benchmark_test_case_dir, 'validation_data_' + benchmark_source, huc, nws_lid, magnitude, 'ahps_' + nws_lid + '_huc_' + huc + '_flows_' + magnitude + '.csv')
+                                            if os.path.exists(flow_file):
+                                                with open(flow_file, newline='') as csv_file:
+                                                    reader = csv.reader(csv_file)
+                                                    next(reader)
+                                                    for row in reader:
+                                                        flow = row[1]
+
+                                            stats_dict = json.load(open(full_json_path))
+                                            for metric in metrics_to_write:
+                                                sub_list_to_append.append(stats_dict[metric])
+                                            sub_list_to_append.append(full_json_path)
+                                            sub_list_to_append.append(flow)
+                                            sub_list_to_append.append(benchmark_source)
+                                            sub_list_to_append.append(extent_config)
+                                            sub_list_to_append.append(calibrated)
+
+                                            list_to_write.append(sub_list_to_append)
+                except ValueError:
+                    pass
+
+    with open(master_metrics_csv_output, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerows(list_to_write)
+    """
 
 def process_alt_comparison(args):
     
@@ -40,6 +189,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Produces metrics for alternative CatFIM.')
     parser.add_argument('-d','--catfim-directory',help='Path to directory storing CatFIM outputs. This is the most parent dir, usually named by a version.',required=True)
     parser.add_argument('-w','--output-workspace',help='Add a special name to the end of the branch.',required=True, default="")
+    parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=False,default=None)
     parser.add_argument('-j','--job-number',help='Number of processes to use. Default is 1.',required=False, default="1")
     
     # Assign variables from arguments.
@@ -47,6 +197,10 @@ if __name__ == '__main__':
     catfim_dir = args['catfim_directory']
     output_workspace = args['output_workspace']
     job_number = int(args['job_number'])
+    master_metrics_csv = args['master_metrics_csv']
+    
+    if master_metrics_csv == None:
+        master_metrics_csv = os.path.join(output_workspace, 'master_metrics.csv')
     
     if not os.path.exists(catfim_dir):
         print("CatFIM directory: " + catfim_dir + " does not exist.")
@@ -58,6 +212,7 @@ if __name__ == '__main__':
     catfim_dir_list = os.listdir(catfim_dir)
     
     procs_list = []
+    json_list = []
     
     for huc in catfim_dir_list:
         if len(huc) == 8:
@@ -110,18 +265,23 @@ if __name__ == '__main__':
                                             'waterbodies': {'path': '/data/test_cases/other/zones/nwm_v2_reservoirs.shp', 'buffer': None, 'operation': 'exclude'},
                                             site: {'path': '/data/test_cases/{benchmark_type}_test_cases/validation_data_{benchmark_type}/{huc}/{site}/{site}_domain.shp'.format(benchmark_type=benchmark_type, site=site, category=category, huc=huc), 'buffer': None, 'operation': 'include'}}
                                 
-                                # Either add to list to multiprocess or process serially, depending on user specification.
-                                if job_number > 1:
-                                    procs_list.append([predicted_raster_path, benchmark_raster_path, agreement_raster,stats_csv,stats_json,mask_values,stats_modes_list,test_id, mask_dict])
-                                else:
-                                    process_alt_comparison([predicted_raster_path, benchmark_raster_path, agreement_raster,stats_csv,stats_json, mask_values,stats_modes_list,test_id, mask_dict])
+                                json_list.append(stats_json)
+                                
+#                                # Either add to list to multiprocess or process serially, depending on user specification.
+#                                if job_number > 1:
+#                                    procs_list.append([predicted_raster_path, benchmark_raster_path, agreement_raster,stats_csv,stats_json,mask_values,stats_modes_list,test_id, mask_dict])
+#                                else:
+#                                    process_alt_comparison([predicted_raster_path, benchmark_raster_path, agreement_raster,stats_csv,stats_json, mask_values,stats_modes_list,test_id, mask_dict])
+#
+#    # Multiprocess.
+#    if job_number > 1:
+#        with Pool(processes=job_number) as pool:
+#            pool.map(process_alt_comparison, procs_list)
+#            
 
-    # Multiprocess.
-    if job_number > 1:
-        with Pool(processes=job_number) as pool:
-            pool.map(process_alt_comparison, procs_list)
-            
-                                        
+    version = os.path.split(output_workspace)[1]
+    create_master_metrics_csv_alt(master_metrics_csv, json_list, version)
+
             
     
     
