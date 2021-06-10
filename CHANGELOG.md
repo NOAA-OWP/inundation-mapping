@@ -2,6 +2,14 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.19.0 - 2021-06-10 - [PR #415](https://github.com/NOAA-OWP/cahaba/pull/415)
+
+Feature to evaluate performance of alternative CatFIM techniques.
+
+## Additions
+- Added `eval_catfim_alt.py` to evaluate performance of alternative CatFIM techniques.
+
+<br/><br/>
 ## v3.0.18.0 - 2021-06-09 - [PR #404](https://github.com/NOAA-OWP/cahaba/pull/404)
 
 To help analyze the memory consumption of the Fim Run process, the python module `memory-profiler` has been added to give insights into where peak memory usage is with in the codebase.
