@@ -10,7 +10,7 @@ from osgeo import ogr, gdal
 import geopandas as gpd
 from utils.shared_functions import getDriver
 
-
+@profile
 def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, dem_reaches_filename):
     """
         Calculates REM/HAND/Detrended DEM
