@@ -6,7 +6,7 @@ from numba import njit, typeof, typed, types
 import rasterio
 import numpy as np
 
-
+@profile
 def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster, cost_distance_raster, cost_distance_tolerance, dem_lateral_thalweg_adj):
 
     # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #

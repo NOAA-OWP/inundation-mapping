@@ -2,6 +2,51 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.19.0 - 2021-06-10 - [PR #415](https://github.com/NOAA-OWP/cahaba/pull/415)
+
+Feature to evaluate performance of alternative CatFIM techniques.
+
+## Additions
+- Added `eval_catfim_alt.py` to evaluate performance of alternative CatFIM techniques.
+
+<br/><br/>
+## v3.0.18.0 - 2021-06-09 - [PR #404](https://github.com/NOAA-OWP/cahaba/pull/404)
+
+To help analyze the memory consumption of the Fim Run process, the python module `memory-profiler` has been added to give insights into where peak memory usage is with in the codebase.
+
+In addition, the Dockerfile was previously broken due to the Taudem dependency removing the version that was previously being used by FIM. To fix this, and allow new docker images to be built, the Taudem version has been updated to the newest version on the Github repo and thus needs to be thoroughly tested to determine if this new version has affected the overall FIM outputs.
+
+## Additions
+- Added `memory-profiler` to `Pipfile` and `Pipfile.lock`.
+- Added `mprof` (memory-profiler cli utility) call to the `time_and_tee_run_by_unit.sh` to create overall memory usage graph location in the `/logs/{HUC}_memory.png` of the outputs directory.
+- Added `@profile` decorator to all functions within scripts used in the `run_by_unit.sh` script to allow for memory usage tracking, which is then recorded in the `/logs/{HUC}.log` file of the outputs directory.
+
+## Changes
+- Changed the Taudem version in `Dockerfile.dev` to `98137bb6541a0d0077a9c95becfed4e56d0aa0ac`.
+- Changed all calls of python scripts in `run_by_unit.s` to be called with the `-m memory-profiler` argument to allow scripts to also track memory usage.
+
+<br/><br/>
+## v3.0.17.1 - 2021-06-04 - [PR #395](https://github.com/NOAA-OWP/cahaba/pull/395)
+
+Bug fix to the `generate_nws_lid.py` script
+
+## Changes
+- Fixes incorrectly assigned attribute field "is_headwater" for some sites in the `nws_lid.gpkg` layer.
+- Updated `agg_nhd_headwaters_adj.gpkg`, `agg_nhd_streams_adj.gpkg`, `nwm_flows.gpkg`, and `nwm_catchments.gpkg` input layers using latest NWS LIDs.
+
+<br/><br/>
+## v3.0.17.0 - 2021-06-04 - [PR #393](https://github.com/NOAA-OWP/cahaba/pull/393)
+BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and allow user to choose input bankfull geometry.
+
+## Changes
+
+- Added new env variable to control which input file is used for the bankfull geometry input to bathy estimation workflow.
+- Modified the bathymetry cross section area calculation to cap the additional area value so that it cannot exceed the bankfull cross section area value for each stream segment (bankfull value obtained from regression equation dataset).
+- Modified the `rating_curve_comparison.py` plot output to always put the FIM rating curve on top of the USGS rating curve (avoids USGS points covering FIM).
+- Created a new aggregate csv file (aggregates for all hucs) for all of the `usgs_elev_table.csv` files (one per huc).
+- Evaluate the FIM Bathymetry Adjusted Rating Curve (BARC) tool performance using the estimated bankfull geometry dataset derived for the NWM route link dataset.
+
+<br/><br/>
 ## v3.0.16.3 - 2021-05-21 - [PR #388](https://github.com/NOAA-OWP/cahaba/pull/388)
 
 Enhancement and bug fixes to `synthesize_test_cases.py`.
