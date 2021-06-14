@@ -79,7 +79,7 @@ def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster,
 
                     elevation_difference = dem_thalweg_elevation - zone_min_elevation
 
-                    if (zone_min_elevation < dem_thalweg_elevation) and (elevation_difference <= 5):
+                    if (zone_min_elevation < dem_thalweg_elevation) and (elevation_difference <= 3):
                         dem_window_to_return[i] = zone_min_elevation
 
         return(dem_window_to_return)

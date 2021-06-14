@@ -196,7 +196,7 @@ def compare_thalweg(args):
 
         # Identify significant rises/drops in elevation
         thal_adj_points['elev_change'] = thal_adj_points.groupby(['headwater_path', 'source'])['elevation_m'].apply(lambda x: x - x.shift())
-        elev_changes = thal_adj_points.loc[(thal_adj_points.elev_change<=-5.0) | (thal_adj_points.elev_change>0.0)]
+        elev_changes = thal_adj_points.loc[(thal_adj_points.elev_change<=-3.0) | (thal_adj_points.elev_change>0.0)]
 
         if not elev_changes.empty:
             # elev_changes.to_csv(profile_table_filename,index=False)
