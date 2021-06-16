@@ -631,13 +631,15 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         ################################################################
         #This section joins ble (FR) metrics to a spatial layer of HUCs.
         ################################################################
-        if all_datasets.get(('ble','FR')):            
+        if all_datasets.get(('ble','FR')) and all_datasets.get(('ifc','FR')):            
             #Select BLE, FR dataset.
             ble_dataset, sites = all_datasets.get(('ble','FR'))         
+            ifc_dataset, sites = all_datasets.get(('ifc','FR'))               
+            huc_datasets = ble_dataset.append(ifc_dataset)
             #Read in HUC spatial layer
             wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')             
             #Join metrics to HUC spatial layer
-            wbd_with_metrics = wbd_gdf.merge(ble_dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
+            wbd_with_metrics = wbd_gdf.merge(huc_datasets, how = 'inner', left_on = 'HUC8', right_on = 'huc')
             #Filter out unnecessary columns
             wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
             wbd_with_metrics.rename(columns = {'benchmark_source':'source'}, inplace = True )
@@ -646,26 +648,26 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             #Write out to file
             wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
         else:
-            print('BLE FR datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a FR version')
-        ################################################################
-        #This section joins ifc statewide metrics to a spatial layer of HUCs.
-        ################################################################
-        if all_datasets.get(('ifc','FR')):            
-            #Select BLE, FR dataset.
-            ble_dataset, sites = all_datasets.get(('ifc','FR'))         
-            #Read in HUC spatial layer
-            wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')             
-            #Join metrics to HUC spatial layer
-            wbd_with_metrics = wbd_gdf.merge(ble_dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
-            #Filter out unnecessary columns
-            wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
-            wbd_with_metrics.rename(columns = {'benchmark_source':'source'}, inplace = True )
-            #Project to VIZ projection
-            wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
-            #Write out to file
-            wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys_ifc.shp')
-        else:
-            print('IFC FR datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a FR version')
+            print('BLE/IFC FR datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a FR version')
+        # ################################################################
+        # #This section joins ifc statewide metrics to a spatial layer of HUCs.
+        # ################################################################
+        # if all_datasets.get(('ifc','FR')):            
+        #     #Select BLE, FR dataset.
+        #     ble_dataset, sites = all_datasets.get(('ifc','FR'))         
+        #     #Read in HUC spatial layer
+        #     wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')             
+        #     #Join metrics to HUC spatial layer
+        #     wbd_with_metrics = wbd_gdf.merge(ble_dataset, how = 'inner', left_on = 'HUC8', right_on = 'huc')
+        #     #Filter out unnecessary columns
+        #     wbd_with_metrics = wbd_with_metrics.filter(['version','magnitude','huc','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source','geometry'])
+        #     wbd_with_metrics.rename(columns = {'benchmark_source':'source'}, inplace = True )
+        #     #Project to VIZ projection
+        #     wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
+        #     #Write out to file
+        #     wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys_ifc.shp')
+        # else:
+        #     print('IFC FR datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a FR version')
 #######################################################################
 if __name__ == '__main__':
     # Parse arguments
