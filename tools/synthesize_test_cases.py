@@ -7,7 +7,7 @@ import json
 import csv
 
 from run_test_case import run_alpha_test
-from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES
+from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, BLE_MAGNITUDE_LIST, IFC_MAGNITUDE_LIST
 
 
 def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
@@ -66,9 +66,14 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
     else:
         iteration_list = ['official']
 
-    for benchmark_source in ['ble', 'nws', 'usgs']:
+    for benchmark_source in ['ble', 'nws', 'usgs', 'ifc']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
-        if benchmark_source == 'ble':
+        if benchmark_source in ['ble', 'ifc']:
+            
+            if benchmark_source == 'ble':
+                magnitude_list = BLE_MAGNITUDE_LIST
+            if benchmark_source == 'ifc':
+                magnitude_list = IFC_MAGNITUDE_LIST
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
             for test_case in test_cases_list:
@@ -86,7 +91,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             versions_to_aggregate = dev_versions_to_include_list
 
-                        for magnitude in ['100yr', '500yr']:
+                        for magnitude in magnitude_list:
                             for version in versions_to_aggregate:
                                 if '_fr' in version:
                                     extent_config = 'FR'
@@ -107,7 +112,6 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                                         if '.json' in f:
                                             flow = 'NA'
                                             nws_lid = "NA"
-                                            benchmark_source = 'ble'
                                             sub_list_to_append = [version, nws_lid, magnitude, huc]
                                             full_json_path = os.path.join(magnitude_dir, f)
                                             if os.path.exists(full_json_path):
@@ -286,7 +290,6 @@ if __name__ == '__main__':
             if 'validation' and 'other' not in test_id:
                 current_huc = test_id.split('_')[0]
                 if test_id.split('_')[1] in bench_cat:
-
                     # Loop through versions.
                     for version in previous_fim_list:
                         if config == 'DEV':
@@ -309,9 +312,11 @@ if __name__ == '__main__':
 
                             # Define the magnitude lists to use, depending on test_id.
                             if 'ble' in test_id:
-                                magnitude = ['100yr', '500yr']
-                            elif 'usgs' or 'nws' in test_id:
+                                magnitude = BLE_MAGNITUDE_LIST
+                            if 'usgs' or 'nws' in test_id:
                                 magnitude = ['action', 'minor', 'moderate', 'major']
+                            if 'ifc' in test_id:
+                                magnitude = IFC_MAGNITUDE_LIST
                             else:
                                 continue
 
