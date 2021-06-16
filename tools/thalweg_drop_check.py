@@ -196,7 +196,7 @@ def compare_thalweg(args):
 
         # Identify significant rises/drops in elevation
         thal_adj_points['elev_change'] = thal_adj_points.groupby(['headwater_path', 'source'])['elevation_m'].apply(lambda x: x - x.shift())
-        elev_changes = thal_adj_points.loc[(thal_adj_points.elev_change<=-3.0) | (thal_adj_points.elev_change>0.0)]
+        elev_changes = thal_adj_points.loc[(thal_adj_points.elev_change<=-lateral_elevation_threshold) | (thal_adj_points.elev_change>0.0)]
 
         if not elev_changes.empty:
             # elev_changes.to_csv(profile_table_filename,index=False)
@@ -314,6 +314,7 @@ if __name__ == '__main__':
     # parser.add_argument('-rasters','--raster-list',help='list of rasters to be evaluated',required=True,type=str)
     parser.add_argument('-stream_type','--stream-type',help='stream layer to be evaluated',required=True,type=str,choices=['derived','burnline'])
     parser.add_argument('-point_density','--point-density',help='elevation sampling density',required=True,type=str,choices=['midpoints','all_points'])
+    parser.add_argument('-th','--elevation_threshold',help='significant elevation drop threshold in meters.',required=True)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
 
     args = vars(parser.parse_args())

@@ -7,7 +7,7 @@ import rasterio
 import numpy as np
 
 @profile
-def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster, cost_distance_raster, cost_distance_tolerance, dem_lateral_thalweg_adj):
+def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster, cost_distance_raster, cost_distance_tolerance, dem_lateral_thalweg_adj,lateral_elevation_threshold):
 
     # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
     # The following algorithm searches for the zonal minimum elevation in each pixel catchment
@@ -79,7 +79,7 @@ def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster,
 
                     elevation_difference = dem_thalweg_elevation - zone_min_elevation
 
-                    if (zone_min_elevation < dem_thalweg_elevation) and (elevation_difference <= 3):
+                    if (zone_min_elevation < dem_thalweg_elevation) and (elevation_difference <= lateral_elevation_threshold):
                         dem_window_to_return[i] = zone_min_elevation
 
         return(dem_window_to_return)
@@ -122,6 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('-d','--cost_distance_raster',help='Raster of cost distances for the allocation raster.',required=True)
     parser.add_argument('-t','--cost_distance_tolerance',help='Tolerance in meters to use when searching for zonal minimum.',required=True)
     parser.add_argument('-o','--dem_lateral_thalweg_adj',help='Output elevation raster with adjusted thalweg.',required=True)
+    parser.add_argument('-th','--lateral_elevation_threshold',help='Maximum difference between current thalweg elevation and lowest lateral elevation in meters.',required=True)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
