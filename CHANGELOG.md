@@ -2,6 +2,25 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.19.1 - 2021-06-17 - [PR #417](https://github.com/NOAA-OWP/cahaba/pull/417)
+
+Feature to evaluate performance of alternative CatFIM techniques.
+
+## Additions
+- `thalweg_drop_check.py` checks the elevation along the thalweg for each stream path downstream of MS headwaters within a HUC.
+
+## Removals
+- Removing 'dissolveLinks' arg from `clip_vectors_to_wbd.py`.
+
+
+## Changes
+- Cleaned up code in `split_flows.py` to make it more readable.
+- Refactored `reduce_nhd_stream_density.py` and `adjust_headwater_streams.py` to limit MS headwater points in `agg_nhd_headwaters_adj.gpkg`.
+- Fixed a bug in `adjust_thalweg_lateral.py` lateral elevation replacement threshold; changed threshold to 3 meters.
+- Updated `aggregate_vector_inputs.py` to log intermediate processes.
+
+<br/><br/>
+
 ## v3.0.19.0 - 2021-06-10 - [PR #415](https://github.com/NOAA-OWP/cahaba/pull/415)
 
 Feature to evaluate performance of alternative CatFIM techniques.
