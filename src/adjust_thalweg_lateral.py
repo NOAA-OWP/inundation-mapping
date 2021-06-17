@@ -122,7 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('-d','--cost_distance_raster',help='Raster of cost distances for the allocation raster.',required=True)
     parser.add_argument('-t','--cost_distance_tolerance',help='Tolerance in meters to use when searching for zonal minimum.',required=True)
     parser.add_argument('-o','--dem_lateral_thalweg_adj',help='Output elevation raster with adjusted thalweg.',required=True)
-    parser.add_argument('-th','--lateral_elevation_threshold',help='Maximum difference between current thalweg elevation and lowest lateral elevation in meters.',required=True)
+    parser.add_argument('-th','--lateral_elevation_threshold',help='Maximum difference between current thalweg elevation and lowest lateral elevation in meters.',required=True,type=int)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
