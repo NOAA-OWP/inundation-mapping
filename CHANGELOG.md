@@ -10,7 +10,7 @@ Adding a thalweg profile tool to identify significant drops in thalweg elevation
 - `thalweg_drop_check.py` checks the elevation along the thalweg for each stream path downstream of MS headwaters within a HUC.
 
 ## Removals
-- Removing 'dissolveLinks' arg from `clip_vectors_to_wbd.py`.
+- Removing `dissolveLinks` arg from `clip_vectors_to_wbd.py`.
 
 
 ## Changes
