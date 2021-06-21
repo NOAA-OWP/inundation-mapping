@@ -181,27 +181,19 @@ if tResults[0] == 'OK':
 else:
     print ('Error: Could not add network attributes to stream segments')
 
-# Get Outlet Point Only
-#outlet = OrderedDict()
-#for i,segment in split_flows_gdf.iterrows():
-#    outlet[segment.geometry.coords[-1]] = segment[hydro_id]
-
-#hydroIDs_points = [hidp for hidp in outlet.values()]
-#split_points = [Point(*point) for point in outlet]
-
 # Get all vertices
 split_points = OrderedDict()
-for row in split_flows_gdf[['geometry',hydro_id, 'NextDownID']].iterrows():
-    lineString = row[1][0]
+for index, segment in split_flows_gdf.iterrows():
+    lineString = segment.geometry
 
     for point in zip(*lineString.coords.xy):
         if point in split_points:
-            if row[1][2] == split_points[point]:
+            if segment.NextDownID == split_points[point]:
                 pass
             else:
-                split_points[point] = row[1][1]
+                split_points[point] = segment[hydro_id]
         else:
-            split_points[point] = row[1][1]
+            split_points[point] = segment[hydro_id]
 
 hydroIDs_points = [hidp for hidp in split_points.values()]
 split_points = [Point(*point) for point in split_points]
