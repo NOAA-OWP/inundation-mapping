@@ -175,8 +175,6 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                                                         next(reader)
                                                         for row in reader:
                                                             flow = row[1]
-                                                        if nws_lid == 'mcc01':
-                                                            print(flow)
 
                                                 stats_dict = json.load(open(full_json_path))
                                                 for metric in metrics_to_write:

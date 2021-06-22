@@ -7,6 +7,7 @@ from collections import deque
 import argparse
 import pygeos
 from shapely.wkb import dumps
+from shapely.geometry import Point
 from utils.shared_functions import getDriver
 
 
@@ -29,7 +30,7 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
     for index, row in selected_wbd8.iterrows():
         huc = row["HUC8"]
 
-        # Double check that this is a nested HUC (probably overkill)
+        # Double check that this is a nested HUC
         if huc.startswith(str(huc4)):
 
             huc8_mask = selected_wbd8.loc[selected_wbd8.HUC8==huc]
@@ -44,6 +45,9 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
                 streams_subset = gpd.read_file(nhd_streams_, mask = huc8_mask)
             else:
                 streams_subset = nhd_streams.loc[nhd_streams.HUC8==huc].copy()
+                if headwaters_mask.is_headwater.dtype != 'int': headwaters_mask.is_headwater = headwaters_mask.is_headwater.astype('int')
+                if headwaters_mask.is_colocated.dtype != 'int': headwaters_mask.is_colocated = headwaters_mask.is_colocated.astype('int')
+                headwaters_mask = headwaters_mask.loc[headwaters_mask.is_headwater==True]
 
             if not streams_subset.empty:
                 streams_subset[headwater_col] = False
@@ -63,14 +67,14 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
                 # Add headwaters_id column
                 streams_subset[id_col] = n
 
-                # Find stream segment closest to headwater point
+                distance_from_upstream = {}
                 for index, point in headwaters_mask.iterrows():
 
                     # Convert headwaterpoint geometries to WKB representation
-                    wkb_points = dumps(point.geometry)
+                    wkb_point = dumps(point.geometry)
 
                     # Create pygeos headwaterpoint geometries from WKB representation
-                    pointbin_geom = pygeos.io.from_wkb(wkb_points)
+                    pointbin_geom = pygeos.io.from_wkb(wkb_point)
 
                     # Distance to each stream segment
                     distances = pygeos.measurement.distance(streambin_geom, pointbin_geom)
@@ -78,9 +82,30 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
                     # Find minimum distance
                     min_index = np.argmin(distances)
 
+                    headwater_point_name = point[headwater_id]
+
+                    # Find stream segment closest to headwater point
+                    if mainstem_flag==True:
+
+                        if point.is_colocated==True:
+
+                            closest_stream = streams_subset.iloc[min_index]
+                            distance_to_line = point.geometry.distance(Point(closest_stream.geometry.coords[-1]))
+
+                            print(f"{point.nws_lid} distance on line {closest_stream.NHDPlusID}:  {np.round(distance_to_line,1)}")
+                            if not closest_stream.NHDPlusID in distance_from_upstream.keys():
+
+                                distance_from_upstream[closest_stream.NHDPlusID] = [point.nws_lid,distance_to_line]
+
+                            elif distance_from_upstream[closest_stream.NHDPlusID][1] > distance_to_line:
+
+                                distance_from_upstream[closest_stream.NHDPlusID] = [point.nws_lid,distance_to_line]
+
+                            headwater_point_name = distance_from_upstream[closest_stream.NHDPlusID][0]
+
                     # Closest segment to headwater
                     streams_subset.loc[min_index,headwater_col] = True
-                    streams_subset.loc[min_index,id_col] = point[headwater_id]
+                    streams_subset.loc[min_index,id_col] = headwater_point_name
 
                 headwater_streams = headwater_streams.append(streams_subset[['NHDPlusID',headwater_col,id_col,'HUC8']])
 

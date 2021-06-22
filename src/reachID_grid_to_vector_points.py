@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8
 
-from osgeo import gdal
 import numpy as np
 import osgeo.ogr
 import osgeo.osr
 import sys
-
-import cProfile
+import argparse
 from tqdm import tqdm
 import geopandas as gpd
+from utils.shared_variables import PREP_PROJECTION
 from shapely.geometry import Point
-from raster import Raster
+import rasterio
 from utils.shared_functions import getDriver
 
 """
@@ -19,67 +17,55 @@ USAGE:
 ./reachID_grid_to_vector_points.py <flows_grid_IDs raster file> <flows_points vector file> <reachID or featureID>
 
 """
+def convert_grid_cells_to_points(raster,index_option,output_points_filename=False):
 
-path = sys.argv[1]
-outputFileName = sys.argv[2]
-writeOption = sys.argv[3]
+    # Input raster
+    if isinstance(raster,str):
+        raster = rasterio.open(raster,'r')
 
-#r = gdal.Open(path)
-#band = r.GetRasterBand(1)
-boolean=Raster(path)
+    elif isinstance(raster,rasterio.io.DatasetReader):
+        pass
 
-#(upper_left_x, x_size, x_rotation, upper_left_y, y_rotation, y_size) = r.GetGeoTransform()
-(upper_left_x, x_size, x_rotation, upper_left_y, y_rotation, y_size) = boolean.gt
+    else:
+        raise TypeError("Pass raster dataset or filepath for raster")
 
-#a = band.ReadAsArray().astype(np.float)
+    (upper_left_x, x_size, x_rotation, upper_left_y, y_rotation, y_size) = raster.get_transform()
+    indices = np.nonzero(raster.read(1) >= 1)
 
-# indices = np.nonzero(a != band.GetNoDataValue())
-indices = np.nonzero(boolean.array >= 1)
+    id =[None] * len(indices[0]);points = [None]*len(indices[0])
 
-# Init the shapefile stuff..
-#srs = osgeo.osr.SpatialReference()
-#srs.ImportFromWkt(r.GetProjection())
+    # Iterate over the Numpy points..
+    i = 1
+    for y_index,x_index in zip(*indices):
+        x = x_index * x_size + upper_left_x + (x_size / 2) # add half the cell size
+        y = y_index * y_size + upper_left_y + (y_size / 2) # to center the point
+        points[i-1] = Point(x,y)
+        if index_option == 'reachID':
+            reachID = np.array(list(raster.sample((Point(x,y).coords), indexes=1))).item() # check this; needs to add raster cell value + index
+            id[i-1] = reachID*10000 + i #reachID + i/100
+        elif (index_option == 'featureID') |(index_option == 'pixelID'):
+            id[i-1] = i
+        i += 1
 
-#driver = osgeo.ogr.GetDriverByName('GPKG')
-#shapeData = driver.CreateDataSource(outputFileName)
+    pointGDF = gpd.GeoDataFrame({'id' : id, 'geometry' : points},crs=PREP_PROJECTION,geometry='geometry')
 
-#layer = shapeData.CreateLayer('ogr_pts', srs, osgeo.ogr.wkbPoint)
-#layerDefinition = layer.GetLayerDefn()
+    if output_points_filename == False:
+        return pointGDF
+    else:
+        pointGDF.to_file(output_points_filename,driver=getDriver(output_points_filename),index=False)
 
-#idField = osgeo.ogr.FieldDefn("id", osgeo.ogr.OFTInteger)
-#layer.CreateField(idField)
+if __name__ == '__main__':
 
-id =[None] * len(indices[0]);points = [None]*len(indices[0])
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='Converts a raster to points')
+    parser.add_argument('-r','--raster',help='Raster to be converted to points',required=True,type=str)
+    parser.add_argument('-i', '--index-option',help='Indexing option',required=True,type=str,choices=['reachID','featureID','pixelID'])
+    parser.add_argument('-p', '--output-points-filename',help='Output points layer filename',required=False,type=str,default=False)
 
-# Iterate over the Numpy points..
-i = 1
-for y_index,x_index in tqdm(zip(*indices),total=len(indices[0])):
-    x = x_index * x_size + upper_left_x + (x_size / 2) #add half the cell size
-    y = y_index * y_size + upper_left_y + (y_size / 2) #to centre the point
+    args = vars(parser.parse_args())
 
-    # get raster value
-    #reachID = a[y_index,x_index]
+    raster = args['raster']
+    index_option = args['index_option']
+    output_points_filename = args['output_points_filename']
 
-    #point = osgeo.ogr.Geometry(osgeo.ogr.wkbPoint)
-    #point.SetPoint(0, x, y)
-    points[i-1] = Point(x,y)
-
-    #feature = osgeo.ogr.Feature(layerDefinition)
-    #feature.SetGeometry(point)
-    #feature.SetFID(i)
-    if writeOption == 'reachID':
-        reachID = a[y_index,x_index]
-        id[i-1] = reachID
-	#feature.SetField("id",reachID)
-    elif (writeOption == 'featureID') |( writeOption == 'pixelID'):
-        #feature.SetField("id",i)
-        id[i-1] = i
-    #layer.CreateFeature(feature)
-
-    i += 1
-
-pointGDF = gpd.GeoDataFrame({'id' : id, 'geometry' : points},crs=boolean.proj,geometry='geometry')
-pointGDF.to_file(outputFileName,driver=getDriver(outputFileName),index=False)
-
-print("Complete")
-#shapeData.Destroy()
+    convert_grid_cells_to_points(raster,index_option,output_points_filename)
