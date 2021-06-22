@@ -132,9 +132,8 @@ python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputHucDataDir/dem_
 Tcount
 
 ## DEM Reconditioning ##
-# Using AGREE methodology, hydroenforce the DEM so that it is consistent
-# with the supplied stream network. This allows for more realistic catchment
-# delineation which is ultimately reflected in the output FIM mapping.
+# Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
+# This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer"$stopDiv
 date -u
 Tstart
@@ -191,7 +190,7 @@ Tcount
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/adjust_thalweg_lateral.py -e $outputHucDataDir/dem_meters.tif -s $outputHucDataDir/demDerived_streamPixels.tif -a $outputHucDataDir/demDerived_streamPixels_ids_allo.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 20 -o $outputHucDataDir/dem_lateral_thalweg_adj.tif
+python3 -m memory_profiler $srcDir/adjust_thalweg_lateral.py -e $outputHucDataDir/dem_meters.tif -s $outputHucDataDir/demDerived_streamPixels.tif -a $outputHucDataDir/demDerived_streamPixels_ids_allo.tif -d $outputHucDataDir/demDerived_streamPixels_ids_dist.tif -t 20 -o $outputHucDataDir/dem_lateral_thalweg_adj.tif -th $thalweg_lateral_elev_threshold
 Tcount
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
@@ -277,7 +276,7 @@ echo -e $startDiv"Vectorize Pixel Centroids $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/flows_points_pixels.gpkg ] && \
-$srcDir/reachID_grid_to_vector_points.py $demDerived_streamPixels $outputHucDataDir/flows_points_pixels.gpkg featureID
+$srcDir/reachID_grid_to_vector_points.py -r $demDerived_streamPixels -i featureID -p $outputHucDataDir/flows_points_pixels.gpkg
 Tcount
 
 ## GAGE WATERSHED FOR PIXELS ##

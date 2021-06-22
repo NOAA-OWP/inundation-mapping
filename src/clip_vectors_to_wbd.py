@@ -8,7 +8,8 @@ from shapely.geometry import MultiPolygon,Polygon,Point
 from utils.shared_functions import getDriver
 
 @profile
-def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance,dissolveLinks=False):
+def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance):
+
     hucUnitLength = len(str(hucCode))
 
     # Get wbd buffer
@@ -88,6 +89,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         nhd_streams = nhd_streams.loc[nhd_streams.mainstem==1]
 
     if len(nhd_streams) > 0:
+
         # Find incoming stream segments (to WBD buffer) and identify which are upstream
         threshold_segments = gpd.overlay(nhd_streams, wbd_buffer, how='symmetric_difference')
         from_list = threshold_segments.FromNode.to_list()
@@ -148,8 +150,6 @@ if __name__ == '__main__':
     parser.add_argument('-gl','--great-lakes-filename',help='Great Lakes layer',required=True)
     parser.add_argument('-wb','--wbd-buffer-distance',help='WBD Mask buffer distance',required=True,type=int)
     parser.add_argument('-lb','--lake-buffer-distance',help='Great Lakes Mask buffer distance',required=True,type=int)
-    parser.add_argument('-o','--dissolve-links',help='remove multi-line strings',action="store_true",default=False)
-
 
     args = vars(parser.parse_args())
 
@@ -174,6 +174,5 @@ if __name__ == '__main__':
     great_lakes_filename = args['great_lakes_filename']
     wbd_buffer_distance = args['wbd_buffer_distance']
     lake_buffer_distance  = args['lake_buffer_distance']
-    dissolveLinks = args['dissolve_links']
 
-    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance,dissolveLinks)
+    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance)
