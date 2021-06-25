@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import os
-import csv
-import json
-import shutil
 import argparse
+
 
 @profile
 def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, viz_post_processing):

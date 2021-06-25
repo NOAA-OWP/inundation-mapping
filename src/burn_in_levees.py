@@ -4,9 +4,11 @@ import rasterio
 import numpy as np
 import argparse
 
+
 @profile
 def burn_in_levees(dem_filename,nld_filename,out_dem_filename):
 
+    #TODO Document this code
     dem = rasterio.open(dem_filename)
     nld = rasterio.open(nld_filename)
 

@@ -11,13 +11,10 @@ Description:
 
 import sys
 import geopandas as gpd
-import pandas as pd
-from shapely.geometry import Point, LineString, MultiPoint
+from shapely.geometry import Point, LineString
 import rasterio
 import numpy as np
-import argparse
 from tqdm import tqdm
-import time
 from os.path import isfile
 from os import remove,environ
 from collections import OrderedDict
@@ -209,3 +206,5 @@ split_flows_gdf.to_file(split_flows_fileName,driver=getDriver(split_flows_fileNa
 if isfile(split_points_fileName):
     remove(split_points_fileName)
 split_points_gdf.to_file(split_points_fileName,driver=getDriver(split_points_fileName),index=False)
+
+# TODO we need a main block

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-from numba import njit, typeof, typed, types
+from numba import njit, typed, types
 import rasterio
 import numpy as np
 import argparse
-import os
 import pandas as pd
-from osgeo import ogr, gdal
 import geopandas as gpd
 from utils.shared_functions import getDriver
+
 
 @profile
 def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, dem_reaches_filename):
@@ -175,7 +174,6 @@ if __name__ == '__main__':
     parser.add_argument('-o','--rem',help='Output REM raster',required=True)
     parser.add_argument('-i','--hydroid', help='HydroID raster to use within project path', required=True)
     parser.add_argument('-s','--dem_reaches_in_out',help='DEM derived reach layer to join HAND reference elevation attribute',required=True)
-
 
     # extract to dictionary
     args = vars(parser.parse_args())

@@ -2,7 +2,7 @@
 
 
 import argparse
-from numba import njit, typeof, typed, types
+from numba import njit, typed, types
 import rasterio
 import numpy as np
 

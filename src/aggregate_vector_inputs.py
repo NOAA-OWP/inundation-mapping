@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 # sys.path.append('/foss_fim/src')
 import geopandas as gpd
 from utils.shared_variables import PREP_PROJECTION
 from utils.shared_functions import getDriver
-from derive_headwaters import findHeadWaterPoints
 from reduce_nhd_stream_density import subset_nhd_network
 from adjust_headwater_streams import adjust_headwaters
 from shapely.geometry import Point
@@ -310,6 +308,7 @@ def subset_stream_networks(args, huc):
 
     print(f"finished stream subset for HUC {huc}",flush=True)
 
+
 def aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list):
 
     for huc in huc_list:
@@ -359,32 +358,9 @@ def clean_up_intermediate_files(nhdplus_vectors_dir):
             os.remove(headwater_adj_path)
 
 
-if(__name__=='__main__'):
+if __name__ == '__main__':
 
     # # Generate NWM Headwaters
-    # print ('deriving nwm headwater points')
-    # nwm_headwaters = findHeadWaterPoints(nwm_streams_orig_filename)
-    # nwm_headwaters['ID'] = nwm_headwaters.index + 1
-    # nwm_headwaters.to_file(nwm_headwaters_filename,driver=getDriver(nwm_headwaters_filename),index=False,layer='nwm_headwaters')
-    # del nwm_headwaters, nwm_streams
-    #
-    # # Identify NWM MS Streams
-    # print ('identifing nwm ms streams')
-    # ms_segments = identify_nwm_ms_streams(nwm_streams_orig_filename,ahps_filename,nwm_streams_all_filename)
-    #
-    # # Identify NWM MS Catchments
-    # print ('identifing nwm ms catchments')
-    # nwm_catchments = gpd.read_file(nwm_catchments_orig_filename)
-    # # Add column to FR nwm layer to indicate MS segments
-    # nwm_catchments['mainstem'] = np.where(nwm_catchments.ID.isin(ms_segments), 1, 0)
-    # nwm_catchments.to_file(nwm_catchments_all_filename,driver=getDriver(nwm_catchments_all_filename),index=False,layer='nwm_catchments')
-    # del nwm_catchments, ms_segments
-
-    # # Generate NWM intersection points with WBD4 boundaries
-    # print ('deriving NWM fr/ms intersection points')
-    # huc4_intersection = find_nwm_incoming_streams(nwm_streams_all_filename,wbd_filename,4)
-    # huc4_intersection.to_file(nwm_huc4_intersections_filename,driver=getDriver(nwm_huc4_intersections_filename),layer='huc4_intersection')
-    # del huc4_intersection
 
     print ('loading HUC4s')
     wbd4 = gpd.read_file(wbd_filename, layer='WBDHU4')

@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import geopandas as gpd
-import pandas as pd
 import numpy as np
-import argparse
 import sys
 from utils.shared_variables import FIM_ID
 
@@ -46,3 +44,5 @@ if len(output_flows) > 0:
 
     output_catchments.to_file(output_catchments_fileName, driver="GPKG",index=False)
     output_flows.to_file(output_flows_fileName, driver="GPKG", index=False)
+    
+#TODO We need a main block

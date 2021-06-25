@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import os
 import geopandas as gpd
 import pandas as pd
-import numpy as np
 import rasterio
 import argparse
 import pygeos
@@ -40,7 +38,6 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     input_flows = gpd.read_file(input_flows_filename)
     input_catchment = gpd.read_file(input_catchment_filename)
     dem_adj = rasterio.open(dem_adj_filename,'r')
-
 
     #MS extent use gages that are mainstem
     if extent == "MS":
@@ -100,7 +97,6 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
         # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
         site_elevations = [str(gage.location_id), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order)]
         gage_data.append(site_elevations)
-
 
     elev_table = pd.DataFrame(gage_data, columns=columns)
 

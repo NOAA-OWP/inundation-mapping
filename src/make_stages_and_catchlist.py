@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
 import geopandas as gpd
-import pandas as pd
 import numpy as np
-import argparse
 import sys
-import decimal
 
 flows_fileName = sys.argv[1]
 catchments_fileName = sys.argv[2]
@@ -38,3 +35,5 @@ with open(catchlist_fileName,'w') as f:
     f.write("{}\n".format(len_of_hydroIDs))
     for h,s,l,a in zip(hydroIDs,slopes,lengthkm,areasqkm):
         f.write("{} {} {} {}\n".format(h,s,l,a))
+
+#TODO we need a main block

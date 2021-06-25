@@ -9,6 +9,7 @@ import numpy as np
 import argparse
 from r_grow_distance import r_grow_distance
 
+
 @profile
 def stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace):
     '''
@@ -56,6 +57,7 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace):
 
     return distance_grid, allocation_grid
 
+
 if __name__ == '__main__':
 
     #Parse arguments
@@ -74,6 +76,3 @@ if __name__ == '__main__':
     
     # Run stream_pixel_zones
     stream_pixel_zones(stream_pixels, unique_stream_pixels, grass_workspace)
-
-
-

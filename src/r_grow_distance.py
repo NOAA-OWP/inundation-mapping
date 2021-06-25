@@ -5,6 +5,7 @@ import shutil
 import grass.script as gscript
 import argparse
 
+
 def r_grow_distance(input_raster, grass_workspace, proximity_dtype, allocation_dtype):
     '''
     Runs the r.grow.distance GRASS gis tool which given an input raster will produce an output proximity (or distance) and euclidian allocation tool.
@@ -75,6 +76,7 @@ def r_grow_distance(input_raster, grass_workspace, proximity_dtype, allocation_d
     shutil.rmtree(grass_gisdb)
     
     return output_proximity_path,output_allocation_path
+
 
 if __name__ == '__main__':
 

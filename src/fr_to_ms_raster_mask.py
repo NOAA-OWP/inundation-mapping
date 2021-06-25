@@ -9,16 +9,16 @@ import os
 import geopandas as gpd
 import rasterio.mask
 
-split_flows_fileName    = sys.argv[1]
-fdr_fr                  = sys.argv[2]
-dem_fr                  = sys.argv[3]
-slope_fr                = sys.argv[4]
-fdr_ms_filename         = sys.argv[5]
-dem_ms_filename         = sys.argv[6]
-slope_ms_filename       = sys.argv[7]
-str_pixel_fr            = sys.argv[8]
-str_pixel_ms_filename   = sys.argv[9]
-ms_buffer_dist          = int(os.environ['ms_buffer_dist'])
+split_flows_fileName = sys.argv[1]
+fdr_fr = sys.argv[2]
+dem_fr = sys.argv[3]
+slope_fr = sys.argv[4]
+fdr_ms_filename = sys.argv[5]
+dem_ms_filename = sys.argv[6]
+slope_ms_filename = sys.argv[7]
+str_pixel_fr = sys.argv[8]
+str_pixel_ms_filename = sys.argv[9]
+ms_buffer_dist = int(os.environ['ms_buffer_dist'])
 
 # create output layer names
 split_flows = gpd.read_file(split_flows_fileName)
@@ -81,3 +81,5 @@ out_meta.update({"driver": "GTiff",
 
 with rasterio.open(os.path.join(os.path.dirname(str_pixel_fr), str_pixel_ms_filename), "w", **out_meta) as dest:
     dest.write(out_image)
+    
+#TODO We need a main block

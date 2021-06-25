@@ -3,9 +3,9 @@
 import sys
 import geopandas as gpd
 import argparse
-from os.path import splitext
-from shapely.geometry import MultiPolygon,Polygon,Point
+from shapely.geometry import MultiPolygon,Polygon
 from utils.shared_functions import getDriver
+
 
 @profile
 def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance):
@@ -125,6 +125,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         nwm_streams = nwm_streams.loc[nwm_streams.mainstem==1]
     nwm_streams.to_file(subset_nwm_streams_filename,driver=getDriver(subset_nwm_streams_filename),index=False)
     del nwm_streams
+
 
 if __name__ == '__main__':
 
