@@ -17,7 +17,6 @@ import argparse
 from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
-import sys
 
 
 def inundate(
