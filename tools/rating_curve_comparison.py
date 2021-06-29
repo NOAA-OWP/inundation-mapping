@@ -287,7 +287,7 @@ def generate_facet_plot(rc, plot_filename):
         columns = 1
 
     sns.set(style="ticks")
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source",sharex=False, sharey=False,col_wrap=columns)
+    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
     g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
@@ -414,6 +414,7 @@ if __name__ == '__main__':
     log_file = open(join(output_dir,'rating_curve_comparison.log'),"w")
     sys.stdout = log_file
 
+    merged_elev_table = []
     huc_list  = os.listdir(fim_dir)
     for huc in huc_list:
 
@@ -426,6 +427,17 @@ if __name__ == '__main__':
 
             if isfile(elev_table_filename):
                 procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
+                # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
+                read_elev_table = pd.read_csv(elev_table_filename)
+                read_elev_table['huc'] = huc
+                merged_elev_table.append(read_elev_table)
+
+    # Output a concatenated elev_table to_csv
+    if merged_elev_table:
+        print(f"Creating aggregate elev table csv")
+        concat_elev_table = pd.concat(merged_elev_table)
+        concat_elev_table['thal_burn_depth_meters'] = concat_elev_table['dem_elevation'] - concat_elev_table['dem_adj_elevation']
+        concat_elev_table.to_csv(join(output_dir,'agg_usgs_elev_table.csv'),index=False)
 
     # Initiate multiprocessing
     print(f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs")
