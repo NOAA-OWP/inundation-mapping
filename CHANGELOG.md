@@ -7,7 +7,6 @@ Update the list of sites that are filtered out when performing evaluations.
 
 ## Additions
 - Add sites to the `shared_variables.py` file. These sites are filtered out during evaluations.
--
 <br/><br/>
 ## v3.0.19.1 - 2021-06-17 - [PR #417](https://github.com/NOAA-OWP/cahaba/pull/417)
 
