@@ -7,15 +7,12 @@ from os.path import join
 from glob import iglob
 
 
-def aggregate_inputs_for_gms():
+def aggregate_inputs_for_gms(hucList):
 
-    # get huc listi
-    hucList = environ['hucList']
-    
     try:
-        hucList = pd.read_csv(hucList,header=None,dtype=str).loc[:,0].tolist()
+        hucList = pd.read_csv(hucList[0],header=None,dtype=str).loc[:,0].tolist()
     except FileNotFoundError:
-        hucList=hucList.split(' ')
+        pass
 
     hucList = set(hucList)
 
@@ -38,7 +35,7 @@ def aggregate_inputs_for_gms():
                             'huc': all_huc_numbers,
                             'branch' : all_bids
                           })
-    print(output)
+    
     output.to_csv(join(outputRunDataDir,'gms_inputs.csv'),index=False,header=False)
 
 
@@ -46,7 +43,9 @@ def aggregate_inputs_for_gms():
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Aggregate GMS Inputs')
-    #parser.add_argument('-d','--input-catchments-fileName', help='DEM derived catchments', required=True)
+    parser.add_argument('-l','--hucList', help='huc list', required=True,nargs='+')
     #parser.add_argument('-a','--input-flows-fileName', help='DEM derived streams', required=True)
 
-    aggregate_inputs_for_gms()
+    args = vars(parser.parse_args())
+
+    aggregate_inputs_for_gms(**args)

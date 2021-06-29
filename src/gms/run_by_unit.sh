@@ -37,7 +37,7 @@ fi
 echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/derive_level_paths.py -i $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -b $branch_id_attribute -o $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -d $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
+#$srcDir/gms/derive_level_paths.py -i $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -b $branch_id_attribute -o $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -d $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
 Tcount
 
 ## STREAM BRANCH POLYGONS
@@ -46,6 +46,7 @@ date -u
 Tstart
 $srcDir/gms/buffer_stream_branches.py -s $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputGmsDataDir/polygons.gpkg -v 
 Tcount
+exit 0
 
 ##### EDIT DEM DERIVED POINTS TO ADD BRANCH IDS ######
 echo -e $startDiv"EDITING DEM DERIVED POINTS for $hucNumber"$stopDiv
