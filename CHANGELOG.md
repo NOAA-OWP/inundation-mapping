@@ -1,7 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
+## v3.0.19.2 - 2021-06-29 - [PR #428](https://github.com/NOAA-OWP/cahaba/pull/428)
 
+Update the list of sites that are filtered out when performing evaluations.
+
+## Additions
+- Add sites to the `shared_variables.py` file. These sites are filtered out during evaluations.
+-
+<br/><br/>
 ## v3.0.19.1 - 2021-06-17 - [PR #417](https://github.com/NOAA-OWP/cahaba/pull/417)
 
 Adding a thalweg profile tool to identify significant drops in thalweg elevation. Also setting lateral thalweg adjustment threshold in hydroconditioning.
