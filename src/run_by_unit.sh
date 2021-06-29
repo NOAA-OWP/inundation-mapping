@@ -141,7 +141,7 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nhd_headwater_points_subset.gpkg $outputHucDataDir/headwaters.tif
 Tcount
 
-if [ "$extent" = "FR" ]; then
+if [ "$extent" = "FR" ] || [ "$extent" = "GMS" ]; then
   # RASTERIZE NWM CATCHMENTS ##
   echo -e $startDiv"Raster NWM Catchments $hucNumber"$stopDiv
   date -u
@@ -438,6 +438,47 @@ date -u
 Tstart
 #$srcDir/usgs_gage_crosswalk.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -dem $outputHucDataDir/dem_meters.tif -flows $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -cat $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -wbd $outputHucDataDir/wbd_buffered.gpkg -dem_adj $dem_thalwegCond -outtable $outputHucDataDir/usgs_elev_table.csv -e $extent
 Tcount
+
+# Computes additonal datasets if GMS is warrented
+if [ "$extent" = "GMS" ]; then
+
+    outputGmsDataDir=$outputHucDataDir/gms
+
+    # make outputs directory
+    if [ ! -d "$outputGmsDataDir" ]; then
+        mkdir -p $outputGmsDataDir
+    fi
+
+    ## DERIVE LEVELPATH  ##
+    echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
+    date -u
+    Tstart
+    $srcDir/gms/derive_level_paths.py -i $outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -b $branch_id_attribute -o $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -d $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -v
+    Tcount
+
+
+    ## STREAM BRANCH POLYGONS
+    echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv
+    date -u
+    Tstart
+    $srcDir/gms/buffer_stream_branches.py -s $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputGmsDataDir/polygons.gpkg -v 
+    Tcount
+
+    ##### EDIT DEM DERIVED POINTS TO ADD BRANCH IDS ######
+    echo -e $startDiv"EDITING DEM DERIVED POINTS for $hucNumber"$stopDiv
+    date -u
+    Tstart
+    $srcDir/gms/edit_points.py -i $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg -b $branch_id_attribute -r $outputHucDataDir/demDerived_reaches_split_points.gpkg -o $outputGmsDataDir/demDerived_reaches_points.gpkg -p $outputGmsDataDir/demDerived_pixels_points.gpkg
+    Tcount
+
+    ## CREATE BRANCHID LIST FILE
+    echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
+    date -u
+    Tstart
+    $srcDir/gms/generate_branch_list.py -t $outputHucDataDir/hydroTable.csv -c $outputGmsDataDir/branch_id.lst -d $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg -b $branch_id_attribute
+    Tcount
+
+fi
 
 ## CLEANUP OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs $hucNumber"$stopDiv

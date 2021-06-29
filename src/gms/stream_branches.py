@@ -6,6 +6,7 @@ import rasterio
 from rasterio.mask import mask
 from rasterio.io import DatasetReader
 from os.path import splitext
+import fiona
 from fiona.errors import DriverError
 from collections import deque
 import numpy as np
@@ -685,33 +686,60 @@ class StreamBranchPolygons(StreamNetwork):
 
         return(polys)
 
-
-    def query_vectors_by_branch(self,vector,out_filename_template=None,vector_layer=None):
+    @staticmethod
+    def query_vectors_by_branch(vector,branch_ids,branch_id_attribute,out_filename_template=None,vector_layer=None):
         
         # load vaas
         if isinstance(vector,str):
             vector_filename = vector
-            vector = gpd.read_file(vector_filename,layer=vector_layer)
-        elif isinstance(vector,gpd.GeoDataFrame):
+            #vector = gpd.read_file(vector_filename,layer=vector_layer)
+            vector = fiona.open(vector_filename,'r',layer=vector_layer)
+        elif isinstance(vector,fiona.Collection):
             pass
         else:
-            raise TypeError('Pass vector argument as filepath or GeoDataframe')
+            raise TypeError('Pass vector argument as filepath or fiona collection')
 
-        out_files = [None] * len(self)
+
+        def __find_matching_record(vector,attribute,value,matching='first'):
+
+            if matching not in ('first','all'):
+                raise ValueError("matching needs to be \'first\' or \'all\'")
+            
+            matches = []
+            for rec in vector:
+               if rec['properties'][attribute] == value:
+                   if matching == 'first':
+                       matches = [ rec ]
+                       break
+                   elif matching == 'all':
+                       matches += [ rec ] 
+
+            return(matches)
+
+
+        # get source information
+        source_meta = vector.meta
+
+        # out records
+        out_records = []
         
-        for i,bid in enumerate(self.loc[:,self.branch_id_attribute]):
-            out_files[i] = vector.loc[vector.loc[:,self.branch_id_attribute] == bid,:]
+        for bid in branch_ids:
+            out_records += __find_matching_record(vector,branch_id_attribute,bid,matching='all')
 
-            if (out_filename_template is not None) & (not out_files[i].empty):
+        if (out_filename_template is not None) & ( len(out_records) != 0):
                 base,ext = out_filename_template.split('.')
                 out_filename = base + "_{}.".format(bid) + ext
                 
-                StreamNetwork.write(out_files[i],out_filename)
+                with fiona.open(out_filename,'w',**source_meta) as out_file:
+                    out_file.writerecords(out_records)
+                
+        # close
+        vector.close()
 
-        return(out_files)
+        return(out_records)
 
 
-    def clip(self,to_clip,out_filename_template=None):
+    def clip(self,to_clip,out_filename_template=None,branch_id=None,branch_id_attribute=None):
 
         """ Clips a raster or vector to the stream branch polygons """
 
@@ -736,13 +764,20 @@ class StreamBranchPolygons(StreamNetwork):
         else:
             raise TypeError("Pass rasterio dataset,geopandas GeoDataFrame, or filepath to raster or vector file")
 
-        return_list = [] # list to return rasterio objects or gdf's
+        # generator to iterate
+        if branch_id is not None:
+            #print(iter(tuple([0,self.loc[self.loc[:,branch_id_attribute]==branch_id,:].squeeze()])))
+            generator_to_iterate = enumerate( [self.loc[self.loc[:,branch_id_attribute]==branch_id,:].squeeze()] ) 
+        else:
+            generator_to_iterate = self.iterrows()
 
+        return_list = [] # list to return rasterio objects or gdf's
+        
         if fileType == "raster":
             buffered_meta = to_clip.meta.copy()
             buffered_meta.update(blockxsize=256, blockysize=256, tiled=True)
 
-            for i,row in self.iterrows():
+            for i,row in generator_to_iterate:
                 buffered_array,buffered_transform = mask(to_clip,[row[self.geom_name]],crop=True)
 
                 buffered_meta.update(height = buffered_array.shape[1],
@@ -766,7 +801,7 @@ class StreamBranchPolygons(StreamNetwork):
             out.close()
 
         if fileType == "vector":
-            for i,row in self.iterrows():
+            for i,row in generator_to_iterate:
                 branch_id = row[self.branch_id_attribute]
                 out = gpd.clip(to_clip,row[self.geom_name],keep_geom_type=True)
                 return_list += [out]

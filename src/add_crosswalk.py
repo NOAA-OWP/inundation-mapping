@@ -24,7 +24,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     min_stream_length = float(os.environ['min_stream_length']) #0.5#
     bathy_src_calc = os.environ['bathy_src_modification'] == "True" # env variable to toggle on/off the bathy calc and src modifications
 
-    if extent == 'FR':
+    if (extent == 'FR') or (extent == 'GMS'):
         ## crosswalk using majority catchment method
 
         # calculate majority catchments
@@ -208,7 +208,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             for src_index, src_stage in new_values.iterrows():
                 output_src.loc[(output_src['HydroID']== short_id) & (output_src['Stage']== src_stage[0]),['Discharge (m3s-1)']] = src_stage[1]
     """
-    if extent == 'FR':
+    if (extent == 'FR') or (extent == 'GMS'):
         output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
     elif extent == 'MS':
         output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')

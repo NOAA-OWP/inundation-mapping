@@ -2,7 +2,7 @@
 :
 usage ()
 {
-    echo 'Produce GMS datasets'
+    echo 'Produce GMS hydrofabric'
     echo 'Usage : gms_run.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
     echo ''
     echo 'REQUIRED:'
@@ -114,7 +114,9 @@ export extent=$extent
 export production=$production
 export whitelist=$whitelist
 export viz=$viz
-logFile=$outputRunDataDir/logs/summary.log
+logFile_fr=$outputRunDataDir/logs/summary.log
+logFile_gms_unit=$outputRunDataDir/logs/summary_gms_unit.log
+logFile_gms_branch=$outputRunDataDir/logs/summary_gms_branch.log
 
 ## Define inputs
 export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
@@ -134,55 +136,42 @@ $srcDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
 if [[ ( -d "$outputRunDataDir" ) && ( "$overwrite" -eq 1 ) && ( ( "$extent" -eq "FR" ) || ( "$extent" -eq "MS" ) ) ]]; then
-    rm -rf "$outputRunDataDir"
+     rm -rf "$outputRunDataDir"
 elif [[ -d "$outputRunDataDir" && "$overwrite_gms" -eq 1 && "$extent" -eq "GMS" ]]; then
-    find $outputRunDataDir -iname "gms" -type d -exec rm -rf {} +
+     find $outputRunDataDir -iname "gms" -type d -exec rm -rf {} +
 elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
     echo "$runName data directories already exist. Use -o/--overwrite to continue"
     exit 1
 fi
 mkdir -p $outputRunDataDir/logs
 
-## RUN ##
-if [[ ( ( "$extent" = "GMS" ) && ( "$overwrite" -eq 1 ) ) || ( ( "$extent" = "FR" ) || ( "$extent" = "MS" ) ) ]]; then
-    echo FR11 ; exit 1
-    if [ -f "$hucList" ]; then
-        if [ "$jobLimit" -eq 1 ]; then
-            parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-        else
-            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-        fi
-    else
-        if [ "$jobLimit" -eq 1 ]; then
-            parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-        else
-            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-        fi
-    fi
 
-    echo "$viz"
-    if [[ "$viz" -eq 1 ]]; then
-        # aggregate outputs
-        python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 4
-    fi
+jobLimit_gms_unit=1
+## UNIT GMS FIRST ##
+if [ "$extent" = "GMS" ]; then
+    if [ -f "$hucList" ]; then
+        if [ "$jobLimit_gms_unit" -eq 1 ]; then
+            parallel --verbose --lb  -j $jobLimit_gms_unit --joblog $logFile_gms_unit --colsep ',' -- $srcDir/gms/time_and_tee_run_by_unit.sh :::: $hucList
+        else
+            parallel --eta -j $jobLimit_gms_unit --joblog $logFile_gms_unit ---colsep ',' - $srcDir/gms/time_and_tee_run_by_unit.sh :::: $hucList
+        fi
+    else 
+        if [ "$jobLimit_gms_unit" -eq 1 ]; then
+            parallel --verbose --lb  -j $jobLimit_gms_unit --joblog $logFile_gms_unit --colsep ',' -- $srcDir/gms/time_and_tee_run_by_unit.sh ::: $hucList
+        else
+            parallel --eta -j $jobLimit_gms_unit --joblog $logFile_gms_unit --colsep ',' -- $srcDir/gms/time_and_tee_run_by_unit.sh ::: $hucList
+        fi
+     fi
+    python3 $srcDir/gms/aggregate_branch_lists.py
 fi
 
 
 ## RUN GMS ##
 if [ "$extent" = "GMS" ]; then
-    if [ -f "$hucList" ]; then
-        if [ "$jobLimit" -eq 1 ]; then
-            parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $hucList
-        else
-            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $hucList
-        fi
+    if [ "$jobLimit" -eq 1 ]; then
+        parallel --verbose --lb  -j $jobLimit --joblog $logFile_gms_branch --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
     else
-        if [ "$jobLimit" -eq 1 ]; then
-            parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh ::: $hucList
-        else
-            parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/gms/time_and_tee_run_by_branch.sh ::: $hucList
-        fi
+        parallel --eta -j $jobLimit --joblog $logFile_gms_branch --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
     fi
 fi
 
-# clean-up
