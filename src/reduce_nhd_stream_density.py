@@ -155,6 +155,7 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
 
     nhd_streams = get_downstream_segments(nhd_streams,headwater_col,mainstem_flag)
 
+    nhd_streams.dropna(subset = ["is_relevant_stream"], inplace=True)
     nhd_streams = nhd_streams.loc[nhd_streams['is_relevant_stream'],:]
     nhd_streams.reset_index(drop=True,inplace=True)
 
@@ -196,7 +197,7 @@ def get_downstream_segments(streams, attribute,mainstem_flag):
             if i not in visited:
                 Q.append(i)
 
-    return(streams)
+    return streams
 
 if __name__ == '__main__':
 

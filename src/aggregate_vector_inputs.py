@@ -413,7 +413,7 @@ if(__name__=='__main__'):
 
     # Aggregate subset nhd networks for entire nwm domain
     print ('Aggregating subset NHD networks for entire NWM domain')
-    aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list)
+    aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,missing_subsets)
 
     # Remove intermediate files
     # clean_up_intermediate_files(nhdplus_vectors_dir)
