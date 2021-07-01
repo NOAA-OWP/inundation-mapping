@@ -57,11 +57,17 @@ def nwm_1_5_bankfull_lookup(args):
 
     # Locate the closest SRC discharge value to the NWM 1.5yr flow
     df_src['Q_1_5_find'] = (df_src['discharge_1_5'] - df_src['Discharge (m3s-1)']).abs()
-    df_1_5 = df_src[['Stage','HydroID','Q_1_5_find']]
+    df_1_5 = df_src[['Stage','HydroID','Volume (m3)','Q_1_5_find']]
     df_1_5 = df_1_5.loc[df_src.groupby('HydroID')['Q_1_5_find'].idxmin()].reset_index(drop=True)
-    df_1_5 = df_1_5.rename(columns={'Stage':'Stage_1_5'})
-    df_src = df_src.merge(df_1_5[['Stage_1_5','HydroID']],how='left',on='HydroID')
+    df_1_5 = df_1_5.rename(columns={'Stage':'Stage_1_5','Volume (m3)':'Volume_bankfull'}) # rename volume to use later for channel portion calc
+    df_src = df_src.merge(df_1_5[['Stage_1_5','HydroID','Volume_bankfull']],how='left',on='HydroID')
     df_src.drop(['Q_1_5_find'], axis=1, inplace=True)
+
+    # Calculate the channel portion of bankfull Volume
+    df_src['chann_volume_ratio'] = df_src['Volume_bankfull'] / (df_src['Volume (m3)']+.01) # adding 0.01 to avoid dividing by 0 at stage=0
+    #df_src['chann_volume_ratio'] = df_src['chann_volume_ratio'].clip_upper(1.0)
+    df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True)
+    #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
 
     # Create a new column to identify channel/floodplain via the bankfull stage value
     df_src.loc[df_src['Stage'] <= df_src['Stage_1_5'], 'channel_fplain_1_5'] = 'channel'

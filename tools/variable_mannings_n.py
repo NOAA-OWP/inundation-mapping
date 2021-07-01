@@ -53,16 +53,19 @@ def variable_mannings_calc(args):
 
     # Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the bankfull_src_column)
     df_src = df_src.merge(df_mann,  how='left', on='feature_id')
-    df_src.loc[df_src[bankfull_src_column] == 'channel', 'var_ManningN'] = df_src['channel']
-    df_src.loc[df_src[bankfull_src_column] == 'floodplain', 'var_ManningN'] = df_src['floodplain']
-    df_src.drop(['channel', 'floodplain'], axis=1, inplace=True)
+    df_src.loc[df_src[bankfull_src_column] == 'channel', 'lookup_ManningN'] = df_src['channel']
+    df_src.loc[df_src[bankfull_src_column] == 'floodplain', 'lookup_ManningN'] = df_src['floodplain']
+    #df_src.drop(['channel', 'floodplain'], axis=1, inplace=True)
+
+    # Calculate composite Manning's n using the channel volume ratio attributes
+    df_src['comp_ManningN'] = (df_src['chann_volume_ratio']*df_src['channel']) + ((1.0 - df_src['chann_volume_ratio'])*df_src['floodplain'])
 
     # Check if there are any missing data in the discharge_1_5
-    check_null = df_src['var_ManningN'].isnull().sum()
+    check_null = df_src['comp_ManningN'].isnull().sum()
     if check_null > 0:
         print('!!!!Missing values in the var_ManningN merge' + str(huc) + ' --> missing entries= ' + str(check_null))
 
-    # Check which channel geometry parameters exist in df (use bathy adjusted vars by default)
+    # Check which channel geometry parameters exist in df (use bathy adjusted vars by default) --> this is needed to handle differences btw BARC & no-BARC outputs
     if 'HydraulicRadius (m)_bathy_adj' in df_src:
         hydr_radius = 'HydraulicRadius (m)_bathy_adj'
     else:
@@ -77,7 +80,7 @@ def variable_mannings_calc(args):
     #df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
     df_src['Discharge (m3s-1)_varMann'] = df_src[wet_area]* \
     pow(df_src[hydr_radius],2.0/3)* \
-    pow(df_src['SLOPE'],0.5)/df_src['var_ManningN']
+    pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
 
     # Output new SRC with bankfull column
     df_src.to_csv(src_bankfull_filename,index=False)
