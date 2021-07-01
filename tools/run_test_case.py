@@ -81,6 +81,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
     magnitude_list = magnitude
     if type(magnitude_list) != list:
         magnitude_list = [magnitude_list]
+        
 
     # Get path to validation_data_{benchmark} directory and huc_dir.
     validation_data_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category)
@@ -88,7 +89,6 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         version_test_case_dir = os.path.join(version_test_case_dir_parent, magnitude)
         if not os.path.exists(version_test_case_dir):
             os.mkdir(version_test_case_dir)
-
         # Construct path to validation raster and forecast file.
         if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
             benchmark_raster_path_list, forecast_list = [], []
@@ -171,7 +171,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                     print(" ")
                 elif inundate_test == 1:
                     pass
-#                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
+                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
                     #return
             except Exception as e:
                 print(e)
