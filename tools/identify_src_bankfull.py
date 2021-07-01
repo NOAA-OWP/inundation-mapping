@@ -16,18 +16,18 @@ sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
-    Plot Rating Curves and Compare to USGS Gages
+    Identify the SRC bankfull stage values using the NWM 1.5yr flows
 
     Parameters
     ----------
     fim_dir : str
         Directory containing FIM output folders.
-    output_dir : str
-        Directory containing rating curve plots and tables.
     nwm_flow_dir : str
         Directory containing NWM recurrence flows files.
     number_of_jobs : str
         Number of jobs.
+    plots : str
+        Flag to create SRC plots for all hydroids (True/False)
 """
 
 def nwm_1_5_bankfull_lookup(args):
@@ -61,6 +61,7 @@ def nwm_1_5_bankfull_lookup(args):
     df_1_5 = df_1_5.loc[df_src.groupby('HydroID')['Q_1_5_find'].idxmin()].reset_index(drop=True)
     df_1_5 = df_1_5.rename(columns={'Stage':'Stage_1_5'})
     df_src = df_src.merge(df_1_5[['Stage_1_5','HydroID']],how='left',on='HydroID')
+    df_src.drop(['Q_1_5_find'], axis=1, inplace=True)
 
     # Create a new column to identify channel/floodplain via the bankfull stage value
     df_src.loc[df_src['Stage'] <= df_src['Stage_1_5'], 'channel_fplain_1_5'] = 'channel'
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-flows','--nwm-flow-dir',help='NWM recurrence flows dir',required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
-    parser.add_argument('-plots','--src-plot-option',help='True or False: use this flag to create optional src plots for all hydroids',required=False,default='False',type=str)
+    parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
 
     args = vars(parser.parse_args())
 
