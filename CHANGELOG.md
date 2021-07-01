@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.19.2 - 2021-07-01 - [PR #429](https://github.com/NOAA-OWP/cahaba/pull/429)
+
+Updates to evaluation scripts to allow for Alpha testing at Iowa Flood Center (IFC) sites. Also, `BAD_SITES` variable updates to omit sites not suitable for evaluation from metric calculations.
+
+## Changes
+- The `BAD_SITES` list in `tools_shared_variables.py` was updated and reasons for site omission are documented.
+- Refactored `run_test_case.py`, `synthesize_test_cases.py`, `tools_shared_variables.py`, and `eval_plots.py` to allow for IFC comparisons.
+
+<br/><br/>
+
 ## v3.0.19.1 - 2021-06-17 - [PR #417](https://github.com/NOAA-OWP/cahaba/pull/417)
 
 Adding a thalweg profile tool to identify significant drops in thalweg elevation. Also setting lateral thalweg adjustment threshold in hydroconditioning.
