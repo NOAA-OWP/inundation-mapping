@@ -14,7 +14,7 @@ USAGE:
 
 """
 
-
+@profile
 def convert_grid_cells_to_points(raster,index_option,output_points_filename=False):
 
     # Input raster

@@ -30,6 +30,7 @@ warnings.simplefilter("ignore")
 '''
 
 
+@profile
 def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent):
 
     wbd_buffer = gpd.read_file(wbd_buffer_filename)

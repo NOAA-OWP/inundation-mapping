@@ -126,7 +126,7 @@ Please see the issue tracker on GitHub for known issues and for getting help.
 NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
 ## Open Source Licensing Info
-1. [TERMS](TERMS.md)
+1. [TERMS](docs/TERMS.md)
 2. [LICENSE](LICENSE)
 
 ## Credits and References
