@@ -242,9 +242,9 @@ def subset_stream_networks(args, huc):
 
     # Subset to reduce footprint
     selected_wbd4 = wbd4.loc[wbd4.HUC4.str.startswith(huc)]
-    del wbd4
+    # del wbd4
     selected_wbd8 = wbd8.loc[wbd8.HUC8.str.startswith(huc)]
-    del wbd8
+    # del wbd8
 
     huc_mask = selected_wbd4.loc[selected_wbd4.HUC4.str.startswith(huc)]
     huc_mask = huc_mask.explode()
@@ -309,6 +309,7 @@ def subset_stream_networks(args, huc):
         del nhd_streams_fr
 
     print(f"finished stream subset for HUC {huc}",flush=True)
+
 
 def aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list):
 
@@ -400,12 +401,13 @@ if(__name__=='__main__'):
         if not os.path.isfile(streams_adj_path):
             missing_subsets = missing_subsets + [huc]
 
+
     print (f"Subsetting stream network for {len(missing_subsets)} HUC4s")
     num_workers=11
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Preprocess nhd hr and add attributes
-        collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
+        # collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
         # Subset nhd hr network
         subset_results = [executor.submit(subset_stream_networks, subset_arg_list, str(huc)) for huc in missing_subsets]
 
