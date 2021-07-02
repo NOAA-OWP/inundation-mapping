@@ -242,9 +242,9 @@ def subset_stream_networks(args, huc):
 
     # Subset to reduce footprint
     selected_wbd4 = wbd4.loc[wbd4.HUC4.str.startswith(huc)]
-    # del wbd4
+    del wbd4
     selected_wbd8 = wbd8.loc[wbd8.HUC8.str.startswith(huc)]
-    # del wbd8
+    del wbd8
 
     huc_mask = selected_wbd4.loc[selected_wbd4.HUC4.str.startswith(huc)]
     huc_mask = huc_mask.explode()
