@@ -7,10 +7,10 @@ from os.path import join
 import argparse
 import matplotlib.pyplot as plt
 
-def join_srcs(gms_data_dir,fr_data_dir):
+def join_srcs(fr_data_dir,outputs_dir=None):
 
     gms_srcs = None
-    gms_srcs_file_list_generator = iglob( join(gms_data_dir,"**","src_full_*.csv"), recursive=True)
+    gms_srcs_file_list_generator = iglob( join(fr_data_dir,"*","gms","*","src_full_*.csv"), recursive=True)
     
     for i in gms_srcs_file_list_generator:
         current_gms_src = pd.read_csv(i)
@@ -21,7 +21,7 @@ def join_srcs(gms_data_dir,fr_data_dir):
             gms_srcs = pd.concat((gms_srcs,current_gms_src),ignore_index=True)
 
     # fr srcsi
-    fr_src_file_name = glob( join(fr_data_dir,"src_full_crosswalked.csv"))[0]
+    fr_src_file_name = glob( join(fr_data_dir,'*',"src_full_crosswalked.csv"))[0]
     fr_src = pd.read_csv( fr_src_file_name )
 
     # average out values by stage
@@ -35,7 +35,8 @@ def join_srcs(gms_data_dir,fr_data_dir):
     plt.xlabel('Discharge (m3s-1)')
     plt.ylabel('Stage (m)')
     plt.legend()
-    plt.savefig("/data/test.jpg")
+    if outputs_dir is not None:
+        plt.savefig( join(outputs_dir,"rating_curve.jpg") )
     #combined = pd.concat((gms_srcs,fr_src), ignore_index=True, axis=1)
     
     # Volume plots
@@ -45,7 +46,8 @@ def join_srcs(gms_data_dir,fr_data_dir):
     plt.xlabel('Stage (m)')
     plt.ylabel('Volume (m3)')
     plt.legend()
-    plt.savefig("/data/test_vol.jpg")
+    if outputs_dir is not None:
+        plt.savefig( join(outputs_dir,"volume.jpg") )
     
     # Bed Area plots
     plt.figure()
@@ -54,7 +56,8 @@ def join_srcs(gms_data_dir,fr_data_dir):
     plt.xlabel('Stage (m)')
     plt.ylabel('Bed Area (m2)')
     plt.legend()
-    plt.savefig("/data/test_bedarea.jpg")
+    if outputs_dir is not None:
+        plt.savefig( join(outputs_dir,"bedarea.jpg") )
     
     # Volume and Bed Area plots
     plt.figure()
@@ -67,7 +70,8 @@ def join_srcs(gms_data_dir,fr_data_dir):
     plt.xlabel('Stage (m)')
     plt.ylabel('Volume (m3s-1) ^ 5/3 divided by Bed Area (m2) ^ -2/3')
     plt.legend()
-    plt.savefig("/data/test_volume_and_bedarea.jpg")
+    if outputs_dir is not None:
+        plt.savefig( join(outputs_dir,"volume_and_bedarea.jpg") )
     
 
     # Number of Cells plots
@@ -77,7 +81,8 @@ def join_srcs(gms_data_dir,fr_data_dir):
     plt.xlabel('Stage (m)')
     plt.ylabel('Number of Cells')
     plt.legend()
-    plt.savefig("/data/test_number_of_cells.jpg")
+    if outputs_dir is not None:
+        plt.savefig( join(outputs_dir,"number_of_cells.jpg") )
 
 
 
@@ -85,8 +90,8 @@ def join_srcs(gms_data_dir,fr_data_dir):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Comparing SRCs')
-    parser.add_argument('-g','--gms-data-dir', help='Directory with GMS data', required=True)
     parser.add_argument('-f','--fr-data-dir', help='Directory with FR data', required=True)
+    parser.add_argument('-o','--outputs-dir', help='Directory for outputs data', required=False,default=None)
 
     args = vars(parser.parse_args())
 

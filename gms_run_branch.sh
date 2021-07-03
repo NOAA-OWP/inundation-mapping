@@ -103,21 +103,29 @@ export whitelist=$whitelist
 export viz=$viz
 logFile=$outputRunDataDir/logs/summary_gms_branch.log
 
-
 ## Make output and data directories ##
-if [[ -d "$outputRunDataDir" && "$overwrite" -eq 1 ]]; then
-    find $outputRunDataDir/**/gms/ -maxdepth 1 -mindepth 1 -type d -exec rm -rf {} +
-elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
-    echo "$runName data directories already exist. Use -o/--overwrite to continue"
+if [ -d "$outputRunDataDir" ]; then 
+    branch_directories_count=$(find $outputRunDataDir/**/gms/ -maxdepth 1 -mindepth 1 -type d | wc -l)
+
+    if [ $branch_directories_count -gt 0 ] && [ "$overwrite" -eq 1 ]; then
+        rm -rf $branch_directories_list
+    elif [ $branch_directories_count -gt 0 ] && [ "$overwrite" -eq 0 ] ; then
+        echo "GMS branch data directories for $runName already exist. Use -o/--overwrite to continue"
+        exit 1
+    fi
+else
+    echo "GMS depends on Full Resolution Data. Please produce data with fim_run.sh first."
     exit 1
 fi
+
+# make log dir
 mkdir -p $outputRunDataDir/logs
 
 
-## RUN GMS ##
+## RUN GMS BY BRANCH ##
 if [ "$jobLimit" -eq 1 ]; then
-    parallel --verbose --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
+    parallel --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
 else
-    parallel --eta -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
+    parallel --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
 fi
 

@@ -21,9 +21,6 @@ input_demDerived_raster=$outputHucDataDir/demDerived_streamPixels.tif
 input_demDerived_reaches=$outputHucDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg
 input_demDerived_reaches_points=$outputHucDataDir/demDerived_reaches_split_points.gpkg
 input_demDerived_pixel_points=$outputHucDataDir/flows_points_pixels.gpkg
-input_stage_list=$outputHucDataDir/stage.txt
-input_hydroTable=$outputHucDataDir/hydroTable.csv
-input_src_full=$outputHucDataDir/src_full_crosswalked.csv
 
 
 ## ECHO PARAMETERS
@@ -73,7 +70,15 @@ Tcount
 echo -e $startDiv"Subsetting vectors to branches for $current_branch_id in HUC $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputGmsDataDir/polygons.gpkg -d $current_branch_id -i $branch_id_attribute -s $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg -o $outputBranchDataDir/demDerived_reaches_levelPaths.gpkg $outputBranchDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputBranchDataDir/demDerived_reaches_points.gpkg $outputBranchDataDir/demDerived_pixels_points.gpkg -v
+echo -e "Querying demDerived_reaches_levelPaths.gpkg ..."
+ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputBranchDataDir/demDerived_reaches_levelPaths_$current_branch_id.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg
+echo -e "Querying demDerived_reaches_levelPaths_dissolved.gpkg ..."
+ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputBranchDataDir/demDerived_reaches_levelPaths_dissolved_$current_branch_id.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg
+echo -e "Querying demDerived_reaches_points.gpkg ..."
+ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputBranchDataDir/demDerived_reaches_points_$current_branch_id.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg
+echo -e "Querying demDerived_pixels_points.gpkg ..."
+ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputBranchDataDir/demDerived_pixels_points_$current_branch_id.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg
+#$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputGmsDataDir/polygons.gpkg -d $current_branch_id -i $branch_id_attribute -s $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg -o $outputBranchDataDir/demDerived_reaches_levelPaths.gpkg $outputBranchDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputBranchDataDir/demDerived_reaches_points.gpkg $outputBranchDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## SPLIT DERIVED REACHES ##
@@ -151,7 +156,7 @@ Tcount
 #    mkdir -p $branchOutputDir
 #fi
 
-if [ "$production" -eq 1 ]; then
+if [ $production -eq 1 ]; then
     echo -e $startDiv"Remove files for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
     
     cd $outputBranchDataDir

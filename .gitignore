@@ -9,9 +9,7 @@ config/**
 !config/*default*
 !config/*calibrated*
 !config/symbology/
-config/*template*.swp
-!config/*default*.swp
-!config/*calibrated*.swp
+config/*.swp
 .vscode/
 **/.DS_Store
 **/*_pytest.py
