@@ -9,6 +9,7 @@ Description:
     5) create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
 '''
 
+import argparse
 import sys
 import geopandas as gpd
 from shapely.geometry import Point, LineString
