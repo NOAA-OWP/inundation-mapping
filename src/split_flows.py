@@ -218,4 +218,4 @@ if __name__ == '__main__':
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 
-    split_folws(max_length, slope_min, lakes_buffer_input, **args)
+    split_flows(max_length, slope_min, lakes_buffer_input, **args)
