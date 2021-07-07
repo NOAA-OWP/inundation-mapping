@@ -324,7 +324,7 @@ echo -e $startDiv"Process catchments and model streams step 1 $hucNumber"$stopDi
 date -u
 Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ] && \
-python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputHucDataDir/gw_catchments_reaches.gpkg -f $outputHucDataDir/demDerived_reaches_split.gpkg -c $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -o $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -h $hucNumber
+python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputHucDataDir/gw_catchments_reaches.gpkg -f $outputHucDataDir/demDerived_reaches_split.gpkg -c $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -o $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber
 
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"

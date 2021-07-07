@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--output-catchments-filename', help='output-catchments-filename', required=True)
     parser.add_argument('-o', '--output-flows-filename', help='output-flows-filename', required=True)
     parser.add_argument('-w', '--wbd-filename', help='wbd-filename', required=True)
-    parser.add_argument('-h', '--huc-code', help='huc-code', required=True)
+    parser.add_argument('-u', '--huc-code', help='huc-code', required=True)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
