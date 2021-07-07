@@ -7,10 +7,10 @@ import json
 import csv
 
 from run_test_case import run_alpha_test
-from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES
+from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, BLE_MAGNITUDE_LIST, IFC_MAGNITUDE_LIST
 
 
-def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
+def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
 
     # Construct header
     metrics_to_write = ['true_negatives_count',
@@ -61,14 +61,19 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
 
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
 
-    if dev_comparison != None:
+    if len(dev_versions_to_include_list) > 0:
         iteration_list = ['official', 'comparison']
-    if dev_comparison == None:
+    else:
         iteration_list = ['official']
 
-    for benchmark_source in ['ble', 'nws', 'usgs']:
+    for benchmark_source in ['ble', 'nws', 'usgs', 'ifc']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
-        if benchmark_source == 'ble':
+        if benchmark_source in ['ble', 'ifc']:
+            
+            if benchmark_source == 'ble':
+                magnitude_list = BLE_MAGNITUDE_LIST
+            if benchmark_source == 'ifc':
+                magnitude_list = IFC_MAGNITUDE_LIST
             test_cases_list = os.listdir(benchmark_test_case_dir)
             
             for test_case in test_cases_list:
@@ -76,18 +81,19 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                     int(test_case.split('_')[0])
 
                     huc = test_case.split('_')[0]
-                    
+
                     for iteration in iteration_list:
-                        
+
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
-                            #versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
-                            versions_to_aggregate = os.listdir(versions_to_crawl)
+                            versions_to_aggregate = os.listdir(versions_to_crawl) # gms
+                            #versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR) # cahaba/dev
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
-                            versions_to_aggregate = [dev_comparison]
-                        
-                        for magnitude in ['100yr', '500yr']:
+                            versions_to_aggregate = [dev_comparison] # gms
+                            #versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
+
+                        for magnitude in magnitude_list:
                             for version in versions_to_aggregate:
                                 if '_fr' in version:
                                     extent_config = 'FR'
@@ -103,14 +109,14 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                     calibrated = "no"
                                 version_dir = os.path.join(versions_to_crawl, version)
                                 magnitude_dir = os.path.join(version_dir, magnitude)
-                                
+
                                 if os.path.exists(magnitude_dir):
                                     magnitude_dir_list = os.listdir(magnitude_dir)
-                                    
                                     for f in magnitude_dir_list:
                                         if '.json' in f:
                                             flow = 'NA'
                                             nws_lid = "NA"
+                                            # added by FA for GMS evals
                                             benchmark_source = 'ble'
                                             sub_list_to_append = [version, nws_lid, magnitude, huc]
                                             full_json_path = os.path.join(magnitude_dir, f)
@@ -123,7 +129,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                 sub_list_to_append.append(benchmark_source)
                                                 sub_list_to_append.append(extent_config)
                                                 sub_list_to_append.append(calibrated)
-    
+
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
@@ -136,15 +142,18 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                     int(test_case.split('_')[0])
 
                     huc = test_case.split('_')[0]
-                    
+
                     for iteration in iteration_list:
-                        
+
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
-                            versions_to_aggregate = [dev_comparison]
+                            
+                            versions_to_aggregate = [dev_comparison] # gms
+                            
+                            #versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
 
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
@@ -158,7 +167,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                     calibrated = "yes"
                                 else:
                                     calibrated = "no"
-    
+
                                 version_dir = os.path.join(versions_to_crawl, version)
                                 magnitude_dir = os.path.join(version_dir, magnitude)
                                 if os.path.exists(magnitude_dir):
@@ -170,7 +179,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                             full_json_path = os.path.join(magnitude_dir, f)
                                             flow = ''
                                             if os.path.exists(full_json_path):
-    
+
                                                 # Get flow used to map.
                                                 flow_file = os.path.join(benchmark_test_case_dir, 'validation_data_' + benchmark_source, huc, nws_lid, magnitude, 'ahps_' + nws_lid + '_huc_' + huc + '_flows_' + magnitude + '.csv')
                                                 if os.path.exists(flow_file):
@@ -179,9 +188,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                         next(reader)
                                                         for row in reader:
                                                             flow = row[1]
-                                                        if nws_lid == 'mcc01':
-                                                            print(flow)
-    
+
                                                 stats_dict = json.load(open(full_json_path))
                                                 for metric in metrics_to_write:
                                                     sub_list_to_append.append(stats_dict[metric])
@@ -190,7 +197,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_comparison):
                                                 sub_list_to_append.append(benchmark_source)
                                                 sub_list_to_append.append(extent_config)
                                                 sub_list_to_append.append(calibrated)
-    
+
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
@@ -234,6 +241,7 @@ if __name__ == '__main__':
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
+    parser.add_argument('-dc', '--dev-version-to-compare', nargs='+', help='Specify the name(s) of a dev (testing) version to include in master metrics CSV. Pass a space-delimited list.',required=False)
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
     parser.add_argument('-t','--ms',help='Creates test case for Composite or GMS',required=False, default=None,choices=[None,'MS','GMS'])
     parser.add_argument('-d','--fr-run-dir',help='Name of directory containing outputs of fim_run.sh for FR configuration',required=False,default=None)
@@ -246,6 +254,7 @@ if __name__ == '__main__':
     special_string = args['special_string']
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
+    dev_versions_to_compare = args['dev_version_to_compare']
     master_metrics_csv = args['master_metrics_csv']
     ms = args['ms']
     fr_run_dir = args['fr_run_dir']
@@ -294,7 +303,6 @@ if __name__ == '__main__':
             if 'validation' and 'other' not in test_id:
                 current_huc = test_id.split('_')[0]
                 if test_id.split('_')[1] in bench_cat:
-
                     # Loop through versions.
                     for version in previous_fim_list:
                         if config == 'DEV':
@@ -311,15 +319,17 @@ if __name__ == '__main__':
 
                         if os.path.exists(fim_run_dir):
 
-                            # If a user supplies a specia_string (-s), then add it to the end of the created dirs.
+                            # If a user supplies a special_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
 
                             # Define the magnitude lists to use, depending on test_id.
                             if 'ble' in test_id:
-                                magnitude = ['100yr', '500yr']
-                            elif 'usgs' or 'nws' in test_id:
+                                magnitude = BLE_MAGNITUDE_LIST
+                            if 'usgs' or 'nws' in test_id:
                                 magnitude = ['action', 'minor', 'moderate', 'major']
+                            if 'ifc' in test_id:
+                                magnitude = IFC_MAGNITUDE_LIST
                             else:
                                 continue
 
@@ -335,12 +345,22 @@ if __name__ == '__main__':
 
     # Multiprocess alpha test runs.
     if job_number > 1:
-        pool = Pool(job_number)
-        pool.map(process_alpha_test, procs_list)
+        with Pool(processes=job_number) as pool:
+            pool.map(process_alpha_test, procs_list)
+            
+    if config == 'DEV':
+        if dev_versions_to_compare != None:
+            dev_versions_to_include_list = dev_versions_to_compare + [version]
+        else:
+            dev_versions_to_include_list = [version]
+    if config == 'PREV':
+        dev_versions_to_include_list = []
 
     # Do aggregate_metrics.
     print("Creating master metrics CSV...")
-    
+
+    """
+    # legacy for GMS
     if config == 'DEV':
         if len(special_string) > 0:
             dev_comparison = fim_version + "_" + special_string
@@ -349,4 +369,7 @@ if __name__ == '__main__':
     else:
         dev_comparison = None
     
-    create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_comparison=dev_comparison)
+    #create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_comparison=dev_comparison)
+    """
+
+    create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_versions_to_include_list=dev_versions_to_include_list)

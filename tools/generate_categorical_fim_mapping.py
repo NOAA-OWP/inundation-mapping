@@ -108,8 +108,8 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
 
     # Initiate multiprocessing
     print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
-    pool = Pool(number_of_jobs)
-    pool.map(run_inundation, procs_list)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(run_inundation, procs_list)
 
 
 def run_inundation(args):
@@ -130,7 +130,7 @@ def run_inundation(args):
                  subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=output_extent_grid,inundation_polygon=None,
                  depths=output_depth_grid,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
-    
+
     except:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
@@ -138,14 +138,14 @@ def run_inundation(args):
         f.close()
 
     #Inundation.py appends the huc code to the supplied output_extent_grid.
-    #Modify output_extent_grid to match inundation.py saved filename. 
+    #Modify output_extent_grid to match inundation.py saved filename.
     #Search for this file, if it didn't create, send message to log file.
     base_file_path,extension = os.path.splitext(output_extent_grid)
     saved_extent_grid_filename = "{}_{}{}".format(base_file_path,huc,extension)
     if not os.path.exists(saved_extent_grid_filename):
         with open(log_file, 'a+') as f:
             f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
-        
+
 def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
 
     # Create workspace
@@ -153,11 +153,8 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
 
-    
-    #Find the FIM version
-    norm_path = os.path.normpath(output_cat_fim_dir)
-    cat_fim_dir_parts = norm_path.split(os.sep)
-    [fim_version] = [part for part in cat_fim_dir_parts if part.startswith('fim_3')]
+    # Find the FIM version
+    fim_version  = os.path.basename(output_cat_fim_dir)
     merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.shp')
 
     if not os.path.exists(merged_layer): # prevents appending to existing output
@@ -195,8 +192,8 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
                                 pass
 
             # Multiprocess with instructions
-            pool = Pool(number_of_jobs)
-            pool.map(reformat_inundation_maps, procs_list)
+            with Pool(processes=number_of_jobs) as pool:
+                pool.map(reformat_inundation_maps, procs_list)
 
         # Merge all layers
         print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
@@ -241,8 +238,8 @@ def reformat_inundation_maps(args):
 
         # Aggregate shapes
         results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
-                       
-        # convert list of shapes to polygon
+
+        # Convert list of shapes to polygon
         extent_poly  = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
 
         # Dissolve polygons
@@ -254,7 +251,7 @@ def reformat_inundation_maps(args):
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
-            
+
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 

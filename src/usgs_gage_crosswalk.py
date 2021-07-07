@@ -9,7 +9,7 @@ import argparse
 import pygeos
 from shapely.wkb import dumps, loads
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter("ignore")
 
 ''' Get elevation at adjusted USGS gages locations
 
@@ -40,6 +40,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     input_flows = gpd.read_file(input_flows_filename)
     input_catchment = gpd.read_file(input_catchment_filename)
     dem_adj = rasterio.open(dem_adj_filename,'r')
+
 
     #MS extent use gages that are mainstem
     if extent == "MS":
@@ -118,6 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('-dem_adj','--dem-adj-filename', help='Thalweg adjusted DEM', required=True)
     parser.add_argument('-outtable','--output-table-filename', help='Table to append data', required=True)
     parser.add_argument('-e', '--extent', help="extent configuration entered by user when running fim_run.sh", required = True)
+
     args = vars(parser.parse_args())
 
     usgs_gages_filename = args['usgs_gages_filename']

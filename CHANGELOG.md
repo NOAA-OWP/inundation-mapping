@@ -1,23 +1,227 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+<br/><br/>
 
-## v3.0.15.1 - 2021-04-13 - [PR #355](https://github.com/NOAA-OWP/cahaba/pull/355)
+## v3.0.19.2 - 2021-07-01 - [PR #429](https://github.com/NOAA-OWP/cahaba/pull/429)
 
-Sierra test considered all USGS gage locations to be mainstems even though many actually occurred with tributaries. This resulted in unrealistic comparisons as incorrect gages were assigned to mainstems segments. This feature branch identifies gages that are on mainstems via attribute field. 
+Updates to evaluation scripts to allow for Alpha testing at Iowa Flood Center (IFC) sites. Also, `BAD_SITES` variable updates to omit sites not suitable for evaluation from metric calculations.
+
+## Changes
+- The `BAD_SITES` list in `tools_shared_variables.py` was updated and reasons for site omission are documented.
+- Refactored `run_test_case.py`, `synthesize_test_cases.py`, `tools_shared_variables.py`, and `eval_plots.py` to allow for IFC comparisons.
+
+<br/><br/>
+
+## v3.0.19.1 - 2021-06-17 - [PR #417](https://github.com/NOAA-OWP/cahaba/pull/417)
+
+Adding a thalweg profile tool to identify significant drops in thalweg elevation. Also setting lateral thalweg adjustment threshold in hydroconditioning.
+
+## Additions
+- `thalweg_drop_check.py` checks the elevation along the thalweg for each stream path downstream of MS headwaters within a HUC.
+
+## Removals
+- Removing `dissolveLinks` arg from `clip_vectors_to_wbd.py`.
+
+
+## Changes
+- Cleaned up code in `split_flows.py` to make it more readable.
+- Refactored `reduce_nhd_stream_density.py` and `adjust_headwater_streams.py` to limit MS headwater points in `agg_nhd_headwaters_adj.gpkg`.
+- Fixed a bug in `adjust_thalweg_lateral.py` lateral elevation replacement threshold; changed threshold to 3 meters.
+- Updated `aggregate_vector_inputs.py` to log intermediate processes.
+
+<br/><br/>
+
+## v3.0.19.0 - 2021-06-10 - [PR #415](https://github.com/NOAA-OWP/cahaba/pull/415)
+
+Feature to evaluate performance of alternative CatFIM techniques.
+
+## Additions
+- Added `eval_catfim_alt.py` to evaluate performance of alternative CatFIM techniques.
+
+<br/><br/>
+## v3.0.18.0 - 2021-06-09 - [PR #404](https://github.com/NOAA-OWP/cahaba/pull/404)
+
+To help analyze the memory consumption of the Fim Run process, the python module `memory-profiler` has been added to give insights into where peak memory usage is with in the codebase.
+
+In addition, the Dockerfile was previously broken due to the Taudem dependency removing the version that was previously being used by FIM. To fix this, and allow new docker images to be built, the Taudem version has been updated to the newest version on the Github repo and thus needs to be thoroughly tested to determine if this new version has affected the overall FIM outputs.
+
+## Additions
+- Added `memory-profiler` to `Pipfile` and `Pipfile.lock`.
+- Added `mprof` (memory-profiler cli utility) call to the `time_and_tee_run_by_unit.sh` to create overall memory usage graph location in the `/logs/{HUC}_memory.png` of the outputs directory.
+- Added `@profile` decorator to all functions within scripts used in the `run_by_unit.sh` script to allow for memory usage tracking, which is then recorded in the `/logs/{HUC}.log` file of the outputs directory.
+
+## Changes
+- Changed the Taudem version in `Dockerfile.dev` to `98137bb6541a0d0077a9c95becfed4e56d0aa0ac`.
+- Changed all calls of python scripts in `run_by_unit.s` to be called with the `-m memory-profiler` argument to allow scripts to also track memory usage.
+
+<br/><br/>
+## v3.0.17.1 - 2021-06-04 - [PR #395](https://github.com/NOAA-OWP/cahaba/pull/395)
+
+Bug fix to the `generate_nws_lid.py` script
+
+## Changes
+- Fixes incorrectly assigned attribute field "is_headwater" for some sites in the `nws_lid.gpkg` layer.
+- Updated `agg_nhd_headwaters_adj.gpkg`, `agg_nhd_streams_adj.gpkg`, `nwm_flows.gpkg`, and `nwm_catchments.gpkg` input layers using latest NWS LIDs.
+
+<br/><br/>
+## v3.0.17.0 - 2021-06-04 - [PR #393](https://github.com/NOAA-OWP/cahaba/pull/393)
+BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and allow user to choose input bankfull geometry.
+
 ## Changes
 
-- Modifies `usgs_gage_crosswalk.py` to filter out gages from the `usgs_gages.gpkg` layer such that for a "MS" run, only consider gages that contain rating curve information (via `curve` attribute) and are also mainstems gages (via `mainstems` attribute). 
-- Modifies `usgs_gage_crosswalk.py` to filter out gages from the `usgs_gages.gpkg` layer such that for a "FR" run, only consider gages that contain rating curve information (via `curve` attribute) and are not mainstems gages (via `mainstems` attribute). 
-- Modifies how mainstems segments are determined by using the `nwm_flows_ms.gpkg` as a lookup to determine if the NWM segment specified by WRDS for a gage site is a mainstems gage. 
+- Added new env variable to control which input file is used for the bankfull geometry input to bathy estimation workflow.
+- Modified the bathymetry cross section area calculation to cap the additional area value so that it cannot exceed the bankfull cross section area value for each stream segment (bankfull value obtained from regression equation dataset).
+- Modified the `rating_curve_comparison.py` plot output to always put the FIM rating curve on top of the USGS rating curve (avoids USGS points covering FIM).
+- Created a new aggregate csv file (aggregates for all hucs) for all of the `usgs_elev_table.csv` files (one per huc).
+- Evaluate the FIM Bathymetry Adjusted Rating Curve (BARC) tool performance using the estimated bankfull geometry dataset derived for the NWM route link dataset.
+
+<br/><br/>
+## v3.0.16.3 - 2021-05-21 - [PR #388](https://github.com/NOAA-OWP/cahaba/pull/388)
+
+Enhancement and bug fixes to `synthesize_test_cases.py`.
+
+## Changes
+- Addresses a bug where AHPS sites without benchmark data were receiving a CSI of 0 in the master metrics CSV produced by `synthesize_test_cases.py`.
+- Includes a feature enhancement to `synthesize_test_cases.py` that allows for the inclusion of user-specified testing versions in the master metrics CSV.
+- Removes some of the print statements used by `synthesize_test_cases.py`.
+
+<br/><br/>
+## v3.0.16.2 - 2021-05-18 - [PR #384](https://github.com/NOAA-OWP/cahaba/pull/384)
+
+Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preprocessing scripts.
+
+## Changes
+- Comment out return statement causing `run_test_case.py` to skip over sites/hucs when calculating contingency rasters.
+- Move bad sites list and query statement used to filter out bad sites to the `tools_shared_variables.py`.
+- Add print statements in `eval_plots.py` detailing the bad sites used and the query used to filter out bad sites.
+- Update AHPS preprocessing scripts to produce a domain shapefile.
+- Change output filenames produced in ahps preprocessing scripts.
+- Update workarounds for some sites in ahps preprocessing scripts.
+
+<br/><br/>
+## v3.0.16.1 - 2021-05-11 - [PR #380](https://github.com/NOAA-OWP/cahaba/pull/380)
+
+The current version of Eventlet used in the Connector module of the FIM API is outdated and vulnerable. This update bumps the version to the patched version.
+
+## Changes
+- Updated `api/node/connector/requirements.txt` to have the Eventlet version as 0.31.0
+
+<br/><br/>
+## v3.0.16.0 - 2021-05-07 - [PR #378](https://github.com/NOAA-OWP/cahaba/pull/378)
+
+New "Release" feature added to the FIM API. This feature will allow for automated FIM, CatFIM, and relevant metrics to be generated when a new FIM Version is released. See [#373](https://github.com/NOAA-OWP/cahaba/issues/373) for more detailed steps that take place in this feature.
+
+## Additions
+- Added new window to the UI in `api/frontend/gui/templates/index.html`.
+- Added new job type to `api/node/connector/connector.py` to allow these release jobs to run.
+- Added additional logic in `api/node/updater/updater.py` to run the new eval and CatFIM scripts used in the release feature.
+
+## Changes
+- Updated `api/frontend/output_handler/output_handler.py` to allow for copying more broad ranges of file paths instead of only the `/data/outputs` directory.
+
+<br/><br/>
+## v3.0.15.10 - 2021-05-06 - [PR #375](https://github.com/NOAA-OWP/cahaba/pull/375)
+
+Remove Great Lakes coastlines from WBD buffer.
+
+## Changes
+- `gl_water_polygons.gpkg` layer is used to mask out Great Lakes boundaries and remove NHDPlus HR coastline segments.
+
+<br/><br/>
+## v3.0.15.9 - 2021-05-03 - [PR #372](https://github.com/NOAA-OWP/cahaba/pull/372)
+
+Generate `nws_lid.gpkg`.
+
+## Additions
+- Generate `nws_lid.gpkg` with attributes indicating if site is a headwater `nws_lid` as well as if it is co-located with another `nws_lid` which is referenced to the same `nwm_feature_id` segment.
+
+<br/><br/>
+## v3.0.15.8 - 2021-04-29 - [PR #371](https://github.com/NOAA-OWP/cahaba/pull/371)
+
+Refactor NHDPlus HR preprocessing workflow. Resolves issue #238
+
+## Changes
+- Consolidate NHD streams, NWM catchments, and headwaters MS and FR layers with `mainstem` column.
+- HUC8 intersections are included in the input headwaters layer.
+- `clip_vectors_to_wbd.py` removes incoming stream segment from the selected layers.
+
+<br/><br/>
+## v3.0.15.7 - 2021-04-28 - [PR #367](https://github.com/NOAA-OWP/cahaba/pull/367)
+
+Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Resolves issue #351
+
+## Changes
+- refactored `inundation.py` and `run_test_case.py` to handle exceptions without using `sys.exit()`.
+
+<br/><br/>
+## v3.0.15.6 - 2021-04-23 - [PR #365](https://github.com/NOAA-OWP/cahaba/pull/365)
+
+Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preprocessing scripts.
+
+## Additions
+- Produce CatFIM flows file when running `rating_curve_get_usgs_gages.py`.
+- Several scripts to preprocess AHPS benchmark data. Requires numerous file dependencies not available through Cahaba.
+
+## Changes
+- Modify `rating_curve_comparison.py` to ingest CatFIM threshold flows in calculations.
+- Modify `eval_plots.py` to save all site specific bar plots in same parent directory instead of in subdirectories.
+- Add variables to `env.template` for AHPS benchmark preprocessing.
+
+<br/><br/>
+## v3.0.15.5 - 2021-04-20 - [PR #363](https://github.com/NOAA-OWP/cahaba/pull/363)
+
+Prevent eval_plots.py from erroring out when spatial argument enabled if certain datasets not analyzed.
+
+## Changes
+- Add check to make sure analyzed dataset is available prior to creating spatial dataset.
+
+<br/><br/>
+## v3.0.15.4 - 2021-04-20 - [PR #356](https://github.com/NOAA-OWP/cahaba/pull/356)
+
+Closing all multiprocessing Pool objects in repo.
+
+<br/><br/>
+## v3.0.15.3 - 2021-04-19 - [PR #358](https://github.com/NOAA-OWP/cahaba/pull/358)
+
+Preprocess NHDPlus HR rasters for consistent projections, nodata values, and convert from cm to meters.
+
+## Additions
+- `preprocess_rasters.py` reprojects raster, converts to meters, and updates nodata value to -9999.
+- Cleaned up log messages from `bathy_rc_adjust.py` and `usgs_gage_crosswalk.py`.
+- Outputs paths updated in `generate_categorical_fim_mapping.py` and `generate_categorical_fim.py`.
+- `update_raster_profile` cleans up raster crs, blocksize, nodata values, and converts elevation grids from cm to meters.
+- `reproject_dem.py` imports gdal to reproject elevation rasters because an error was occurring when using rasterio.
+
+## Changes
+- `burn_in_levees.py` replaces the `gdal_calc.py` command to resolve inconsistent outputs with burned in levee values.
+
+<br/><br/>
+## v3.0.15.2 - 2021-04-16 - [PR #359](https://github.com/NOAA-OWP/cahaba/pull/359)
+
+Hotfix to preserve desired files when production flag used in `fim_run.sh`.
+
+## Changes
+
+- Fixed production whitelisted files.
+
+<br/><br/>
+## v3.0.15.1 - 2021-04-13 - [PR #355](https://github.com/NOAA-OWP/cahaba/pull/355)
+
+Sierra test considered all USGS gage locations to be mainstems even though many actually occurred with tributaries. This resulted in unrealistic comparisons as incorrect gages were assigned to mainstems segments. This feature branch identifies gages that are on mainstems via attribute field.
+
+## Changes
+
+- Modifies `usgs_gage_crosswalk.py` to filter out gages from the `usgs_gages.gpkg` layer such that for a "MS" run, only consider gages that contain rating curve information (via `curve` attribute) and are also mainstems gages (via `mainstems` attribute).
+- Modifies `usgs_gage_crosswalk.py` to filter out gages from the `usgs_gages.gpkg` layer such that for a "FR" run, only consider gages that contain rating curve information (via `curve` attribute) and are not mainstems gages (via `mainstems` attribute).
+- Modifies how mainstems segments are determined by using the `nwm_flows_ms.gpkg` as a lookup to determine if the NWM segment specified by WRDS for a gage site is a mainstems gage.
 
 ## Additions
 
-- Adds a `mainstem` attribute field to `usgs_gages.gpkg` that indicates whether a gage is located on a mainstems river. 
+- Adds a `mainstem` attribute field to `usgs_gages.gpkg` that indicates whether a gage is located on a mainstems river.
 - Adds `NWM_FLOWS_MS` variable to the `.env` and `.env.template` files.
 - Adds the `extent` argument specified by user when running `fim_run.sh` to `usgs_gage_crosswalk.py`.
 
 <br/><br/>
-
 ## v3.0.15.0 - 2021-04-08 - [PR #340](https://github.com/NOAA-OWP/cahaba/pull/340)
 
 Implementing a prototype technique to estimate the missing bathymetric component in the HAND-derived synthetic rating curves. The new Bathymetric Adjusted Rating Curve (BARC) function is built within the `fim_run.sh` workflow and will ingest bankfull geometry estimates provided by the user to modify the cross section area used in the synthetic rating curve generation.
@@ -33,6 +237,7 @@ Implementing a prototype technique to estimate the missing bathymetric component
     - Imports the existing synthetic rating curve table and the bankfull geometry input data (topwidth and cross section area per COMID).
     - Performs new synthetic rating curve calculations with bathymetry estimation modifications.
     - Flags issues with the thalweg-notch artifact.
+
 <br/><br/>
 ## v3.0.14.0 - 2021-04-05 - [PR #338](https://github.com/NOAA-OWP/cahaba/pull/338)
 
@@ -49,6 +254,7 @@ Create tool to retrieve rating curves from USGS sites and convert to elevation (
      1) `usgs_rating_curves.csv`: A csv file that contains rating curves (including converted to NAVD88 elevation) for USGS gages in a format that is compatible with  `rating_curve_comparisons.py`. As it is is currently configured, only gages within CONUS will have rating curve data.
      2) `log.csv`: A log file that records status for each gage and includes error messages.
      3) `usgs_gages.gpkg`: A geospatial layer (in FIM projection) of all active USGS gages that meet a predefined criteria. Additionally, the `curve` attribute indicates whether a rating curve is found in the `usgs_rating_curves.csv`. This spatial file is only generated if the `all` option is passed with the `-l` argument.
+
 <br/><br/>
 ## v3.0.13.0 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
 
@@ -62,8 +268,8 @@ Created tool to compare synthetic rating curve with benchmark rating curve (Sier
 ### Additions
  - `usgs_gage_crosswalk.py`: generates `usgs_elev_table.csv` in `run_by_unit.py` with elevation and additional attributes at USGS gages.
  - `rating_curve_comparison.py`: post-processing script to plot and calculate metrics between synthetic rating curves and USGS rating curve data.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.12.1 - 2021-03-31 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
 
 Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
@@ -76,8 +282,8 @@ Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
 ### Additions
  - Creates `fim_performance_points.shp`: this layer consists of all evaluated ahps points (with metrics). Spatial data retrieved from WRDS on the fly.
  - Creates `fim_performance_polys.shp`: this layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
 
 Add more detail/information to plotting capabilities.
@@ -89,8 +295,8 @@ Add more detail/information to plotting capabilities.
 ### Additions
  - Optional argument to create barplots of CSI for each individual site.
  - Create a csv containing the data used to create the scatterplots.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.11.0 - 2021-03-22 - [PR #319](https://github.com/NOAA-OWP/cahaba/pull/298)
 
 Improvements to CatFIM service source data generation.
@@ -103,16 +309,16 @@ Improvements to CatFIM service source data generation.
 ### Additions
  - Added `generate_categorical_fim.py` to wrap `generate_categorical_fim_flows.py` and `generate_categorical_fim_mapping.py`.
  - Create new `nws_lid_sites` shapefile located in same directory as the `catfim_library` shapefile.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.10.1 - 2021-03-24 - [PR #320](https://github.com/NOAA-OWP/cahaba/pull/320)
 
 Patch to synthesize_test_cases.py.
 
 ### Changes
  - Bug fix to `synthesize_test_cases.py` to allow comparison between `testing` version and `official` versions.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
 
 Preprocessing of flow files for Categorical FIM.
@@ -126,8 +332,8 @@ Preprocessing of flow files for Categorical FIM.
 
  ### Changes
  - Stability fixes to `generate_categorical_fim.py`.
-<br/><br/>
 
+<br/><br/>
 ## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
 
 Enhancements to FIM API.

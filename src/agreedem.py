@@ -5,7 +5,7 @@ import os
 import argparse
 from r_grow_distance import r_grow_distance
 
-
+@profile
 def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data):
     '''
     Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html). The GRASS gis tool r.grow.distance is used to calculate intermediate allocation and proximity rasters.
@@ -45,8 +45,6 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # Import dem layer and river layer and get dem profile.
     elev = rasterio.open(dem)
     dem_profile = elev.profile
-    if elev.nodata == 0.0:
-        dem_profile.update(nodata = -999)
 
     rivers = rasterio.open(rivers_raster)
 

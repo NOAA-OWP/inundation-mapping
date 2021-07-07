@@ -4,6 +4,7 @@ import os
 import argparse
 import csv
 import sys
+sys.path.append('/foss_fim/src')
 import shutil
 from multiprocessing import Pool
 import geopandas as gpd
@@ -23,7 +24,9 @@ from utils.shared_variables import (NHD_URL_PARENT,
                                     OVERWRITE_NHD,
                                     OVERWRITE_ALL)
 
-from utils.shared_functions import pull_file, run_system_command, subset_wbd_gpkg, delete_file, getDriver
+from utils.shared_functions import (pull_file, run_system_command,
+                                    subset_wbd_gpkg, delete_file,
+                                    getDriver)
 
 NHDPLUS_VECTORS_DIRNAME = 'nhdplus_vectors'
 NHDPLUS_RASTERS_DIRNAME = 'nhdplus_rasters'
@@ -104,8 +107,8 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
             #wbd_gpkg_list.append(output_gpkg)
             #procs_list.append(['ogr2ogr -overwrite -progress -f GPKG -t_srs "{projection}" {output_gpkg} {wbd_gdb_path} {wbd_layer}'.format(output_gpkg=output_gpkg, wbd_gdb_path=wbd_gdb_path, wbd_layer=wbd_layer, projection=PREP_PROJECTION)])
 
-        #pool = Pool(num_workers)
-        #pool.map(run_system_command, procs_list)
+        # with Pool(processes=num_workers) as pool:
+            # pool.map(run_system_command, procs_list)
 
         # Subset WBD layers to CONUS and add to single geopackage.
         #print("Subsetting WBD layers to CONUS...")
@@ -147,9 +150,8 @@ def pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_prei
         output_gpkg = os.path.join(nwm_hydrofabric_directory, nwm_layer + '_proj.gpkg')
         procs_list.append(['ogr2ogr -overwrite -progress -f GPKG -t_srs "{projection}" {output_gpkg} {nwm_hydrofabric_gdb} {nwm_layer}'.format(projection=PREP_PROJECTION, output_gpkg=output_gpkg, nwm_hydrofabric_gdb=nwm_hydrofabric_gdb, nwm_layer=nwm_layer)])
 
-    pool = Pool(num_workers)
-    pool.map(run_system_command, procs_list)
-    pool.close()
+    with Pool(processes=num_workers) as pool:
+        pool.map(run_system_command, procs_list)
 
 
 def pull_and_prepare_nhd_data(args):
@@ -180,9 +182,7 @@ def pull_and_prepare_nhd_data(args):
     if not os.path.exists(elev_cm_tif) or overwrite_nhd:
         pull_file(nhd_raster_download_url, nhd_raster_extraction_path)
         os.system("7za e {nhd_raster_extraction_path} -o{nhd_raster_parent_dir} elev_cm.tif -r ".format(nhd_raster_extraction_path=nhd_raster_extraction_path, nhd_raster_parent_dir=nhd_raster_parent_dir))
-        # Change projection for elev_cm.tif.
-        #print("Projecting elev_cm...")
-        #run_system_command(['gdal_edit.py -a_srs "{projection}" {elev_cm_tif}'.format(projection=PREP_PROJECTION, elev_cm_tif=elev_cm_tif)])
+
         file_list = os.listdir(nhd_raster_parent_dir)
         for f in file_list:
             full_path = os.path.join(nhd_raster_parent_dir, f)
@@ -348,8 +348,9 @@ def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, ov
         nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd])
 
     # Pull and prepare NHD data.
-    #pool = Pool(num_workers)
-    #pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    # with Pool(processes=num_workers) as pool:
+        # pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+
     for huc in nhd_procs_list:
         try:
             pull_and_prepare_nhd_data(huc)

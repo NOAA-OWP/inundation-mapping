@@ -5,6 +5,7 @@ import json
 import shutil
 import argparse
 
+@profile
 def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, viz_post_processing):
     '''
     Processes all the final output files to cleanup and add post-processing
@@ -35,10 +36,10 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         'bathy_crosswalk_calcs.csv',
         'bathy_stream_order_calcs.csv',
         'bathy_thalweg_flag.csv',
-        'bathy_xs_area_hydroid_lookup.csv'
-        'src_full_crosswalked.csv'
+        'bathy_xs_area_hydroid_lookup.csv',
+        'src_full_crosswalked.csv',
         'usgs_elev_table.csv',
-        'hand_ref_elev_table.csv'
+        'hand_ref_elev_table.csv',
     ]
 
     # List of files that will be saved during a viz run
@@ -61,6 +62,8 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         # Step 1, keep only files that Viz needs
         whitelist_directory(output_folder_path, viz_whitelist, additional_whitelist)
 
+
+@profile
 def whitelist_directory(directory_path, whitelist, additional_whitelist):
     # Add any additional files to the whitelist that the user wanted to keep
     if additional_whitelist:
