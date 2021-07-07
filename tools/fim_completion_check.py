@@ -15,10 +15,12 @@ if __name__ == '__main__':
     huc_list_dir = args['huc_list_dir']
     output_folder = args['output_folder']
 
-    with open(huc_list_dir) as f:
-        huc_list = f.read().splitlines()
+    if not os.path.isfile(huc_list_dir):
+        huc_list = huc_list_dir.split()
+    else:
 
-    print(f"length of huc_list = {len(huc_list)}")
+        with open(huc_list_dir) as f:
+            huc_list = f.read().splitlines()
 
     output_huc_list = os.listdir(output_folder)
 
@@ -27,8 +29,6 @@ if __name__ == '__main__':
 
     if 'aggregate_fim_outputs' in output_huc_list:
         output_huc_list.remove('aggregate_fim_outputs')
-
-    print(f"length of output_huc_list = {len(output_huc_list)}")
 
     missing_hucs = list(set(huc_list) - set(output_huc_list))
 
