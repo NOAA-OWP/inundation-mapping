@@ -46,6 +46,7 @@ def variable_mannings_calc(args):
     huc_output_dir              = args[7]
 
     # Read the src_full_crosswalked.csv
+    print('Processing: ' + str(huc))
     df_src = pd.read_csv(src_bankfull_filename,dtype={'feature_id': str})
 
     # Read the Manning's n csv (must contain feature_id, channel mannings, floodplain mannings)
@@ -53,14 +54,15 @@ def variable_mannings_calc(args):
 
     # Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the bankfull_src_column)
     df_src = df_src.merge(df_mann,  how='left', on='feature_id')
-    df_src.loc[df_src[bankfull_src_column] == 'channel', 'lookup_ManningN'] = df_src['channel']
-    df_src.loc[df_src[bankfull_src_column] == 'floodplain', 'lookup_ManningN'] = df_src['floodplain']
+    df_src.loc[df_src[bankfull_src_column] == 'channel', 'lookup_ManningN'] = df_src['channel_n']
+    df_src.loc[df_src[bankfull_src_column] == 'floodplain', 'lookup_ManningN'] = df_src['overbank_n']
     #df_src.drop(['channel', 'floodplain'], axis=1, inplace=True)
 
     # Calculate composite Manning's n using the channel volume ratio attributes
-    df_src['comp_ManningN'] = (df_src['chann_volume_ratio']*df_src['channel']) + ((1.0 - df_src['chann_volume_ratio'])*df_src['floodplain'])
+    df_src['comp_ManningN'] = (df_src['chann_volume_ratio']*df_src['channel_n']) + ((1.0 - df_src['chann_volume_ratio'])*df_src['overbank_n'])
+    print('Done calculating composite Manning n: ' + str(huc))
 
-    # Check if there are any missing data in the discharge_1_5
+    # Check if there are any missing data in the composite ManningN column
     check_null = df_src['comp_ManningN'].isnull().sum()
     if check_null > 0:
         print('!!!!Missing values in the var_ManningN merge' + str(huc) + ' --> missing entries= ' + str(check_null))
@@ -87,11 +89,12 @@ def variable_mannings_calc(args):
 
     # Output new hydroTable with new discharge_1_5
     df_src_trim = df_src[['HydroID','Stage','Discharge (m3s-1)']]
-    df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)': 'discharge cms'})
+    df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)': 'discharge_cms'})
     df_htable = pd.read_csv(htable_filename)
-    df_htable.drop(['discharge_cms'], axis=1, inplace=True)
+    df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the original discharge column to be replaced with updated version
     df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
     df_htable.to_csv(new_htable_filename,index=False)
+    print('Output new files: ' + str(huc))
 
     # plot rating curves
     if src_plot_option == 'True':
@@ -142,11 +145,10 @@ if __name__ == '__main__':
     src_plot_option = args['src_plot_option']
     procs_list = []
 
+    # Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
     huc_list  = os.listdir(fim_dir)
-    print(huc_list)
     for huc in huc_list:
         if huc != 'logs' and huc[-3:] != 'log':
-            print('Processing: ' + str(huc))
             src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
             htable_filename = join(fim_dir,huc,'hydroTable.csv')
             new_htable_filename = join(fim_dir,huc,'hydroTable' + hydrotable_suffix + '.csv')
