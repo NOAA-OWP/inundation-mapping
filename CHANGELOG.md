@@ -2,6 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.19.3 - 2021-07-09
+
+Hot fix to `synthesize_test_cases`.
+
+## Changes
+- Fixed if/elif/else statement in `synthesize_test_cases.py` that resulted in only IFC data being evaluated.
+
+<br/><br/>
+
 ## v3.0.19.2 - 2021-07-01 - [PR #429](https://github.com/NOAA-OWP/cahaba/pull/429)
 
 Updates to evaluation scripts to allow for Alpha testing at Iowa Flood Center (IFC) sites. Also, `BAD_SITES` variable updates to omit sites not suitable for evaluation from metric calculations.
