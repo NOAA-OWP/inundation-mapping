@@ -102,7 +102,7 @@ def variable_mannings_calc(args):
     # Output new hydroTable with new discharge_1_5
     df_src_trim = df_src[['HydroID','Stage','Discharge (m3s-1)_varMann']]
     df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms'})
-    df_htable = pd.read_csv(htable_filename)
+    df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
     df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the original discharge column to be replaced with updated version
     df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
     df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HUC','LakeID']] # set column order for hydroTable output
