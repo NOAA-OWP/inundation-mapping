@@ -36,26 +36,32 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def variable_mannings_calc(args):
 
-    src_bankfull_filename       = args[0]
+    in_src_bankfull_filename       = args[0]
     bankfull_src_column         = args[1]
     mann_n_table                = args[2]
     huc                         = args[3]
-    htable_filename             = args[4]
-    new_htable_filename         = args[5]
-    src_plot_option             = args[6]
-    huc_output_dir              = args[7]
+    out_src_bankfull_filename   = args[4]
+    htable_filename             = args[5]
+    new_htable_filename         = args[6]
+    src_plot_option             = args[7]
+    huc_output_dir              = args[8]
 
     # Read the src_full_crosswalked.csv
-    print('Processing: ' + str(huc))
-    df_src = pd.read_csv(src_bankfull_filename,dtype={'feature_id': str})
+    print('Processingg: ' + str(huc))
+    df_src = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': str})
 
     # Read the Manning's n csv (must contain feature_id, channel mannings, floodplain mannings)
     df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': str})
 
     # Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the bankfull_src_column)
     df_src = df_src.merge(df_mann,  how='left', on='feature_id')
-    df_src.loc[df_src[bankfull_src_column] == 'channel', 'lookup_ManningN'] = df_src['channel_n']
-    df_src.loc[df_src[bankfull_src_column] == 'floodplain', 'lookup_ManningN'] = df_src['overbank_n']
+    check_null = df_src['channel_n'].isnull().sum()
+    if check_null > 0:
+        print('Missing feature_id in crosswalk for' + str(huc) + ' --> missing entries= ' + str(check_null))
+    if 'channel_n' not in df_src.columns:
+        print('Missing "channel_n" column: ' + str(huc))
+    #df_src.loc[df_src[bankfull_src_column] == 'channel', 'lookup_ManningN'] = df_src['channel_n']
+    #df_src.loc[df_src[bankfull_src_column] == 'floodplain', 'lookup_ManningN'] = df_src['overbank_n']
     #df_src.drop(['channel', 'floodplain'], axis=1, inplace=True)
 
     # Calculate composite Manning's n using the channel volume ratio attributes
@@ -84,15 +90,22 @@ def variable_mannings_calc(args):
     pow(df_src[hydr_radius],2.0/3)* \
     pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
 
+    ## Set Q values to 0 and -999 for specified criteria
+    df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0,0,inplace=True)
+    if 'Thalweg_burn_elev' in df_src:
+        df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
+        df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
+
     # Output new SRC with bankfull column
-    df_src.to_csv(src_bankfull_filename,index=False)
+    df_src.to_csv(out_src_bankfull_filename,index=False)
 
     # Output new hydroTable with new discharge_1_5
-    df_src_trim = df_src[['HydroID','Stage','Discharge (m3s-1)']]
-    df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)': 'discharge_cms'})
+    df_src_trim = df_src[['HydroID','Stage','Discharge (m3s-1)_varMann']]
+    df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms'})
     df_htable = pd.read_csv(htable_filename)
     df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the original discharge column to be replaced with updated version
     df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
+    df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HUC','LakeID']] # set column order for hydroTable output
     df_htable.to_csv(new_htable_filename,index=False)
     print('Output new files: ' + str(huc))
 
@@ -149,13 +162,14 @@ if __name__ == '__main__':
     huc_list  = os.listdir(fim_dir)
     for huc in huc_list:
         if huc != 'logs' and huc[-3:] != 'log':
-            src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
+            in_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
+            out_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_vmann.csv')
             htable_filename = join(fim_dir,huc,'hydroTable.csv')
             new_htable_filename = join(fim_dir,huc,'hydroTable' + hydrotable_suffix + '.csv')
-            huc_output_dir = join(fim_dir,huc,'src_plots')
+            huc_plot_output_dir = join(fim_dir,huc,'src_plots')
 
-            if isfile(src_bankfull_filename):
-                procs_list.append([src_bankfull_filename, bankfull_src_column, mann_n_table, huc, htable_filename, new_htable_filename, src_plot_option, huc_output_dir])
+            if isfile(in_src_bankfull_filename):
+                procs_list.append([in_src_bankfull_filename, bankfull_src_column, mann_n_table, huc, out_src_bankfull_filename, htable_filename, new_htable_filename, src_plot_option, huc_plot_output_dir])
             else:
                 print(str(huc) + ' --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)))
 
