@@ -326,9 +326,9 @@ if __name__ == '__main__':
                             # Define the magnitude lists to use, depending on test_id.
                             if 'ble' in test_id:
                                 magnitude = BLE_MAGNITUDE_LIST
-                            if 'usgs' or 'nws' in test_id:
+                            elif 'usgs' or 'nws' in test_id:
                                 magnitude = ['action', 'minor', 'moderate', 'major']
-                            if 'ifc' in test_id:
+                            elif 'ifc' in test_id:
                                 magnitude = IFC_MAGNITUDE_LIST
                             else:
                                 continue
