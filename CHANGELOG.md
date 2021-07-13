@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
-## v3.0.19.3 - 2021-07-13 - [PR #431](https://github.com/NOAA-OWP/cahaba/pull/431)
+## v3.0.19.4 - 2021-07-13 - [PR #431](https://github.com/NOAA-OWP/cahaba/pull/431)
 
 Updating logging and fixing bug in vector preprocessing.
 
@@ -14,6 +14,15 @@ Updating logging and fixing bug in vector preprocessing.
 - Provides unique exit codes to relevant domain checkpoints within `run_by_unit.sh`.
 - Bug fixes in `reduce_nhd_stream_density.py`, 'mprof plot` call.
 - Improved error handling in `add_crosswalk.py`.
+
+<br/><br/>
+
+## v3.0.19.3 - 2021-07-09
+
+Hot fix to `synthesize_test_cases`.
+
+## Changes
+- Fixed if/elif/else statement in `synthesize_test_cases.py` that resulted in only IFC data being evaluated.
 
 <br/><br/>
 
@@ -36,7 +45,6 @@ Adding a thalweg profile tool to identify significant drops in thalweg elevation
 
 ## Removals
 - Removing `dissolveLinks` arg from `clip_vectors_to_wbd.py`.
-
 
 ## Changes
 - Cleaned up code in `split_flows.py` to make it more readable.
