@@ -181,6 +181,9 @@ if tResults[0] == 'OK':
 else:
     print ('Error: Could not add network attributes to stream segments')
 
+# remove single node segments
+split_flows_gdf = split_flows_gdf.query("From_Node != To_Node")
+
 # Get all vertices
 split_points = OrderedDict()
 for index, segment in split_flows_gdf.iterrows():
