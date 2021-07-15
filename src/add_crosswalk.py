@@ -8,6 +8,8 @@ from rasterstats import zonal_stats
 import json
 import argparse
 import sys
+# sys.path.append('/foss_fim/src')
+# sys.path.append('/foss_fim/config')
 from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
@@ -125,7 +127,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     # replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
-
         if output_flows["areasqkm"][stream_index] < min_catchment_area and output_flows["LengthKm"][stream_index] < min_stream_length and output_flows["LakeID"][stream_index] < 0:
 
             short_id = output_flows['HydroID'][stream_index]
@@ -134,7 +135,10 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
             # multiple upstream segments
             if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
-                max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_']) # drainage area would be better than stream order but we would need to calculate
+                try:
+                    max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_']) # drainage area would be better than stream order but we would need to calculate
+                except:
+                    print(f"short_id {short_id} cannot calculate max stream order for multiple upstream segments scenario")
 
                 if len(output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID']) == 1:
                     update_id = output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID'].item()
@@ -148,7 +152,10 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
             # no upstream segments; multiple downstream segments
             elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID']) > 1:
-                max_order = max(output_flows.loc[output_flows.From_Node==to_node]['HydroID']['order_']) # drainage area would be better than stream order but we would need to calculate
+                try:
+                    max_order = max(output_flows.loc[output_flows.From_Node==to_node]['HydroID']['order_']) # drainage area would be better than stream order but we would need to calculate
+                except:
+                    print(f"To Node {to_node} cannot calculate max stream order for no upstream segments; multiple downstream segments scenario")
 
                 if len(output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID']) == 1:
                     update_id = output_flows.loc[(output_flows.From_Node==to_node) & (output_flows['order_'] == max_order)]['HydroID'].item()

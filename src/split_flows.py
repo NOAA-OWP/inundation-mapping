@@ -171,6 +171,9 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
     else:
         print ('Error: Could not add network attributes to stream segments')
 
+    # remove single node segments
+    split_flows_gdf = split_flows_gdf.query("From_Node != To_Node")
+    
     # Get all vertices
     split_points = OrderedDict()
     for index, segment in split_flows_gdf.iterrows():

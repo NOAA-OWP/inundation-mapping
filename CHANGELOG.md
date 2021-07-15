@@ -2,6 +2,30 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.19.4 - 2021-07-13 - [PR #431](https://github.com/NOAA-OWP/cahaba/pull/431)
+
+Updating logging and fixing bug in vector preprocessing.
+
+## Additions
+- `fim_completion_check.py` adds message to docker log to log any HUCs that were requested but did not finish `run_by_unit.sh`.
+- Adds `input_data_edits_changelog.txt` to the inputs folder to track any manual or version/location specific changes that were made to data used in FIM 3.
+
+## Changes
+- Provides unique exit codes to relevant domain checkpoints within `run_by_unit.sh`.
+- Bug fixes in `reduce_nhd_stream_density.py`, 'mprof plot` call.
+- Improved error handling in `add_crosswalk.py`.
+
+<br/><br/>
+
+## v3.0.19.3 - 2021-07-09
+
+Hot fix to `synthesize_test_cases`.
+
+## Changes
+- Fixed if/elif/else statement in `synthesize_test_cases.py` that resulted in only IFC data being evaluated.
+
+<br/><br/>
+
 ## v3.0.19.2 - 2021-07-01 - [PR #429](https://github.com/NOAA-OWP/cahaba/pull/429)
 
 Updates to evaluation scripts to allow for Alpha testing at Iowa Flood Center (IFC) sites. Also, `BAD_SITES` variable updates to omit sites not suitable for evaluation from metric calculations.
@@ -21,7 +45,6 @@ Adding a thalweg profile tool to identify significant drops in thalweg elevation
 
 ## Removals
 - Removing `dissolveLinks` arg from `clip_vectors_to_wbd.py`.
-
 
 ## Changes
 - Cleaned up code in `split_flows.py` to make it more readable.

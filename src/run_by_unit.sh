@@ -64,7 +64,7 @@ if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/nhd_headwater_points_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
     rm -rf $outputHucDataDir
-    exit 0
+    exit 55
   fi
 fi
 
@@ -235,7 +235,7 @@ Tcount
 if [[ ! -f $outputHucDataDir/demDerived_reaches_split.gpkg ]] ; then
   echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
   rm -rf $outputHucDataDir
-  exit 0
+  exit 56
 fi
 
 if [ "$extent" = "MS" ]; then
@@ -249,7 +249,7 @@ if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/dem_thalwegCond_MS.tif ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
     rm -rf $outputHucDataDir
-    exit 0
+    exit 57
   fi
 
   dem_thalwegCond=$outputHucDataDir/dem_thalwegCond_MS.tif
@@ -329,7 +329,7 @@ python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $o
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
   rm -rf $outputHucDataDir
-  exit 0
+  exit 65
 fi
 Tcount
 

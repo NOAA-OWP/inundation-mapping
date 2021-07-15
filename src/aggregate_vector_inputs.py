@@ -193,7 +193,6 @@ def collect_stream_attributes(nhdplus_vectors_dir, huc):
 
         burnline = gpd.read_file(burnline_filename)
         burnline = burnline[['NHDPlusID','ReachCode','geometry']]
-
         flowline = gpd.read_file(flowline_filename)
         flowline = flowline[['NHDPlusID','FType','FCode']]
         # flowline = flowline.loc[flowline["FType"].isin([334,420,428,460,558])]
@@ -210,9 +209,15 @@ def collect_stream_attributes(nhdplus_vectors_dir, huc):
         nhd_streams = nhd_streams.loc[nhd_streams.geometry!=None,:] # special case: remove segments without geometries
         nhd_streams['HUC4'] = str(huc)
 
+        # special case; breach in network at Tiber Dam
+        if huc == '1003' and nhd_streams.loc[nhd_streams.NHDPlusID==23001300078682.0,'DnLevelPat'] == 23001300001574.0:
+            nhd_streams = nhd_streams.loc[nhd_streams.NHDPlusID!=23001300009084.0]
+            nhd_streams.loc[nhd_streams.NHDPlusID==23001300078682.0,'DnLevelPat'] = 23001300001566.0
+
         # Write out NHDPlus HR aggregated
         nhd_streams_agg_fileName = os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_agg.gpkg')
         nhd_streams.to_file(nhd_streams_agg_fileName,driver=getDriver(nhd_streams_agg_fileName),index=False)
+
         del nhd_streams
 
         print (f"finished attribute collection for HUC {huc}",flush=True)
@@ -376,12 +381,13 @@ if __name__ == '__main__':
         if not os.path.isfile(streams_adj_path):
             missing_subsets = missing_subsets + [huc]
 
+
     print (f"Subsetting stream network for {len(missing_subsets)} HUC4s")
     num_workers=11
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Preprocess nhd hr and add attributes
-        collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
+        # collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
         # Subset nhd hr network
         subset_results = [executor.submit(subset_stream_networks, subset_arg_list, str(huc)) for huc in missing_subsets]
 
@@ -389,7 +395,7 @@ if __name__ == '__main__':
 
     # Aggregate subset nhd networks for entire nwm domain
     print ('Aggregating subset NHD networks for entire NWM domain')
-    aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list)
+    aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,missing_subsets)
 
     # Remove intermediate files
     # clean_up_intermediate_files(nhdplus_vectors_dir)
