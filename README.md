@@ -37,9 +37,9 @@ The following input data sources should be downloaded and preprocessed prior to 
 - Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 
 ### NHDPlus HR datasets
-- `acquire_and_preprocess_inputs.py`
-- `preprocess_rasters.py`
-- `aggregate_nhd_hr_streams.py`
+- `agg_nhd_streams_adj.gpkg`
+- `agg_nhd_headwaters_adj.gpkg`
+- `elev_m.tif`
 
 **Please note:** For the following two datasets, please contact Mark Glaudemans (mark.glaudemans@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
 
@@ -73,6 +73,12 @@ docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <i
 ```
 /foss_fim/src/aggregate_vector_inputs.py
 ```
+
+### Reproject NHDHR Rasters and Convert to Meters.
+```
+/foss_fim/src/preprocess_rasters.py
+```
+
 ### Produce Hydrofabric
 ```
 fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>
