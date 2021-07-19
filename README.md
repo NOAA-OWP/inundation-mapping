@@ -41,7 +41,7 @@ The following input data sources should be downloaded and preprocessed prior to 
 - `agg_nhd_headwaters_adj.gpkg`
 - `elev_m.tif`
 
-**Please note:** For the following two datasets, please contact Mark Glaudemans (mark.glaudemans@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
+**Please note:** For the following datasets, please contact Mark Glaudemans (mark.glaudemans@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
 
 ### NWM Hydrofabric
 - `nwm_flows.gpkg`
