@@ -14,7 +14,7 @@ import rasterio.mask
 @profile
 def fr_to_ms_raster_mask(ms_buffer_dist, split_flows_filename, fdr_fr, dem_fr, slope_fr, fdr_ms_filename, dem_ms_filename, slope_ms_filename, str_pixel_fr, str_pixel_ms_filename):
     # create output layer names
-    split_flows = gpd.read_file(split_flows_fileName)
+    split_flows = gpd.read_file(split_flows_filename)
 
     # Limit the rasters to the buffer distance around the draft streams.
     print ("Limiting rasters to buffer area ({} meters) around model streams".format(str(ms_buffer_dist)))
