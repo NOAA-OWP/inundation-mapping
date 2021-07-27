@@ -19,43 +19,55 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
     wbd_huc8_read = wbd_huc8_read.to_crs(HAND_CRS)
     
     # Spatial join the two layers.
-    point_huc6_sjoin = sjoin(points_layer_read, wbd_huc8_read)
-    
+    water_edge_df = sjoin(points_layer_read, wbd_huc8_read)
+        
     # Convert to GeoDataFrame.
-    gdf = gpd.GeoDataFrame(point_huc6_sjoin)
+    gdf = gpd.GeoDataFrame(water_edge_df)
     
     # Add two columns for X and Y.
     gdf['X'] = gdf['geometry'].x
     gdf['Y'] = gdf['geometry'].y
             
     # Extract information into dictionary.
-    points_dict = {}
-    for index, row in gdf.iterrows():        
-        try:
-            points_dict[row['HUC6']]['points'].update({str(row['geometry']): {'flow': row['flow'], 'submitter': row['submitter'], 'flow_unit': row['flow_unit']}})
-        except KeyError:
-            points_dict.update({row['HUC6']: {'points': {}}})
+    huc6_list = []
+    for index, row in gdf.iterrows():
+        huc6 = row['HUC6']
+        if huc6 not in huc6_list:
+            huc6_list.append(huc6)
 
     # Define coords variable to be used in point raster value attribution.
-    coords = [(x,y) for x, y in zip(point_huc6_sjoin.X, point_huc6_sjoin.Y)]
-    
+    coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
+        
     # Define paths to relevant HUC6 HAND data.
-    for huc6 in points_dict:
+    for huc6 in huc6_list:
+        print(huc6)
+        
         # Define paths to relevant HUC6 HAND data and get necessary metadata for point rasterization.
         hand_path = os.path.join(fim_directory, huc6, 'hand_grid_' + huc6 + '.tif')
+        if not os.path.exists(hand_path):
+            print("HAND grid for " + huc6 + " does not exist.")
+            continue
         catchments_path = os.path.join(fim_directory, huc6, 'catchments_' + huc6 + '.tif')
+        if not os.path.exists(catchments_path):
+            print("Catchments grid for " + huc6 + " does not exist.")
+            continue
         
         # Use point geometry to determine pixel values at catchment and HAND grids.
         hand_src = rasterio.open(hand_path)
-        point_huc6_sjoin['hand'] = [h[0] for h in hand_src.sample(coords)]
+        water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
         hand_src.close()
         catchments_src = rasterio.open(catchments_path)
-        point_huc6_sjoin['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
-               
-        output_csv = os.path.join(fim_directory, huc6, 'user_supplied_n_vals.csv')
+        water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
         
-        data_to_write = point_huc6_sjoin[['flow', 'flow_unit', 'submitter', 'hand', 'hydroid', 'X', 'Y']]     
-        data_to_write.to_csv(output_csv)
+        water_edge_df = water_edge_df['hydroid'] > 0
+        
+        # Get median HAND value for appropriate groups.
+        grouped_median = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
+#        data_to_write= grouped_median.loc(grouped_median['hydroid'] > 0)
+        
+        output_csv = os.path.join(fim_directory, huc6, 'user_supplied_n_vals_' + huc6 + '.csv')
+        
+        grouped_median.to_csv(output_csv)
 
 
 if __name__ == '__main__':
