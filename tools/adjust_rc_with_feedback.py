@@ -47,12 +47,15 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
         
         # Use point geometry to determine pixel values at catchment and HAND grids.
         hand_src = rasterio.open(hand_path)
-        point_huc6_sjoin['hand'] = [h for h in hand_src.sample(coords)]
+        point_huc6_sjoin['hand'] = [h[0] for h in hand_src.sample(coords)]
         hand_src.close()
         catchments_src = rasterio.open(catchments_path)
-        point_huc6_sjoin['hydroid'] = [c for c in catchments_src.sample(coords)]
+        point_huc6_sjoin['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
                
-    print(point_huc6_sjoin)
+        output_csv = os.path.join(fim_directory, huc6, 'user_supplied_n_vals.csv')
+        
+        data_to_write = point_huc6_sjoin[['flow', 'flow_unit', 'submitter', 'hand', 'hydroid', 'X', 'Y']]     
+        data_to_write.to_csv(output_csv)
 
 
 if __name__ == '__main__':
