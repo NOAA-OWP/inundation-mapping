@@ -252,7 +252,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
                 label_dict[label] = 'FIM 1'
             elif 'fim_2' in label:
                 label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
-            elif 'fim_3' in label:
+            elif 'fim_5' in label:
                 label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
@@ -382,12 +382,12 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             site subdirectories are the following files:
                 csi_<site_name>_<benchmark_source>_<configuration>.png: A barplot
                     of CSI for each version for all magnitudes for the site.
-        Optional (if spatial argument supplied): 
-            fim_performance_points.shp -- A shapefile of ahps points with 
+        Optional (if spatial argument supplied):
+            fim_performance_points.shp -- A shapefile of ahps points with
             metrics contained in attribute table.
             fim_performance_polys.shp -- A shapefile of huc8 polygons with
             metrics contained in attribute table.
-            
+
 
 
     Parameters
@@ -413,14 +413,14 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         field in metrics_csv. CSI, POD, TPR are currently calculated, if
         additional statistics are desired formulas would need to be coded.
     spatial : BOOL, optional
-        Creates spatial datasets of the base unit (ble: huc polygon, ahps: point) 
-        with metrics contained in attribute tables. The geospatial data is 
+        Creates spatial datasets of the base unit (ble: huc polygon, ahps: point)
+        with metrics contained in attribute tables. The geospatial data is
         either supplied in the .env file (WBD Huc layer) or from WRDS (ahps).
         The outputs are consistent with requirements set forth by the vizualization team.
         Additionally, there is a commented out section where if the user
         passes the extent files generated during creation of nws/usgs ahps
         preprocessing, the actual maps and flows used for evaluation are
-        appended to the ahps shapefile output. 
+        appended to the ahps shapefile output.
     fim_1_ms: BOOL
         Default is false. If True then fim_1 rows are duplicated with
         extent_config set to MS. This allows for FIM 1 to be included
@@ -606,7 +606,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             all_ahps_datasets = usgs_dataset.append(nws_dataset)
             all_ahps_datasets = all_ahps_datasets.filter(['huc','nws_lid','version','magnitude','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','benchmark_source'])
             all_ahps_datasets.rename(columns = {'benchmark_source':'source'}, inplace = True)
-            
+
             #Get spatial data from WRDS
             #Get metadata from WRDS API
             select_by = 'nws_lid'
@@ -618,26 +618,26 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             #Trim out unecessary columns and rename remaining columns
             gdf = gdf.filter(['identifiers_nws_lid', 'nws_data_name', 'identifiers_nwm_feature_id','nws_data_wfo','nws_data_state','nws_data_county','geometry'])
             gdf.rename(columns = {'identifiers_nws_lid':'nws_lid', 'nws_data_name':'lid_name','identifiers_nwm_feature_id':'feature_id','nws_data_wfo':'wfo','nws_data_state':'state','nws_data_county':'county','HUC8':'huc8'}, inplace = True)
-            
-            #Join spatial data to metric data        
-            gdf['nws_lid'] = gdf['nws_lid'].str.lower()        
+
+            #Join spatial data to metric data
+            gdf['nws_lid'] = gdf['nws_lid'].str.lower()
             joined = gdf.merge(all_ahps_datasets, on = 'nws_lid')
             #Project to VIZ projection and write to file
             joined = joined.to_crs(VIZ_PROJECTION)
             joined.to_file(Path(workspace) / 'fim_performance_points.shp')
         else:
             print('NWS/USGS MS datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a MS version.')
-            
+
         ################################################################
         #This section joins ble (FR) metrics to a spatial layer of HUCs.
         ################################################################
-        if all_datasets.get(('ble','FR')) and all_datasets.get(('ifc','FR')):            
+        if all_datasets.get(('ble','FR')) and all_datasets.get(('ifc','FR')):
             #Select BLE, FR dataset.
-            ble_dataset, sites = all_datasets.get(('ble','FR'))         
-            ifc_dataset, sites = all_datasets.get(('ifc','FR'))               
+            ble_dataset, sites = all_datasets.get(('ble','FR'))
+            ifc_dataset, sites = all_datasets.get(('ifc','FR'))
             huc_datasets = ble_dataset.append(ifc_dataset)
             #Read in HUC spatial layer
-            wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')             
+            wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')
             #Join metrics to HUC spatial layer
             wbd_with_metrics = wbd_gdf.merge(huc_datasets, how = 'inner', left_on = 'HUC8', right_on = 'huc')
             #Filter out unnecessary columns

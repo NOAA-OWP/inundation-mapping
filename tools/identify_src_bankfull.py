@@ -52,30 +52,53 @@ def nwm_1_5_bankfull_lookup(args):
     # Combine the nwm 1.5yr flows into the SRC via feature_id
     df_src = df_src.merge(df_nwm15,how='left',on='feature_id')
 
-    # Check if there are any missing data in the discharge_1_5
+    # Check if there are any missing data, negative or zero flow values in the discharge_1_5
     check_null = df_src['discharge_1_5'].isnull().sum()
     if check_null > 0:
         log_file.write('Missing feature_id in crosswalk for' + str(huc) + ' --> missing entries= ' + str(check_null) + '\n')
+    negative_flows = len(df_src.loc[df_src.discharge_1_5 <= 0])
+    if negative_flows > 0:
+        log_file.write('HUC: ' + str(huc) + ' --> Negative or zero flow values found\n')
+
+    # Check which channel geometry parameters exist in df (use bathy adjusted vars by default) --> this is needed to handle differences btw BARC & no-BARC outputs
+    if 'HydraulicRadius (m)_bathy_adj' in df_src:
+        hradius_var = 'HydraulicRadius (m)_bathy_adj'
+    else:
+        hradius_var = 'HydraulicRadius (m)'
+
+    if 'Volume (m3)_bathy_adj' in df_src:
+        volume_var = 'Volume (m3)_bathy_adj'
+    else:
+        volume_var = 'Volume (m3)'
 
     # Locate the closest SRC discharge value to the NWM 1.5yr flow
     df_src['Q_1_5_find'] = (df_src['discharge_1_5'] - df_src['Discharge (m3s-1)']).abs()
-    df_1_5 = df_src[['Stage','HydroID','Volume (m3)','HydraulicRadius (m)','Q_1_5_find']]
+    df_1_5 = df_src[['Stage','HydroID',volume_var,hradius_var,'Q_1_5_find']]
     df_1_5 = df_1_5[df_1_5['Stage'] > 0.0] # Ensure bankfull stage is greater than stage=0
     df_1_5 = df_1_5.loc[df_1_5.groupby('HydroID')['Q_1_5_find'].idxmin()].reset_index(drop=True)
-    df_1_5 = df_1_5.rename(columns={'Stage':'Stage_1_5','Volume (m3)':'Volume_bankfull','HydraulicRadius (m)':'HRadius_bankfull'}) # rename volume to use later for channel portion calc
+    df_1_5 = df_1_5.rename(columns={'Stage':'Stage_1_5',volume_var:'Volume_bankfull',hradius_var:'HRadius_bankfull'}) # rename volume to use later for channel portion calc
     df_src = df_src.merge(df_1_5[['Stage_1_5','HydroID','Volume_bankfull','HRadius_bankfull']],how='left',on='HydroID')
     df_src.drop(['Q_1_5_find'], axis=1, inplace=True)
 
     # Calculate the channel portion of bankfull Volume
-    df_src['chann_volume_ratio'] = df_src['Volume_bankfull'] / (df_src['Volume (m3)']+.01) # adding 0.01 to avoid dividing by 0 at stage=0
+    df_src['chann_volume_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+    df_src['chann_volume_ratio'].where(df_src['Stage'] == 0, df_src['Volume_bankfull'] / (df_src[volume_var]),inplace=True)
     #df_src['chann_volume_ratio'] = df_src['chann_volume_ratio'].clip_upper(1.0)
-    df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True)
+    df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+    df_src['chann_volume_ratio'].where(df_src['discharge_1_5'] > 0.0, 0.0, inplace=True) # if the discharge_1_5 value <= 0 then set channel ratio to 0 (will use global overbank manning n)
     #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
 
     # Calculate the channel portion of bankfull Hydraulic Radius
-    df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src['HydraulicRadius (m)']+.01) # adding 0.01 to avoid dividing by 0 at stage=0
-    df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True)
+    df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+    df_src['chann_hradius_ratio'].where(df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]),inplace=True)
+    #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # adding 0.01 to avoid dividing by 0 at stage=0
+    df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+    df_src['chann_hradius_ratio'].where(df_src['discharge_1_5'] > 0.0, 0.0, inplace=True) # if the discharge_1_5 value <= 0 then set channel ratio to 0 (will use global overbank manning n)
     #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
+
+    # mask bankfull variables when the 1.5yr flow value is <= 0
+    df_src['Stage_1_5'].mask(df_src['discharge_1_5'] <= 0.0,inplace=True)
+
 
     # Create a new column to identify channel/floodplain via the bankfull stage value
     df_src.loc[df_src['Stage'] <= df_src['Stage_1_5'], 'channel_fplain_1_5'] = 'channel'
@@ -134,13 +157,14 @@ if __name__ == '__main__':
 
     # Open log file
     print('Writing progress to log file here: ' + str(join(fim_dir,'bankfull_detect.log')))
+    print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
     log_file = open(join(fim_dir,'bankfull_detect.log'),"w")
     sys.stdout = log_file
 
     huc_list  = os.listdir(fim_dir)
     for huc in huc_list:
-        if huc != 'logs' and huc[-3:] != 'log':
+        if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
             src_full_filename = join(fim_dir,huc,'src_full_crosswalked.csv')
             src_modify_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
             huc_output_dir = join(fim_dir,huc,'src_plots')
@@ -149,7 +173,6 @@ if __name__ == '__main__':
                 procs_list.append([src_full_filename, src_modify_filename, nwm_flow_dir, huc, src_plot_option, huc_output_dir])
             else:
                 log_file.write(str(huc) + ' --> can not find the src_full_crosswalked.csv in the fim output dir: ' + str(join(fim_dir,huc)) + '\n')
-
 
     # Initiate multiprocessing
     print(f"Identifying bankfull thresholds for {len(procs_list)} hucs using {number_of_jobs} jobs")
