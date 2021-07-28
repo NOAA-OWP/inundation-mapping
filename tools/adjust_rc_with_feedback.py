@@ -65,13 +65,26 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
         water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
                 
         # Get median HAND value for appropriate groups.
-        grouped_median = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
+        water_edge_median_ds = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
                
         output_csv = os.path.join(fim_directory, huc6, 'user_supplied_n_vals_' + huc6 + '.csv')
         
-        grouped_median.to_csv(output_csv)
+        water_edge_median_ds.to_csv(output_csv)
+                
+        # 1. Loop and find the corresponding hydroids in the Hydrotable
+        # 2. Grab slope, wetted area, hydraulic radius, and feature_id that correspond with the matching hydroids and HAND value for the nearest stage
+        # 3. Calculate new column for new roughness using the above info
+        #    3b. If multiple flows exist per hydroid, aggregate the resulting Manning Ns
+        #    3c. If range of resulting Manning Ns is high, notify human
+        # 4. Update Hydrotable
+        #    4a. Copy default flow and N columns to new columns with "_default" in the field name
+        #    4b. Overwrite the official flow and N columns with the new calculated values
+        #    4c. Add last_updated column with timestamp where values were changed, also add "submitter" column
+        # 5. What do we do in catchments that match the feature_id?
+        #    5a. If these catchments already have known data, then let it use those. If not, use new calculated Ns.
         
-        update_rating_curve(grouped_median, huc6)
+        update_rating_curve(water_edge_median_ds, huc6)
+
 
 
 if __name__ == '__main__':
