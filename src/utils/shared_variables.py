@@ -46,7 +46,7 @@ os.environ['nhdplus_rasters_dir'] = os.path.join(os.environ.get('input_dir'),'nh
 os.environ['nhdplus_vectors_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors')
 os.environ['nwm_dir'] = os.path.join(os.environ.get('input_dir'),'nwm_hydrofabric')
 os.environ['wbd_dir'] = os.path.join(os.environ.get('input_dir'),'wbd')
-os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahp_sites')
+os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahps_sites')
 os.environ['nhdplus_aggregate_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors_aggregate')
 
 # File Paths

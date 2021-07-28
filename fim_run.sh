@@ -144,6 +144,9 @@ else
     fi
 fi
 
+# identify missing HUCs
+time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
+
 echo "$viz"
 if [[ "$viz" -eq 1 ]]; then
     # aggregate outputs
