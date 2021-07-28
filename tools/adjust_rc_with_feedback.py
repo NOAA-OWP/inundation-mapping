@@ -7,6 +7,9 @@ import rasterio
 temp_workspace = r''
 HAND_CRS = 'EPSG:3857'
 
+def update_rating_curve(grouped_median, huc6):
+    pass
+
 
 def ingest_points_layer(points_layer, fim_directory, wbd_path):
     
@@ -52,22 +55,23 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
             print("Catchments grid for " + huc6 + " does not exist.")
             continue
         
+#        water_edge_df = water_edge_df[water_edge_df['HUC6'] == huc6]
+        
         # Use point geometry to determine pixel values at catchment and HAND grids.
         hand_src = rasterio.open(hand_path)
         water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
         hand_src.close()
         catchments_src = rasterio.open(catchments_path)
         water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
-        
-        water_edge_df = water_edge_df['hydroid'] > 0
-        
+                
         # Get median HAND value for appropriate groups.
         grouped_median = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
-#        data_to_write= grouped_median.loc(grouped_median['hydroid'] > 0)
-        
+               
         output_csv = os.path.join(fim_directory, huc6, 'user_supplied_n_vals_' + huc6 + '.csv')
         
         grouped_median.to_csv(output_csv)
+        
+        update_rating_curve(grouped_median, huc6)
 
 
 if __name__ == '__main__':
