@@ -261,7 +261,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         #Define simplified labels as a list.
         new_labels = [label_dict[label] for label in org_labels]
         #rename legend labels to the simplified labels.
-        axes.legend(handles, new_labels, markerscale = 2, fontsize = 20, loc = 'upper right', ncol = int(np.ceil(len(new_labels)/7)))
+        axes.legend(handles, new_labels, markerscale = 2, fontsize = 14, loc = 'upper right', ncol = int(np.ceil(len(new_labels)/7)))
     #Add Textbox
     if textbox_str:
         box_props = dict(boxstyle='round', facecolor='white', alpha=0.5)

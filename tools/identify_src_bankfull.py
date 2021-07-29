@@ -91,7 +91,7 @@ def nwm_1_5_bankfull_lookup(args):
     # Calculate the channel portion of bankfull Hydraulic Radius
     df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
     df_src['chann_hradius_ratio'].where(df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]),inplace=True)
-    #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # adding 0.01 to avoid dividing by 0 at stage=0
+    #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # old adding 0.01 to avoid dividing by 0 at stage=0
     df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
     df_src['chann_hradius_ratio'].where(df_src['discharge_1_5'] > 0.0, 0.0, inplace=True) # if the discharge_1_5 value <= 0 then set channel ratio to 0 (will use global overbank manning n)
     #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
