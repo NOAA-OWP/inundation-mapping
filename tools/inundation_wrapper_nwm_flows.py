@@ -24,13 +24,17 @@ TWHITE = '\033[37m'
 WHITE_BOLD = '\033[37;1m'
 CYAN_BOLD = '\033[36;1m'
 
-def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'):
+def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc', output_dir=None):
 
     # Construct paths to development test results if not existent.
     huc_id_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id)
     if not os.path.exists(huc_id_dir_parent):
         os.mkdir(huc_id_dir_parent)
-    branch_test_case_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id, branch_name)
+        
+    if output_dir == None:
+        branch_test_case_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id, branch_name)
+    else:
+        branch_test_case_dir_parent = os.path.join(output_dir, huc_id, branch_name)
 
     # Delete the entire directory if it already exists.
     if os.path.exists(branch_test_case_dir_parent):
