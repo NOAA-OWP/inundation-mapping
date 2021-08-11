@@ -2,6 +2,12 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.19.5 - 2021-07-19
+
+Updating `README.md`.
+
+<br/><br/>
+
 ## v3.0.19.4 - 2021-07-13 - [PR #431](https://github.com/NOAA-OWP/cahaba/pull/431)
 
 Updating logging and fixing bug in vector preprocessing.
