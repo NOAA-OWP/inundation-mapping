@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.20.0 - 2021-08-11 - [PR #440](https://github.com/NOAA-OWP/cahaba/pull/440)
+
+This merge adds two new scripts into `/tools/` for use in QAQC.
+
+## Additions
+- `inundate_nation.py` to produce inundation maps for the entire country for use in QAQC.
+- `check_deep_flooding.py` to check for depths of inundation greater than a user-supplied threshold at specific areas defined by a user-supplied shapefile.
+
+<br/><br/>
+
 ## v3.0.19.5 - 2021-07-19
 
 Updating `README.md`.
