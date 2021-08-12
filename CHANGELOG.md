@@ -2,6 +2,20 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.20.1 - 2021-08-12 - [PR #442](https://github.com/NOAA-OWP/cahaba/pull/442)
+
+This merge improves documentation in various scripts.
+
+## Changes
+This PR better documents the following:
+
+- `inundate_nation.py`
+- `synthesize_test_cases.py`
+- `adjust_thalweg_lateral.py`
+- `rem.py`
+
+<br/><br/>
+
 ## v3.0.20.0 - 2021-08-11 - [PR #440](https://github.com/NOAA-OWP/cahaba/pull/440)
 
 This merge adds two new scripts into `/tools/` for use in QAQC.
