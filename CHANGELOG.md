@@ -2,6 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.20.1 - 2021-08-13 - [PR #443](https://github.com/NOAA-OWP/cahaba/pull/443)
+
+This merge modifies `clip_vectors_to_wbd.py` to check for relevant data.
+
+## Changes
+- `clip_vectors_to_wbd.py` now checks that there are NWM stream segments within the buffered HUC boundary.
+
+<br/><br/>
+
 ## v3.0.20.0 - 2021-08-11 - [PR #440](https://github.com/NOAA-OWP/cahaba/pull/440)
 
 This merge adds two new scripts into `/tools/` for use in QAQC.
