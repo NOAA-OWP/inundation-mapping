@@ -8,7 +8,7 @@ This merge modifies `clip_vectors_to_wbd.py` to check for relevant data.
 
 ## Changes
 - `clip_vectors_to_wbd.py` now checks that there are NWM stream segments within the buffered HUC boundary.
-- `included_huc8_ms.lst` has several attional HUC8s.
+- `included_huc8_ms.lst` has several additional HUC8s.
 
 <br/><br/>
 
