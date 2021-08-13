@@ -2,13 +2,27 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
-## v3.0.20.1 - 2021-08-13 - [PR #443](https://github.com/NOAA-OWP/cahaba/pull/443)
+## v3.0.20.2 - 2021-08-13 - [PR #443](https://github.com/NOAA-OWP/cahaba/pull/443)
 
-This merge modifies `clip_vectors_to_wbd.py` to check for relevant data.
+This merge modifies `clip_vectors_to_wbd.py` to check for relevant input data.
 
 ## Changes
 - `clip_vectors_to_wbd.py` now checks that there are NWM stream segments within the buffered HUC boundary.
 - `included_huc8_ms.lst` has several additional HUC8s.
+
+<br/><br/>
+
+## v3.0.20.1 - 2021-08-12 - [PR #442](https://github.com/NOAA-OWP/cahaba/pull/442)
+
+This merge improves documentation in various scripts.
+
+## Changes
+This PR better documents the following:
+
+- `inundate_nation.py`
+- `synthesize_test_cases.py`
+- `adjust_thalweg_lateral.py`
+- `rem.py`
 
 <br/><br/>
 

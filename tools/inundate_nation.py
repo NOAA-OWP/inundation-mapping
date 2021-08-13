@@ -4,11 +4,18 @@ import os
 from inundation import inundate
 from multiprocessing import Pool
 
-INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
+INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
 INPUTS_DIR = r'/data/inputs'
 
 
 def run_inundation(args):
+    """
+    This script is basically a wrapper for the inundate function and is designed for multiprocessing.
+    
+    Args:
+        args (list): [fim_run_dir (str), huc (str), magnitude (str), magnitude_output_dir (str), config (str)]
+    
+    """
     
     fim_run_dir = args[0]
     huc = args[1]
@@ -16,6 +23,7 @@ def run_inundation(args):
     magnitude_output_dir = args[3]
     config = args[4]
     
+    # Define file paths for use in inundate().
     fim_run_parent = os.path.join(fim_run_dir, huc)
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
@@ -28,8 +36,7 @@ def run_inundation(args):
     forecast = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'recurr_' + magnitude + '_cms.csv')
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
 
-    print(depth_raster)
-
+    # Run inundate() once for depth and once for extent.
     if not os.path.exists(depth_raster):
         print("Running the NWM recurrence intervals for HUC: " + huc + ", " + magnitude + "...")
         inundate(
@@ -37,8 +44,13 @@ def run_inundation(args):
                  subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
                  depths=depth_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
-    else:
-        print(inundation_raster + " exists. Moving on...")
+        
+    if not os.path.exists(inundation_raster):
+        inundate(
+                 rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                 subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
+                 depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
+                )
         
 
 if __name__ == '__main__':
@@ -59,18 +71,11 @@ if __name__ == '__main__':
 
     huc_list = os.listdir(fim_run_dir)
         
-    print(fim_run_dir)
     fim_version = os.path.split(fim_run_dir)[1]
-    
-    print(fim_version)
-    
-    print(output_dir)
     
     if output_dir == "":
         output_dir = os.path.join(INUN_REVIEW_DIR, fim_version)
-        
-    print(output_dir)
-    
+            
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     
