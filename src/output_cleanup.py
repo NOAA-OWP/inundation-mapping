@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import os
 import argparse
+from utils.shared_functions import mem_profile
 
 
-@profile
+@mem_profile
 def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, viz_post_processing):
     '''
     Processes all the final output files to cleanup and add post-processing
@@ -61,7 +62,7 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         whitelist_directory(output_folder_path, viz_whitelist, additional_whitelist)
 
 
-@profile
+@mem_profile
 def whitelist_directory(directory_path, whitelist, additional_whitelist):
     # Add any additional files to the whitelist that the user wanted to keep
     if additional_whitelist:

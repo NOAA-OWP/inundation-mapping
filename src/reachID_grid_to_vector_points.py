@@ -6,7 +6,7 @@ import geopandas as gpd
 from utils.shared_variables import PREP_PROJECTION
 from shapely.geometry import Point
 import rasterio
-from utils.shared_functions import getDriver
+from utils.shared_functions import getDriver, mem_profile
 
 """
 USAGE:
@@ -14,7 +14,7 @@ USAGE:
 
 """
 
-@profile
+@mem_profile
 def convert_grid_cells_to_points(raster,index_option,output_points_filename=False):
 
     # Input raster

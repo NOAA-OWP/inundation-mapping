@@ -7,7 +7,9 @@ import argparse
 import pygeos
 from shapely.wkb import dumps, loads
 import warnings
+from utils.shared_functions import mem_profile
 warnings.simplefilter("ignore")
+
 
 ''' Get elevation at adjusted USGS gages locations
 
@@ -30,7 +32,7 @@ warnings.simplefilter("ignore")
 '''
 
 
-@profile
+@mem_profile
 def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent):
 
     wbd_buffer = gpd.read_file(wbd_buffer_filename)

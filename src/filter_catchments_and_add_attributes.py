@@ -5,9 +5,10 @@ import geopandas as gpd
 import numpy as np
 import sys
 from utils.shared_variables import FIM_ID
+from utils.shared_functions import mem_profile
 
 
-@profile
+@mem_profile
 def filter_catchments_and_add_attributes(input_catchments_filename, input_flows_filename, output_catchments_filename, output_flows_filename, wbd_filename, huc_code):
     input_catchments = gpd.read_file(input_catchments_filename)
     wbd = gpd.read_file(wbd_filename)

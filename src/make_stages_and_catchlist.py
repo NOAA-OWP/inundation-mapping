@@ -4,9 +4,10 @@ import argparse
 import geopandas as gpd
 import numpy as np
 import sys
+from utils.shared_functions import mem_profile
 
 
-@profile
+@mem_profile
 def make_stages_and_catchlist(flows_filename, catchments_filename, stages_filename, catchlist_filename, stages_min, stages_interval, stages_max):
     flows = gpd.read_file(flows_filename)
     catchments = gpd.read_file(catchments_filename)

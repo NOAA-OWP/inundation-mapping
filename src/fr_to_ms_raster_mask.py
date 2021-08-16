@@ -9,9 +9,10 @@ import os
 import argparse
 import geopandas as gpd
 import rasterio.mask
+from utils.shared_functions import mem_profile
 
 
-@profile
+@mem_profile
 def fr_to_ms_raster_mask(ms_buffer_dist, split_flows_filename, fdr_fr, dem_fr, slope_fr, fdr_ms_filename, dem_ms_filename, slope_ms_filename, str_pixel_fr, str_pixel_ms_filename):
     # create output layer names
     split_flows = gpd.read_file(split_flows_filename)

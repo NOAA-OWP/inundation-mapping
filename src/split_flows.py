@@ -9,21 +9,23 @@ Description:
     5) create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
 '''
 
-import argparse
 import sys
 import geopandas as gpd
-from shapely.geometry import Point, LineString
+import pandas as pd
+from shapely.geometry import Point, LineString, MultiPoint
 import rasterio
 import numpy as np
+import argparse
 from tqdm import tqdm
+import time
 from os.path import isfile
 from os import remove,environ
 from collections import OrderedDict
 import build_stream_traversal
-from utils.shared_functions import getDriver
+from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 
-@profile
+@mem_profile
 def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_filename, split_flows_filename, split_points_filename, wbd8_clp_filename, lakes_filename):
     wbd = gpd.read_file(wbd8_clp_filename)
 
@@ -173,7 +175,7 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
 
     # remove single node segments
     split_flows_gdf = split_flows_gdf.query("From_Node != To_Node")
-    
+
     # Get all vertices
     split_points = OrderedDict()
     for index, segment in split_flows_gdf.iterrows():
