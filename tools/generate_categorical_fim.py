@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
-from datetime import date
+
 
 def update_mapping_status(output_mapping_dir, output_flows_dir):
     '''
@@ -49,10 +49,11 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
     flows_df.loc[flows_df['did_it_map']=='no','status'] = flows_df['status'] + flows_df['map_status']
 
-    # Perform pass for HUCs where mapping was skipped due to missing data
+    # Perform pass for HUCs where mapping was skipped due to missing data  #TODO check with Brian
     flows_hucs = [i.stem for i in Path(output_flows_dir).iterdir() if i.is_dir()]
     mapping_hucs = [i.stem for i in Path(output_mapping_dir).iterdir() if i.is_dir()]
     missing_mapping_hucs = list(set(flows_hucs) - set(mapping_hucs))
+    
     # Update status for nws_lid in missing hucs and change mapped attribute to 'no'
     flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
     flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
@@ -64,6 +65,7 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     # Write out to file
     nws_lid_path = Path(output_mapping_dir) / 'nws_lid_sites.shp'
     flows_df.to_file(nws_lid_path)
+
 
 if __name__ == '__main__':
 

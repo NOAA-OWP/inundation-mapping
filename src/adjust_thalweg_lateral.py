@@ -2,11 +2,13 @@
 
 
 import argparse
-from numba import njit, typeof, typed, types
+from numba import njit, typed, types
 import rasterio
 import numpy as np
+from utils.shared_functions import mem_profile
 
-@profile
+
+@mem_profile
 def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster, cost_distance_raster, cost_distance_tolerance, dem_lateral_thalweg_adj,lateral_elevation_threshold):
 
     # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #

@@ -3,6 +3,7 @@
 import geopandas as gpd
 from shapely.geometry import Point
 from utils.shared_functions import getDriver
+import argparse
 
 
 def findHeadWaterPoints(flows):
@@ -47,5 +48,6 @@ if __name__ == '__main__':
 
     hw_gdf = findHeadWaterPoints(flows)
 
+    #TODO check output_headwaters variable, not defined
     if output_headwaters is not None:
         hw_gdf.to_file(args['output_headwaters'],driver=getDriver(args['output_headwaters']))

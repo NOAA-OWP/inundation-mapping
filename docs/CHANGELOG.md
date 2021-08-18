@@ -2,6 +2,23 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.21.0 - 2021-08-18 - [PR #433](https://github.com/NOAA-OWP/cahaba/pull/433)
+
+General repository cleanup, made memory-profiling an optional flag, API's release feature now saves outputs.
+
+## Changes
+- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
+- Clean up `Dockerfile` and remove any unused* packages or variables.
+- Remove any unused* Python packages from the `Pipfile`.
+- Move the `CHANGELOG.md`, `SECURITY.md`, and `TERMS.md` files to the `/docs` folder.
+- Remove any unused* scripts in the `/tools` and `/src` folders.
+- Move `tools/preprocess` scripts into `tools/`.
+- Ensure all scripts in the `/src` folder have their code in functions and are being called via a `__main__` function (This will help with implementing memory profiling fully).
+- Changed memory-profiling to be an option flag `-m` for `fim_run.sh`.
+- Updated FIM API to save all outputs during a "release" job.
+
+<br/><br/>
+
 ## v3.0.20.2 - 2021-08-13 - [PR #443](https://github.com/NOAA-OWP/cahaba/pull/443)
 
 This merge modifies `clip_vectors_to_wbd.py` to check for relevant input data.

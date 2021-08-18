@@ -75,7 +75,7 @@ def update_loop():
                 outputs_path = f"/data/outputs/{current_jobs[job_name]['nice_name']}"
                 if os.path.isdir(outputs_path):
                     shutil.rmtree(outputs_path)
-                
+
                 jobs_to_delete.append(job_name)
 
             active_statuses = [
@@ -113,7 +113,7 @@ def update_loop():
                             total_active_cores += current_jobs[j]['parallel_jobs'] * 5
                         else:
                             total_active_cores += current_jobs[j]['parallel_jobs']
-                
+
                 # Machine has enough resources to run a new job
                 potential_active_cores = 0
                 if current_jobs[job_name]['hucs_type'] == '6':
@@ -170,6 +170,14 @@ def update_loop():
                     current_jobs[job_name]['total_output_files_length'] = len(current_jobs[job_name]['output_files_saved'].keys())
                     current_jobs[job_name]['status'] = 'Ready to Save File'
                 elif current_jobs[job_name]['job_type'] == 'release':
+                    # Move outputs to previous_fim and set them to be copied to the dev machine
+                    if os.path.isdir(f"/data/previous_fim/{current_jobs[job_name]['nice_name']}"):
+                        shutil.rmtree(f"/data/previous_fim/{current_jobs[job_name]['nice_name']}")
+                    if os.path.isdir(f"/data/outputs/{current_jobs[job_name]['nice_name']}"): shutil.move(f"/data/outputs/{current_jobs[job_name]['nice_name']}", '/data/previous_fim')
+                    for path, folders, files in os.walk(f"/data/previous_fim/{current_jobs[job_name]['nice_name']}"):
+                        for file in files:
+                            current_jobs[job_name]['output_files_saved'][os.path.join(path, file)] = 0
+                    current_jobs[job_name]['total_output_files_length'] = len(current_jobs[job_name]['output_files_saved'].keys())
                     current_jobs[job_name]['status'] = 'Ready for Synthesize Test Cases'
 
             if current_jobs[job_name]['status'] == 'Ready for Synthesize Test Cases':
@@ -177,9 +185,6 @@ def update_loop():
                 nice_name = current_jobs[job_name]['nice_name']
                 parallel_jobs = current_jobs[job_name]['parallel_jobs']
 
-                if os.path.isdir(f"/data/previous_fim/{nice_name}"):
-                    shutil.rmtree(f"/data/previous_fim/{nice_name}")
-                if os.path.isdir(f"/data/outputs/{nice_name}"): shutil.move(f"/data/outputs/{nice_name}", '/data/previous_fim')
                 # Kick off the new job as a docker container to run eval metrics
                 print(f"docker run -d --name {job_name} -v {DATA_PATH}:/data/ -v {DATA_PATH}temp/{job_name}/:/foss_fim -w /foss_fim/tools {DOCKER_IMAGE_PATH} /foss_fim/tools/synthesize_test_cases.py -c PREV --fim-version {nice_name} --job-number {parallel_jobs} -m /data/test_cases/metrics_library/all_official_versions.csv")
                 subprocess.call(f"docker run -d --name {job_name} -v {DATA_PATH}:/data/ -v {DATA_PATH}temp/{job_name}/:/foss_fim -w /foss_fim/tools {DOCKER_IMAGE_PATH} /foss_fim/tools/synthesize_test_cases.py -c PREV --fim-version {nice_name} --job-number {parallel_jobs} -m /data/test_cases/metrics_library/all_official_versions.csv", shell=True)
@@ -205,7 +210,6 @@ def update_loop():
                 subprocess.call(f"docker container rm {job_name}", shell=True)
 
                 current_jobs[job_name]['output_files_saved']['/data/test_cases/metrics_library/all_official_versions.csv'] = 0
-                current_jobs[job_name]['output_files_saved'][f"/data/previous_fim/{current_jobs[job_name]['nice_name']}/logs/docker.log"] = 0
                 current_jobs[job_name]['output_files_saved'][f"/data/previous_fim/{current_jobs[job_name]['nice_name']}/logs/synthesize_test_cases_docker.log"] = 0
                 current_jobs[job_name]['total_output_files_length'] = len(current_jobs[job_name]['output_files_saved'].keys())
                 current_jobs[job_name]['status'] = 'Ready for Eval Plots'
@@ -289,7 +293,7 @@ def update_loop():
                 current_jobs[job_name]['output_files_saved'][f"/data/previous_fim/{current_jobs[job_name]['nice_name']}/logs/generate_categorical_fim.log"] = 0
                 current_jobs[job_name]['total_output_files_length'] = len(current_jobs[job_name]['output_files_saved'].keys())
                 current_jobs[job_name]['status'] = 'Ready to Save File'
-    
+
             # Trigger connector to transmit the outputs to the output_handler
             # If the output_handler is offline, it will keep retrying until the output_handler is online
             if current_jobs[job_name]['status'] == 'Ready to Save File' and (shared_data['current_saving_job'] == '' or shared_data['current_saving_job'] == current_jobs[job_name]):
@@ -303,7 +307,7 @@ def update_loop():
                         output_to_save = {'path': path, 'chunk_index': current_jobs[job_name]['output_files_saved'][path]}
 
                 if output_to_save != {}:
-                    if shared_data['connected']: 
+                    if shared_data['connected']:
                         sio.emit('ready_for_output_handler', {
                             'nice_name': current_jobs[job_name]['nice_name'],
                             'job_name': job_name,
@@ -311,7 +315,7 @@ def update_loop():
                             'chunk_index': output_to_save['chunk_index']
                         })
                 current_jobs[job_name]['status'] = 'Saving File'
-            
+
             # Once the output_handler is done getting the outputs and the connector deletes the temp repo source,
             # mark as completed
             if current_jobs[job_name]['status'] == 'Saving File':
@@ -335,8 +339,8 @@ def update_loop():
                         if os.path.isdir(destination):
                             shutil.rmtree(destination)
                         if os.path.isdir(f"{outputs_path}/aggregate_fim_outputs"): shutil.move(f"{outputs_path}/aggregate_fim_outputs", destination)
-                        if os.path.isdir(f"{outputs_path}/logs"): shutil.move(f"{outputs_path}/logs", f"{destination}/logs") 
-                        if os.path.isdir(f"/data/catfim/{current_jobs[job_name]['nice_name']}"): shutil.move(f"/data/catfim/{current_jobs[job_name]['nice_name']}", f"{destination}/catfim") 
+                        if os.path.isdir(f"{outputs_path}/logs"): shutil.move(f"{outputs_path}/logs", f"{destination}/logs")
+                        if os.path.isdir(f"/data/catfim/{current_jobs[job_name]['nice_name']}"): shutil.move(f"/data/catfim/{current_jobs[job_name]['nice_name']}", f"{destination}/catfim")
 
                     if os.path.isdir(outputs_path):
                         shutil.rmtree(outputs_path)
@@ -349,7 +353,7 @@ def update_loop():
                             pass
 
                     current_jobs[job_name]['status'] = 'Completed' if current_jobs[job_name]['exit_code'] == 0 else 'Error'
-                
+
                     shared_data['current_saving_job'] = ''
                     current_jobs[job_name]['is_actively_saving'] = False
                     print(f"{job_name} completed")
@@ -383,7 +387,7 @@ def update_loop():
         if shared_data['connected']: sio.emit('update', {'jobUpdates': job_updates, 'presetsList': presets_list})
         with open('/data/outputs/current_jobs.json.temp', 'w') as f:
             json.dump(current_jobs, f)
-            shutil.move('/data/outputs/current_jobs.json.temp', '/data/outputs/current_jobs.json') 
+            shutil.move('/data/outputs/current_jobs.json.temp', '/data/outputs/current_jobs.json')
 
 sio = socketio.Client()
 

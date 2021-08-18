@@ -12,6 +12,7 @@ import shutil
 import csv
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
+
 def aggregate_fim_outputs(args):
 
     fim_out_dir   = args[0]
@@ -191,6 +192,7 @@ def reproject_raster(raster_name,reprojection):
                 resampling=Resampling.nearest)
     del src, dst
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Aggregate layers buy HUC6')
@@ -207,7 +209,6 @@ if __name__ == '__main__':
     huc_list = [huc for huc in os.listdir(fim_outputs_directory) if huc not in drop_folders]
     huc6_list = [str(huc[0:6]) for huc in os.listdir(fim_outputs_directory) if huc not in drop_folders]
     huc6_list = list(set(huc6_list))
-
 
     procs_list = []
 

@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 
-from numba import njit, typeof, typed, types
+from numba import njit, typed, types
 import rasterio
 import numpy as np
 import argparse
-import os
 import pandas as pd
-from osgeo import ogr, gdal
 import geopandas as gpd
-from utils.shared_functions import getDriver
+from utils.shared_functions import getDriver, mem_profile
 
 
-@profile
+@mem_profile
 def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, dem_reaches_filename):
     """
         Calculates REM/HAND/Detrended DEM
