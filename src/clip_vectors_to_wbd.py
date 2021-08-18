@@ -127,7 +127,11 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd_buffer)
     if extent == 'MS':
         nwm_streams = nwm_streams.loc[nwm_streams.mainstem==1]
-    nwm_streams.to_file(subset_nwm_streams_filename,driver=getDriver(subset_nwm_streams_filename),index=False)
+    if len(nwm_streams) > 0:
+        nwm_streams.to_file(subset_nwm_streams_filename,driver=getDriver(subset_nwm_streams_filename),index=False)
+    else:
+        print ("No NWM stream segments within HUC " + str(hucCode) +  " boundaries.")
+        sys.exit(0)
     del nwm_streams
 
 
