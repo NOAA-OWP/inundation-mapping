@@ -2,9 +2,9 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
-## v3.0.21.1 - 2021-08-19 - [PR #444](https://github.com/NOAA-OWP/cahaba/pull/444)
+## v3.0.22.0 - 2021-08-19 - [PR #444](https://github.com/NOAA-OWP/cahaba/pull/444)
 
-This merges in the script `adjust_rc_with_feedback.py` that will be expanded upon in future issues. The primary function that performs the HAND value and hydroid extraction is ingest_points_layer() but this may change as the overall process evolves.
+This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in future issues. The primary function that performs the HAND value and hydroid extraction is ingest_points_layer() but this may change as the overall synthetic rating curve automatic update machanism evolves.
 
 ## Additions
 - Added `adjust_rc_with_feedback.py` with `ingest_points_layer()`, a function to extract HAND and hydroid values for use in an automatic synthetic rating curve updating mechanism.
