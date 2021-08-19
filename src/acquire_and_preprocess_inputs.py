@@ -19,13 +19,12 @@ from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_VECTOR_EXTRACTION_SUFFIX,
                                     PREP_PROJECTION,
                                     WBD_NATIONAL_URL,
-                                    FIM_ID,
-                                    OVERWRITE_WBD,
-                                    OVERWRITE_NHD,
-                                    OVERWRITE_ALL)
+                                    FIM_ID
+                                    )
 
-from utils.shared_functions import (pull_file, run_system_command,
-                                    subset_wbd_gpkg, delete_file,
+from utils.shared_functions import (pull_file, 
+                                    run_system_command,
+                                    delete_file,
                                     getDriver)
 
 NHDPLUS_VECTORS_DIRNAME = 'nhdplus_vectors'
@@ -33,11 +32,13 @@ NHDPLUS_RASTERS_DIRNAME = 'nhdplus_rasters'
 NWM_HYDROFABRIC_DIRNAME = 'nwm_hydrofabric'
 NWM_FILE_TO_SUBSET_WITH = 'nwm_flows.gpkg'
 
+
 def subset_wbd_to_nwm_domain(wbd,nwm_file_to_use):
 
     intersecting_indices = [not (gpd.read_file(nwm_file_to_use,mask=b).empty) for b in wbd.geometry]
 
     return(wbd[intersecting_indices])
+
 
 def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_use,overwrite_wbd,num_workers):
     """
@@ -124,6 +125,7 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
     #delete_file(os.path.join(wbd_directory, 'WBD_National_GDB.jpg'))
 
     return(wbd_directory)
+
 
 def pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_preinputs_dir,num_workers):
     """

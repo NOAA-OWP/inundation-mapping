@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 
-from numba import njit, typeof, typed, types
+from numba import njit, typed, types
 import rasterio
 import numpy as np
 import argparse
-import os
 import pandas as pd
-from osgeo import ogr, gdal
 import geopandas as gpd
-from utils.shared_functions import getDriver
+from utils.shared_functions import getDriver, mem_profile
 
-@profile
+
+@mem_profile
 def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster, hydroid_fileName, dem_reaches_filename):
     """
         Calculates REM/HAND/Detrended DEM
@@ -41,7 +40,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
                 catchment_hydroid_dict[cm] = flat_value_raster[i]
         return(catchment_hydroid_dict)
 
-    # Open the masked gw_catchments_pixels_masked, hydroid_raster, and dem_thalwegCond_masked.
+    # Open files.
     gw_catchments_pixels_masked_object = rasterio.open(pixel_watersheds_fileName)
     hydroid_pixels_object = rasterio.open(hydroid_fileName)
     thalweg_raster_object = rasterio.open(thalweg_raster)
@@ -54,10 +53,10 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     catchment_hydroid_dict = typed.Dict.empty(types.int64,types.int64)  # Initialize an empty dictionary to store the catchment hydroid.
     # Update catchment_hydroid_dict with each pixel sheds hydroid.
     # Creating dictionary containing catchment ids (key) and corresponding hydroid within the thalweg...
-    for ji, window in hydroid_pixels_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
-        hydroid_window = hydroid_pixels_object.read(1,window=window).ravel()  # Define hydroid_window.
-        catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
-        thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define cost_window.
+    for ji, window in hydroid_pixels_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template
+        hydroid_window = hydroid_pixels_object.read(1,window=window).ravel()  # Define hydroid_window
+        catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window
+        thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define cost_window
 
         # Call numba-optimized function to update catchment_hydroid_dict with pixel sheds overlapping hydroid.
         catchment_hydroid_dict = make_catchment_hydroid_dict(hydroid_window, catchment_hydroid_dict, catchments_window, thalweg_window)
@@ -71,17 +70,17 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments, thalweg_window):
 
         for i,cm in enumerate(flat_catchments):
-            if thalweg_window[i] == 1:  # Only allow reference elevation to be within thalweg.
-                # If the catchment really exists in the dictionary, compare elevation values.
+            if thalweg_window[i] == 1:  # Only allow reference elevation to be within thalweg
+                # If the catchment really exists in the dictionary, compare elevation values
                 if (cm in catchment_min_dict):
                     if (flat_dem[i] < catchment_min_dict[cm]):
-                        # If the flat_dem's elevation value is less than the catchment_min_dict min, update the catchment_min_dict min.
+                        # If the flat_dem's elevation value is less than the catchment_min_dict min, update the catchment_min_dict min
                         catchment_min_dict[cm] = flat_dem[i]
                 else:
                     catchment_min_dict[cm] = flat_dem[i]
         return(catchment_min_dict)
 
-    # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
+    # Open files.
     gw_catchments_pixels_masked_object = rasterio.open(pixel_watersheds_fileName)
     dem_thalwegCond_masked_object = rasterio.open(dem_fileName)
     thalweg_raster_object = rasterio.open(thalweg_raster)
@@ -91,13 +90,13 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     meta['tiled'], meta['compress'] = True, 'lzw'
 
     # -- Create catchment_min_dict -- #
-    catchment_min_dict = typed.Dict.empty(types.int64,types.float32)  # Initialize an empty dictionary to store the catchment minimums.
+    catchment_min_dict = typed.Dict.empty(types.int64,types.float32)  # Initialize an empty dictionary to store the catchment minimums
     # Update catchment_min_dict with pixel sheds minimum.
     # Creating dictionary containing catchment ids (key) and corresponding elevation within the thalweg (value)...
-    for ji, window in dem_thalwegCond_masked_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template.
-        dem_window = dem_thalwegCond_masked_object.read(1,window=window).ravel()  # Define dem_window.
-        catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window.
-        thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define cost_window.
+    for ji, window in dem_thalwegCond_masked_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template
+        dem_window = dem_thalwegCond_masked_object.read(1,window=window).ravel()  # Define dem_window
+        catchments_window = gw_catchments_pixels_masked_object.read(1,window=window).ravel()  # Define catchments_window
+        thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define thalweg_window
 
         # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
         catchment_min_dict = make_catchment_min_dict(dem_window, catchment_min_dict, catchments_window, thalweg_window)
@@ -106,7 +105,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     gw_catchments_pixels_masked_object.close()
     thalweg_raster_object.close()
 
-    # Merge and export dictionary to to_csv
+    # Merge and export dictionary to csv.
     catchment_min_dict_df = pd.DataFrame.from_dict(catchment_min_dict, orient='index') # convert dict to dataframe
     catchment_min_dict_df.columns = ['Median_Thal_Elev_m']
     catchment_hydroid_dict_df = pd.DataFrame.from_dict(catchment_hydroid_dict, orient='index') # convert dict to dataframe
@@ -167,7 +166,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
 
 if __name__ == '__main__':
 
-    # parse arguments
+    # Parse arguments.
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
     parser.add_argument('-d','--dem', help='DEM to use within project path', required=True)
     parser.add_argument('-w','--watersheds',help='Pixel based watersheds raster to use within project path',required=True)
@@ -176,11 +175,10 @@ if __name__ == '__main__':
     parser.add_argument('-i','--hydroid', help='HydroID raster to use within project path', required=True)
     parser.add_argument('-s','--dem_reaches_in_out',help='DEM derived reach layer to join HAND reference elevation attribute',required=True)
 
-
-    # extract to dictionary
+    # Extract arguments to dictionary.
     args = vars(parser.parse_args())
 
-    # rename variable inputs
+    # Define variable inputs.
     dem_fileName = args['dem']
     pixel_watersheds_fileName = args['watersheds']
     rem_fileName = args['rem']

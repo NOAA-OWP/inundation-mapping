@@ -8,6 +8,7 @@ import argparse
 from os.path import join
 from tqdm import tqdm
 
+
 def find_unique_hucs(inputsDir,hucLength):
 
     # get file list with glob
@@ -22,7 +23,6 @@ def find_unique_hucs(inputsDir,hucLength):
     
     unique_hucs = pd.Series(unique_hucs)
     unique_hucs.to_csv(join(inputsDir,'included_huc{}.lst'.format(hucLength)),header=False,index=False)
-
 
 
 if __name__ == '__main__':

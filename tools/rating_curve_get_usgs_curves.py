@@ -9,7 +9,7 @@ import os
 import argparse
 import sys
 sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
+from utils.shared_variables import PREP_PROJECTION
 
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that

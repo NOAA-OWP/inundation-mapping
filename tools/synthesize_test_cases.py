@@ -11,7 +11,19 @@ from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR
 
 
 def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
-
+    """
+    This function searches for and collates metrics into a single CSV file that can queried database-style. The
+    CSV is an input to eval_plots.py. This function automatically looks for metrics produced for official versions
+    and loads them into memory to be written to the output CSV.
+    
+    Args:
+        master_metrics_csv_output (str): Full path to CSV output. If a file already exists at this path, it will be overwritten.
+        dev_versions_to_include_list (list): A list of non-official FIM version names. If a user supplied information on the command
+                                            line using the -dc flag, then this function will search for metrics in the "testing_versions"
+                                            library of metrics and include them in the CSV output.
+    
+    """
+    
     # Construct header
     metrics_to_write = ['true_negatives_count',
                         'false_negatives_count',
@@ -199,7 +211,15 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
 
 def process_alpha_test(args):
-
+    """
+    This function is designed to be used in multiprocessing. It handles the calling of the run_alpha_test function.
+    
+    Args:
+        args (list): Formatted [fim_run_dir (str), version (str), test_id (str), magnitude (str), archive_results (bool), overwrite (bool)]
+    
+    """
+    
+    
     fim_run_dir = args[0]
     version = args[1]
     test_id = args[2]
