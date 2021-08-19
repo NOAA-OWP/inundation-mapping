@@ -2,6 +2,27 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.0 - 2021-08-19 - [PR #444](https://github.com/NOAA-OWP/cahaba/pull/444)
+
+This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in future issues. The primary function that performs the HAND value and hydroid extraction is ingest_points_layer() but this may change as the overall synthetic rating curve automatic update machanism evolves.
+
+## Additions
+- Added `adjust_rc_with_feedback.py` with `ingest_points_layer()`, a function to extract HAND and hydroid values for use in an automatic synthetic rating curve updating mechanism.
+
+<br/><br/>
+
+## Changes
+- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
+- Clean up `Dockerfile` and remove any unused* packages or variables.
+- Remove any unused* Python packages from the `Pipfile`.
+- Move the `CHANGELOG.md`, `SECURITY.md`, and `TERMS.md` files to the `/docs` folder.
+- Remove any unused* scripts in the `/tools` and `/src` folders.
+- Move `tools/preprocess` scripts into `tools/`.
+- Ensure all scripts in the `/src` folder have their code in functions and are being called via a `__main__` function (This will help with implementing memory profiling fully).
+- Changed memory-profiling to be an option flag `-m` for `fim_run.sh`.
+- Updated FIM API to save all outputs during a "release" job.
+
+
 ## v3.0.21.0 - 2021-08-18 - [PR #433](https://github.com/NOAA-OWP/cahaba/pull/433)
 
 General repository cleanup, made memory-profiling an optional flag, API's release feature now saves outputs.

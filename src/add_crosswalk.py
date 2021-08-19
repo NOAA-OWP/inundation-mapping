@@ -228,7 +228,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         print('Note: NOT using bathy estimation approach to modify the SRC...')
 
     # make hydroTable
-    output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
+    output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)', 'HydraulicRadius (m)', 'WetArea (m2)', 'SLOPE', 'ManningN']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
 
     if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
