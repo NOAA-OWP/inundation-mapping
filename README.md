@@ -4,20 +4,20 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids. This repository also includes functionality to generate flood inundation maps (FIMs) and evaluate FIM accuracy.
 
-For more information, see the [Cahaba wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home).
+For more information, see the [Cahaba Wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home).
 
 <br/><br/>
 
-# Acessing the Latest HAND Data
-The latest generated HAND data can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
+# Accessing Data through ESIP S3 Bucket
+The Cahaba team regularly pushes new features and generates nationwide HAND data for the full-resolution and mainstem configurations. The latest generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
 
-## Configuring AWS CLI
+## Configuring the AWS CLI
 
 1. [Install AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 
 2. [Configure AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
 
-## Accessing HAND Data using AWS CLI
+## Accessing Data using the AWS CLI
 
 S3 Bucket: `s3://noaa-nws-owp-fim`
 
@@ -26,13 +26,18 @@ This S3 Bucket is set up as a "requester-pays" bucket. [Read more here](https://
 ### Examples
 
 List bucket folder structure:
-```aws s3 ls s3://noaa-nws-owp-fim/ --request-payer requester```
+```
+aws s3 ls s3://noaa-nws-owp-fim/ --request-payer requester
+```
 
-Download a directory of outputs for a HUC8
+Download a directory of outputs for a HUC8:
+```
+aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_21_0/outputs/fr/12090301 12090301 --request-payer requester
+```
 
 <br/><br/>
 
-# Running Code
+# Running the Code
 The following information describes setting up Docker, acquiring input data, running the HAND production software, and running the evaluation software.
 
 ## Dependencies
@@ -61,36 +66,32 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 ----
 ## Input Data
 
-A subset of the input data is available through [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). 
+### Recommended Approach
+We recommend using the data that has been pregenerated for testing purposes. It can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). All necessary non-publicly available files are in this S3 bucket, as well as sample input data for HUCs 1204 and 1209.
 
-
-
-
-
-
-
-
+### Alternative Approach
+Another option other than accessing data through the ESIP S3 Bucket is downloading and creating the necessary input data locally.
 
 The following input data sources should be downloaded and preprocessed prior to executing the preprocessing & hydrofabric generation code:
-### USACE National Levee Database:
+#### USACE National Levee Database:
 - Access here: https://levees.sec.usace.army.mil/
 - Download the “Full GeoJSON” file for the area of interest
 - Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
 
-### NHDPlus HR datasets
+#### NHDPlus HR datasets
 - `agg_nhd_streams_adj.gpkg`
 - `agg_nhd_headwaters_adj.gpkg`
 - `elev_m.tif`
 
 **Please note:** For the following datasets, please contact Mark Glaudemans (mark.glaudemans@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
 
-### NWM Hydrofabric
+#### NWM Hydrofabric
 - `nwm_flows.gpkg`
 - `nwm_catchments.gpkg`
 - `nwm_lakes.gpkg`
 - `nwm_headwaters.gpkg`
 
-### AHPS Site Locations (For Mainstem Configuration)
+#### AHPS Site Locations (For Mainstem Configuration)
 - `nws_lid.gpkg`
 - `ms_segs.gpkg`
 
