@@ -64,7 +64,7 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
     - runs calibrated mannings parameters from `mannings_calibrated.json`
 
 ----
-## Input Data
+## Input Data Acquisition/Creation
 
 ### Recommended Approach
 We recommend using the data that has been pregenerated for testing purposes. It can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). All necessary non-publicly available files are in this S3 bucket, as well as sample input data for HUCs 1204 and 1209.
