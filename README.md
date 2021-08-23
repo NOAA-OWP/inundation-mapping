@@ -1,8 +1,39 @@
-## Cahaba: Flood Inundation Mapping for U.S. National Water Model
+# Cahaba: Flood Inundation Mapping for U.S. National Water Model
 
 Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids. This repository also includes functionality to generate flood inundation maps (FIMs) and evaluate FIM accuracy.
+
+For more information, see the [Cahaba wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home).
+
+<br/><br/>
+
+# Acessing the Latest HAND Data
+The latest generated HAND data can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
+
+## Configuring AWS CLI
+
+1. [Install AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
+
+2. [Configure AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
+
+## Accessing HAND Data using AWS CLI
+
+S3 Bucket: `s3://noaa-nws-owp-fim`
+
+This S3 Bucket is set up as a "requester-pays" bucket. [Read more here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html).
+
+### Examples
+
+List bucket folder structure:
+```aws s3 ls s3://noaa-nws-owp-fim/ --request-payer requester```
+
+Download a directory of outputs for a HUC8
+
+<br/><br/>
+
+# Running Code
+The following information describes setting up Docker, acquiring input data, running the HAND production software, and running the evaluation software.
 
 ## Dependencies
 
@@ -29,6 +60,16 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 
 ----
 ## Input Data
+
+A subset of the input data is available through [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). 
+
+
+
+
+
+
+
+
 
 The following input data sources should be downloaded and preprocessed prior to executing the preprocessing & hydrofabric generation code:
 ### USACE National Levee Database:
