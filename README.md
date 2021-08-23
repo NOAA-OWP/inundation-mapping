@@ -1,4 +1,4 @@
-# Cahaba: Flood Inundation Mapping for U.S. National Water Model
+## Cahaba: Flood Inundation Mapping for U.S. National Water Model
 
 Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
 
@@ -6,24 +6,22 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 
 For more information, see the [Cahaba Wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home).
 
-<br/><br/>
-
-# Accessing Data through ESIP S3 Bucket
+## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
 
-## Configuring the AWS CLI
+### Configuring the AWS CLI
 
 1. [Install AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 
 2. [Configure AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
 
-## Accessing Data using the AWS CLI
+### Accessing Data using the AWS CLI
 
 S3 Bucket: `s3://noaa-nws-owp-fim`
 
 This S3 Bucket is set up as a "Requester Pays" bucket. [Read more here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html).
 
-### Examples
+#### Examples
 
 List bucket folder structure:
 ```
@@ -35,17 +33,14 @@ Download a directory of outputs for a HUC8:
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_21_0/outputs/fr/12090301 12090301 --request-payer requester
 ```
 
-<br/><br/>
+## Running the Code
+### Input Data
+Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). All necessary non-publicly available files are in this S3 bucket, as well as sample input data for HUCs 1204 and 1209.
 
-# Running the Code
-This section details how to set up Docker, acquire input data, run the HAND production software, and run the evaluation software.
-
-## Dependencies
-
+### Dependencies
 [Docker](https://docs.docker.com/get-docker/)
 
-## Installation
-
+### Installation
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
 2. Build Docker Image : `docker build -f Dockerfile.dev -t <image_name>:<tag> <path/to/repository>`
 3. Create FIM group on host machine:
@@ -53,8 +48,7 @@ This section details how to set up Docker, acquire input data, run the HAND prod
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
     - Linux: `chgrp -R fim <path/to/repository>`
 
-## Configuration
-
+### Configuration
 This software is configurable via parameters found in the `config` directory. Copy files before editing and remove "template" pattern from the filename.
 Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
 - `params_template.env`
@@ -63,65 +57,7 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 - `params_calibrated.env`
     - runs calibrated mannings parameters from `mannings_calibrated.json`
 
-----
-## Input Data Acquisition/Creation
-
-### Recommended Approach
-We recommend using the data that has been pregenerated for testing purposes. It can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). All necessary non-publicly available files are in this S3 bucket, as well as sample input data for HUCs 1204 and 1209.
-
-### Alternative Approach
-Another option other than accessing data through the ESIP S3 Bucket is downloading and creating the necessary input data locally.
-
-The following input data sources should be downloaded and preprocessed prior to executing the preprocessing & hydrofabric generation code:
-#### USACE National Levee Database:
-- Access here: https://levees.sec.usace.army.mil/
-- Download the “Full GeoJSON” file for the area of interest
-- Unzip data and then use the preprocessing scripts to filter data and fix geometries where needed
-
-#### NHDPlus HR datasets
-- `agg_nhd_streams_adj.gpkg`
-- `agg_nhd_headwaters_adj.gpkg`
-- `elev_m.tif`
-
-**Please note:** For the following datasets, please contact Mark Glaudemans (mark.glaudemans@noaa.gov). We are currently working on a long-term data sharing solution for the in-house NOAA data.
-
-#### NWM Hydrofabric
-- `nwm_flows.gpkg`
-- `nwm_catchments.gpkg`
-- `nwm_lakes.gpkg`
-- `nwm_headwaters.gpkg`
-
-#### AHPS Site Locations (For Mainstem Configuration)
-- `nws_lid.gpkg`
-- `ms_segs.gpkg`
-
-----
-## Usage
-
-### Run Docker Container
-```
-docker run --rm -it -v <path/to/data>:/data -v <path/to/repository>:/foss_fim <image_name>:<tag>
-```
-
-### Acquire and Prepare Data
-```
-/foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
-```
-- `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
-- Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
-- See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
-
-### Aggregate NHDHR Streams and Create NWM Headwater Points
-```
-/foss_fim/src/aggregate_vector_inputs.py
-```
-
-### Reproject NHDHR Rasters and Convert to Meters.
-```
-/foss_fim/src/preprocess_rasters.py
-```
-
-### Produce Hydrofabric
+### Produce HAND Hydrofabric
 ```
 fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>
 ```
@@ -129,11 +65,26 @@ fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_
     i. To run entire domain of available data use one of the ```/data/inputs/included_huc[4,6,8].lst``` files
 - Outputs can be found under ```/data/outputs/<name_your_run>```
 
+### Testing in Other HUCs
+To test in HUCs other than the provided HUCs, the following processes can be followed to acquire and preprocess additional NHDPlus rasters and vectors. After these steps are run, the "Produce HAND Hydrofabric" step can be run for the new HUCs.
+
+```
+/foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
+```
+- `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
+- Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
+- See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
+
+#### Reproject NHDHR Rasters and Convert to Meters.
+```
+/foss_fim/src/preprocess_rasters.py
+```
+
 ----
-## Evaluating Inundation Map Performance
+### Evaluating Inundation Map Performance
 After `fim_run.sh` completes, you are ready to evaluate the model's skill.
 
-**Please note:** You will need access to the test_cases benchmark data. Please contact Mark Glaudemans for access to these data (mark.glaudemans@noaa.gov). As mentioned before, a long term data sharing solution is still in the works.
+The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
 
 To evaluate model skill, run the following:
 ```
@@ -146,7 +97,7 @@ python /foss_fim/tools/synthesize_test_cases.py --help
 ```
 
 ----
-## Dependencies
+### Managing Dependencies
 
 Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/). To add new dependencies, from the projects's top-level directory:
 
@@ -165,19 +116,19 @@ and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
 
 ----
-## Known Issues & Getting Help
+### Known Issues & Getting Help
 
-Please see the issue tracker on GitHub for known issues and for getting help.
+Please see the issue tracker on GitHub and the [Cahaba Wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home) for known issues and getting help.
 
-## Getting Involved
+### Getting Involved
 
 NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
-## Open Source Licensing Info
+### Open Source Licensing Info
 1. [TERMS](docs/TERMS.md)
 2. [LICENSE](LICENSE)
 
-## Credits and References
+### Credits and References
 1. Office of Water Prediction [(OWP)](https://water.noaa.gov/)
 2. National Flood Interoperability Experiment [(NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
 3. Garousi‐Nejad, I., Tarboton, D. G.,Aboutalebi, M., & Torres‐Rua, A.(2019). Terrain analysis enhancements to the Height Above Nearest Drainage flood inundation mapping method. Water Resources Research, 55 , 7983–8009. https://doi.org/10.1029/2019WR0248375.
