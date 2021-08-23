@@ -19,7 +19,7 @@ The latest national generated HAND data and a subset of the inputs can be found 
 
 S3 Bucket: `s3://noaa-nws-owp-fim`
 
-This S3 Bucket is set up as a "Requester Pays" bucket. [Read more here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html).
+This S3 Bucket is set up as a "Requester Pays" bucket. Read more about what that means [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html).
 
 #### Examples
 
@@ -82,9 +82,7 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 
 ----
 ### Evaluating Inundation Map Performance
-After `fim_run.sh` completes, you are ready to evaluate the model's skill.
-
-The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
+After `fim_run.sh` completes, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
 
 To evaluate model skill, run the following:
 ```
