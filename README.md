@@ -38,7 +38,7 @@ aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_21_0/outputs/fr/120
 <br/><br/>
 
 # Running the Code
-The following information describes setting up Docker, acquiring input data, running the HAND production software, and running the evaluation software.
+This section details how to set up Docker, acquire input data, run the HAND production software, and run the evaluation software.
 
 ## Dependencies
 
