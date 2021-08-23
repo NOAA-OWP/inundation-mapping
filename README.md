@@ -9,7 +9,7 @@ For more information, see the [Cahaba Wiki](https://github.com/NOAA-OWP/cahaba/w
 <br/><br/>
 
 # Accessing Data through ESIP S3 Bucket
-The Cahaba team regularly pushes new features and generates nationwide HAND data for the full-resolution and mainstem configurations. The latest generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
+The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
 
 ## Configuring the AWS CLI
 
@@ -21,7 +21,7 @@ The Cahaba team regularly pushes new features and generates nationwide HAND data
 
 S3 Bucket: `s3://noaa-nws-owp-fim`
 
-This S3 Bucket is set up as a "requester-pays" bucket. [Read more here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html).
+This S3 Bucket is set up as a "Requester Pays" bucket. [Read more here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html).
 
 ### Examples
 
