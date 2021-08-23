@@ -18,7 +18,6 @@ This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in futu
 ## Additions
 - Added `adjust_rc_with_feedback.py` with `ingest_points_layer()`, a function to extract HAND and hydroid values for use in an automatic synthetic rating curve updating mechanism.
 
-<br/><br/>
 
 ## Changes
 - Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
@@ -31,6 +30,7 @@ This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in futu
 - Changed memory-profiling to be an option flag `-m` for `fim_run.sh`.
 - Updated FIM API to save all outputs during a "release" job.
 
+<br/><br/>
 
 ## v3.0.21.0 - 2021-08-18 - [PR #433](https://github.com/NOAA-OWP/cahaba/pull/433)
 
