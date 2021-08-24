@@ -27,6 +27,7 @@ class NoForecastFound(Exception):
     """ Raised when no forecast is available for a given Hydro-Table """
     pass
 
+
 def inundate(
              rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
              subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
@@ -163,63 +164,60 @@ def inundate(
     else:
         raise TypeError("Pass hydro table csv")
 
-    if catchmentStagesDict is not None:
+        
+    # make windows generator
+    window_gen = __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
+                                          depths,out_raster_profile,out_vector_profile,quiet,hucs=hucs,hucSet=hucSet)
 
-        # make windows generator
-        window_gen = __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
-                                              depths,out_raster_profile,out_vector_profile,quiet,hucs=hucs,hucSet=hucSet)
+    # start up thread pool
+    executor = ThreadPoolExecutor(max_workers=num_workers)
 
-        # start up thread pool
-        executor = ThreadPoolExecutor(max_workers=num_workers)
+    # submit jobs
+    results = {executor.submit(__inundate_in_huc,*wg) : wg[6] for wg in window_gen}
 
-        # submit jobs
-        results = {executor.submit(__inundate_in_huc,*wg) : wg[6] for wg in window_gen}
+    inundation_rasters = [] ; depth_rasters = [] ; inundation_polys = []
+    for future in as_completed(results):
+        try:
+            future.result()
+        except Exception as exc:
+            __vprint("Exception {} for {}".format(exc,results[future]),not quiet)
+        else:
 
-        inundation_rasters = [] ; depth_rasters = [] ; inundation_polys = []
-        for future in as_completed(results):
-            try:
-                future.result()
-            except Exception as exc:
-                __vprint("Exception {} for {}".format(exc,results[future]),not quiet)
+            if results[future] is not None:
+                __vprint("... {} complete".format(results[future]),not quiet)
             else:
+                __vprint("... complete",not quiet)
 
-                if results[future] is not None:
-                    __vprint("... {} complete".format(results[future]),not quiet)
-                else:
-                    __vprint("... complete",not quiet)
+            inundation_rasters += [future.result()[0]]
+            depth_rasters += [future.result()[1]]
+            inundation_polys += [future.result()[2]]
 
-                inundation_rasters += [future.result()[0]]
-                depth_rasters += [future.result()[1]]
-                inundation_polys += [future.result()[2]]
+    # power down pool
+    executor.shutdown(wait=True)
 
-        # power down pool
-        executor.shutdown(wait=True)
+    # optional aggregation
+    if (aggregate) & (hucs is not None):
+        # inun grid vrt
+        if inundation_raster is not None:
+            inun_vrt = BuildVRT(splitext(inundation_raster)[0]+'.vrt',inundation_rasters)
+            inun_vrt = None
+            #_ = run('gdalbuildvrt -q -overwrite {} {}'.format(splitext(inundation_raster)[0]+'.vrt'," ".join(inundation_rasters)),shell=True)
+        # depths vrt
+        if depths is not None:
+            depths_vrt = BuildVRT(splitext(depths)[0]+'.vrt',depth_rasters,resampleAlg='bilinear')
+            depths_vrt = None
+            #_ = run('gdalbuildvrt -q -overwrite -r bilinear {} {}'.format(splitext(depths)[0]+'.vrt'," ".join(depth_rasters)),shell=True)
 
-        # optional aggregation
-        if (aggregate) & (hucs is not None):
-            # inun grid vrt
-            if inundation_raster is not None:
-                inun_vrt = BuildVRT(splitext(inundation_raster)[0]+'.vrt',inundation_rasters)
-                inun_vrt = None
-                #_ = run('gdalbuildvrt -q -overwrite {} {}'.format(splitext(inundation_raster)[0]+'.vrt'," ".join(inundation_rasters)),shell=True)
-            # depths vrt
-            if depths is not None:
-                depths_vrt = BuildVRT(splitext(depths)[0]+'.vrt',depth_rasters,resampleAlg='bilinear')
-                depths_vrt = None
-                #_ = run('gdalbuildvrt -q -overwrite -r bilinear {} {}'.format(splitext(depths)[0]+'.vrt'," ".join(depth_rasters)),shell=True)
+        # concat inun poly
+        if inundation_polygon is not None:
+            _ = run('ogrmerge.py -o {} {} -f GPKG -single -overwrite_ds'.format(inundation_polygon," ".join(inundation_polys)),shell=True)
 
-            # concat inun poly
-            if inundation_polygon is not None:
-                _ = run('ogrmerge.py -o {} {} -f GPKG -single -overwrite_ds'.format(inundation_polygon," ".join(inundation_polys)),shell=True)
+    # close datasets
+    rem.close()
+    catchments.close()
 
-        # close datasets
-        rem.close()
-        catchments.close()
+    return(inundation_rasters,depth_rasters,inundation_polys)
 
-        return(0)
-
-    else:
-        return(1)
 
 def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profile,catchments_profile,hucCode,
                       catchmentStagesDict,depths,inundation_raster,inundation_polygon,
@@ -332,14 +330,9 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
             record['geometry'] = g
             record['properties'] = {'HydroID' : int(h)}
             records += [record]
-        print('anything',records)
+        
         # write out
         inundation_polygon.writerecords(records)
-
-    if isinstance(depths,DatasetWriter): depths.close()
-    if isinstance(inundation_raster,DatasetWriter): inundation_raster.close()
-    if isinstance(inundation_polygon,fiona.Collection): inundation_polygon.close()
-    if isinstance(hucs,fiona.Collection): inundation_polygon.close()
 
     # return file names of outputs for aggregation. Handle Nones
     try:
@@ -356,6 +349,13 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
         ip_name = inundation_polygon.path
     except AttributeError:
         ip_name = None
+    
+    #print(ir_name)
+    #yield(ir_name,d_name,ip_name)
+    
+    if isinstance(depths,DatasetWriter): depths.close()
+    if isinstance(inundation_raster,DatasetWriter): inundation_raster.close()
+    if isinstance(inundation_polygon,fiona.Collection): inundation_polygon.close()
 
     return(ir_name,d_name,ip_name)
 
@@ -478,73 +478,73 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
 
     hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
 
-    if not hydroTable.empty:
-
-        if isinstance(forecast,str):
-            forecast = pd.read_csv(
-                                   forecast,
-                                   dtype={'feature_id' : str , 'discharge' : float}
-                                  )
-            forecast.set_index('feature_id',inplace=True)
-        elif isinstance(forecast,pd.DataFrame):
-            pass # consider checking for dtypes, indices, and columns
-        else:
-            raise TypeError("Pass path to forecast file csv or Pandas DataFrame")
-
-        # susbset hucs if passed
-        if subset_hucs is not None:
-            if isinstance(subset_hucs,list):
-                if len(subset_hucs) == 1:
-                    try:
-                        subset_hucs = open(subset_hucs[0]).read().split('\n')
-                    except FileNotFoundError:
-                        pass
-            elif isinstance(subset_hucs,str):
-                    try:
-                        subset_hucs = open(subset_hucs).read().split('\n')
-                    except FileNotFoundError:
-                        subset_hucs = [subset_hucs]
-
-            # subsets HUCS
-            subset_hucs_orig = subset_hucs.copy() ; subset_hucs = []
-            for huc in np.unique(hydroTable.index.get_level_values('HUC')):
-                for sh in subset_hucs_orig:
-                    if huc.startswith(sh):
-                        subset_hucs += [huc]
-
-            hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
-
-        # join tables
-        try:
-            hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
-
-            # initialize dictionary
-            catchmentStagesDict = typed.Dict.empty(types.int32,types.float64)
-
-            # interpolate stages
-            for hid,sub_table in hydroTable.groupby(level='HydroID'):
-
-                interpolated_stage = np.interp(sub_table.loc[:,'discharge'].unique(),sub_table.loc[:,'discharge_cms'],sub_table.loc[:,'stage'])
-
-                # add this interpolated stage to catchment stages dict
-                h = round(interpolated_stage[0],4)
-
-                hid = types.int32(hid) ; h = types.float32(h)
-                catchmentStagesDict[hid] = h
-
-            # huc set
-            hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
-
-            return(catchmentStagesDict,hucSet)
-
-        except AttributeError:
-            raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
-            #print (f"No matching feature IDs between forecast and hydrotable for HUC(s): {subset_hucs}")
-            #return(None,None)
-    else:
+    # raises error if hydroTable is empty due to all segments being lakes
+    if hydroTable.empty:
         raise hydroTableHasOnlyLakes("All stream segments in HUC are within lake boundaries.")
-        #print(f"All stream segments in HUC(s): {huc_error} are within lake boundaries.")
-        #return(None,None)
+
+
+    if isinstance(forecast,str):
+        forecast = pd.read_csv(
+                               forecast,
+                               dtype={'feature_id' : str , 'discharge' : float}
+                              )
+        forecast.set_index('feature_id',inplace=True)
+    elif isinstance(forecast,pd.DataFrame):
+        pass # consider checking for dtypes, indices, and columns
+    else:
+        raise TypeError("Pass path to forecast file csv or Pandas DataFrame")
+
+    # susbset hucs if passed
+    if subset_hucs is not None:
+        if isinstance(subset_hucs,list):
+            if len(subset_hucs) == 1:
+                try:
+                    subset_hucs = open(subset_hucs[0]).read().split('\n')
+                except FileNotFoundError:
+                    pass
+        elif isinstance(subset_hucs,str):
+                try:
+                    subset_hucs = open(subset_hucs).read().split('\n')
+                except FileNotFoundError:
+                    subset_hucs = [subset_hucs]
+
+        # subsets HUCS
+        subset_hucs_orig = subset_hucs.copy() ; subset_hucs = []
+        for huc in np.unique(hydroTable.index.get_level_values('HUC')):
+            for sh in subset_hucs_orig:
+                if huc.startswith(sh):
+                    subset_hucs += [huc]
+
+        hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
+
+    # join tables
+    try:
+        hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    except AttributeError:
+        #print("FORECAST ERROR")
+        raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
+
+    else:
+
+        # initialize dictionary
+        catchmentStagesDict = typed.Dict.empty(types.int32,types.float64)
+
+        # interpolate stages
+        for hid,sub_table in hydroTable.groupby(level='HydroID'):
+
+            interpolated_stage = np.interp(sub_table.loc[:,'discharge'].unique(),sub_table.loc[:,'discharge_cms'],sub_table.loc[:,'stage'])
+
+            # add this interpolated stage to catchment stages dict
+            h = round(interpolated_stage[0],4)
+
+            hid = types.int32(hid) ; h = types.float32(h)
+            catchmentStagesDict[hid] = h
+
+        # huc set
+        hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
+
+        return(catchmentStagesDict,hucSet)
+
 
 def __vprint(message,verbose):
     if verbose:

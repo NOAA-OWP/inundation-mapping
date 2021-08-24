@@ -12,7 +12,7 @@ import concurrent.futures
 from numba import njit
 import geopandas as gpd
 from rasterio.mask import mask
-
+import sys
 
 class OverlapWindowMerge:
 
@@ -193,7 +193,6 @@ class OverlapWindowMerge:
         :return: ndarray of raveled multi indexes
         """
         # Get difference of upper-left and lower-right boundaries and computed lat lons
-
         lat_dif = [np.abs(latitudes - coords[0, 0]), np.abs(latitudes - coords[1, 0])]
         lon_dif = [np.abs(longitudes - coords[0, 1]), np.abs(longitudes - coords[1, 1])]
 
@@ -261,6 +260,7 @@ class OverlapWindowMerge:
 
         return [final_bnds, bnds, data]
 
+
     def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4):
         """
         Merge multiple raster datasets
@@ -272,6 +272,7 @@ class OverlapWindowMerge:
         window_bounds, window_idx = self.get_window_coords()
         latitudes, longitudes, path_points, bbox = self.create_lat_lons(window_bounds,
                                                                         window_idx)
+        
         windows = [self.get_window_idx(latitudes,
                                        longitudes,
                                        coords,
@@ -299,19 +300,26 @@ class OverlapWindowMerge:
                     compress='lzw')
 
         final_windows, data_windows, data = [], [], []
-        for key, val in data_dict.items():
 
-          f_window, window, dat = self.read_rst_data(key,
-                                    val,
-                                    path_points,
-                                    bbox,
-                                    meta
-                                    )
-          final_windows.append(f_window)
-          data_windows.append(window)
-          data.append(dat)
-          del f_window, window, dat
+        def __data_generator(data_dict,path_points,bbox,meta):
 
+            for key, val in data_dict.items():
+
+                f_window, window, dat = self.read_rst_data(key,
+                                                           val,
+                                                           path_points,
+                                                           bbox,
+                                                           meta
+                                                          )
+                yield(dat, window, f_window, val)
+                #final_windows.append(f_window)
+                #data_windows.append(window)
+                #data.append(dat)
+                #del f_window, window, dat
+
+        # create data generator
+        dgen = __data_generator(data_dict,path_points,bbox,meta)
+        
         lock = Lock()
 
         with rasterio.open(out_fname, 'w', **meta) as rst:
@@ -323,12 +331,13 @@ class OverlapWindowMerge:
                              agg_function=agg_function,
                              nodata=meta['nodata'],
                              rst_dims=self.rst_dims)
-
+            
             if not threaded:
-                for d, dw, fw, ddict in zip(data,
-                                            data_windows,
-                                            final_windows,
-                                            data_dict.values()):
+                #for d, dw, fw, ddict in zip(data,
+                #                            data_windows,
+                #                            final_windows,
+                #                            data_dict.values()):
+                for d, dw, fw, ddict in dgen:
                     merge_partial(d, dw, fw, ddict)
             else:
                 with concurrent.futures.ThreadPoolExecutor(
@@ -373,6 +382,8 @@ class OverlapWindowMerge:
 
             with rasterio.open(outfile,'w',**out_profile) as otfi:
                 otfi.write(mosaic_array,indexes=1)
+         
+        return(mosaic_array,out_profile)
 
 # Quasi multi write
 # Throughput achieved assuming processing time is not identical between windows

@@ -3,14 +3,17 @@
 import os
 import argparse
 from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import json
 import csv
+import ast
+from tqdm import tqdm
 
 from run_test_case import run_alpha_test
 from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, BLE_MAGNITUDE_LIST, IFC_MAGNITUDE_LIST
 
 
-def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
+def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_list):
 
     # Construct header
     metrics_to_write = ['true_negatives_count',
@@ -74,7 +77,10 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                 magnitude_list = BLE_MAGNITUDE_LIST
             if benchmark_source == 'ifc':
                 magnitude_list = IFC_MAGNITUDE_LIST
-            test_cases_list = os.listdir(benchmark_test_case_dir)
+            try:
+                test_cases_list = os.listdir(benchmark_test_case_dir)
+            except FileNotFoundError:
+                continue
             
             for test_case in test_cases_list:
                 try:
@@ -90,8 +96,8 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                             #versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR) # cahaba/dev
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
-                            versions_to_aggregate = [dev_comparison] # gms
-                            #versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
+                            #versions_to_aggregate = [dev_comparison] # gms
+                            versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
 
                         for magnitude in magnitude_list:
                             for version in versions_to_aggregate:
@@ -151,9 +157,8 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             
-                            versions_to_aggregate = [dev_comparison] # gms
-                            
-                            #versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
+                            #versions_to_aggregate = [dev_comparison] # gms
+                            versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
 
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
@@ -207,16 +212,12 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
         csv_writer.writerows(list_to_write)
 
 
-def process_alpha_test(args):
-
-    fim_run_dir = args[0]
-    version = args[1]
-    test_id = args[2]
-    magnitude = args[3]
-    archive_results = args[4]
-    overwrite = args[5]
-    ms = args[6]
-    fr_run_dir = args[7]
+def process_alpha_test( 
+                        fim_run_dir, version, 
+                        test_id, magnitude, 
+                        archive_results, overwrite,
+                        eval_meta, fr_run_dir
+                      ):
 
     mask_type = 'huc'
 
@@ -226,9 +227,16 @@ def process_alpha_test(args):
         compare_to_previous = False
 
     try:
-        run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=compare_to_previous, archive_results=archive_results, mask_type=mask_type, overwrite=overwrite,ms=ms,fr_run_dir=fr_run_dir)
-    except Exception as e:
-        print(e)
+        run_alpha_test(fim_run_dir, version, test_id, magnitude, 
+                       eval_meta=eval_meta,
+                       compare_to_previous=compare_to_previous, 
+                       archive_results=archive_results, 
+                       mask_type=mask_type, overwrite=overwrite,
+                       fr_run_dir=fr_run_dir,
+                       gms_workers=job_number_branch,verbose=True
+                       )
+    except Exception as exc:
+        print('{},{}'.format(test_id,exc.__class__.__name__))
 
 
 if __name__ == '__main__':
@@ -236,32 +244,44 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=True)
+    parser.add_argument('-e','--eval-meta',help='Pass meta-data dictionary. Use double quotes on outside of dictionary and denote keys and/or values with single quotes when necessary.',required=False, default=None, type=str)
     parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
-    parser.add_argument('-j','--job-number',help='Number of processes to use. Default is 1.',required=False, default="1")
+    parser.add_argument('-jh','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
+    parser.add_argument('-jb','--job-number-branch',help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
     parser.add_argument('-dc', '--dev-version-to-compare', nargs='+', help='Specify the name(s) of a dev (testing) version to include in master metrics CSV. Pass a space-delimited list.',required=False)
-    parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=True)
-    parser.add_argument('-t','--ms',help='Creates test case for Composite or GMS',required=False, default=None,choices=[None,'MS','GMS'])
+    parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=False,default=None)
     parser.add_argument('-d','--fr-run-dir',help='Name of directory containing outputs of fim_run.sh for FR configuration',required=False,default=None)
+    parser.add_argument('-vr','--verbose',help='Verbose',required=False,default=None,action='store_true')
+    parser.add_argument('-vg','--gms-verbose',help='GMS Verbose Progress Bar',required=False,default=None,action='store_true')
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     config = args['config']
     fim_version = args['fim_version']
-    job_number = int(args['job_number'])
+    job_number_huc = args['job_number_huc']
+    job_number_branch = args['job_number_branch']
     special_string = args['special_string']
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
     dev_versions_to_compare = args['dev_version_to_compare']
     master_metrics_csv = args['master_metrics_csv']
-    ms = args['ms']
     fr_run_dir = args['fr_run_dir']
+    eval_meta = args['eval_meta']
+    verbose = args['verbose']
+    gms_verbose = args['gms_verbose']
 
-    if overwrite:
-        if input("Are you sure you want to overwrite metrics? y/n: ") == "n":
-            quit
+    # check job numbers
+    total_cpus_requested = job_number_huc * job_number_branch
+    total_cpus_available = os.cpu_count() - 1
+    if total_cpus_requested > total_cpus_available:
+        raise ValueError('The HUC job number, {}, multiplied by the branch job number, {}, '\
+                          'exceeds your machine\'s available CPU count minus one. '\
+                          'Please lower the job_number_huc or job_number_branch'\
+                          'values accordingly.'.format(job_number_huc,job_number_branch)
+                        )
 
     # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
     if fim_version != "all":
@@ -271,6 +291,9 @@ if __name__ == '__main__':
             previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
         elif config == 'DEV':
             previous_fim_list = os.listdir(OUTPUTS_DIR)
+
+    if eval_meta is not None:
+        eval_meta = ast.literal_eval(eval_meta)
 
     # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
     if config == 'PREV':
@@ -291,13 +314,18 @@ if __name__ == '__main__':
         benchmark_category_list = [benchmark_category]
 
     # Loop through benchmark categories.
-    procs_list = []
+    procs_list = [] ; procs_dict = {}
     for bench_cat in benchmark_category_list:
 
         # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
         bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
         bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
         
+        # temp
+        #bench_cat_id_list = ['11010004_ble']
+
+        if job_number_huc == 1:
+            pb = tqdm(total=len(bench_cat_id_list)*len(previous_fim_list))
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
             if 'validation' and 'other' not in test_id:
@@ -333,21 +361,66 @@ if __name__ == '__main__':
                             else:
                                 continue
 
+                            alpha_test_args = { 
+                                                'fim_run_dir': fim_run_dir, 
+                                                'version': version, 
+                                                'test_id': test_id, 
+                                                'magnitude': magnitude, 
+                                                'eval_meta': eval_meta,
+                                                'compare_to_previous': not archive_results, 
+                                                'archive_results': archive_results, 
+                                                'mask_type': 'huc',
+                                                'overwrite': overwrite, 
+                                                'fr_run_dir': fr_run_dir, 
+                                                'gms_workers': job_number_branch,
+                                                'verbose': False,
+                                                'gms_verbose': False
+                                              }
+                            
                             # Either add to list to multiprocess or process serially, depending on user specification.
-                            if job_number > 1:
-                                procs_list.append([fim_run_dir, version, test_id, magnitude, 
-                                                   archive_results, overwrite, ms,fr_run_dir
-                                                  ])
+                            if job_number_huc > 1:
+                                #procs_list.append([fim_run_dir, version, test_id, magnitude, 
+                                #                   archive_results, overwrite, eval_meta,fr_run_dir
+                                 #                 ])
+                                procs_dict[current_huc] = alpha_test_args
                             else:
-                                process_alpha_test([fim_run_dir, version, test_id, magnitude, 
-                                                    archive_results, overwrite, ms, fr_run_dir
-                                                  ])
+                                try:
+                                    run_alpha_test(**alpha_test_args)
+                                    pb.update()
+                                except Exception as exc:
+                                    print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
+
+    if job_number_huc == 1:
+        pb.close()
 
     # Multiprocess alpha test runs.
-    if job_number > 1:
-        with Pool(processes=job_number) as pool:
-            pool.map(process_alpha_test, procs_list)
-            
+    if job_number_huc > 1:
+        
+        executor = ProcessPoolExecutor(max_workers=job_number_huc)
+
+        executor_generator = { 
+                              executor.submit(run_alpha_test,**inp) : ids for ids,inp in procs_dict.items()
+                             }
+
+        for future in tqdm(as_completed(executor_generator),
+                           total=len(executor_generator),
+                           disable=(not verbose),
+                           desc="Running test cases with {} HUC workers "\
+                                "and {} Branch workers".format(job_number_huc,
+                                                               job_number_branch),
+                          ):
+        
+
+            hucCode = executor_generator[future]
+
+            try:
+                future.result()
+            except Exception as exc:
+                print('{}, {}, {}'.format(hucCode,exc.__class__.__name__,exc))
+    
+        # power down pool
+        executor.shutdown(wait=True)
+
     if config == 'DEV':
         if dev_versions_to_compare != None:
             dev_versions_to_include_list = dev_versions_to_compare + [version]
@@ -355,9 +428,6 @@ if __name__ == '__main__':
             dev_versions_to_include_list = [version]
     if config == 'PREV':
         dev_versions_to_include_list = []
-
-    # Do aggregate_metrics.
-    print("Creating master metrics CSV...")
 
     """
     # legacy for GMS
@@ -372,4 +442,8 @@ if __name__ == '__main__':
     #create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_comparison=dev_comparison)
     """
 
-    create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_versions_to_include_list=dev_versions_to_include_list)
+    if master_metrics_csv is not None:
+        # Do aggregate_metrics.
+        print("Creating master metrics CSV...")
+
+        create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, versions_to_include_list=dev_versions_to_include_list)

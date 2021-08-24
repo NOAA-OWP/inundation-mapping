@@ -23,6 +23,10 @@ NHD_RASTER_EXTRACTION_SUFFIX = 'elev_cm.tif'
 NHD_VECTOR_EXTRACTION_PREFIX = 'NHDPLUS_H_'
 NHD_VECTOR_EXTRACTION_SUFFIX = '_HU4_GDB.zip'
 
+## added here bc prefixs and suffixes just aren't necessary in python3
+nhd_raster_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_RASTER.7z"
+nhd_vector_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_GDB.zip"
+
 # -- Field Names -- #
 FIM_ID = 'fimid'
 

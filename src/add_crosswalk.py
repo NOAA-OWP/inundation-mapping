@@ -11,6 +11,8 @@ import sys
 from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
+from memory_profiler import profile
+
 
 @profile
 def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
@@ -50,10 +52,14 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
-    elif extent == 'MS':
+    elif (extent == 'MS') | (extent == 'GMS'):
         ## crosswalk using stream segment midpoint method
         input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
-        input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem==1]
+
+        # only reduce nwm catchments to mainstems if running mainstems
+        if extent == 'MS':
+            input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem==1]
+
         input_nwmcat = input_nwmcat.rename(columns={'ID':'feature_id'})
         if input_nwmcat.feature_id.dtype != 'int': input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
         input_nwmcat=input_nwmcat.set_index('feature_id')
@@ -102,6 +108,11 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
         if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
         output_flows = input_flows.merge(crosswalk,on='HydroID')
+
+        # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
+        if 'areasqkm' not in output_catchments.columns:
+            output_catchments['areasqkm'] = output_catchments.geometry.area/(1000**2)
+
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
     # read in manning's n values
@@ -207,7 +218,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
-    elif extent == 'MS':
+    elif (extent == 'MS') | (extent == 'GMS'):
         output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
 
     output_crosswalk = output_src[['HydroID','feature_id']]

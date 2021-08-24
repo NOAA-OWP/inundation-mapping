@@ -53,7 +53,7 @@ fi
 echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
 Tstart
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputHucDataDir/dem.tif)
+read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputHucDataDir/dem_meters.tif)
 Tcount
 
 ## START MESSAGE ##
@@ -78,7 +78,6 @@ echo -e "Querying demDerived_reaches_points.gpkg ..."
 ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputBranchDataDir/demDerived_reaches_points_$current_branch_id.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg
 echo -e "Querying demDerived_pixels_points.gpkg ..."
 ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputBranchDataDir/demDerived_pixels_points_$current_branch_id.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg
-#$srcDir/gms/query_vectors_by_branch_polygons.py -a $outputGmsDataDir/polygons.gpkg -d $current_branch_id -i $branch_id_attribute -s $outputGmsDataDir/demDerived_reaches_levelPaths.gpkg $outputGmsDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputGmsDataDir/demDerived_reaches_points.gpkg $outputGmsDataDir/demDerived_pixels_points.gpkg -o $outputBranchDataDir/demDerived_reaches_levelPaths.gpkg $outputBranchDataDir/demDerived_reaches_levelPaths_dissolved.gpkg $outputBranchDataDir/demDerived_reaches_points.gpkg $outputBranchDataDir/demDerived_pixels_points.gpkg -v
 Tcount
 
 ## SPLIT DERIVED REACHES ##
@@ -147,7 +146,7 @@ Tcount
 echo -e $startDiv"Finalize catchments and model streams for branch_id: $current_branch_id in HUC: $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/add_crosswalk.py -d $outputBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -a $outputBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -s $outputBranchDataDir/src_base_$current_branch_id.csv -u $inputDataDir/bathymetry/BANKFULL_CONUS.txt -v $outputBranchDataDir/bathy_crosswalk_calcs_$current_branch_id.csv -e $outputBranchDataDir/bathy_stream_order_calcs_$current_branch_id.csv -g $outputBranchDataDir/bathy_thalweg_flag_$current_branch_id.csv -i $outputBranchDataDir/bathy_xs_area_hydroid_lookup_$current_branch_id.csv -l $outputBranchDataDir/gw_catchments_reaches_crosswalked_$current_branch_id.gpkg -f $outputBranchDataDir/demDerived_reaches_split_crosswalked_$current_branch_id.gpkg -r $outputBranchDataDir/src_full_$current_branch_id.csv -j $outputBranchDataDir/src_$current_branch_id.json -x $outputBranchDataDir/crosswalk_table_$current_branch_id.csv -t $outputBranchDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $outputHucDataDir/nwm_catchments_proj_subset.gpkg -p MS -k $outputBranchDataDir/small_segments.csv
+$srcDir/add_crosswalk.py -d $outputBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -a $outputBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -s $outputBranchDataDir/src_base_$current_branch_id.csv -u $inputDataDir/bathymetry/BANKFULL_CONUS.txt -v $outputBranchDataDir/bathy_crosswalk_calcs_$current_branch_id.csv -e $outputBranchDataDir/bathy_stream_order_calcs_$current_branch_id.csv -g $outputBranchDataDir/bathy_thalweg_flag_$current_branch_id.csv -i $outputBranchDataDir/bathy_xs_area_hydroid_lookup_$current_branch_id.csv -l $outputBranchDataDir/gw_catchments_reaches_crosswalked_$current_branch_id.gpkg -f $outputBranchDataDir/demDerived_reaches_split_crosswalked_$current_branch_id.gpkg -r $outputBranchDataDir/src_full_$current_branch_id.csv -j $outputBranchDataDir/src_$current_branch_id.json -x $outputBranchDataDir/crosswalk_table_$current_branch_id.csv -t $outputBranchDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -y $outputHucDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $outputHucDataDir/nwm_catchments_proj_subset.gpkg -p $extent -k $outputBranchDataDir/small_segments.csv
 Tcount
 
 # make branch output directory and mv files to

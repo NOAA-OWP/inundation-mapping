@@ -102,6 +102,7 @@ export production=$production
 export whitelist=$whitelist
 export viz=$viz
 logFile=$outputRunDataDir/logs/summary_gms_branch.log
+export extent=GMS
 
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ]; then 
