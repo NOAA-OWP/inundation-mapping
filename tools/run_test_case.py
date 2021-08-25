@@ -240,7 +240,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                                'inundation_polygons' : [None] * 2
                                              }
                     ms_inundation_map_file = pd.DataFrame(ms_inundation_map_file)
-
+                    
                     Mosaic_inundation(
                                         ms_inundation_map_file,mosaic_attribute='inundation_rasters',
                                         mosaic_output=inundation_raster,
@@ -258,7 +258,6 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                 else:
                     agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
                 
-                print(predicted_raster_path,benchmark_raster_path,agreement_raster)
                 compute_contingency_stats_from_rasters(predicted_raster_path,
                                                        benchmark_raster_path,
                                                        agreement_raster,
@@ -309,7 +308,7 @@ if __name__ == '__main__':
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-b', '--version',help='The name of the working version in which features are being tested',required=True,default="")
     parser.add_argument('-t', '--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
-    parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="filter")
+    parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method. MS and GMS are currently on supporting huc', required=False,default="filter")
     parser.add_argument('-e','--eval-meta',help='Pass meta-data dictionary. Use double quotes on outside of dictionary and denote keys and/or values with single quotes when necessary.',required=True, type=str)
     parser.add_argument('-y', '--magnitude',help='The magnitude to run.',required=False, default="")
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
@@ -319,7 +318,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
     parser.add_argument('-w','--gms-workers', help='Number of workers to use for GMS Branch Inundation', required=False, default=1)
-    parser.add_argument('-d','--fr-run-dir',help='Name of directory containing outputs of fim_run.sh for FR configuration',required=False,default=None)
+    parser.add_argument('-d','--fr-run-dir',help='Name of directory containing inundation for FR configuration',required=False,default=None)
     parser.add_argument('-v', '--verbose', help='Verbose operation', required=False, action='store_true', default=False)
     parser.add_argument('-vg', '--gms-verbose', help='Prints progress bar for GMS', required=False, action='store_true', default=False)
 

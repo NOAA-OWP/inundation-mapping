@@ -34,6 +34,13 @@ def Consolidate_metrics(benchmarks='all',versions='all',zones=['total_area'],met
     else:
         versions = list(versions)
 
+    if isinstance(zones,str):
+        zones = [zones]
+    elif isinstance(zones,list):
+        pass
+    else:
+        zones = list(zones)
+
     # loop through benchmarks
     consolidated_metrics_df = [ f for f in return_dataframe_for_benchmark_source(benchmarks,zones) ]
     
@@ -65,7 +72,7 @@ def pivot_metrics(consolidated_metrics_df):
                                                 index=['extent_config','magnitude','version'], 
                                                 aggfunc=np.sum
                                                )
-
+    
     # metrics to run
     metrics_functions = { 'CSI': csi , 'TPR' : tpr, 'FAR' : far, 'MCC' : mcc }
     #metrics_functions = { 'CSI': csi }
