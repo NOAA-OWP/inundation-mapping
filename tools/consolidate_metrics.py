@@ -15,8 +15,11 @@ from shared_variables import TEST_CASES_DIR,\
                              AHPS_BENCHMARK_CATEGORIES
 from tools_shared_functions import csi,far,tpr,mcc
 
+# set display options
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
 
-def Consolidate_metrics(benchmarks='all',versions='all',zones=['total_area'],metrics_output_csv=None):
+def Consolidate_metrics(benchmarks=['all'],versions=['all'],zones=['total_area'],metrics_output_csv=None):
 
     """ Consolidates metrics into single dataframe """
 
@@ -40,6 +43,7 @@ def Consolidate_metrics(benchmarks='all',versions='all',zones=['total_area'],met
         pass
     else:
         zones = list(zones)
+    
 
     # loop through benchmarks
     consolidated_metrics_df = [ f for f in return_dataframe_for_benchmark_source(benchmarks,zones) ]
@@ -104,7 +108,7 @@ def pivot_metrics(consolidated_metrics_df):
 
 def find_matching_rows_by_attribute_value(df,attributes,matches):
     
-    if (len(matches) == 1) & (matches == 'all'):
+    if (len(matches) == 1) & ('all' in matches):
         return(df)
     else:
         df = df.loc[df.loc[:,attributes].isin(matches)]
@@ -155,7 +159,7 @@ def consolidate_ble_metrics(zones=['total_area']):
 
     # make a meta-data
     metadata_df = metadata_dataframe_from_file_names_for_ble(files_to_consolidate)
-
+    
     # concat metrics and metadata dataframes
     return(   
             pd.concat( (metadata_df,metrics_df), axis=1) 
