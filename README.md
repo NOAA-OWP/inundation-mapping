@@ -9,6 +9,10 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 ## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
 
+AWS Region: `US East (N. Virginia) us-east-1`
+
+AWS Resource Name: `arn:aws:s3:::noaa-nws-owp-fim`
+
 ### Configuring the AWS CLI
 
 1. [Install AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
@@ -16,10 +20,6 @@ The latest national generated HAND data and a subset of the inputs can be found 
 2. [Configure AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
 
 ### Accessing Data using the AWS CLI
-
-AWS Region: `US East (N. Virginia) us-east-1`
-
-AWS Resource Name: `arn:aws:s3:::noaa-nws-owp-fim`
 
 This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket. Read more about what that means [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html). If, however, you are using compute resources in the same region as the S3 Bucket, then there is no cost.
 
