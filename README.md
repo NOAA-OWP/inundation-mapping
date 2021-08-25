@@ -61,7 +61,7 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 
 ### Produce HAND Hydrofabric
 ```
-fim_run.sh -u <huc4,6,or8s> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>
+fim_run.sh -u <huc8> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>
 ```
 - `-u` can be a single huc, a series passed in quotes, or a line-delimited file
     i. To run entire domain of available data use one of the ```/data/inputs/included_huc[4,6,8].lst``` files
