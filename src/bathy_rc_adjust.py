@@ -21,7 +21,6 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     ## Merge input_bathy and modified_src_base df using feature_id/COMID attributes
     input_bathy = input_bathy.rename(columns={'COMID':'feature_id','BANKFULL_WIDTH':'BANKFULL_WIDTH (m)','BANKFULL_XSEC_AREA':'BANKFULL_XSEC_AREA (m2)'})
     modified_src_base = input_src_base.merge(input_bathy.loc[:,['feature_id','BANKFULL_WIDTH (m)','BANKFULL_XSEC_AREA (m2)']],how='left',on='feature_id')
-    modified_src_base = modified_src_base[modified_src_base['order_']] < ignore_streamorder
 
     ## Check that the merge process returned matching feature_id entries
     if modified_src_base['BANKFULL_WIDTH (m)'].count() == 0:
@@ -122,7 +121,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
         xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(xs_area_hydroid_lookup['bankfull_XS_ratio_flag'].isnull(),0,inplace=True)
 
         ## Merge bathy_calc_xs_area to the modified_src_base
-        modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area']],how='left',on='HydroID')
+        modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area']],how='left',on='HydroID
 
         ## Calculate new bathy adjusted channel geometry variables
         modified_src_base = modified_src_base.rename(columns={'Discharge (m3s-1)':'Discharge (m3s-1)_nobathy'})
