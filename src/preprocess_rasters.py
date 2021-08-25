@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from osgeo import gdal
 import sys
 sys.path.append('/foss_fim/src')
 from multiprocessing import Pool

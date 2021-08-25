@@ -4,19 +4,18 @@ WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
 ARG depDir=/dependencies
-ARG taudemVersion=bf9417172225a9ce2462f11138c72c569c253a1a
+ARG taudemVersion=98137bb6541a0d0077a9c95becfed4e56d0aa0ac
 ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
-ENV DEBIAN_FRONTEND noninteractive
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
-RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/* 
+RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/dtarb/taudem.git
 RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accelerated_flowDirections
 
-RUN apt-get update && apt-get install -y cmake mpich \
-    libgtest-dev libboost-test-dev libnetcdf-dev && rm -rf /var/lib/apt/lists/* 
+RUN apt-get update --fix-missing && apt-get install -y cmake mpich \
+    libgtest-dev libboost-test-dev libnetcdf-dev && rm -rf /var/lib/apt/lists/*
 
 ## Compile Main taudem repo ##
 RUN mkdir -p taudem/bin
@@ -53,11 +52,14 @@ ARG dataDir=/data
 ARG projectDir=/foss_fim
 ARG depDir=/dependencies
 ENV inputDataDir=$dataDir/inputs
-ENV outputDataDir=$dataDir/outputs 
+ENV outputDataDir=$dataDir/outputs
 ENV srcDir=$projectDir/src
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
+## ADDING FIM GROUP ##
+# ARG GroupID=1370800120
+# ARG GroupName=apd_dev
 ARG GroupID=1370800235
 ARG GroupName=fim
 RUN addgroup --gid $GroupID $GroupName
@@ -67,11 +69,10 @@ ENV GN=$GroupName
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
-RUN apt update --fix-missing
-RUN apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1
 
-COPY install_grass.exp .
-RUN ./install_grass.exp
+RUN apt update --fix-missing && apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1
+
+RUN DEBIAN_FRONTEND=noninteractive apt install -y grass=7.8.2-1build3 grass-doc=7.8.2-1build3
 
 RUN apt auto-remove
 
@@ -88,13 +89,6 @@ COPY Pipfile .
 COPY Pipfile.lock .
 RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
 
-## Copy the source code to the image
-COPY . $projectDir/
-
-## Set user:group for running docker in detached mode
-USER root:$GroupName
-
-# RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
+## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
-

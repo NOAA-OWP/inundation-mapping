@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8
 
+#TODO standardize this script
+
 import gdal
 import os.path
 import sys
@@ -9,6 +11,7 @@ from osgeo import osr
 """
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy <<< $(./getRasterInfoNative.py <raster.tif>)
 """
+
 
 def GetExtent(gt,cols,rows):
 	''' Return list of corner coordinates from a geotransform
@@ -34,6 +37,7 @@ def GetExtent(gt,cols,rows):
 			#print x,y
 		yarr.reverse()
 	return ext
+
 
 def ReprojectCoords(coords,src_srs,tgt_srs):
 	''' Reproject a list of x,y coordinates.

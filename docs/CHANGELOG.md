@@ -2,6 +2,78 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.0 - 2021-08-19 - [PR #444](https://github.com/NOAA-OWP/cahaba/pull/444)
+
+This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in future issues. The primary function that performs the HAND value and hydroid extraction is ingest_points_layer() but this may change as the overall synthetic rating curve automatic update machanism evolves.
+
+## Additions
+- Added `adjust_rc_with_feedback.py` with `ingest_points_layer()`, a function to extract HAND and hydroid values for use in an automatic synthetic rating curve updating mechanism.
+
+<br/><br/>
+
+## Changes
+- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
+- Clean up `Dockerfile` and remove any unused* packages or variables.
+- Remove any unused* Python packages from the `Pipfile`.
+- Move the `CHANGELOG.md`, `SECURITY.md`, and `TERMS.md` files to the `/docs` folder.
+- Remove any unused* scripts in the `/tools` and `/src` folders.
+- Move `tools/preprocess` scripts into `tools/`.
+- Ensure all scripts in the `/src` folder have their code in functions and are being called via a `__main__` function (This will help with implementing memory profiling fully).
+- Changed memory-profiling to be an option flag `-m` for `fim_run.sh`.
+- Updated FIM API to save all outputs during a "release" job.
+
+
+## v3.0.21.0 - 2021-08-18 - [PR #433](https://github.com/NOAA-OWP/cahaba/pull/433)
+
+General repository cleanup, made memory-profiling an optional flag, API's release feature now saves outputs.
+
+## Changes
+- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
+- Clean up `Dockerfile` and remove any unused* packages or variables.
+- Remove any unused* Python packages from the `Pipfile`.
+- Move the `CHANGELOG.md`, `SECURITY.md`, and `TERMS.md` files to the `/docs` folder.
+- Remove any unused* scripts in the `/tools` and `/src` folders.
+- Move `tools/preprocess` scripts into `tools/`.
+- Ensure all scripts in the `/src` folder have their code in functions and are being called via a `__main__` function (This will help with implementing memory profiling fully).
+- Changed memory-profiling to be an option flag `-m` for `fim_run.sh`.
+- Updated FIM API to save all outputs during a "release" job.
+
+<br/><br/>
+
+## v3.0.20.2 - 2021-08-13 - [PR #443](https://github.com/NOAA-OWP/cahaba/pull/443)
+
+This merge modifies `clip_vectors_to_wbd.py` to check for relevant input data.
+
+## Changes
+- `clip_vectors_to_wbd.py` now checks that there are NWM stream segments within the buffered HUC boundary.
+- `included_huc8_ms.lst` has several additional HUC8s.
+
+<br/><br/>
+
+## v3.0.20.1 - 2021-08-12 - [PR #442](https://github.com/NOAA-OWP/cahaba/pull/442)
+
+This merge improves documentation in various scripts.
+
+## Changes
+This PR better documents the following:
+
+- `inundate_nation.py`
+- `synthesize_test_cases.py`
+- `adjust_thalweg_lateral.py`
+- `rem.py`
+
+<br/><br/>
+
+## v3.0.20.0 - 2021-08-11 - [PR #440](https://github.com/NOAA-OWP/cahaba/pull/440)
+
+This merge adds two new scripts into `/tools/` for use in QAQC.
+
+## Additions
+- `inundate_nation.py` to produce inundation maps for the entire country for use in QAQC.
+- `check_deep_flooding.py` to check for depths of inundation greater than a user-supplied threshold at specific areas defined by a user-supplied shapefile.
+
+<br/><br/>
+
 ## v3.0.19.5 - 2021-07-19
 
 Updating `README.md`.

@@ -208,3 +208,12 @@ def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_r
                     resampling=Resampling.nearest)
                 del dst
         del src
+
+
+def mem_profile(func):
+    def wrapper(*args, **kwargs):
+        if (os.environ.get('mem') == "1"):
+            profile(func)(*args, **kwargs)
+        else:
+            func(*args, **kwargs)
+    return wrapper
