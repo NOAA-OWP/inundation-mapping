@@ -77,7 +77,7 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 - Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
 - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 
-#### Reproject NHDHR Rasters and Convert to Meters.
+#### Reproject NHDPlus High-Res Rasters and Convert to Meters.
 ```
 /foss_fim/src/preprocess_rasters.py
 ```
