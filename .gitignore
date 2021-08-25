@@ -7,7 +7,6 @@ __pycache__/
 config/**
 !config/*template*
 !config/*default*
-!config/*calibrated*
 !config/symbology/
 config/*.swp
 .vscode/
