@@ -3,11 +3,12 @@
 from os import environ
 import pandas as pd
 
-sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag']) #10x
-thal_stg_limit = float(environ['thalweg_stg_search_max_limit']) #3m
-bankful_xs_ratio_flag = float(environ['bankful_xs_area_ratio_flag']) #10x
-bathy_xsarea_flag = float(environ['bathy_xs_area_chg_flag']) #1x
-thal_hyd_radius_flag = float(environ['thalweg_hyd_radius_flag']) #10x
+sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag']) #10x --> Flag: Surface area ratio value to identify possible thalweg notch "jump" (SA x+1 / SA x)
+thal_stg_limit = float(environ['thalweg_stg_search_max_limit']) #3m --> Threshold: Stage value limit below which to look for the surface area ratio flag (only flag thalweg notch below this threshold)
+bankful_xs_ratio_flag = float(environ['bankful_xs_area_ratio_flag']) #10x --> Flag: Identify bogus BARC adjusted values where the regression bankfull XS Area/SRC bankfull area is > threshold (topwidth crosswalk issues or bad bankfull regression data points??)
+bathy_xsarea_flag = float(environ['bathy_xs_area_chg_flag']) #1x --> Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold
+thal_hyd_radius_flag = float(environ['thalweg_hyd_radius_flag']) #10x --> Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0
+ignore_streamorder = int(environ['ignore_streamorders']) #10 --> Do not perform BARC for streamorders >= provided value
 
 
 def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,):
@@ -20,6 +21,7 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     ## Merge input_bathy and modified_src_base df using feature_id/COMID attributes
     input_bathy = input_bathy.rename(columns={'COMID':'feature_id','BANKFULL_WIDTH':'BANKFULL_WIDTH (m)','BANKFULL_XSEC_AREA':'BANKFULL_XSEC_AREA (m2)'})
     modified_src_base = input_src_base.merge(input_bathy.loc[:,['feature_id','BANKFULL_WIDTH (m)','BANKFULL_XSEC_AREA (m2)']],how='left',on='feature_id')
+    modified_src_base = modified_src_base[modified_src_base['order_']] < ignore_streamorder
 
     ## Check that the merge process returned matching feature_id entries
     if modified_src_base['BANKFULL_WIDTH (m)'].count() == 0:
