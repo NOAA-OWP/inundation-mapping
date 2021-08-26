@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.3 - 2021-08-27 - [PR #456](https://github.com/NOAA-OWP/cahaba/pull/456)
+
+This hotfix renames the BARC modified variables that are exported to src_full_crosswalked.csv to replace the original variables. The default/original variables are renamed with "orig_" prefix. This change is needed to ensure downstream uses of the src_full_crosswalked.csv are able to reference the authoritative version of the channel geometry variables (i.e. BARC-adjust where available).
+
+## Changes
+- default/original variables are renamed with "orig_" prefix
+- renamed SA_div to SA_div_flag
+
+<br/><br/>
+
 ## v3.0.22.2 - 2021-08-26 - [PR #455](https://github.com/NOAA-OWP/cahaba/pull/455)
 
 This merge addresses an issues with the bathymetry adjusted rating curve (BARC) calculations exacerbating single-pixel inundation issues for the lower Mississippi River. This fix allows the user to specify a stream order value that will be ignored in BARC calculations (reverts to using the original/default rating curve). If/when the "thalweg notch" issue is addressed, this change may be unmade.
