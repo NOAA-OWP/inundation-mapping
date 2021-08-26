@@ -4,6 +4,7 @@ from geopandas.tools import sjoin
 import os
 import rasterio
 import pandas as pd
+import numpy as np
 
 temp_workspace = r''
 HAND_CRS = 'EPSG:3857'
@@ -43,17 +44,20 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
     df_gmed.to_csv(output_calc_n_csv)
 
     df_gmed = df_gmed.groupby(["HydroID"])[['modify_ManningN']].median() # cacluate median ManningN to handle cases with multiple hydroid entries
-    df_htable.rename(columns={'ManningN':'orig_ManningN','discharge_cms':'orig_discharge_cms'}, inplace=True)
+    df_htable.rename(columns={'ManningN':'default_ManningN','discharge_cms':'orig_discharge_cms'}, inplace=True)
     #df_htable = df_htable.reset_index()
     #df_htable['ManningN'] = df_htable['orig_ManningN']
     print(df_htable)
+    print(type(df_htable))
     df_htable = df_htable.merge(df_gmed,  how='left', on='HydroID')
     out_htable = os.path.join(fim_directory, huc6, 'hydroTable_mod.csv')
     df_htable.to_csv(out_htable)
+    print(type(df_htable))
     #df_htable.loc[df_htable['ManningN'].isnull(),'ManningN'] = df_htable['orig_ManningN']
     #df_htable.ManningN.fillna(df_htable[['orig_ManningN']], inplace=True)
     #df_htable.mask(df_htable.modify_ManningN<0,df_htable.orig_ManningN,inplace=True)
-    df_htable['ManningN']=df_htable['modify_ManningN'].mask(df_htable['modify_ManningN'].isna(), df_htable['orig_ManningN'])
+    df_htable['ManningN'] = np.where(df_htable['modify_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['modify_ManningN'])
+    #df_htable['ManningN']=df_htable['modify_ManningN'].mask(df_htable['modify_ManningN'].isna(), df_htable['orig_ManningN'])
     df_htable['discharge_cms'] = df_htable['WetArea (m2)']* \
     pow(df_htable['HydraulicRadius (m)'],2.0/3)* \
     pow(df_htable['SLOPE'],0.5)/df_htable['ManningN']
