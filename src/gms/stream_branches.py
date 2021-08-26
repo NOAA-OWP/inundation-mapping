@@ -74,6 +74,15 @@ class StreamNetwork(gpd.GeoDataFrame):
         self.to_file(fileName, driver=driver, layer=layer, index=index)
 
 
+    def to_df(self,*args,**kwargs):
+
+        """ Converts back to dataframe """
+        
+        self = pd.DataFrame(self,*args,**kwargs)
+
+        return(self)
+
+
     def merge(self,*args,**kwargs):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded

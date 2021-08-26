@@ -48,7 +48,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
-
+    
     # Construct paths to development test results if not existent.
     if archive_results:
         version_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'official_versions', version)
@@ -199,7 +199,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                         map_file,mosaic_attribute='inundation_rasters',
                                         mosaic_output=inundation_raster,
                                         mask=catchment_poly,unit_attribute_name='huc8',
-                                        nodata=elev_rasters_ndv,workers=1,
+                                        nodata=elev_raster_ndv,workers=1,
                                         remove_inputs=True,
                                         subset=None,verbose=verbose
                                       )
@@ -246,7 +246,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                         ms_inundation_map_file,mosaic_attribute='inundation_rasters',
                                         mosaic_output=inundation_raster,
                                         mask=catchment_poly,unit_attribute_name='huc8',
-                                        nodata=elev_rasters_ndv,workers=1,
+                                        nodata=elev_raster_ndv,workers=1,
                                         remove_inputs=False,
                                         subset=None,verbose=verbose
                                       )
