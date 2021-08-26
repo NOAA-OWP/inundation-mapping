@@ -121,7 +121,10 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
         xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(xs_area_hydroid_lookup['bankfull_XS_ratio_flag'].isnull(),0,inplace=True)
 
         ## Merge bathy_calc_xs_area to the modified_src_base
-        modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area']],how='left',on='HydroID
+        modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area']],how='left',on='HydroID')
+
+        ## Mask/null the bathy calculated area for streamorders that the user wants to ignore (set bathy_cals_xs_area = 0 for streamorder = 10)
+        modified_src_base['bathy_calc_xs_area'].mask(modified_src_base['order_'] >= ignore_streamorder,0.0,inplace=True)
 
         ## Calculate new bathy adjusted channel geometry variables
         modified_src_base = modified_src_base.rename(columns={'Discharge (m3s-1)':'Discharge (m3s-1)_nobathy'})
