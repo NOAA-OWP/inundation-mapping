@@ -127,18 +127,18 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
         modified_src_base['bathy_calc_xs_area'].mask(modified_src_base['order_'] >= ignore_streamorder,0.0,inplace=True)
 
         ## Calculate new bathy adjusted channel geometry variables
-        modified_src_base = modified_src_base.rename(columns={'Discharge (m3s-1)':'Discharge (m3s-1)_nobathy'})
-        modified_src_base['XS Area (m2)_bathy_adj'] = modified_src_base['XS Area (m2)'] + modified_src_base['bathy_calc_xs_area']
-        modified_src_base['Volume (m3)_bathy_adj'] = modified_src_base['XS Area (m2)_bathy_adj'] * modified_src_base['LENGTHKM'] * 1000
-        modified_src_base['WetArea (m2)_bathy_adj'] = modified_src_base['Volume (m3)_bathy_adj']/modified_src_base['LENGTHKM']/1000
-        modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['WetArea (m2)_bathy_adj']/modified_src_base['WettedPerimeter (m)']
-        modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0, inplace=True)
+        modified_src_base = modified_src_base.rename(columns={'Discharge (m3s-1)':'orig_Discharge (m3s-1)','XS Area (m2)':'orig_XS Area (m2)','Volume (m3)':'orig_Volume (m3)','WetArea (m2)':'orig_WetArea (m2)','HydraulicRadius (m)':'orig_HydraulicRadius (m)'})
+        modified_src_base['XS Area (m2)'] = modified_src_base['orig_XS Area (m2)'] + modified_src_base['bathy_calc_xs_area']
+        modified_src_base['Volume (m3)'] = modified_src_base['XS Area (m2)'] * modified_src_base['LENGTHKM'] * 1000
+        modified_src_base['WetArea (m2)'] = modified_src_base['Volume (m3)']/modified_src_base['LENGTHKM']/1000
+        modified_src_base['HydraulicRadius (m)'] = modified_src_base['WetArea (m2)']/modified_src_base['WettedPerimeter (m)']
+        modified_src_base['HydraulicRadius (m)'].fillna(0, inplace=True)
         ## mask out negative top width differences (avoid thalweg burn notch)
-        modified_src_base['HydraulicRadius (m)_bathy_adj'].mask((modified_src_base['HydraulicRadius (m)_bathy_adj']>thal_hyd_radius_flag) & (modified_src_base['Stage']<thal_stg_limit),0,inplace=True)
+        modified_src_base['HydraulicRadius (m)'].mask((modified_src_base['HydraulicRadius (m)']>thal_hyd_radius_flag) & (modified_src_base['Stage']<thal_stg_limit),0,inplace=True)
 
         ## Calculate Q using Manning's equation
-        modified_src_base['Discharge (m3s-1)'] = modified_src_base['WetArea (m2)_bathy_adj']* \
-        pow(modified_src_base['HydraulicRadius (m)_bathy_adj'],2.0/3)* \
+        modified_src_base['Discharge (m3s-1)'] = modified_src_base['WetArea (m2)']* \
+        pow(modified_src_base['HydraulicRadius (m)'],2.0/3)* \
         pow(modified_src_base['SLOPE'],0.5)/modified_src_base['ManningN']
         ## mask discharge values for stage = 0 rows in SRC (replace with 0) --> do we need SRC to start at 0??
         modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == 0,0,inplace=True)
