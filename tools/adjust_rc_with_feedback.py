@@ -34,7 +34,7 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
     print('crosswalked df...')
      ## Calculate Q using Manning's equation
     df_gmed.rename(columns={'ManningN':'ManningN_default','hydroid':'HydroID'}, inplace=True) # rename the previous ManningN column
-    df_gmed['ManningN'] = df_gmed['WetArea_m2']* \
+    df_gmed['modify_ManningN'] = df_gmed['WetArea_m2']* \
     pow(df_gmed['HydraulicRadius_m'],2.0/3)* \
     pow(df_gmed['SLOPE'],0.5)/df_gmed['discharge_cms']
     print(df_gmed)
@@ -42,12 +42,18 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
     output_calc_n_csv = os.path.join(fim_directory, huc6, 'calc_src_n_vals_' + huc6 + '.csv')
     df_gmed.to_csv(output_calc_n_csv)
 
-    df_gmed = df_gmed.groupby(["HydroID"])[['ManningN','coll_time']].median() # cacluate median ManningN to handle cases with multiple hydroid entries
-    df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'}, inplace=True)
-    df_htable = df_htable.reset_index()
+    df_gmed = df_gmed.groupby(["HydroID"])[['modify_ManningN']].median() # cacluate median ManningN to handle cases with multiple hydroid entries
+    df_htable.rename(columns={'ManningN':'orig_ManningN','discharge_cms':'orig_discharge_cms'}, inplace=True)
+    #df_htable = df_htable.reset_index()
     #df_htable['ManningN'] = df_htable['orig_ManningN']
     print(df_htable)
     df_htable = df_htable.merge(df_gmed,  how='left', on='HydroID')
+    out_htable = os.path.join(fim_directory, huc6, 'hydroTable_mod.csv')
+    df_htable.to_csv(out_htable)
+    #df_htable.loc[df_htable['ManningN'].isnull(),'ManningN'] = df_htable['orig_ManningN']
+    #df_htable.ManningN.fillna(df_htable[['orig_ManningN']], inplace=True)
+    #df_htable.mask(df_htable.modify_ManningN<0,df_htable.orig_ManningN,inplace=True)
+    df_htable['ManningN']=df_htable['modify_ManningN'].mask(df_htable['modify_ManningN'].isna(), df_htable['orig_ManningN'])
     df_htable['discharge_cms'] = df_htable['WetArea (m2)']* \
     pow(df_htable['HydraulicRadius (m)'],2.0/3)* \
     pow(df_htable['SLOPE'],0.5)/df_htable['ManningN']
