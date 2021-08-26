@@ -13,10 +13,11 @@ import pandas as pd
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
-from gms.inundate_gms import Inundate_gms
-from gms.mosaic_inundation import Mosaic_inundation
-from gms.overlapping_inundation import OverlapWindowMerge
+from gms_tools.inundate_gms import Inundate_gms
+from gms_tools.mosaic_inundation import Mosaic_inundation
+from gms_tools.overlapping_inundation import OverlapWindowMerge
 from glob import glob
+from utils.shared_variables import elev_raster_ndv
 
 def run_alpha_test( fim_run_dir, version, test_id, magnitude, 
                     eval_meta,
@@ -198,7 +199,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                         map_file,mosaic_attribute='inundation_rasters',
                                         mosaic_output=inundation_raster,
                                         mask=catchment_poly,unit_attribute_name='huc8',
-                                        nodata=-2147483647,workers=1,
+                                        nodata=elev_rasters_ndv,workers=1,
                                         remove_inputs=True,
                                         subset=None,verbose=verbose
                                       )
@@ -245,7 +246,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                         ms_inundation_map_file,mosaic_attribute='inundation_rasters',
                                         mosaic_output=inundation_raster,
                                         mask=catchment_poly,unit_attribute_name='huc8',
-                                        nodata=-2147483647,workers=1,
+                                        nodata=elev_rasters_ndv,workers=1,
                                         remove_inputs=False,
                                         subset=None,verbose=verbose
                                       )

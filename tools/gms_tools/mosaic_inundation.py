@@ -2,16 +2,17 @@
 # coding: utf-8
 
 from glob import glob
-from gms.overlapping_inundation import OverlapWindowMerge
+from gms_tools.overlapping_inundation import OverlapWindowMerge
 import argparse
 import os
 import pandas as pd
 from tqdm import tqdm
+from utils.shared_variables import elev_raster_ndv
 
 def Mosaic_inundation(
                       map_file,mosaic_attribute='inundation_rasters',mosaic_output=None,
                       mask=None,unit_attribute_name='huc8',
-                      nodata=-2147483647,workers=4,
+                      nodata=elev_raster_ndv,workers=4,
                       remove_inputs=False,
                       subset=None,verbose=True
                       ):
@@ -72,8 +73,8 @@ def Mosaic_inundation(
 
 
 
-def mosaic_by_unit(inundation_maps_list,mosaic_output,nodata=-2147483647,workers=1,
-                   remove_inputs=False,mask=None,verbose=False):
+def mosaic_by_unit(inundation_maps_list,mosaic_output,nodata=elev_raster_ndv,
+                   workers=1,remove_inputs=False,mask=None,verbose=False):
 
 
     # overlap object instance
@@ -132,7 +133,7 @@ if __name__ == '__main__':
     parser.add_argument('-i','--map-file', help='List of file paths to inundation/depth maps to mosaic', required=True)
     parser.add_argument('-a','--mask', help='File path to vector polygon mask to clip mosaic too', required=False,default=None)
     parser.add_argument('-s','--subset', help='Subset units', required=False,default=None,type=str,nargs='+')
-    parser.add_argument('-n','--nodata', help='Inundation Maps', required=False,default=-2147483647)
+    parser.add_argument('-n','--nodata', help='Inundation Maps', required=False,default=elev_raster_ndv)
     parser.add_argument('-w','--workers', help='Number of Workers', required=False,default=4,type=int)
     parser.add_argument('-t','--mosaic-attribute', help='Mosaiced inundation Maps', required=False,default=None)
     parser.add_argument('-m','--mosaic-output', help='Mosaiced inundation Maps', required=False,default=None)

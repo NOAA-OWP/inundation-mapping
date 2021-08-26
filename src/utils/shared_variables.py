@@ -27,6 +27,9 @@ NHD_VECTOR_EXTRACTION_SUFFIX = '_HU4_GDB.zip'
 nhd_raster_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_RASTER.7z"
 nhd_vector_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_GDB.zip"
 
+# --- Values ---- #
+elev_raster_ndv = -9999.0
+
 # -- Field Names -- #
 FIM_ID = 'fimid'
 
