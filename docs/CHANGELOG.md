@@ -2,6 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.2 - 2021-08-26 - [PR #455](https://github.com/NOAA-OWP/cahaba/pull/455)
+
+Addresses an issues with the bathy adjusted rating curve (BARC) calculations exacerbating single-pixel inundation issues for the lower Mississippi River. This fix allows the user to specify a streamorder value that will be ignored in BARC calculations (reverts to using the original/default rating curve).
+
+## Changes
+- Added new env variable (ignore_streamorders) set to 10
+- Added new BARC code to set the bathy adjusted cross-section area to 0 (reverts to using the default SRC values) based on the streamorder env variable
+- Added additional docstrings to better define the BARC input variables
+
+<br/><br/>
+
 ## v3.0.22.1 - 2021-08-20 - [PR #447](https://github.com/NOAA-OWP/cahaba/pull/447)
 
 Patches the minimum stream length in the template parameters file.
