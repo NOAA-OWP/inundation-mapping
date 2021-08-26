@@ -14,13 +14,8 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
     df_gmed = df_gmed[df_gmed.hydroid != 0] # remove entries that do not have a valid hydroid
     print(df_gmed)
     df_htable = pd.read_csv(htable_path)
-    print(df_htable.head)
     for index, row in df_gmed.iterrows(): # loop through the user provided dataframe row by row
-        print('row...')
-        print(row['hydroid'])
         df_htable_hydroid = df_htable[df_htable.HydroID == row.hydroid] # filter htable for entries with matching hydroid
-        print('filtered hydrotable...')
-        print(df_htable_hydroid)
         find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
         print('found stage...')
         print(find_src_stage)
@@ -32,40 +27,41 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
         df_gmed.loc[index,'WetArea_m2'] = find_src_stage['WetArea (m2)']
         df_gmed.loc[index,'discharge_cms'] = find_src_stage.discharge_cms
 
-    print('crosswalked df...')
-     ## Calculate Q using Manning's equation
+    ## Calculate roughness using Manning's equation
     df_gmed.rename(columns={'ManningN':'ManningN_default','hydroid':'HydroID'}, inplace=True) # rename the previous ManningN column
     df_gmed['modify_ManningN'] = df_gmed['WetArea_m2']* \
     pow(df_gmed['HydraulicRadius_m'],2.0/3)* \
     pow(df_gmed['SLOPE'],0.5)/df_gmed['discharge_cms']
     print(df_gmed)
 
+    # Export csv with the newly calculated Manning's N values
     output_calc_n_csv = os.path.join(fim_directory, huc6, 'calc_src_n_vals_' + huc6 + '.csv')
-    df_gmed.to_csv(output_calc_n_csv)
+    df_gmed.to_csv(output_calc_n_csv,index=False)
 
-    df_gmed = df_gmed.groupby(["HydroID"])[['modify_ManningN']].median() # cacluate median ManningN to handle cases with multiple hydroid entries
+    # cacluate median ManningN to handle cases with multiple hydroid entries
+    df_updated = df_gmed.groupby(["HydroID"])[['coll_time']].max()
+    print("collection time max")
+    print(df_updated)
+    df_gmed = df_gmed.groupby(["HydroID"])[['modify_ManningN']].median()
     df_htable.rename(columns={'ManningN':'default_ManningN','discharge_cms':'orig_discharge_cms'}, inplace=True)
-    #df_htable = df_htable.reset_index()
-    #df_htable['ManningN'] = df_htable['orig_ManningN']
-    print(df_htable)
-    print(type(df_htable))
+
+    # Merge the newly caluclated ManningN dataframe with the original hydroTable
     df_htable = df_htable.merge(df_gmed,  how='left', on='HydroID')
-    out_htable = os.path.join(fim_directory, huc6, 'hydroTable_mod.csv')
-    df_htable.to_csv(out_htable)
-    print(type(df_htable))
-    #df_htable.loc[df_htable['ManningN'].isnull(),'ManningN'] = df_htable['orig_ManningN']
-    #df_htable.ManningN.fillna(df_htable[['orig_ManningN']], inplace=True)
-    #df_htable.mask(df_htable.modify_ManningN<0,df_htable.orig_ManningN,inplace=True)
+
+    # Create the ManningN column by combining the modify_ManningN with the default_ManningN (use modified where available)
     df_htable['ManningN'] = np.where(df_htable['modify_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['modify_ManningN'])
-    #df_htable['ManningN']=df_htable['modify_ManningN'].mask(df_htable['modify_ManningN'].isna(), df_htable['orig_ManningN'])
+
+    # Calculate new discharge_cms with new ManningN
     df_htable['discharge_cms'] = df_htable['WetArea (m2)']* \
     pow(df_htable['HydraulicRadius (m)'],2.0/3)* \
     pow(df_htable['SLOPE'],0.5)/df_htable['ManningN']
-    #df_htable['ManningN'].fillna(df_htable.orig_ManningN, inplace=True)
-    #df_htable['discharge_cms'].fillna(df_htable.orig_discharge_cms, inplace=True)
+
+    # Replace discharge_cms with 0 or -999 if present in the original discharge
+    df_htable['discharge_cms'].mask(df_htable['orig_discharge_cms']==0.0,0.0,inplace=True)
+    df_htable['discharge_cms'].mask(df_htable['orig_discharge_cms']==-999,-999,inplace=True)
 
     out_htable = os.path.join(fim_directory, huc6, 'hydroTable_mod.csv')
-    df_htable.to_csv(out_htable)
+    df_htable.to_csv(out_htable,index=False)
 
 def ingest_points_layer(points_layer, fim_directory, wbd_path):
 
