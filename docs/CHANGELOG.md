@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.2 - 2021-08-26 - [PR #455](https://github.com/NOAA-OWP/cahaba/pull/455)
+
+This merge addresses an issues with the bathymetry adjusted rating curve (BARC) calculations exacerbating single-pixel inundation issues for the lower Mississippi River. This fix allows the user to specify a stream order value that will be ignored in BARC calculations (reverts to using the original/default rating curve). If/when the "thalweg notch" issue is addressed, this change may be unmade.
+
+## Changes
+- Added new env variable `ignore_streamorders` set to 10.
+- Added new BARC code to set the bathymetry adjusted cross-section area to 0 (reverts to using the default SRC values) based on the streamorder env variable.
+
+<br/><br/>
+
 ## v3.0.22.1 - 2021-08-20 - [PR #447](https://github.com/NOAA-OWP/cahaba/pull/447)
 
 Patches the minimum stream length in the template parameters file.
@@ -17,18 +27,6 @@ This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in futu
 
 ## Additions
 - Added `adjust_rc_with_feedback.py` with `ingest_points_layer()`, a function to extract HAND and hydroid values for use in an automatic synthetic rating curve updating mechanism.
-
-
-## Changes
-- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
-- Clean up `Dockerfile` and remove any unused* packages or variables.
-- Remove any unused* Python packages from the `Pipfile`.
-- Move the `CHANGELOG.md`, `SECURITY.md`, and `TERMS.md` files to the `/docs` folder.
-- Remove any unused* scripts in the `/tools` and `/src` folders.
-- Move `tools/preprocess` scripts into `tools/`.
-- Ensure all scripts in the `/src` folder have their code in functions and are being called via a `__main__` function (This will help with implementing memory profiling fully).
-- Changed memory-profiling to be an option flag `-m` for `fim_run.sh`.
-- Updated FIM API to save all outputs during a "release" job.
 
 <br/><br/>
 
