@@ -10,14 +10,15 @@ import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import VIZ_PROJECTION
 
+EVALUATED_SITES_CSV = r'/data/inputs/ahps_sites/evaluated_ahps_sites.csv'
+
 
 def get_env_paths():
     load_dotenv()
     #import variables from .env file
     API_BASE_URL = os.getenv("API_BASE_URL")
-    EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
     WBD_LAYER = os.getenv("WBD_LAYER")
-    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER
+    return API_BASE_URL, WBD_LAYER
 
 
 def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
@@ -81,6 +82,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
+    print(EVALUATED_SITES_CSV)
+    print(os.path.exists(EVALUATED_SITES_CSV))
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
     #The entire routine to get mainstems is hardcoded in this function.
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
@@ -232,5 +235,5 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     #Run get_env_paths and static_flow_lids
-    API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER = get_env_paths()
+    API_BASE_URL, WBD_LAYER = get_env_paths()
     generate_catfim_flows(**args)

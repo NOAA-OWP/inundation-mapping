@@ -84,8 +84,8 @@ if __name__ == '__main__':
     fim_version_folder = os.path.basename(fim_version)
     output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
     output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
-    nwm_us_search = '10'
-    nwm_ds_search = '10'
+    nwm_us_search = '5'
+    nwm_ds_search = '5'
     write_depth_tiff = False
 
     ## Run CatFIM scripts in sequence

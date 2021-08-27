@@ -114,16 +114,16 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
 
 def run_inundation(args):
 
-    rem                 = args[0]
-    catchments          = args[1]
+    rem = args[0]
+    catchments = args[1]
     magnitude_flows_csv = args[2]
-    huc                 = args[3]
-    hydroTable          = args[4]
-    output_extent_grid  = args[5]
-    output_depth_grid   = args[6]
-    ahps_site           = args[7]
-    magnitude           = args[8]
-    log_file            = args[9]
+    huc = args[3]
+    hydroTable = args[4]
+    output_extent_grid = args[5]
+    output_depth_grid = args[6]
+    ahps_site = args[7]
+    magnitude = args[8]
+    log_file = args[9]
 
     try:
         inundate(rem,catchments,catchment_poly,hydroTable,magnitude_flows_csv,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
@@ -145,6 +145,7 @@ def run_inundation(args):
     if not os.path.exists(saved_extent_grid_filename):
         with open(log_file, 'a+') as f:
             f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
+
 
 def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
 
@@ -223,12 +224,12 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
 def reformat_inundation_maps(args):
 
     try:
-        lid                         = args[0]
-        grid_path                   = args[1]
-        gpkg_dir                    = args[2]
-        fim_version                 = args[3]
-        huc                         = args[4]
-        magnitude                   = args[5]
+        lid = args[0]
+        grid_path = args[1]
+        gpkg_dir = args[2]
+        fim_version = args[3]
+        huc = args[4]
+        magnitude = args[5]
         nws_lid_attributes_filename = args[6]
 
         # Convert raster to to shapes
@@ -302,7 +303,6 @@ if __name__ == '__main__':
     output_cat_fim_dir = args['output_cat_fim_dir']
     number_of_jobs = int(args['number_of_jobs'])
     depthtif = args['write_depth_tiff']
-
 
     # Create output directory
     if not os.path.exists(output_cat_fim_dir):
