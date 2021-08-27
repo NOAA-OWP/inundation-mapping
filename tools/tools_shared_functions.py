@@ -616,7 +616,17 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
         #Add timestamp of WRDS retrieval
         timestamp = response.headers['Date']
         #Add timestamp of sources retrieval
-        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']        
+        timestamp_list = metadata_json['data_sources']['metadata_sources']
+        
+        # Default timestamps to "Not available" and overwrite with real values if possible.
+        nwis_timestamp, nrldb_timestamp = "Not available", "Not available"
+        for timestamp in timestamp_list:
+            if "NWIS" in timestamp:
+                nwis_timestamp = timestamp
+            if "NRLDB" in timestamp:
+                nrldb_timestamp = timestamp
+            
+#        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']        
         #get crosswalk info (always last dictionary in list)
         crosswalk_info = metadata_json['data_sources']
         #Update each dictionary with timestamp and crosswalk info also save to DataFrame.
