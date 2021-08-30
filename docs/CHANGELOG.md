@@ -4,11 +4,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.22.4 - 2021-08-30 - [PR #456](https://github.com/NOAA-OWP/cahaba/pull/456)
 
-This hotfix renames the BARC modified variables that are exported to src_full_crosswalked.csv to replace the original variables. The default/original variables are renamed with "orig_" prefix. This change is needed to ensure downstream uses of the src_full_crosswalked.csv are able to reference the authoritative version of the channel geometry variables (i.e. BARC-adjust where available).
+Renames the BARC modified variables that are exported to `src_full_crosswalked.csv` to replace the original variables. The default/original variables are renamed with `orig_` prefix. This change is needed to ensure downstream uses of the `src_full_crosswalked.csv` are able to reference the authoritative version of the channel geometry variables (i.e. BARC-adjust where available).
 
 ## Changes
-- default/original variables are renamed with "orig_" prefix
-- renamed SA_div to SA_div_flag
+- In `src_full_crosswalked.csv`, default/original variables are renamed with `orig_` prefix and `SA_div` is renamed to `SA_div_flag`.
 
 <br/><br/>
 
