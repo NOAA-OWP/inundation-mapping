@@ -380,6 +380,7 @@ def __go_fast_mapping(rem,catchments,catchmentStagesDict,inundation,depths):
 def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
                              depths,out_raster_profile,out_vector_profile,quiet,hucs=None,hucSet=None):
 
+    
     if hucs is not None:
 
         # get attribute name for HUC column
@@ -427,6 +428,8 @@ def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentSt
                     rem_array,window_transform = mask(rem,catchment_poly['geometry'],crop=True,indexes=1)
                     catchments_array,_ = mask(catchments,catchment_poly['geometry'],crop=True,indexes=1)
                     del catchment_poly
+                elif mask_type is None:
+                    pass
                 else:
                     print ("invalid mask type. Options are 'huc' or 'filter'")
             except ValueError: # shape doesn't overlap raster

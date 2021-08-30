@@ -12,7 +12,7 @@ from collections import deque
 import numpy as np
 from tqdm import tqdm
 from shapely.ops import linemerge
-from shapely.geometry import MultiLineString, LineString, MultiPoint
+from shapely.geometry import MultiLineString, LineString, MultiPoint, Point
 from shapely.strtree import STRtree
 from random import sample
 from scipy.stats import mode
@@ -123,19 +123,33 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
+    @staticmethod
+    def flip_inlet_outlet_linestring_index(linestring_index):
+
+        # returns -1 for 0 and 0 for -1
+        inlet_outlet_linestring_index_dict = { 0 : -1, -1 : 0 }
+        
+        try:
+            return( inlet_outlet_linestring_index_dict[linestring_index] )
+        except KeyError:
+            raise ValueError('Linestring index should be 0 or -1')
+
+
     def derive_nodes(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',reach_id_attribute='NHDPlusID',
                      outlet_linestring_index=0,node_prefix=None,max_node_digits=8,verbose=False):
         
         if verbose:
             print("Deriving nodes ...")
 
+        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
+
         # check outlet parameter and set inlet index
-        if outlet_linestring_index == 0:
-            inlet_linestring_index = -1
-        elif outlet_linestring_index == -1:
-            inlet_linestring_index = 0
-        else:
-            raise ValueError("Pass 0 or -1 for outlet_linestring_index argument.")
+        #if outlet_linestring_index == 0:
+        #    inlet_linestring_index = -1
+        #elif outlet_linestring_index == -1:
+        #    inlet_linestring_index = 0
+        #else:
+        #    raise ValueError("Pass 0 or -1 for outlet_linestring_index argument.")
         
         # set node prefix to string
         if node_prefix is None:
@@ -221,8 +235,10 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def derive_inlets(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',inlets_attribute='inlet_id',
-                      verbose=False):
+    def derive_inlets(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',
+                      inlets_attribute='inlet_id',
+                      verbose=False
+                     ):
 
         if verbose:
             print("Deriving inlets ...")
@@ -238,6 +254,48 @@ class StreamNetwork(gpd.GeoDataFrame):
         self[inlets_attribute] = inlets
 
         return(self)
+
+
+    def derive_inlet_points_by_feature( self,feature_attribute, outlet_linestring_index):
+        
+        """ Finds the upstream point of every feature in the stream network """
+
+        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
+
+        feature_inlet_points_gdf = gpd.GeoDataFrame(self.copy())
+
+        for idx, row in self.iterrows():
+            feature_inlet_point = Point(row.geometry.coords[inlet_linestring_index])  
+
+            feature_inlet_points_gdf.loc[idx,'geometry'] = feature_inlet_point
+
+        return(feature_inlet_points_gdf)
+
+
+    def derive_headwater_points_with_inlets( self,inlets_attribute='inlet_id',
+                                             fromNode_attribute='FromNode',
+                                             outlet_linestring_index=0
+                                           ):
+    
+        """ Derives headwater points file given inlets """
+        
+        # get inlet linestring index
+        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
+
+        inlet_indices = self.loc[:,inlets_attribute] != -1
+
+        inlets = self.loc[inlet_indices,:].reset_index(drop=True)
+
+        headwater_points_gdf = gpd.GeoDataFrame(inlets.copy())
+        
+        for idx,row in inlets.iterrows():
+            headwater_point = row.geometry.coords[inlet_linestring_index]
+
+            headwater_point = Point(headwater_point)
+
+            headwater_points_gdf.loc[idx,'geometry'] = headwater_point
+
+        return(headwater_points_gdf)
 
 
     def derive_stream_branches(self,toNode_attribute='ToNode',
@@ -502,6 +560,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             self.write(out_vector_files,index=False)
 
         return(self)
+
 
     def derive_segments(self,inlets_attribute='inlet_id', reach_id_attribute='NHDPlusID'):
         pass

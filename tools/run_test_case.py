@@ -195,10 +195,12 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                              output_fileNames=None
                                             )
                     
+                    mask_path_gms = os.path.join(fim_run_parent, 'wbd.gpkg')
+
                     Mosaic_inundation(
                                         map_file,mosaic_attribute='inundation_rasters',
                                         mosaic_output=inundation_raster,
-                                        mask=catchment_poly,unit_attribute_name='huc8',
+                                        mask=mask_path_gms,unit_attribute_name='huc8',
                                         nodata=elev_raster_ndv,workers=1,
                                         remove_inputs=True,
                                         subset=None,verbose=verbose

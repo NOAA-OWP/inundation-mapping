@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 from os import environ
 from os.path import join
-from glob import iglob
+from glob import glob
 
 
 def aggregate_inputs_for_gms(hucList):
@@ -18,11 +18,11 @@ def aggregate_inputs_for_gms(hucList):
 
     # get branch lists
     outputRunDataDir = environ['outputRunDataDir']
-    branch_id_files = iglob(join(outputRunDataDir,'*','gms','branch_id.lst'))
+    branch_id_files = glob(join(outputRunDataDir,'*','branch_id.lst'))
 
     all_huc_numbers,all_bids = [],[]
     for bid_file in branch_id_files:
-        huc_number = bid_file.split('/')[-3]
+        huc_number = bid_file.split('/')[-2]
         
         if huc_number in hucList:
             bids = pd.read_csv(bid_file,header=None).loc[:,0].tolist()

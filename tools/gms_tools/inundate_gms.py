@@ -158,13 +158,14 @@ def __inundate_gms_generator(
         huc = str(row[0])
         branch_id = str(row[1])
 
-        catchment_poly = os.path.join( hydrofabric_dir,huc,'gw_catchments_reaches_filtered.gpkg' )
-        
-        gms_dir = os.path.join(hydrofabric_dir,huc,'gms')
+        gms_dir = os.path.join(hydrofabric_dir,huc,'branches')
 
         rem_branch = os.path.join( gms_dir,branch_id,'rem_zeroed_masked_{}.tif'.format(branch_id) )
         catchments_branch = os.path.join( gms_dir,branch_id,'gw_catchments_reaches_{}.tif'.format(branch_id) )
         hydroTable_branch = os.path.join( gms_dir,branch_id,'hydroTable_{}.csv'.format(branch_id) )
+        catchment_poly = os.path.join( gms_dir, branch_id,
+                                       f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.gpkg' )
+        
     
         # branch output
         inundation_branch_raster = __append_id_to_file_name(inundation_raster,[huc,branch_id])
@@ -178,7 +179,9 @@ def __inundate_gms_generator(
         inundate_input = { 
                             'rem' : rem_branch, 'catchments' : catchments_branch, 'catchment_poly' : catchment_poly,
                             'hydro_table' : hydroTable_branch,'forecast' : forecast,
-                            'mask_type' : "filter", 'hucs' : None, 'hucs_layerName' : None,
+                            'mask_type' : None,
+                            'hucs' : None,
+                            'hucs_layerName' : None,
                             'subset_hucs' : None, 'num_workers' : 1,
                             'aggregate' : False,
                             'inundation_raster' : inundation_branch_raster,

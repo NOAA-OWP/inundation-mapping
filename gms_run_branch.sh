@@ -106,10 +106,10 @@ export extent=GMS
 
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ]; then 
-    branch_directories_count=$(find $outputRunDataDir/**/gms/ -maxdepth 1 -mindepth 1 -type d | wc -l)
-
+    branch_directories_count=$(find $outputRunDataDir/*/branches/ -maxdepth 1 -mindepth 1 -type d | wc -l)
+    
     if [ $branch_directories_count -gt 0 ] && [ "$overwrite" -eq 1 ]; then
-        rm -rf $branch_directories_list
+        find $outputRunDataDir/*/branches/ -maxdepth 1 -mindepth 1 -type d | xargs rm -rf 
     elif [ $branch_directories_count -gt 0 ] && [ "$overwrite" -eq 0 ] ; then
         echo "GMS branch data directories for $runName already exist. Use -o/--overwrite to continue"
         exit 1

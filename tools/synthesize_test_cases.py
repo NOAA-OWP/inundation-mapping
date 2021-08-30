@@ -325,7 +325,8 @@ if __name__ == '__main__':
         #bench_cat_id_list = ['11010004_ble']
 
         if job_number_huc == 1:
-            pb = tqdm(total=len(bench_cat_id_list)*len(previous_fim_list))
+            # something wrong about this lengtu
+            pb = tqdm(total=len(bench_cat_id_list))
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
             if 'validation' and 'other' not in test_id:

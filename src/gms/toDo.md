@@ -1,7 +1,19 @@
 # GMS To Do: 
+## Data
+- Setting NDV for rasters is exposed to the user in preprocess_raster.py. This should be set to value in src/shared_variables.py of elev_raster_ndv. This prevents issues. Make sure all references to NDV in entire pipeline are consistent.
+- pipeline management: your user pipeline should be strengthened. Preprocess, hydrofab production, inundation, evaluation steps should be consolidated. For example: there are many preprocessing steps now. Also every major pipeline step should have meta-data associated with it in some sort of pandas friendly json format. Example: every fim_run/gms_run should have a meta-data json detailing the model used, parameters, date ran, user, and the inherited data from the preprocessing steps of the pipeline.
+
+## Hydrofabric
+- levelpath derivation doesn't handle divergences (eg 12020002).
+    - it shortens the effective length of levelpaths thus reducing the rating curve height of the most upstream catchment
+- nld lines are first being rasterized then burned.
+    - the python script burn_levees could be avoided using gdal_calc and converting nld elevations to meters in preprocessing
+    - if conversion to meters is done in preprocessing. It maybe possible to burn the nld elevations directly into the dem with gdal_rasterize all in one step
+- update to src/rem.py from src/gms/rem.py
+- filtering of HydroIDs could take place earlier in process thus removing the need to run many levelpaths.
+- unique identifiers for HydroIDs with GMS. Maybe FIMID, then branch ID, then HydroID.
+
 ## Immediate
-- meta-data for pipeline
-- mannings n 0.06 test
 - GMS whitelist for FIM 3
 - convenience wrapper for fim_run, gms_run_unit.sh, gms_run_branch.sh. Move gms_run_branch.sh and gms_run_unit.sh to src/gms dir
 - consider running filter_catchments_and_add_attributes.py in run_by_branch.sh.

@@ -87,24 +87,32 @@ fi
 export outputRunDataDir=$outputDataDir/$runName
 logFile=$outputRunDataDir/logs/summary_gms_unit.log
 
+## Define inputs
+export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
+export input_nwm_lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
+export input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
+export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
+export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
+export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
+export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
+## Input handling ##
+
 ## Input handling ##
 $srcDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ]; then
-    gms_directories_count=$(find $outputRunDataDir -iname "gms" -type d | wc -l)
-    if [ $gms_directories_count -gt 0 ] && [ "$overwrite" -eq 1 ]; then
-         rm -rf $gms_directories_list
-    elif [ $gms_directories_count -gt 0 ] && [ "$overwrite" -eq 0 ] ; then
-        echo "GMS data directory for $runName already exist. Use -o/--overwrite to continue"
+    if [ "$overwrite" -eq 1 ]; then
+        #echo "TEMPORARY: NOT OVERWRITING DUE TO DEBUG MODE"
+        rm -rf $outputRunDataDir
+    elif [ "$overwrite" -eq 0 ] ; then
+        echo "Hydrofabric data directory for $runName already exists. Use -o/--overwrite to continue"
         exit 1
     fi
-else
-    echo "GMS depends on Full Resolution Data. Please produce data with fim_run.sh first."
-    exit 1
 fi
 
-# make log dir
+# make dirs
+mkdir -p $outputRunDataDir
 mkdir -p $outputRunDataDir/logs
 
 
