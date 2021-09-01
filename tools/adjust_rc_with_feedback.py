@@ -5,11 +5,15 @@ import os
 import rasterio
 import pandas as pd
 import numpy as np
+import sys
+import json
 
 temp_workspace = r''
 HAND_CRS = 'EPSG:3857'
 
-def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
+def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc6):
+    print("Processing huc --> " + str(huc6))
+    log_file.write("\nProcessing huc --> " + str(huc6) + '\n')
     df_gmed = pd.read_csv(output_csv) # read csv to import as a dataframe
     df_gmed = df_gmed[df_gmed.hydroid != 0] # remove entries that do not have a valid hydroid
     df_htable = pd.read_csv(htable_path)
@@ -28,8 +32,16 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
     df_gmed.rename(columns={'ManningN':'ManningN_default','hydroid':'HydroID'}, inplace=True) # rename the previous ManningN column
     df_gmed['modify_ManningN'] = df_gmed['WetArea_m2']* \
     pow(df_gmed['HydraulicRadius_m'],2.0/3)* \
-    pow(df_gmed['SLOPE'],0.5)/df_gmed['discharge_cms']
+    pow(df_gmed['SLOPE'],0.5)/df_gmed['flow']
+    print('Adjusted Mannings N Calculations -->')
     print(df_gmed)
+
+    # Create dataframe to check for erroneous Manning's n values (>0.6 or <0.001)
+    df_mann_flag = df_gmed[(df_gmed['modify_ManningN'] >= 0.6) | (df_gmed['modify_ManningN'] <= 0.001)][['HydroID','modify_ManningN']]
+    print(df_mann_flag.to_string())
+    if not df_mann_flag.empty:
+        log_file.write('!!! Flaged Mannings Roughness values below !!!' +'\n')
+        log_file.write(df_mann_flag.to_string() + '\n')
 
     # Export csv with the newly calculated Manning's N values
     output_calc_n_csv = os.path.join(fim_directory, huc6, 'calc_src_n_vals_' + huc6 + '.csv')
@@ -42,8 +54,10 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
     df_htable.rename(columns={'ManningN':'default_ManningN','discharge_cms':'orig_discharge_cms'}, inplace=True)
 
     ## Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a singel hydroid)
-    df_nrange = df_gmed.groupby('HydroID').agg({'modify_ManningN': ['median', 'min', 'max']})
-    print(df_nrange)
+    df_nrange = df_gmed.groupby('HydroID').agg({'modify_ManningN': ['median', 'min', 'max','count']})
+    log_file.write('Statistics for Modified Roughness Calcs -->' +'\n')
+    log_file.write(df_nrange.to_string() + '\n')
+    log_file.write('----------------------------------------\n\n')
 
     # Merge the newly caluclated ManningN dataframe with the original hydroTable
     df_htable = df_htable.merge(df_mann, how='left', on='HydroID')
@@ -63,6 +77,21 @@ def update_rating_curve(fim_directory, output_csv, htable_path, huc6):
 
     out_htable = os.path.join(fim_directory, huc6, 'hydroTable_mod.csv')
     df_htable.to_csv(out_htable,index=False)
+
+    # output new src json (overwrite previous)
+    output_src_json = dict()
+    hydroID_list = np.unique(df_htable['HydroID'])
+
+    for hid in hydroID_list:
+        indices_of_hid = df_htable['HydroID'] == hid
+        stage_list = df_htable['stage'][indices_of_hid].astype(float)
+        q_list = df_htable['discharge_cms'][indices_of_hid].astype(float)
+        stage_list = stage_list.tolist()
+        q_list = q_list.tolist()
+        output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
+
+    with open(output_src_json_file,'w') as f:
+        json.dump(output_src_json,f,sort_keys=True)
 
 def ingest_points_layer(points_layer, fim_directory, wbd_path):
 
@@ -90,6 +119,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
         huc6 = row['HUC6']
         if huc6 not in huc6_list:
             huc6_list.append(huc6)
+            log_file.write(str(huc6) + '\n')
 
     # Define coords variable to be used in point raster value attribution.
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
@@ -111,6 +141,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
         if not os.path.exists(htable_path):
             print("hydroTable for " + huc6 + " does not exist.")
             continue
+        output_src_json_file = os.path.join(fim_directory, huc6, 'mod_rating_curves_' + huc6 + '.json')
 
 #        water_edge_df = water_edge_df[water_edge_df['HUC6'] == huc6]
 
@@ -140,7 +171,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
         # 5. What do we do in catchments that match the feature_id?
         #    5a. If these catchments already have known data, then let it use those. If not, use new calculated Ns.
 
-        update_rating_curve(fim_directory, output_csv, htable_path, huc6)
+        update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc6)
 
 
 
@@ -158,6 +189,11 @@ if __name__ == '__main__':
     fim_directory = args['fim_directory']
     wbd_path = args['wbd_path']
 
+    # Create log file for processing records
+    print('This may take a few minutes...')
+    sys.__stdout__ = sys.stdout
+    log_file = open(os.path.join(fim_directory,'log_rating_curve_adjust.log'),"w")
+
     ingest_points_layer(points_layer, fim_directory, wbd_path)
 
     # Open catchment, HAND, and point grids and determine pixel values for Hydroid, HAND value, and discharge value, respectively.
@@ -167,3 +203,7 @@ if __name__ == '__main__':
     # Use three values to determine the hydroid rating curve(s) to update, then update them using a variation of Manning's Equation.
 
     # Ensure the JSON rating curve is updated and saved (overwitten). Consider adding attributes to document what was performed.
+
+    # Close log file
+    sys.stdout = sys.__stdout__
+    log_file.close()
