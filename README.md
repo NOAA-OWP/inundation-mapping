@@ -55,7 +55,7 @@ This software is configurable via parameters found in the `config` directory. Co
 Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
 - `params_template.env`
 - `mannings_default.json`
-    - must change filepath in `params_template.env` under "manning_n" variable name
+    - must change filepath in `params_template.env` in `manning_n` variable name
 - `params_calibrated.env`
     - runs calibrated mannings parameters from `mannings_calibrated.json`
 
