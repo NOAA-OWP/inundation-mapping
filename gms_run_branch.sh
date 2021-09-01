@@ -14,10 +14,8 @@ usage ()
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
-    echo '  -p/--production : only save final inundation outputs'
-    echo '  -w/--whitelist  : list of files to save in a production run in addition to final inundation outputs'
-    echo '                     ex: file1.tif,file2.json,file3.csv'
-    echo '  -v/--viz        : compute post-processing on outputs to be used in viz'
+    echo '  -d/--denylist  : file with line delimited list of files in branches directories to remove upon completion'
+    echo '                   (see config/deny_gms_branches_default.lst for a starting point)'
     exit
 }
 
@@ -48,15 +46,9 @@ in
     -o|--overwrite)
         overwrite=1
         ;;
-    -p|--production)
-        production=1
-        ;;
-    -w|--whitelist)
+    -d|--denylist)
         shift
-        whitelist="$1"
-        ;;
-    -v|--viz)
-        viz=1
+        deny_gms_branches_list=$1
         ;;
     *) ;;
     esac
@@ -88,9 +80,7 @@ fi
 
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
-export production=$production
-export whitelist=$whitelist
-export viz=$viz
+export deny_gms_branches_list=$deny_gms_branches_list
 logFile=$outputRunDataDir/logs/summary_gms_branch.log
 export extent=GMS
 
