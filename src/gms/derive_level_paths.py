@@ -80,6 +80,34 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
                                                             verbose=verbose
                                                            )
     
+    # filter out streams with out catchments
+    if (catchments is not None) & (catchments_outfile is not None):
+
+        catchments = gpd.read_file(catchments)
+
+        stream_network = stream_network.remove_branches_without_catchments( 
+                                                                catchments,
+                                                                reach_id_attribute=reach_id_attribute,
+                                                                branch_id_attribute=branch_id_attribute,
+                                                                reach_id_attribute_in_catchments=reach_id_attribute,
+                                                                verbose=verbose
+                                                                              )
+
+        # subset which columns to merge
+        stream_network_to_merge = stream_network.filter(
+                                                        items = [reach_id_attribute,inlets_attribute,
+                                                                 outlets_attribute,branch_id_attribute]
+                                                       )
+
+        catchments = catchments.merge(stream_network_to_merge,how='inner',
+                                      left_on=reach_id_attribute,
+                                      right_on=reach_id_attribute
+                                     )
+
+        catchments.reset_index(drop=True,inplace=True)
+
+        catchments.to_file(catchments_outfile,index=False,driver='GPKG')
+
     # derive headwaters
     if headwaters_outfile is not None:
         headwaters = stream_network.derive_headwater_points_with_inlets(
@@ -96,27 +124,6 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
             print("Writing stream branches ...")
         stream_network.write(out_stream_network,index=True)
     
-    ## Merges in level path and other attributes from streams to catchments
-    if (catchments is not None) & (catchments_outfile is not None):
-
-        catchments = gpd.read_file(catchments)
-        
-        # subset which columns to merge
-        stream_network_to_merge = stream_network.filter(
-                                                        items = [reach_id_attribute,inlets_attribute,
-                                                                 outlets_attribute,branch_id_attribute]
-                                                       )
-
-        catchments = catchments.merge(stream_network_to_merge,how='left',
-                                      left_on=reach_id_attribute,
-                                      right_on=reach_id_attribute
-                                     )
-
-        catchments.reset_index(drop=True,inplace=True)
-
-        catchments.to_file(catchments_outfile,index=False,driver='GPKG')
-
-
     if out_stream_network_dissolved is not None:
     
         # dissolve by levelpath

@@ -3,11 +3,9 @@
 usage ()
 {
     echo 'Produce GMS hydrofabric at levelpath/branch scale. Execute gms_run_unit.sh prior to.'
-    echo 'Usage : gms_run.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
+    echo 'Usage : gms_run.sh [REQ: -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
     echo ''
     echo 'REQUIRED:'
-    echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
-    echo '                     also accepted. HUCs must present in inputs directory.'
     echo '  -c/--config     : configuration file with bash environment variables to export'
     echo '  -n/--runName    : a name to tag the output directories and log files as. could be a version tag.'
     echo ''
@@ -23,7 +21,7 @@ usage ()
     exit
 }
 
-if [ "$#" -lt 6 ]
+if [ "$#" -lt 4 ]
 then
   usage
 fi
@@ -31,10 +29,6 @@ fi
 while [ "$1" != "" ]; do
 case $1
 in
-    -u|--hucList)
-        shift
-        hucList="$1"
-        ;;
     -c|--configFile )
         shift
         envFile=$1
@@ -70,10 +64,6 @@ in
 done
 
 # print usage if arguments empty
-if [ "$hucList" = "" ]
-then
-    usage
-fi
 if [ "$envFile" = "" ]
 then
     usage
@@ -115,7 +105,7 @@ if [ -d "$outputRunDataDir" ]; then
         exit 1
     fi
 else
-    echo "GMS depends on Full Resolution Data. Please produce data with fim_run.sh first."
+    echo "Depends on output from gms_run_unit.sh. Please produce data with gms_run_unit.sh first."
     exit 1
 fi
 

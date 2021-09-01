@@ -253,13 +253,6 @@ date -u
 Tstart
 python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
 
-if [[ ! -f $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg ]] ; then
-  echo "No relevant streams within HUC $hucNumber, Level path $current_branch_id boundaries. Aborting run_by_branch.sh"
-  rm -rf $outputCurrentBranchDataDir
-  exit 1
-fi
-Tcount
-
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
 echo -e $startDiv"Rasterize filtered catchments $hucNumber"$stopDiv
 date -u

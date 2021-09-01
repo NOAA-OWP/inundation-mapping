@@ -297,6 +297,75 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return(headwater_points_gdf)
 
+    def remove_stream_segments_without_catchments( self,
+                                                   catchments,
+                                                   reach_id_attribute='NHDPlusID',
+                                                   reach_id_attribute_in_catchments='NHDPlusID',
+                                                   verbose=False
+                                                 ):
+
+        if verbose:
+            print("Removing stream segments without catchments ...")
+
+        # load cathments
+        if isinstance(catchments,gpd.GeoDataFrame):
+            pass
+        elif isinstance(catchments,str):
+            catchments = gpd.read_file(catchments)
+        else:
+            raise TypeError("Catchments needs to be GeoDataFame or path to vector file")
+        
+        self = self.merge(catchments.loc[:,reach_id_attribute_in_catchments],
+                          left_on=reach_id_attribute,
+                          right_on=reach_id_attribute_in_catchments,
+                          how='inner')
+
+        return(self)
+
+
+    def remove_branches_without_catchments(self,
+                                           catchments,
+                                           reach_id_attribute='NHDPlusID',
+                                           branch_id_attribute='branchID',
+                                           reach_id_attribute_in_catchments='NHDPlusID',
+                                           verbose=False
+                                           ):
+
+        if verbose:
+            print("Removing stream branches without catchments ...")
+
+        # load cathments
+        if isinstance(catchments,gpd.GeoDataFrame):
+            pass
+        elif isinstance(catchments,str):
+            catchments = gpd.read_file(catchments)
+        else:
+            raise TypeError("Catchments needs to be GeoDataFame or path to vector file")
+        
+        unique_stream_branches = self.loc[:,branch_id_attribute].unique()
+        unique_catchments = set(catchments.loc[:,reach_id_attribute_in_catchments].unique())
+
+        current_index_name = self.index.name
+        self.set_index(branch_id_attribute,drop=False,inplace=True)
+
+        for usb in unique_stream_branches:
+
+            try:
+                reach_ids_in_branch = set(self.loc[usb,reach_id_attribute].unique())
+            except AttributeError:
+                reach_ids_in_branch = set( [ self.loc[usb,reach_id_attribute] ] )
+
+            if len( reach_ids_in_branch & unique_catchments) == 0:
+                #print(f'Dropping {usb}')
+                self.drop(usb,inplace=True)
+
+        if current_index_name is None:
+            self.reset_index(drop=True,inplace=True)
+        else:
+            self.set_index(current_index_name,drop=True,inplace=True)
+
+        return(self)
+
 
     def derive_stream_branches(self,toNode_attribute='ToNode',
                                fromNode_attribute='FromNode',
@@ -337,23 +406,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         # progress bar
         progress = tqdm(total=len(self),disable=(not verbose),desc='Stream branches')
 
-        """
-        # add outlets to queue, visited set. Assign branch id to outlets too
-        bid = 1
-        for reach_id,row in self.iterrows():
-
-            oa = row[outlet_attribute]
-
-            if oa >= 0:
-                self.loc[reach_id,branch_id_attribute] = bid
-                bid += 1
-                
-                Q.append(reach_id)
-                visited.add(reach_id)
-                progress.update(1)
-
-        # alternative means of adding outlets to queue, to visited, and assigning branch id's to outlets
-        """
         outlet_boolean_mask = self[outlet_attribute] >= 0
         outlet_reach_ids = self.index[outlet_boolean_mask].tolist()
 

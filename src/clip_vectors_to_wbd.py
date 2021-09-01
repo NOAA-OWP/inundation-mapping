@@ -122,6 +122,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     if extent == 'GMS':
         nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd)
+        nwm_streams = gpd.clip(nwm_streams,wbd)
     else:
         nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd_buffer)
 
