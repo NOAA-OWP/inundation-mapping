@@ -116,7 +116,7 @@ Updating logging and fixing bug in vector preprocessing.
 
 ## Changes
 - Provides unique exit codes to relevant domain checkpoints within `run_by_unit.sh`.
-- Bug fixes in `reduce_nhd_stream_density.py`, 'mprof plot` call.
+- Bug fixes in `reduce_nhd_stream_density.py`, `mprof plot` call.
 - Improved error handling in `add_crosswalk.py`.
 
 <br/><br/>
