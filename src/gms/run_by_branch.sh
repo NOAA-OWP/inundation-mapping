@@ -6,27 +6,6 @@ T_total_start
 ## SOURCE BASH FUNCTIONS
 source $srcDir/bash_functions.env
 
-## ECHO PARAMETERS
-echo -e $startDiv"Parameter Values"
-echo -e "agree_DEM_buffer=$agree_DEM_buffer"
-echo -e "wbd_buffer=$wbd_buffer"
-echo -e "ms_buffer_dist=$ms_buffer_dist"
-echo -e "lakes_buffer_dist_meters=$lakes_buffer_dist_meters"
-echo -e "negative_burn_value=$negative_burn_value"
-echo -e "max_split_distance_meters=$max_split_distance_meters"
-echo -e "mannings_n=$manning_n"
-echo -e "stage_min_meters=$stage_min_meters"
-echo -e "stage_interval_meters=$stage_interval_meters"
-echo -e "stage_max_meters=$stage_max_meters"
-echo -e "slope_min=$slope_min"
-echo -e "ms_buffer_dist=$ms_buffer_dist"
-echo -e "ncores_gw=$ncores_gw"
-echo -e "ncores_fd=$ncores_fd"
-echo -e "default_max_jobs=$default_max_jobs"
-echo -e "memfree=$memfree"
-echo -e "branch_id_attribute=$branch_id_attribute"
-echo -e "branch_buffer_distance_meters=$branch_buffer_distance_meters"$stopDiv
-
 ## SET VARIABLES AND FILE INPUTS ##
 hucNumber="$1"
 current_branch_id="$2"
@@ -42,7 +21,6 @@ outputCurrentBranchDataDir=$outputBranchDataDir/$current_branch_id
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
-input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
 
 
 ## MAKE OUTPUT BRANCH DIRECTORY

@@ -3,7 +3,7 @@
 usage ()
 {
     echo 'Produce GMS hydrofabric datasets for unit scale. Run after fim_run.sh but before gms_run_branch.sh'
-    echo 'Usage : gms_run.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
+    echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
@@ -16,6 +16,8 @@ usage ()
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
+    echo '  -d/--denylist  : file with line delimited list of files in huc directories to remove upon completion'
+    echo '                   (see config/deny_gms_unit_default.lst for a starting point)'
     exit
 }
 
@@ -51,6 +53,10 @@ in
     -o|--overwrite)
         overwrite=1
         ;;
+    -d|--denylist)
+        shift
+        deny_gms_unit_list=$1
+        ;;
     *) ;;
     esac
     shift
@@ -66,6 +72,10 @@ then
     usage
 fi
 if [ "$runName" = "" ]
+then
+    usage
+fi
+if [ "$deny_gms_unit_list" = "" ]
 then
     usage
 fi
@@ -95,6 +105,7 @@ export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
 export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
 export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
 export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
+export deny_gms_unit_list=$deny_gms_unit_list
 ## Input handling ##
 
 ## Input handling ##
@@ -115,6 +126,8 @@ fi
 mkdir -p $outputRunDataDir
 mkdir -p $outputRunDataDir/logs
 
+# copy over config file
+cp -a $envFile $outputRunDataDir
 
 ## GMS BY UNIT##
 if [ -f "$hucList" ]; then

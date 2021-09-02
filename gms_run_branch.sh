@@ -3,7 +3,7 @@
 usage ()
 {
     echo 'Produce GMS hydrofabric at levelpath/branch scale. Execute gms_run_unit.sh prior to.'
-    echo 'Usage : gms_run.sh [REQ: -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
+    echo 'Usage : gms_run_branch.sh [REQ: -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
     echo ''
     echo 'REQUIRED:'
     echo '  -c/--config     : configuration file with bash environment variables to export'
@@ -61,6 +61,10 @@ then
     usage
 fi
 if [ "$runName" = "" ]
+then
+    usage
+fi
+if [ "$deny_gms_branches_list" = "" ]
 then
     usage
 fi

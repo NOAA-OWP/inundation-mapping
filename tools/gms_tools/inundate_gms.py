@@ -98,8 +98,10 @@ def Inundate_gms(
             future.result()
         except Exception as exc:
             if log_file is not None:
-                print('{},{},{}'.format(hucCode,branch_id,exc.__class__.__name__),
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}',
                       file=open(log_file,'a'))
+            else:
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}')
         else:
             
             hucCodes[idx] = hucCode
@@ -161,10 +163,11 @@ def __inundate_gms_generator(
         gms_dir = os.path.join(hydrofabric_dir,huc,'branches')
 
         rem_branch = os.path.join( gms_dir,branch_id,'rem_zeroed_masked_{}.tif'.format(branch_id) )
-        catchments_branch = os.path.join( gms_dir,branch_id,'gw_catchments_reaches_{}.tif'.format(branch_id) )
+        catchments_branch = os.path.join( gms_dir,branch_id,
+                                          f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif' )
         hydroTable_branch = os.path.join( gms_dir,branch_id,'hydroTable_{}.csv'.format(branch_id) )
         catchment_poly = os.path.join( gms_dir, branch_id,
-                                       f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.gpkg' )
+                                       f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg' )
         
     
         # branch output

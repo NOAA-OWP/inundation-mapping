@@ -324,9 +324,9 @@ if __name__ == '__main__':
         # temp
         #bench_cat_id_list = ['11010004_ble']
 
-        if job_number_huc == 1:
+        #if job_number_huc == 1:
             # something wrong about this lengtu
-            pb = tqdm(total=len(bench_cat_id_list))
+            #pb = tqdm(total=len(bench_cat_id_list))
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
             if 'validation' and 'other' not in test_id:
@@ -379,20 +379,31 @@ if __name__ == '__main__':
                                               }
                             
                             # Either add to list to multiprocess or process serially, depending on user specification.
-                            if job_number_huc > 1:
+                            #if job_number_huc > 1:
                                 #procs_list.append([fim_run_dir, version, test_id, magnitude, 
                                 #                   archive_results, overwrite, eval_meta,fr_run_dir
                                  #                 ])
-                                procs_dict[current_huc] = alpha_test_args
-                            else:
-                                try:
-                                    run_alpha_test(**alpha_test_args)
-                                    pb.update()
-                                except Exception as exc:
-                                    print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
+                            procs_dict[current_huc] = alpha_test_args
+                            #else:
+                            #    alpha_test_args.update({'gms_verbose':True})
+                            #    try:
+                            #        run_alpha_test(**alpha_test_args)
+                                    #pb.update()
+                            #    except Exception as exc:
+                            #        print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
 
     if job_number_huc == 1:
-        pb.close()
+        
+        number_of_hucs = len(procs_dict)
+        verbose_by_huc = not number_of_hucs == 1
+
+        for current_huc, alpha_test_args in tqdm(procs_dict.items(),total=number_of_hucs,disable=(not verbose_by_huc)):
+            alpha_test_args.update({'gms_verbose': not verbose_by_huc})
+
+            try:
+                run_alpha_test(**alpha_test_args)
+            except Exception as exc:
+                print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
 
     # Multiprocess alpha test runs.
     if job_number_huc > 1:
