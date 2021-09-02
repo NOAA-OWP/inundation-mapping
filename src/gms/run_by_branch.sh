@@ -279,7 +279,7 @@ if [ -f $deny_gms_branches_list ]; then
     echo -e $startDiv"Remove files $hucNumber $current_branch_id"$stopDiv
     date -u
     Tstart
-    $srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_gms_branches_list -v
+    $srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_gms_branches_list -v -b
     Tcount
 fi
 

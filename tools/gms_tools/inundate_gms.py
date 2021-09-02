@@ -96,6 +96,21 @@ def Inundate_gms(
 
         try:
             future.result()
+        
+        except NoForecastFound as exc:
+            if log_file is not None:
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}',
+                      file=open(log_file,'a'))
+            elif verbose:
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}')
+
+        except hydroTableHasOnlyLakes as exc:
+            if log_file is not None:
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}',
+                      file=open(log_file,'a'))
+            elif verbose:
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}')
+        
         except Exception as exc:
             if log_file is not None:
                 print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}',

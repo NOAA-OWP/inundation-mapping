@@ -114,3 +114,5 @@ else
     parallel --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
 fi
 
+## GET NON ZERO EXIT CODES ##
+# grep -ER 'Exit status: [1-9]' logs/* | wc -l
