@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.5 - 2021-09-08 - [PR #460](https://github.com/NOAA-OWP/cahaba/pull/460)
+
+Patches an issue where only certain benchmark categories were being used in evaluation.
+
+## Changes
+- In `tools/tools_shared_variables.py`, created a variable `MAGNITUDE_DICT` to store benchmark category magnitudes.
+- `synthesize_test_cases.py` imports `MAGNITUDE_DICT` and uses it to assign magnitudes.
+
+<br/><br/>
+
 ## v3.0.22.4 - 2021-08-30 - [PR #456](https://github.com/NOAA-OWP/cahaba/pull/456)
 
 Renames the BARC modified variables that are exported to `src_full_crosswalked.csv` to replace the original variables. The default/original variables are renamed with `orig_` prefix. This change is needed to ensure downstream uses of the `src_full_crosswalked.csv` are able to reference the authoritative version of the channel geometry variables (i.e. BARC-adjust where available).
