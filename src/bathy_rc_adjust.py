@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
 from os import environ
-import geopandas as gpd
 import pandas as pd
-import numpy as np
 
-sa_ratio_flag             = float(environ['surf_area_thalweg_ratio_flag']) #10x
-thal_stg_limit            = float(environ['thalweg_stg_search_max_limit']) #3m
-bankful_xs_ratio_flag     = float(environ['bankful_xs_area_ratio_flag']) #10x
-bathy_xsarea_flag         = float(environ['bathy_xs_area_chg_flag']) #1x
-thal_hyd_radius_flag      = float(environ['thalweg_hyd_radius_flag']) #10x
+sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag']) #10x --> Flag: Surface area ratio value to identify possible thalweg notch "jump" (SA x+1 / SA x)
+thal_stg_limit = float(environ['thalweg_stg_search_max_limit']) #3m --> Threshold: Stage value limit below which to look for the surface area ratio flag (only flag thalweg notch below this threshold)
+bankful_xs_ratio_flag = float(environ['bankful_xs_area_ratio_flag']) #10x --> Flag: Identify bogus BARC adjusted values where the regression bankfull XS Area/SRC bankfull area is > threshold (topwidth crosswalk issues or bad bankfull regression data points??)
+bathy_xsarea_flag = float(environ['bathy_xs_area_chg_flag']) #1x --> Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold
+thal_hyd_radius_flag = float(environ['thalweg_hyd_radius_flag']) #10x --> Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0
+ignore_streamorder = int(environ['ignore_streamorders']) #10 --> Do not perform BARC for streamorders >= provided value
+
 
 def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,):
     ## Convert input_src_base featureid to integer
@@ -29,13 +29,13 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
     else:
         ## Use SurfaceArea variable to identify thalweg-restricted stage values for each hydroid
         ## Calculate the interrow SurfaceArea ratio n/(n-1)
-        modified_src_base['SA_div'] = modified_src_base['SurfaceArea (m2)'].div(modified_src_base['SurfaceArea (m2)'].shift(1))
-        ## Mask SA_div when Stage = 0 or when the SA_div value (n / n-1) is > threshold value (i.e. 10x)
-        modified_src_base['SA_div'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_div']<sa_ratio_flag) | (modified_src_base['SurfaceArea (m2)']==0),inplace=True)
+        modified_src_base['SA_div_flag'] = modified_src_base['SurfaceArea (m2)'].div(modified_src_base['SurfaceArea (m2)'].shift(1))
+        ## Mask SA_div_flag when Stage = 0 or when the SA_div_flag value (n / n-1) is > threshold value (i.e. 10x)
+        modified_src_base['SA_div_flag'].mask((modified_src_base['Stage']==0) | (modified_src_base['SA_div_flag']<sa_ratio_flag) | (modified_src_base['SurfaceArea (m2)']==0),inplace=True)
         ## Create new df to filter and groupby HydroID
-        find_thalweg_notch = modified_src_base[['HydroID','Stage','SurfaceArea (m2)','SA_div']]
+        find_thalweg_notch = modified_src_base[['HydroID','Stage','SurfaceArea (m2)','SA_div_flag']]
         find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['Stage']<thal_stg_limit] # assuming thalweg burn-in is less than 3 meters
-        find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['SA_div'].notnull()]
+        find_thalweg_notch = find_thalweg_notch[find_thalweg_notch['SA_div_flag'].notnull()]
         find_thalweg_notch = find_thalweg_notch.loc[find_thalweg_notch.groupby('HydroID')['Stage'].idxmax()].reset_index(drop=True)
         ## Assign thalweg_burn_elev variable to the stage value found in previous step
         find_thalweg_notch['Thalweg_burn_elev'] = find_thalweg_notch['Stage']
@@ -123,19 +123,22 @@ def bathy_rc_lookup(input_src_base,input_bathy_fileName,output_bathy_fileName,ou
         ## Merge bathy_calc_xs_area to the modified_src_base
         modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area']],how='left',on='HydroID')
 
+        ## Mask/null the bathy calculated area for streamorders that the user wants to ignore (set bathy_cals_xs_area = 0 for streamorder = 10)
+        modified_src_base['bathy_calc_xs_area'].mask(modified_src_base['order_'] >= ignore_streamorder,0.0,inplace=True)
+
         ## Calculate new bathy adjusted channel geometry variables
-        modified_src_base = modified_src_base.rename(columns={'Discharge (m3s-1)':'Discharge (m3s-1)_nobathy'})
-        modified_src_base['XS Area (m2)_bathy_adj'] = modified_src_base['XS Area (m2)'] + modified_src_base['bathy_calc_xs_area']
-        modified_src_base['Volume (m3)_bathy_adj'] = modified_src_base['XS Area (m2)_bathy_adj'] * modified_src_base['LENGTHKM'] * 1000
-        modified_src_base['WetArea (m2)_bathy_adj'] = modified_src_base['Volume (m3)_bathy_adj']/modified_src_base['LENGTHKM']/1000
-        modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['WetArea (m2)_bathy_adj']/modified_src_base['WettedPerimeter (m)']
-        modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0, inplace=True)
+        modified_src_base = modified_src_base.rename(columns={'Discharge (m3s-1)':'orig_Discharge (m3s-1)','XS Area (m2)':'orig_XS Area (m2)','Volume (m3)':'orig_Volume (m3)','WetArea (m2)':'orig_WetArea (m2)','HydraulicRadius (m)':'orig_HydraulicRadius (m)'})
+        modified_src_base['XS Area (m2)'] = modified_src_base['orig_XS Area (m2)'] + modified_src_base['bathy_calc_xs_area']
+        modified_src_base['Volume (m3)'] = modified_src_base['XS Area (m2)'] * modified_src_base['LENGTHKM'] * 1000
+        modified_src_base['WetArea (m2)'] = modified_src_base['Volume (m3)']/modified_src_base['LENGTHKM']/1000
+        modified_src_base['HydraulicRadius (m)'] = modified_src_base['WetArea (m2)']/modified_src_base['WettedPerimeter (m)']
+        modified_src_base['HydraulicRadius (m)'].fillna(0, inplace=True)
         ## mask out negative top width differences (avoid thalweg burn notch)
-        modified_src_base['HydraulicRadius (m)_bathy_adj'].mask((modified_src_base['HydraulicRadius (m)_bathy_adj']>thal_hyd_radius_flag) & (modified_src_base['Stage']<thal_stg_limit),0,inplace=True)
+        modified_src_base['HydraulicRadius (m)'].mask((modified_src_base['HydraulicRadius (m)']>thal_hyd_radius_flag) & (modified_src_base['Stage']<thal_stg_limit),0,inplace=True)
 
         ## Calculate Q using Manning's equation
-        modified_src_base['Discharge (m3s-1)'] = modified_src_base['WetArea (m2)_bathy_adj']* \
-        pow(modified_src_base['HydraulicRadius (m)_bathy_adj'],2.0/3)* \
+        modified_src_base['Discharge (m3s-1)'] = modified_src_base['WetArea (m2)']* \
+        pow(modified_src_base['HydraulicRadius (m)'],2.0/3)* \
         pow(modified_src_base['SLOPE'],0.5)/modified_src_base['ManningN']
         ## mask discharge values for stage = 0 rows in SRC (replace with 0) --> do we need SRC to start at 0??
         modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == 0,0,inplace=True)

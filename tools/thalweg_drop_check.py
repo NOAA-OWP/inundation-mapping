@@ -4,10 +4,8 @@ import os
 import sys
 import geopandas as gpd
 sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION
 from shapely.geometry import Point, LineString
 import rasterio
-import pandas as pd
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt

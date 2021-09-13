@@ -21,6 +21,7 @@ usage ()
     echo '  -w/--whitelist  : list of files to save in a production run in addition to final inundation outputs'
     echo '                     ex: file1.tif,file2.json,file3.csv'
     echo '  -v/--viz        : compute post-processing on outputs to be used in viz'
+    echo '  -m/--mem        : enable memory profiling'
     exit
 }
 
@@ -69,6 +70,9 @@ in
     -v|--viz)
         viz=1
         ;;
+    -m|--mem)
+        mem=1
+        ;;
     *) ;;
     esac
     shift
@@ -107,6 +111,7 @@ export extent=$extent
 export production=$production
 export whitelist=$whitelist
 export viz=$viz
+export mem=$mem
 logFile=$outputRunDataDir/logs/summary.log
 
 ## Define inputs
@@ -145,7 +150,7 @@ else
 fi
 
 # identify missing HUCs
-time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
+# time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
 
 echo "$viz"
 if [[ "$viz" -eq 1 ]]; then

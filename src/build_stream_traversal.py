@@ -7,9 +7,9 @@ Required Arguments:
         hydro_id       = name of ID column (string)
 '''
 import sys
-import pandas as pd
 import argparse
 import geopandas as gpd
+
 
 def trace():
     import traceback, inspect
@@ -24,6 +24,7 @@ def trace():
 from_node = "From_Node"
 to_node = "To_Node"
 next_down_id = "NextDownID"
+
 
 class build_stream_traversal_columns(object):
     '''Tool class for updating the next down IDs of stream features.'''
@@ -167,7 +168,8 @@ class build_stream_traversal_columns(object):
             tReturns = (sOK, )
         return tReturns
 
-if(__name__=='__main__'):
+
+if __name__ == '__main__':
     try:
         ap = argparse.ArgumentParser()
         ap.add_argument("-p", "--parameters", nargs='+', default=[], required=True,

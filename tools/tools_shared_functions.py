@@ -2,7 +2,6 @@
 
 import os
 import json
-import csv
 import rasterio
 import pandas as pd
 import geopandas as gpd
@@ -13,14 +12,11 @@ from pathlib import Path
 import rasterio.shutil
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import rasterio.crs
-from rasterio.merge import merge
 from rasterio import features
 from shapely.geometry import shape
 from shapely.geometry import Polygon
 from shapely.geometry import MultiPolygon
-import re
-from tools_shared_variables import (TEST_CASES_DIR, PRINTWORTHY_STATS, GO_UP_STATS, GO_DOWN_STATS,
-                                    ENDC, TGREEN_BOLD, TGREEN, TRED_BOLD, TWHITE, WHITE_BOLD, CYAN_BOLD)
+
 
 def check_for_regression(stats_json_to_test, previous_version, previous_version_stats_json_path, regression_test_csv=None):
 
@@ -126,126 +122,6 @@ def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
             archive_dictionary.update({version: {'stats_json': stats_json}})
 
     return archive_dictionary
-
-
-#def compare_to_previous(benchmark_category, test_id, stats_modes_list, magnitude, version, test_version_dictionary, version_test_case_dir):
-#    text_block = []
-#    # Compare to previous stats files that are available.
-#    archive_to_check = os.path.join(TEST_CASES_DIR, benchmark_category + 'test_cases', test_id, 'official_versions')
-#    for stats_mode in stats_modes_list:
-#        archive_dictionary = profile_test_case_archive(archive_to_check, magnitude, stats_mode)
-#
-#        if archive_dictionary == {}:
-#            break
-#
-#        # Create header for section.
-#        header = [stats_mode]
-#        for previous_version, paths in archive_dictionary.items():
-#            header.append(previous_version)
-#        header.append(version)
-#        text_block.append(header)
-#
-#        # Loop through stats in PRINTWORTHY_STATS for left.
-#        for stat in PRINTWORTHY_STATS:
-#            stat_line = [stat]
-#            for previous_version, paths in archive_dictionary.items():
-#                # Load stats for previous version.
-#                previous_version_stats_json_path = paths['stats_json']
-#                if os.path.exists(previous_version_stats_json_path):
-#                    previous_version_stats_dict = json.load(open(previous_version_stats_json_path))
-#
-#                    # Append stat for the version to state_line.
-#                    stat_line.append(previous_version_stats_dict[stat])
-#
-#
-#            # Append stat for the current version to stat_line.
-#            stat_line.append(test_version_dictionary[stats_mode][stat])
-#
-#            text_block.append(stat_line)
-#
-#        text_block.append([" "])
-#
-#    regression_report_csv = os.path.join(version_test_case_dir, 'stats_summary.csv')
-#    with open(regression_report_csv, 'w', newline='') as csvfile:
-#        csv_writer = csv.writer(csvfile)
-#        csv_writer.writerows(text_block)
-#
-#    print()
-#    print("--------------------------------------------------------------------------------------------------")
-#
-#    stats_mode = stats_modes_list[0]
-#    try:
-#        last_version_index = text_block[0].index('dev_latest')
-#    except ValueError:
-#        try:
-#            last_version_index = text_block[0].index('fim_2_3_3')
-#        except ValueError:
-#            try:
-#                last_version_index = text_block[0].index('fim_1_0_0')
-#            except ValueError:
-#                print(TRED_BOLD + "Warning: " + ENDC + "Cannot compare " + version + " to a previous version because no authoritative versions were found in previous_versions directory. Future version of run_test_case may allow for comparisons between dev versions.")
-#                print()
-#                continue
-#
-#
-#
-#    for line in text_block:
-#        first_item = line[0]
-#        if first_item in stats_modes_list:
-#            current_version_index = line.index(version)
-#            if first_item != stats_mode:  # Update the stats_mode and print a separator.
-#                print()
-#                print()
-#                print("--------------------------------------------------------------------------------------------------")
-#            print()
-#            stats_mode = first_item
-#            print(CYAN_BOLD + current_huc + ": " + magnitude.upper(), ENDC)
-#            print(CYAN_BOLD + stats_mode.upper().replace('_', ' ') + " METRICS" + ENDC)
-#            print()
-#
-#            color = WHITE_BOLD
-#            metric_name = '      '.center(len(max(PRINTWORTHY_STATS, key=len)))
-#            percent_change_header = '% CHG'
-#            difference_header = 'DIFF'
-#            current_version_header = line[current_version_index].upper()
-#            last_version_header = line[last_version_index].upper()
-#            # Print Header.
-#            print(color + metric_name + "      " + percent_change_header.center((7)) + "       " + difference_header.center((15))  + "    " + current_version_header.center(18) + " " + last_version_header.center(18), ENDC)
-#        # Format and print stat row.
-#        elif first_item in PRINTWORTHY_STATS:
-#            stat_name = first_item.upper().center(len(max(PRINTWORTHY_STATS, key=len))).replace('_', ' ')
-#            current_version = round((line[current_version_index]), 3)
-#            last_version = round((line[last_version_index]) + 0.000, 3)
-#            difference = round(current_version - last_version, 3)
-#            if difference > 0:
-#                symbol = '+'
-#                if first_item in GO_UP_STATS:
-#                    color = TGREEN_BOLD
-#                elif first_item in GO_DOWN_STATS:
-#                    color = TRED_BOLD
-#                else:
-#                    color = TWHITE
-#            if difference < 0:
-#                symbol = '-'
-#                if first_item in GO_UP_STATS:
-#                    color = TRED_BOLD
-#                elif first_item in GO_DOWN_STATS:
-#                    color = TGREEN_BOLD
-#                else:
-#                    color = TWHITE
-#
-#            if difference == 0 :
-#                symbol, color = '+', TGREEN
-#            percent_change = round((difference / last_version)*100,2)
-#
-#            print(WHITE_BOLD + stat_name + ENDC + "     " + color + (symbol + " {:5.2f}".format(abs(percent_change)) + " %").rjust(len(percent_change_header)), ENDC + "    " + color + ("{:12.3f}".format((difference))).rjust(len(difference_header)), ENDC + "    " + "{:15.3f}".format(current_version).rjust(len(current_version_header)) + "   " + "{:15.3f}".format(last_version).rjust(len(last_version_header)) + "  ")
-#
-#    print()
-#    print()
-#    print()
-#    print("--------------------------------------------------------------------------------------------------")
-#    print()
-#
 
 
 def compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area=None, masked_count=None):
@@ -740,7 +616,17 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
         #Add timestamp of WRDS retrieval
         timestamp = response.headers['Date']
         #Add timestamp of sources retrieval
-        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']        
+        timestamp_list = metadata_json['data_sources']['metadata_sources']
+        
+        # Default timestamps to "Not available" and overwrite with real values if possible.
+        nwis_timestamp, nrldb_timestamp = "Not available", "Not available"
+        for timestamp in timestamp_list:
+            if "NWIS" in timestamp:
+                nwis_timestamp = timestamp
+            if "NRLDB" in timestamp:
+                nrldb_timestamp = timestamp
+            
+#        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']        
         #get crosswalk info (always last dictionary in list)
         crosswalk_info = metadata_json['data_sources']
         #Update each dictionary with timestamp and crosswalk info also save to DataFrame.

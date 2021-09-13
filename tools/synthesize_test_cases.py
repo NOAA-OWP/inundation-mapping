@@ -7,11 +7,23 @@ import json
 import csv
 
 from run_test_case import run_alpha_test
-from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, BLE_MAGNITUDE_LIST, IFC_MAGNITUDE_LIST
+from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT
 
 
 def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
-
+    """
+    This function searches for and collates metrics into a single CSV file that can queried database-style. The
+    CSV is an input to eval_plots.py. This function automatically looks for metrics produced for official versions
+    and loads them into memory to be written to the output CSV.
+    
+    Args:
+        master_metrics_csv_output (str): Full path to CSV output. If a file already exists at this path, it will be overwritten.
+        dev_versions_to_include_list (list): A list of non-official FIM version names. If a user supplied information on the command
+                                            line using the -dc flag, then this function will search for metrics in the "testing_versions"
+                                            library of metrics and include them in the CSV output.
+    
+    """
+    
     # Construct header
     metrics_to_write = ['true_negatives_count',
                         'false_negatives_count',
@@ -71,9 +83,9 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
         if benchmark_source in ['ble', 'ifc']:
             
             if benchmark_source == 'ble':
-                magnitude_list = BLE_MAGNITUDE_LIST
+                magnitude_list = MAGNITUDE_DICT['ble']
             if benchmark_source == 'ifc':
-                magnitude_list = IFC_MAGNITUDE_LIST
+                magnitude_list = MAGNITUDE_DICT['ifc']
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
             for test_case in test_cases_list:
@@ -199,7 +211,15 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
 
 def process_alpha_test(args):
-
+    """
+    This function is designed to be used in multiprocessing. It handles the calling of the run_alpha_test function.
+    
+    Args:
+        args (list): Formatted [fim_run_dir (str), version (str), test_id (str), magnitude (str), archive_results (bool), overwrite (bool)]
+    
+    """
+    
+    
     fim_run_dir = args[0]
     version = args[1]
     test_id = args[2]
@@ -278,7 +298,7 @@ if __name__ == '__main__':
     # Loop through benchmark categories.
     procs_list = []
     for bench_cat in benchmark_category_list:
-
+        
         # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
         bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
         bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
@@ -297,27 +317,22 @@ if __name__ == '__main__':
 
                         # For previous versions of HAND computed at HUC6 scale
                         if not os.path.exists(fim_run_dir):
+                            print(fim_run_dir)
                             if config == 'DEV':
                                 fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
                             elif config == 'PREV':
                                 fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
-
+                                    
                         if os.path.exists(fim_run_dir):
-
                             # If a user supplies a special_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
 
+            
                             # Define the magnitude lists to use, depending on test_id.
-                            if 'ble' in test_id:
-                                magnitude = BLE_MAGNITUDE_LIST
-                            elif 'usgs' or 'nws' in test_id:
-                                magnitude = ['action', 'minor', 'moderate', 'major']
-                            elif 'ifc' in test_id:
-                                magnitude = IFC_MAGNITUDE_LIST
-                            else:
-                                continue
-
+                            benchmark_type = test_id.split('_')[1]
+                            magnitude = MAGNITUDE_DICT[benchmark_type]
+                            
                             # Either add to list to multiprocess or process serially, depending on user specification.
                             if job_number > 1:
                                 procs_list.append([fim_run_dir, version, test_id, magnitude, archive_results, overwrite])

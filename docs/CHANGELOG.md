@@ -2,6 +2,114 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.5 - 2021-09-08 - [PR #460](https://github.com/NOAA-OWP/cahaba/pull/460)
+
+Patches an issue where only certain benchmark categories were being used in evaluation.
+
+## Changes
+- In `tools/tools_shared_variables.py`, created a variable `MAGNITUDE_DICT` to store benchmark category magnitudes.
+- `synthesize_test_cases.py` imports `MAGNITUDE_DICT` and uses it to assign magnitudes.
+
+<br/><br/>
+
+## v3.0.22.4 - 2021-08-30 - [PR #456](https://github.com/NOAA-OWP/cahaba/pull/456)
+
+Renames the BARC modified variables that are exported to `src_full_crosswalked.csv` to replace the original variables. The default/original variables are renamed with `orig_` prefix. This change is needed to ensure downstream uses of the `src_full_crosswalked.csv` are able to reference the authoritative version of the channel geometry variables (i.e. BARC-adjust where available).
+
+## Changes
+- In `src_full_crosswalked.csv`, default/original variables are renamed with `orig_` prefix and `SA_div` is renamed to `SA_div_flag`.
+
+<br/><br/>
+
+## v3.0.22.3 - 2021-08-27 - [PR #457](https://github.com/NOAA-OWP/cahaba/pull/457)
+
+This fixes a bug in the `get_metadata()` function in `/tools/tools_shared_functions.py` that arose because of a WRDS update. Previously the `metadata_source` response was returned as independent variables, but now it is returned a list of strings. Another issue was observed where the `EVALUATED_SITES_CSV` variable was being misdefined (at least on the development VM) through the OS environmental variable setting.
+
+## Changes
+- In `tools_shared_functions.py`, changed parsing of WRDS `metadata_sources` to account for new list type.
+- In `generate_categorical_fim_flows.py`, changed the way the `EVALUATED_SITES_CSV` path is defined from OS environmental setting to a relative path that will work within Docker container.
+
+<br/><br/>
+
+## v3.0.22.2 - 2021-08-26 - [PR #455](https://github.com/NOAA-OWP/cahaba/pull/455)
+
+This merge addresses an issues with the bathymetry adjusted rating curve (BARC) calculations exacerbating single-pixel inundation issues for the lower Mississippi River. This fix allows the user to specify a stream order value that will be ignored in BARC calculations (reverts to using the original/default rating curve). If/when the "thalweg notch" issue is addressed, this change may be unmade.
+
+## Changes
+- Added new env variable `ignore_streamorders` set to 10.
+- Added new BARC code to set the bathymetry adjusted cross-section area to 0 (reverts to using the default SRC values) based on the streamorder env variable.
+
+<br/><br/>
+
+## v3.0.22.1 - 2021-08-20 - [PR #447](https://github.com/NOAA-OWP/cahaba/pull/447)
+
+Patches the minimum stream length in the template parameters file.
+
+## Changes
+- Changes `max_split_distance_meters` in `params_template.env` to 1500.
+
+<br/><br/>
+
+## v3.0.22.0 - 2021-08-19 - [PR #444](https://github.com/NOAA-OWP/cahaba/pull/444)
+
+This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in future issues. The primary function that performs the HAND value and hydroid extraction is ingest_points_layer() but this may change as the overall synthetic rating curve automatic update machanism evolves.
+
+## Additions
+- Added `adjust_rc_with_feedback.py` with `ingest_points_layer()`, a function to extract HAND and hydroid values for use in an automatic synthetic rating curve updating mechanism.
+
+<br/><br/>
+
+## v3.0.21.0 - 2021-08-18 - [PR #433](https://github.com/NOAA-OWP/cahaba/pull/433)
+
+General repository cleanup, made memory-profiling an optional flag, API's release feature now saves outputs.
+
+## Changes
+- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
+- Clean up `Dockerfile` and remove any unused* packages or variables.
+- Remove any unused* Python packages from the `Pipfile`.
+- Move the `CHANGELOG.md`, `SECURITY.md`, and `TERMS.md` files to the `/docs` folder.
+- Remove any unused* scripts in the `/tools` and `/src` folders.
+- Move `tools/preprocess` scripts into `tools/`.
+- Ensure all scripts in the `/src` folder have their code in functions and are being called via a `__main__` function (This will help with implementing memory profiling fully).
+- Changed memory-profiling to be an option flag `-m` for `fim_run.sh`.
+- Updated FIM API to save all outputs during a "release" job.
+
+<br/><br/>
+
+## v3.0.20.2 - 2021-08-13 - [PR #443](https://github.com/NOAA-OWP/cahaba/pull/443)
+
+This merge modifies `clip_vectors_to_wbd.py` to check for relevant input data.
+
+## Changes
+- `clip_vectors_to_wbd.py` now checks that there are NWM stream segments within the buffered HUC boundary.
+- `included_huc8_ms.lst` has several additional HUC8s.
+
+<br/><br/>
+
+## v3.0.20.1 - 2021-08-12 - [PR #442](https://github.com/NOAA-OWP/cahaba/pull/442)
+
+This merge improves documentation in various scripts.
+
+## Changes
+This PR better documents the following:
+
+- `inundate_nation.py`
+- `synthesize_test_cases.py`
+- `adjust_thalweg_lateral.py`
+- `rem.py`
+
+<br/><br/>
+
+## v3.0.20.0 - 2021-08-11 - [PR #440](https://github.com/NOAA-OWP/cahaba/pull/440)
+
+This merge adds two new scripts into `/tools/` for use in QAQC.
+
+## Additions
+- `inundate_nation.py` to produce inundation maps for the entire country for use in QAQC.
+- `check_deep_flooding.py` to check for depths of inundation greater than a user-supplied threshold at specific areas defined by a user-supplied shapefile.
+
+<br/><br/>
+
 ## v3.0.19.5 - 2021-07-19
 
 Updating `README.md`.
@@ -18,7 +126,7 @@ Updating logging and fixing bug in vector preprocessing.
 
 ## Changes
 - Provides unique exit codes to relevant domain checkpoints within `run_by_unit.sh`.
-- Bug fixes in `reduce_nhd_stream_density.py`, 'mprof plot` call.
+- Bug fixes in `reduce_nhd_stream_density.py`, `mprof plot` call.
 - Improved error handling in `add_crosswalk.py`.
 
 <br/><br/>

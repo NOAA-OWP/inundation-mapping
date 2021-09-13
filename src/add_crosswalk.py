@@ -11,10 +11,11 @@ import sys
 # sys.path.append('/foss_fim/src')
 # sys.path.append('/foss_fim/config')
 from bathy_rc_adjust import bathy_rc_lookup
-from utils.shared_functions import getDriver
+from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 
-@profile
+
+@mem_profile
 def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
 
     input_catchments = gpd.read_file(input_catchments_fileName)
@@ -227,7 +228,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         print('Note: NOT using bathy estimation approach to modify the SRC...')
 
     # make hydroTable
-    output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
+    output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)', 'HydraulicRadius (m)', 'WetArea (m2)', 'SLOPE', 'ManningN']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
 
     if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
@@ -273,6 +274,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
         with open(output_src_json_fileName,'w') as f:
             json.dump(output_src_json,f,sort_keys=True,indent=2)
+
 
 if __name__ == '__main__':
 

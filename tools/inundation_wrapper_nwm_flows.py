@@ -12,7 +12,7 @@ import argparse
 import shutil
 from inundation import inundate
 
-TEST_CASES_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
+INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
 OUTPUTS_DIR = os.environ['outputDataDir']
 
@@ -24,13 +24,17 @@ TWHITE = '\033[37m'
 WHITE_BOLD = '\033[37;1m'
 CYAN_BOLD = '\033[36;1m'
 
-def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'):
+def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc', output_dir=None):
 
     # Construct paths to development test results if not existent.
-    huc_id_dir_parent = os.path.join(TEST_CASES_DIR, huc_id)
+    huc_id_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id)
     if not os.path.exists(huc_id_dir_parent):
         os.mkdir(huc_id_dir_parent)
-    branch_test_case_dir_parent = os.path.join(TEST_CASES_DIR, huc_id, branch_name)
+        
+    if output_dir == None:
+        branch_test_case_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id, branch_name)
+    else:
+        branch_test_case_dir_parent = os.path.join(output_dir, huc_id, branch_name)
 
     # Delete the entire directory if it already exists.
     if os.path.exists(branch_test_case_dir_parent):
@@ -77,7 +81,7 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
 
         # Define paths to inundation_raster and forecast file.
         inundation_raster = os.path.join(branch_test_case_dir, branch_name + '_inund_extent.tif')
-        forecast = os.path.join(TEST_CASES_DIR, 'nwm_recurr_flow_data', 'recurr_' + magnitude + '_cms.csv')
+        forecast = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'recurr_' + magnitude + '_cms.csv')
 
         # Run inundate.
         print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")

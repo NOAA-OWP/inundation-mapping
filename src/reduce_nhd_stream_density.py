@@ -160,6 +160,7 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
 
     return nhd_streams
 
+
 def get_downstream_segments(streams, attribute,mainstem_flag):
 
     Q = deque(streams.loc[streams[attribute],'NHDPlusID'].tolist())
@@ -198,6 +199,7 @@ def get_downstream_segments(streams, attribute,mainstem_flag):
                 Q.append(i)
 
     return streams
+
 
 if __name__ == '__main__':
 

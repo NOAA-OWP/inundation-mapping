@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import osgeo.ogr
-import osgeo.osr
-import sys
 import argparse
-from tqdm import tqdm
 import geopandas as gpd
 from utils.shared_variables import PREP_PROJECTION
 from shapely.geometry import Point
 import rasterio
-from utils.shared_functions import getDriver
+from utils.shared_functions import getDriver, mem_profile
 
 """
 USAGE:
 ./reachID_grid_to_vector_points.py <flows_grid_IDs raster file> <flows_points vector file> <reachID or featureID>
 
 """
+
+@mem_profile
 def convert_grid_cells_to_points(raster,index_option,output_points_filename=False):
 
     # Input raster
@@ -53,6 +51,7 @@ def convert_grid_cells_to_points(raster,index_option,output_points_filename=Fals
         return pointGDF
     else:
         pointGDF.to_file(output_points_filename,driver=getDriver(output_points_filename),index=False)
+
 
 if __name__ == '__main__':
 

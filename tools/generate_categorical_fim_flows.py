@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import geopandas as gpd
 import pandas as pd
 import time
-from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, flow_data
+from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs
 import argparse
 from dotenv import load_dotenv
 import os
 import sys
 sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
+from utils.shared_variables import VIZ_PROJECTION
+
+EVALUATED_SITES_CSV = r'/data/inputs/ahps_sites/evaluated_ahps_sites.csv'
+
 
 def get_env_paths():
     load_dotenv()
     #import variables from .env file
     API_BASE_URL = os.getenv("API_BASE_URL")
-    EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
     WBD_LAYER = os.getenv("WBD_LAYER")
-    return API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER
+    return API_BASE_URL, WBD_LAYER
+
 
 def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     '''
@@ -80,6 +82,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
+    print(EVALUATED_SITES_CSV)
+    print(os.path.exists(EVALUATED_SITES_CSV))
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
     #The entire routine to get mainstems is hardcoded in this function.
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
@@ -221,6 +225,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     all_end = time.time()
     print(f'total time is {round((all_end - all_start)/60),1} minutes')
     
+    
 if __name__ == '__main__':
     #Parse arguments
     parser = argparse.ArgumentParser(description = 'Create forecast files for all nws_lid sites')
@@ -228,8 +233,7 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
     args = vars(parser.parse_args())
-    
 
     #Run get_env_paths and static_flow_lids
-    API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER = get_env_paths()
+    API_BASE_URL, WBD_LAYER = get_env_paths()
     generate_catfim_flows(**args)
