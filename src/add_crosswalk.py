@@ -179,7 +179,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
     if input_src_base.CatchId.dtype != 'int': input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
-    input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID','order_']],left_on='CatchId',right_on='HydroID')
+    input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID','NextDownID','order_']],left_on='CatchId',right_on='HydroID')
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric,**{'errors' : 'coerce'})
@@ -228,7 +228,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         print('Note: NOT using bathy estimation approach to modify the SRC...')
 
     # make hydroTable
-    output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)', 'HydraulicRadius (m)', 'WetArea (m2)', 'SLOPE', 'ManningN']]
+    output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Stage','Discharge (m3s-1)', 'HydraulicRadius (m)', 'WetArea (m2)', 'SLOPE', 'ManningN']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
 
     if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
