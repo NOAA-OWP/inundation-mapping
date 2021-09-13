@@ -23,7 +23,7 @@ pd.set_option('display.max_columns', None)
 def Consolidate_metrics( benchmarks=['all'],versions=['all'],
                          zones=['total_area'],matching_hucs_only=True,
                          metrics_output_csv=None,
-                         get_best_available=False
+                         impute_missing_ms=False
                        ):
 
     """ Consolidates metrics into single dataframe """
@@ -62,8 +62,8 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
     if metrics_output_csv is not None:
         consolidated_metrics_df.to_csv(metrics_output_csv, index=False)
 
-    if get_best_available:
-        consolidated_metrics_df = get_best_available_FR_MS(consolidated_metrics_df)
+    if impute_missing_ms:
+        consolidated_metrics_df = impute_missing_MS_with_FR(consolidated_metrics_df)
 
     consolidated_secondary_metrics = pivot_metrics(consolidated_metrics_df)
     print(consolidated_secondary_metrics)
@@ -71,7 +71,7 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
     return(consolidated_metrics_df,consolidated_secondary_metrics)
 
 
-def get_best_available_FR_MS(consolidated_metrics_df):
+def impute_missing_MS_with_FR(consolidated_metrics_df):
 
 
     # make sure you have one version per extent_config
@@ -303,7 +303,7 @@ if __name__ == '__main__':
     parser.add_argument('-v','--versions',help='Allowed versions', required=False, default='all', nargs="+")
     parser.add_argument('-z','--zones',help='Allowed zones', required=False, default='total_area', nargs="+")
     parser.add_argument('-o','--metrics-output-csv',help='File path to outputs csv', required=False, default=None)
-    parser.add_argument('-g','--get-best-available',help='Imputes FR metrics in HUCS with no MS. Only supports one version per extent config', required=False, action='store_true',default=False)
+    parser.add_argument('-i','--impute-missing_ms',help='Imputes FR metrics in HUCS with no MS. Only supports one version per extent config', required=False, action='store_true',default=False)
 
     args = vars(parser.parse_args())
 
