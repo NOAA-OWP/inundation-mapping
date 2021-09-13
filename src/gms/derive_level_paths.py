@@ -31,6 +31,9 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
     outlets_attribute = 'outlet_id'
     outlet_linestring_index = -1
 
+    # converts multi-linestrings to linestrings
+    stream_network = stream_network.multilinestrings_to_linestrings()
+
     # derive nodes
     stream_network = stream_network.derive_nodes(toNode_attribute=toNode_attribute,
                                                   fromNode_attribute=fromNode_attribute,

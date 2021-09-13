@@ -26,7 +26,7 @@ output_flows = input_flows[input_flows.HydroID.str.startswith(select_flows)].cop
 if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
 
 if len(output_flows) > 0:
-    
+
     # merges input flows attributes and filters hydroids
     if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
     output_catchments = input_catchments.merge(output_flows.drop(['geometry'],axis=1),on='HydroID')
@@ -44,5 +44,13 @@ if len(output_flows) > 0:
     # add geometry column
     output_catchments['areasqkm'] = output_catchments.geometry.area/(1000**2)
 
-    output_catchments.to_file(output_catchments_fileName, driver="GPKG",index=False)
-    output_flows.to_file(output_flows_fileName, driver="GPKG", index=False)
+    try:
+        output_catchments.to_file(output_catchments_fileName, driver="GPKG",index=False)
+        output_flows.to_file(output_flows_fileName, driver="GPKG", index=False)
+    except ValueError:
+
+        class NoFlowLinesInHUC(Exception):
+            pass
+
+        raise NoFlowLinesInHUC("There are no flowlines in the HUC. These should be better filtered in derive_level_paths.py")
+

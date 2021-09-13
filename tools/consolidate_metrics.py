@@ -8,6 +8,7 @@ import numpy as np
 from glob import glob
 from tqdm import tqdm
 import argparse
+from collections import defaultdict
 from shared_variables import TEST_CASES_DIR,\
                              PREVIOUS_FIM_DIR,\
                              OUTPUTS_DIR,\
@@ -19,7 +20,11 @@ from tools_shared_functions import csi,far,tpr,mcc
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
-def Consolidate_metrics(benchmarks=['all'],versions=['all'],zones=['total_area'],metrics_output_csv=None):
+def Consolidate_metrics( benchmarks=['all'],versions=['all'],
+                         zones=['total_area'],matching_hucs_only=True,
+                         metrics_output_csv=None,
+                         get_best_available=False
+                       ):
 
     """ Consolidates metrics into single dataframe """
 
@@ -57,10 +62,50 @@ def Consolidate_metrics(benchmarks=['all'],versions=['all'],zones=['total_area']
     if metrics_output_csv is not None:
         consolidated_metrics_df.to_csv(metrics_output_csv, index=False)
 
+    if get_best_available:
+        consolidated_metrics_df = get_best_available_FR_MS(consolidated_metrics_df)
+
     consolidated_secondary_metrics = pivot_metrics(consolidated_metrics_df)
     print(consolidated_secondary_metrics)
 
     return(consolidated_metrics_df,consolidated_secondary_metrics)
+
+
+def get_best_available_FR_MS(consolidated_metrics_df):
+
+
+    # make sure you have one version per extent_config
+    fr_extent_config = 'FR'
+    ms_extent_config = 'MS'
+    extent_config = [fr_extent_config, ms_extent_config]
+    
+    indices_of_ec = {ec : consolidated_metrics_df.index[consolidated_metrics_df.loc[:,'extent_config'] == ec] for ec in extent_config }
+
+    unique_hucs_dict = dict()
+    for ec in extent_config:
+
+        unique_version = consolidated_metrics_df.loc[ indices_of_ec[ec],'version'].unique()
+
+        if len(unique_version) > 1:
+            raise ValueError(f"{ec} version has more than one extent. Only pass one version per extent configuration.")
+        unique_hucs = set(consolidated_metrics_df.loc[indices_of_ec[ec],'huc'].unique())
+
+        unique_hucs_dict[ec] = unique_hucs
+
+
+    unique_hucs = unique_hucs_dict[fr_extent_config] - unique_hucs_dict[ms_extent_config]
+    
+    # copy those rows over with extent_config set to MS
+    unique_fr_mask = consolidated_metrics_df.loc[ indices_of_ec['FR'],'huc'].isin(unique_hucs)
+    unique_fr_indices = unique_fr_mask.index[unique_fr_mask]
+
+    fr_entries = consolidated_metrics_df.loc[unique_fr_indices,:].reset_index(drop=True)
+    fr_entries.loc[:,'extent_config'] = "MS"
+    fr_entries.loc[:,'version'] = consolidated_metrics_df.loc[ indices_of_ec['MS'], 'version'].unique()
+
+    consolidated_metrics_df = pd.concat((consolidated_metrics_df,fr_entries)).reset_index(drop=True)
+
+    return(consolidated_metrics_df)
 
 
 
@@ -73,10 +118,17 @@ def pivot_metrics(consolidated_metrics_df):
                                                 consolidated_metrics_df,
                                                 values=['true_positives_count','false_positives_count',
                                                         'false_negatives_count','true_negatives_count'],
-                                                index=['extent_config','magnitude','version'], 
-                                                aggfunc=np.sum
+                                                index=['magnitude','extent_config','version'], 
+                                                aggfunc=sum
                                                )
+
     
+    return( apply_metrics_to_pivot_table(consolidated_metrics_pivot) )
+
+
+
+def apply_metrics_to_pivot_table(consolidated_metrics_pivot):
+
     # metrics to run
     metrics_functions = { 'CSI': csi , 'TPR' : tpr, 'FAR' : far, 'MCC' : mcc }
     #metrics_functions = { 'CSI': csi }
@@ -251,6 +303,7 @@ if __name__ == '__main__':
     parser.add_argument('-v','--versions',help='Allowed versions', required=False, default='all', nargs="+")
     parser.add_argument('-z','--zones',help='Allowed zones', required=False, default='total_area', nargs="+")
     parser.add_argument('-o','--metrics-output-csv',help='File path to outputs csv', required=False, default=None)
+    parser.add_argument('-g','--get-best-available',help='Imputes FR metrics in HUCS with no MS. Only supports one version per extent config', required=False, action='store_true',default=False)
 
     args = vars(parser.parse_args())
 

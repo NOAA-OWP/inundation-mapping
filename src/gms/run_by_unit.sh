@@ -8,10 +8,17 @@ hucNumber="$1"
 outputHucDataDir=$outputRunDataDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
 
-# make outputs directory
-if [ ! -d "$outputHucDataDir" ]; then
-    mkdir -p $outputHucDataDir
+## huc data
+if [ -d "$outputHucDataDir" ]; then
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputHucDataDir
+    else
+        echo "Output dir $outputHucDataDir exists. Use overwrite -o to run."
+    fi
 fi
+
+# make outputs directory
+mkdir -p $outputHucDataDir
 
 # make branches outputs directory
 if [ ! -d "$outputBranchDataDir" ]; then

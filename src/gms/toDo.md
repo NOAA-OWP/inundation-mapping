@@ -25,4 +25,4 @@
 - *convenience wrapper for gms_run...sh:* Make a convenience wrapper for gms_run_unit.sh and gms_run_branch.sh. Be mindful of the two different processing loads and expose two different job numbers to the user.
     - *Deny Listing for Units:* The files in the deny list for units is executed at the end of gms/run_by_unit.sh. This requires files used in run_by_branch.sh to be left while not necessary left behind. This should be moved later in the process possibly once the convenience wrapper is made.
 - *Update clip_vectors_to_wbd.py:* Clipping way too many vectors for GMS purposes. This creates extra processing and storage requirements.
-
+- *Small level paths just in the WBD area:* Small levelpaths just outside the wbd are being filtered out filter_catchments_and_add_attributes.py and lead to an exception. These cause known non-zero exit codes. To reduce non-zero exit codes to not known issues these levelpaths need to be removed in derive_level_paths.py. See 11140104 - 7057000003, 12020007 - 1475000002, 11110104 - 7756000488, 11110104 - 7756000505, 11090204 - 5128000164

@@ -243,7 +243,7 @@ if __name__ == '__main__':
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
-    parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=True)
+    parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=False,default='DEV')
     parser.add_argument('-e','--eval-meta',help='Pass meta-data dictionary. Use double quotes on outside of dictionary and denote keys and/or values with single quotes when necessary.',required=False, default=None, type=str)
     parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
     parser.add_argument('-jh','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)

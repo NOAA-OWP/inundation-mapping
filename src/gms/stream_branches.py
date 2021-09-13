@@ -11,7 +11,7 @@ from fiona.errors import DriverError
 from collections import deque
 import numpy as np
 from tqdm import tqdm
-from shapely.ops import linemerge
+from shapely.ops import linemerge, unary_union
 from shapely.geometry import MultiLineString, LineString, MultiPoint, Point
 from shapely.strtree import STRtree
 from random import sample
@@ -72,6 +72,46 @@ class StreamNetwork(gpd.GeoDataFrame):
         driver = driverDictionary[splitext(fileName)[1]]
     
         self.to_file(fileName, driver=driver, layer=layer, index=index)
+
+
+    def multilinestrings_to_linestrings(self):
+        
+        branch_id_attribute = self.branch_id_attribute
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+        
+        def convert_to_linestring(row):
+
+            geometry = row['geometry']
+
+            if isinstance(geometry,MultiLineString):
+                linestring = LineString(sum([list(item.coords) for item in list(geometry.geoms)],[]))
+                row['geometry'] = linestring
+            
+            return(row)
+
+        self = StreamNetwork( self.apply(convert_to_linestring,axis=1),
+                              branch_id_attribute=branch_id_attribute,
+                              attribute_excluded=attribute_excluded,
+                              values_excluded=values_excluded
+                            )
+
+        return(self)
+
+
+    def explode(self,**kwargs):
+        
+        branch_id_attribute = self.branch_id_attribute
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+
+        self = StreamNetwork( super().explode(**kwargs),
+                             branch_id_attribute=branch_id_attribute,
+                             attribute_excluded=attribute_excluded,
+                             values_excluded=values_excluded
+                            )
+
+        return(self)
 
 
     def to_df(self,*args,**kwargs):
@@ -142,14 +182,6 @@ class StreamNetwork(gpd.GeoDataFrame):
             print("Deriving nodes ...")
 
         inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
-
-        # check outlet parameter and set inlet index
-        #if outlet_linestring_index == 0:
-        #    inlet_linestring_index = -1
-        #elif outlet_linestring_index == -1:
-        #    inlet_linestring_index = 0
-        #else:
-        #    raise ValueError("Pass 0 or -1 for outlet_linestring_index argument.")
         
         # set node prefix to string
         if node_prefix is None:
@@ -177,7 +209,8 @@ class StreamNetwork(gpd.GeoDataFrame):
                 current_node_prefix = node_prefix
             else:
                 current_node_prefix = str(reach_id)[0:4]
-
+            
+            # makes list of coordinates. Merges multi-part geoms
             reach_coordinates = list(row['geometry'].coords)
 
             inlet_coordinate = reach_coordinates[inlet_linestring_index]
@@ -557,7 +590,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # append downstream to stack
                     if all_upstream_ids_of_ds_are_visited:
                         S.append(ds)
-
+                        
                     self.loc[ds,arbolate_sum_attribute] += current_reach_arbolate_sum
         
         progress.close()

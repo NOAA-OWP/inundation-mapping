@@ -22,11 +22,18 @@ input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
 
+## OVERWRITE
+if [ -d "$outputCurrentBranchDataDir" ];then
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputCurrentBranchDataDir
+    else
+        echo "GMS branch data directories for $hucNumber - $current_branch_id already exist. Use -o/--overwrite to continue"
+        exit 1
+    fi
+fi
 
 ## MAKE OUTPUT BRANCH DIRECTORY
-if [ ! -d "$outputCurrentBranchDataDir" ]; then
-    mkdir -p $outputCurrentBranchDataDir
-fi
+mkdir -p $outputCurrentBranchDataDir
 
 ## START MESSAGE ##
 echo -e $startDiv$startDiv"Processing branch_id: $current_branch_id in HUC: $hucNumber ..."$stopDiv$stopDiv

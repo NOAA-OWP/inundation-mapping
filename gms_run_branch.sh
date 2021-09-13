@@ -13,9 +13,12 @@ usage ()
     echo '  -h/--help       : help file'
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
+    echo '  -r/--retry      : retries failed jobs'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -d/--denylist  : file with line delimited list of files in branches directories to remove upon completion'
     echo '                   (see config/deny_gms_branches_default.lst for a starting point)'
+    echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
+    echo '                     also accepted. HUCs must present in inputs directory.'
     exit
 }
 
@@ -39,11 +42,19 @@ in
         shift
         jobLimit=$1
         ;;
+    -u|--hucList)
+        shift
+        hucList=$1
+        ;;
     -h|--help)
         shift
         usage
         ;;
     -o|--overwrite)
+        overwrite=1
+        ;;
+    -r|--retry)
+        retry="--retry-failed"
         overwrite=1
         ;;
     -d|--denylist)
@@ -64,13 +75,13 @@ if [ "$runName" = "" ]
 then
     usage
 fi
-if [ "$deny_gms_branches_list" = "" ]
-then
-    usage
-fi
 if [ "$overwrite" = "" ]
 then
     overwrite=0
+fi
+if [ -z "$retry" ]
+then
+    retry=""
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
@@ -85,34 +96,47 @@ fi
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
 export deny_gms_branches_list=$deny_gms_branches_list
-logFile=$outputRunDataDir/logs/summary_gms_branch.log
+logFile=$outputRunDataDir/logs/branch/summary_gms_branch.log
 export extent=GMS
+export overwrite=$overwrite
 
-## Make output and data directories ##
-if [ -d "$outputRunDataDir" ]; then 
-    branch_directories_count=$(find $outputRunDataDir/*/branches/ -maxdepth 1 -mindepth 1 -type d | wc -l)
-    
-    if [ $branch_directories_count -gt 0 ] && [ "$overwrite" -eq 1 ]; then
-        find $outputRunDataDir/*/branches/ -maxdepth 1 -mindepth 1 -type d | xargs rm -rf 
-    elif [ $branch_directories_count -gt 0 ] && [ "$overwrite" -eq 0 ] ; then
-        echo "GMS branch data directories for $runName already exist. Use -o/--overwrite to continue"
-        exit 1
-    fi
-else
+## Check for run data directory ##
+if [ ! -d "$outputRunDataDir" ]; then 
     echo "Depends on output from gms_run_unit.sh. Please produce data with gms_run_unit.sh first."
     exit 1
 fi
 
-# make log dir
-mkdir -p $outputRunDataDir/logs
+## Filter out hucs ##
+if [ "$hucList" = "" ]; then
+    gms_inputs=$outputRunDataDir/gms_inputs.csv
+else
+    $srcDir/gms/filter_gms_inputs_by_huc.py -g $outputRunDataDir/gms_inputs.csv -u $hucList -o $outputRunDataDir/gms_inputs_filtered.csv
+    gms_inputs=$outputRunDataDir/gms_inputs_filtered.csv
+fi
 
+# Echo intent to retry
+if [ "$retry" = "--retry-failed" ]; then
+    echo "Retrying failed unit level jobs for $runName"
+fi 
+
+# make log dir
+if [ ! -d "$outputRunDataDir/logs/branch" ]; then
+    mkdir -p $outputRunDataDir/logs/branch
+fi
 
 ## RUN GMS BY BRANCH ##
 if [ "$jobLimit" -eq 1 ]; then
-    parallel --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
+    parallel $retry --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 else
-    parallel --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $outputRunDataDir/gms_inputs.csv
+    parallel $retry --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 fi
 
 ## GET NON ZERO EXIT CODES ##
-# grep -ER 'Exit status: [1-9]' logs/* | wc -l
+# get positive non-zero exit codes 
+grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/branch > $outputRunDataDir/logs/branch/TEMP.log
+# append time outs (logs that dont have an exit code)
+grep -LER 'Exit status: ' $outputRunDataDir/logs/branch >> $outputRunDataDir/logs/branch/TEMP.log
+# remove the summary logs
+grep -v 'summary_gms_*.log' $outputRunDataDir/logs/branch/TEMP.log > $outputRunDataDir/logs/branch/non_zero_exit_codes.log
+# remove temp file
+rm $outputRunDataDir/logs/branch/TEMP.log
