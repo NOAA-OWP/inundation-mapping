@@ -66,12 +66,12 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
     if not os.path.isfile(hydro_table):
         print('Can not find hydro_table file: ' + str(hydro_table))
 
-    # Map necessary inputs for inundation().
-    hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU6'
-
     #benchmark_category = huc_id.split('_')[1]
     current_huc = huc_id.split('_')[0]  # Break off HUC ID and assign to variable.
-    current_huc = '120903'
+    wbd_huc = 'WBDHU' + str(len(huc_id)) # check if the input huc is 2,4,6,8 etc
+
+    # Map necessary inputs for inundation().
+    hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), wbd_huc
 
     if not os.path.exists(branch_test_case_dir_parent):
         os.mkdir(branch_test_case_dir_parent)
