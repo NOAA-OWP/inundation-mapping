@@ -7,7 +7,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 This new workflow ingests FIM point observations from users and “corrects” the synthetic rating curves to produce the desired FIM extent at locations where feedback is available (locally calibrate FIM).
 
 ## Changes
-- `add_crosswalk.py`: added 'NextDownID' and 'order_' attributes to the exported hydroTable.csv. This will potentially be used in future enhancements to extend SRC changes to upstream/downstream catchments.
+- `add_crosswalk.py`: added `NextDownID` and `order_` attributes to the exported `hydroTable.csv`. This will potentially be used in future enhancements to extend SRC changes to upstream/downstream catchments.
 - `adjust_rc_with_feedback.py`: added a new workflow to perform the SRC modifications (revised discharge) using the existing HAND geometry variables combined with the user provided point location flow and stage data.
 - `inundation_wrapper_custom_flow.py`: updated code to allow for huc6 processing to generate custom inundation outputs.
 
