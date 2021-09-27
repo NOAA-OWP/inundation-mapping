@@ -5,15 +5,17 @@ import argparse
 
 def filter_gms_inputs_by_huc(gms_inputs,hucs,gms_outputs):
 
-    if isinstance(hucs,list):
-        hucsList = hucs
-    else:
-        with open(hucs) as hf:
-            hucsList = [str(h) for h in hf]
+    try:
+        with open(hucs[0]) as hf:
+            hucsList = set([str(h).rstrip() for h in hf])
+    except FileNotFoundError:
+        hucsList = set(hucs)
     
     gms_inputs = pd.read_csv(gms_inputs,header=None,dtype=str)
     gms_inputs_mask = gms_inputs.loc[:,0].isin(hucsList)
     gms_inputs = gms_inputs.loc[gms_inputs_mask,:]
+
+    assert len(gms_inputs) > 0, "Filtered GMS list is empty"
 
     gms_inputs.to_csv(gms_outputs,index=False,header=False)
 

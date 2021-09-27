@@ -59,11 +59,23 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
     # find matching rows
     consolidated_metrics_df = find_matching_rows_by_attribute_value(consolidated_metrics_df,'version',versions)
 
+    if impute_missing_ms:
+        consolidated_metrics_df = impute_missing_MS_with_FR(consolidated_metrics_df)
+
     if metrics_output_csv is not None:
         consolidated_metrics_df.to_csv(metrics_output_csv, index=False)
 
-    if impute_missing_ms:
-        consolidated_metrics_df = impute_missing_MS_with_FR(consolidated_metrics_df)
+    """
+    consolidated_metrics_pivot = pd.pivot_table(
+                                                consolidated_metrics_df,
+                                                values=['CSI'],
+                                                columns=['extent_config'],
+                                                index=['huc','magnitude'], 
+                                                aggfunc=np.mean
+                                               )
+    #print(consolidated_metrics_pivot);exit()
+    print(100*(consolidated_metrics_pivot.loc[:,('CSI','GMS')]-consolidated_metrics_pivot.loc[:,('CSI','MS')]));exit()
+    """
 
     consolidated_secondary_metrics = pivot_metrics(consolidated_metrics_df)
     print(consolidated_secondary_metrics)
@@ -173,7 +185,8 @@ def return_dataframe_for_benchmark_source(benchmarks,zones=['total_area']):
     """ returns a dataframe of results given a name for a benchmark source """
 
     benchmark_function_dict = { 
-                                'ble' : consolidate_ble_metrics(zones)
+                                'ble' : consolidate_metrics('ble',zones),
+                                'ifc' : consolidate_metrics('ifc',zones)
                               }
 
     # if all cycle through all functions, else go through selection
@@ -193,14 +206,14 @@ def return_dataframe_for_benchmark_source(benchmarks,zones=['total_area']):
                                  f"{list(benchmark_function_dict.keys())}")
 
 
-def consolidate_ble_metrics(zones=['total_area']):
+def consolidate_metrics(benchmark,zones=['total_area']):
 
     """ consolidates ble metrics """
 
     # get filenames for metrics for ble
     files_to_consolidate = list()
     for zone in zones:
-        file_pattern_to_glob = os.path.join(TEST_CASES_DIR,'ble_test_cases','**',f'{zone}_stats.csv')
+        file_pattern_to_glob = os.path.join(TEST_CASES_DIR,f'{benchmark}_test_cases','**',f'{zone}_stats.csv')
         files_to_consolidate.extend(glob(file_pattern_to_glob, recursive=True))
 
     # make a metrics dataframe generator

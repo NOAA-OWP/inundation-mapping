@@ -212,39 +212,14 @@ def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_lis
         csv_writer.writerows(list_to_write)
 
 
-def process_alpha_test( 
-                        fim_run_dir, version, 
-                        test_id, magnitude, 
-                        archive_results, overwrite,
-                        eval_meta, fr_run_dir
-                      ):
-
-    mask_type = 'huc'
-
-    if archive_results == False:
-        compare_to_previous = True
-    else:
-        compare_to_previous = False
-
-    try:
-        run_alpha_test(fim_run_dir, version, test_id, magnitude, 
-                       eval_meta=eval_meta,
-                       compare_to_previous=compare_to_previous, 
-                       archive_results=archive_results, 
-                       mask_type=mask_type, overwrite=overwrite,
-                       fr_run_dir=fr_run_dir,
-                       gms_workers=job_number_branch,verbose=True
-                       )
-    except Exception as exc:
-        print('{},{}'.format(test_id,exc.__class__.__name__))
-
 
 if __name__ == '__main__':
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=False,default='DEV')
-    parser.add_argument('-e','--eval-meta',help='Pass meta-data dictionary. Use double quotes on outside of dictionary and denote keys and/or values with single quotes when necessary.',required=False, default=None, type=str)
+    parser.add_argument('-l','--calibrated',help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir',required=False, default=False,action='store_true')
+    parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.',required=True)
     parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
     parser.add_argument('-jh','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
     parser.add_argument('-jb','--job-number-branch',help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
@@ -253,7 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
     parser.add_argument('-dc', '--dev-version-to-compare', nargs='+', help='Specify the name(s) of a dev (testing) version to include in master metrics CSV. Pass a space-delimited list.',required=False)
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=False,default=None)
-    parser.add_argument('-d','--fr-run-dir',help='Name of directory containing outputs of fim_run.sh for FR configuration',required=False,default=None)
+    parser.add_argument('-d','--fr-run-dir',help='Name of test case directory containing FIM for FR model',required=False,default=None)
     parser.add_argument('-vr','--verbose',help='Verbose',required=False,default=None,action='store_true')
     parser.add_argument('-vg','--gms-verbose',help='GMS Verbose Progress Bar',required=False,default=None,action='store_true')
 
@@ -269,7 +244,8 @@ if __name__ == '__main__':
     dev_versions_to_compare = args['dev_version_to_compare']
     master_metrics_csv = args['master_metrics_csv']
     fr_run_dir = args['fr_run_dir']
-    eval_meta = args['eval_meta']
+    calibrated = args['calibrated']
+    model = args['model']
     verbose = args['verbose']
     gms_verbose = args['gms_verbose']
 
@@ -291,9 +267,6 @@ if __name__ == '__main__':
             previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
         elif config == 'DEV':
             previous_fim_list = os.listdir(OUTPUTS_DIR)
-
-    if eval_meta is not None:
-        eval_meta = ast.literal_eval(eval_meta)
 
     # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
     if config == 'PREV':
@@ -322,7 +295,7 @@ if __name__ == '__main__':
         bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
         
         # temp
-        #bench_cat_id_list = ['11010004_ble']
+        #bench_cat_id_list = ['07060003_ifc']
 
         #if job_number_huc == 1:
             # something wrong about this lengtu
@@ -331,7 +304,8 @@ if __name__ == '__main__':
         for test_id in bench_cat_id_list:
             if 'validation' and 'other' not in test_id:
                 current_huc = test_id.split('_')[0]
-                if test_id.split('_')[1] in bench_cat:
+                current_benchmark_category = test_id.split('_')[1]
+                if current_benchmark_category in bench_cat:
                     # Loop through versions.
                     for version in previous_fim_list:
                         if config == 'DEV':
@@ -353,11 +327,11 @@ if __name__ == '__main__':
                                 version = version + '_' + special_string
 
                             # Define the magnitude lists to use, depending on test_id.
-                            if 'ble' in test_id:
+                            if 'ble' == current_benchmark_category:
                                 magnitude = BLE_MAGNITUDE_LIST
-                            elif 'usgs' or 'nws' in test_id:
+                            elif ('usgs' == current_benchmark_category) | ('nws' == current_benchmark_category):
                                 magnitude = ['action', 'minor', 'moderate', 'major']
-                            elif 'ifc' in test_id:
+                            elif 'ifc' == current_benchmark_category:
                                 magnitude = IFC_MAGNITUDE_LIST
                             else:
                                 continue
@@ -367,7 +341,8 @@ if __name__ == '__main__':
                                                 'version': version, 
                                                 'test_id': test_id, 
                                                 'magnitude': magnitude, 
-                                                'eval_meta': eval_meta,
+                                                'calibrated': calibrated,
+                                                'model': model,
                                                 'compare_to_previous': not archive_results, 
                                                 'archive_results': archive_results, 
                                                 'mask_type': 'huc',
@@ -378,19 +353,7 @@ if __name__ == '__main__':
                                                 'gms_verbose': False
                                               }
                             
-                            # Either add to list to multiprocess or process serially, depending on user specification.
-                            #if job_number_huc > 1:
-                                #procs_list.append([fim_run_dir, version, test_id, magnitude, 
-                                #                   archive_results, overwrite, eval_meta,fr_run_dir
-                                 #                 ])
                             procs_dict[current_huc] = alpha_test_args
-                            #else:
-                            #    alpha_test_args.update({'gms_verbose':True})
-                            #    try:
-                            #        run_alpha_test(**alpha_test_args)
-                                    #pb.update()
-                            #    except Exception as exc:
-                            #        print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
 
     if job_number_huc == 1:
         
@@ -408,6 +371,7 @@ if __name__ == '__main__':
     # Multiprocess alpha test runs.
     if job_number_huc > 1:
         
+        #print(procs_dict)
         executor = ProcessPoolExecutor(max_workers=job_number_huc)
 
         executor_generator = { 
@@ -440,19 +404,6 @@ if __name__ == '__main__':
             dev_versions_to_include_list = [version]
     if config == 'PREV':
         dev_versions_to_include_list = []
-
-    """
-    # legacy for GMS
-    if config == 'DEV':
-        if len(special_string) > 0:
-            dev_comparison = fim_version + "_" + special_string
-        else:
-            dev_comparison = fim_version
-    else:
-        dev_comparison = None
-    
-    #create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_comparison=dev_comparison)
-    """
 
     if master_metrics_csv is not None:
         # Do aggregate_metrics.

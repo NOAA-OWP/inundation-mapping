@@ -11,7 +11,7 @@ import ast
 import pandas as pd
 
 from tools_shared_functions import compute_contingency_stats_from_rasters
-from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
+from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES, IFC_MAGNITUDE_LIST, BLE_MAGNITUDE_LIST )
 from inundation import inundate
 from gms_tools.inundate_gms import Inundate_gms
 from gms_tools.mosaic_inundation import Mosaic_inundation
@@ -20,7 +20,7 @@ from glob import glob
 from utils.shared_variables import elev_raster_ndv
 
 def run_alpha_test( fim_run_dir, version, test_id, magnitude, 
-                    eval_meta,
+                    calibrated, model,
                     compare_to_previous=False, archive_results=False, 
                     mask_type='filter', inclusion_area='', 
                     inclusion_area_buffer=0, light_run=False, 
@@ -30,21 +30,14 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                   ):
 
     # check eval_meta input
-    allowed_keys = {'calibrated','model'}
-    for k in allowed_keys:
-        if k in eval_meta.keys():
-            pass
-        else:
-            raise ValueError("{} key in eval_meta not allowed. only pass {}".format(k,allowed_keys))
-
-    if eval_meta['model'] not in {None,'FR','MS','GMS'}:
-        raise ValueError("MS argument needs to be None, \'MS\', or \'GMS.\'")
+    if model not in {None,'FR','MS','GMS'}:
+        raise ValueError("Model argument needs to be \'FR\', \'MS\', or \'GMS.\'")
 
    # make bool
-    eval_meta['calibrated'] = bool( eval_meta['calibrated'] )
+    calibrated = bool( calibrated )
 
-    if (eval_meta['model'] == "MS") & (fr_run_dir is None):
-        raise ValueError("fr_run_dir argument needs to be specified with MS configuration")
+    if (model == "MS") & (fr_run_dir is None):
+        raise ValueError("fr_run_dir argument needs to be specified with MS model")
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
@@ -59,7 +52,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
     if os.path.exists(version_test_case_dir_parent):
         if overwrite == True:
             shutil.rmtree(version_test_case_dir_parent)
-        elif eval_meta['model'] == 'MS':
+        elif model == 'MS':
             pass
         else:
             print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.".format(version=version, test_id=test_id))
@@ -181,7 +174,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                         os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
                                                 )  
             try:
-                if eval_meta['model'] == 'GMS':
+                if model == 'GMS':
                     
                     map_file = Inundate_gms(
                                              hydrofabric_dir=hydrofabric_dir, 
@@ -216,7 +209,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                              quiet=True
                         )
 
-                if eval_meta['model'] =='MS':
+                if model =='MS':
                     
                     # Mainstems inundation
                     #fr_run_parent = os.path.join(os.environ['outputDataDir'], fr_run_dir,current_huc)
@@ -295,6 +288,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
 
     # write out evaluation meta-data
     with open(os.path.join(version_test_case_dir_parent,'eval_metadata.json'),'w') as meta:
+        eval_meta = { 'calibrated' : calibrated , 'model' : model }
         meta.write( 
                     json.dumps(eval_meta,indent=2) 
                    )
@@ -312,7 +306,8 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--version',help='The name of the working version in which features are being tested',required=True,default="")
     parser.add_argument('-t', '--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
     parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method. MS and GMS are currently on supporting huc', required=False,default="filter")
-    parser.add_argument('-e','--eval-meta',help='Pass meta-data dictionary. Use double quotes on outside of dictionary and denote keys and/or values with single quotes when necessary.',required=True, type=str)
+    parser.add_argument('-n','--calibrated',help='Denotes use of calibrated n values',required=False, default=False,action='store_true')
+    parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed',required=True)
     parser.add_argument('-y', '--magnitude',help='The magnitude to run.',required=False, default="")
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
     parser.add_argument('-a', '--archive-results', help='Automatically copy results to the "previous_version" archive for test_id. For admin use only.', required=False,action='store_true')
@@ -321,15 +316,12 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
     parser.add_argument('-w','--gms-workers', help='Number of workers to use for GMS Branch Inundation', required=False, default=1)
-    parser.add_argument('-d','--fr-run-dir',help='Name of directory containing inundation for FR configuration',required=False,default=None)
+    parser.add_argument('-d','--fr-run-dir',help='Name of test case directory containing inundation for FR configuration',required=False,default=None)
     parser.add_argument('-v', '--verbose', help='Verbose operation', required=False, action='store_true', default=False)
     parser.add_argument('-vg', '--gms-verbose', help='Prints progress bar for GMS', required=False, action='store_true', default=False)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
-
-    if args['eval_meta'] is not None:
-        args['eval_meta'] = ast.literal_eval(args['eval_meta'])
 
     valid_test_id_list = os.listdir(TEST_CASES_DIR)
 
@@ -363,11 +355,15 @@ if __name__ == '__main__':
     except ValueError:
         print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area_buffer (-ib) " + CYAN_BOLD + args['inclusion_area_buffer'] + WHITE_BOLD + " is not a round number." + ENDC)
 
+    benchmark_category = args['test_id'].split('_')[1]
+
     if args['magnitude'] == '':
-        if 'ble' in args['test_id'].split('_'):
-            args['magnitude'] = ['100yr', '500yr']
-        elif 'nws' or 'usgs' in args['test_id'].split('_'):
+        if 'ble' == benchmark_category:
+            args['magnitude'] = BLE_MAGNITUDE_LIST
+        elif ('nws' == benchmark_category) | ('usgs' == benchmark_category):
             args['magnitude'] = ['action', 'minor', 'moderate', 'major']
+        elif 'ifc' == current_benchmark_category:
+            args['magnitude'] = IFC_MAGNITUDE_LIST
         else:
             print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)
             exit_flag = True
