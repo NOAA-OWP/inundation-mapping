@@ -66,16 +66,15 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
         consolidated_metrics_df.to_csv(metrics_output_csv, index=False)
 
     """
+    #print(consolidated_metrics_df.columns);exit()
     consolidated_metrics_pivot = pd.pivot_table(
                                                 consolidated_metrics_df,
-                                                values=['CSI'],
+                                                values=['FP_area_km2','FN_area_km2','TP_area_km2','contingency_tot_area_km2','obsPositive_area_km2'],
                                                 columns=['extent_config'],
-                                                index=['huc','magnitude'], 
-                                                aggfunc=np.mean
+                                                index=['magnitude'], 
+                                                aggfunc=np.sum
                                                )
-    #print(consolidated_metrics_pivot);exit()
-    print(100*(consolidated_metrics_pivot.loc[:,('CSI','GMS')]-consolidated_metrics_pivot.loc[:,('CSI','MS')]));exit()
-    """
+    print(consolidated_metrics_pivot);exit()"""
 
     consolidated_secondary_metrics = pivot_metrics(consolidated_metrics_df)
     print(consolidated_secondary_metrics)

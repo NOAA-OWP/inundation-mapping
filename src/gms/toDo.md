@@ -15,6 +15,7 @@
     - Aggregation of metrics can be improved. The function create_metrics_metrics.py is spaghetti (15 indentations).See consolidate_metrics for modular tooling. Needs support for other test case formats.
     - Try statements should only include very specific lines. Having very large try blocks (see run_test_case.py creates alot of issues in debugging nested modules).
     - Any code put in if main == name part of a module is not exposed to the user if the main function is imported elsewhere in python. These code segments should modularized and grouped into functionality in main function.
+- *NoForecastFound Error:* inundation.py throws a NoForecastFound exception when no matches are found between forecast and hydrotable. In levelpaths with no forecast this avoids creating an inundation raster for that area. This changes the spatial extent of GMS to exclude some areas that FR/MS would write as FNs (see for an example 13020102).
 - *Evaluation extents:* The evaluation extents between FR, MS, GMS are not consistent. While this does have a small effect on CSI, MCC should be immune to it and generally shows a similar trend
 
 
