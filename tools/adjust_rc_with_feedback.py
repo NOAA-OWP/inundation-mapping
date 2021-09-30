@@ -11,6 +11,7 @@ import json
 temp_workspace = r''
 HAND_CRS = 'EPSG:3857'
 
+
 def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc6):
     print("Processing huc --> " + str(huc6))
     log_file.write("\nProcessing huc --> " + str(huc6) + '\n')
