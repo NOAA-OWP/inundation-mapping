@@ -2,6 +2,7 @@
 :
 usage ()
 {
+	echo
     echo 'Produce FIM datasets'
     echo 'Usage : fim_run.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
     echo ''
@@ -31,10 +32,10 @@ usage ()
 }
 
 
-if [ "$#" -lt 7 ]
-then
-	usage
-fi
+#if [ "$#" -lt 7 ]
+#then
+#	usage
+#fi
 
 
 while [ "$1" != "" ]; do
@@ -94,17 +95,15 @@ in
 done
 
 
+# ---------------------------------------
+## Check command line arguments for errors and setup variables if required
+source $srcDir/validate_fim_run_args.sh 
+
+
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
 
-# Check command line arguments for errors and setup variables if required
-source $srcDir/validate_fim_run_args.sh
-
-# default values
-if [ "$jobLimit" = "" ] ; then
-    jobLimit=$default_max_jobs
-fi
 
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
@@ -113,8 +112,13 @@ export production=$production
 export whitelist=$whitelist
 export viz=$viz
 export mem=$mem
-export step_start_number=$step_start_number
-export step_end_number=$step_end_number
+
+
+# ---------------------------------------
+## default values
+if [ "$jobLimit" = "" ] ; then
+    jobLimit=$default_max_jobs
+fi
 
 logFile=$outputRunDataDir/logs/summary.log
 
