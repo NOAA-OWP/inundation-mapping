@@ -34,7 +34,7 @@ def nwm_1_5_bankfull_lookup(args):
 
     src_full_filename           = args[0]
     src_modify_filename         = args[1]
-    nwm_flow_dir                = args[2]
+    df_nwm1_5                   = args[2]
     huc                         = args[3]
     src_plot_option             = args[4]
     huc_output_dir              = args[5]
@@ -44,21 +44,21 @@ def nwm_1_5_bankfull_lookup(args):
     log_file.write('Calculating: ' + str(huc) + '\n')
     df_src = pd.read_csv(src_full_filename,dtype={'HydroID': str})
 
-    # NWM recurr intervals
-    recurr_1_5_yr_filename = join(nwm_flow_dir,'recurr_1_5_cms.csv')
-    df_nwm15 = pd.read_csv(recurr_1_5_yr_filename)
-    df_nwm15 = df_nwm15.rename(columns={'discharge':'discharge_1_5'})
+    # NWM recurr rename discharge var
+    df_nwm1_5 = df_nwm1_5.rename(columns={'discharge':'discharge_1_5'})
 
     # Combine the nwm 1.5yr flows into the SRC via feature_id
-    df_src = df_src.merge(df_nwm15,how='left',on='feature_id')
+    df_src = df_src.merge(df_nwm1_5,how='left',on='feature_id')
 
     # Check if there are any missing data, negative or zero flow values in the discharge_1_5
     check_null = df_src['discharge_1_5'].isnull().sum()
     if check_null > 0:
-        log_file.write('Missing feature_id in crosswalk for' + str(huc) + ' --> missing entries= ' + str(check_null) + '\n')
-    negative_flows = len(df_src.loc[df_src.discharge_1_5 <= 0])
+        log_file.write('Missing feature_id in crosswalk for huc: ' + str(huc) + ' --> these featureids will be ignored in bankfull calcs (~' + str(check_null/84) +  ' features) \n')
+        # Fill missing/nan nwm discharge_1_5 values with -999 to handle later
+        df_src['discharge_1_5'] = df_src['discharge_1_5'].fillna(-999)
+    negative_flows = len(df_src.loc[(df_src.discharge_1_5 <= 0) & (df_src.discharge_1_5 != -999)])
     if negative_flows > 0:
-        log_file.write('HUC: ' + str(huc) + ' --> Negative or zero flow values found\n')
+        log_file.write('HUC: ' + str(huc) + ' --> Negative or zero flow values found (likely lakeid loc)\n')
 
     # Check which channel geometry parameters exist in df (use bathy adjusted vars by default) --> this is needed to handle differences btw BARC & no-BARC outputs
     if 'HydraulicRadius (m)_bathy_adj' in df_src:
@@ -73,9 +73,19 @@ def nwm_1_5_bankfull_lookup(args):
 
     # Locate the closest SRC discharge value to the NWM 1.5yr flow
     df_src['Q_1_5_find'] = (df_src['discharge_1_5'] - df_src['Discharge (m3s-1)']).abs()
-    df_1_5 = df_src[['Stage','HydroID',volume_var,hradius_var,'Q_1_5_find']]
+
+    # Check for any missing/null entries in the input SRC
+    if df_src['Q_1_5_find'].isnull().values.any(): # there may be null values for lake or coastal flow lines (need to set a value to do groupby idxmin below)
+        log_file.write('HUC: ' + str(huc) + ' --> Null values found in "Q_1_5_find" calc. These will be filled with 999999 () \n')
+        # Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
+        df_src['Q_1_5_find'] = df_src['Q_1_5_find'].fillna(999999)
+    if df_src['HydroID'].isnull().values.any():
+        log_file.write('HUC: ' + str(huc) + ' --> Null values found in "HydroID"... \n')
+
+    df_1_5 = df_src[['Stage','HydroID',volume_var,hradius_var,'Q_1_5_find']] # create new subset df to perform the Q_1_5 lookup
     df_1_5 = df_1_5[df_1_5['Stage'] > 0.0] # Ensure bankfull stage is greater than stage=0
-    df_1_5 = df_1_5.loc[df_1_5.groupby('HydroID')['Q_1_5_find'].idxmin()].reset_index(drop=True)
+    df_1_5.reset_index(drop=True, inplace=True)
+    df_1_5 = df_1_5.loc[df_1_5.groupby('HydroID')['Q_1_5_find'].idxmin()].reset_index(drop=True) # find the index of the Q_1_5_find (closest matching flow)
     df_1_5 = df_1_5.rename(columns={'Stage':'Stage_1_5',volume_var:'Volume_bankfull',hradius_var:'HRadius_bankfull'}) # rename volume to use later for channel portion calc
     df_src = df_src.merge(df_1_5[['Stage_1_5','HydroID','Volume_bankfull','HRadius_bankfull']],how='left',on='HydroID')
     df_src.drop(['Q_1_5_find'], axis=1, inplace=True)
@@ -99,10 +109,10 @@ def nwm_1_5_bankfull_lookup(args):
     # mask bankfull variables when the 1.5yr flow value is <= 0
     df_src['Stage_1_5'].mask(df_src['discharge_1_5'] <= 0.0,inplace=True)
 
-
     # Create a new column to identify channel/floodplain via the bankfull stage value
     df_src.loc[df_src['Stage'] <= df_src['Stage_1_5'], 'channel_fplain_1_5'] = 'channel'
     df_src.loc[df_src['Stage'] > df_src['Stage_1_5'], 'channel_fplain_1_5'] = 'floodplain'
+    #df_src['channel_fplain_1_5'] = df_src['channel_fplain_1_5'].fillna('channel')
 
     # Output new SRC with bankfull column
     df_src.to_csv(src_modify_filename,index=False)
@@ -158,6 +168,14 @@ if __name__ == '__main__':
     # Open log file
     print('Writing progress to log file here: ' + str(join(fim_dir,'bankfull_detect.log')))
     print('This may take a few minutes...')
+
+    recurr_1_5_yr_filename = join(nwm_flow_dir,'recurr_1_5_cms.csv')
+    if isfile(nwm_flow_dir):
+        df_nwm1_5 = pd.read_csv(recurr_1_5_yr_filename)
+    else:
+        print('!!! Can not find the input recurr flow file: ' + str(recurr_1_5_yr_filename))
+
+    # initiate log file
     sys.__stdout__ = sys.stdout
     log_file = open(join(fim_dir,'bankfull_detect.log'),"w")
     sys.stdout = log_file
@@ -170,7 +188,7 @@ if __name__ == '__main__':
             huc_output_dir = join(fim_dir,huc,'src_plots')
 
             if isfile(src_full_filename):
-                procs_list.append([src_full_filename, src_modify_filename, nwm_flow_dir, huc, src_plot_option, huc_output_dir])
+                procs_list.append([src_full_filename, src_modify_filename, df_nwm1_5, huc, src_plot_option, huc_output_dir])
             else:
                 log_file.write(str(huc) + ' --> can not find the src_full_crosswalked.csv in the fim output dir: ' + str(join(fim_dir,huc)) + '\n')
 

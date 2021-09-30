@@ -50,6 +50,11 @@ def variable_mannings_calc(args):
     print('Processingg: ' + str(huc))
     df_src = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': str})
 
+    # Check that the channel ratio column the user specified exists in the def
+    if channel_ratio_src_column not in df_src.columns:
+        print(out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
+        print(df_src.columns)
+
     # Read the Manning's n csv (must contain feature_id, channel mannings, floodplain mannings)
     df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': str})
 
@@ -57,7 +62,7 @@ def variable_mannings_calc(args):
     df_src = df_src.merge(df_mann,  how='left', on='feature_id')
     check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
     if check_null > 0:
-        print('Missing feature_id in crosswalk for' + str(huc) + ' --> missing entries= ' + str(check_null))
+        print('Null feature_ids in crosswalk for huc: ' + str(huc) + ' --> missing entries= ' + str(check_null/84))
 
     # Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
     df_src['comp_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
@@ -95,12 +100,16 @@ def variable_mannings_calc(args):
     df_src.to_csv(out_src_bankfull_filename,index=False)
 
     # Output new hydroTable with new discharge_1_5
-    df_src_trim = df_src[['HydroID','Stage','Discharge (m3s-1)_varMann']]
-    df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms'})
+    df_src_trim = df_src[['HydroID','Stage','Discharge (m3s-1)_varMann','comp_ManningN']]
+    df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms','comp_ManningN':'ManningN'})
     df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
-    df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the original discharge column to be replaced with updated version
+    df_htable.drop(['discharge_cms','ManningN'], axis=1, inplace=True) # drop the original discharge column to be replaced with updated version
     df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
-    df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HUC','LakeID']] # set column order for hydroTable output
+    #extra_cols = ['HydraulicRadius (m)','WetArea (m2)','SLOPE','ManningN']
+    #if df_htable.columns.isin(cols).all()):
+    #    df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HydraulicRadius (m)','WetArea (m2)','SLOPE','ManningN','HUC','LakeID']]
+    #else:
+    #    df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HUC','LakeID']] # set column order for hydroTable output
     df_htable.to_csv(new_htable_filename,index=False)
     print('Output new files: ' + str(huc))
 
