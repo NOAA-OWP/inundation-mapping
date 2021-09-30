@@ -22,13 +22,20 @@ usage ()
     echo '                     ex: file1.tif,file2.json,file3.csv'
     echo '  -v/--viz        : compute post-processing on outputs to be used in viz'
     echo '  -m/--mem        : enable memory profiling'
+	echo '  -ssn            : step number to start at (defaulted to 1).'
+	echo '                      ex: -ssn 2'
+	echo '  -sen            : step number to end after at.'
+	echo '                      ex: -sen 3  (if ssn is 2, this means start at 2 and end after at 3)'
+	echo
     exit
 }
 
+
 if [ "$#" -lt 7 ]
 then
-  usage
+	usage
 fi
+
 
 while [ "$1" != "" ]; do
 case $1
@@ -73,32 +80,26 @@ in
     -m|--mem)
         mem=1
         ;;
+	-ssn)
+		shift
+		step_start_number="$1"
+		;;
+	-sen)
+		shift
+		step_end_number="$1"
+		;;
     *) ;;
     esac
     shift
 done
 
-# print usage if arguments empty
-if [ "$hucList" = "" ]
-then
-    usage
-fi
-if [ "$extent" = "" ]
-then
-    usage
-fi
-if [ "$envFile" = "" ]
-then
-    usage
-fi
-if [ "$runName" = "" ]
-then
-    usage
-fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
+
+# Check command line arguments for errors and setup variables if required
+source $srcDir/validate_fim_run_args.sh
 
 # default values
 if [ "$jobLimit" = "" ] ; then
@@ -112,6 +113,9 @@ export production=$production
 export whitelist=$whitelist
 export viz=$viz
 export mem=$mem
+export step_start_number=$step_start_number
+export step_end_number=$step_end_number
+
 logFile=$outputRunDataDir/logs/summary.log
 
 ## Define inputs

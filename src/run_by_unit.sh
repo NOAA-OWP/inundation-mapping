@@ -20,7 +20,10 @@ echo -e "ms_buffer_dist=$ms_buffer_dist"
 echo -e "ncores_gw=$ncores_gw"
 echo -e "ncores_fd=$ncores_fd"
 echo -e "default_max_jobs=$default_max_jobs"
-echo -e "memfree=$memfree"$stopDiv
+echo -e "memfree=$memfree"
+echo -e "step_start_number=$step_start_number"
+echo -e "step_end_number=$step_end_number"
+echo $stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
