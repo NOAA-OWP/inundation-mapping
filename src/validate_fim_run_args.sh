@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # ============================
-function __Validate_Manditory_Args {
+function __Validate_Manditory_Args_Exist {
 	
 	# ------------------------------------
 	if [ "$hucList" = "" ]
@@ -39,19 +39,22 @@ function __Validate_Step_Numbers() {
 
 	# -----------------
 	Check_IsNumber $step_start_number
-    if [ $value_Is_Number -eq 1 ] ; then
+    if [ $value_Is_Number -eq 1 ]
+	then # false
 		step_start_number=0
     fi
 
 	# -----------------
 	Check_IsNumber $step_end_number	
-    if [ $value_Is_Number -eq 1 ] ; then
+    if [ $value_Is_Number -eq 1 ]
+	then # false	
 		step_end_number=99
     fi
 	
 	# -----------------
     # Check if start number is a greater than end date, change end date to 99
-    if [ $step_start_number -gt $step_end_number ] ; then
+    if [ $step_start_number -gt $step_end_number ] 
+	then # false	
 		step_end_number=99
     fi
 
@@ -59,24 +62,36 @@ function __Validate_Step_Numbers() {
 
 
 # ============================
-function __Validate_ArgValues_HucList {
+ function __Validate_ArgValues {
 
-	Check_IsNumber $hucList
-    if [ $value_Is_Number -eq 1 ]
-	then  #false
-		# check to see if the path exists
-		echo 'check path'
-		
-		
-	else
-		echo 'check length'
-		if [[ $hucList -lt 4 ] || [ $hucList -gt 8 ]]
-		then
-			Show_Error '-u|--hucList argument: A HUC number was submitted but it needs to be 4 to 8 digits.'
-			exit
-		fi		
-    fi	
+	#--------------------------------------------
+	# extent (-e/--extent)
+	#     check to see if the value of 'MS' or 'FS' (we will correct for case)
+	if [ $extent != "" ] && [ ! Check_IsNumber $extent ]
+	then
+		$extent=$extent^^
+		if [ $extent != "MR" ] && [ $extent != "FS" ] ; then
+			Show_Error '-e/--extent must be the value of MS or FR.'
+			usage
+		fi
+	fi
+
+
+	#--------------------------------------------
+	# envFile (c/--config)
+	#     check to see if the path exists
+	Check_IsFileExists $envFile
+	if [ $value_Is_Number -eq 1 ] # false
+	then
+		Show_Error 'c/--config argument: The file name does not appear to exist. Check path, spelling and path.'
+		usage
+	fi
+	
+	
 }
+
+# ============================
+
 
 # ============================
 # This is where the function calls are made. 
@@ -84,6 +99,17 @@ function __Validate_ArgValues_HucList {
 
 source $srcDir/bash_functions.env
 
-__Validate_Manditory_Args
+__Validate_Manditory_Args_Exist
+
+# huc inputs are handled by another script
+huc_input_validation_output=$( python3  $srcDir/check_huc_inputs.py -u "$hucList")
+if [ "$huc_input_validation_output" != "" ] ; then
+	Show_Error
+	echo "$huc_input_validation_output"
+	usage
+fi
+
 __Validate_ArgValues
 __Validate_Step_Numbers
+
+exit

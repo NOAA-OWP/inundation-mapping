@@ -24,9 +24,10 @@ def __read_included_files(parent_dir_path):
 
 
 def __read_input_hucs(hucs):
-
+    
     hucs = [h.split() for h in hucs][0]
     if os.path.isfile(hucs[0]):
+        
         with open(hucs[0],'r') as hucs_file:
             hucs = hucs_file.readlines()
             hucs = [h.split() for h in hucs][0]
@@ -38,12 +39,15 @@ def __check_for_membership(hucs,accepted_hucs_set):
 
     for huc in hucs:
         if huc not in accepted_hucs_set:
-            raise KeyError("HUC {} not found in available inputs. Edit HUC inputs or acquire datasets and try again".format(huc))
+            #raise KeyError("HUC {} not found in available inputs. Edit HUC inputs or acquire datasets and try again".format(huc))
+            print("HUC " + huc + " not found in available inputs. Edit HUC inputs or acquire datasets and try again")
+            exit
 
 
 def check_hucs(hucs):
 
     accepted_hucs = __read_included_files(os.path.join(os.environ['inputDataDir'],'huc_lists'))
+    #cprint(accepted_hucs)
     hucs = __read_input_hucs(hucs)
     __check_for_membership(hucs,accepted_hucs)
 

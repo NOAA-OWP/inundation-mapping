@@ -23,19 +23,19 @@ usage ()
     echo '                     ex: file1.tif,file2.json,file3.csv'
     echo '  -v/--viz        : compute post-processing on outputs to be used in viz'
     echo '  -m/--mem        : enable memory profiling'
-	echo '  -ssn            : step number to start at (defaulted to 1).'
-	echo '                      ex: -ssn 2'
-	echo '  -sen            : step number to end after at.'
-	echo '                      ex: -sen 3  (if ssn is 2, this means start at 2 and end after at 3)'
+	echo '  -ssn/--step_start_number   : step number to start at (defaulted to 1).'
+	echo '                                  ex: -ssn 2'
+	echo '  -sen/--step_end_number       : step number to end after at.'
+	echo '                      		    ex: -sen 3  (if ssn is 2, this means start at 2 and end after at 3)'
 	echo
     exit
 }
 
 
-#if [ "$#" -lt 7 ]
-#then
-#	usage
-#fi
+if [ "$#" -lt 7 ]
+then
+	usage
+fi
 
 
 while [ "$1" != "" ]; do
@@ -99,13 +99,11 @@ done
 ## Check command line arguments for errors and setup variables if required
 source $srcDir/validate_fim_run_args.sh 
 
-
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
 
-
-## Define Outputs Data Dir & Log File##
+## Define Outputs Data Dir & Log File and input validations##
 export outputRunDataDir=$outputDataDir/$runName
 export extent=$extent
 export production=$production
@@ -130,8 +128,8 @@ export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
 export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
 export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
 export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
-## Input handling ##
-$srcDir/check_huc_inputs.py -u "$hucList"
+
+
 
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then
