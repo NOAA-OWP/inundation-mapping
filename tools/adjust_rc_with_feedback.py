@@ -199,7 +199,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
     wbd_huc_read = wbd_huc_read.to_crs(hand_crs_default)
 
     # Spatially join the two layers.
-    print("Joining points to HUC8...")
+    print("Joining points to WBD...")
     water_edge_df = sjoin(points_layer_read, wbd_huc_read)
     del wbd_huc_read
         
