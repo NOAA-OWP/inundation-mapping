@@ -8,13 +8,10 @@ import numpy as np
 import sys
 import json
 
-temp_workspace = r''
-HAND_CRS = 'EPSG:3857'
 
-
-def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc6):
-    print("Processing huc --> " + str(huc6))
-    log_file.write("\nProcessing huc --> " + str(huc6) + '\n')
+def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc):
+    print("Processing huc --> " + str(huc))
+    log_file.write("\nProcessing huc --> " + str(huc) + '\n')
     df_gmed = pd.read_csv(output_csv) # read csv to import as a dataframe
     df_gmed = df_gmed[df_gmed.hydroid != 0] # remove entries that do not have a valid hydroid
 
@@ -40,27 +37,30 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
 
     ## Create a df of hydroids and featureids
     df_hydro_feat = df_htable.groupby(["HydroID"])[["feature_id"]].median()
-    #print(df_hydro_feat.to_string())
+#    print(df_hydro_feat.to_string())
+
+    output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
+    df_gmed.to_csv(output_calc_n_csv,index=False)
 
     ## Calculate roughness using Manning's equation
     df_gmed.rename(columns={'ManningN':'ManningN_default','hydroid':'HydroID'}, inplace=True) # rename the previous ManningN column
     df_gmed['hydroid_ManningN'] = df_gmed['WetArea_m2']* \
     pow(df_gmed['HydraulicRadius_m'],2.0/3)* \
     pow(df_gmed['SLOPE'],0.5)/df_gmed['flow']
-    print('Adjusted Mannings N Calculations -->')
-    print(df_gmed)
+#    print('Adjusted Mannings N Calculations -->')
+#    print(df_gmed)
 
     # Create dataframe to check for erroneous Manning's n values (>0.6 or <0.001)
     df_gmed['Mann_flag'] = np.where((df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001),'Fail','Pass')
     df_mann_flag = df_gmed[(df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001)][['HydroID','hydroid_ManningN']]
-    print('Here is the df with mann_flag filter:')
-    print(df_mann_flag.to_string())
+#    print('Here is the df with mann_flag filter:')
+#    print(df_mann_flag.to_string())
     if not df_mann_flag.empty:
         log_file.write('!!! Flaged Mannings Roughness values below !!!' +'\n')
         log_file.write(df_mann_flag.to_string() + '\n')
 
     # Export csv with the newly calculated Manning's N values
-    output_calc_n_csv = os.path.join(fim_directory, huc6, 'calc_src_n_vals_' + huc6 + '.csv')
+    output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
     df_gmed.to_csv(output_calc_n_csv,index=False)
 
     # filter the modified Manning's n dataframe for values out side allowable range
@@ -75,8 +75,8 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
 
     # cacluate median ManningN to handle cases with multiple hydroid entries
     df_mann = df_gmed.groupby(["HydroID"])[['hydroid_ManningN']].median()
-    print('df_mann:')
-    print(df_mann)
+#    print('df_mann:')
+#    print(df_mann)
 
     # Create a df with the median hydroid_ManningN value per feature_id
     df_mann_featid = df_gmed.groupby(["feature_id"])[['hydroid_ManningN']].median()
@@ -112,7 +112,7 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_htable['discharge_cms'].mask(df_htable['orig_discharge_cms']==-999,-999,inplace=True)
 
     # Export a new hydroTable.csv and overwrite the previous version
-    out_htable = os.path.join(fim_directory, huc6, 'hydroTable.csv')
+    out_htable = os.path.join(fim_directory, huc, 'hydroTable.csv')
     df_htable.to_csv(out_htable,index=False)
 
     # output new src json (overwrite previous)
@@ -130,119 +130,137 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     with open(output_src_json_file,'w') as f:
         json.dump(output_src_json,f,sort_keys=True)
 
-def ingest_points_layer(points_layer, fim_directory, wbd_path):
 
-    # Read wbd_path and points_layer to determine which HUC6 each point is in.
-    wbd_huc8_read = gpd.read_file(wbd_path, layer='WBDHU6')
+def ingest_points_layer(points_layer, fim_directory, wbd_path, scale):
+
+    # Define CRS to use for initial geoprocessing.
+    if scale == 'HUC8':
+        hand_crs_default = 'EPSG:5070'
+        wbd_layer = 'WBDHU8'
+    else:
+        hand_crs_default = 'EPSG:3857'
+        wbd_layer = 'WBDHU6'
+    
+    # Read wbd_path and points_layer.
+    print("Reading WBD...")
+    wbd_huc_read = gpd.read_file(wbd_path, layer=wbd_layer)
+    print("Reading points layer...")
     points_layer_read = gpd.read_file(points_layer)
 
     # Update CRS of points_layer_read.
-    points_layer_read = points_layer_read.to_crs(HAND_CRS)
-    wbd_huc8_read = wbd_huc8_read.to_crs(HAND_CRS)
+    points_layer_read = points_layer_read.to_crs(hand_crs_default)
+    wbd_huc_read = wbd_huc_read.to_crs(hand_crs_default)
 
-    # Spatial join the two layers.
-    water_edge_df = sjoin(points_layer_read, wbd_huc8_read)
-
-    # Convert to GeoDataFrame.
+    # Spatially join the two layers.
+    print("Joining points to HUC8...")
+    water_edge_df = sjoin(points_layer_read, wbd_huc_read)
+    del wbd_huc_read
+        
+    # Convert to GeoDataFrame and add two columns for X and Y.
     gdf = gpd.GeoDataFrame(water_edge_df)
-
-    # Add two columns for X and Y.
     gdf['X'] = gdf['geometry'].x
     gdf['Y'] = gdf['geometry'].y
 
     # Extract information into dictionary.
-    huc6_list = []
+    huc_list = []
     for index, row in gdf.iterrows():
-        huc6 = row['HUC6']
-        if huc6 not in huc6_list:
-            huc6_list.append(huc6)
-            log_file.write(str(huc6) + '\n')
+        huc = row['HUC8']
+        if huc not in huc_list:
+            huc_list.append(huc)
+            log_file.write(str(huc) + '\n')    
+    del gdf
 
     # Define coords variable to be used in point raster value attribution.
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
 
-    # Define paths to relevant HUC6 HAND data.
-    for huc6 in huc6_list:
-        print(huc6)
+    # Define paths to relevant HUC HAND data.
+    for huc in huc_list:
 
-        # Define paths to relevant HUC6 HAND data and get necessary metadata for point rasterization.
-        hand_path = os.path.join(fim_directory, huc6, 'hand_grid_' + huc6 + '.tif')
+        # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
+        if scale == 'HUC8':
+            hand_path = os.path.join(fim_directory, huc, 'rem_zeroed_masked.tif')
+            catchments_path = os.path.join(fim_directory, huc, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+            output_src_json_file = os.path.join(fim_directory, huc, 'src.json')
+        else:
+            hand_path = os.path.join(fim_directory, huc, 'hand_grid_' + huc + '.tif')
+            catchments_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.tif')
+            output_src_json_file = os.path.join(fim_directory, huc, 'rating_curves_' + huc + '.json')
+        
+        # Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
         if not os.path.exists(hand_path):
-            print("HAND grid for " + huc6 + " does not exist.")
+            print("HAND grid for " + huc + " does not exist.")
             continue
-        catchments_path = os.path.join(fim_directory, huc6, 'catchments_' + huc6 + '.tif')
         if not os.path.exists(catchments_path):
-            print("Catchments grid for " + huc6 + " does not exist.")
+            print("Catchments grid for " + huc + " does not exist.")
             continue
-        htable_path = os.path.join(fim_directory, huc6, 'hydroTable.csv')
-        if not os.path.exists(htable_path):
-            print("hydroTable for " + huc6 + " does not exist.")
-            continue
-        output_src_json_file = os.path.join(fim_directory, huc6, 'rating_curves_' + huc6 + '.json')
         if not os.path.isfile(output_src_json_file):
-            print("Rating Curve JSON file for " + huc6 + " does not exist.")
+            print("Rating Curve JSON file for " + huc + " does not exist.")
+            continue
+        
+        # Define path to hydroTable.csv.
+        htable_path = os.path.join(fim_directory, huc, 'hydroTable.csv')
+        if not os.path.exists(htable_path):
+            print("hydroTable for " + huc + " does not exist.")
             continue
 
-#        water_edge_df = water_edge_df[water_edge_df['HUC6'] == huc6]
-
-        # Use point geometry to determine pixel values at catchment and HAND grids.
+        # Use point geometry to determine HAND raster pixel values.
         hand_src = rasterio.open(hand_path)
+        hand_crs = hand_src.crs        
+        water_edge_df.to_crs(hand_crs)  # Reproject geodataframe to match hand_src. Should be the same, but this is a double check.
         water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
         hand_src.close()
+        del hand_src, hand_crs,
+        
+        # Use point geometry to determine catchment raster pixel values.
         catchments_src = rasterio.open(catchments_path)
+        catchments_crs = catchments_src.crs
+        water_edge_df.to_crs(catchments_crs)
         water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
-        #print(water_edge_df)
-
+        catchments_src.close()
+        del catchments_src, catchments_crs
+        
         # Get median HAND value for appropriate groups.
         water_edge_median_ds = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
-
-        output_csv = os.path.join(fim_directory, huc6, 'user_supplied_n_vals_' + huc6 + '.csv')
-
+        
+        # Write user_supplied_n_vals to CSV for next step.
+        output_csv = os.path.join(fim_directory, huc, 'user_supplied_n_vals_' + huc + '.csv')
         water_edge_median_ds.to_csv(output_csv)
+        del water_edge_median_ds
 
-        # 1. Loop and find the corresponding hydroids in the Hydrotable
-        # 2. Grab slope, wetted area, hydraulic radius, and feature_id that correspond with the matching hydroids and HAND value for the nearest stage
-        # 3. Calculate new column for new roughness using the above info
-        #    3b. If multiple flows exist per hydroid, aggregate the resulting Manning Ns
-        #    3c. If range of resulting Manning Ns is high, notify human
-        # 4. Update Hydrotable
-        #    4a. Copy default flow and N columns to new columns with "_default" in the field name
-        #    4b. Overwrite the official flow and N columns with the new calculated values
-        #    4c. Add last_updated column with timestamp where values were changed, also add "submitter" column
-        # 5. What do we do in catchments that match the feature_id?
-        #    5a. If these catchments already have known data, then let it use those. If not, use new calculated Ns.
-
-        update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc6)
-
+        # Call update_rating_curve() to perform the rating curve calibration.
+        # Still testing, so I'm having the code print out any exceptions.
+        try:
+            update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
+        except Exception as e:
+            print(e)
 
 
 if __name__ == '__main__':
+    
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts rating curve given a shapefile containing points of known water boundary.')
     parser.add_argument('-p','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
     parser.add_argument('-d','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
-    parser.add_argument('-w','--wbd-path', help='Path to national HUC6 layer.',required=True)
+    parser.add_argument('-w','--wbd-path',help='Path to national huc layer.',required=True)
+    parser.add_argument('-s','--scale',help='huc or HUC8', required=True)
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     points_layer = args['points_layer']
     fim_directory = args['fim_directory']
     wbd_path = args['wbd_path']
+    scale = args['scale']
+    
+    if scale not in ['huc', 'HUC8']:
+        print("scale (-s) must be huc or HUC8")
+        quit()
 
     # Create log file for processing records
     print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
     log_file = open(os.path.join(fim_directory,'log_rating_curve_adjust.log'),"w")
 
-    ingest_points_layer(points_layer, fim_directory, wbd_path)
-
-    # Open catchment, HAND, and point grids and determine pixel values for Hydroid, HAND value, and discharge value, respectively.
-
-    # Open rating curve file(s).
-
-    # Use three values to determine the hydroid rating curve(s) to update, then update them using a variation of Manning's Equation.
-
-    # Ensure the JSON rating curve is updated and saved (overwitten). Consider adding attributes to document what was performed.
+    ingest_points_layer(points_layer, fim_directory, wbd_path, scale)
 
     # Close log file
     sys.stdout = sys.__stdout__
