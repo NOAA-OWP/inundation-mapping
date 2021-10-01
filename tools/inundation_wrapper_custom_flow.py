@@ -44,20 +44,34 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
     if "previous_fim" in fim_run_dir and "fim_2" in fim_run_dir:
         rem = os.path.join(fim_run_dir, 'rem_clipped_zeroed_masked.tif')
         catchments = os.path.join(fim_run_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif')
+        if not os.path.isfile(rem):
+            print('Can not find REM file: ' + str(rem))
+        if not os.path.isfile(catchments):
+            print('Can not find catchments file: ' + str(catchments))
     else:
         rem = os.path.join(fim_run_dir, 'rem_zeroed_masked.tif')
         catchments = os.path.join(fim_run_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+        if not os.path.isfile(rem):
+            print('Can not find REM file: ' + str(rem))
+        if not os.path.isfile(catchments):
+            print('Can not find catchments file: ' + str(catchments))
     if mask_type == 'huc':
         catchment_poly = ''
+        print('Not using the catchment polygon input layer -- FIM version < 3??')
     else:
         catchment_poly = os.path.join(fim_run_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+        if not os.path.isfile(catchment_poly):
+            print('Can not find catchments polygon file: ' + str(catchments))
     hydro_table = os.path.join(fim_run_dir, 'hydroTable.csv')
-
-    # Map necessary inputs for inundation().
-    hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
+    if not os.path.isfile(hydro_table):
+        print('Can not find hydro_table file: ' + str(hydro_table))
 
     #benchmark_category = huc_id.split('_')[1]
     current_huc = huc_id.split('_')[0]  # Break off HUC ID and assign to variable.
+    wbd_huc = 'WBDHU' + str(len(huc_id)) # check if the input huc is 2,4,6,8 etc
+
+    # Map necessary inputs for inundation().
+    hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), wbd_huc
 
     if not os.path.exists(branch_test_case_dir_parent):
         os.mkdir(branch_test_case_dir_parent)
@@ -70,6 +84,8 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
     # Define paths to inundation_raster and forecast file.
     inundation_raster = os.path.join(branch_test_case_dir_parent, branch_name + '_inund_extent.tif')
     forecast = os.path.join(TEST_CASES_DIR,"_input_flow_files", input_flow_csv)
+    if not os.path.isfile(forecast):
+        print('Can not find input flow file: ' + str(forecast))
 
     # Copy forecast flow file into the outputs directory to all viewer to reference the flows used to create inundation_raster
     shutil.copyfile(forecast,os.path.join(branch_test_case_dir_parent,input_flow_csv))
@@ -79,10 +95,12 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
     inundate(
              rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
              subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
-             depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
+             depths=None,out_raster_profile=None,out_vector_profile=None,quiet=False
             )
 
     print("-----> Inundation mapping complete.")
+    if not os.path.isfile(inundation_raster):
+        print('Warning!! Inundation Raster not produced: ' + str(inundation_raster))
 
 
 if __name__ == '__main__':

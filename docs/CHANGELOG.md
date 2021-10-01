@@ -2,6 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.6 - 2021-09-13 - [PR #462](https://github.com/NOAA-OWP/cahaba/pull/462)
+
+This new workflow ingests FIM point observations from users and “corrects” the synthetic rating curves to produce the desired FIM extent at locations where feedback is available (locally calibrate FIM).
+
+## Changes
+- `add_crosswalk.py`: added `NextDownID` and `order_` attributes to the exported `hydroTable.csv`. This will potentially be used in future enhancements to extend SRC changes to upstream/downstream catchments.
+- `adjust_rc_with_feedback.py`: added a new workflow to perform the SRC modifications (revised discharge) using the existing HAND geometry variables combined with the user provided point location flow and stage data.
+- `inundation_wrapper_custom_flow.py`: updated code to allow for huc6 processing to generate custom inundation outputs.
+
+<br/><br/>
+
 ## v3.0.22.5 - 2021-09-08 - [PR #460](https://github.com/NOAA-OWP/cahaba/pull/460)
 
 Patches an issue where only certain benchmark categories were being used in evaluation.
@@ -64,7 +75,7 @@ This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in futu
 General repository cleanup, made memory-profiling an optional flag, API's release feature now saves outputs.
 
 ## Changes
-- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove ``.dockerignore`.
+- Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove `.dockerignore`.
 - Clean up `Dockerfile` and remove any unused* packages or variables.
 - Remove any unused* Python packages from the `Pipfile`.
 - Move the `CHANGELOG.md`, `SECURITY.md`, and `TERMS.md` files to the `/docs` folder.
