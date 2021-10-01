@@ -38,7 +38,7 @@ def variable_mannings_calc(args):
 
     in_src_bankfull_filename    = args[0]
     channel_ratio_src_column    = args[1]
-    mann_n_table                = args[2]
+    df_mann                     = args[2]
     huc                         = args[3]
     out_src_bankfull_filename   = args[4]
     htable_filename             = args[5]
@@ -54,9 +54,6 @@ def variable_mannings_calc(args):
     if channel_ratio_src_column not in df_src.columns:
         print(out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
         print(df_src.columns)
-
-    # Read the Manning's n csv (must contain feature_id, channel mannings, floodplain mannings)
-    df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': str})
 
     # Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
     df_src = df_src.merge(df_mann,  how='left', on='feature_id')
@@ -184,6 +181,9 @@ if __name__ == '__main__':
     if 'channel_n' not in df_mann_check.columns or 'overbank_n' not in df_mann_check.columns or 'feature_id' not in df_mann_check.columns:
         print('Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + mann_n_table)
     else:
+        # Read the Manning's n csv (must contain feature_id, channel mannings, floodplain mannings)
+        df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': str})
+
         # Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
         huc_list  = os.listdir(fim_dir)
         for huc in huc_list:
@@ -195,7 +195,7 @@ if __name__ == '__main__':
                 huc_plot_output_dir = join(fim_dir,huc,'src_plots')
 
                 if isfile(in_src_bankfull_filename):
-                    procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, mann_n_table, huc, out_src_bankfull_filename, htable_filename, new_htable_filename, src_plot_option, huc_plot_output_dir])
+                    procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_bankfull_filename, htable_filename, new_htable_filename, src_plot_option, huc_plot_output_dir])
                 else:
                     print(str(huc) + ' --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)))
 
