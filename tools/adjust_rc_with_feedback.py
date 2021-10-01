@@ -7,6 +7,8 @@ import pandas as pd
 import numpy as np
 import sys
 import json
+import multiprocessing
+from multiprocessing import Pool
 
 
 def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc):
@@ -131,8 +133,53 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
         json.dump(output_src_json,f,sort_keys=True)
 
 
-def ingest_points_layer(points_layer, fim_directory, wbd_path, scale):
+def process_points(args):
+        
+    fim_directory = args[0]
+    huc = args[1]
+    hand_path = args[2]
+    catchments_path = args[3]
+    water_edge_df = args[4]
+    output_src_json_file = args[5]
+    htable_path = args[6]
+    
+    # Define coords variable to be used in point raster value attribution.
+    coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
+    
+    # Use point geometry to determine HAND raster pixel values.
+    hand_src = rasterio.open(hand_path)
+    hand_crs = hand_src.crs        
+    water_edge_df.to_crs(hand_crs)  # Reproject geodataframe to match hand_src. Should be the same, but this is a double check.
+    water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
+    hand_src.close()
+    del hand_src, hand_crs,
+    
+    # Use point geometry to determine catchment raster pixel values.
+    catchments_src = rasterio.open(catchments_path)
+    catchments_crs = catchments_src.crs
+    water_edge_df.to_crs(catchments_crs)
+    water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
+    catchments_src.close()
+    del catchments_src, catchments_crs
+    
+    # Get median HAND value for appropriate groups.
+    water_edge_median_ds = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
+    
+    # Write user_supplied_n_vals to CSV for next step.
+    output_csv = os.path.join(fim_directory, huc, 'user_supplied_n_vals_' + huc + '.csv')
+    water_edge_median_ds.to_csv(output_csv)
+    del water_edge_median_ds
 
+    # Call update_rating_curve() to perform the rating curve calibration.
+    # Still testing, so I'm having the code print out any exceptions.
+    try:
+        update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
+    except Exception as e:
+        print(e)
+
+
+def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number):
+    
     # Define CRS to use for initial geoprocessing.
     if scale == 'HUC8':
         hand_crs_default = 'EPSG:5070'
@@ -164,18 +211,24 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale):
     # Extract information into dictionary.
     huc_list = []
     for index, row in gdf.iterrows():
-        huc = row['HUC8']
+        huc = row[scale]
+        
+        # zfill to the appropriate scale to ensure leading zeros are present, if necessary.
+        if scale == 'HUC8':
+            huc = huc.zfill(8)
+        else:
+            huc = huc.zfill(6)
+        
         if huc not in huc_list:
             huc_list.append(huc)
             log_file.write(str(huc) + '\n')    
     del gdf
 
-    # Define coords variable to be used in point raster value attribution.
-    coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
+    procs_list = []  # Initialize list for mulitprocessing.
 
     # Define paths to relevant HUC HAND data.
     for huc in huc_list:
-
+        print(huc)
         # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
         if scale == 'HUC8':
             hand_path = os.path.join(fim_directory, huc, 'rem_zeroed_masked.tif')
@@ -203,39 +256,15 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale):
             print("hydroTable for " + huc + " does not exist.")
             continue
 
-        # Use point geometry to determine HAND raster pixel values.
-        hand_src = rasterio.open(hand_path)
-        hand_crs = hand_src.crs        
-        water_edge_df.to_crs(hand_crs)  # Reproject geodataframe to match hand_src. Should be the same, but this is a double check.
-        water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
-        hand_src.close()
-        del hand_src, hand_crs,
-        
-        # Use point geometry to determine catchment raster pixel values.
-        catchments_src = rasterio.open(catchments_path)
-        catchments_crs = catchments_src.crs
-        water_edge_df.to_crs(catchments_crs)
-        water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
-        catchments_src.close()
-        del catchments_src, catchments_crs
-        
-        # Get median HAND value for appropriate groups.
-        water_edge_median_ds = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
-        
-        # Write user_supplied_n_vals to CSV for next step.
-        output_csv = os.path.join(fim_directory, huc, 'user_supplied_n_vals_' + huc + '.csv')
-        water_edge_median_ds.to_csv(output_csv)
-        del water_edge_median_ds
-
-        # Call update_rating_curve() to perform the rating curve calibration.
-        # Still testing, so I'm having the code print out any exceptions.
-        try:
-            update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
-        except Exception as e:
-            print(e)
+        procs_list.append([fim_directory, huc, hand_path, catchments_path, water_edge_df, output_src_json_file, htable_path])
+            
+    with Pool(processes=job_number) as pool:
+                pool.map(process_points, procs_list)
 
 
 if __name__ == '__main__':
+    
+    available_cores = multiprocessing.cpu_count()
     
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts rating curve given a shapefile containing points of known water boundary.')
@@ -243,6 +272,7 @@ if __name__ == '__main__':
     parser.add_argument('-d','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-w','--wbd-path',help='Path to national huc layer.',required=True)
     parser.add_argument('-s','--scale',help='huc or HUC8', required=True)
+    parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=available_cores - 2)
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -250,17 +280,22 @@ if __name__ == '__main__':
     fim_directory = args['fim_directory']
     wbd_path = args['wbd_path']
     scale = args['scale']
+    job_number = int(args['job_number'])
     
-    if scale not in ['huc', 'HUC8']:
-        print("scale (-s) must be huc or HUC8")
+    if scale not in ['HUC6', 'HUC8']:
+        print("scale (-s) must be HUC6s or HUC8")
         quit()
+        
+    if job_number > available_cores:
+        job_number = available_cores - 1
+        print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
 
     # Create log file for processing records
     print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
     log_file = open(os.path.join(fim_directory,'log_rating_curve_adjust.log'),"w")
 
-    ingest_points_layer(points_layer, fim_directory, wbd_path, scale)
+    ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number)
 
     # Close log file
     sys.stdout = sys.__stdout__
