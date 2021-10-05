@@ -12,6 +12,7 @@ from os.path import isfile, join, dirname, isdir
 import shutil
 import warnings
 from pathlib import Path
+import datetime as dt
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -46,31 +47,34 @@ def variable_mannings_calc(args):
     src_plot_option             = args[7]
     huc_output_dir              = args[8]
 
-    # Read the src_full_crosswalked.csv
-    print('Processingg: ' + str(huc))
-    df_src = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': str})
+    ## Read the src_full_crosswalked.csv
+    #print('Processingg: ' + str(huc))
+    log_text = 'Calculating: ' + str(huc) + '\n'
+    df_src = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': 'int64'})
 
-    # Check that the channel ratio column the user specified exists in the def
+    ## Check that the channel ratio column the user specified exists in the def
     if channel_ratio_src_column not in df_src.columns:
-        print(out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
-        print(df_src.columns)
+        #print(out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
+        log_text += str(huc) + ' --> ' + out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
 
-    # Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
+    ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
     df_src = df_src.merge(df_mann,  how='left', on='feature_id')
     check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
     if check_null > 0:
-        print('Null feature_ids in crosswalk for huc: ' + str(huc) + ' --> missing entries= ' + str(check_null/84))
+        #print('Null feature_ids in crosswalk for huc: ' + str(huc) + ' --> missing entries= ' + str(check_null/84))
+        log_text += str(huc) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
 
-    # Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
+    ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
     df_src['comp_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
-    print('Done calculating composite Manning n (' + channel_ratio_src_column + '): ' + str(huc))
+    #print('Done calculating composite Manning n (' + channel_ratio_src_column + '): ' + str(huc))
 
-    # Check if there are any missing data in the composite ManningN column
-    check_null = df_src['comp_ManningN'].isnull().sum()
-    if check_null > 0:
-        print('!!!!Missing values in the var_ManningN merge' + str(huc) + ' --> missing entries= ' + str(check_null))
+    ## Check if there are any missing data in the composite ManningN column
+    check_null_comp = df_src['comp_ManningN'].isnull().sum()
+    if check_null_comp > 0:
+        #print('!!!!Missing values in the var_ManningN merge' + str(huc) + ' --> missing entries= ' + str(check_null_comp))
+        log_text += str(huc) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
 
-    # Check which channel geometry parameters exist in the src_df (use bathy adjusted vars by default) --> this is needed to handle differences btw BARC & no-BARC outputs
+    ## Check which channel geometry parameters exist in the src_df (use bathy adjusted vars by default) --> this is needed to handle differences btw BARC & no-BARC outputs
     if 'HydraulicRadius (m)_bathy_adj' in df_src:
         hydr_radius = 'HydraulicRadius (m)_bathy_adj'
     else:
@@ -93,10 +97,10 @@ def variable_mannings_calc(args):
         df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
         df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
 
-    # Output new SRC with bankfull column
+    ## Output new SRC with bankfull column
     df_src.to_csv(out_src_bankfull_filename,index=False)
 
-    # Output new hydroTable with new discharge_1_5
+    ## Output new hydroTable with updated discharge and ManningN column
     df_src_trim = df_src[['HydroID','Stage','Discharge (m3s-1)_varMann','comp_ManningN']]
     df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms','comp_ManningN':'ManningN'})
     df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
@@ -108,9 +112,11 @@ def variable_mannings_calc(args):
     #else:
     #    df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HUC','LakeID']] # set column order for hydroTable output
     df_htable.to_csv(new_htable_filename,index=False)
-    print('Output new files: ' + str(huc))
+    #print('Output new files: ' + str(huc))
+    log_text += 'Completed: ' + str(huc) + '\n'
+    log_file.write(str(log_text))
 
-    # plot rating curves
+    ## plot rating curves
     if src_plot_option == 'True':
         if isdir(huc_output_dir) == False:
             os.mkdir(huc_output_dir)
@@ -162,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-bc','--channel-ratio-src-column',help='SRC attribute containing the channel vs. overbank geometry ratio (for composite calc)',required=False,type=str,default='chann_hradius_ratio')
     parser.add_argument('-mann','--mann-n-table',help="Path to a csv file containing Manning's n values by featureid",required=True,type=str)
-    parser.add_argument('-suff','--hydrotable-suffix',help="Suffix to append to the new hydroTable csv file (e.g. '_global_0-6_0-11')",required=True,type=str)
+    parser.add_argument('-suff','--hydrotable-suffix',help="Suffix to append to the new hydroTable csv file (e.g. '_global_06_011')",required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
 
@@ -176,30 +182,55 @@ if __name__ == '__main__':
     src_plot_option = args['src_plot_option']
     procs_list = []
 
-    # check that manning's roughness table contains proper columns
-    df_mann_check = pd.read_csv(mann_n_table)
-    if 'channel_n' not in df_mann_check.columns or 'overbank_n' not in df_mann_check.columns or 'feature_id' not in df_mann_check.columns:
-        print('Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + mann_n_table)
+    print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + hydrotable_suffix + '.log')))
+    print('This may take a few minutes...')
+    ## Create a time var to log run time
+    begin_time = dt.datetime.now()
+
+    ## Check that the bankfull flow filepath exists and read to dataframe
+    if not isfile(mann_n_table):
+        print('!!! Can not find the input roughness/feature_id file: ' + str(mann_n_table))
     else:
-        # Read the Manning's n csv (must contain feature_id, channel mannings, floodplain mannings)
-        df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': str})
+        ## Read the Manning's n csv (ensure that it contains feature_id, channel mannings, floodplain mannings)
+        print('Importing the Manning roughness data file: ' + mann_n_table)
+        df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': 'int64'})
+        if 'channel_n' not in df_mann.columns or 'overbank_n' not in df_mann.columns or 'feature_id' not in df_mann.columns:
+            print('Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann)
+        else:
+            print('Running the variable_mannings_calc function...')
 
-        # Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-        huc_list  = os.listdir(fim_dir)
-        for huc in huc_list:
-            if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-                in_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
-                out_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_vmann.csv')
-                htable_filename = join(fim_dir,huc,'hydroTable.csv')
-                new_htable_filename = join(fim_dir,huc,'hydroTable' + hydrotable_suffix + '.csv')
-                huc_plot_output_dir = join(fim_dir,huc,'src_plots')
+            # initiate log file
+            sys.__stdout__ = sys.stdout
+            log_file = open(join(fim_dir,'log_composite_n' + hydrotable_suffix + '.log'),"w")
+            sys.stdout = log_file
+            log_file.write('START TIME: ' + str(begin_time) + '\n')
 
-                if isfile(in_src_bankfull_filename):
-                    procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_bankfull_filename, htable_filename, new_htable_filename, src_plot_option, huc_plot_output_dir])
-                else:
-                    print(str(huc) + ' --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)))
+            ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
+            huc_list  = os.listdir(fim_dir)
+            skip_hucs_log = ""
+            for huc in huc_list:
+                if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
+                    in_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
+                    out_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_vmann.csv')
+                    htable_filename = join(fim_dir,huc,'hydroTable.csv')
+                    new_htable_filename = join(fim_dir,huc,'hydroTable' + hydrotable_suffix + '.csv')
+                    huc_plot_output_dir = join(fim_dir,huc,'src_plots')
 
-        # Initiate multiprocessing
-        print(f"Applying variable Manning's n to SRC calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")
-        with Pool(processes=number_of_jobs) as pool:
-            pool.map(variable_mannings_calc, procs_list)
+                    if isfile(in_src_bankfull_filename):
+                        print(str(huc))
+                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_bankfull_filename, htable_filename, new_htable_filename, src_plot_option, huc_plot_output_dir])
+                    else:
+                        print(str(huc) + ' --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)))
+
+            ## Initiate multiprocessing
+            print(f"Applying variable Manning's n to SRC calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")
+            with Pool(processes=number_of_jobs) as pool:
+                pool.map(variable_mannings_calc, procs_list)
+
+            ## Record run time and close log file
+            end_time = dt.datetime.now()
+            log_file.write('END TIME: ' + str(end_time) + '\n')
+            tot_run_time = end_time - begin_time
+            log_file.write(str(tot_run_time))
+            sys.stdout = sys.__stdout__
+            log_file.close()
