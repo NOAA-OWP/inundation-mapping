@@ -1,42 +1,59 @@
 #!/bin/bash -e
 :
-usage ()
+usageMessage ()
 {
 	echo
     echo 'Produce FIM datasets'
     echo 'Usage : fim_run.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
     echo ''
     echo 'REQUIRED:'
-    echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
-    echo '                     also accepted. HUCs must present in inputs directory.'
-    echo '  -e/--extent     : full resolution or mainstem method; options are MS or FR'
-    echo '  -c/--config     : configuration file with bash environment variables to export'
-    echo '  -n/--runName    : a name to tag the output directories and log files as. could be a version tag.'
+    echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file also accepted.'
+	echo '                      HUCs must present in inputs directory.'
+    echo '  -e/--extent     : Full resolution or mainstem method; options are MS or FR.'
+    echo '  -c/--config     : Configuration file with bash environment variables to export.'
+    echo '  -n/--runName    : A name to tag the output directories and log files as.'
+	echo '                      Can be a version tag. AlphaNumeric and underscore only.'
     echo ''
     echo 'OPTIONS:'
-    echo '  -h/--help       : help file'
-    echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
-    echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
-    echo '  -o/--overwrite  : overwrite outputs if already exist'
-    echo '  -p/--production : only save final inundation outputs'
-    echo '  -w/--whitelist  : list of files to save in a production run in addition to final inundation outputs'
-    echo '                     ex: file1.tif,file2.json,file3.csv'
-    echo '  -v/--viz        : compute post-processing on outputs to be used in viz'
-    echo '  -m/--mem        : enable memory profiling'
-	echo '  -ssn/--step_start_number   : step number to start at (defaulted to 1).'
-	echo '                                  ex: -ssn 2'
-	echo '  -sen/--step_end_number       : step number to end after at.'
-	echo '                      		    ex: -sen 3  (if ssn is 2, this means start at 2 and end after at 3)'
-	echo
+    echo '  -h/--help       : Help file.'
+    echo '  -j/--jobLimit   : Max number of concurrent jobs to run. Default one job at time. One outputs'
+    echo '                      stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest.'
+    echo '  -o/--overwrite  : Overwrite outputs if already exist.'
+    echo '  -p/--production : Only save final inundation outputs.'
+    echo '  -w/--whitelist  : List of files to save in a production run in addition to final inundation outputs.'
+    echo '                       ex: file1.tif,file2.json,file3.csv'
+    echo '  -v/--viz        : Compute post-processing on outputs to be used in viz.'
+    echo '  -m/--mem        : Enable memory profiling'
+    echo '  -ssn            : step number to start at (defaulted to 1).'
+    echo '                        ex: -ssn 2'
+    echo '  -sen            : step number to end after at.'
+    echo '                        ex: -sen 3  (if ssn is 2, this means start at 2 and end after at 3)'
+	echo 
+	echo '   ***** NOTE: If you use the step start and end numbers, remember that it may '
+	echo '               leave orphaned files in output which needs to be cleaned up by hand.'
+	echo '               And, if you start at step number, you may need to have some files already in place.'
+	echo 
     exit
 }
 
+set -e
+
+process_error(){
+
+	echo "An error has occurred. Please recheck your input parameters and try again."
+	echo "Error Details: $1 .  On Line: $2"
+	echo
+	usageMessage
+
+}
+
+trap "process_error $1 $LINENO" ERR
 
 if [ "$#" -lt 7 ]
 then
-	usage
+   echo "Oops (Error): It appears there is a missing parameter"
+   usageMessage
 fi
-
 
 while [ "$1" != "" ]; do
 case $1
@@ -44,8 +61,8 @@ in
     -u|--hucList)
         shift
         hucList="$1"
-        ;;
-    -c|--configFile )
+		;;
+    -c|--configFile)
         shift
         envFile=$1
         ;;
@@ -63,7 +80,7 @@ in
         ;;
     -h|--help)
         shift
-        usage
+        usageMessage
         ;;
     -o|--overwrite)
         overwrite=1
@@ -81,19 +98,18 @@ in
     -m|--mem)
         mem=1
         ;;
-	-ssn)
-		shift
+    -ssn)
+        shift
 		step_start_number="$1"
 		;;
 	-sen)
-		shift
+        shift
 		step_end_number="$1"
 		;;
     *) ;;
     esac
     shift
 done
-
 
 # ---------------------------------------
 ## Check command line arguments for errors and setup variables if required
@@ -103,6 +119,8 @@ source $srcDir/validate_fim_run_args.sh
 source $envFile
 source $srcDir/bash_functions.env
 
+
+# ---------------------------------------
 ## Define Outputs Data Dir & Log File and input validations##
 export outputRunDataDir=$outputDataDir/$runName
 export extent=$extent
@@ -110,6 +128,12 @@ export production=$production
 export whitelist=$whitelist
 export viz=$viz
 export mem=$mem
+
+
+echo "All is well at this point - b"
+exit 0
+
+
 
 
 # ---------------------------------------

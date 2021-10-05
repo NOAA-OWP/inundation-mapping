@@ -1,34 +1,36 @@
 #!/bin/bash -e
 
 # ============================
+# Also checks the first char of the value. If you submit somethign like this -e -n "some_name"...
+#    notice the arg value is missing from -e... it will make the value of extent become "-n" (hence, invalid)
 function __Validate_Manditory_Args_Exist {
 	
 	# ------------------------------------
-	if [ "$hucList" = "" ]
+	if [ "$hucList" = "" ] || [ "${hucList::1}" = "-" ]
 	then
 		Show_Error 'missing -u/--hucList argument'
-		usage
+		usageMessage
 	fi
 
 	# ------------------------------------
-	if [ "$extent" = "" ]
-	then
-		Show_Error 'missing -e|--extent argument'
-		usage
-	fi
-
-	# ------------------------------------
-	if [ "$envFile" = "" ]
+	if [ "$envFile" = "" ] || [ "${envFile::1}" = "-" ]
 	then
 		Show_Error 'missing -c|--configFile argument'
-		usage
+		usageMessage
 	fi
 
 	# ------------------------------------
-	if [ "$runName" = "" ]
+	if [ "$extent" = "" ] || [ "${extent::1}" = "-" ]
+	then
+		Show_Error 'missing -e|--extent argument'
+		usageMessage
+	fi
+
+	# ------------------------------------
+	if [ "$runName" = "" ] || [ "${runName::1}" = "-" ]
 	then
 		Show_Error 'missing -n|--runName argument'
-		usage
+		usageMessage
 	fi
 
 }
@@ -38,14 +40,14 @@ function __Validate_Manditory_Args_Exist {
 function __Validate_Step_Numbers() {
 
 	# -----------------
-	Check_IsNumber $step_start_number
+	Check_IsInteger $step_start_number
     if [ $value_Is_Number -eq 1 ]
 	then # false
 		step_start_number=0
     fi
 
 	# -----------------
-	Check_IsNumber $step_end_number	
+	Check_IsInteger $step_end_number	
     if [ $value_Is_Number -eq 1 ]
 	then # false	
 		step_end_number=99
@@ -57,7 +59,6 @@ function __Validate_Step_Numbers() {
 	then # false	
 		step_end_number=99
     fi
-
 }
 
 
@@ -67,13 +68,17 @@ function __Validate_Step_Numbers() {
 	#--------------------------------------------
 	# extent (-e/--extent)
 	#     check to see if the value of 'MS' or 'FS' (we will correct for case)
-	if [ $extent != "" ] && [ ! Check_IsNumber $extent ]
+	Check_IsInteger $extent  # We check so the change to uppercase doesn't fail
+	if [ "$extent" != "" ] && [ $value_Is_Number -eq 0 ]  # not empty and is not a number, then we can uppercase it
 	then
-		$extent=$extent^^
-		if [ $extent != "MR" ] && [ $extent != "FS" ] ; then
+		extent=${extent^^}  # Change to uppercase
+		if [ "$extent" != "MS" ] && [ "$extent" != "FR" ] ; then
 			Show_Error '-e/--extent must be the value of MS or FR.'
-			usage
+			usageMessage
 		fi
+	else
+		Show_Error '-e/--extent must be the value of MS or FR.'
+		usageMessage
 	fi
 
 
@@ -81,11 +86,44 @@ function __Validate_Step_Numbers() {
 	# envFile (c/--config)
 	#     check to see if the path exists
 	Check_IsFileExists $envFile
-	if [ $value_Is_Number -eq 1 ] # false
+	if [ $file_Exists -eq 0 ] # false
 	then
 		Show_Error 'c/--config argument: The file name does not appear to exist. Check path, spelling and path.'
-		usage
+		usageMessage
 	fi
+
+	#--------------------------------------------
+	# -n/--runName
+	Check_File_Folder_Name_Characters $runName
+	if [ $is_Valid -eq 0 ] 
+	then
+		Show_Error '-n/--runName: Please use alpha-numeric or underscores only for the run name.'
+		usageMessage
+	fi
+	
+	#--------------------------------------------
+	# -j/--jobLimit
+
+
+	#--------------------------------------------
+	# -h/--help (with added args)
+
+
+	#--------------------------------------------
+	# -o|--overwrite
+
+
+	#--------------------------------------------
+	# w|--whitelist
+
+
+	#--------------------------------------------
+	# -v|--viz (with added args)
+
+
+	#--------------------------------------------
+	# -m|--mem (with added args)
+
 	
 	
 }
@@ -103,13 +141,14 @@ __Validate_Manditory_Args_Exist
 
 # huc inputs are handled by another script
 huc_input_validation_output=$( python3  $srcDir/check_huc_inputs.py -u "$hucList")
-if [ "$huc_input_validation_output" != "" ] ; then
-	Show_Error
-	echo "$huc_input_validation_output"
-	usage
+if [ "$huc_input_validation_output" != "" ] 
+then
+	Show_Error "$huc_input_validation_output"
+	usageMessage
 fi
 
+# validate other args
 __Validate_ArgValues
 __Validate_Step_Numbers
 
-exit
+

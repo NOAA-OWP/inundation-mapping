@@ -7,6 +7,7 @@ import numpy as np
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 from pyproj.crs import CRS
 
+# ========================================================= 
 def getDriver(fileName):
 
     driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
@@ -14,6 +15,8 @@ def getDriver(fileName):
 
     return(driver)
 
+
+# ========================================================= 
 def pull_file(url, full_pulled_filepath):
     """
     This helper function pulls a file and saves it to a specified path.
@@ -28,6 +31,7 @@ def pull_file(url, full_pulled_filepath):
     urllib.request.urlretrieve(url, full_pulled_filepath)
 
 
+# ========================================================= 
 def delete_file(file_path):
     """
     This helper function deletes a file.
@@ -42,6 +46,7 @@ def delete_file(file_path):
         pass
 
 
+# ========================================================= 
 def run_system_command(args):
     """
     This helper function takes a system command and runs it. This function is designed for use
@@ -58,6 +63,7 @@ def run_system_command(args):
     os.system(command)
 
 
+# ========================================================= 
 def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
 
     import geopandas as gp
@@ -89,6 +95,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
     gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)
 
 
+# ========================================================= 
 def update_raster_profile(args):
 
     elev_cm_filename   = args[0]
@@ -135,6 +142,7 @@ def update_raster_profile(args):
     dem_cm.close()
 
 
+# ========================================================= 
 '''
 This function isn't currently used but is the preferred method for
 reprojecting elevation grids.
@@ -148,7 +156,6 @@ reproject_dem is not stored in the shared_functions.py because rasterio and
 gdal bindings are not entirely compatible: https://rasterio.readthedocs.io/en/latest/topics/switch.html
 
 '''
-
 def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_raster_name=None):
 
     if blocksize is not None:
@@ -209,7 +216,7 @@ def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_r
                 del dst
         del src
 
-
+# ========================================================= 
 def mem_profile(func):
     def wrapper(*args, **kwargs):
         if (os.environ.get('mem') == "1"):
@@ -217,3 +224,64 @@ def mem_profile(func):
         else:
             func(*args, **kwargs)
     return wrapper
+
+
+# ========================================================= 
+def validate_is_integer(in_value):
+
+    is_valid = False
+    
+    try:
+        if (type(in_value) != int): 
+            if (type(in_value) == str) :
+                in_value_stripped = in_value.strip()
+                is_valid = in_value_stripped.isnumeric()
+        else:
+            is_valid = True
+
+    except Exception as ex:
+        is_valid = False
+    
+    return is_valid
+    
+ 
+ # ========================================================= 
+def validate_file_path(in_value):
+
+    is_valid = False
+    
+    try:
+        if type(in_value) == str :
+            is_valid = os.path.isfile(in_value)
+
+    except Exception as ex:
+        is_valid = False
+    
+    return is_valid
+ 
+ 
+# ========================================================= 
+def validate_arg(argument, arg_type):
+
+    """
+    Desc:
+        Can only validate integers and file paths at this time.
+        
+    Params:
+        argument: value to be tested
+        arg_type: thr value of "integer" or "file_path"
+        
+    Returns:
+        True (is valid) or False (not valid)
+    """
+    
+    is_valid = False
+    
+    if arg_type == "integer":
+        is_valid = validate_is_integer(argument)
+    elif arg_type == "file_path":
+        is_valid = validate_file_path(argument)
+    else:
+        raise Exception("arg_type param into validate_args method is not valid")
+    
+    return is_valid
