@@ -17,6 +17,7 @@ from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
 import sys
+import xarray as xr
 
 class hydroTableHasOnlyLakes(Exception): 
     """ Raised when a Hydro-Table only has lakes """
@@ -487,11 +488,16 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
 
 
     if isinstance(forecast,str):
-        forecast = pd.read_csv(
-                               forecast,
-                               dtype={'feature_id' : str , 'discharge' : float}
-                              )
-        forecast.set_index('feature_id',inplace=True)
+
+        try:
+            forecast = pd.read_csv(
+                                   forecast,
+                                   dtype={'feature_id' : str , 'discharge' : float}
+                                  )
+            forecast.set_index('feature_id',inplace=True)
+        except UnicodeDecodeError:
+            forecast = read_nwm_forecast_file(forecast)
+    
     elif isinstance(forecast,pd.DataFrame):
         pass # consider checking for dtypes, indices, and columns
     else:
@@ -547,6 +553,30 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
         hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
 
         return(catchmentStagesDict,hucSet)
+
+
+def read_nwm_forecast_file(forecast_file):
+        
+        flows_nc = xr.open_dataset(forecast_file,decode_cf='feature_id')
+        
+        flows_df = flows_nc.to_dataframe()
+        flows_df.reset_index(inplace=True)
+        
+        flows_df = flows_df[['streamflow','feature_id']]
+        flows_df = flows_df.rename(columns={"streamflow": "discharge"})
+
+        #flows_df = flows_df.drop(columns=["time","reference_time","crs","latitude","longitude","order","elevation","q_lateral","velocity","qSfcLatRunoff","qBucket","qBtmVertRunoff"])
+        #flows_df = flows_df.astype({'streamflow':"str","discharge":"float"}).dtypes
+        
+        convert_dict = {'feature_id': str,'discharge': float}
+        flows_df = flows_df.astype(convert_dict)
+        #flows_df['feature_id'] = flows_df['feature_id'].astype('|S')
+        
+        #flows_df['feature_id'] = flows_df['feature_id'].apply(lambda s: str(s,'utf-8'))
+        flows_df.set_index('feature_id',inplace=True,drop=True)
+        #print(flows_df.index);exit()
+
+        return(flows_df)
 
 
 def __vprint(message,verbose):
