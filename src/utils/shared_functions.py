@@ -224,10 +224,10 @@ def mem_profile(func):
         else:
             func(*args, **kwargs)
     return wrapper
-
+    
 
 # ========================================================= 
-def validate_is_integer(in_value):
+def validate_integer(in_value):
 
     is_valid = False
     
@@ -252,7 +252,7 @@ def validate_file_path(in_value):
     
     try:
         if type(in_value) == str :
-            is_valid = os.path.isfile(in_value)
+            is_valid = os.path.isfile(in_value.strip())
 
     except Exception as ex:
         is_valid = False
@@ -267,21 +267,64 @@ def validate_arg(argument, arg_type):
     Desc:
         Can only validate integers and file paths at this time.
         
+    Usage:
+        validate_arg({your value}, "  integer")
+        
     Params:
         argument: value to be tested
-        arg_type: thr value of "integer" or "file_path"
+        arg_type: valid types are:
+                "integer" 
+                "file_path"
         
     Returns:
         True (is valid) or False (not valid)
     """
+        
+    try:
+         # Note:  This will look for functions named "validate_" (then the arg type on the end)
+         
+        return globals()["validate_" + arg_type](argument)
+    except:
+        raise Exception("Internal Error: validate_args has invalid arg_type. " \
+                        + "Details: argument=" + argument + ", arg_type=" + arg_type)
     
-    is_valid = False
+
+ 
+# ========================================================= 
+def string_to_list_with_strip(in_value, delimiter):
+    """
+    Performs a simple string to list, but strips whitespaces from each end of the list values
     
-    if arg_type == "integer":
-        is_valid = validate_is_integer(argument)
-    elif arg_type == "file_path":
-        is_valid = validate_file_path(argument)
+    Input:
+        - in_value: string to be split
+        - delimiter: if a delimiter is not a value, an exception will be raised. 
+            If an invalid delimter char or string, python will error out automatically.
+            
+    Returns:
+        A list collection
+        
+        - If a empty or null coming in, then an empty list will be returned
+        - If demimiter value is submitted but doesn't exists, the in_value will be returned 
+            in the first element of the list
+         
+    """
+
+    if(not (delimiter and delimiter.strip())):
+        raise Exception('Internal Error: missing value for delimiter')
+     
+    response_list = []
+
+    # check to see if it a set of huc codes ie) 11090105,11130102,07090002
+    if delimiter in in_value:
+        split_values = in_value.split(delimiter)
+        
+        # strip spaces from each code.  Note: May not be valid, check later.
+        for index, item in enumerate(split_values):
+            response_list.append(item.strip())
+            
     else:
-        raise Exception("arg_type param into validate_args method is not valid")
-    
-    return is_valid
+        response_list.append(in_value)
+        
+    return response_list
+        
+            

@@ -16,17 +16,17 @@ usageMessage ()
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : Help file.'
-    echo '  -j/--jobLimit   : Max number of concurrent jobs to run. Default one job at time. One outputs'
-    echo '                      stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest.'
+    echo '  -j/--jobLimit   : Max number of concurrent jobs to run. Default one job at time.'
+    echo '                      One outputs stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest.'
     echo '  -o/--overwrite  : Overwrite outputs if already exist.'
     echo '  -p/--production : Only save final inundation outputs.'
     echo '  -w/--whitelist  : List of files to save in a production run in addition to final inundation outputs.'
     echo '                       ex: file1.tif,file2.json,file3.csv'
     echo '  -v/--viz        : Compute post-processing on outputs to be used in viz.'
     echo '  -m/--mem        : Enable memory profiling'
-    echo '  -ssn            : step number to start at (defaulted to 1).'
+    echo '  -ssn            : Step number to start at (defaulted to 1).'
     echo '                        ex: -ssn 2'
-    echo '  -sen            : step number to end after at.'
+    echo '  -sen            : Step number to end after (defaulted to 99).'
     echo '                        ex: -sen 3  (if ssn is 2, this means start at 2 and end after at 3)'
 	echo 
 	echo '   ***** NOTE: If you use the step start and end numbers, remember that it may '
@@ -48,12 +48,6 @@ process_error(){
 }
 
 trap "process_error $1 $LINENO" ERR
-
-if [ "$#" -lt 7 ]
-then
-   echo "Oops (Error): It appears there is a missing parameter"
-   usageMessage
-fi
 
 while [ "$1" != "" ]; do
 case $1
@@ -111,17 +105,39 @@ in
     shift
 done
 
-# ---------------------------------------
-## Check command line arguments for errors and setup variables if required
-source $srcDir/validate_fim_run_args.sh 
 
-## SOURCE ENV FILE AND FUNCTIONS ##
-source $envFile
+# Common used tools
 source $srcDir/bash_functions.env
-
 
 # ---------------------------------------
 ## Define Outputs Data Dir & Log File and input validations##
+
+# ---------------------------------------
+## Check command line arguments for errors and setup variables if required
+#source $srcDir/validate_fim_run_args.sh 
+
+input_validation_output=$(python3 $srcDir/validate_frm_run_args.py -u $hucList \
+																   -c $envFile \
+																   -e $extent \																   
+																   -n $runName \
+																   -j $jobLimit \
+																   -w $whitelist \
+																   -ssn $step_start_number \
+																   -sen $step_end_number )
+
+if [ "$input_validation_output" != "" ] 
+then
+	Show_Error "$input_validation_output"
+	#usageMessage
+fi
+
+## SOURCE ENV FILE AND FUNCTIONS ##
+source $envFile
+
+
+# validate_fim_run_args can change some values which Bash will need.
+# We wil change step_start_number and step_end_number as global values
+
 export outputRunDataDir=$outputDataDir/$runName
 export extent=$extent
 export production=$production
@@ -130,17 +146,11 @@ export viz=$viz
 export mem=$mem
 
 
+
 echo "All is well at this point - b"
 exit 0
 
 
-
-
-# ---------------------------------------
-## default values
-if [ "$jobLimit" = "" ] ; then
-    jobLimit=$default_max_jobs
-fi
 
 logFile=$outputRunDataDir/logs/summary.log
 

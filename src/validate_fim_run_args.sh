@@ -29,7 +29,7 @@ function __Validate_Manditory_Args_Exist {
 	# ------------------------------------
 	if [ "$runName" = "" ] || [ "${runName::1}" = "-" ]
 	then
-		Show_Error 'missing -n|--runName argument'
+		Show_Error 'missing -n|--runName argument (or other arguments may be missing expected values). Please recheck your parameters.'
 		usageMessage
 	fi
 
@@ -39,15 +39,15 @@ function __Validate_Manditory_Args_Exist {
 # Validating step_start_number and step_end_number
 function __Validate_Step_Numbers() {
 
-	# -----------------
-	Check_IsInteger $step_start_number
+    # -----------------
+    Check_IsInteger $step_start_number
     if [ $value_Is_Number -eq 1 ]
 	then # false
-		step_start_number=0
+		step_start_number=1
     fi
 
-	# -----------------
-	Check_IsInteger $step_end_number	
+    # -----------------
+    Check_IsInteger $step_end_number	
     if [ $value_Is_Number -eq 1 ]
 	then # false	
 		step_end_number=99
@@ -61,7 +61,6 @@ function __Validate_Step_Numbers() {
     fi
 }
 
-
 # ============================
  function __Validate_ArgValues {
 
@@ -69,7 +68,7 @@ function __Validate_Step_Numbers() {
 	# extent (-e/--extent)
 	#     check to see if the value of 'MS' or 'FS' (we will correct for case)
 	Check_IsInteger $extent  # We check so the change to uppercase doesn't fail
-	if [ "$extent" != "" ] && [ $value_Is_Number -eq 0 ]  # not empty and is not a number, then we can uppercase it
+	if [ ! -z "$extent" ] && [ $value_Is_Number -eq 0 ]  # not empty and is not a number, then we can uppercase it
 	then
 		extent=${extent^^}  # Change to uppercase
 		if [ "$extent" != "MS" ] && [ "$extent" != "FR" ] ; then
@@ -80,7 +79,6 @@ function __Validate_Step_Numbers() {
 		Show_Error '-e/--extent must be the value of MS or FR.'
 		usageMessage
 	fi
-
 
 	#--------------------------------------------
 	# envFile (c/--config)
@@ -103,18 +101,20 @@ function __Validate_Step_Numbers() {
 	
 	#--------------------------------------------
 	# -j/--jobLimit
+	if [ -z "$jobLimit" ] || [ "$jobLimit" = "0" ]; then
+		jobLimit=$default_max_jobs
+	else
+		Check_IsInteger $jobLimit
+		if [ $value_Is_Number -eq 0 ] || [ "${jobLimit::1}" = "-" ] # ensure first char is not a dash (meaning they missed a value for -j
+		then
+			Show_Error '-j/--jobLimit: (Optional) argument value may be missing or is not a number.'
+			usageMessage
+		fi
+	fi
 
-
-	#--------------------------------------------
-	# -h/--help (with added args)
-
-
-	#--------------------------------------------
-	# -o|--overwrite
-
-
-	#--------------------------------------------
-	# w|--whitelist
+	#-h/--help = no need for validation
+	#-o/--overwrite = no need for validation
+	# -p/--production  = no need for validation
 
 
 	#--------------------------------------------
@@ -123,19 +123,35 @@ function __Validate_Step_Numbers() {
 
 	#--------------------------------------------
 	# -m|--mem (with added args)
-
-	
 	
 }
 
 # ============================
+# Validate that all of the file names that have been submitted (if any) are propertly formatted file names
+# with extensions.
 
+ function __Validate_Whitelist_Args {
+ 
+	echo $whitelist
+	
+	if [ ! -z "$whitelist" ]
+	then
+		# see if it is one file name or more than one seperated by comma'script
+		
+		WORKS FOR TWO FILES NAMES WITH NO SPACES BETWEEN COMMA'S, but if you add a space it doesn't work
+		
+		IFS="," read -a fileNames <<< $whitelist
+		
+		echo "the array is: ${fileNames[@]}"
+		echo "the count is ${#fileNames[@]}"
+	fi
+}
 
 # ============================
 # This is where the function calls are made. 
 # If an error is found, it will take care of messaging and exit if/as applicable.
 
-source $srcDir/bash_functions.env
+#source $srcDir/bash_functions.env
 
 __Validate_Manditory_Args_Exist
 
@@ -149,6 +165,7 @@ fi
 
 # validate other args
 __Validate_ArgValues
+__Validate_Whitelist_Args
 __Validate_Step_Numbers
 
 
