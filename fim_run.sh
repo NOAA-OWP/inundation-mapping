@@ -58,7 +58,7 @@ in
 		;;
     -c|--configFile)
         shift
-        envFile=$1
+        envFile="$1"
         ;;
     -e|--extent)
         shift
@@ -94,11 +94,11 @@ in
         ;;
     -ssn)
         shift
-		step_start_number="$1"
+		step_start_number=$1
 		;;
 	-sen)
         shift
-		step_end_number="$1"
+		step_end_number=$1
 		;;
     *) ;;
     esac
@@ -113,44 +113,54 @@ source $srcDir/bash_functions.env
 ## Define Outputs Data Dir & Log File and input validations##
 
 # ---------------------------------------
+#  October 2021: the python version below, but was temp put on hold in favour of the 
+# bash version which can update Bash variables. Python can not update the parent Bash variables
 ## Check command line arguments for errors and setup variables if required
-#source $srcDir/validate_fim_run_args.sh 
-
-input_validation_output=$(python3 $srcDir/validate_frm_run_args.py -u $hucList \
-																   -c $envFile \
-																   -e $extent \																   
-																   -n $runName \
-																   -j $jobLimit \
-																   -w $whitelist \
-																   -ssn $step_start_number \
-																   -sen $step_end_number )
-
-if [ "$input_validation_output" != "" ] 
-then
-	Show_Error "$input_validation_output"
-	#usageMessage
-fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 
+# Bash Version
+# make all input values as global so validate can use them
+
+export hucList=$hucList
+export envFile=$envFile
+export extent=$extent
+export runName=$runName
+export jobLimit=$jobLimit
+export whitelist=$whitelist
+export step_start_number=$step_start_number
+export step_end_number=$step_end_number
+
+source $srcDir/validate_fim_run_args.sh 
+
+#Python version
+# Careful not to add more than one space after each \.
+# input_validation_output=$(python3 $srcDir/validate_frm_run_args.py -u "$hucList" \
+																   # -c "$envFile" \
+																   # -e "$extent" \
+																   # -n "$runName" \
+																   # -j "$jobLimit" \
+																   # -w "$whitelist" \
+																   # -s "$step_start_number" \
+																   # -d "$step_end_number" )
+
+# if [ "$input_validation_output" != "" ] 
+# then
+	# Show_Error "$input_validation_output"
+	# #usageMessage
+# fi
+
+# At this point there is no clean way to have python change and export variables back to Bash
+# short of prints and bash parsing it. We will leave it for now until we change bash to python
 
 # validate_fim_run_args can change some values which Bash will need.
-# We wil change step_start_number and step_end_number as global values
+# We wil change step_start_number and step_end_number as global values.
+# This is not perfect as during validation it stripped some strings 
+# but was not easy get those values back to Bash. We can fix this
+# when we get it all in python
 
 export outputRunDataDir=$outputDataDir/$runName
-export extent=$extent
-export production=$production
-export whitelist=$whitelist
-export viz=$viz
-export mem=$mem
-
-
-
-echo "All is well at this point - b"
-exit 0
-
-
 
 logFile=$outputRunDataDir/logs/summary.log
 
