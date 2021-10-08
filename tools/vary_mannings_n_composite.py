@@ -48,20 +48,17 @@ def variable_mannings_calc(args):
     huc_output_dir              = args[8]
 
     ## Read the src_full_crosswalked.csv
-    #print('Processingg: ' + str(huc))
     log_text = 'Calculating: ' + str(huc) + '\n'
     df_src = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': 'int64'})
 
     ## Check that the channel ratio column the user specified exists in the def
     if channel_ratio_src_column not in df_src.columns:
-        #print(out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
         log_text += str(huc) + ' --> ' + out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
 
     ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
     df_src = df_src.merge(df_mann,  how='left', on='feature_id')
     check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
     if check_null > 0:
-        #print('Null feature_ids in crosswalk for huc: ' + str(huc) + ' --> missing entries= ' + str(check_null/84))
         log_text += str(huc) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
 
     ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
@@ -71,7 +68,6 @@ def variable_mannings_calc(args):
     ## Check if there are any missing data in the composite ManningN column
     check_null_comp = df_src['comp_ManningN'].isnull().sum()
     if check_null_comp > 0:
-        #print('!!!!Missing values in the var_ManningN merge' + str(huc) + ' --> missing entries= ' + str(check_null_comp))
         log_text += str(huc) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
 
     ## Check which channel geometry parameters exist in the src_df (use bathy adjusted vars by default) --> this is needed to handle differences btw BARC & no-BARC outputs
@@ -112,7 +108,6 @@ def variable_mannings_calc(args):
     #else:
     #    df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HUC','LakeID']] # set column order for hydroTable output
     df_htable.to_csv(new_htable_filename,index=False)
-    #print('Output new files: ' + str(huc))
     log_text += 'Completed: ' + str(huc) + '\n'
     log_file.write(str(log_text))
 
