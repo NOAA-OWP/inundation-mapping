@@ -85,12 +85,12 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
                 label_dict[label] = 'FIM 1'
             elif 'fim_2' in label:
                 label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
-            elif 'fim_3' in label:
+            elif 'fim_3' in label and len(label) < 20:
                 label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
             else:
-                label_dict[label] = label + ' ' + fim_configuration.lower()
+                label_dict[label] = label
         #Define simplified labels as a list.
         new_labels = [label_dict[label] for label in org_labels]
         #Define legend location. FAR needs to be in different location than CSI/POD.
@@ -99,7 +99,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
         else:
             legend_location = 'lower left'
         #rename legend labels to the simplified labels.
-        axes.legend(handles, new_labels, markerscale = 2, fontsize = 20, loc = legend_location, ncol = int(np.ceil(len(new_labels)/7)))
+        axes.legend(handles, new_labels, markerscale = 2, fontsize = 14, loc = legend_location, ncol = int(np.ceil(len(new_labels)/7)))
     #Print textbox if supplied
     if textbox_str:
         box_props = dict(boxstyle='round', facecolor='white', alpha=0.5)
@@ -252,12 +252,12 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
                 label_dict[label] = 'FIM 1'
             elif 'fim_2' in label:
                 label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
-            elif 'fim_5' in label:
+            elif 'fim_3' in label and len(label) < 20:
                 label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
             else:
-                label_dict[label] = label + ' ' + fim_configuration.lower()
+                label_dict[label] = label
         #Define simplified labels as a list.
         new_labels = [label_dict[label] for label in org_labels]
         #rename legend labels to the simplified labels.
