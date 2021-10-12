@@ -2,6 +2,20 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.7 - 2021-10-08 - [PR #467](https://github.com/NOAA-OWP/cahaba/pull/467)
+
+These "tool" enhancements 1) delineate in-channel vs. out-of-channel geometry to allow more targeted development of key physical drivers influencing the SRC calculations (e.g. bathymetry & Manning’s n) #418 and 2) applies a variable/composite Manning’s roughness (n) using user provided csv with in-channel vs. overbank roughness values #419 & #410.
+
+## Additions
+- `identify_src_bankfull.p`: new post-processing tool that ingests a flow csv (e.g. NWM 1.5yr recurr flow) to approximate the bankfull STG and then calculate the channel vs. overbank proportions using the volume and hydraulic radius variables
+- `vary_mannings_n_composite.py`: new post-processing tool that ingests a csv containing feature_id, channel roughness, and overbank roughness and then generates composite n values via the channel ratio variable
+
+## Changes
+- `eval_plots.py`: modified the plot legend text to display full label for development tests
+- `inundation.py`: added new optional argument (-n) and corresponding function to produce a csv containing the stage value (and SRC variables) calculated from the flow to stage interpolation.
+
+<br/><br/>
+
 ## v3.0.22.6 - 2021-09-13 - [PR #462](https://github.com/NOAA-OWP/cahaba/pull/462)
 
 This new workflow ingests FIM point observations from users and “corrects” the synthetic rating curves to produce the desired FIM extent at locations where feedback is available (locally calibrate FIM).

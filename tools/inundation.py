@@ -21,23 +21,9 @@ from shapely.geometry import shape
 
 
 def inundate(
-    rem,
-    catchments,
-    catchment_poly,
-    hydro_table,
-    forecast,
-    mask_type,
-    hucs=None,
-    hucs_layerName=None,
-    subset_hucs=None,
-    num_workers=1,
-    aggregate=False,
-    inundation_raster=None,
-    inundation_polygon=None,
-    depths=None,
-    out_raster_profile=None,
-    out_vector_profile=None,
-    quiet=False,
+    rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
+    subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
+    depths=None,out_raster_profile=None,out_vector_profile=None,src_table=None,quiet=False
 ):
     """
 
@@ -179,6 +165,8 @@ def inundate(
         raise TypeError("Pass hydro table csv")
 
     if catchmentStagesDict is not None:
+        if src_table is not None:
+            create_src_subset_csv(hydro_table,catchmentStagesDict,src_table)
 
         # make windows generator
         window_gen = __make_windows_generator(
@@ -696,107 +684,37 @@ def __vprint(message, verbose):
     if verbose:
         print(message)
 
+def create_src_subset_csv(hydro_table,catchmentStagesDict,src_table):
+    src_df = pd.DataFrame.from_dict(catchmentStagesDict, orient='index')
+    src_df.reset_index(inplace=True)
+    src_df.columns = ['HydroID','stage_inund']
+    df_htable = pd.read_csv(hydro_table,dtype={'HydroID': int})
+    df_htable = df_htable.merge(src_df,how='left',on='HydroID')
+    df_htable['find_match'] = (df_htable['stage'] - df_htable['stage_inund']).abs()
+    df_htable = df_htable.loc[df_htable.groupby('HydroID')['find_match'].idxmin()].reset_index(drop=True)
+    df_htable.to_csv(src_table,index=False)
+
 
 if __name__ == "__main__":
 
     # parse arguments
-    parser = argparse.ArgumentParser(
-        description="Rapid inundation mapping for FOSS FIM. Operates in single-HUC and batch modes."
-    )
-    parser.add_argument(
-        "-r",
-        "--rem",
-        help="REM raster at job level or mosaic vrt. Must match catchments CRS.",
-        required=True,
-    )
-    parser.add_argument(
-        "-c",
-        "--catchments",
-        help="Catchments raster at job level or mosaic VRT. Must match rem CRS.",
-        required=True,
-    )
-    parser.add_argument(
-        "-b", "--catchment-poly", help="catchment_vector", required=True
-    )
-    parser.add_argument(
-        "-t", "--hydro-table", help="Hydro-table in csv file format", required=True
-    )
-    parser.add_argument(
-        "-f", "--forecast", help="Forecast discharges in CMS as CSV file", required=True
-    )
-    parser.add_argument(
-        "-u",
-        "--hucs",
-        help="Batch mode only: HUCs file to process at. Must match CRS of input rasters",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-l",
-        "--hucs-layerName",
-        help="Batch mode only. Layer name in HUCs file to use",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-j",
-        "--num-workers",
-        help="Batch mode only. Number of concurrent processes",
-        required=False,
-        default=1,
-        type=int,
-    )
-    parser.add_argument(
-        "-s",
-        "--subset-hucs",
-        help="Batch mode only. HUC code, series of HUC codes (no quotes required), or line delimited of HUCs to run within the hucs file that is passed",
-        required=False,
-        default=None,
-        nargs="+",
-    )
-    parser.add_argument(
-        "-m",
-        "--mask-type",
-        help="Specify huc (FIM < 3) or filter (FIM >= 3) masking method",
-        required=False,
-        default="huc",
-    )
-    parser.add_argument(
-        "-a",
-        "--aggregate",
-        help="Batch mode only. Aggregate outputs to VRT files. Currently, raises warning and sets to false if used.",
-        required=False,
-        action="store_true",
-    )
-    parser.add_argument(
-        "-i",
-        "--inundation-raster",
-        help="Inundation Raster output. Only writes if designated. Appends HUC code in batch mode.",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-p",
-        "--inundation-polygon",
-        help="Inundation polygon output. Only writes if designated. Appends HUC code in batch mode.",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-d",
-        "--depths",
-        help="Depths raster output. Only writes if designated. Appends HUC code in batch mode.",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-q",
-        "--quiet",
-        help="Quiet terminal output",
-        required=False,
-        default=False,
-        action="store_true",
-    )
+    parser = argparse.ArgumentParser(description='Rapid inundation mapping for FOSS FIM. Operates in single-HUC and batch modes.')
+    parser.add_argument('-r','--rem', help='REM raster at job level or mosaic vrt. Must match catchments CRS.', required=True)
+    parser.add_argument('-c','--catchments',help='Catchments raster at job level or mosaic VRT. Must match rem CRS.',required=True)
+    parser.add_argument('-b','--catchment-poly',help='catchment_vector',required=True)
+    parser.add_argument('-t','--hydro-table',help='Hydro-table in csv file format',required=True)
+    parser.add_argument('-f','--forecast',help='Forecast discharges in CMS as CSV file',required=True)
+    parser.add_argument('-u','--hucs',help='Batch mode only: HUCs file to process at. Must match CRS of input rasters',required=False,default=None)
+    parser.add_argument('-l','--hucs-layerName',help='Batch mode only. Layer name in HUCs file to use',required=False,default=None)
+    parser.add_argument('-j','--num-workers',help='Batch mode only. Number of concurrent processes',required=False,default=1,type=int)
+    parser.add_argument('-s','--subset-hucs',help='Batch mode only. HUC code, series of HUC codes (no quotes required), or line delimited of HUCs to run within the hucs file that is passed',required=False,default=None,nargs='+')
+    parser.add_argument('-m', '--mask-type', help='Specify huc (FIM < 3) or filter (FIM >= 3) masking method', required=False,default="huc")
+    parser.add_argument('-a','--aggregate',help='Batch mode only. Aggregate outputs to VRT files. Currently, raises warning and sets to false if used.',required=False,action='store_true')
+    parser.add_argument('-i','--inundation-raster',help='Inundation Raster output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
+    parser.add_argument('-p','--inundation-polygon',help='Inundation polygon output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
+    parser.add_argument('-d','--depths',help='Depths raster output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
+    parser.add_argument('-n','--src-table',help='Output table with the SRC lookup/interpolation. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
+    parser.add_argument('-q','--quiet',help='Quiet terminal output',required=False,default=False,action='store_true')
 
     # extract to dictionary
     args = vars(parser.parse_args())
