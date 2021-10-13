@@ -20,10 +20,6 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
                          great_lakes_filename, wbd_buffer_distance,
                          lake_buffer_distance):
 
-    print("Before breakpoint")
-    breakpoint()
-    print("after breakpoint")
-
     hucUnitLength = len(str(hucCode))
 
     # Get wbd buffer
