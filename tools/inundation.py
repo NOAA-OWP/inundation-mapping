@@ -22,7 +22,7 @@ import geopandas as gpd
 def inundate(
              rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
              subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
-             depths=None,out_raster_profile=None,out_vector_profile=None,quiet=False
+             depths=None,out_raster_profile=None,out_vector_profile=None,src_table=None,quiet=False
             ):
     """
 
@@ -156,6 +156,8 @@ def inundate(
         raise TypeError("Pass hydro table csv")
 
     if catchmentStagesDict is not None:
+        if src_table is not None:
+            create_src_subset_csv(hydro_table,catchmentStagesDict,src_table)
 
         # make windows generator
         window_gen = __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
@@ -541,6 +543,16 @@ def __vprint(message,verbose):
     if verbose:
         print(message)
 
+def create_src_subset_csv(hydro_table,catchmentStagesDict,src_table):
+    src_df = pd.DataFrame.from_dict(catchmentStagesDict, orient='index')
+    src_df.reset_index(inplace=True)
+    src_df.columns = ['HydroID','stage_inund']
+    df_htable = pd.read_csv(hydro_table,dtype={'HydroID': int})
+    df_htable = df_htable.merge(src_df,how='left',on='HydroID')
+    df_htable['find_match'] = (df_htable['stage'] - df_htable['stage_inund']).abs()
+    df_htable = df_htable.loc[df_htable.groupby('HydroID')['find_match'].idxmin()].reset_index(drop=True)
+    df_htable.to_csv(src_table,index=False)
+
 
 if __name__ == '__main__':
 
@@ -560,6 +572,7 @@ if __name__ == '__main__':
     parser.add_argument('-i','--inundation-raster',help='Inundation Raster output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
     parser.add_argument('-p','--inundation-polygon',help='Inundation polygon output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
     parser.add_argument('-d','--depths',help='Depths raster output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
+    parser.add_argument('-n','--src-table',help='Output table with the SRC lookup/interpolation. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
     parser.add_argument('-q','--quiet',help='Quiet terminal output',required=False,default=False,action='store_true')
 
     # extract to dictionary
