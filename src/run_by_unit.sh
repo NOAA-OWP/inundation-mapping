@@ -26,12 +26,17 @@ echo -e "step_end_number=$step_end_number"
 echo -e $stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
-hucNumber="$1"
+#hucNumber="$1"
+echo ',,,'$1',,,'
+hucNumber=$(echo "$1" | xargs)  # strip extra chars off either end
 outputHucDataDir=$outputRunDataDir/$hucNumber
 mkdir $outputHucDataDir
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucUnitLength=${#hucNumber}
+echo '...hucNumber'$hucNumber'...'
+echo '...hucUnitLength'$hucUnitLength'...'
+
 huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
@@ -57,6 +62,7 @@ currentStepNumber=0
 ## GET WBD ##
 
 let "currentStepNumber+=1"
+echo 'current='$currentStepNumber
 if [ $currentStepNumber -ge $step_start_number ]; then
 	echo -e $startDiv"Step "$currentStepNumber": Get WBD $hucNumber"$stopDiv
 	date -u
@@ -73,6 +79,7 @@ fi
 ## Subset Vector Layers ##
 
 let "currentStepNumber+=1"
+echo 'current='$currentStepNumber
 if [ $currentStepNumber -ge $step_start_number ] && 
    [ $currentStepNumber -le $step_end_number ]; then
 

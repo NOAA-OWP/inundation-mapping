@@ -189,12 +189,25 @@ function __Validate_Step_Numbers() {
 
 __Validate_Manditory_Args_Exist
 
-# huc inputs are handled by another script
 huc_input_validation_output=$( python3  $srcDir/check_huc_inputs.py -u "$hucList")
+
 if [ "$huc_input_validation_output" != "" ] 
 then
-	Show_Error "$huc_input_validation_output"
-	usageMessage
+	# Oct 2021: Yes.. this is ugly picking up the first chars of the StdOut from python (which is really StnOut)
+	# but there is no other good way for now.
+	if [[ $huc_input_validation_output == err:* ]]
+	then
+		Show_Error "$huc_input_validation_output"
+		usageMessage
+	elif [[ $huc_input_validation_output == HUCS:* ]]
+	then
+		# We will remove the string of "HUCS:" from the start of the string, 
+		# then parse what is left over into an array of huc codes (comma seperated if more than one)
+		str_huc_codes=$(echo $huc_input_validation_output | sed 's/HUCS://')
+			
+		# split to an array based on the comma (remember, might only be one item and no comma)
+		IFS="," read -a hucCodes <<< $str_huc_codes
+	fi
 fi
 
 # validate other args

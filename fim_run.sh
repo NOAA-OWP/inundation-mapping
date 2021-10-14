@@ -49,6 +49,7 @@ process_error(){
 
 trap "process_error $1 $LINENO" ERR
 
+
 while [ "$1" != "" ]; do
 case $1
 in
@@ -123,7 +124,7 @@ source $envFile
 # Bash Version
 # make all input values as global so validate can use them
 
-export hucList=$hucList
+#export hucList=$hucList
 export envFile=$envFile
 export extent=$extent
 export runName=$runName
@@ -131,6 +132,10 @@ export jobLimit=$jobLimit
 export whitelist=$whitelist
 export step_start_number=$step_start_number
 export step_end_number=$step_end_number
+
+# a new variable called hucCodes is created in validate_fim_run which is an array
+# of huc codes that can be passed to the time_and_tee_run_by_unit
+export hucCodes
 
 source $srcDir/validate_fim_run_args.sh 
 
@@ -160,6 +165,7 @@ source $srcDir/validate_fim_run_args.sh
 # but was not easy get those values back to Bash. We can fix this
 # when we get it all in python
 
+
 export outputRunDataDir=$outputDataDir/$runName
 
 logFile=$outputRunDataDir/logs/summary.log
@@ -176,7 +182,7 @@ export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 
 
 ## Make output and data directories ##
-if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then
+if [ -d "$outputRunDataDir" ] && [ "$overwrite" -eq 1 ]; then
     rm -rf "$outputRunDataDir"
 elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
     echo "$runName data directories already exist. Use -o/--overwrite to continue"
@@ -184,20 +190,28 @@ elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
 fi
 mkdir -p $outputRunDataDir/logs
 
+
 ## RUN ##
-if [ -f "$hucList" ]; then
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-    else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
-    fi
+if [ "$jobLimit" -eq 1 ]; then
+	parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: "${hucCodes[@]}"
 else
-    if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-    else
-        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
-    fi
+	parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: "${hucCodes[@]}"
 fi
+
+
+# if [ -f "$hucList" ]; then
+    # if [ "$jobLimit" -eq 1 ]; then
+        # parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+    # else
+        # parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
+    # fi
+# else
+    # if [ "$jobLimit" -eq 1 ]; then
+        # parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+    # else
+        # parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
+    # fi
+# fi
 
 # identify missing HUCs
 # time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
