@@ -27,15 +27,12 @@ echo -e $stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 #hucNumber="$1"
-echo ',,,'$1',,,'
 hucNumber=$(echo "$1" | xargs)  # strip extra chars off either end
 outputHucDataDir=$outputRunDataDir/$hucNumber
 mkdir $outputHucDataDir
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucUnitLength=${#hucNumber}
-echo '...hucNumber'$hucNumber'...'
-echo '...hucUnitLength'$hucUnitLength'...'
 
 huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
