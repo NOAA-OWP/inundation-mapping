@@ -36,18 +36,17 @@ usageMessage ()
     exit
 }
 
-# set -e
+set -e
 
-# process_error(){
+process_error(){
 
-	# echo "An error has occurred. Please recheck your input parameters and try again."
-	# echo "Error Details: $1 .  On Line: $2"
-	# echo
-	# usageMessage
+	echo "An error has occurred. Please recheck your input parameters and try again."
+	echo "Error Details: $1 .  On Line: $2"
+	echo
+	usageMessage
+}
 
-# }
-
-# trap "process_error $1 $LINENO" ERR
+trap "process_error $1 $LINENO" ERR
 
 
 while [ "$1" != "" ]; do

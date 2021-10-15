@@ -59,7 +59,6 @@ currentStepNumber=0
 ## GET WBD ##
 
 let "currentStepNumber+=1"
-echo 'current='$currentStepNumber
 if [ $currentStepNumber -ge $step_start_number ]; then
 	echo -e $startDiv"Step "$currentStepNumber": Get WBD $hucNumber"$stopDiv
 	date -u
@@ -76,7 +75,6 @@ fi
 ## Subset Vector Layers ##
 
 let "currentStepNumber+=1"
-echo 'current='$currentStepNumber
 if [ $currentStepNumber -ge $step_start_number ] && 
    [ $currentStepNumber -le $step_end_number ]; then
 
