@@ -137,7 +137,17 @@ export step_end_number=$step_end_number
 # of huc codes that can be passed to the time_and_tee_run_by_unit
 export hucCodes
 
+# We need to create this variable at this point as the API needs this variable right away,
+# so it can log errors, including errors from the validation tools. runName might be error
+# at this point or have extra spaces or similar, but we have to look at this closer later.
+export outputRunDataDir=$outputDataDir/$runName
+
+logFile=$outputRunDataDir/logs/summary.log
+
+# validation for most input variables is done here. Some cleanup of variables are done as well
+# such as trimming, splitting hucs into pure numeric arrays, etc.
 source $srcDir/validate_fim_run_args.sh 
+
 
 #Python version
 # Careful not to add more than one space after each \.
@@ -165,10 +175,6 @@ source $srcDir/validate_fim_run_args.sh
 # but was not easy get those values back to Bash. We can fix this
 # when we get it all in python
 
-
-export outputRunDataDir=$outputDataDir/$runName
-
-logFile=$outputRunDataDir/logs/summary.log
 
 ## Define inputs
 export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg

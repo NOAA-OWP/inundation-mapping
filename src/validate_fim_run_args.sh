@@ -195,11 +195,11 @@ if [ "$huc_input_validation_output" != "" ]
 then
 	# Oct 2021: Yes.. this is ugly picking up the first chars of the StdOut from python (which is really StnOut)
 	# but there is no other good way for now.
-	if [[ $huc_input_validation_output == err:* ]]
+	if [[ $huc_input_validation_output == err:* ]]  #string starts with err:
 	then
 		Show_Error "$huc_input_validation_output"
 		usageMessage
-	elif [[ $huc_input_validation_output == HUCS:* ]]
+	elif [[ $huc_input_validation_output == HUCS:* ]]  #string starts with HUCS:
 	then
 		# We will remove the string of "HUCS:" from the start of the string, 
 		# then parse what is left over into an array of huc codes (comma seperated if more than one)
@@ -207,6 +207,9 @@ then
 			
 		# split to an array based on the comma (remember, might only be one item and no comma)
 		IFS="," read -a hucCodes <<< $str_huc_codes
+	else
+		# this will likely catch debuging prints (or really any prints that are not err: or HUCS:
+		echo "$huc_input_validation_output"
 	fi
 fi
 

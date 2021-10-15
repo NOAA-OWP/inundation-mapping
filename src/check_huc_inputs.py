@@ -63,7 +63,8 @@ def __read_input_hucs(huc_args):
                 huc_codes = hucs_file.read().splitlines() # might not be valid hucs, but validated later
                 
         elif (not helpers.validate_arg(huc_args[0], "integer")):
-            # could be an invalid file path, a single huc, a string of multiple comma delimited hucs, or an actual array of huc ints
+            # Could be an invalid file path, a single huc, a string of multiple comma delimited hucs,
+            # or an actual array of huc ints
             
             if ',' in huc_args[0]: # sometimes a single string with multiple hucs with commas can come in
                 huc_codes = helpers.string_to_list_with_strip(huc_args[0], ',')
@@ -139,7 +140,10 @@ if __name__ == '__main__':
 
         # parse arguments
         parser = argparse.ArgumentParser(description='Checks input hucs for availability within inputs')
-        parser.add_argument('-u','--huc_args',help='Line-delimited file or list of HUCs to check availibility for',required=True,nargs='+')
+        parser.add_argument('-u','--huc_args' \
+                            , help='Line-delimited file or list of HUCs to check availibility for' \
+                            , required=True \
+                            , nargs='+')
 
         # extract to dictionary
         args = vars(parser.parse_args())
@@ -150,6 +154,7 @@ if __name__ == '__main__':
         input_hucs_codes_list = check_hucs(**args)
        
         str_huc_list = __create_string_of_huc_codes(input_hucs_codes_list)
+        
         print(str_huc_list) # THIS MUST BE HERE: Its how the message gets back to Bash
         
     except KeyError as ke:
@@ -157,7 +162,8 @@ if __name__ == '__main__':
     
     except Exception as e:
     
-         # Oct 2021: Rob H: Not pretty, but print is std out and will carry over to bash. It should probably be another throw or force StdErr value or something.
+         # Oct 2021: Rob H: Not pretty, but print is std out and will carry over to bash. It should probably 
+         # be another throw or force StdErr value or something.
          print ("err: details (Internal Error): ")
          print(str(e) + ": Trace=" + traceback.format_exc())
          #exit(1)    
