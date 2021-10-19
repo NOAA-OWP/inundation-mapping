@@ -15,10 +15,10 @@ Increasing trends in frequency and risk are not uniform across spatial regions w
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Operational flood forecasting systems are primary tools in developing accurate forecasts for public awareness prior to life or property damaging events occur. 
-One of these operational systems is the Advanced Hydrologic Prediction System (AHPS) maintained by National Oceanic Atmospheric Administration (NOAA) National Weather Service (NWS) with more than 3,000 forecast points across the US at typically short forecast horizons of 24 or 72 hours \cite{mcenery2005noaa}.
-AHPS provides forecasting services in the form of ensemble stream flows at more than 3,000 forecast points and flood inundation maps (FIM) at more than 150 of those locations shown in Figure \ref{fig:forecast_points}.
+One of these operational systems is the Advanced Hydrologic Prediction System (AHPS) maintained by National Oceanic Atmospheric Administration (NOAA) National Weather Service (NWS) with thousands of forecasting points across the US at typically short forecast horizons of 24 or 72 hours \cite{mcenery2005noaa}.
+AHPS provides forecasting services in the form of ensemble stream flows at more than 3,000 locations and flood inundation maps (FIM) at more than 150 of those points shown in Figure \ref{fig:forecast_points}.
 Besides the AHPS forecast points, we display in Figure \ref{fig:forecast_points} two forecasting networks relevant to the National Water Model (NWM) which will be introduced in Section \ref{ssec:national_water_model}.
-AHPS implements a series of advances including model calibration techniques \cite{zhang2003hydrologic,hogue2003multi,duan2003global,gupta2003advances,parada2003multi}, distributed modeling approaches \cite{reed2004overall,koren2004hydrology,duan2002results}, ensemble forecasting \cite{day1985extended,seo2000simulation,mullusky2002simplified,herr2002simplified}, enhanced data analysis procedures \cite{mcenery2005noaa}, flood-forecasting inundation maps \cite{cajina2002fldview}, hydraulic routing models \cite{fread1973technique,cajina2002fldview}, and multisensor precipitation techniques \cite{breidenbach1999accounting,kondragunta2001outlier,seo2002real,bonnin1996noaa}.
+AHPS implements a series of advances including model calibration techniques \cite{zhang2003hydrologic,hogue2003multi,duan2003global,gupta2003advances,parada2003multi}, distributed modeling approaches \cite{reed2004overall,koren2004hydrology,duan2002results}, ensemble forecasting \cite{day1985extended,seo2000simulation,mullusky2002simplified,herr2002simplified}, enhanced data analysis procedures \cite{mcenery2005noaa}, flood-forecasting inundation maps \cite{cajina2002fldview}, hydraulic routing models \cite{fread1973technique,cajina2002fldview}, and multi-sensor precipitation techniques \cite{breidenbach1999accounting,kondragunta2001outlier,seo2002real,bonnin1996noaa}.
 On an approximate basis, there is only one forecast point every 1,450 km of river and one forecast point with FIM every 29,000 km.
 Despite the AHPS advances in operational flood forecasting, it lacks sufficient spatial coverage and long-range forecast horizons.
 %
@@ -42,12 +42,13 @@ It's simply an additional model to be used in the forecasting and early warning 
 Furthermore, the NWM as of V1.2 has implemented not only assimilation of real-time United States Geological Survey (USGS) stage discharges but also assimilation of flow forecasts from the AHPS forecast points which are in turn routed downstream and updated whenever a new point is reached. 
 This configuration of the NWM is known as `Replace and Route' or `RnR' and is used to enhance the forecasting skill of the NWM with the best available regional-scale data.
 Figure \ref{ssec:national_water_model} shows Full-Resolution (FR) modeling stream network as well as the RnR mainstems (MS) network.
+The MS network contains roughly 120 thousand forecasting points or roughly 4.4\% of the reaches of the FR stream network.
 
 The National Hydrography Dataset Plus (NHDPlus) V2.1 is the basis for the hydrofabric in the NWM due to its comprehensive use with the hydrologic communities' stakeholders \cite{mckay2012nhdplus}. 
 The term hydrofabric is used within the NWM jargon to describe the subset of hydrography comprised of geospatial datasets required for hydrologic modeling including but not limited to stream networks, catchments, channel properties, and elevation data. 
 The Muskingam-Cunge routing method is used within the NWM to reduce computational requirements of a continental scale model \cite{bedient2008hydrology,ponce1994variable,gochis2018wrf}.
 Muskingam-Cunge routing scheme has been demonstrated by \citeA{cunge1969subject} to be equivalent to the convective-diffusive wave method without consideration to wave dampening.
-As a result of high computational costs and large spatial domains, the need for high-resolution FIM at 10m or better requires additional post-processing from the principal output of the NWM which is forecast river discharges at the reach scale. The Height Above Nearest Drainage (HAND) terrain model is one such technique that can be used, along with synthetic rating curves (SRC), to convert riverine discharges to stages to inundation extents.
+As a result of high computational costs and large spatial domains, the need for high-resolution FIM at 10m or better requires additional post-processing from the principal output of the NWM which is forecast river discharges at the reach scale. The Height Above Nearest Drainage (HAND) terrain model is one such technique that can be used, along with synthetic rating curves (SRC), to convert riverine discharges to stages then finally to inundation extents.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Height Above Nearest Drainage}
@@ -55,6 +56,7 @@ As a result of high computational costs and large spatial domains, the need for 
 %
 HAND normalizes topography along the nearest drainage path and its been demonstrated to be a good proxy and indicator of a series of important environmental conditions including soil environments, landscape classes, soil gravitational potentials, geomorphologies, soil moisture, and ground water dynamics \cite{renno2008hand,nobre2011height}. 
 \citeA{nobre2016hand} showed evidence for utilizing the drainage normalizing HAND dataset as a proxy for flood potential to make static flood inundation maps from known stages.
+A core assumption made for HAND based FIM is enforcing drainage across the entire area of interest which requires significant DEM manipulations to make a reality.
 The terrain index as even gone on to provide additional utility in the observation of riverine flood inundation mapping from remote sensing especially in areas of high electromagnetic interference such as vegetated and anthropogenic areas \cite{aristizabal2020high,shastry2019using,huang2017comparison,twele2016sentinel}.
 \citeA{zheng2018river} developed methodology for determining stage-discharge relationships known as synthetic rating curves (SRC) by sampling reach-averaged parameters from HAND datasets and inputting into the Manning's equation \cite{gauckler1867etudes,manning1890flow}.
 This collection of methods, coupling HAND with SRCs, has been experimented and compared to other sources of FIM including engineering scale models, in-situ observation, and remote sensing based observation with solid results in large spatial scale applications \cite{godbout2019error,johnson2019integrated,garousi2019terrain,nobre2016hand,afshari2018comparison,zheng2018geoflood,teng2015rapid,teng2017flood,zhang2018comparative}.
@@ -68,30 +70,34 @@ HAND was initially implemented into operational software by the National Flood I
 NFIE used open-source dependencies including the Terrain Analysis Using Digital Elevation Models (TauDEM) \cite{tarboton2005terrain} and the Geospatial Data Abstraction Library (GDAL) \cite{warmerdam2008geospatial} to compute HAND for the Continental United States (CONUS) at 331 Hydrologic Unit Code (HUC) 6 processing units in 1.34 CPU years.
 By allocating 31 nodes at 20 cores per for a total of 620 available cores to the overall operation, it enabled the production to finish up in 36 hours consuming 3.2TB of peak memory and 5TB of total disk space.
 Originally, NFIE utilized the National Hydrography Dataset (NHD) Plus Medium Resolution (MR) to etch or burn flowlines prior to further conditioning but more recent work has advanced this to the more current NHDPlus High Resolution (HR) \cite{liu2020height}. 
-The original NFIE dataset was employed by the NWC to produce forecast FIM from the NWM for use within its network of RFC's for additional guidance in hydro-blind regions and tagged as OWP's FIM V1.0.
-Further work by \citeA{djokic2019arc}, implemented a series of improvements to HAND including equidistant reaches, updates to use with NHDPlusHR hydrography, and AGREE-DEM reconditioning \cite{hellweger1997agree} into an ESRI Arc-Hydro workflow with use in ArcGIS and tagged as OWP FIM V2.0. 
+The original NFIE dataset was employed by the NWC to produce forecast FIM from the NWM for use within its network of RFC's for additional guidance in hydro-blind regions.
+Further work by \citeA{djokic2019arc}, implemented a series of improvements to HAND including equidistant reaches, updates to use with NHDPlusHR hydrography, and AGREE-DEM reconditioning \cite{hellweger1997agree} into an ESRI Arc-Hydro workflow with use in ArcGIS. 
 More notably the software added the ability to derive drainage potentials on both the NWM FR and MS stream networks which leverages the lower drainage density and Horton-Strahler stream order of the MS network.
 Overall, the software package is estimated to run CONUS at the full-resolution in 0.55 CPU years in a desktop setting.
 In addition to the domestic work done in the US, some studies have expanded upon HAND to cover global domains at 30m resolutions \cite{yamazaki2019merit,donchyts2016global}.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{OWP FIM 3.0 `Cahaba'}
+\subsection{OWP FIM `Cahaba'}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-Many of those assessing HAND's efficacy for producing FIM have noted opportunities for improvement. 
+Many of those in the academic community assessing HAND's efficacy for producing FIM have noted opportunities for improvement. 
 \citeA{godbout2019error} found how reach length and slope are important parameters for maximizing mapping skill with the moderate values performing best. 
-The colinearity of reach length and slope led \citeA{godbout2019error} to propose that reaches of extreme lengths performed worse because of the extreme slope values, a parameter directly represented in Manning's equation. 
+The co-linearity of reach length and slope led \citeA{godbout2019error} to propose that reaches of extreme lengths performed worse because of the extreme slope values, a parameter directly represented in Manning's equation. 
 Issues with the reach-average approaches have been documented in \citeA{tuozzolo2019impact} where large within reach variance of the roughness Manning's n coefficient have been observed.
 Furthermore, \citeA{garousi2019terrain} noted improvements to mapping efficacy by conditioning monotonically decreasing thalweg elevations, adjusting the Manning's n roughness coefficient, and using higher resolution (3m) Digital Elevation Model's (DEM) derived from light detection and ranging (Lidar).
 Use of higher resolution DEMs in that study was motivated by previous work with Lidar DEMs and least-cost thalweg derivations \cite{zheng2018geoflood}.
 Further work by \citeA{johnson2019integrated} noted the general under-prediction of HAND and suggested tuning the Manning's n parameter to better align SRC's with observations. 
 Additionally, the sensitivity to low topographic relief and channel slope have been observed \cite{johnson2019integrated,godbout2019error}. 
-Most notably, HAND has been shown to demonstrate sensitivity to drainage network density known colloaquially as the catchment boundary problem \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
+Most notably, HAND has been shown to demonstrate sensitivity to drainage network density known colloquially as the catchment boundary problem \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
 This sensitivity is noted at higher order streams with large flows and low Froude numbers and is manifested by a constriction in the inundation extents at the junction location.
 These findings suggest improvements to HAND are required that utilize advanced computational algorithms and software to compute a FIM hydrofabric required for producing continental-scale FIM.
 
-A study is proposed to introduce and evaluate the development of OWP FIM V3.0 `Cahaba' which utilizes some of the latest mapping techniques along with a few novel developments in a computationally friendly framework. 
-Most notably this study demonstrates how FIM performance skill with HAND can be improved by reducing Horton-Strahler stream orders \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} of the stream networks.
-The following methods and results describe the work in more detail and demonstrates its efficacy in producing enhanced FIM for the NWM for operational forecast applications. 
-Furthermore, it enables the contribution from the broader hydro-community through its use of open-source code as further advances are made in this developing area of research.
+With all of the latest developments in the realm of continental FIM (CFIM) noted in the previous paragraph, a fast, open-source framework for accelerating the research to operational pipeline is required.
+Here we introduce OWP FIM `Cahaba' that utilizes a few of the latest techniques in HAND based FIM oriented for use with NWM in continental scale operational forecasting settings. 
+This framework is open-source and modular enabling and accelerating the research to operational development pipeline.
+Automated evaluation tooling and processed test case data enable for the rapid testing and evaluation of new techniques in consistent contexts.
+In addition to developed tooling, we introduce research demonstrating how FIM performance skill with HAND can be improved by reducing Horton-Strahler stream orders \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} of the stream networks.
+Previous authors dating back to the first HAND for FIM work by \citeA{nobre2016hand} have noted a sensitivity of mapping skill to stream threshold which serves as a proxy for stream density and the maximum Horton-Strahler stream order (or simply stream order) of the processing unit employed \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation}.
+Here we demonstrate how reducing a HAND processing unit's stream network to a singular stream order by assigning level paths to the target stream network and reducing the HAND processing unit to that singular level path.
+The following methods and results describe the work in more detail and demonstrates its efficacy in producing enhanced FIM for the NWM with applications.
 %
