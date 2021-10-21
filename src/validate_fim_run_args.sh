@@ -96,8 +96,7 @@ function __Validate_Step_Numbers() {
 	#--------------------------------------------
 	# envFile (c/--config)
 	#     check to see if the path exists
-	Check_IsFileExists $envFile
-	if [ $file_Exists -eq 0 ] # false
+	if [ ! -f $1 ] # false
 	then
 		Show_Error 'c/--config argument: The file name does not appear to exist. Check path, spelling and path.'
 		usageMessage
@@ -115,7 +114,7 @@ function __Validate_Step_Numbers() {
 	#--------------------------------------------
 	# -j/--jobLimit
 	# Also ensured first char is not a dash (meaning they missed a value for -j
-	if [ -z "$jobLimit" ] || [ "${jobLimit::1}" = "-" ]
+	if [ -z $jobLimit ] || [ "${jobLimit::1}" = "-" ]
 	then
 		jobLimit=$default_max_jobs
 	else
@@ -129,7 +128,7 @@ function __Validate_Step_Numbers() {
 			jobLimit=$(echo $jobLimit | sed 's/^0*//')
 			
 			# if it was all zeros, we change it to 1
-			if [ -z "$jobLimit" ]; then
+			if [ -z $jobLimit ]; then
 				jobLimit=$default_max_jobs
 			fi
 		fi
@@ -146,26 +145,42 @@ function __Validate_Step_Numbers() {
 # ============================
 # Validate that all of the file names that have been submitted (if any) are propertly formatted file names
 # with extensions.
-# The variable whitelist will be replaced at the end as it will trim whitespaces around the commas and each name
+# The variable whitelist will be replaced at the end as it will trim whitespaces around the commas and each name.
  function __Validate_Whitelist_Args {
-
 	
 	if [ ! -z "$whitelist" ]
 	then
-		# see if it is one file name or more than one seperated by comma'script
 	
-		IFS="," read -a fileNames <<< $whitelist
-		
+		if [[ "$whitelist" == *"/"* ]]; then # likely a full path to a loadable file with file names inside it
+			# load the file contents
+			if [ ! -f $whitelist ]
+			then
+				Show_Error 'here -w|--whitelist: One or more of the file names appears to be invalid. File Name:'$whitelist
+				usageMessage
+			else
+				whitelist_filenames=$(< $whitelist)
+			fi
+		else
+			whitelist_filenames=$whitelist
+		fi
+	
+		# needs to be comma delimited inside the file or string
+		IFS="," read -a fileNames <<< $whitelist_filenames
+
 		ctr=0
 		Adjusted_List_Files_Names=""  #rebuilt as trimming has been done
 		for file_name in "${fileNames[@]}"
 		do
 			trimmed_file_name=$(echo $file_name | xargs)
+
 			Check_Valid_File_Name_Pattern $trimmed_file_name
 			if [ $is_Valid -eq 0 ] 
 			then
-				Show_Error '-w|--whitelist: One or more of the file names appears to be invalid. File Name:'$file_name
-				usageMessage
+				if [ ! -f $trimmed_file_name ]
+				then
+					Show_Error '-w|--whitelist: One or more of the file names appears to be invalid. File Name:'$file_name
+					usageMessage
+				fi
 			fi
 			
 			let "ctr+=1"

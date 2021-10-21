@@ -51,25 +51,52 @@ def r_grow_distance(input_raster, grass_workspace, proximity_dtype, allocation_d
     
     #Import input raster into temporary session.
     imported_grass_raster = input_raster_name + '@' + grass_mapset
-    gscript.run_command('r.in.gdal', input = input_raster, output = imported_grass_raster, quiet = True)
+    gscript.run_command('r.in.gdal', 
+                        input = input_raster, 
+                        output = imported_grass_raster, 
+                        quiet = True,
+                        overwrite = True)
 
     # Define names for proximity and allocation rasters. Run 
     # r.grow.distance tool.
     proximity_grass_name = 'proximity@' + grass_mapset
     allocation_grass_name = 'allocation@'+ grass_mapset
-    gscript.run_command('r.grow.distance', flags = 'm', input = imported_grass_raster, distance = proximity_grass_name, value = allocation_grass_name, quiet = True)
+    gscript.run_command('r.grow.distance', 
+                        flags = 'm', 
+                        input = imported_grass_raster, 
+                        distance = proximity_grass_name, 
+                        value = allocation_grass_name, 
+                        quiet = True,
+                        overwrite = True)
     
     # Export proximity raster. Saved to same directory as input raster. 
     # Dtype for proximity always float32.
     proximity_filename = input_raster_name + '_dist.tif'
     output_proximity_path=os.path.join(input_raster_directory,proximity_filename)
-    gscript.run_command('r.out.gdal', flags = 'cf', input = proximity_grass_name, output = output_proximity_path, format = 'GTiff', quiet = True, type = proximity_dtype, createopt = 'COMPRESS=LZW')
+    print (output_proximity_path);
+    gscript.run_command('r.out.gdal', 
+                        flags = 'cf', 
+                        input = proximity_grass_name, 
+                        output = output_proximity_path, 
+                        format = 'GTiff', 
+                        quiet = True, 
+                        type = proximity_dtype, 
+                        createopt = 'COMPRESS=LZW',
+                        overwrite = True)
 
     # Export allocation raster. Saved to same directory as input raster. 
     # Dtype assigned via the allocation_dtype input.
     allocation_filename = input_raster_name + '_allo.tif'
     output_allocation_path = os.path.join(input_raster_directory, allocation_filename)
-    gscript.run_command('r.out.gdal', flags = 'cf', input = allocation_grass_name, output = output_allocation_path, format = 'GTiff', quiet = True, type = allocation_dtype, createopt = 'COMPRESS=LZW')
+    gscript.run_command('r.out.gdal', 
+                        flags = 'cf', 
+                        input = allocation_grass_name, 
+                        output = output_allocation_path, 
+                        format = 'GTiff', 
+                        quiet = True, 
+                        type = allocation_dtype, 
+                        createopt = 'COMPRESS=LZW',
+                        overwrite = True)
     
     # Close down temporary session and remove temporary workspace.
     temporary_session.close()

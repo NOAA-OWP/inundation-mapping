@@ -1,10 +1,13 @@
 #!/bin/bash -e
 :
+
+# Note: There is an extra param that can come in. It is the -api command which is generally only set if an external tool
+# such as the API (FIM Job Scheduler) is calling it. Setting that switch will change output messages.
 usageMessage ()
 {
 	echo
     echo 'Produce FIM datasets'
-    echo 'Usage : fim_run.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
+    echo 'Usage : fim_run.sh [REQ: -u <hucs> -e <extent (MS or FR) -c <config file> -n <run name> ] '
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file also accepted.'
@@ -40,10 +43,14 @@ set -e
 
 process_error(){
 
-	echo "An error has occurred. Please recheck your input parameters and try again."
-	echo "Error Details: $1 .  On Line: $2"
-	echo
-	usageMessage
+	if [ -z is_API ] ; then
+		echo "An error has occurred. Please recheck your input parameters and try again."
+		echo "Error Details: $1 .  On Line: $2"
+		echo
+		usageMessage
+	else
+		echo "An error has occured. Details: $1 .  On Line: $2"
+	fi
 }
 
 trap "process_error $1 $LINENO" ERR
@@ -76,6 +83,14 @@ in
         shift
         usageMessage
         ;;
+    -ssn)
+        shift
+		step_start_number=$1
+		;;
+	-sen)
+        shift
+		step_end_number=$1
+		;;
     -o|--overwrite)
         overwrite=1
         ;;
@@ -92,13 +107,9 @@ in
     -m|--mem)
         mem=1
         ;;
-    -ssn)
-        shift
-		step_start_number=$1
-		;;
-	-sen)
-        shift
-		step_end_number=$1
+
+	-api)
+		is_API=1
 		;;
     *) ;;
     esac
@@ -129,8 +140,20 @@ export extent=$extent
 export runName=$runName
 export jobLimit=$jobLimit
 export whitelist=$whitelist
+export production=$production
+export viz=$viz
+export mem=$mem
 export step_start_number=$step_start_number
 export step_end_number=$step_end_number
+
+# we don't want to delete the output directory if they are using steps
+if [ "$step_start_number" = "" ] && [ "$step_end_number" = "" ]
+then
+	has_Step_Numbers=0
+else
+	has_Step_Numbers=1
+fi
+
 
 # a new variable called hucCodes is created in validate_fim_run which is an array
 # of huc codes that can be passed to the time_and_tee_run_by_unit
@@ -185,20 +208,24 @@ export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_head
 export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 
 
-
 ## Make output and data directories ##
-if [ -d "$outputRunDataDir" ] && [ "$overwrite" -eq 1 ]; then
-    rm -rf "$outputRunDataDir"
-elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
-    echo "$runName data directories already exist. Use -o/--overwrite to continue"
-    exit 1
+# if using steps, don't delete the directory
+if [ "$has_Step_Numbers" -eq 0 ]
+then
+	if [ -d "$outputRunDataDir" ] && [ "$overwrite" == "1" ] ; then
+		rm -rf "$outputRunDataDir"
+	fi
+elif [ "$overwrite" == "1" ]
+then
+	echo "Output directory not overwrite as steps numbers are being used"
 fi
-mkdir -p $outputRunDataDir/logs
+
+mkdir -p $outputRunDataDir/logs	
 
 
 ## RUN ##
 if [ "$jobLimit" -eq 1 ]; then
-	parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: "${hucCodes[@]}"
+	parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: "${hucCodes[@]}"
 else
 	parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: "${hucCodes[@]}"
 fi

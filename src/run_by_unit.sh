@@ -28,8 +28,12 @@ echo -e $stopDiv
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 #hucNumber="$1"
 hucNumber=$(echo "$1" | xargs)  # strip extra chars off either end
+
 outputHucDataDir=$outputRunDataDir/$hucNumber
-mkdir $outputHucDataDir
+# directory might already exist if using step numbers
+if [ ! -d $outputHucDataDir ] ; then
+	mkdir -p $outputHucDataDir
+fi
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucUnitLength=${#hucNumber}
@@ -1045,9 +1049,22 @@ if [ $currentStepNumber -ge $step_start_number ] &&
 
 	echo -e $startDiv"Step "$currentStepNumber": Cleaning up outputs $hucNumber"$stopDiv
 	args=()
-	[[ ! -z "$whitelist" ]] && args+=( "-w$whitelist" )
-	(( production == 1 )) && args+=( '-p' )
-	(( viz == 1 )) && args+=( '-v' )
+	
+	# if whitelist value exists then add whitelist as an args
+	# if production is 1 then add the -p args
+	# # if viz is 1 then add the -v arg
+	if [ ! -z "$whitelist" ] ; then
+		args+=( "-w$whitelist" )
+	fi
+	
+	if [ "$production" == "1" ] ; then
+		args+=( '-p' )
+	fi
+	
+	if [ "$viz" == "1" ] ; then
+		args+=( '-v' )
+	fi
+	
 	date -u
 	Tstart
 	python3 -m memory_profiler $srcDir/output_cleanup.py $hucNumber $outputHucDataDir "${args[@]}"

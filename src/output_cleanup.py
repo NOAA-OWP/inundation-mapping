@@ -65,6 +65,7 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
 @mem_profile
 def whitelist_directory(directory_path, whitelist, additional_whitelist):
     # Add any additional files to the whitelist that the user wanted to keep
+    
     if additional_whitelist:
         whitelist = whitelist + [filename for filename in additional_whitelist.split(',')]
 
