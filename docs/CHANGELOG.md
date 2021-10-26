@@ -4,7 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.22.8 - 2021-10-26 - [PR #471](https://github.com/NOAA-OWP/cahaba/pull/471)
 
-Manually filtering segments from stream input layer to fix flow reversal of the MS River (HUC 08030100)
+Manually filtering segments from stream input layer to fix flow reversal of the MS River (HUC 08030100).
 
 ## Changes
 - `clip_vectors_to_wbd.py`: Fixes bug where flow direction is reversed for HUC 08030100. The issue is resolved by filtering incoming stream segments that intersect with the elevation grid boundary.
