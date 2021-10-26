@@ -2,6 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.22.8 - 2021-10-26 - [PR #471](https://github.com/NOAA-OWP/cahaba/pull/471)
+
+Manually filtering segments from stream input layer to fix flow reversal of the MS River (HUC 08030100).
+
+## Changes
+- `clip_vectors_to_wbd.py`: Fixes bug where flow direction is reversed for HUC 08030100. The issue is resolved by filtering incoming stream segments that intersect with the elevation grid boundary.
+
+<br/><br/>
+
 ## v3.0.22.7 - 2021-10-08 - [PR #467](https://github.com/NOAA-OWP/cahaba/pull/467)
 
 These "tool" enhancements 1) delineate in-channel vs. out-of-channel geometry to allow more targeted development of key physical drivers influencing the SRC calculations (e.g. bathymetry & Manning’s n) #418 and 2) applies a variable/composite Manning’s roughness (n) using user provided csv with in-channel vs. overbank roughness values #419 & #410.
