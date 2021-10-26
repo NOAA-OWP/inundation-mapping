@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# October 2021: Note: This file is not complete. It is a working copy started as part 
+# of the input validation task. This file (python) version was put on hold in favour
+# of completing the task in Bash. This may be revived if/when all code is changed to 
+# python.
+
 import os
 import argparse
 import check_huc_inputs
