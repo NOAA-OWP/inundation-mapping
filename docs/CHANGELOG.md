@@ -7,7 +7,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Manually filtering segments from stream input layer to fix flow reversal of the MS River (HUC 08030100)
 
 ## Changes
-- `clip_vectors_to_wbd.py`: filters incoming stream segments in HUC 08030100 to prevent flow routing in the wrong direction.
+- `clip_vectors_to_wbd.py`: Fixes bug where flow direction is reversed for HUC 08030100. The issue is resolved by filtering incoming stream segments that intersect with the elevation grid boundary.
 
 <br/><br/>
 
