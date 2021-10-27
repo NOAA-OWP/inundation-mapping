@@ -48,7 +48,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
         catchment_poly = ''
     else:
         catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-    hydro_table = os.path.join(fim_run_parent, 'hydroTable_BARC_topwidth_qreg.csv')
+    hydro_table = os.path.join(fim_run_parent, 'hydroTableqreg_barc_global_06_14.csv')
 
     # Map necessary inputs for inundation().
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'

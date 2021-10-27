@@ -221,12 +221,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
-    ## bathy estimation integration in synthetic rating curve calculations
-    if (bathy_src_calc == True and extent == 'MS'):
-        output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
-    else:
-        print('Note: NOT using bathy estimation approach to modify the SRC...')
-
     # make hydroTable
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Stage','Discharge (m3s-1)', 'HydraulicRadius (m)', 'WetArea (m2)', 'SLOPE', 'ManningN']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)

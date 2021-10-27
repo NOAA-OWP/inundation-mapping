@@ -151,6 +151,12 @@ fi
 
 # identify missing HUCs
 # time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
+echo -e $startDiv"Performing Bathy Adjusted Rating Curve routine"$stopDiv
+if [ "$extent" = "MS" ] && [ "$bathy_src_modification" = "True" ]; then
+    # Run BARC routine
+    time python3 /foss_fim/tools/bathy_src_adjust_topwidth.py -fim $outputRunDataDir -bfull_geom $bankfull_input_table -j $jobLimit -suff $name_suffix
+fi
+
 
 echo "$viz"
 if [[ "$viz" -eq 1 ]]; then
