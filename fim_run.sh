@@ -225,7 +225,7 @@ mkdir -p $outputRunDataDir/logs
 
 ## RUN ##
 if [ "$jobLimit" -eq 1 ]; then
-	parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: "${hucCodes[@]}"
+	parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: "${hucCodes[@]}"
 else
 	parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: "${hucCodes[@]}"
 fi
