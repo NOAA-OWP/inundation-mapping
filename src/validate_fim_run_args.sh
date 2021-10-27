@@ -95,13 +95,9 @@ function __Validate_Step_Numbers() {
 
 	#--------------------------------------------
 	# envFile (c/--config)
-	#     check to see if the path exists
-	if [ ! -f $1 ] # false
-	then
-		Show_Error 'c/--config argument: The file name does not appear to exist. Check path, spelling and path.'
-		usageMessage
-	fi
-
+	# skipped. Had to be done earlier in fim_run as some of the pathing and values from the env
+	# file were needed for other validations.
+	
 	#--------------------------------------------
 	# -n/--runName
 	Check_File_Folder_Name_Characters $runName

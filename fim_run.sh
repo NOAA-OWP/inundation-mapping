@@ -129,6 +129,12 @@ source $srcDir/bash_functions.env
 ## Check command line arguments for errors and setup variables if required
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
+# Had to be validated here as values inside the file can affect further validation.
+if [ ! -f $envFile ] # false
+then
+	Show_Error 'c/--config argument: The file name does not appear to exist. Check path, spelling and path.'
+	usageMessage
+fi
 source $envFile
 
 # Bash Version
