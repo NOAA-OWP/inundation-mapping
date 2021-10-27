@@ -34,7 +34,7 @@ usageMessage ()
 	echo 
 	echo '   ***** NOTE: If you use the step start and end numbers, remember that it may '
 	echo '               leave orphaned files in output which needs to be cleaned up by hand.'
-	echo '               And, if you start at step number, you may need to have some files already in place.'
+	echo '               And, if you start at a step number, you may need to have some files already in place.'
 	echo 
     exit
 }
