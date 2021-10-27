@@ -154,6 +154,7 @@ else
 	has_Step_Numbers=1
 fi
 
+export has_Step_Numbers=$has_Step_Numbers
 
 # a new variable called hucCodes is created in validate_fim_run which is an array
 # of huc codes that can be passed to the time_and_tee_run_by_unit
@@ -208,16 +209,32 @@ export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_head
 export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 
 
-## Make output and data directories ##
-# if using steps, don't delete the directory
-if [ "$has_Step_Numbers" -eq 0 ]
-then
-	if [ -d "$outputRunDataDir" ] && [ "$overwrite" == "1" ] ; then
+## Make output and data directories (if applicable) ##
+# if using steps, don't delete the directory.
+
+if [ -d "$outputRunDataDir" ]
+then  #output directory exists
+	if [ "$overwrite" == "1" ] && [ "$has_Step_Numbers" == "0" ]
+	then     #Asked for overwrite and is not using steps
 		rm -rf "$outputRunDataDir"
+		
+	elif [ "$overwrite" == "1" ] && [ "$has_Step_Numbers" == "1" ] 
+	then     #Asked for overwrite but is using steps
+		echo "As the step system is being used, the overwrite flag is not applicable. Files will be overwritten as/when applicable."
+		
+	elif [ -z "$overwrite" ] && [ "$has_Step_Numbers" == "0" ]
+	then 	# Did not ask for overwrite and did not use steps
+		Show_Error "$runName data directory already exist. Use -o/--overwrite to continue"
+		usageMessage
+		
+	else
+		# did not ask for overwrite, but step system is being used
+		echo "When using the step system, key files may need to exist in the output directory, depending on the start step number."
 	fi
-elif [ "$overwrite" == "1" ]
+elif [ "$has_Step_Numbers" == "1" ]
 then
-	echo "Output directory not overwrite as steps numbers are being used"
+	echo "You are using the Step system but the output directory does not exist. "
+	echo "Steps may fail if key files are expected by a given step."
 fi
 
 mkdir -p $outputRunDataDir/logs	
