@@ -218,9 +218,8 @@ then
 			
 		# split to an array based on the comma (remember, might only be one item and no comma)
 		IFS="," read -a hucCodes <<< $str_huc_codes
-	else
-		# this will likely catch debuging prints (or really any prints that are not err: or HUCS:
-		echo "$huc_input_validation_output"
+		
+	#else # this will likely catch debuging prints (or really any prints that are not err: or HUCS:)
 	fi
 fi
 

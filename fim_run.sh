@@ -11,7 +11,8 @@ usageMessage ()
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file also accepted.'
-	echo '                      HUCs must present in inputs directory.'
+	echo '                      HUCs must present in inputs directory. Note: if you pass more than one HUC and'
+	echo '                      forget to add the quotes, no error will be shown and only the first HUC will be processed.'	
     echo '  -e/--extent     : Full resolution or mainstem method; options are MS or FR.'
     echo '  -c/--config     : Configuration file with bash environment variables to export.'
     echo '  -n/--runName    : A name to tag the output directories and log files as.'
@@ -140,7 +141,6 @@ source $envFile
 # Bash Version
 # make all input values as global so validate can use them
 
-#export hucList=$hucList
 export envFile=$envFile
 export extent=$extent
 export runName=$runName
@@ -176,7 +176,6 @@ logFile=$outputRunDataDir/logs/summary.log
 # validation for most input variables is done here. Some cleanup of variables are done as well
 # such as trimming, splitting hucs into pure numeric arrays, etc.
 source $srcDir/validate_fim_run_args.sh 
-
 
 #Python version
 # Careful not to add more than one space after each \.

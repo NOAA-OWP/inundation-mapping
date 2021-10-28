@@ -293,7 +293,7 @@ def validate_arg(argument, arg_type):
 # ========================================================= 
 def string_to_list_with_strip(in_value, delimiter):
     """
-    Performs a simple string to list, but strips whitespaces from each end of the list values
+    Performs a simple string to list, but strips extra whitespaces from each end of the list values
     
     Input:
         - in_value: string to be split
@@ -309,12 +309,12 @@ def string_to_list_with_strip(in_value, delimiter):
          
     """
 
-    if(not (delimiter and delimiter.strip())):
+    if(not (delimiter)):
         raise Exception('Internal Error: missing value for delimiter')
      
     response_list = []
 
-    # check to see if it a set of huc codes ie) 11090105,11130102,07090002
+    # check to see if it a set of huc codes ie) 11090105 11130102 07090002
     if delimiter in in_value:
         split_values = in_value.split(delimiter)
         

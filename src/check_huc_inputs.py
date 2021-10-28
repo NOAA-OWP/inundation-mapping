@@ -39,10 +39,8 @@ def __read_input_hucs(huc_args):
     '''
     Desc:
         Takes in the command line huc argument which comes in as a string
-        and splits it to a list, based on a comma in the arg.
-        
-        If it has no comma, then we check to see it is a valid file path.
-        
+        and splits it to a list, based on a spaces in the arg.
+               
         If it only had one element, then the value should either be a number
         or a file path.
 
@@ -58,16 +56,26 @@ def __read_input_hucs(huc_args):
     huc_codes = []
     
     if (len(huc_args) == 1):
-        if (helpers.validate_arg(huc_args[0], "file_path")):  # load the file and its huc
+   
+        # Could be an invalid file path, a single HUC, a string of multiple space delimited hucs
+        huc_args[0] = huc_args[0].strip()
+       
+        if (helpers.validate_arg(huc_args[0], "file_path")):  # load the file and its HUC
             with open(huc_args[0],'r') as hucs_file: 
-                huc_codes = hucs_file.read().splitlines() # might not be valid hucs, but validated later
+                huc_codes = hucs_file.read().splitlines() # might not be valid HUCs, but validated later
                 
         elif (not helpers.validate_arg(huc_args[0], "integer")):
-            # Could be an invalid file path, a single huc, a string of multiple comma delimited hucs,
-            # or an actual array of huc ints
+                                 
+            # If the user accidently adds two spaces between hucs, strip them down to just one space
+            # Previously trimmed.
+            huc_args[0] = huc_args[0].replace("  ", " ") # strip two spaces down to one if applicable
             
-            if ',' in huc_args[0]: # sometimes a single string with multiple hucs with commas can come in
-                huc_codes = helpers.string_to_list_with_strip(huc_args[0], ',')
+            if "  " in huc_args[0]:  # two spaces or more remaining
+                # then initially had at least 3 spaces and lets error it.
+                raise KeyError("When submitting multiple HUCs, please ensure there are one and only one space between values.")
+            
+            if " " in huc_args[0]: # sometimes a single string with multiple hucs with spaces can come in
+                huc_codes = helpers.string_to_list_with_strip(huc_args[0], ' ')
                 
             else:  # must be an invalid file path
                 raise KeyError("File not found for HUC input parameter of " + str(huc_args[0]))
@@ -75,9 +83,8 @@ def __read_input_hucs(huc_args):
         else:  # it is a single huc and we can assign it right over.
             huc_codes = huc_args
             
-    else:  # we have multiple huc (could be mutiple file paths, but we will catch that later.
-        # we will just assign it straight over
-        huc_codes = huc_args
+    else:  
+        raise KeyError("-u/--hucLis must be either a file name, a single HUC or a set of HUCS space delimited inside quotes.")
 
 
     # make sure each code is an valid int
@@ -155,7 +162,7 @@ if __name__ == '__main__':
        
         str_huc_list = __create_string_of_huc_codes(input_hucs_codes_list)
         
-        print(str_huc_list) # THIS MUST BE HERE: Its how the message gets back to Bash
+        print(str_huc_list) # THIS MUST BE HERE: Its how the message gets back to Bash  (via StdOut)
         
     except KeyError as ke:
         print ("err: details: " + str(ke))
