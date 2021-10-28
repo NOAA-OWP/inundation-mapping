@@ -42,19 +42,19 @@ usageMessage ()
 
 set -e
 
-process_error(){
+# process_error(){
 
-	if [ -z is_API ] ; then
-		echo "An error has occurred. Please recheck your input parameters and try again."
-		echo "Error Details: $1 .  On Line: $2"
-		echo
-		usageMessage
-	else
-		echo "An error has occured. Details: $1 .  On Line: $2"
-	fi
-}
+	# if [ -z is_API ] ; then
+		# echo "An error has occurred. Please recheck your input parameters and try again."
+		# echo "Error Details: $1 .  On Line: $2"
+		# echo
+		# usageMessage
+	# else
+		# echo "An error has occured. Details: $1 .  On Line: $2"
+	# fi
+# }
 
-trap "process_error $1 $LINENO" ERR
+# trap "process_error $1 $LINENO" ERR
 
 
 while [ "$1" != "" ]; do
