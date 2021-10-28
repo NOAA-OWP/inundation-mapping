@@ -2,6 +2,31 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+
+## v3.0.22.9 - 2021-10-28 - [PR #472](https://github.com/NOAA-OWP/cahaba/pull/472)
+
+- Added input validation / error checking to all arg parameters coming into fim_run.sh. 
+- Minor styling code cleanup in some places.
+- Added a new "step" system where a user can start the processing at any given point. There are appx 41 steps. A person can send in a start step number and/or a stop step number. Key files must already be in place as applicable per a given step. ie) If all of the files are already in place that normally would have been in place up to burning leeves, you can set the step start number at applicable number so the program start at that point.  You can start and stop at any step number.
+- Improved error handling.
+
+See pull request for more details
+
+## Additions
+- src/validate_fim_run_args.sh
+- src/validate_fim_run_args.py  (WIP and temporarily not used. Left for future functionality)
+
+## Changes
+- fim_run.sh
+- src/run_by_unit.sh
+- src/bash_functions.env
+- check_huc_inputs.py
+- r_grow_distance.py
+- src/utils/shared_functions.py
+- src\output_cleanup.py
+
+<br/><br/>
+
 ## v3.0.22.8 - 2021-10-26 - [PR #471](https://github.com/NOAA-OWP/cahaba/pull/471)
 
 Manually filtering segments from stream input layer to fix flow reversal of the MS River (HUC 08030100).
