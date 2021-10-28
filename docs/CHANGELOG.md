@@ -23,7 +23,7 @@ See pull request for more details
 - check_huc_inputs.py
 - r_grow_distance.py
 - src/utils/shared_functions.py
-- src\output_cleanup.py
+- src/output_cleanup.py
 
 <br/><br/>
 
