@@ -23,8 +23,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     ----------
     fim_dir : str
         Directory containing FIM output folders.
-    nwm_flow_dir : str
-        Directory containing NWM recurrence flows files.
+    bankfull_flow_dir : str
+        Directory containing "bankfull" flows files (e.g. NWM 1.5yr recurr).
     number_of_jobs : str
         Number of jobs.
     plots : str
@@ -175,7 +175,7 @@ if __name__ == '__main__':
 
     ## Check that the bankfull flow filepath exists and read to dataframe
     if not isfile(bankfull_flow_filepath):
-        print('!!! Can not find the input recurr flow file: ' + str(bankfull_flow_filepath))
+        print('!!!ERROR: Can not find the input bankfull flow file: ' + str(bankfull_flow_filepath))
     else:
         df_bflows = pd.read_csv(bankfull_flow_filepath,dtype={'feature_id': int})
         huc_list  = os.listdir(fim_dir)
@@ -196,7 +196,7 @@ if __name__ == '__main__':
                     huc_pass_list.append(str(huc) + " --> src_full_crosswalked.csv")
                     procs_list.append([src_orig_full_filename, src_modify_filename, df_bflows, huc, src_plot_option, huc_output_dir])
                 else:
-                    print(str(huc) + 'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: ' + str(join(fim_dir,huc)) + '\n')
+                    print(str(huc) + 'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: ' + str(join(fim_dir,huc)) + ' - skipping this HUC!!!\n')
 
         ## initiate log file
         print(f"Identifying bankfull stage for {len(procs_list)} hucs using {number_of_jobs} jobs")

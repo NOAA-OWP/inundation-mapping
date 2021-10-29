@@ -28,8 +28,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
         SRC attribute containing the channel vs. floodplain attribute
     mann_n_table : str
         Path to a csv file containing Manning's n values by feature_id
-    hydrotable_suffix : str
-        Suffix to append to the new hydroTable csv file
+    file_suffix : str
+        Suffix to append to the output log file
     number_of_jobs : str
         Number of jobs.
     src_plot_option : str
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-bc','--channel-ratio-src-column',help='SRC attribute containing the channel vs. overbank geometry ratio (for composite calc)',required=False,type=str,default='chann_hradius_ratio')
     parser.add_argument('-mann','--mann-n-table',help="Path to a csv file containing Manning's n values by featureid",required=True,type=str)
-    parser.add_argument('-suff','--hydrotable-suffix',help="Suffix to append to the new hydroTable csv file (e.g. '_global_06_011')",required=True,type=str)
+    parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
 
@@ -171,12 +171,12 @@ if __name__ == '__main__':
     fim_dir = args['fim_dir']
     channel_ratio_src_column = args['channel_ratio_src_column']
     mann_n_table = args['mann_n_table']
-    hydrotable_suffix = args['hydrotable_suffix']
+    output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     src_plot_option = args['src_plot_option']
     procs_list = []
 
-    print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + hydrotable_suffix + '.log')))
+    print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + output_suffix + '.log')))
     print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
@@ -207,7 +207,7 @@ if __name__ == '__main__':
                         print(str(huc))
                         procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_bankfull_filename, htable_filename, src_plot_option, huc_plot_output_dir])
                     else:
-                        print(str(huc) + '\nWARNING --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)))
+                        print(str(huc) + '\nWARNING --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)) + ' - skipping this HUC!!!\n')
 
             ## initiate log file
             print(f"Applying variable Manning's n to SRC calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")

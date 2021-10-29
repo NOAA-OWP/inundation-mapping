@@ -10,7 +10,6 @@ import argparse
 import sys
 # sys.path.append('/foss_fim/src')
 # sys.path.append('/foss_fim/config')
-from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 
