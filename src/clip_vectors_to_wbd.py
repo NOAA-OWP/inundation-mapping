@@ -99,6 +99,9 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         # special case: stream meanders in and out of WBD buffer boundary
         if str(hucCode) == '10030203':
             missing_segments = missing_segments + [23001300001840.0, 23001300016571.0]
+            
+        if str(hucCode) == '08030100':
+            missing_segments = missing_segments + [20000600011559.0, 20000600045761.0, 20000600002821.0]
 
         # Remove incoming stream segment so it won't be routed as outflow during hydroconditioning
         nhd_streams = nhd_streams.loc[~nhd_streams.FromNode.isin(missing_segments)]
