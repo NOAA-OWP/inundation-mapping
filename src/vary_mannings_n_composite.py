@@ -212,7 +212,7 @@ if __name__ == '__main__':
             ## initiate log file
             print(f"Applying variable Manning's n to SRC calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")
             sys.__stdout__ = sys.stdout
-            log_file = open(join(fim_dir,'logs','log_composite_n' + hydrotable_suffix + '.log'),"w")
+            log_file = open(join(fim_dir,'logs','log_composite_n' + output_suffix + '.log'),"w")
             sys.stdout = log_file
             log_file.write('START TIME: ' + str(begin_time) + '\n')
             log_file.write('#########################################################\n\n')
