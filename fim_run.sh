@@ -152,11 +152,22 @@ fi
 # identify missing HUCs
 # time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
 echo -e $startDiv"Performing Bathy Adjusted Rating Curve routine"$stopDiv
-if [ "$extent" = "MS" ] && [ "$bathy_src_modification" = "True" ]; then
+if [ "$extent" = "MS" ] && [ "$bathy_src_toggle" = "True" ]; then
     # Run BARC routine
-    time python3 /foss_fim/tools/bathy_src_adjust_topwidth.py -fim $outputRunDataDir -bfull_geom $bankfull_input_table -j $jobLimit -suff $name_suffix
+    time python3 /foss_fim/tools/bathy_src_adjust_topwidth.py -fim_dir $outputRunDataDir -bfull_geom $bankfull_input_table -j $jobLimit -suff $name_suffix -plots $src_plot_option
 fi
 
+echo -e $startDiv"Estimating bankfull stage in SRCs"$stopDiv
+if [ "$src_bankfull_toggle" = "True" ]; then
+    # Run BARC routine
+    time python3 /foss_fim/tools/identify_src_bankfull.py -fim_dir $outputRunDataDir -flows $bankfull_flows_file -j $jobLimit -plots $src_bankfull_plot_option
+fi
+
+echo -e $startDiv"Applying variable roughness in SRCs"$stopDiv
+if [ "$src_vrough_toggle" = "True" ]; then
+    # Run BARC routine
+    time python3 /foss_fim/tools/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit -plots $src_vrough_plot_option
+fi
 
 echo "$viz"
 if [[ "$viz" -eq 1 ]]; then

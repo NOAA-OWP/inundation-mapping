@@ -3,27 +3,31 @@
 import sys
 import os
 import pandas as pd
+import numpy as np
 import argparse
+import matplotlib.pyplot as plt
+import seaborn as sns
 from multiprocessing import Pool
 from os.path import isfile, join, dirname, isdir
 import datetime as dt
 import sys
 from os import environ
-sys.path.append('/foss_fim/src')
-from utils.shared_functions import mem_profile
+sns.set_theme(style="whitegrid")
+# sys.path.append('/foss_fim/src')
+# from utils.shared_functions import mem_profile
 
-# sa_ratio_flag = 10
-# thal_stg_limit = 3
-# bankful_xs_ratio_flag = 10
-# bathy_xsarea_flag = 1
-# thal_hyd_radius_flag = 10
-# ignore_streamorder = 10
-sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag']) #10x --> Flag: Surface area ratio value to identify possible thalweg notch "jump" (SA x+1 / SA x)
-thal_stg_limit = float(environ['thalweg_stg_search_max_limit']) #3m --> Threshold: Stage value limit below which to look for the surface area ratio flag (only flag thalweg notch below this threshold)
-bankful_xs_ratio_flag = float(environ['bankful_xs_area_ratio_flag']) #10x --> Flag: Identify bogus BARC adjusted values where the regression bankfull XS Area/SRC bankfull area is > threshold (topwidth crosswalk issues or bad bankfull regression data points??)
-bathy_xsarea_flag = float(environ['bathy_xs_area_chg_flag']) #1x --> Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold
-thal_hyd_radius_flag = float(environ['thalweg_hyd_radius_flag']) #10x --> Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0
-ignore_streamorder = int(environ['ignore_streamorders']) #10 --> Do not perform BARC for streamorders >= provided value
+sa_ratio_flag = 10
+thal_stg_limit = 3
+bankful_xs_ratio_flag = 10
+bathy_xsarea_flag = 1
+thal_hyd_radius_flag = 10
+ignore_streamorder = 10
+# sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag']) #10x --> Flag: Surface area ratio value to identify possible thalweg notch "jump" (SA x+1 / SA x)
+# thal_stg_limit = float(environ['thalweg_stg_search_max_limit']) #3m --> Threshold: Stage value limit below which to look for the surface area ratio flag (only flag thalweg notch below this threshold)
+# bankful_xs_ratio_flag = float(environ['bankful_xs_area_ratio_flag']) #10x --> Flag: Identify bogus BARC adjusted values where the regression bankfull XS Area/SRC bankfull area is > threshold (topwidth crosswalk issues or bad bankfull regression data points??)
+# bathy_xsarea_flag = float(environ['bathy_xs_area_chg_flag']) #1x --> Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold
+# thal_hyd_radius_flag = float(environ['thalweg_hyd_radius_flag']) #10x --> Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0
+# ignore_streamorder = int(environ['ignore_streamorders']) #10 --> Do not perform BARC for streamorders >= provided value
 
 def bathy_rc_lookup(args):
     input_src_fileName                  = args[0]
@@ -33,7 +37,7 @@ def bathy_rc_lookup(args):
     output_bathy_thalweg_fileName       = args[4]
     output_bathy_xs_lookup_fileName     = args[5]
     input_htable_fileName               = args[6]
-    output_htable_fileName              = args[7]
+    out_src_filename                    = args[7]
     huc                                 = args[8]
     src_plot_option                     = args[9]
     huc_plot_output_dir                 = args[10]
@@ -144,10 +148,11 @@ def bathy_rc_lookup(args):
         xs_area_hydroid_lookup['bankfull_XS_ratio_flag'] = (xs_area_hydroid_lookup['bathy_calc_xs_area'] / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'])
         ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > threshold --> 5x (assuming too large of difference to be a reliable bankfull calculation)
         xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(xs_area_hydroid_lookup['bankfull_XS_ratio_flag']>bathy_xsarea_flag,xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'],inplace=True)
+        xs_area_hydroid_lookup['barc_on'] = np.where(xs_area_hydroid_lookup['bathy_calc_xs_area'].isnull(), False, True) # field to identify where vmann is on/off
         xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(xs_area_hydroid_lookup['bankfull_XS_ratio_flag'].isnull(),0,inplace=True)
 
         ## Merge bathy_calc_xs_area to the modified_src_base
-        modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area']],how='left',on='HydroID')
+        modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area','barc_on']],how='left',on='HydroID')
 
         ## Mask/null the bathy calculated area for streamorders that the user wants to ignore (set bathy_cals_xs_area = 0 for streamorder = 10)
         modified_src_base['bathy_calc_xs_area'].mask(modified_src_base['order_'] >= ignore_streamorder,0.0,inplace=True)
@@ -180,22 +185,26 @@ def bathy_rc_lookup(args):
         find_thalweg_notch.to_csv(output_bathy_thalweg_fileName,index=True)
         xs_area_hydroid_lookup.to_csv(output_bathy_xs_lookup_fileName,index=True)
 
-        # make hydroTable
-        output_hydro_table = modified_src_base.loc[:,['HydroID','Stage','Discharge (m3s-1)']]
-        output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
+        ## Output new src_full_crosswalked
+        modified_src_base.to_csv(out_src_filename,index=False)
+        ## Update the hydroTable
+        modified_hydro_table = modified_src_base.loc[:,['HydroID','Stage','barc_on','WetArea (m2)','HydraulicRadius (m)','Discharge (m3s-1)']]
+        modified_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
         df_htable = pd.read_csv(input_htable_fileName,dtype={'HUC': str})
-        df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the original discharge column to be replaced with updated version
-        df_htable = df_htable.merge(output_hydro_table, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
-        df_htable.to_csv(output_htable_fileName,index=False)
+        if not set(['orig_discharge_cms','orig_WetArea (m2)','orig_HydraulicRadius (m)']).issubset(df_htable.columns):
+            df_htable.rename(columns={'discharge_cms':'orig_discharge_cms','WetArea (m2)':'orig_WetArea (m2)','HydraulicRadius (m)':'orig_HydraulicRadius (m)'},inplace=True)
+        else:
+            df_htable.drop(['discharge_cms','WetArea (m2)','HydraulicRadius (m)'], axis=1, inplace=True) # drop the previously modified columns - to be replaced with updated version
+        df_htable = df_htable.merge(modified_hydro_table, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
+        df_htable.to_csv(input_htable_fileName,index=False)
         log_text += ('Output new hydroTable and src_full_crosswalked: ') + '\n'
         log_text += ('Completed Bathy Calculations: ') + str(huc) +'\n#################\n'
-        #log_file.write(log_text)
 
         ## plot rating curves (optional arg)
         if src_plot_option == 'True':
-            if isdir(huc_output_dir) == False:
-                os.mkdir(huc_output_dir)
-            generate_src_plot(df_src, huc_output_dir)
+            if isdir(huc_plot_output_dir) == False:
+                os.mkdir(huc_plot_output_dir)
+            generate_src_plot(df_htable, huc_plot_output_dir)
 
         return(log_text)
 
@@ -213,8 +222,8 @@ def generate_src_plot(df_src, plt_out_dir):
         f, ax = plt.subplots(figsize=(6.5, 6.5))
         ax.set_title(str(hydroid))
         sns.despine(f, left=True, bottom=True)
-        sns.scatterplot(x='orig_Discharge (m3s-1)', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
-        sns.scatterplot(x='Discharge (m3s-1)', y='Stage', data=plot_df, label="SRC w/ BARC", ax=ax, color='orange')
+        sns.scatterplot(x='orig_discharge_cms', y='stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
+        sns.scatterplot(x='discharge_cms', y='stage', data=plot_df, label="SRC w/ BARC", ax=ax, color='orange')
         #sns.lineplot(x='discharge_1_5', y='Stage_1_5', data=plot_df, color='green', ax=ax)
         #plt.fill_between(plot_df['discharge_1_5'], plot_df['Stage_1_5'],alpha=0.5)
         #plt.text(plot_df['discharge_1_5'].median(), plot_df['Stage_1_5'].median(), "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()))
@@ -234,7 +243,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Estimate the unaccounted for channel bathymetry using a regression-based estimate of channel XSec Area")
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-bfull_geom','--bankfull-xsec-input',help='Regression dataset w/ bankfull geometry by featureid',required=True,type=str)
-    parser.add_argument('-suff','--hydrotable-suffix',help="Suffix to append to the new hydroTable csv file (e.g. '_BARC')",required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
 
@@ -242,7 +250,6 @@ if __name__ == '__main__':
 
     fim_dir = args['fim_dir']
     bankfull_regres_filepath = args['bankfull_xsec_input']
-    hydrotable_suffix = args['hydrotable_suffix']
     number_of_jobs = args['number_of_jobs']
     src_plot_option = args['src_plot_option']
     procs_list = []
@@ -273,10 +280,9 @@ if __name__ == '__main__':
             for huc in huc_list:
                 if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
                     #output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName
-                    in_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked.csv')
-                    out_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_BARC.csv')
+                    in_src_filename = join(fim_dir,huc,'src_full_crosswalked.csv')
+                    out_src_filename = join(fim_dir,huc,'src_full_crosswalked_BARC.csv')
                     htable_filename = join(fim_dir,huc,'hydroTable.csv')
-                    new_htable_filename = join(fim_dir,huc,'hydroTable' + hydrotable_suffix + '.csv')
                     output_bath_filename = join(fim_dir,huc,'bathy_crosswalk_calcs.csv')
                     output_bathy_thalweg_fileName = join(fim_dir,huc,'bathy_thalweg_flag.csv')
                     output_bathy_streamorder_fileName = join(fim_dir,huc,'bathy_stream_order_calcs.csv')
@@ -284,17 +290,17 @@ if __name__ == '__main__':
                     output_bathy_xs_lookup_fileName = join(fim_dir,huc,'bathy_xs_area_hydroid_lookup.csv')
                     huc_plot_output_dir = join(fim_dir,huc,'src_plots')
 
-                    if isfile(in_src_bankfull_filename):
+                    if isfile(in_src_filename):
                         print(str(huc))
                         huc_pass_list.append(str(huc))
-                        procs_list.append([in_src_bankfull_filename,df_bfull_geom,output_bath_filename,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,htable_filename,new_htable_filename,huc,src_plot_option,huc_plot_output_dir])
+                        procs_list.append([in_src_filename,df_bfull_geom,output_bath_filename,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,htable_filename,out_src_filename,huc,src_plot_option,huc_plot_output_dir])
                     else:
-                        print(str(huc) + ' --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)))
+                        print(str(huc) + ' --> can not find the src_full_crosswalked.csv in the fim output dir: ' + str(join(fim_dir,huc)))
 
             ## initiate log file
             print(f"Applying bathy adjustment calcs for {len(procs_list)} hucs using {number_of_jobs} jobs...")
             sys.__stdout__ = sys.stdout
-            log_file = open(join(fim_dir,'log_BARC.log'),"w")
+            log_file = open(join(fim_dir,'logs','log_BARC.log'),"w")
             sys.stdout = log_file
             log_file.write('START TIME: ' + str(begin_time) + '\n')
             log_file.writelines(["%s\n" % item  for item in huc_pass_list])
@@ -306,22 +312,15 @@ if __name__ == '__main__':
             log_file.write('bathy_xsarea_flag = ' + str(bathy_xsarea_flag) + ' --> Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold' + '\n')
             log_file.write('thal_hyd_radius_flag = ' + str(thal_hyd_radius_flag) + ' --> Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0' + '\n')
             log_file.write('ignore_streamorder = ' + str(ignore_streamorder) + ' --> Do not perform BARC for streamorders >= provided value' + '\n')
+            log_file.write('#########################################################\n\n')
 
-            @mem_profile
+            ## Pass huc procs_list to multiprocessing function
             multi_process(bathy_rc_lookup, procs_list)
-#@mem_profile
-#new function here
-            ## Initiate multiprocessing
-            # print(f"Applying bathy adjustment calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")
-            # with Pool(processes=number_of_jobs) as pool:
-            #     map_output = pool.map(bathy_rc_lookup, procs_list)
-            #     #log_file.write(str(map_output))
-            # log_file.writelines(["%s\n" % item  for item in map_output])
 
             ## Record run time and close log file
             end_time = dt.datetime.now()
             log_file.write('END TIME: ' + str(end_time) + '\n')
             tot_run_time = end_time - begin_time
-            log_file.write(str(tot_run_time))
+            log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
             sys.stdout = sys.__stdout__
             log_file.close()

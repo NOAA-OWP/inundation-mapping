@@ -31,11 +31,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
         Flag to create SRC plots for all hydroids (True/False)
 """
 
-def nwm_1_5_bankfull_lookup(args):
+def src_bankfull_lookup(args):
 
     src_full_filename           = args[0]
     src_modify_filename         = args[1]
-    df_nwm1_5                   = args[2]
+    df_bflows                   = args[2]
     huc                         = args[3]
     src_plot_option             = args[4]
     huc_output_dir              = args[5]
@@ -46,10 +46,10 @@ def nwm_1_5_bankfull_lookup(args):
     df_src = pd.read_csv(src_full_filename,dtype={'HydroID': int,'feature_id': int})
 
     ## NWM recurr rename discharge var
-    df_nwm1_5 = df_nwm1_5.rename(columns={'discharge':'discharge_1_5'})
+    df_bflows = df_bflows.rename(columns={'discharge':'discharge_1_5'})
 
     ## Combine the nwm 1.5yr flows into the SRC via feature_id
-    df_src = df_src.merge(df_nwm1_5,how='left',on='feature_id')
+    df_src = df_src.merge(df_bflows,how='left',on='feature_id')
 
     ## Check if there are any missing data, negative or zero flow values in the discharge_1_5
     check_null = df_src['discharge_1_5'].isnull().sum()
@@ -61,16 +61,9 @@ def nwm_1_5_bankfull_lookup(args):
     if negative_flows > 0:
         log_text += 'HUC: ' + str(huc) + ' --> Negative or zero flow values found (likely lakeid loc)\n'
 
-    ## Check which channel geometry parameters exist in df (use bathy adjusted vars by default) --> this is needed to handle differences btw BARC & no-BARC outputs
-    if 'HydraulicRadius (m)_bathy_adj' in df_src:
-        hradius_var = 'HydraulicRadius (m)_bathy_adj'
-    else:
-        hradius_var = 'HydraulicRadius (m)'
-
-    if 'Volume (m3)_bathy_adj' in df_src:
-        volume_var = 'Volume (m3)_bathy_adj'
-    else:
-        volume_var = 'Volume (m3)'
+    ## Define the channel geometry variable names to use from the src
+    hradius_var = 'HydraulicRadius (m)'
+    volume_var = 'Volume (m3)'
 
     ## Locate the closest SRC discharge value to the NWM 1.5yr flow
     df_src['Q_1_5_find'] = (df_src['discharge_1_5'] - df_src['Discharge (m3s-1)']).abs()
@@ -117,8 +110,7 @@ def nwm_1_5_bankfull_lookup(args):
 
     ## Output new SRC with bankfull column
     df_src.to_csv(src_modify_filename,index=False)
-    log_text += 'Completed: ' + str(huc) + '\n'
-    log_file.write(log_text)
+    log_text += 'Completed: ' + str(huc)
 
     ## plot rating curves (optional arg)
     if src_plot_option == 'True':
@@ -126,6 +118,7 @@ def nwm_1_5_bankfull_lookup(args):
             os.mkdir(huc_output_dir)
         generate_src_plot(df_src, huc_output_dir)
 
+    return(log_text)
 
 def generate_src_plot(df_src, plt_out_dir):
 
@@ -149,6 +142,13 @@ def generate_src_plot(df_src, plt_out_dir):
         ax.legend()
         plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png',dpi=175, bbox_inches='tight')
         plt.close()
+
+def multi_process(src_bankfull_lookup, procs_list):
+    ## Initiate multiprocessing
+    print(f"Identifying bankfull stage for {len(procs_list)} hucs using {number_of_jobs} jobs")
+    with Pool(processes=number_of_jobs) as pool:
+        map_output = pool.map(src_bankfull_lookup, procs_list)
+    log_file.writelines(["%s\n" % item  for item in map_output])
 
 
 if __name__ == '__main__':
@@ -177,30 +177,38 @@ if __name__ == '__main__':
     if not isfile(bankfull_flow_filepath):
         print('!!! Can not find the input recurr flow file: ' + str(bankfull_flow_filepath))
     else:
-        df_nwm1_5 = pd.read_csv(bankfull_flow_filepath,dtype={'feature_id': int})
-
-        ## initiate log file
-        sys.__stdout__ = sys.stdout
-        log_file = open(join(fim_dir,'log_bankfull_indentify.log'),"w")
-        sys.stdout = log_file
-        log_file.write('START TIME: ' + str(begin_time) + '\n')
-
+        df_bflows = pd.read_csv(bankfull_flow_filepath,dtype={'feature_id': int})
         huc_list  = os.listdir(fim_dir)
+        huc_pass_list = []
         for huc in huc_list:
             if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-                src_full_filename = join(fim_dir,huc,'src_full_crosswalked.csv')
+                src_barc_full_filename = join(fim_dir,huc,'src_full_crosswalked_BARC.csv')
+                src_orig_full_filename = join(fim_dir,huc,'src_full_crosswalked.csv')
                 src_modify_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
                 huc_output_dir = join(fim_dir,huc,'src_plots')
-
-                if isfile(src_full_filename):
-                    procs_list.append([src_full_filename, src_modify_filename, df_nwm1_5, huc, src_plot_option, huc_output_dir])
+                ## check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use the orginial src_full_crosswalked.csv
+                if isfile(src_barc_full_filename):
+                    print(str(huc))
+                    huc_pass_list.append(str(huc) + " --> src_full_crosswalked_BARC.csv")
+                    procs_list.append([src_barc_full_filename, src_modify_filename, df_bflows, huc, src_plot_option, huc_output_dir])
+                elif isfile(src_orig_full_filename):
+                    print(str(huc))
+                    huc_pass_list.append(str(huc) + " --> src_full_crosswalked.csv")
+                    procs_list.append([src_orig_full_filename, src_modify_filename, df_bflows, huc, src_plot_option, huc_output_dir])
                 else:
-                    log_file.write(str(huc) + ' --> can not find the src_full_crosswalked.csv in the fim output dir: ' + str(join(fim_dir,huc)) + '\n')
+                    print(str(huc) + 'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: ' + str(join(fim_dir,huc)) + '\n')
 
-        ## Initiate multiprocessing
-        print(f"Identifying bankfull thresholds for {len(procs_list)} hucs using {number_of_jobs} jobs")
-        with Pool(processes=number_of_jobs) as pool:
-            pool.map(nwm_1_5_bankfull_lookup, procs_list)
+        ## initiate log file
+        print(f"Identifying bankfull stage for {len(procs_list)} hucs using {number_of_jobs} jobs")
+        sys.__stdout__ = sys.stdout
+        log_file = open(join(fim_dir,'logs','log_bankfull_indentify.log'),"w")
+        sys.stdout = log_file
+        log_file.write('START TIME: ' + str(begin_time) + '\n')
+        log_file.writelines(["%s\n" % item  for item in huc_pass_list])
+        log_file.write('#########################################################\n\n')
+
+        ## Pass huc procs_list to multiprocessing function
+        multi_process(src_bankfull_lookup, procs_list)
 
         ## Record run time and close log file
         end_time = dt.datetime.now()

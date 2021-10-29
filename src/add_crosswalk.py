@@ -24,7 +24,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
     min_catchment_area = float(os.environ['min_catchment_area']) #0.25#
     min_stream_length = float(os.environ['min_stream_length']) #0.5#
-    bathy_src_calc = os.environ['bathy_src_modification'] == "True" # env variable to toggle on/off the bathy calc and src modifications
 
     if extent == 'FR':
         ## crosswalk using majority catchment method
