@@ -216,6 +216,6 @@ if __name__ == '__main__':
         end_time = dt.datetime.now()
         log_file.write('END TIME: ' + str(end_time) + '\n')
         tot_run_time = end_time - begin_time
-        log_file.write(str(tot_run_time))
+        log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
         sys.stdout = sys.__stdout__
         log_file.close()

@@ -64,7 +64,7 @@ if [ "$extent" = "MS" ]; then
   if [[ ! -f $outputHucDataDir/nhd_headwater_points_subset.gpkg ]] ; then
     echo "No AHPs point(s) within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
     rm -rf $outputHucDataDir
-    exit 55
+    exit 0
   fi
 fi
 

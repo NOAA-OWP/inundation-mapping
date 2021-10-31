@@ -313,7 +313,7 @@ if __name__ == '__main__':
             ## initiate log file
             print(f"Applying bathy adjustment calcs for {len(procs_list)} hucs using {number_of_jobs} jobs...")
             sys.__stdout__ = sys.stdout
-            log_file = open(join(fim_dir,'logs','log_BARC.log'),"w")
+            log_file = open(join(fim_dir,'logs','log_barc.log'),"w")
             sys.stdout = log_file
             log_file.write('START TIME: ' + str(begin_time) + '\n')
             log_file.writelines(["%s\n" % item  for item in huc_pass_list])
