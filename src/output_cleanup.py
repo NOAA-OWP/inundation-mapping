@@ -49,7 +49,6 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         'gw_catchments_reaches_filtered_addedAttributes.tif',
         'hydroTable.csv',
         'src.json',
-        'src_full_crosswalked.csv',
         'small_segments.csv'
     ]
 
