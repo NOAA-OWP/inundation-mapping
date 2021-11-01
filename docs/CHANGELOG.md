@@ -2,6 +2,32 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
+## v3.0.23.0 - 2021-10-31 - [PR #475](https://github.com/NOAA-OWP/cahaba/pull/475)
+
+Moved the synthetic rating curve (SRC) processes from the "tools" configuration to a fim_run.sh post-processing configuration. These SRC post-processing modules will now run as part of the default fim_run.sh workflow. Reconfigured bathymetry adjusted rating curve (BARC) module to use the 1.5yr flow from NWM v2 recurrence flow data in combination with the Bieger et al. (2015) regression equations with bankfull discharge predictor variable input.
+
+## Additions
+- `src/bathy_src_adjust_topwidth.py` --> New version of bathymetry adjusted rating curve (BARC) module that is configured to use the Bieger et al. (2015) regression equation with input bankfull discharge as the predictor variable (previous version used the drainage area version of the regression equations). Also added log output capability, added/reconfigured output content in src_full_crosswalked_BARC.csv and hydroTable.csv, and included modifications to allow BARC to run as a post-processing step in `fim_run.sh`. Reminder: BARC is only configured for MS extent
+
+## Removals
+- `config/params_calibrated.env` --> deprecated the calibrated roughness values by stream order with the new introduction of variable/composite roughness module
+- `src/bathy_rc_adjust.py` --> deprecated the previous BARC version
+
+## Changes
+- `src/identify_src_bankfull.py` --> Moved this script from /tools to /src, added more doc strings, cleaned up output log, and reconfigured to allow execution from fim_run.sh post-processing.
+- `src/vary_mannings_n_composite.py` --> Moved this script from /tools to /src, added more doc strings, cleaned up output log, added/reconfigured output content in src_full_crosswalked_vmann.csv and hydroTable.csv, and reconfigured to allow execution from fim_run.sh post-processing.
+- `config/params_template.env` --> Added additional parameter/variables for input to `identify_src_bankfull.py`, `vary_mannings_n_composite.py`, and `bathy_src_adjust_topwidth.py`.
+      - default BARC input: bankfull channel geometry derived from the Bieger et al. (2015) bankfull discharge regression equations
+      - default bankfull flow input: NWM v2 1.5-year recurrence flows
+      - default variable roughness input: global (all NWM feature_ids) roughness values of 0.06 for in-channel and 0.11 for max overbank
+- `fim_run.sh` --> Added SRC post-processing calls after the `run_by_unit.sh` workflow
+- `src/add_crosswalk.py` --> Removed BARC module call (moved to post-processing)
+- `src/run_by_unit.sh` --> Removed old/unnecessary print statement.
+      - **Note: reset exit codes to 0 for unnecessary processing flags.** Non-zero error codes in `run_by_unit.sh` prevent the `fim_run.sh` post-processing steps from running. This error handling issue will be more appropriately handled in a soon to be release enhancement.
+- `tools/run_test_case.py` --> Reverted changes used during development process
+
+<br/><br/>
+
 ## v3.0.22.8 - 2021-10-26 - [PR #471](https://github.com/NOAA-OWP/cahaba/pull/471)
 
 Manually filtering segments from stream input layer to fix flow reversal of the MS River (HUC 08030100).
