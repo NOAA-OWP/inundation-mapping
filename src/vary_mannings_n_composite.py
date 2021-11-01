@@ -130,7 +130,7 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.fill_between(plot_df['Discharge (m3s-1)'], plot_df['Stage_1_5'],alpha=0.5)
         plt.text(plot_df['Discharge (m3s-1)'].median(), plot_df['Stage_1_5'].median(), "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()))
         ax.legend()
-        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png',dpi=175, bbox_inches='tight')
+        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_vmann.png',dpi=175, bbox_inches='tight')
         plt.close()
 
 #    for hydroid in hydroids:

@@ -242,7 +242,7 @@ def generate_src_plot(df_src, plt_out_dir):
         #plt.fill_between(plot_df['discharge_1_5'], plot_df['Stage_1_5'],alpha=0.5)
         #plt.text(plot_df['discharge_1_5'].median(), plot_df['Stage_1_5'].median(), "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()))
         ax.legend()
-        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_BARC.png',dpi=175, bbox_inches='tight')
+        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_barc.png',dpi=175, bbox_inches='tight')
         plt.close()
 
 def multi_process(bathy_rc_lookup, procs_list):

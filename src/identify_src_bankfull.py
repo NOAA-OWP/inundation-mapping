@@ -142,7 +142,7 @@ def generate_src_plot(df_src, plt_out_dir):
         sns.scatterplot(x='chann_volume_ratio', y='Stage', data=plot_df, ax=axes[1], label="chann_volume_ratio", s=38)
         sns.scatterplot(x='chann_hradius_ratio', y='Stage', data=plot_df, ax=axes[1], label="chann_hradius_ratio", s=12)
         axes[1].legend()
-        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png',dpi=100, bbox_inches='tight')
+        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_bankfull.png',dpi=100, bbox_inches='tight')
         plt.close()
 
 def multi_process(src_bankfull_lookup, procs_list):
