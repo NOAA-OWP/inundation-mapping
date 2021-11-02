@@ -103,10 +103,10 @@ def bathy_rc_lookup(args):
         output_bathy = output_bathy[output_bathy['SurfaceArea (m2)'] > 0]
         ## find index of minimum top width difference --> this will be used as the SRC "bankfull" row for future calcs
         output_bathy = output_bathy.loc[output_bathy.groupby('HydroID')['Top Width Diff (m)'].idxmin()].reset_index(drop=True)
-        log_text += ('Average: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].mean().astype(float).round(2))) + '\n'
-        log_text += ('Minimum: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].min().astype(float).round(2))) + '\n'
-        log_text += ('Maximum: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].max().astype(float).round(2))) + '\n'
-        log_text += ('STD: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].std().astype(float).round(2))) +'\n'
+        log_text += ('Average: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].mean())) + '\n'
+        log_text += ('Minimum: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].min())) + '\n'
+        log_text += ('Maximum: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].max())) + '\n'
+        log_text += ('STD: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].std())) +'\n'
 
         ## Calculate XS Area difference between SRC and Bankfull database
         output_bathy['XS Area Diff (m2)'] = (output_bathy['BANKFULL_XSEC_AREA (m2)'] - output_bathy['XS Area (m2)'])
@@ -120,10 +120,10 @@ def bathy_rc_lookup(args):
         ## remove bogus values where bankfull area ratio > threshold --> 10x (topwidth crosswalk issues or bad bankfull regression data points??)
         output_bathy['XS Bankfull Area Ratio'].mask(output_bathy['XS Bankfull Area Ratio']>bankful_xs_ratio_flag,inplace=True)
         ## Print XS Area Diff statistics
-        log_text += ('Average: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].mean().astype(float).round(2))) + '\n'
-        log_text += ('Minimum: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].min().astype(float).round(2))) + '\n'
-        log_text += ('Maximum: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].max().astype(float).round(2))) + '\n'
-        log_text += ('STD: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].std().astype(float).round(2))) + '\n'
+        log_text += ('Average: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].mean())) + '\n'
+        log_text += ('Minimum: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].min())) + '\n'
+        log_text += ('Maximum: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].max())) + '\n'
+        log_text += ('STD: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].std())) + '\n'
 
         ## Bin XS Bankfull Area Ratio by stream order
         stream_order_bathy_ratio = output_bathy[['order_','Stage','XS Bankfull Area Ratio']].copy()
