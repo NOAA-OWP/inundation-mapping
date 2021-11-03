@@ -20,6 +20,15 @@ We also denote trend lines for each metric and Manning's n setting as well as th
 Aggregating the metrics in the method above treats each HUC8 as it's own unit and does little to consider the size differences of the HUCs. 
 In an opposing aggregation method, we illustrate in Table \ref{tab:aggregate_metrics} the sum of all the TPs, FPs, and FNs to recompute CSI, POD, and FAR across the entire domain. 
 %
+\begin{figure}[h!]
+\centering
+\includegraphics[scale=0.9]{figures/violin_plots.jpg}
+\caption{Shows kernel density estimation of the distributions (sample size = 49) for 1\% (100 year) and 0.2\% (500 year) along with horizontal, dashed lines for the 25th, 50th, and 75th percentiles (in order from bottom to top).
+The sub-figures separate the combination of three metrics (CSI, POD, and FAR) for two settings of Manning's N (0.06 and 0.12).
+Trend lines for each metric - Mannings combination are shown (sample size = 294) along with associated slope and p-value of slope testing one-tailed significance.}
+\label{fig:violin_plot}
+\end{figure}
+%
 \begin{table}[h!]
 \caption{Primary metrics, TPs, FPs, and FNs, aggregated for BLE domain to recompute CSI, POD, and FAR.}
 \label{tab:aggregate_metrics}
@@ -46,21 +55,12 @@ In an opposing aggregation method, we illustrate in Table \ref{tab:aggregate_met
 \end{tabular}
 \end{table}
 %
-\begin{figure}[h!]
-\centering
-\includegraphics[scale=0.9]{figures/violin_plots.jpg}
-\caption{Shows kernel density estimation of the distributions (N = 49) for 1\% (100 year) and 0.2\% (500 year) along with horizontal, dashed lines for the 25th, 50th, and 75th percentiles (in order from bottom to top).
-The sub-figures separate the combination of three metrics (CSI, POD, and FAR) for two settings of Manning's N (0.06 and 0.12).
-Trend lines for each metric / Mannings combination are shown (N = 294) along with associated slope and p-value of slope testing one-tailed significance.}
-\label{fig:violin_plot}
-\end{figure}
-%
 % Interpretation of metrics
 From Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metrics}, we denote several meaningful trends. 
 Using CSI as an overall proxy for skill of the FIM, we note that generally speaking the skill is correlated with a reduction of the stream orders of the processing units used for HAND.
 In other words, the more you derive HAND on networks of unit drainage density and mosaic the resulting FIMs, the better those FIMs perform.
 While this trend is evident for both sets of Manning's N values, the trend is slightly more significant for the higher value of 0.12.
-Other trends related to this figure include the general performance premium for 0.2\% events as opposed to lower 1\% events.
+Other trends related to this Figure include the general performance premium for 0.2\% events as opposed to lower 1\% events.
 We also note how the higher Manning's N value enhances performance for both of these recurrence intervals across all models.
 
 Dissecting the improvements and trends presented in the previous paragraph comes down mostly to improvement in POD or a reduction in absolute amount of FNs.
@@ -74,7 +74,7 @@ This significant improvement comes at a cost of false alarms as the FAR increase
 \label{ssec:compuational_performance}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-The NFIE experiments were able to produce HAND for 331 HUC6's in 1.34 CPU years and estimates using work from \citeA{djokic2019arc} put producing HAND at the FR NWM at 0.55 CPU years. 
+The NFIE experiments were able to produce HAND for 331 HUC6's in 1.34 CPU years \cite{liu2016cybergis} and estimates using work from \citeA{djokic2019arc} put producing HAND at the FR NWM at 0.55 CPU years. 
 For our work, we were able to produce HAND at the full NWM resolution in 0.13 CPU years which represents a substantial speed-up compared to previous works.
 For the MS resolution an additional, 0.05 CPU years is required on top of this bringing the total to about 0.18 CPU years to produce 2,188 HUC8s that span additional areas not covered in previous HAND versions including Hawaii and Puerto Rico.
 GMS which generalizes HAND production to level path scale adds a significant amount of CPU time to the process bringing the estimate total to about 1.17 CPU years \note[Fernando Aristizabal]{Fernando A: Review}.

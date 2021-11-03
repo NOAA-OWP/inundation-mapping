@@ -18,25 +18,25 @@ This bias is more pronounced for GMS since that implements stream order reductio
 Attempting to diagnose this bias in the SRC leads one to Equation \ref{eq:reach_averaged_mannings_equation} which shows the reach averaged synthetic rating curve relationship between stage and discharge.
 Across the three methods explored, FR, MS, and GMS, one identifies differences in the inputs and outputs and notes no difference in the stages and Manning's N values.
 While the channel slope and reach lengths are not exactly the same across methods, their averaged differences are very negligible which only leaves room for deviations in volume and bed area.
-Again, volume (V[y] or simply V) is synomous to reach-averaged cross-sectional area and bed area (B[y] or B) is analogous to reach-averaged hydraulic radius.
+Again, volume (V[y] or simply V) is synonymous to reach-averaged cross-sectional area and bed area (B[y] or B) is analogous to reach-averaged hydraulic radius.
 Discharge, Q, is directly related to volume and inversely related to bed area and each parameter is weighed according to the magnitude of its exponent which are $\frac{5}{3}$ and $\frac{2}{3}$ respectively. 
 Figures \ref{fig:rating_curve_comparison} b and c show how volume and bed area compare across the three methods with GMS having significant higher values than MS which has higher values than FR.
-Again the relative discrepency between FR vs MS and MS vs GMS is explained by the extent of their spatial coverages.
+Again the relative discrepancy between FR vs MS and MS vs GMS is explained by the extent of their spatial coverages.
 Both V and B values increase but since both are weighed differently by their respective exponents and pull Q in different directions.
 We show in Figure \ref{fig:rating_curve_comparison}d the relationship of $\frac{V^{5/3}}{B^{2/3}}$ is plotted against stage, y, to show how these two parameters collectively pull the rating curve Q up and biases the rating curve down.
 In other words, the magnitude and weight of the volume at each stage level exceeds the influence of the magnitude and weight of the bed area.
-Both parameters are set to increase mainly due to much larger catchments leading to more pixels at each stage level as show in Figure \ref{fig:rating_curve_comparison}e.
+Both parameters are set to increase mainly due to much larger catchments leading to more pixels at each stage level as shown in Figure \ref{fig:rating_curve_comparison}e.
 Much of the increase in inundated pixels, volume, and bed area can be explained by much larger catchments than encompass neighboring tributaries.
 These tributaries have a significant amount of bathymetry that is low-lying thus easily including the SRC derivation. 
 They also contribute volume and bed area that is technically not perpendicular to the flux of streamflow being accounted for in the stream in question. 
 Careful examination of Figure \ref{fig:gms_enhancement}b shows how much larger catchments include neighboring tributaries and the geometry associated with those tributaries. 
 This geometry is not perpendicular to the flow that is associated with the main reach thus leading to biases in the SRC.
-We consider this fact to have a nuanced effect on skill while reducing the rate of FPs it also can lead to FNs due to biases in the SRC.
+We consider this fact to have a nuanced effect on skill, while reducing the rate of FPs it also can lead to FNs due to biases in the SRC.
 
 Additional careful analysis of Figure \ref{fig:gms_enhancement}a, leads one to note many catchments that don't have inundation or significant inundation.
 While the cause of these errors can be varied, we assert here that conflating 4 networks for use in evaluations leads to significant error.
 As one may remember, Section \ref{sssec:cross_walking_networks} details how reach identifiers are conflated for the FIM network back to that of the NWM. 
-One of the issues is when a reach of given stream order accidently conflates to that of a neighboring tributary that is of lower order which leads to areas of FNs.
+One of the issues is when a reach of given stream order accidentally conflates to that of a neighboring tributary that is of lower order which leads to areas of FNs.
 The utilization of MS and GMS only conflates to NWM catchments directly associated with the level path in question which is inherently easy to do with those methods. 
 Thus part of the improvement in MS and GMS methods is due to a slight improvement in cross-walking methodology.
 The NWM stream network was derived using the NHD medium resolution dataset which was derived from coarser DEMs than those used here. 

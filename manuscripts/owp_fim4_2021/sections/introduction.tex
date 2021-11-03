@@ -6,7 +6,7 @@ Flooding is one of the most significant natural disasters in the United States (
 In 2017 and 2019, river and flash flooding combined represented the leading cause of death and the second leading cause in 2018 among all natural disasters in the US \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018}. 
 More than an average of 104 deaths per year are attributed to flood events from the 10 year period ending in 2019 \cite{us_department_of_commerce_2020}. 
 With respect to property damages, river and flash flooding have contributed to 60.7, 1.6, and 3.7 billion non-inflation adjusted US dollars in the annual periods of 2017 to 2019, respectively \cite{national_weather_service_2020,national_weather_service_2019,national_weather_service_2018} with the large spike in 2017 attributed to the Hurricane Harvey event along the Gulf coast. 
-Unencouragingly, the trends related to flood damages and fatalities have been steadily increasing over recent decades. \cite{mallakpour2015changing,downton2005reanalysis,kunkel1999temporal,pielke2000precipitation,corringham2019effect}. 
+Trends related to flood damages and fatalities have been steadily increasing over recent decades. \cite{mallakpour2015changing,downton2005reanalysis,kunkel1999temporal,pielke2000precipitation,corringham2019effect}. 
 Some are expecting that the hydrologic cycle will intensify which will lead to more extreme precipitation in some areas along with a greater risk of flooding \cite{tabari2020climate,milly2002increasing,wing2018estimates}. 
 Increasing trends in frequency and risk are not uniform across spatial regions with work by \citeA{slater2016recent} indicating that trends are increasing across the US Midwest/Great Lakes region while decreasing in coastal Southeast, Southwest and California.
 %
@@ -17,7 +17,7 @@ Increasing trends in frequency and risk are not uniform across spatial regions w
 Operational flood forecasting systems are primary tools in developing accurate forecasts for public awareness prior to life or property damaging events occur. 
 One of these operational systems is the Advanced Hydrologic Prediction System (AHPS) maintained by National Oceanic Atmospheric Administration (NOAA) National Weather Service (NWS) with thousands of forecasting points across the US at typically short forecast horizons of 24 or 72 hours \cite{mcenery2005noaa}.
 AHPS provides forecasting services in the form of ensemble stream flows at more than 3,000 locations and flood inundation maps (FIM) at more than 150 of those points shown in Figure \ref{fig:forecast_points}.
-Besides the AHPS forecast points, we display in Figure \ref{fig:forecast_points} two forecasting networks relevant to the National Water Model (NWM) which will be introduced in Section \ref{ssec:national_water_model}.
+Additionally, two forecasting networks relevant to the National Water Model (NWM) which will be introduced in Section \ref{ssec:national_water_model} are rendered in Figure \ref{fig:forecast_points}.
 AHPS implements a series of advances including model calibration techniques \cite{zhang2003hydrologic,hogue2003multi,duan2003global,gupta2003advances,parada2003multi}, distributed modeling approaches \cite{reed2004overall,koren2004hydrology,duan2002results}, ensemble forecasting \cite{day1985extended,seo2000simulation,mullusky2002simplified,herr2002simplified}, enhanced data analysis procedures \cite{mcenery2005noaa}, flood-forecasting inundation maps \cite{cajina2002fldview}, hydraulic routing models \cite{fread1973technique,cajina2002fldview}, and multi-sensor precipitation techniques \cite{breidenbach1999accounting,kondragunta2001outlier,seo2002real,bonnin1996noaa}.
 On an approximate basis, there is only one forecast point every 1,450 km of river and one forecast point with FIM every 29,000 km.
 Despite the AHPS advances in operational flood forecasting, it lacks sufficient spatial coverage and long-range forecast horizons.
@@ -35,10 +35,9 @@ Despite the AHPS advances in operational flood forecasting, it lacks sufficient 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Additional work is required to fill-in the gaps that the AHPS leaves in terms of spatial and temporal coverage.
-To broaden the forecasting domain, the Office of Water Prediction (OWP) at the National Water Center (NWC) in Tuscaloosa, Alabama commissioned the development of the National Water Model (NWM) which is an instance of the Weather Research and Forecast Hydrologic Model (WRF-Hydro) \cite{gochis2018wrf,cosgrove2019evolution}. 
+To broaden the forecasting domain, the Office of Water Prediction (OWP) at the National Water Center (NWC) in Tuscaloosa, Alabama commissioned the development of the National Water Model (NWM) which is a version of the Weather Research and Forecast Hydrologic Model (WRF-Hydro) \cite{gochis2018wrf,cosgrove2019evolution}. 
 The NWM forecasts river discharges at more than 2.7 million forecast points at a variety of time horizons including some medium (10 day) and long (30 day) range forecast horizons.
 The NWM enhances but does not replace the spatial and temporal domain of the current AHPS capabilities at the 13 River Forecast Centers (RFC) in areas known as `hydro-blind'. 
-It's simply an additional model to be used in the forecasting and early warning decision making.
 Furthermore, the NWM as of V1.2 has implemented not only assimilation of real-time United States Geological Survey (USGS) stage discharges but also assimilation of flow forecasts from the AHPS forecast points which are in turn routed downstream and updated whenever a new point is reached. 
 This configuration of the NWM is known as `Replace and Route' or `RnR' and is used to enhance the forecasting skill of the NWM with the best available regional-scale data.
 Figure \ref{ssec:national_water_model} shows Full-Resolution (FR) modeling stream network as well as the RnR mainstems (MS) network.
@@ -74,6 +73,9 @@ The original NFIE dataset was employed by the NWC to produce forecast FIM from t
 Further work by \citeA{djokic2019arc}, implemented a series of improvements to HAND including equidistant reaches, updates to use with NHDPlusHR hydrography, and AGREE-DEM reconditioning \cite{hellweger1997agree} into an ESRI Arc-Hydro workflow with use in ArcGIS. 
 More notably the software added the ability to derive drainage potentials on both the NWM FR and MS stream networks which leverages the lower drainage density and Horton-Strahler stream order of the MS network.
 Overall, the software package is estimated to run CONUS at the full-resolution in 0.55 CPU years in a desktop setting.
+
+Related to these, the USGS has invested in relative elevation HAND like methods via work in the GIS Flood Tool (GFT) that also uses synthetic rating curves with cross-sections for stage-discharge relationships \cite{verdin2016software}.
+Additional investment by \citeA{petrochenkov2020pygft} was able to successfully scale this approach by transitioning the method to open-source Python source code (PyGFT) and implementing novel interpolation methods to help address some of the catchment boundary discontinuities discussed more in this paper.
 In addition to the domestic work done in the US, some studies have expanded upon HAND to cover global domains at 30m resolutions \cite{yamazaki2019merit,donchyts2016global}.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -98,6 +100,6 @@ This framework is open-source and modular enabling and accelerating the research
 Automated evaluation tooling and processed test case data enable for the rapid testing and evaluation of new techniques in consistent contexts.
 In addition to developed tooling, we introduce research demonstrating how FIM performance skill with HAND can be improved by reducing Horton-Strahler stream orders \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} of the stream networks.
 Previous authors dating back to the first HAND for FIM work by \citeA{nobre2016hand} have noted a sensitivity of mapping skill to stream threshold which serves as a proxy for stream density and the maximum Horton-Strahler stream order (or simply stream order) of the processing unit employed \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation}.
-Here we demonstrate how reducing a HAND processing unit's stream network to a singular stream order by assigning level paths to the target stream network and reducing the HAND processing unit to that singular level path.
+Here we demonstrate how reducing a HAND processing unit's stream network to a singular stream order discretized by level paths, can enhance FIM skill.
 The following methods and results describe the work in more detail and demonstrates its efficacy in producing enhanced FIM for the NWM with applications.
 %
