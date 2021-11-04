@@ -7,18 +7,18 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Includes additional hydraulic properties to the hydroTable.csv. Added the following variables to each hydroTable: Number of Cells, SurfaceArea (m2), BedArea (m2), Volume (m3), SLOPE, LENGTHKM, AREASQKM, Roughness, TopWidth (m), WettedPerimeter (m).
 
 ## Changes
-- `run_by_unit.sh`: Added "EXIT FLAG" and previous non-zero exit code to the print statement to allow log lookup.
-- `add_crosswalk.py`: Added extra attributes to the hydroTable.csv. Includes a default "barc_on" and "vmann_on" (=False) attribute that is overwritten (=True) if SRC post-processing modules are run
-- `bathy_src_adjust_topwidth.py`: Overwrites the "barc_on" attribute where applicable and includes the BARC-modified Volume property
-- `vary_mannings_n_composite.py`: Overwrites the "vmann_on" attribute where applicable
+- `run_by_unit.sh`: Added "EXIT FLAG" tag and previous non-zero exit code tag to the print statement to allow log lookup.
+- `add_crosswalk.py`: Added extra attributes to the hydroTable.csv. Includes a default `barc_on` and `vmann_on` (=False) attribute that is overwritten (=True) if SRC post-processing modules are run
+- `bathy_src_adjust_topwidth.py`: Overwrites the `barc_on` attribute where applicable and includes the BARC-modified Volume property
+- `vary_mannings_n_composite.py`: Overwrites the `vmann_on` attribute where applicable
 
 <br/><br/>
 
 ## v3.0.23.2 - 2021-11-04 - [PR #480](https://github.com/NOAA-OWP/cahaba/pull/480)
-Hotfix for vary_manning_n_composite.py to address null discharge values for non-CONUS hucs.
+Hotfix for `vary_manning_n_composite.py` to address null discharge values for non-CONUS hucs.
 
 ## Changes
-- `vary_manning_n_composite.py`: Add numpy where clause to set final discharge value to the original value if vmann=False
+- `vary_manning_n_composite.py`: Add numpy where clause to set final discharge value to the original value if `vmann=False`
 
 <br/><br/>
 
