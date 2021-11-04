@@ -200,8 +200,8 @@ def ws_new_job(job_params):
 
         for hucs, extent in zip(huc_lists, extents):
             # Validate Job Name Option
-            prev_version = f"{prev_version_base}_{extent.lower()}"
-            job_name = f"apijob_{job_name_base}_{extent.lower()}_apijob_dev_{date.today().strftime('%d%m%Y')}_{random.randint(0, 99999)}"
+            prev_version = f"{prev_version_base}_{extent.lower()}_c"
+            job_name = f"apijob_{job_name_base}_{extent.lower()}_c_apijob_dev_{date.today().strftime('%d%m%Y')}_{random.randint(0, 99999)}"
             print(f"adding job {job_name} {hucs} {extent.lower()}")
             emit('add_job_to_queue', {
                 'job_type': 'release',
