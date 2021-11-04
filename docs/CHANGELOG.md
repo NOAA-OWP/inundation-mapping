@@ -4,10 +4,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.23.0 - 2021-10-31 - [PR #475](https://github.com/NOAA-OWP/cahaba/pull/475)
 
-Moved the synthetic rating curve (SRC) processes from the "tools" configuration to a fim_run.sh post-processing configuration. These SRC post-processing modules will now run as part of the default fim_run.sh workflow. Reconfigured bathymetry adjusted rating curve (BARC) module to use the 1.5yr flow from NWM v2 recurrence flow data in combination with the Bieger et al. (2015) regression equations with bankfull discharge predictor variable input.
+Moved the synthetic rating curve (SRC) processes from the `\tools` directory to `\src` directory to support post-processing in `fim_run.sh`. These SRC post-processing modules will now run as part of the default `fim_run.sh` workflow. Reconfigured bathymetry adjusted rating curve (BARC) module to use the 1.5yr flow from NWM v2 recurrence flow data in combination with the Bieger et al. (2015) regression equations with bankfull discharge predictor variable input.
 
 ## Additions
-- `src/bathy_src_adjust_topwidth.py` --> New version of bathymetry adjusted rating curve (BARC) module that is configured to use the Bieger et al. (2015) regression equation with input bankfull discharge as the predictor variable (previous version used the drainage area version of the regression equations). Also added log output capability, added/reconfigured output content in src_full_crosswalked_BARC.csv and hydroTable.csv, and included modifications to allow BARC to run as a post-processing step in `fim_run.sh`. Reminder: BARC is only configured for MS extent
+- `src/bathy_src_adjust_topwidth.py` --> New version of bathymetry adjusted rating curve (BARC) module that is configured to use the Bieger et al. (2015) regression equation with input bankfull discharge as the predictor variable (previous version used the drainage area version of the regression equations). Also added log output capability, added reconfigured output content in `src_full_crosswalked_BARC.csv` and `hydroTable.csv`, and included modifications to allow BARC to run as a post-processing step in `fim_run.sh`. Reminder: BARC is only configured for MS extent.
 
 ## Removals
 - `config/params_calibrated.env` --> deprecated the calibrated roughness values by stream order with the new introduction of variable/composite roughness module
