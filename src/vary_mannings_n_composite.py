@@ -53,10 +53,15 @@ def variable_mannings_calc(args):
 
     ## Check that the channel ratio column the user specified exists in the def
     if channel_ratio_src_column not in df_src.columns:
+<<<<<<< HEAD:src/vary_mannings_n_composite.py
         log_text += 'WARNING --> ' + str(huc) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
     else:
         ## Raname the current discharge column
         df_src = df_src.rename(columns={'Discharge (m3s-1)':'default_Discharge (m3s-1)'})
+=======
+        log_text += 'WARNING --> ' + str(huc) + out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
+    else:
+>>>>>>> dev:src/vary_mannings_n_composite.py
         ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
         df_src = df_src.merge(df_mann,  how='left', on='feature_id')
         check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
@@ -71,7 +76,11 @@ def variable_mannings_calc(args):
         check_null_comp = df_src['comp_ManningN'].isnull().sum()
         if check_null_comp > 0:
             log_text += str(huc) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
+<<<<<<< HEAD:src/vary_mannings_n_composite.py
         df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
+=======
+        df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # field to identify where vmann is on/off
+>>>>>>> dev:src/vary_mannings_n_composite.py
 
         ## Define the channel geometry variable names to use from the src
         hydr_radius = 'HydraulicRadius (m)'
@@ -89,11 +98,16 @@ def variable_mannings_calc(args):
             df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
             df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
 
+<<<<<<< HEAD:src/vary_mannings_n_composite.py
         ## Use the default discharge column when vmann is not being applied
         df_src['Discharge (m3s-1)_varMann'] = np.where(df_src['vmann_on']==False, df_src['default_Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']) # create field to identify where vmann is applied (True=yes; False=no)
 
         ## Output new SRC with bankfull column
         df_src.to_csv(out_src_vmann_filename,index=False)
+=======
+        ## Output new SRC with bankfull column
+        df_src.to_csv(out_src_bankfull_filename,index=False)
+>>>>>>> dev:src/vary_mannings_n_composite.py
 
         ## Output new hydroTable with updated discharge and ManningN column
         df_src_trim = df_src[['HydroID','Stage','vmann_on','Discharge (m3s-1)_varMann','comp_ManningN']]
@@ -210,7 +224,11 @@ if __name__ == '__main__':
 
                     if isfile(in_src_bankfull_filename):
                         print(str(huc))
+<<<<<<< HEAD:src/vary_mannings_n_composite.py
                         procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir])
+=======
+                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_bankfull_filename, htable_filename, src_plot_option, huc_plot_output_dir])
+>>>>>>> dev:src/vary_mannings_n_composite.py
                     else:
                         print(str(huc) + '\nWARNING --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)) + ' - skipping this HUC!!!\n')
 
