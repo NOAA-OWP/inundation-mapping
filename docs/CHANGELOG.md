@@ -6,7 +6,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Patches the API updater. The `params_calibrated.env` is replaced with `params_template.env` because the BARC and Multi-N modules supplant the calibrated values.
 
 ## Changes
-- `api/node/updater/updater.py`: Changed `params_calibrated.env` to `params_template.py`
+- `api/node/updater/updater.py`: Changed `params_calibrated.env` to `params_template.env`
 
 <br/><br/>
 
