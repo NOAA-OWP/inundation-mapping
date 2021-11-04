@@ -4,10 +4,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 <br/><br/>
 
 ## v3.0.23.2 - 2021-11-03 - [PR #480](https://github.com/NOAA-OWP/cahaba/pull/480)
-Hotfix for vary_manning_n_composite.py to address null discharge values for non-CONUS hucs.
+Hotfix for `vary_manning_n_composite.py` to address null discharge values for non-CONUS hucs.
 
 ## Changes
-- `vary_manning_n_composite.py`: Add numpy where clause to set final discharge value to the original value if vmann=False
+- `vary_manning_n_composite.py`: Add numpy where clause to set final discharge value to the original value if `vmann=False`.
 
 <br/><br/>
 
