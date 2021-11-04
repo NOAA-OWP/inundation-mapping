@@ -205,6 +205,7 @@ def bathy_rc_lookup(args):
         modified_hydro_table = modified_src_base.loc[:,['HydroID','Stage','barc_on','WetArea (m2)','HydraulicRadius (m)','Discharge (m3s-1)']]
         modified_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
         df_htable = pd.read_csv(input_htable_fileName,dtype={'HUC': str})
+        df_htable.drop(['barc_on'], axis=1, inplace=True) # drop the default "barc_on" variable from add_crosswalk.py
         if not set(['orig_discharge_cms','orig_WetArea (m2)','orig_HydraulicRadius (m)']).issubset(df_htable.columns):
             df_htable.rename(columns={'discharge_cms':'orig_discharge_cms','WetArea (m2)':'orig_WetArea (m2)','HydraulicRadius (m)':'orig_HydraulicRadius (m)'},inplace=True)
         else:

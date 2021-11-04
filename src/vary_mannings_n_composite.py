@@ -97,10 +97,11 @@ def variable_mannings_calc(args):
         df_src.to_csv(out_src_vmann_filename,index=False)
 
         ## Output new hydroTable with updated discharge and ManningN column
-        df_src_trim = df_src[['HydroID','Stage','vmann_on','Discharge (m3s-1)_varMann','comp_ManningN']]
+        df_src_trim = df_src[['HydroID','Stage','vmann_on',channel_ratio_src_column,'Discharge (m3s-1)_varMann','comp_ManningN']]
         df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms','comp_ManningN':'ManningN'})
         df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
         df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
+        df_htable.drop(['vmann_on'], axis=1, inplace=True) # drop the default "vmann_on" variable from add_crosswalk.py
         if not set(['orig_discharge_cms']).issubset(df_htable.columns):
             df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
         else:
