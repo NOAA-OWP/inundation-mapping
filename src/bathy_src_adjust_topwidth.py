@@ -202,14 +202,14 @@ def bathy_rc_lookup(args):
         ## Output new src_full_crosswalked
         modified_src_base.to_csv(out_src_filename,index=False)
         ## Update the hydroTable
-        modified_hydro_table = modified_src_base.loc[:,['HydroID','Stage','barc_on','WetArea (m2)','HydraulicRadius (m)','Discharge (m3s-1)']]
+        modified_hydro_table = modified_src_base.loc[:,['HydroID','Stage','barc_on','Volume (m3)','WetArea (m2)','HydraulicRadius (m)','Discharge (m3s-1)']]
         modified_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
         df_htable = pd.read_csv(input_htable_fileName,dtype={'HUC': str})
         df_htable.drop(['barc_on'], axis=1, inplace=True) # drop the default "barc_on" variable from add_crosswalk.py
-        if not set(['orig_discharge_cms','orig_WetArea (m2)','orig_HydraulicRadius (m)']).issubset(df_htable.columns):
-            df_htable.rename(columns={'discharge_cms':'orig_discharge_cms','WetArea (m2)':'orig_WetArea (m2)','HydraulicRadius (m)':'orig_HydraulicRadius (m)'},inplace=True)
+        if not set(['orig_discharge_cms','orig_Volume (m3)','orig_WetArea (m2)','orig_HydraulicRadius (m)']).issubset(df_htable.columns): # check if "orig_" attributes do NOT already exist (likely generated from previous BARC run)
+            df_htable.rename(columns={'discharge_cms':'orig_discharge_cms','Volume (m3)':'orig_Volume (m3)','WetArea (m2)':'orig_WetArea (m2)','HydraulicRadius (m)':'orig_HydraulicRadius (m)'},inplace=True)
         else:
-            df_htable.drop(['discharge_cms','WetArea (m2)','HydraulicRadius (m)'], axis=1, inplace=True) # drop the previously modified columns - to be replaced with updated version
+            df_htable.drop(['discharge_cms','Volume (m3)','WetArea (m2)','HydraulicRadius (m)'], axis=1, inplace=True) # drop the previously modified columns - to be replaced with updated version
         df_htable = df_htable.merge(modified_hydro_table, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
         df_htable.to_csv(input_htable_fileName,index=False)
         log_text += ('Output new hydroTable and src_full_crosswalked: ') + '\n'
