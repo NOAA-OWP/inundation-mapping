@@ -49,7 +49,8 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         'gw_catchments_reaches_filtered_addedAttributes.tif',
         'hydroTable.csv',
         'src.json',
-        'small_segments.csv'
+        'small_segments.csv',
+        'src_full_crosswalked.csv',
     ]
 
     # If "production" run, only keep whitelisted files
