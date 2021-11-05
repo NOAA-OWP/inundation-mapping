@@ -1,8 +1,6 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-<br/><br/>
-
 ## v3.0.23.3 - 2021-11-04 - [PR #481](https://github.com/NOAA-OWP/cahaba/pull/481)
 Includes additional hydraulic properties to the hydroTable.csv. Added the following variables to each hydroTable: Number of Cells, SurfaceArea (m2), BedArea (m2), Volume (m3), SLOPE, LENGTHKM, AREASQKM, Roughness, TopWidth (m), WettedPerimeter (m).
 
