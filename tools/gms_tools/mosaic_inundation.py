@@ -7,7 +7,7 @@ import argparse
 import os
 import pandas as pd
 from tqdm import tqdm
-from utils.shared_variables import elev_raster_ndv
+from tools_shared_variables import elev_raster_ndv
 
 def Mosaic_inundation(
                       map_file,mosaic_attribute='inundation_rasters',mosaic_output=None,

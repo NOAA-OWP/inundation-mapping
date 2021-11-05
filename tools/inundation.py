@@ -18,6 +18,14 @@ from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
 
+class hydroTableHasOnlyLakes(Exception): 
+    """ Raised when a Hydro-Table only has lakes """
+    pass
+
+
+class NoForecastFound(Exception):
+    """ Raised when no forecast is available for a given Hydro-Table """
+    pass
 
 def inundate(
              rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
