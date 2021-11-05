@@ -51,6 +51,9 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
         'src.json',
         'small_segments.csv',
         'src_full_crosswalked.csv',
+        'demDerived_reaches_split_points.gpkg',
+        'flowdir_d8_burned_filled.tif',
+        'dem_thalwegCond.tif'
     ]
 
     # If "production" run, only keep whitelisted files
