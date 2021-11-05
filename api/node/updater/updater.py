@@ -454,7 +454,7 @@ def ws_add_job_to_queue(data):
         hucs = data['hucs']
         extent = data['extent']
         branch = 'dev'
-        config_path = './foss_fim/config/params_calibrated.env'
+        config_path = './foss_fim/config/params_template.env'
         dev_run = False
         viz_run = True
         previous_major_fim_version = data['previous_major_fim_version']

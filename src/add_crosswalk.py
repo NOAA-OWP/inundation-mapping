@@ -10,7 +10,6 @@ import argparse
 import sys
 # sys.path.append('/foss_fim/src')
 # sys.path.append('/foss_fim/config')
-from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 
@@ -24,7 +23,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
     min_catchment_area = float(os.environ['min_catchment_area']) #0.25#
     min_stream_length = float(os.environ['min_stream_length']) #0.5#
-    bathy_src_calc = os.environ['bathy_src_modification'] == "True" # env variable to toggle on/off the bathy calc and src modifications
 
     if extent == 'FR':
         ## crosswalk using majority catchment method
@@ -221,15 +219,12 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
-    ## bathy estimation integration in synthetic rating curve calculations
-    if (bathy_src_calc == True and extent == 'MS'):
-        output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
-    else:
-        print('Note: NOT using bathy estimation approach to modify the SRC...')
-
     # make hydroTable
-    output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Stage','Discharge (m3s-1)', 'HydraulicRadius (m)', 'WetArea (m2)', 'SLOPE', 'ManningN']]
+    output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Number of Cells','SurfaceArea (m2)','BedArea (m2)','TopWidth (m)','LENGTHKM','AREASQKM','WettedPerimeter (m)','HydraulicRadius (m)','WetArea (m2)','Volume (m3)','SLOPE','ManningN','Stage','Discharge (m3s-1)']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
+    output_hydro_table['barc_on'] = False # set barc_on attribute to Fasle (default) --> will be overwritten if BARC module runs
+    output_hydro_table['vmann_on'] = False # set vmann_on attribute to Fasle (default) --> will be overwritten if variable roughness module runs
+
 
     if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
     output_hydro_table[FIM_ID] = output_hydro_table.loc[:,'HydroID'].apply(lambda x : str(x)[0:4])
