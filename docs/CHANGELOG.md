@@ -2,13 +2,13 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.23.3 - 2021-11-04 - [PR #481](https://github.com/NOAA-OWP/cahaba/pull/481)
-Includes additional hydraulic properties to the hydroTable.csv. Added the following variables to each hydroTable: Number of Cells, SurfaceArea (m2), BedArea (m2), Volume (m3), SLOPE, LENGTHKM, AREASQKM, Roughness, TopWidth (m), WettedPerimeter (m).
+Includes additional hydraulic properties to the `hydroTable.csv`. Added the following variables to each hydroTable: `Number of Cells`, `SurfaceArea (m2)`, `BedArea (m2)`, `Volume (m3)`, `SLOPE`, `LENGTHKM`, `AREASQKM`, `Roughness`, `TopWidth (m)`, `WettedPerimeter (m)`.
 
 ## Changes
-- `run_by_unit.sh`: Added "EXIT FLAG" tag and previous non-zero exit code tag to the print statement to allow log lookup.
-- `add_crosswalk.py`: Added extra attributes to the hydroTable.csv. Includes a default `barc_on` and `vmann_on` (=False) attribute that is overwritten (=True) if SRC post-processing modules are run
-- `bathy_src_adjust_topwidth.py`: Overwrites the `barc_on` attribute where applicable and includes the BARC-modified Volume property
-- `vary_mannings_n_composite.py`: Overwrites the `vmann_on` attribute where applicable
+- `run_by_unit.sh`: Added `EXIT FLAG` tag and previous non-zero exit code tag to the print statement to allow log lookup.
+- `add_crosswalk.py`: Added extra attributes to the hydroTable.csv. Includes a default `barc_on` and `vmann_on` (=False) attribute that is overwritten (=True) if SRC post-processing modules are run.
+- `bathy_src_adjust_topwidth.py`: Overwrites the `barc_on` attribute where applicable and includes the BARC-modified Volume property.
+- `vary_mannings_n_composite.py`: Overwrites the `vmann_on` attribute where applicable.
 
 <br/><br/>
 
