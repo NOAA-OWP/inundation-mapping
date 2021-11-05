@@ -97,16 +97,28 @@ def variable_mannings_calc(args):
         df_src.to_csv(out_src_vmann_filename,index=False)
 
         ## Output new hydroTable with updated discharge and ManningN column
-        df_src_trim = df_src[['HydroID','Stage','vmann_on','Discharge (m3s-1)_varMann','comp_ManningN']]
+        df_src_trim = df_src[['HydroID','Stage','vmann_on',channel_ratio_src_column,'Discharge (m3s-1)_varMann','comp_ManningN']]
         df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms','comp_ManningN':'ManningN'})
         df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
         df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
+        df_htable.drop(['vmann_on'], axis=1, inplace=True) # drop the default "vmann_on" variable from add_crosswalk.py
         if not set(['orig_discharge_cms']).issubset(df_htable.columns):
             df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
         else:
             df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the previously modified discharge column to be replaced with updated version
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
+        
+        # Delete intermediate CSVs outputs. Todo delete this block later.
+        htable_parent_dir = os.path.split(htable_filename)[0]
+        # List all CSVs.
+        file_list = os.listdir(htable_parent_dir)
+        for f in file_list:
+            if '.csv' in f:
+                if f != 'hydroTable.csv':
+                    os.remove(os.path.join(htable_parent_dir, f))
+        
         df_htable.to_csv(htable_filename,index=False)
+        
         log_text += 'Completed: ' + str(huc)
 
         ## plot rating curves
