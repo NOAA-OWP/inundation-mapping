@@ -71,7 +71,7 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
     assert os.path.isdir(fim_dir_ms), f'{fim_dir_ms} is not a directory. Please specify an existing MS FIM directory.'
     assert os.path.isdir(fim_dir_fr), f'{fim_dir_fr} is not a directory. Please specify an existing FR FIM directory.'
     assert os.path.exists(flows), f'{flows} does not exist. Please specify a flow file.'
-    to_bin = lambda x: np.where(x > 0, 1, 0)
+    to_bin = lambda x: np.where(x > 0, 1, np.where(x == 0, -9999, 0))
 
     # Instantiate output variables
     var_keeper = {
@@ -115,6 +115,7 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
             # Convert hydroid positive/negative grid to 1/0
             hydroid_raster = rasterio.open(var_keeper[extent]['outputs']['inundation_rast'])
             profile = hydroid_raster.profile # get profile for new raster creation later on
+            profile['nodata'] = -9999
             bin_raster = to_bin(hydroid_raster.read(1)) # converts neg/pos to 0/1
             # Overwrite inundation raster
             with rasterio.open(var_keeper[extent]['outputs']['inundation_rast'], "w", **profile) as out_raster:
@@ -128,8 +129,6 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
     else:
         ouput_name = os.path.join(composite_output_dir, ouput_name)
     
-    # Composite rasters if specified, otherwise union polygons
-    if not quiet: print("Compositing inundation rasters")
     # Composite MS and FR
     inundation_map_file = { 
                     'huc8' : [huc] * 2,
@@ -146,6 +145,7 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
                     mosaic_output=ouput_name,
                     mask=catchment_poly,
                     unit_attribute_name='huc8',
+                    nodata=-9999,
                     workers=1,
                     remove_inputs=clean,
                     subset=None,verbose=not quiet
