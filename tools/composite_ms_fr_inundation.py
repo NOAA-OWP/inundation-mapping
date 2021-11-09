@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-import os, sys, shutil, argparse
+import os, argparse, rasterio
+import numpy as np
 import pandas as pd
-import geopandas as gpd
 from multiprocessing import Pool
 
 from inundation import inundate
 from gms_tools.mosaic_inundation import Mosaic_inundation
 
 
-def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_dir, ouput_name,
-                         bool_rast_flag=False, depth_rast_flag=False, clean=True, quiet=True):
+def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_dir, ouput_name='',
+                         bin_rast_flag=False, depth_rast_flag=False, clean=True, quiet=True):
     """
     Run `inundate()` on FIM 3.X mainstem (MS) and full-resolution (FR) outputs and composite results. Assumes that all `fim_run` products 
     necessary for `inundate()` are in each huc8 folder.
@@ -22,10 +22,18 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
         Path to FR FIM directory. This should be an output directory from `fim_run.sh`.
     huc : str
         HUC8 to run `inundate()`. This should be a folder within both `fim_dir_ms` and `fim_dir_fr`.
-    forecast : str or pandas.DataFrame, can be a single file or a comma-separated list of files
+    flows : str or pandas.DataFrame, can be a single file or a comma-separated list of files
         File path to forecast csv or Pandas DataFrame with correct column names.
-    composite_output : str
-        Folder path to write outputs. The output(s) will be named 'inundation_composite_{huc}.tif'
+    composite_output_dir : str
+        Folder path to write outputs. It will be created if it does not exist.
+    ouput_name : str, optional
+        Name for output raster. If not specified, by default the raster will be named 'inundation_composite_{flows_root}.tif'.
+    bin_rast_flag : bool, optional
+        Flag to create binary raster as output. If no raster flags are passed, this is the default behavior.
+    depth_rast_flag : bool, optional
+        Flag to create depth raster as output.
+    clean : bool, optional
+        If True, intermediate files are deleted.
     quiet : bool, optional
         Quiet output.
 
@@ -57,22 +65,27 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
             False)
     """
     # Set inundation raster to True if no output type flags are passed
-    if not (bool_rast_flag or depth_rast_flag):
-        bool_rast_flag = True
-    assert not (bool_rast_flag and depth_rast_flag), 'Output can only be binary or depth grid, not both'
+    if not (bin_rast_flag or depth_rast_flag):
+        bin_rast_flag = True
+    assert not (bin_rast_flag and depth_rast_flag), 'Output can only be binary or depth grid, not both'
+    assert os.path.isdir(fim_dir_ms), f'{fim_dir_ms} is not a directory. Please specify an existing MS FIM directory.'
+    assert os.path.isdir(fim_dir_fr), f'{fim_dir_fr} is not a directory. Please specify an existing FR FIM directory.'
+    assert os.path.exists(flows), f'{flows} does not exist. Please specify a flow file.'
+    to_bin = lambda x: np.where(x > 0, 1, 0)
+
     # Instantiate output variables
     var_keeper = {
         'ms': {
             'dir': fim_dir_ms,
             'outputs': {
-                'inundation_rast': os.path.join(fim_dir_ms, huc, 'inundation.tif') if bool_rast_flag else None,
+                'inundation_rast': os.path.join(fim_dir_ms, huc, 'inundation.tif') if bin_rast_flag else None,
                 'depth_rast':      os.path.join(fim_dir_ms, huc, 'depth.tif') if depth_rast_flag else None
             }
         },
         'fr': {
             'dir': fim_dir_fr,
             'outputs': {
-                'inundation_rast': os.path.join(fim_dir_fr, huc, 'inundation.tif') if bool_rast_flag else None,
+                'inundation_rast': os.path.join(fim_dir_fr, huc, 'inundation.tif') if bin_rast_flag else None,
                 'depth_rast':      os.path.join(fim_dir_fr, huc, 'depth.tif') if depth_rast_flag else None
             }
         }
@@ -85,14 +98,28 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
         catchment_poly = os.path.join(var_keeper[extent]['dir'], huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
         hydro_table = os.path.join(var_keeper[extent]['dir'], huc, 'hydroTable.csv')
 
+        # Ensure that all of the required files exist in the huc directory
+        for file in (rem, catchments, catchment_poly, hydro_table):
+            if not os.path.exists(file):
+                raise Exception(f"The following file does not exist within the supplied FIM directory:\n{file}")
+
         # Run inundation()
-        if not quiet: print(f"  Inundating {extent}")
+        if not quiet: print(f"  Creating an inundation map for the mainstem ({extent.upper()}) configuration...")
         result = inundate(rem,catchments,catchment_poly,hydro_table,flows,mask_type=None,
                 inundation_raster=  var_keeper[extent]['outputs']['inundation_rast'],
                 depths=             var_keeper[extent]['outputs']['depth_rast'],
                 quiet=              quiet)
         if result != 0:
             raise Exception(f"Failed to inundate {rem} using the provided flows.")
+        elif bin_rast_flag:
+            # Convert hydroid positive/negative grid to 1/0
+            hydroid_raster = rasterio.open(var_keeper[extent]['outputs']['inundation_rast'])
+            profile = hydroid_raster.profile # get profile for new raster creation later on
+            bin_raster = to_bin(hydroid_raster.read(1)) # converts neg/pos to 0/1
+            # Overwrite inundation raster
+            with rasterio.open(var_keeper[extent]['outputs']['inundation_rast'], "w", **profile) as out_raster:
+                out_raster.write(bin_raster.astype('int32'), 1)
+            del hydroid_raster,profile,bin_raster
 
     # If no output name supplied, create one using the flows file name 
     if not ouput_name:
@@ -135,34 +162,38 @@ if __name__ == '__main__':
     parser.add_argument('-f','--flows-file',help='File path of flows csv or comma-separated list of paths if running multiple HUCs',required=True)
     parser.add_argument('-o','--ouput-dir',help='Folder to write Composite Raster output.',required=True)
     parser.add_argument('-n','--ouput-name',help='File name for output(s).',default=None,required=False)
-    parser.add_argument('-b','--bool-rast',help='Output raster is a binary wet/dry grid.',required=False,default=False,action='store_true')
-    parser.add_argument('-d','--depth-rast',help='Output raster is a depth grid.',required=False,default=False,action='store_true')
+    parser.add_argument('-b','--bin-raster',help='Output raster is a binary wet/dry grid. This is the default if no raster flags are passed.',required=False,default=False,action='store_true')
+    parser.add_argument('-d','--depth-raster',help='Output raster is a depth grid.',required=False,default=False,action='store_true')
     parser.add_argument('-j','--num-workers',help='Number of concurrent processesto run.',required=False,default=1,type=int)
     parser.add_argument('-c','--clean',help='If flag used, intermediate rasters are NOT cleaned up.',required=False,default=True,action='store_false')
     parser.add_argument('-q','--quiet',help='Quiet terminal output.',required=False,default=False,action='store_true')
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
-    fim_dir_ms  = args['fim_dir_ms']
-    fim_dir_fr  = args['fim_dir_fr']
-    hucs        = args['huc'].replace(' ', '').split(',')
+    fim_dir_ms    = args['fim_dir_ms']
+    fim_dir_fr    = args['fim_dir_fr']
+    hucs          = args['huc'].replace(' ', '').split(',')
     flows_files   = args['flows_file'].replace(' ', '').split(',')
-    num_workers = int(args['num_workers'])
-    output_dir  = args['ouput_dir']
-    ouput_name  = args['ouput_name']
-    bool_rast   = bool(args['bool_rast'])
-    depth_rast  = bool(args['depth_rast'])
-    clean       = bool(args['clean'])
-    quiet       = bool(args['quiet'])
+    num_workers   = int(args['num_workers'])
+    output_dir    = args['ouput_dir']
+    ouput_name    = args['ouput_name']
+    bin_raster    = bool(args['bin_raster'])
+    depth_raster  = bool(args['depth_raster'])
+    clean         = bool(args['clean'])
+    quiet         = bool(args['quiet'])
 
     assert num_workers >= 1, "Number of workers should be 1 or greater"
     assert len(flows_files) == len(hucs), "Number of hucs must be equal to the number of forecasts provided"
-    assert not (bool_rast and depth_rast), "Cannot use both -b and -d flags"
+    assert not (bin_raster and depth_raster), "Cannot use both -b and -d flags"
+
+    # Create output directory if it does not exist
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
 
     # Create nested list for input into multi-threading
     arg_list = []
     for huc, flows_file in zip(hucs, flows_files):
-        arg_list.append((fim_dir_ms, fim_dir_fr, huc, flows_file, output_dir, ouput_name, bool_rast, depth_rast, clean, quiet))
+        arg_list.append((fim_dir_ms, fim_dir_fr, huc, flows_file, output_dir, ouput_name, bin_raster, depth_raster, clean, quiet))
 
     # Multi-thread for each huc in input hucs
     with Pool(processes=num_workers) as pool:

@@ -53,7 +53,7 @@ def Mosaic_inundation(
     else:
         tqdm_disable = True
 
-    for ag in tqdm(aggregation_units,disable=tqdm_disable,desc='Mosaicing branch FIMs'):
+    for ag in tqdm(aggregation_units,disable=tqdm_disable,desc='Compositing MS and FR maps'):
 
         try:
             inundation_maps_list = inundation_maps_df.loc[ag,mosaic_attribute].tolist()
