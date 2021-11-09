@@ -17,19 +17,20 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_gmed = pd.read_csv(output_csv) # read csv to import as a dataframe
     df_gmed = df_gmed[df_gmed.hydroid != 0] # remove entries that do not have a valid hydroid
 
-    # Read in the hydroTable.csv and check wether it has previously been updated (rename orig columns if needed)
+    # Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path)
     if 'default_ManningN' in df_htable.columns:
-        df_htable.drop(['ManningN','discharge_cms'], axis=1, inplace=True)
+        df_htable.drop(['ManningN','discharge_cms','hydroid_ManningN','featid_ManningN','last_updated','modify_ManningN'], axis=1, inplace=True) # Delete these to prevent duplicates (if adjust_rc_with_feedback.py was previously applied)
         #df_htable = df_htable[['HydroID','feature_id','stage','orig_discharge_cms','HydraulicRadius (m)','WetArea (m2)','SLOPE','default_ManningN','HUC','LakeID']]
         df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
-        log_file.write(str(huc) + ': found previous hydroTaable calibration attributes --> removing previous calb columns...\n')
+        log_file.write(str(huc) + ': found previous hydroTable calibration attributes --> removing previous calb columns...\n')
 
     # loop through the user provided point data --> stage/flow dataframe row by row
     for index, row in df_gmed.iterrows():
         df_htable_hydroid = df_htable[df_htable.HydroID == row.hydroid] # filter htable for entries with matching hydroid
         find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
         # copy the corresponding htable values for the matching stage->HAND lookup
+        df_gmed.loc[index,'feature_id'] = find_src_stage.feature_id
         df_gmed.loc[index,'src_stage'] = find_src_stage.stage
         df_gmed.loc[index,'ManningN'] = find_src_stage.ManningN
         df_gmed.loc[index,'SLOPE'] = find_src_stage.SLOPE
@@ -37,26 +38,15 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
         df_gmed.loc[index,'WetArea_m2'] = find_src_stage['WetArea (m2)']
         df_gmed.loc[index,'discharge_cms'] = find_src_stage.discharge_cms
 
-    ## Create a df of hydroids and featureids
-    df_hydro_feat = df_htable.groupby(["HydroID"])[["feature_id"]].median()
-#    print(df_hydro_feat.to_string())
-
-    output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
-    df_gmed.to_csv(output_calc_n_csv,index=False)
-
     ## Calculate roughness using Manning's equation
     df_gmed.rename(columns={'ManningN':'default_ManningN','hydroid':'HydroID'}, inplace=True) # rename the previous ManningN column
     df_gmed['hydroid_ManningN'] = df_gmed['WetArea_m2']* \
     pow(df_gmed['HydraulicRadius_m'],2.0/3)* \
     pow(df_gmed['SLOPE'],0.5)/df_gmed['flow']
-#    print('Adjusted Mannings N Calculations -->')
-#    print(df_gmed)
 
     # Create dataframe to check for erroneous Manning's n values (>0.6 or <0.001)
     df_gmed['Mann_flag'] = np.where((df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001),'Fail','Pass')
     df_mann_flag = df_gmed[(df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001)][['HydroID','hydroid_ManningN']]
-#    print('Here is the df with mann_flag filter:')
-#    print(df_mann_flag.to_string())
     if not df_mann_flag.empty:
         log_file.write('!!! Flaged Mannings Roughness values below !!!' +'\n')
         log_file.write(df_mann_flag.to_string() + '\n')
@@ -69,16 +59,15 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_gmed = df_gmed[df_gmed['Mann_flag'] == 'Pass']
 
     # Merge df with hydroid and featureid crosswalked
-    df_gmed = df_gmed.merge(df_hydro_feat, how='left', on='HydroID')
+    #df_gmed = df_gmed.merge(df_hydro_feat, how='left', on='HydroID')
 
-    # Create df with the most recent collection time entry
-    df_updated = df_gmed.groupby(["HydroID"])[['coll_time']].max()
+    # Create df with the most recent collection time entry and submitter attribs
+    df_updated = df_gmed[['HydroID','coll_time','submitter']] # subset the dataframe
+    df_updated = df_updated.sort_values('coll_time').drop_duplicates(['HydroID'],keep='last') # sort by collection time and then drop duplicate HydroIDs (keep most recent coll_time per HydroID)
     df_updated.rename(columns={'coll_time':'last_updated'}, inplace=True)
 
     # cacluate median ManningN to handle cases with multiple hydroid entries
-    df_mann = df_gmed.groupby(["HydroID"])[['hydroid_ManningN']].median()
-#    print('df_mann:')
-#    print(df_mann)
+    df_mann_hydroid = df_gmed.groupby(["HydroID"])[['hydroid_ManningN']].median()
 
     # Create a df with the median hydroid_ManningN value per feature_id
     df_mann_featid = df_gmed.groupby(["feature_id"])[['hydroid_ManningN']].median()
@@ -88,15 +77,26 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_htable.rename(columns={'ManningN':'default_ManningN','discharge_cms':'default_discharge_cms'}, inplace=True)
 
     ## Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a singel hydroid)
-    df_nrange = df_gmed.groupby('HydroID').agg({'hydroid_ManningN': ['median', 'min', 'max','count']})
+    df_nrange = df_gmed.groupby('HydroID').agg({'hydroid_ManningN': ['median', 'min', 'max', 'std', 'count']})
+    output_stats_n_csv = os.path.join(fim_directory, huc, 'stats_src_n_vals_' + huc + '.csv')
+    df_nrange.to_csv(output_stats_n_csv,index=True)
     log_file.write('Statistics for Modified Roughness Calcs -->' +'\n')
     log_file.write(df_nrange.to_string() + '\n')
     log_file.write('----------------------------------------\n\n')
 
-    # Merge the newly caluclated ManningN dataframe with the original hydroTable
-    df_htable = df_htable.merge(df_mann, how='left', on='HydroID')
-    df_htable = df_htable.merge(df_mann_featid, how='left', on='feature_id')
-    df_htable = df_htable.merge(df_updated, how='left', on='HydroID')
+    # Merge the newly caluclated ManningN dataframes
+    df_nmerge = df_htable[['HydroID','feature_id']].drop_duplicates(['HydroID'],keep='first') # subset the dataframe
+    df_nmerge = df_nmerge.merge(df_mann_hydroid, how='left', on='HydroID')
+    df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id')
+    df_nmerge = df_nmerge.merge(df_updated, how='left', on='HydroID')
+    output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
+    df_nmerge.to_csv(output_merge_n_csv,index=False)
+
+    # Merge the final ManningN dataframe to the original hydroTable
+    df_nmerge.drop(['feature_id'], axis=1, inplace=True)
+    df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
+    #df_htable = df_htable.merge(df_mann_featid, how='left', on='feature_id')
+    #df_htable = df_htable.merge(df_updated, how='left', on='HydroID')
 
     # Create the modify_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
     df_htable['modify_ManningN'] = np.where(df_htable['hydroid_ManningN'].isnull(),df_htable['featid_ManningN'],df_htable['hydroid_ManningN'])
@@ -118,8 +118,22 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_htable.to_csv(out_htable,index=False)
 
     # output new src json (overwrite previous)
+    output_src_json(df_htable,output_src_json_file)
+
+def output_src_json(df_htable,output_src_json_file):
     output_src_json = dict()
     hydroID_list = np.unique(df_htable['HydroID'])
+
+    for hid in hydroID_list:
+        indices_of_hid = df_htable['HydroID'] == hid
+        stage_list = df_htable['stage'][indices_of_hid].astype(float)
+        q_list = df_htable['discharge_cms'][indices_of_hid].astype(float)
+        stage_list = stage_list.tolist()
+        q_list = q_list.tolist()
+        output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
+
+    with open(output_src_json_file,'w') as f:
+        json.dump(output_src_json,f,sort_keys=True)
 
     for hid in hydroID_list:
         indices_of_hid = df_htable['HydroID'] == hid
@@ -172,10 +186,11 @@ def process_points(args):
 
     # Call update_rating_curve() to perform the rating curve calibration.
     # Still testing, so I'm having the code print out any exceptions.
-    try:
-        update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
-    except Exception as e:
-        print(e)
+    # try:
+    #     update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
+    # except Exception as e:
+    #     print(e)
+    update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
 
 
 def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number):
