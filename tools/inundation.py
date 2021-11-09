@@ -341,7 +341,7 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
     if isinstance(depths,DatasetWriter): depths.close()
     if isinstance(inundation_raster,DatasetWriter): inundation_raster.close()
     if isinstance(inundation_polygon,fiona.Collection): inundation_polygon.close()
-    if isinstance(hucs,fiona.Collection): inundation_polygon.close()
+    #if isinstance(hucs,fiona.Collection): inundation_polygon.close()
 
     # return file names of outputs for aggregation. Handle Nones
     try:
