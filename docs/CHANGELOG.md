@@ -3,12 +3,19 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.24.0 - 2021-11-08 - [PR #482](https://github.com/NOAA-OWP/cahaba/pull/482)
 
+Adds `composite_ms_fr_inundation.py` that can be used to simultaneously inundate mainstem (MS) and full-resolution (FR) FIM outputs and composite the results into one final inundaiton raster product.
 
 ## Additions
-- 
+- `composite_ms_fr_inundation.py`: New module that is used to inundate both MS and FR FIM and composite the two inundation rasters.
+- `/tools/gms_tools/`: Three modules (`inundate_gms.py`, `mosaic_inundation.py`, `overlapping_inundation.py`) ported from the GMS branch used to composite inundation rasters.
 
 ## Changes
-- 
+- `inundation.py`: Added 2 exception classes ported from the GMS branch.
+
+## Testing
+- Binary raster composite: `python3 /foss_fim/tools/composite_ms_fr_inundation.py -u 08040203 -ms /data/fim_output_mainstem -fr /data/fim_output_fullresolution -f /data/flow_files/recurr_1_5_cms.csv -o /data/inundation_outputs`
+- Depth raster composite: `python3 /foss_fim/tools/composite_ms_fr_inundation.py -u 12090301 -ms /data/fim_output_mainstem -fr /data/fim_output_fullresolution -f /data/flow_files/recurr_1_5_cms.csv -o /data/inundation_outputs -n composite_depths_recurr_1_5_flows.tif -d`
+- Multi-threaded run on more than one HUC8: `python3 /foss_fim/tools/composite_ms_fr_inundation.py -u 08040203,11090202,13020101 -ms /data/fim_output_mainstem -fr /data/fim_output_fullresolution -f /data/flow_files/08040203_flows.csv,/data/flow_files/11090202_flows.csv,/data/flow_files/13020101_flows.csv -o /data/inundation_outputs -j 3`
 
 <br/><br/>
 
