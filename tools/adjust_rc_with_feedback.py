@@ -11,7 +11,7 @@ import multiprocessing
 from multiprocessing import Pool
 
 
-def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc):
+def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc, catchments_poly_path):
     print("Processing huc --> " + str(huc))
     log_file.write("\nProcessing huc --> " + str(huc) + '\n')
     df_gmed = pd.read_csv(output_csv) # read csv to import as a dataframe
@@ -51,6 +51,12 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
         log_file.write('!!! Flaged Mannings Roughness values below !!!' +'\n')
         log_file.write(df_mann_flag.to_string() + '\n')
 
+    # Create magnitude column by subsetting the "layer" attribute
+    df_gmed['magnitude'] = df_gmed['layer'].str.split("_").str[5]
+    df_gmed.drop(['layer'], axis=1, inplace=True)
+    df_gmed_mag = df_gmed.pivot(index='HydroID', columns='magnitude', values=['hydroid_ManningN'])
+
+
     # Export csv with the newly calculated Manning's N values
     output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
     df_gmed.to_csv(output_calc_n_csv,index=False)
@@ -78,6 +84,8 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
 
     ## Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a singel hydroid)
     df_nrange = df_gmed.groupby('HydroID').agg({'hydroid_ManningN': ['median', 'min', 'max', 'std', 'count']})
+    df_nrange['hydroid_ManningN','range'] = df_nrange['hydroid_ManningN','max'] - df_nrange['hydroid_ManningN','min']
+    df_nrange = df_nrange.join(df_gmed_mag, how='outer') # join the df_gmed_mag containing hydroid_manningn values per flood magnitude category
     output_stats_n_csv = os.path.join(fim_directory, huc, 'stats_src_n_vals_' + huc + '.csv')
     df_nrange.to_csv(output_stats_n_csv,index=True)
     log_file.write('Statistics for Modified Roughness Calcs -->' +'\n')
@@ -120,6 +128,12 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     # output new src json (overwrite previous)
     output_src_json(df_htable,output_src_json_file)
 
+    if catchments_poly_path != '':
+        input_catchments = gpd.read_file(catchments_poly_path)
+        output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust.gpkg")
+        output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
+        output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
+
 def output_src_json(df_htable,output_src_json_file):
     output_src_json = dict()
     hydroID_list = np.unique(df_htable['HydroID'])
@@ -153,9 +167,10 @@ def process_points(args):
     huc = args[1]
     hand_path = args[2]
     catchments_path = args[3]
-    water_edge_df = args[4]
-    output_src_json_file = args[5]
-    htable_path = args[6]
+    catchments_poly_path = args[4]
+    water_edge_df = args[5]
+    output_src_json_file = args[6]
+    htable_path = args[7]
 
     # Define coords variable to be used in point raster value attribution.
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
@@ -177,7 +192,7 @@ def process_points(args):
     del catchments_src, catchments_crs
 
     # Get median HAND value for appropriate groups.
-    water_edge_median_ds = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit"])['hand'].median()
+    water_edge_median_ds = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit","layer"])['hand'].median()
 
     # Write user_supplied_n_vals to CSV for next step.
     output_csv = os.path.join(fim_directory, huc, 'user_supplied_n_vals_' + huc + '.csv')
@@ -190,7 +205,7 @@ def process_points(args):
     #     update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
     # except Exception as e:
     #     print(e)
-    update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc)
+    update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc, catchments_poly_path)
 
 
 def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number):
@@ -249,10 +264,12 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             hand_path = os.path.join(fim_directory, huc, 'rem_zeroed_masked.tif')
             catchments_path = os.path.join(fim_directory, huc, 'gw_catchments_reaches_filtered_addedAttributes.tif')
             output_src_json_file = os.path.join(fim_directory, huc, 'src.json')
+            catchments_poly_path = os.path.join(fim_directory, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
         else:
             hand_path = os.path.join(fim_directory, huc, 'hand_grid_' + huc + '.tif')
             catchments_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.tif')
             output_src_json_file = os.path.join(fim_directory, huc, 'rating_curves_' + huc + '.json')
+            catchments_poly_path = ''
 
         # Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
         if not os.path.exists(hand_path):
@@ -271,7 +288,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             print("hydroTable for " + huc + " does not exist.")
             continue
 
-        procs_list.append([fim_directory, huc, hand_path, catchments_path, water_edge_df, output_src_json_file, htable_path])
+        procs_list.append([fim_directory, huc, hand_path, catchments_path, catchments_poly_path, water_edge_df, output_src_json_file, htable_path])
 
     with Pool(processes=job_number) as pool:
                 pool.map(process_points, procs_list)
