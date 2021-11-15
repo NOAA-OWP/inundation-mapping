@@ -77,15 +77,15 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
         'ms': {
             'dir': fim_dir_ms,
             'outputs': {
-                'inundation_rast': os.path.join(fim_dir_ms, huc, 'inundation.tif') if bin_rast_flag else None,
-                'depth_rast':      os.path.join(fim_dir_ms, huc, 'depth.tif') if depth_rast_flag else None
+                'inundation_rast': os.path.join(composite_output_dir, f'inundation_ms_{huc}.tif') if bin_rast_flag else None,
+                'depth_rast':      os.path.join(composite_output_dir, f'depth_ms_{huc}.tif') if depth_rast_flag else None
             }
         },
         'fr': {
             'dir': fim_dir_fr,
             'outputs': {
-                'inundation_rast': os.path.join(fim_dir_fr, huc, 'inundation.tif') if bin_rast_flag else None,
-                'depth_rast':      os.path.join(fim_dir_fr, huc, 'depth.tif') if depth_rast_flag else None
+                'inundation_rast': os.path.join(composite_output_dir, f'inundation_fr_{huc}.tif') if bin_rast_flag else None,
+                'depth_rast':      os.path.join(composite_output_dir, f'depth_fr_{huc}.tif') if depth_rast_flag else None
             }
         }
     }
