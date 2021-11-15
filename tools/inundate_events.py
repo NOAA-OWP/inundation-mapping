@@ -14,9 +14,8 @@ def inundate_events(hydrofabric_dir,forecast_file,inundation_file,inundation_pol
 
     forecast_df = pd.read_csv(forecast_file,infer_datetime_format=True,dtype={'huc':str},parse_dates=['date_time'])
 
-    list_of_hucs_to_run = { '09020318','09020317' }
-
-    forecast_df = forecast_df.loc[ forecast_df.huc.isin(list_of_hucs_to_run),:]
+    #list_of_hucs_to_run = { '09020318','09020317' }
+    #forecast_df = forecast_df.loc[ forecast_df.huc.isin(list_of_hucs_to_run),:]
 
     inputs = build_fim3_inputs(hydrofabric_dir,forecast_df,inundation_file,inundation_polygon)
     

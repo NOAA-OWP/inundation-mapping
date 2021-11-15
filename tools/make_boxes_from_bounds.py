@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 
+
 from shapely.geometry import box
 import pandas as pd
 import geopandas as gpd
 import argparse
 from datetime import datetime
+from foss_fim.src.utils.shared_functions import getDriver
 
 
-def find_hucs_of_bounding_boxes(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:4329',wbd_layer='WBDHU8',huc_output_file=None,forecast_output_file=None):
+def find_hucs_of_bounding_boxes(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:4329',wbd_layer='WBDHU8',huc_output_file=None,forecast_output_file=None,bounding_boxes_outfile=None):
 
 
     # load bounding box file
     bounding_boxes = pd.read_csv(bounding_boxes_file,
-                                 dtype={'minx':float,'miny':float,'maxx':float,'maxy':float})
+                                 dtype={'minx':float,'miny':float,'maxx':float,'maxy':float},
+                                 comment='#')
 
 
     make_box_geom = lambda df : box(df['minx'],df['miny'],df['maxx'],df['maxy'])
@@ -24,6 +27,9 @@ def find_hucs_of_bounding_boxes(bounding_boxes_file,wbd=None,projection_of_boxes
     wbd_proj = gpd.read_file(wbd,layer=wbd_layer,rows=1).crs
 
     bounding_boxes = bounding_boxes.to_crs(wbd_proj)
+
+    if bounding_boxes_outfile is not None:
+        bounding_boxes.to_file(bounding_boxes_outfile,driver=getDriver(bounding_boxes_outfile),index=False)
 
     wbdcol_name = 'HUC'+wbd_layer[-1]
 
@@ -58,8 +64,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Find hucs for bounding boxes')
     parser.add_argument('-b','--bounding-boxes-file', help='Bounding box file', required=True)
     parser.add_argument('-w','--wbd', help='WBD file', required=True)
+    parser.add_argument('-p','--projection-of-boxes', help='Projection', required=False,default='EPSG:4329')
     parser.add_argument('-o','--huc-output-file', help='Output file of HUCS', required=False,default=None)
     parser.add_argument('-f','--forecast-output-file', help='Forecast file', required=False,default=None)
+    parser.add_argument('-u','--bounding-boxes-outfile', help='Bounding boxes outfile', required=False,default=None)
 
     args=vars(parser.parse_args())
 
