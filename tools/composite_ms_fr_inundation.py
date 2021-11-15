@@ -5,7 +5,7 @@ import pandas as pd
 from multiprocessing import Pool
 
 from inundation import inundate
-from gms_tools.mosaic_inundation import Mosaic_inundation
+from gms_tools.mosaic_inundation import Mosaic_inundation, __append_id_to_file_name
 
 
 def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_dir, ouput_name='',
@@ -71,7 +71,6 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
     assert os.path.isdir(fim_dir_ms), f'{fim_dir_ms} is not a directory. Please specify an existing MS FIM directory.'
     assert os.path.isdir(fim_dir_fr), f'{fim_dir_fr} is not a directory. Please specify an existing FR FIM directory.'
     assert os.path.exists(flows), f'{flows} does not exist. Please specify a flow file.'
-    to_bin = lambda x: np.where(x > 0, 1, np.where(x == 0, -9999, 0))
 
     # Instantiate output variables
     var_keeper = {
@@ -104,23 +103,14 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
                 raise Exception(f"The following file does not exist within the supplied FIM directory:\n{file}")
 
         # Run inundation()
-        if not quiet: print(f"  Creating an inundation map for the mainstem ({extent.upper()}) configuration...")
+        extent_friendly = "mainstem (MS)" if extent=="ms" else "full-resolution (FR)"
+        if not quiet: print(f"  Creating an inundation map for the {extent_friendly} configuration...")
         result = inundate(rem,catchments,catchment_poly,hydro_table,flows,mask_type=None,
                 inundation_raster=  var_keeper[extent]['outputs']['inundation_rast'],
                 depths=             var_keeper[extent]['outputs']['depth_rast'],
                 quiet=              quiet)
         if result != 0:
             raise Exception(f"Failed to inundate {rem} using the provided flows.")
-        elif bin_rast_flag:
-            # Convert hydroid positive/negative grid to 1/0
-            hydroid_raster = rasterio.open(var_keeper[extent]['outputs']['inundation_rast'])
-            profile = hydroid_raster.profile # get profile for new raster creation later on
-            profile['nodata'] = -9999
-            bin_raster = to_bin(hydroid_raster.read(1)) # converts neg/pos to 0/1
-            # Overwrite inundation raster
-            with rasterio.open(var_keeper[extent]['outputs']['inundation_rast'], "w", **profile) as out_raster:
-                out_raster.write(bin_raster.astype('int32'), 1)
-            del hydroid_raster,profile,bin_raster
 
     # If no output name supplied, create one using the flows file name 
     if not ouput_name:
@@ -150,6 +140,22 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
                     remove_inputs=clean,
                     subset=None,verbose=not quiet
                     )
+    if bin_rast_flag:
+        hydroid_to_binary(__append_id_to_file_name(ouput_name, huc))
+
+def hydroid_to_binary(hydroid_raster_filename):
+    '''Converts hydroid positive/negative grid to 1/0'''
+
+    #to_bin = lambda x: np.where(x > 0, 1, np.where(x == 0, -9999, 0))
+    to_bin = lambda x: np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
+    hydroid_raster = rasterio.open(hydroid_raster_filename)
+    profile = hydroid_raster.profile # get profile for new raster creation later on
+    profile['nodata'] = -9999
+    bin_raster = to_bin(hydroid_raster.read(1)) # converts neg/pos to 0/1
+    # Overwrite inundation raster
+    with rasterio.open(hydroid_raster_filename, "w", **profile) as out_raster:
+        out_raster.write(bin_raster.astype(hydroid_raster.profile['dtype']), 1)
+    del hydroid_raster,profile,bin_raster
 
 
 if __name__ == '__main__':
