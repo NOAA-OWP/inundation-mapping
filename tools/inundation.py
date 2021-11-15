@@ -555,22 +555,26 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
         return(catchmentStagesDict,hucSet)
 
 
-def read_nwm_forecast_file(forecast_file):
+def read_nwm_forecast_file(forecast_file,rename_headers=True):
         
     """ Reads NWM netcdf comp files and converts to forecast data frame """
 
-    flows_nc = xr.open_dataset(forecast_file,decode_cf='feature_id')
+    flows_nc = xr.open_dataset(forecast_file,decode_cf='feature_id',engine='netcdf4')
     
     flows_df = flows_nc.to_dataframe()
     flows_df.reset_index(inplace=True)
     
     flows_df = flows_df[['streamflow','feature_id']]
-    flows_df = flows_df.rename(columns={"streamflow": "discharge"})
+    
+    if rename_headers:
+        flows_df = flows_df.rename(columns={"streamflow": "discharge"})
 
     convert_dict = {'feature_id': str,'discharge': float}
     flows_df = flows_df.astype(convert_dict)
     
     flows_df.set_index('feature_id',inplace=True,drop=True)
+
+    flows_df.dropna(inplace=True)
 
     return(flows_df)
 
