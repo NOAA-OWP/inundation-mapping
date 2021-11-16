@@ -18,6 +18,14 @@ from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
 
+class hydroTableHasOnlyLakes(Exception): 
+    """ Raised when a Hydro-Table only has lakes """
+    pass
+
+
+class NoForecastFound(Exception):
+    """ Raised when no forecast is available for a given Hydro-Table """
+    pass
 
 def inundate(
              rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
@@ -333,7 +341,7 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
     if isinstance(depths,DatasetWriter): depths.close()
     if isinstance(inundation_raster,DatasetWriter): inundation_raster.close()
     if isinstance(inundation_polygon,fiona.Collection): inundation_polygon.close()
-    if isinstance(hucs,fiona.Collection): inundation_polygon.close()
+    #if isinstance(hucs,fiona.Collection): inundation_polygon.close()
 
     # return file names of outputs for aggregation. Handle Nones
     try:
