@@ -8,9 +8,6 @@ import argparse
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
-from gms_tools.inundate_gms import Inundate_gms
-from gms_tools.mosaic_inundation import Mosaic_inundation
-from gms_tools.overlapping_inundation import OverlapWindowMerge
 
 def run_alpha_test(fim_run_dir, version, test_id, magnitude, 
                    #
