@@ -108,19 +108,24 @@ def variable_mannings_calc(args):
         else:
             df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the previously modified discharge column to be replaced with updated version
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
-        
+
         # Delete intermediate CSVs outputs. Todo delete this block later.
-        if viz_clean_flag == 1: # if using the viz flag then delete all intermediate csv files
-            htable_parent_dir = os.path.split(htable_filename)[0]
-            # List all CSVs.
-            file_list = os.listdir(htable_parent_dir)
-            for f in file_list:
+        htable_parent_dir = os.path.split(htable_filename)[0]
+        # List all CSVs.
+        file_list = os.listdir(htable_parent_dir)
+        for f in file_list:
+            if viz_clean_flag == 1: # if using the viz flag then delete all intermediate csv files
                 if '.csv' in f:
                     if f != 'hydroTable.csv':
                         os.remove(os.path.join(htable_parent_dir, f))
-        
+            else:
+                keep_files = ['usgs_elev_table.csv', 'src_base.csv', 'small_segments.csv']
+                if '.csv' in f:
+                    if f not in keep_files:
+                        os.remove(os.path.join(htable_parent_dir, f))
+
         df_htable.to_csv(htable_filename,index=False)
-        
+
         log_text += 'Completed: ' + str(huc)
 
         ## plot rating curves
