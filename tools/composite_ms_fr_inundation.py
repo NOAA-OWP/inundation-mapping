@@ -60,7 +60,7 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
             '12090301',
             '/home/user/forecast_file.csv',
             '/home/user/fim_inundation_composite',
-            'inundation_composite.tif'
+            'inundation_composite.tif',
             True,
             False)
     """
