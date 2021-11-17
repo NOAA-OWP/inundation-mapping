@@ -46,6 +46,7 @@ def variable_mannings_calc(args):
     htable_filename             = args[5]
     src_plot_option             = args[6]
     huc_output_dir              = args[7]
+    viz_clean_flag              = args[8]
 
     ## Read the src_full_crosswalked.csv
     log_text = 'Calculating: ' + str(huc) + '\n'
@@ -109,13 +110,14 @@ def variable_mannings_calc(args):
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
         
         # Delete intermediate CSVs outputs. Todo delete this block later.
-        htable_parent_dir = os.path.split(htable_filename)[0]
-        # List all CSVs.
-        file_list = os.listdir(htable_parent_dir)
-        for f in file_list:
-            if '.csv' in f:
-                if f != 'hydroTable.csv':
-                    os.remove(os.path.join(htable_parent_dir, f))
+        if viz_clean_flag == 1: # if using the viz flag then delete all intermediate csv files
+            htable_parent_dir = os.path.split(htable_filename)[0]
+            # List all CSVs.
+            file_list = os.listdir(htable_parent_dir)
+            for f in file_list:
+                if '.csv' in f:
+                    if f != 'hydroTable.csv':
+                        os.remove(os.path.join(htable_parent_dir, f))
         
         df_htable.to_csv(htable_filename,index=False)
         
@@ -183,6 +185,7 @@ if __name__ == '__main__':
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
+    parser.add_argument('-viz_clean','--viz-clean',help='Optional (Viz flag): pass the viz flag (0 or 1) to delete intermediate csv files',required=False,default=0,type=int)
 
     args = vars(parser.parse_args())
 
@@ -192,6 +195,7 @@ if __name__ == '__main__':
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     src_plot_option = args['src_plot_option']
+    viz_clean_flag = args['viz_clean']
     procs_list = []
 
     print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + output_suffix + '.log')))
@@ -223,7 +227,7 @@ if __name__ == '__main__':
 
                     if isfile(in_src_bankfull_filename):
                         print(str(huc))
-                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir])
+                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir,viz_clean_flag])
                     else:
                         print(str(huc) + '\nWARNING --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)) + ' - skipping this HUC!!!\n')
 
