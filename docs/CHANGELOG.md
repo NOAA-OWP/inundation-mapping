@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.1 - 2021-11-18 - [PR #486](https://github.com/NOAA-OWP/cahaba/pull/482)
+
+Adding a new check to keep `usgs_elev_table.csv`, `src_base.csv`, `small_segments.csv` for runs not using the `-viz` flag. We unintentionally deleted some .csv files in `vary_mannings_n_composite.py` but need to maintain some of these for non `-viz` runs (e.g. `usgs_elev_table.csv` is used for sierra test input).
+
+## Changes
+
+- `fim_run.sh`: passing `-v` flag to `vary_mannings_n_composite.py` to determine which csv files to delete. Setting `$viz` = 0 for non `-v` runs.
+- `src/vary_mannings_n_composite.py`: added `-v` input arg and if statement to check which .csv files to delete
+- `src/add_crosswalk.py`: removed deprecated barc variables from input args
+- `src/run_by_unit.sh`: removed deprecated barc variables from input args to `add_crosswalk.py`
+
+<br/><br/>
+
 ## v3.0.24.0 - 2021-11-08 - [PR #482](https://github.com/NOAA-OWP/cahaba/pull/482)
 
 Adds `composite_ms_fr_inundation.py` to allow for the generation of an inundation map given a "flow file" CSV and full-resolution (FR) and mainstem (MS) relative elevation models, synthetic rating curves, and catchments rasters created by the `fim_run.sh` script.
