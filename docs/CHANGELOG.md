@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.24.2 - 2021-11-18 - [PR #486](https://github.com/NOAA-OWP/cahaba/pull/482)
+## v3.0.24.2 - 2021-11-18 - [PR #486](https://github.com/NOAA-OWP/cahaba/pull/486)
 
 Adding a new check to keep `usgs_elev_table.csv`, `src_base.csv`, `small_segments.csv` for runs not using the `-viz` flag. We unintentionally deleted some .csv files in `vary_mannings_n_composite.py` but need to maintain some of these for non `-viz` runs (e.g. `usgs_elev_table.csv` is used for sierra test input).
 
