@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.1 - 2021-11-17 - [PR #484](https://github.com/NOAA-OWP/cahaba/pull/484)
+
+Patch to clean up unnecessary files and create better names for intermediate raster files.
+
+## Removals
+
+- `tools/run_test_case_gms.py`: Unnecessary file.
+
+## Changes
+
+- `tools/composite_ms_fr_inundation.py`: Clean up documentation and intermediate file names.
+- `tools/run_test_case.py`: Remove unnecessary imports.
+
+<br/><br/>
+
 ## v3.0.24.0 - 2021-11-08 - [PR #482](https://github.com/NOAA-OWP/cahaba/pull/482)
 
 Adds `composite_ms_fr_inundation.py` to allow for the generation of an inundation map given a "flow file" CSV and full-resolution (FR) and mainstem (MS) relative elevation models, synthetic rating curves, and catchments rasters created by the `fim_run.sh` script.

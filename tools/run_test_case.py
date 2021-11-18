@@ -8,16 +8,8 @@ import argparse
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
 from inundation import inundate
-from gms_tools.inundate_gms import Inundate_gms
-from gms_tools.mosaic_inundation import Mosaic_inundation
-from gms_tools.overlapping_inundation import OverlapWindowMerge
 
-def run_alpha_test(fim_run_dir, version, test_id, magnitude, 
-                   #
-                   compare_to_previous=False, archive_results=False, 
-                   mask_type='huc', inclusion_area='', 
-                   inclusion_area_buffer=0, light_run=False, 
-                   overwrite=True):
+def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True):
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
