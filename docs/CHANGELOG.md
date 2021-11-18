@@ -7,7 +7,7 @@ Patch to clean up unnecessary files and create better names for intermediate ras
 
 ## Removals
 
-- `tools/run_test_case_gms.py`: Unnecessary file
+- `tools/run_test_case_gms.py`: Unnecessary file.
 
 ## Changes
 
