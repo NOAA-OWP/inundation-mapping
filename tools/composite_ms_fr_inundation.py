@@ -2,7 +2,6 @@
 import os, argparse, rasterio
 import numpy as np
 import pandas as pd
-from multiprocessing import Pool
 
 from inundation import inundate
 from gms_tools.mosaic_inundation import Mosaic_inundation, __append_id_to_file_name
@@ -11,7 +10,7 @@ from gms_tools.mosaic_inundation import Mosaic_inundation, __append_id_to_file_n
 def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_dir, ouput_name='',
                          bin_rast_flag=False, depth_rast_flag=False, clean=True, quiet=True):
     """
-    Run `inundate()` on FIM 3.X mainstem (MS) and full-resolution (FR) outputs and composite results. Assumes that all `fim_run` products 
+    Runs `inundate()` on FIM 3.X mainstem (MS) and full-resolution (FR) outputs and composites results. Assumes that all `fim_run` products 
     necessary for `inundate()` are in each huc8 folder.
 
     Parameters
@@ -61,6 +60,7 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
             '12090301',
             '/home/user/forecast_file.csv',
             '/home/user/fim_inundation_composite',
+            'inundation_composite.tif',
             True,
             False)
     """
@@ -77,15 +77,15 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
         'ms': {
             'dir': fim_dir_ms,
             'outputs': {
-                'inundation_rast': os.path.join(composite_output_dir, f'inundation_ms_{huc}.tif') if bin_rast_flag else None,
-                'depth_rast':      os.path.join(composite_output_dir, f'depth_ms_{huc}.tif') if depth_rast_flag else None
+                'inundation_rast': os.path.join(composite_output_dir, f'{huc}_inundation_ms.tif') if bin_rast_flag else None,
+                'depth_rast':      os.path.join(composite_output_dir, f'{huc}_depth_ms.tif') if depth_rast_flag else None
             }
         },
         'fr': {
             'dir': fim_dir_fr,
             'outputs': {
-                'inundation_rast': os.path.join(composite_output_dir, f'inundation_fr_{huc}.tif') if bin_rast_flag else None,
-                'depth_rast':      os.path.join(composite_output_dir, f'depth_fr_{huc}.tif') if depth_rast_flag else None
+                'inundation_rast': os.path.join(composite_output_dir, f'{huc}_inundation_fr.tif') if bin_rast_flag else None,
+                'depth_rast':      os.path.join(composite_output_dir, f'{huc}_depth_fr.tif') if depth_rast_flag else None
             }
         }
     }
@@ -104,7 +104,8 @@ def composite_inundation(fim_dir_ms, fim_dir_fr, huc, flows, composite_output_di
 
         # Run inundation()
         extent_friendly = "mainstem (MS)" if extent=="ms" else "full-resolution (FR)"
-        if not quiet: print(f"  Creating an inundation map for the {extent_friendly} configuration...")
+        grid_type = "an inundation" if bin_rast_flag else "a depth"
+        if not quiet: print(f"  Creating {grid_type} map for the {extent_friendly} configuration...")
         result = inundate(rem,catchments,catchment_poly,hydro_table,flows,mask_type=None,
                 inundation_raster=  var_keeper[extent]['outputs']['inundation_rast'],
                 depths=             var_keeper[extent]['outputs']['depth_rast'],
@@ -202,6 +203,11 @@ if __name__ == '__main__':
         arg_list.append((fim_dir_ms, fim_dir_fr, huc, flows_file, output_dir, ouput_name, bin_raster, depth_raster, clean, quiet))
 
     # Multi-thread for each huc in input hucs
-    with Pool(processes=num_workers) as pool:
-        # Run composite_inundation()
-        pool.starmap(composite_inundation, arg_list)
+    if num_workers > 1:
+        from multiprocessing import Pool
+        with Pool(processes=num_workers) as pool:
+            # Run composite_inundation()
+            pool.starmap(composite_inundation, arg_list)
+    else: # run linear if jobs == 1
+        for arg in arg_list:
+            composite_inundation(*arg)
