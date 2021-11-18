@@ -50,6 +50,8 @@ BAD_SITES = [
             ]
 DISCARD_AHPS_QUERY = "not flow.isnull() & masked_perc<97 & not nws_lid in @BAD_SITES"
 
+elev_raster_ndv = -9999.0
+
 # Colors.
 ENDC = '\033[m'
 TGREEN_BOLD = '\033[32;1m'
