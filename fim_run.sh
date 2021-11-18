@@ -104,6 +104,9 @@ source $srcDir/bash_functions.env
 if [ "$jobLimit" = "" ] ; then
     jobLimit=$default_max_jobs
 fi
+if [ "$viz" = "" ] ; then
+    viz=0
+fi
 
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
@@ -168,7 +171,7 @@ fi
 echo -e $startDiv"Applying variable roughness in SRCs"$stopDiv
 if [ "$src_vrough_toggle" = "True" ]; then
     # Run BARC routine
-    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit -plots $src_vrough_plot_option
+    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit -plots $src_vrough_plot_option -viz_clean $viz
 fi
 
 echo "$viz"

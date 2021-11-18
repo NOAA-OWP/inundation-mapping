@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.2 - 2021-11-18 - [PR #486](https://github.com/NOAA-OWP/cahaba/pull/486)
+
+Adding a new check to keep `usgs_elev_table.csv`, `src_base.csv`, `small_segments.csv` for runs not using the `-viz` flag. We unintentionally deleted some .csv files in `vary_mannings_n_composite.py` but need to maintain some of these for non `-viz` runs (e.g. `usgs_elev_table.csv` is used for sierra test input).
+
+## Changes
+
+- `fim_run.sh`: passing `-v` flag to `vary_mannings_n_composite.py` to determine which csv files to delete. Setting `$viz` = 0 for non `-v` runs.
+- `src/vary_mannings_n_composite.py`: added `-v` input arg and if statement to check which .csv files to delete.
+- `src/add_crosswalk.py`: removed deprecated barc variables from input args.
+- `src/run_by_unit.sh`: removed deprecated barc variables from input args to `add_crosswalk.py`.
+
+<br/><br/>
+
 ## v3.0.24.1 - 2021-11-17 - [PR #484](https://github.com/NOAA-OWP/cahaba/pull/484)
 
 Patch to clean up unnecessary files and create better names for intermediate raster files.
