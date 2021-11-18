@@ -8,9 +8,9 @@ Adding a new check to keep `usgs_elev_table.csv`, `src_base.csv`, `small_segment
 ## Changes
 
 - `fim_run.sh`: passing `-v` flag to `vary_mannings_n_composite.py` to determine which csv files to delete. Setting `$viz` = 0 for non `-v` runs.
-- `src/vary_mannings_n_composite.py`: added `-v` input arg and if statement to check which .csv files to delete
-- `src/add_crosswalk.py`: removed deprecated barc variables from input args
-- `src/run_by_unit.sh`: removed deprecated barc variables from input args to `add_crosswalk.py`
+- `src/vary_mannings_n_composite.py`: added `-v` input arg and if statement to check which .csv files to delete.
+- `src/add_crosswalk.py`: removed deprecated barc variables from input args.
+- `src/run_by_unit.sh`: removed deprecated barc variables from input args to `add_crosswalk.py`.
 
 <br/><br/>
 
