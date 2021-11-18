@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.24.1 - 2021-11-17 - [PR #484](https://github.com/NOAA-OWP/cahaba/pull/484)
 
-Hotfix for PR #482 to clean up unnecessary files and create better names for intermediate raster files.
+Patch to clean up unnecessary files and create better names for intermediate raster files.
 
 ## Removals
 
@@ -11,8 +11,8 @@ Hotfix for PR #482 to clean up unnecessary files and create better names for int
 
 ## Changes
 
-- `tools/composite_ms_fr_inundation.py`: Clean up documentation and intermediate file names
-- `tools/run_test_case.py`: Remove unnecessary imports
+- `tools/composite_ms_fr_inundation.py`: Clean up documentation and intermediate file names.
+- `tools/run_test_case.py`: Remove unnecessary imports.
 
 <br/><br/>
 
