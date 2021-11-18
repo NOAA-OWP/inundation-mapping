@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.24.2 - 2021-11-17 - [PR #484](https://github.com/NOAA-OWP/cahaba/pull/484)
+## v3.0.24.1 - 2021-11-17 - [PR #484](https://github.com/NOAA-OWP/cahaba/pull/484)
 
 Patch to clean up unnecessary files and create better names for intermediate raster files.
 
