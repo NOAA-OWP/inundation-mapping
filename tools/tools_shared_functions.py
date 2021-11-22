@@ -1068,15 +1068,15 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     
     #Define parameters. Hard code most parameters to convert NGVD to NAVD.    
     params = {}
-    params['lat'] = round(lat, 6)
-    params['lon'] = round(lon, 6)
-    params['region'] = region
+    params['lat']       = round(lat, 6)
+    params['lon']       = round(lon, 6)
+    params['region']    = region
     params['s_h_frame'] = 'NAD27'     #Source CRS
     params['s_v_frame'] = 'NGVD29'    #Source vertical coord datum
-    params['s_vertical_unit'] = 'm'   #Source vertical units
-    params['src_height'] = 0.0        #Source vertical height
+    params['s_v_unit']  = 'm'         #Source vertical units
+    params['height']    = 0.0         #Source vertical height
     params['t_v_frame'] = 'NAVD88'    #Target vertical datum
-    params['tar_vertical_unit'] = 'm' #Target vertical height
+    params['t_v_unit '] = 'm'         #Target vertical height
     
     #Call the API
     response = requests.get(datum_url, params = params)
