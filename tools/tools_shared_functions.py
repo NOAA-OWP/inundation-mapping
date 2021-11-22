@@ -1068,8 +1068,8 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     
     #Define parameters. Hard code most parameters to convert NGVD to NAVD.    
     params = {}
-    params['lat'] = lat
-    params['lon'] = lon
+    params['lat'] = round(lat, 6)
+    params['lon'] = round(lon, 6)
     params['region'] = region
     params['s_h_frame'] = 'NAD27'     #Source CRS
     params['s_v_frame'] = 'NGVD29'    #Source vertical coord datum
