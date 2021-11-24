@@ -132,8 +132,10 @@ def write_categorical_flow_files(metadata, workspace):
     workspace.mkdir(parents = True, exist_ok = True)
     #For each site in metadata 
     all_data = pd.DataFrame()
+    i = 1
     
     for site in metadata:
+        print(f' {i} / {len(metadata)}', end='\r'); i+=1
         #Get the feature_id and usgs_site_code
         feature_id = site.get('identifiers').get('nwm_feature_id')
         usgs_code = site.get('identifiers').get('usgs_site_code')
@@ -262,9 +264,12 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     all_rating_curves = pd.DataFrame()
     regular_messages = []    
     api_failure_messages=[]
+    i = 1
     #For each site in metadata_list
     for metadata in metadata_list:
         
+        print(f' {i} / {len(metadata_list)}', end='\r'); i+=1
+
         #Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)        
         
@@ -319,6 +324,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         #Append all rating curves to a dataframe
         all_rating_curves = all_rating_curves.append(curve)        
 
+    import pdb; pdb.set_trace()
     #Rename columns and add attribute indicating if rating curve exists
     acceptable_sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
     sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
