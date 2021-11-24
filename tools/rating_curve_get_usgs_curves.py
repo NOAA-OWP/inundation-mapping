@@ -324,7 +324,6 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         #Append all rating curves to a dataframe
         all_rating_curves = all_rating_curves.append(curve)        
 
-    import pdb; pdb.set_trace()
     #Rename columns and add attribute indicating if rating curve exists
     acceptable_sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
     sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
