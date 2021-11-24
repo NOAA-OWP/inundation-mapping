@@ -17,6 +17,32 @@ from shapely.geometry import shape
 from shapely.geometry import Polygon
 from shapely.geometry import MultiPolygon
 
+def requests_get_with_retry(url, url_params={}, connect=5, status=5, backoff_factor=10.0, status_forcelist=[429]):
+    """
+    This is a wrapper function that will use the requests library "GET" method with built-in retries if the "GET" call fails
+
+    Args:
+        url (str): URL to make "GET" request
+        url_params (dict): Optional. Dictionary of URL parameters.
+        connect (int): Optional. Number of times to retry on a connection error.
+        status (int): Optional. Number of times to retry on a response status error.
+        backoff_factor (float): Optional. Exponential coefficient for seconds to wait on subsequent retries. See Retry() docs for details. Default is 10.0.
+        status_forcelist (int list): Optional. Status codes to force a retry on. Default is 429 (Too many requests).
+
+    Returns:
+        response (requests.models.Response): Response from the server.
+    """
+    session = requests.Session()
+    retry = requests.packages.urllib3.util.retry.Retry(connect=connect, 
+                                                       status=status, 
+                                                       backoff_factor=backoff_factor, 
+                                                       status_forcelist=status_forcelist)
+    adapter = requests.adapters.HTTPAdapter(max_retries=retry)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    response = session.get(url, params=url_params)
+    return response
+
 
 def check_for_regression(stats_json_to_test, previous_version, previous_version_stats_json_path, regression_test_csv=None):
 
@@ -868,7 +894,9 @@ def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
-    response = requests.get(url, params = params)
+    # Query WRDS
+    response = requests_get_with_retry(url, params=params)
+
     if response.ok:
         thresholds_json = response.json()
         #Get metadata
@@ -1064,7 +1092,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
         lon = datum_info['lon']
     
     #Define url for datum API
-    datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/tidal'     
+    datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/tidal'
     
     #Define parameters. Hard code most parameters to convert NGVD to NAVD.    
     params = {}
@@ -1079,12 +1107,16 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     params['t_v_unit '] = 'm'         #Target vertical height
     
     #Call the API
-    response = requests.get(datum_url, params = params)
+    response = requests_get_with_retry(datum_url, params=params)
+
     #If succesful get the navd adjustment
     if response:
         results = response.json()
         #Get adjustment in meters (NGVD29 to NAVD88)
-        adjustment = results['tar_height']
+        try:
+            adjustment = results['tar_height']
+        except KeyError:
+            return None
         #convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084,2)                
     else:
@@ -1119,7 +1151,7 @@ def get_rating_curve(rating_curve_url, location_ids):
     url = f'{rating_curve_url}/{joined_location_ids}'
     
     #Call the API 
-    response = requests.get(url)
+    response = requests_get_with_retry(url)
 
     #If successful
     if response.ok:
