@@ -895,7 +895,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
     # Query WRDS
-    response = requests_get_with_retry(url, params=params)
+    response = requests_get_with_retry(url, url_params=params)
 
     if response.ok:
         thresholds_json = response.json()
@@ -1107,7 +1107,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     params['t_v_unit '] = 'm'         #Target vertical height
     
     #Call the API
-    response = requests_get_with_retry(datum_url, params=params)
+    response = requests_get_with_retry(datum_url, url_params=params)
 
     #If succesful get the navd adjustment
     if response:
