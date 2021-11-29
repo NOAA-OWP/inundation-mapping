@@ -21,6 +21,7 @@ usage ()
     echo '  -w/--whitelist  : list of files to save in a production run in addition to final inundation outputs'
     echo '                     ex: file1.tif,file2.json,file3.csv'
     echo '  -v/--viz        : compute post-processing on outputs to be used in viz'
+    echo '  -m/--mem        : enable memory profiling'
     exit
 }
 
@@ -69,6 +70,9 @@ in
     -v|--viz)
         viz=1
         ;;
+    -m|--mem)
+        mem=1
+        ;;
     *) ;;
     esac
     shift
@@ -94,11 +98,14 @@ fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
-source $libDir/bash_functions.env
+source $srcDir/bash_functions.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
-    jobLimit=$defaultMaxJobs
+    jobLimit=$default_max_jobs
+fi
+if [ "$viz" = "" ] ; then
+    viz=0
 fi
 
 ## Define Outputs Data Dir & Log File##
@@ -107,18 +114,19 @@ export extent=$extent
 export production=$production
 export whitelist=$whitelist
 export viz=$viz
+export mem=$mem
 logFile=$outputRunDataDir/logs/summary.log
 
 ## Define inputs
 export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
-export input_NWM_Lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
-export input_NWM_Catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
-export input_NWM_Flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
-export input_NWM_Headwaters=$inputDataDir/nwm_hydrofabric/nwm_headwaters.gpkg
-export input_NHD_Flowlines=$inputDataDir/nhdplus_vectors_aggregate/NHDPlusBurnLineEvent_wVAA.gpkg
-
+export input_nwm_lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
+export input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
+export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
+export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
+export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
+export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 ## Input handling ##
-$libDir/check_huc_inputs.py -u "$hucList"
+$srcDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then
@@ -132,17 +140,42 @@ mkdir -p $outputRunDataDir/logs
 ## RUN ##
 if [ -f "$hucList" ]; then
     if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh :::: $hucList
+        parallel --verbose --lb  -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
     else
-        parallel --eta -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh :::: $hucList
+        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh :::: $hucList
     fi
 else
     if [ "$jobLimit" -eq 1 ]; then
-        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh ::: $hucList
+        parallel --verbose --lb -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
     else
-        parallel --eta -j $jobLimit --joblog $logFile -- $libDir/time_and_tee_run_by_unit.sh ::: $hucList
+        parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
     fi
 fi
 
-# aggregate outputs
-bash /foss_fim/lib/aggregate_fim_outputs.sh $outputRunDataDir
+# identify missing HUCs
+# time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
+if [ "$extent" = "MS" ] && [ "$bathy_src_toggle" = "True" ]; then
+    # Run BARC routine
+    echo -e $startDiv"Performing Bathy Adjusted Rating Curve routine"$stopDiv
+    time python3 /foss_fim/src/bathy_src_adjust_topwidth.py -fim_dir $outputRunDataDir -bfull_geom $bankfull_input_table -j $jobLimit -plots $src_plot_option
+else
+    echo -e $startDiv"SKIPPING Bathy Adjusted Rating Curve routine"$stopDiv
+fi
+
+echo -e $startDiv"Estimating bankfull stage in SRCs"$stopDiv
+if [ "$src_bankfull_toggle" = "True" ]; then
+    # Run BARC routine
+    time python3 /foss_fim/src/identify_src_bankfull.py -fim_dir $outputRunDataDir -flows $bankfull_flows_file -j $jobLimit -plots $src_bankfull_plot_option
+fi
+
+echo -e $startDiv"Applying variable roughness in SRCs"$stopDiv
+if [ "$src_vrough_toggle" = "True" ]; then
+    # Run BARC routine
+    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit -plots $src_vrough_plot_option -viz_clean $viz
+fi
+
+echo "$viz"
+if [[ "$viz" -eq 1 ]]; then
+    # aggregate outputs
+    time python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 6
+fi
