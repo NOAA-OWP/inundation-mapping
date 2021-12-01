@@ -23,5 +23,5 @@ ENV PATH="$projectDir:${PATH}"
 
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
-ADD ./lib/entrypoint.sh /
+ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
