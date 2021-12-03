@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.4 - 2021-12-03 - [PR #491](https://github.com/NOAA-OWP/cahaba/pull/491)
+
+Adds Probability Not Detected (PND) as metric to evaluation code.
+
+## Changes
+ - `synthesize_test_cases.py`: added `PND` into the dictionary of searched metrics.
+- `tool_shared_variables.py`: added `PND` to the `GO_DOWN_STATS` list variable.
+- `tools_shared_functions.py`: added the `PND` calculation and inclusion into stats_dictionary.
+- `eval_plots.py`: added automatic plotting of `PND` and inclusion in spatial outputs. Also updated an argument in matplotlib call (I changed `b` to `visible`) in accordance with matplotlib recommendations concerning an impending deprecation of `b`.
+
+<br/><br/>
+
 ## v3.0.24.3 - 2021-11-29 - [PR #488](https://github.com/NOAA-OWP/cahaba/pull/488)
 
 Fixed projection issue in `synthesize_test_cases.py`.
