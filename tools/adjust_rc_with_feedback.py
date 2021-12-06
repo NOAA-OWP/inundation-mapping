@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import sys
 import json
+from collections import deque
 import multiprocessing
 from multiprocessing import Pool
 
@@ -56,9 +57,15 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         log_text += '!!! Flaged Mannings Roughness values below !!!' +'\n'
         log_text += df_mann_flag.to_string() + '\n'
 
-    # Create magnitude column by subsetting the "layer" attribute
+    # Create magnitude and ahps column by subsetting the "layer" attribute
     df_nvalues['magnitude'] = df_nvalues['layer'].str.split("_").str[5]
+    df_nvalues['ahps_lid'] = df_nvalues['layer'].str.split("_").str[1]
+    df_nvalues['huc'] = str(huc)
     df_nvalues.drop(['layer'], axis=1, inplace=True)
+
+    # Create df grouped by hydroid with ahps_lid and huc number
+    df_huc_lid = df_nvalues.groupby(["HydroID"]).first()[['ahps_lid','huc']]
+    df_huc_lid.columns = pd.MultiIndex.from_product([['info'], df_huc_lid.columns])
 
     # pivot the magnitude column to display n value for each magnitude at each hydroid
     df_nvalues_mag = df_nvalues.pivot_table(index='HydroID', columns='magnitude', values=['hydroid_ManningN'], aggfunc='mean') # if there are multiple entries per hydroid and magnitude - aggregate using mean
@@ -70,7 +77,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
     # filter the modified Manning's n dataframe for values out side allowable range
     df_nvalues = df_nvalues[df_nvalues['Mann_flag'] == 'Pass']
 
-    # Check that there are still valid entries in the calculate roughness df after filtering
+    # Check that there are valid entries in the calculate roughness df after filtering
     if not df_nvalues.empty:
         # Create df with the most recent collection time entry and submitter attribs
         df_updated = df_nvalues[['HydroID','coll_time','submitter']] # subset the dataframe
@@ -91,22 +98,33 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         df_nrange = df_nvalues.groupby('HydroID').agg({'hydroid_ManningN': ['median', 'min', 'max', 'std', 'count']})
         df_nrange['hydroid_ManningN','range'] = df_nrange['hydroid_ManningN','max'] - df_nrange['hydroid_ManningN','min']
         df_nrange = df_nrange.join(df_nvalues_mag, how='outer') # join the df_nvalues_mag containing hydroid_manningn values per flood magnitude category
+        df_nrange = df_nrange.merge(df_huc_lid, how='outer', on='HydroID') # join the df_huc_lid df to add attributes for lid and huc#
         output_stats_n_csv = os.path.join(fim_directory, huc, 'stats_src_n_vals_' + huc + '.csv')
         df_nrange.to_csv(output_stats_n_csv,index=True)
         log_text += 'Statistics for Modified Roughness Calcs -->' +'\n'
         log_text += df_nrange.to_string() + '\n'
         log_text += '----------------------------------------\n\n'
 
+        # subset the original hydrotable dataframe and subset to one row per HydroID
+        df_nmerge = df_htable[['HydroID','feature_id','NextDownID','LENGTHKM','LakeID','order_']].drop_duplicates(['HydroID'],keep='first') 
+
+        ## Create attributes to traverse the flow network between HydroIDs
+        df_nmerge = branch_network(df_nmerge)
+
         # Merge the newly caluclated ManningN dataframes
-        df_nmerge = df_htable[['HydroID','feature_id','NextDownID','LENGTHKM']].drop_duplicates(['HydroID'],keep='first') # subset the dataframe
         df_nmerge = df_nmerge.merge(df_mann_hydroid, how='left', on='HydroID')
         df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id')
         df_nmerge = df_nmerge.merge(df_updated, how='left', on='HydroID')
 
         # Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first 10km of hydroids)
-        df_nmerge.sort_values(by=['NextDownID'], inplace=True)
-        dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; run_accum_mann = 0; group_ManningN = 0    # initialize counter and accumulation variables
+        #df_nmerge.sort_values(by=['NextDownID'], inplace=True)
+        dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
+        run_accum_mann = 0; group_ManningN = 0; branch_start = 1                                        # initialize counter and accumulation variables
         for index, row in df_nmerge.iterrows():                                                         # loop through the df (parse by hydroid)
+            if int(df_nmerge.loc[index,'branch_id']) != branch_start:
+                dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
+                run_accum_mann = 0; group_ManningN = 0
+                branch_start = int(df_nmerge.loc[index,'branch_id'])
             if np.isnan(row['hydroid_ManningN']):                                                       # check if the hydroid_ManningN value is nan (indicates a non-calibrated hydroid)
                 df_nmerge.loc[index,'accum_dist'] = row['LENGTHKM'] + dist_accum                        # calculate accumulated river distance
                 dist_accum += row['LENGTHKM']                                                           # add hydroid length to the dist_accum var
@@ -138,15 +156,13 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         conditions  = [ (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].notnull()), (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].isnull()) & (df_nmerge['group_ManningN'].notnull()) ]
         choices     = [ df_nmerge['featid_ManningN'], df_nmerge['group_ManningN'] ]
         df_nmerge['modify_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
-        #df_nmerge['modify_ManningN'] = np.where(df_nmerge['hydroid_ManningN'].isnull(),df_nmerge['featid_ManningN'],df_nmerge['hydroid_ManningN'])
-        #df_nmerge['modify_ManningN'] = np.where(df_nmerge['hydroid_ManningN'].isnull() & df_nmerge['featid_ManningN'].isnull(),df_nmerge['group_ManningN'],df_nmerge['hydroid_ManningN'])
-
+        
         # Ouput merge_n_csv csv with all of the calculated n values
         output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
         df_nmerge.to_csv(output_merge_n_csv,index=False)
 
         # Merge the final ManningN dataframe to the original hydroTable
-        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM'], axis=1, inplace=True)
+        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True)
         df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
         #df_htable = df_htable.merge(df_mann_featid, how='left', on='feature_id')
         #df_htable = df_htable.merge(df_updated, how='left', on='HydroID')
@@ -173,7 +189,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         # output new catchments polygon layer with the new manning's n value attributes appended
         if catchments_poly_path != '':
             input_catchments = gpd.read_file(catchments_poly_path)
-            output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust.gpkg")
+            output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(huc) + ".gpkg")
             output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
             output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
 
@@ -184,6 +200,41 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
     log_text += 'Completed: ' + str(huc)
     print("Completed huc --> " + str(huc))
     return(log_text)
+
+def branch_network(df_input_htable):
+    df_input_htable = df_input_htable.astype({'NextDownID': 'int64'}) # ensure attribute has consistent format as int
+    df_input_htable = df_input_htable.loc[df_input_htable['LakeID'] == -999] # remove all hydroids associated with lake/water body (these often have disjoined artifacts in the network)
+    df_input_htable["start_catch"] = ~df_input_htable['HydroID'].isin(df_input_htable['NextDownID']) # define start catchments as hydroids that are not found in the "NextDownID" attribute for all other hydroids
+            
+    df_input_htable.set_index('HydroID',inplace=True,drop=False) # set index to the hydroid
+    branch_heads = deque(df_input_htable[df_input_htable['start_catch'] == True]['HydroID'].tolist())
+    visited = set()
+    branch_count = 0
+    while branch_heads:
+        hid = branch_heads.popleft()
+        print("Start hydroid: " + str(hid))
+        Q = deque(df_input_htable[df_input_htable['HydroID'] == hid]['HydroID'].tolist())
+        vert_count = 0; branch_count += 1
+        while Q:
+            q = Q.popleft()
+            if q not in visited:
+                df_input_htable.loc[df_input_htable.HydroID==q,'route_count'] = vert_count
+                df_input_htable.loc[df_input_htable.HydroID==q,'branch_id'] = branch_count
+                vert_count += 1
+                visited.add(q)
+                nextid = df_input_htable.loc[q,'NextDownID'] # find the id for the next downstream hydroid
+                order = df_input_htable.loc[q,'order_'] # find the streamorder for the current hydroid
+            
+                if nextid not in visited and nextid in df_input_htable.HydroID:
+                    check_confluence = (df_input_htable.NextDownID == nextid).sum() > 1
+                    nextorder = df_input_htable.loc[nextid,'order_'] # find the streamorder for the next downstream hydroid
+                    if nextorder > order and check_confluence == True: # check if the nextdownid streamorder is greater than the current hydroid order and the nextdownid is a confluence (more than 1 upstream hydroid draining to it)
+                        branch_heads.append(nextid) # found a disjoint in the network (append to branch_heads for second pass)
+                        continue # if above conditions are True than stop traversing downstream
+                    Q.append(nextid)
+    df_input_htable.reset_index(drop=True, inplace=True) # reset index
+    df_input_htable.sort_values(['branch_id','route_count'], inplace=True) # sort the dataframe by branch_id and then by route_count
+    return(df_input_htable)
 
 def output_src_json(df_htable,output_src_json_file):
     output_src_json = dict()
