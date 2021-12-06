@@ -88,7 +88,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         df_mann_hydroid = df_nvalues.groupby(["HydroID"])[['hydroid_ManningN']].median()
 
         # Create a df with the median hydroid_ManningN value per feature_id
-        df_mann_featid = df_nvalues.groupby(["feature_id"])[['hydroid_ManningN']].median()
+        df_mann_featid = df_nvalues.groupby(["feature_id"])[['hydroid_ManningN']].mean()
         df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'}, inplace=True)
 
         # Rename the original hydrotable variables to allow new calculations to use the primary var name
