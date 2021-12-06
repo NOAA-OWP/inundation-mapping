@@ -124,7 +124,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
             if int(df_nmerge.loc[index,'branch_id']) != branch_start:
                 dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
                 run_accum_mann = 0; group_ManningN = 0
-                branch_start = int(df_nmerge.loc[index,'branch_id'])
+                branch_start = int(df_nmerge.loc[index,'branch_id'])                                    # reassign the branch_start var to evaluate on next iteration
             if np.isnan(row['hydroid_ManningN']):                                                       # check if the hydroid_ManningN value is nan (indicates a non-calibrated hydroid)
                 df_nmerge.loc[index,'accum_dist'] = row['LENGTHKM'] + dist_accum                        # calculate accumulated river distance
                 dist_accum += row['LENGTHKM']                                                           # add hydroid length to the dist_accum var
@@ -162,7 +162,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         df_nmerge.to_csv(output_merge_n_csv,index=False)
 
         # Merge the final ManningN dataframe to the original hydroTable
-        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True)
+        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
         df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
         #df_htable = df_htable.merge(df_mann_featid, how='left', on='feature_id')
         #df_htable = df_htable.merge(df_updated, how='left', on='HydroID')
@@ -207,33 +207,32 @@ def branch_network(df_input_htable):
     df_input_htable["start_catch"] = ~df_input_htable['HydroID'].isin(df_input_htable['NextDownID']) # define start catchments as hydroids that are not found in the "NextDownID" attribute for all other hydroids
             
     df_input_htable.set_index('HydroID',inplace=True,drop=False) # set index to the hydroid
-    branch_heads = deque(df_input_htable[df_input_htable['start_catch'] == True]['HydroID'].tolist())
-    visited = set()
-    branch_count = 0
+    branch_heads = deque(df_input_htable[df_input_htable['start_catch'] == True]['HydroID'].tolist()) # create deque of hydroids to define start points in the while loop
+    visited = set() # create set to keep track of all hydroids that have been accounted for
+    branch_count = 0 # start branch id 
     while branch_heads:
-        hid = branch_heads.popleft()
-        print("Start hydroid: " + str(hid))
-        Q = deque(df_input_htable[df_input_htable['HydroID'] == hid]['HydroID'].tolist())
+        hid = branch_heads.popleft() # pull off left most hydroid from deque of start hydroids
+        Q = deque(df_input_htable[df_input_htable['HydroID'] == hid]['HydroID'].tolist()) # create a new deque that will be used to populate all relevant downstream hydroids
         vert_count = 0; branch_count += 1
         while Q:
             q = Q.popleft()
             if q not in visited:
-                df_input_htable.loc[df_input_htable.HydroID==q,'route_count'] = vert_count
-                df_input_htable.loc[df_input_htable.HydroID==q,'branch_id'] = branch_count
+                df_input_htable.loc[df_input_htable.HydroID==q,'route_count'] = vert_count # assign var with flow order ranking
+                df_input_htable.loc[df_input_htable.HydroID==q,'branch_id'] = branch_count # assign var with current branch id
                 vert_count += 1
                 visited.add(q)
                 nextid = df_input_htable.loc[q,'NextDownID'] # find the id for the next downstream hydroid
                 order = df_input_htable.loc[q,'order_'] # find the streamorder for the current hydroid
             
                 if nextid not in visited and nextid in df_input_htable.HydroID:
-                    check_confluence = (df_input_htable.NextDownID == nextid).sum() > 1
+                    check_confluence = (df_input_htable.NextDownID == nextid).sum() > 1 # check if the NextDownID is referenced by more than one hydroid (>1 means this is a confluence)
                     nextorder = df_input_htable.loc[nextid,'order_'] # find the streamorder for the next downstream hydroid
                     if nextorder > order and check_confluence == True: # check if the nextdownid streamorder is greater than the current hydroid order and the nextdownid is a confluence (more than 1 upstream hydroid draining to it)
-                        branch_heads.append(nextid) # found a disjoint in the network (append to branch_heads for second pass)
-                        continue # if above conditions are True than stop traversing downstream
+                        branch_heads.append(nextid) # found a terminal point in the network (append to branch_heads for second pass)
+                        continue # if above conditions are True than stop traversing downstream and move on to next starting hydroid
                     Q.append(nextid)
-    df_input_htable.reset_index(drop=True, inplace=True) # reset index
-    df_input_htable.sort_values(['branch_id','route_count'], inplace=True) # sort the dataframe by branch_id and then by route_count
+    df_input_htable.reset_index(drop=True, inplace=True) # reset index (previously using hydroid as index)
+    df_input_htable.sort_values(['branch_id','route_count'], inplace=True) # sort the dataframe by branch_id and then by route_count (need this ordered to ensure upstream to downstream ranking for each branch)
     return(df_input_htable)
 
 def output_src_json(df_htable,output_src_json_file):
