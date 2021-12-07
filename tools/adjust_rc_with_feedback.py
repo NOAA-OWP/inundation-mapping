@@ -21,7 +21,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
     # Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path)
     if 'default_ManningN' in df_htable.columns:
-        df_htable.drop(['ManningN','discharge_cms','hydroid_ManningN','featid_ManningN','last_updated','modify_ManningN'], axis=1, inplace=True) # Delete these to prevent duplicates (if adjust_rc_with_feedback.py was previously applied)
+        df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN'], axis=1, inplace=True) # Delete these to prevent duplicates (if adjust_rc_with_feedback.py was previously applied)
         #df_htable = df_htable[['HydroID','feature_id','stage','orig_discharge_cms','HydraulicRadius (m)','WetArea (m2)','SLOPE','default_ManningN','HUC','LakeID']]
         df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
         log_text += str(huc) + ': found previous hydroTable calibration attributes --> removing previous calb columns...\n'
@@ -152,35 +152,36 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
             df_nmerge.drop(['hyid_count'], axis=1, inplace=True) # drop hydroid counter if it exists
         df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop accum vars from group calc
 
-        # Create the modify_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
+        # Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
         conditions  = [ (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].notnull()), (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].isnull()) & (df_nmerge['group_ManningN'].notnull()) ]
         choices     = [ df_nmerge['featid_ManningN'], df_nmerge['group_ManningN'] ]
-        df_nmerge['modify_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
+        df_nmerge['adjust_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
         
         # Ouput merge_n_csv csv with all of the calculated n values
         output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
         df_nmerge.to_csv(output_merge_n_csv,index=False)
 
         # Merge the final ManningN dataframe to the original hydroTable
-        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
+        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
         df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
+        df_htable['adjust_src_on'] = np.where(df_htable['adjust_ManningN'].notnull(), 'True', 'False') # create true/false column to clearly identify where new roughness values are applied
         #df_htable = df_htable.merge(df_mann_featid, how='left', on='feature_id')
         #df_htable = df_htable.merge(df_updated, how='left', on='HydroID')
 
         # Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
-        df_htable['ManningN'] = np.where(df_htable['modify_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['modify_ManningN'])
+        df_htable['ManningN'] = np.where(df_htable['adjust_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['adjust_ManningN'])
 
         # Calculate new discharge_cms with new ManningN
         df_htable['discharge_cms'] = df_htable['WetArea (m2)']* \
         pow(df_htable['HydraulicRadius (m)'],2.0/3)* \
         pow(df_htable['SLOPE'],0.5)/df_htable['ManningN']
 
-        # Replace discharge_cms with 0 or -999 if present in the original discharge
+        # Replace discharge_cms with 0 or -999 if present in the original discharge (carried over from thalweg notch workaround in SRC post-processing)
         df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==0.0,0.0,inplace=True)
         df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==-999,-999,inplace=True)
 
         # Export a new hydroTable.csv and overwrite the previous version
-        out_htable = os.path.join(fim_directory, huc, 'hydroTable_usgs_nws.csv')
+        out_htable = os.path.join(fim_directory, huc, 'hydroTable_src_adjust.csv')
         df_htable.to_csv(out_htable,index=False)
 
         # output new src json (overwrite previous)
