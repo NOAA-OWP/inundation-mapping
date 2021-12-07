@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import sys
 import json
+import datetime as dt
 from collections import deque
 import multiprocessing
 from multiprocessing import Pool
@@ -19,7 +20,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
     df_nvalues = df_nvalues[df_nvalues.hydroid != 0] # remove null entries that do not have a valid hydroid
 
     # Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
-    df_htable = pd.read_csv(htable_path)
+    df_htable = pd.read_csv(htable_path, dtype={'HUC': object})
     if 'default_ManningN' in df_htable.columns:
         df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN'], axis=1, inplace=True) # Delete these to prevent duplicates (if adjust_rc_with_feedback.py was previously applied)
         #df_htable = df_htable[['HydroID','feature_id','stage','orig_discharge_cms','HydraulicRadius (m)','WetArea (m2)','SLOPE','default_ManningN','HUC','LakeID']]
@@ -165,8 +166,6 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
         df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
         df_htable['adjust_src_on'] = np.where(df_htable['adjust_ManningN'].notnull(), 'True', 'False') # create true/false column to clearly identify where new roughness values are applied
-        #df_htable = df_htable.merge(df_mann_featid, how='left', on='feature_id')
-        #df_htable = df_htable.merge(df_updated, how='left', on='HydroID')
 
         # Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
         df_htable['ManningN'] = np.where(df_htable['adjust_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['adjust_ManningN'])
@@ -437,13 +436,22 @@ if __name__ == '__main__':
         job_number = available_cores - 1
         print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
 
+    ## Create a time var to log run time
+    begin_time = dt.datetime.now()
+
     # Create log file for processing records
     print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
     log_file = open(os.path.join(fim_directory,'log_rating_curve_adjust.log'),"w")
+    log_file.write('START TIME: ' + str(begin_time) + '\n')
+    log_file.write('#########################################################\n\n')
 
     ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number)
 
-    # Close log file
+    ## Record run time and close log file
+    end_time = dt.datetime.now()
+    log_file.write('END TIME: ' + str(end_time) + '\n')
+    tot_run_time = end_time - begin_time
+    log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
     sys.stdout = sys.__stdout__
     log_file.close()
