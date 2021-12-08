@@ -81,7 +81,7 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
     # Check that there are valid entries in the calculate roughness df after filtering
     if not df_nvalues.empty:
         # Create df with the most recent collection time entry and submitter attribs
-        df_updated = df_nvalues[['HydroID','coll_time','submitter']] # subset the dataframe
+        df_updated = df_nvalues[['HydroID','coll_time','submitter','ahps_lid']] # subset the dataframe
         df_updated = df_updated.sort_values('coll_time').drop_duplicates(['HydroID'],keep='last') # sort by collection time and then drop duplicate HydroIDs (keep most recent coll_time per HydroID)
         df_updated.rename(columns={'coll_time':'last_updated'}, inplace=True)
 
@@ -152,6 +152,10 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         if 'hyid_count' in df_nmerge.columns:
             df_nmerge.drop(['hyid_count'], axis=1, inplace=True) # drop hydroid counter if it exists
         df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop accum vars from group calc
+
+        # Temp filter to only use the hydroid manning n values (not featureid or group)
+        #df_nmerge = df_nmerge.assign(featid_ManningN=np.nan)
+        #df_nmerge = df_nmerge.assign(group_ManningN=np.nan)
 
         # Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
         conditions  = [ (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].notnull()), (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].isnull()) & (df_nmerge['group_ManningN'].notnull()) ]
@@ -343,7 +347,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
 
     # Spatially join the two layers.
     print("Joining points to WBD...")
-    water_edge_df = sjoin(points_layer_read, wbd_huc_read)
+    water_edge_df = sjoin(points_layer_read, wbd_huc_read, op='within')
     del wbd_huc_read
 
     # Convert to GeoDataFrame and add two columns for X and Y.
