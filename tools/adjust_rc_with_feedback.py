@@ -445,8 +445,8 @@ if __name__ == '__main__':
     parser.add_argument('-d','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-w','--wbd-path',help='Path to national huc layer.',required=True)
     parser.add_argument('-i','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
-    parser.add_argument('-s','--scale',help='huc or HUC8', required=True)
-    parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=available_cores - 2)
+    parser.add_argument('-s','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
+    parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=2)
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
