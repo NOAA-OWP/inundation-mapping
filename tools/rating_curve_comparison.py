@@ -420,6 +420,8 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     sns.countplot(ax=ax[1,1], y='mean_y_diff_ft', data=usgs_gages)
     sns.boxplot(ax=ax[0,1], data=usgs_gages[['2', '5', '10', '25', '50', '100', 'action', 'minor', 'moderate','major']])
     ax[0,1].set(ylim=(-12, 12))
+
+    fig.tight_layout()
     fig.savefig(join(output_dir, f'{output_gpkg}_summary_plots.png'.replace('.gpkg', '')))
 
     return
