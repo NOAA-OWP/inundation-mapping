@@ -2,7 +2,7 @@
 
 import os
 import sys
-import pandas as pd
+import pandas as pd, geopandas as gpd
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
@@ -105,21 +105,18 @@ def generate_rating_curve_metrics(args):
         generate_facet_plot(rating_curves, rc_comparison_plot_filename)
 
         # NWM recurr intervals
-        recurr_1_5_yr_filename = join(nwm_flow_dir,'recurr_1_5_cms.csv')
-        recurr_5_yr_filename = join(nwm_flow_dir,'recurr_5_0_cms.csv')
-        recurr_10_yr_filename = join(nwm_flow_dir,'recurr_10_0_cms.csv')
-
-        # Update column names
-        recurr_1_5_yr = pd.read_csv(recurr_1_5_yr_filename,dtype={'feature_id': str})
-        recurr_1_5_yr = recurr_1_5_yr.rename(columns={"discharge": "1.5"})
-        recurr_5_yr = pd.read_csv(recurr_5_yr_filename,dtype={'feature_id': str})
-        recurr_5_yr = recurr_5_yr.rename(columns={"discharge": "5.0"})
-        recurr_10_yr = pd.read_csv(recurr_10_yr_filename,dtype={'feature_id': str})
-        recurr_10_yr = recurr_10_yr.rename(columns={"discharge": "10.0"})
+        recurr_intervals = ("2","5","10","25","50","100")
+        recurr_dfs = []
+        for interval in recurr_intervals:
+            recurr_file = join(nwm_flow_dir, 'nwm21_17C_recurr_{}_0_cms.csv'.format(interval))
+            df = pd.read_csv(recurr_file, dtype={'feature_id': str})
+            # Update column names
+            df = df.rename(columns={"discharge": interval})
+            recurr_dfs.append(df)
 
         # Merge NWM recurr intervals into a single layer
-        nwm_recurr_intervals_all = reduce(lambda x,y: pd.merge(x,y, on='feature_id', how='outer'), [recurr_1_5_yr, recurr_5_yr, recurr_10_yr])
-        nwm_recurr_intervals_all = pd.melt(nwm_recurr_intervals_all, id_vars=['feature_id'], value_vars=['1.5','5.0','10.0'], var_name='recurr_interval', value_name='discharge_cms')
+        nwm_recurr_intervals_all = reduce(lambda x,y: pd.merge(x,y, on='feature_id', how='outer'), recurr_dfs)
+        nwm_recurr_intervals_all = pd.melt(nwm_recurr_intervals_all, id_vars=['feature_id'], value_vars=recurr_intervals, var_name='recurr_interval', value_name='discharge_cms')
 
         # Append catfim data (already set up in format similar to nwm_recurr_intervals_all)
         cat_fim = pd.read_csv(catfim_flows_filename, dtype={'feature_id':str})
@@ -226,6 +223,10 @@ def generate_rating_curve_metrics(args):
 
 def aggregate_metrics(output_dir,procs_list,stat_groups):
 
+    # Default stat group to location_id
+    if stat_groups is None:
+        stat_groups = ['location_id']
+
     # agg_usgs_interp_elev_stats = join(output_dir,'agg_usgs_interp_elev_stats.csv')
     agg_nwm_recurr_flow_elev = join(output_dir,'agg_nwm_recurr_flow_elevations.csv')
     agg_nwm_recurr_flow_elev_stats = join(output_dir,f"agg_nwm_recurr_flow_elev_stats_{'_'.join(stat_groups)}.csv")
@@ -263,6 +264,8 @@ def aggregate_metrics(output_dir,procs_list,stat_groups):
     agg_recurr_stats_table = calculate_rc_stats_elev(agg_stats,stat_groups)
 
     agg_recurr_stats_table.to_csv(agg_nwm_recurr_flow_elev_stats,index=False)
+
+    return agg_recurr_stats_table
 
 
 def generate_facet_plot(rc, plot_filename):
@@ -331,9 +334,6 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
         .rename_axis(None, axis=1)
      )
 
-    if stat_groups is None:
-        stat_groups = ['location_id']
-
     # Calculate variables for NRMSE
     rc_unmelt["yhat_minus_y"] = rc_unmelt[src_elev] - rc_unmelt[usgs_elev]
     rc_unmelt["yhat_minus_y_squared"] = rc_unmelt["yhat_minus_y"] ** 2
@@ -360,21 +360,98 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
     nrmse_table_group = nrmse_table.groupby(stat_groups)
 
     # Calculate nrmse
-    nrmse = nrmse_table_group.apply(lambda x: ((x['sum_y_diff'] / x['n']) ** 0.5) / (x['y_max'] - x['y_min']))\
+    def NRMSE(x):
+        if x['n'][0] == 1:      # when n==1, NRME equation will return an `inf` 
+            return x['sum_y_diff'] ** 0.5
+        else:
+            return ((x['sum_y_diff'] / x['n']) ** 0.5) / (x['y_max'] - x['y_min'])
+
+    nrmse = nrmse_table_group.apply(NRMSE)\
         .reset_index(stat_groups, drop = False).rename({0: "nrmse"}, axis=1)
 
     # Calculate Mean Absolute Depth Difference
     mean_abs_y_diff = station_rc.apply(lambda x: (abs(x["yhat_minus_y"]).mean()))\
         .reset_index(stat_groups, drop = False).rename({0: "mean_abs_y_diff_ft"}, axis=1)
 
+    # Calculate Mean Depth Difference (non-absolute value)
+    mean_y_diff     = station_rc.apply(lambda x: (x["yhat_minus_y"].mean()))\
+        .reset_index(stat_groups, drop = False).rename({0: "mean_y_diff_ft"}, axis=1)
+
     # Calculate Percent Bias
     percent_bias = station_rc.apply(lambda x: 100 * (x["yhat_minus_y"].sum() / x[usgs_elev].sum()))\
         .reset_index(stat_groups, drop = False).rename({0: "percent_bias"}, axis=1)
 
-    rc_stat_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [nrmse, mean_abs_y_diff, percent_bias])
+    rc_stat_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [nrmse, mean_abs_y_diff, mean_y_diff, percent_bias])
 
     return rc_stat_table
 
+def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gpkg_filepath):
+    '''
+    Merges the output dataframe from aggregate_metrics() with the usgs gages GIS data
+    '''
+    # Load in the usgs_gages geopackage
+    usgs_gages = gpd.read_file(gages_gpkg_filepath)
+    # Merge the stats for all of the recurrance intervals/thresholds
+    usgs_gages = usgs_gages.merge(agg_recurr_stats_table, on='location_id')
+    # Load in the rating curves file
+    agg_nwm_recurr_flow_elev = join(output_dir,'agg_nwm_recurr_flow_elevations.csv')
+    agg_stats = pd.read_csv(agg_nwm_recurr_flow_elev,dtype={'location_id': str,
+                                                        'feature_id': str})
+    diff_table = calculate_rc_diff(agg_stats)
+    # Merge recurrence interval difference table with points layer
+    usgs_gages = usgs_gages.merge(diff_table, on='location_id')
+    usgs_gages = usgs_gages.round(decimals=2)
+
+    # Write to file
+    usgs_gages.to_file(join(output_dir, output_gpkg), driver='GPKG', index=False)
+    #usgs_gages.to_file(join(output_dir, output_gpkg), driver='ESRI Shapefile', index=False)
+
+    # Create figure
+    usgs_gages.replace(np.inf, np.nan, inplace=True) # replace inf with nan for plotting
+    fig, ax = plt.subplots(2, 2, figsize=(18, 10))
+
+    # Bin data
+    usgs_gages['mean_abs_y_diff_ft'] = pd.cut(usgs_gages['mean_abs_y_diff_ft'], bins=(0, 1, 3, 6, 9, usgs_gages['mean_abs_y_diff_ft'].max()))
+    usgs_gages['mean_y_diff_ft'] = pd.cut(usgs_gages['mean_y_diff_ft'], bins=(usgs_gages['mean_y_diff_ft'].min(),-9, -6, -3, -1, 0, 1, 3, 6, 9, usgs_gages['mean_y_diff_ft'].max()))
+
+    # Create subplots
+    sns.histplot(ax=ax[0,0], y='nrmse', data=usgs_gages, binwidth=0.2, binrange=(0, 10))
+    sns.countplot(ax=ax[1,0], y='mean_abs_y_diff_ft', data=usgs_gages)
+    sns.countplot(ax=ax[1,1], y='mean_y_diff_ft', data=usgs_gages)
+    sns.boxplot(ax=ax[0,1], data=usgs_gages[['2', '5', '10', '25', '50', '100', 'action', 'minor', 'moderate','major']])
+    ax[0,1].set(ylim=(-12, 12))
+    fig.savefig(join(output_dir, f'{output_gpkg}_summary_plots.png'.replace('.gpkg', '')))
+
+    return
+
+def calculate_rc_diff(rc):
+
+    usgs_elev = "USGS"
+    src_elev = "FIM"
+
+    # Collect any extra columns not associated with melt
+    col_index = list(rc.columns)
+    pivot_vars = ['source','elevation_ft']
+    col_index = [col for col in col_index if col not in pivot_vars]
+
+    # Unmelt elevation/source
+    rc_unmelt = (rc.set_index(col_index)
+        .pivot(columns="source")['elevation_ft']
+        .reset_index()
+        .rename_axis(None, axis=1)
+     )
+
+    # Calculate water surface elevation difference at recurrence intervals
+    rc_unmelt["yhat_minus_y"] = rc_unmelt[src_elev] - rc_unmelt[usgs_elev]
+    # Remove duplicate location_id-recurr_interval pairs and pivot 
+    rc_unmelt.set_index(['location_id', 'recurr_interval'], inplace=True, verify_integrity=False)
+    rc_unmelt = (rc_unmelt[~rc_unmelt.index.duplicated(keep='first')]
+        .reset_index()
+        .pivot(index='location_id', columns='recurr_interval', values='yhat_minus_y'))
+    # Reorder columns
+    rc_unmelt = rc_unmelt[['2', '5', '10', '25', '50', '100', 'action', 'minor', 'moderate','major']]
+
+    return rc_unmelt
 
 if __name__ == '__main__':
 
@@ -385,7 +462,8 @@ if __name__ == '__main__':
     parser.add_argument('-flows','--nwm-flow-dir',help='NWM recurrence flows dir',required=True,type=str)
     parser.add_argument('-catfim', '--catfim-flows-filename', help='Categorical FIM flows file',required = True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
-    parser.add_argument('-group','--stat-groups',help='column(s) to group stats',required=False,type=str)
+    parser.add_argument('-group','--stat-groups',help='column(s) to group stats',required=False,type=str,nargs='+')
+    parser.add_argument('-pnts','--stat-gages',help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS gages with joined stats',required=False,type=str,nargs=2)
 
     args = vars(parser.parse_args())
 
@@ -396,8 +474,13 @@ if __name__ == '__main__':
     catfim_flows_filename = args['catfim_flows_filename']
     number_of_jobs = args['number_of_jobs']
     stat_groups = args['stat_groups']
+    if args['stat_gages']:
+        gages_gpkg_filepath = args['stat_gages'][0]
+        stat_gages = args['stat_gages'][1]
+        assert (os.path.exists(gages_gpkg_filepath)), f"{gages_gpkg_filepath} does not exist. Please specify a full path to a USGS geopackage (.gpkg)"
 
-    stat_groups = stat_groups.split()
+    assert (not stat_gages or (stat_gages and (not stat_groups or stat_groups == ['location_id']))), \
+        "location_id is the only acceptable stat_groups argument when producting an output GPKG"
     procs_list = []
 
     plots_dir = join(output_dir,'plots')
@@ -443,8 +526,15 @@ if __name__ == '__main__':
     with Pool(processes=number_of_jobs) as pool:
         pool.map(generate_rating_curve_metrics, procs_list)
 
-    print(f"Aggregating rating curve metrics for {len(procs_list)} hucs")
-    aggregate_metrics(output_dir,procs_list,stat_groups)
+    # Create point layer of usgs gages with joined stats attributes
+    if stat_gages:
+        print("Creating usgs gages GPKG with joined rating curve summary stats")
+        agg_recurr_stats_table = aggregate_metrics(output_dir,procs_list,['location_id'])
+        create_static_gpkg(output_dir, stat_gages, agg_recurr_stats_table, gages_gpkg_filepath)
+        del agg_recurr_stats_table # memory cleanup
+    else: # if not producing GIS layer, just aggregate metrics
+        print(f"Aggregating rating curve metrics for {len(procs_list)} hucs")
+        aggregate_metrics(output_dir,procs_list,stat_groups)
 
     print('Delete intermediate tables')
     shutil.rmtree(tables_dir, ignore_errors=True)
