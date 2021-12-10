@@ -12,17 +12,19 @@ from collections import deque
 import multiprocessing
 from multiprocessing import Pool
 
+from tools_shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 
-def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_json_file, huc, catchments_poly_path):
+
+def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs):
     print("Processing huc --> " + str(huc))
     log_text = "\nProcessing huc --> " + str(huc) + '\n'
     df_nvalues = pd.read_csv(pt_n_values_csv) # read csv to import as a dataframe
     df_nvalues = df_nvalues[df_nvalues.hydroid != 0] # remove null entries that do not have a valid hydroid
 
     # Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
-    df_htable = pd.read_csv(htable_path, dtype={'HUC': object})
+    df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object})
     if 'default_ManningN' in df_htable.columns:
-        df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN'], axis=1, inplace=True) # Delete these to prevent duplicates (if adjust_rc_with_feedback.py was previously applied)
+        df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN','adjust_src_on'], axis=1, inplace=True) # Delete these to prevent duplicates (if adjust_rc_with_feedback.py was previously applied)
         #df_htable = df_htable[['HydroID','feature_id','stage','orig_discharge_cms','HydraulicRadius (m)','WetArea (m2)','SLOPE','default_ManningN','HUC','LakeID']]
         df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
         log_text += str(huc) + ': found previous hydroTable calibration attributes --> removing previous calb columns...\n'
@@ -51,8 +53,8 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
     pow(df_nvalues['HydraulicRadius_m'],2.0/3)* \
     pow(df_nvalues['SLOPE'],0.5)/df_nvalues['flow']
 
-    # Create dataframe to check for erroneous Manning's n values (>0.6 or <0.001)
-    df_nvalues['Mann_flag'] = np.where((df_nvalues['hydroid_ManningN'] >= 0.6) | (df_nvalues['hydroid_ManningN'] <= 0.001) | (df_nvalues['hydroid_ManningN'].isnull()),'Fail','Pass')
+    # Create dataframe to check for erroneous Manning's n values (values set in tools_shared_variables.py --> >0.6 or <0.001)
+    df_nvalues['Mann_flag'] = np.where((df_nvalues['hydroid_ManningN'] >= ROUGHNESS_MAX_THRESH) | (df_nvalues['hydroid_ManningN'] <= ROUGHNESS_MIN_THRESH) | (df_nvalues['hydroid_ManningN'].isnull()),'Fail','Pass')
     df_mann_flag = df_nvalues[(df_nvalues['Mann_flag'] == 'Fail')][['HydroID','hydroid_ManningN']]
     if not df_mann_flag.empty:
         log_text += '!!! Flaged Mannings Roughness values below !!!' +'\n'
@@ -71,9 +73,10 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
     # pivot the magnitude column to display n value for each magnitude at each hydroid
     df_nvalues_mag = df_nvalues.pivot_table(index='HydroID', columns='magnitude', values=['hydroid_ManningN'], aggfunc='mean') # if there are multiple entries per hydroid and magnitude - aggregate using mean
     
-    # Export csv with the newly calculated Manning's N values
-    output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
-    df_nvalues.to_csv(output_calc_n_csv,index=False)
+    # Optional: Export csv with the newly calculated Manning's N values
+    if optional_outputs == 'True':
+        output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
+        df_nvalues.to_csv(output_calc_n_csv,index=False)
 
     # filter the modified Manning's n dataframe for values out side allowable range
     df_nvalues = df_nvalues[df_nvalues['Mann_flag'] == 'Pass']
@@ -89,8 +92,8 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         df_mann_hydroid = df_nvalues.groupby(["HydroID"])[['hydroid_ManningN']].median()
 
         # Create a df with the median hydroid_ManningN value per feature_id
-        df_mann_featid = df_nvalues.groupby(["feature_id"])[['hydroid_ManningN']].mean()
-        df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'}, inplace=True)
+        #df_mann_featid = df_nvalues.groupby(["feature_id"])[['hydroid_ManningN']].mean()
+        #df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'}, inplace=True)
 
         # Rename the original hydrotable variables to allow new calculations to use the primary var name
         df_htable.rename(columns={'ManningN':'default_ManningN','discharge_cms':'default_discharge_cms'}, inplace=True)
@@ -100,11 +103,14 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         df_nrange['hydroid_ManningN','range'] = df_nrange['hydroid_ManningN','max'] - df_nrange['hydroid_ManningN','min']
         df_nrange = df_nrange.join(df_nvalues_mag, how='outer') # join the df_nvalues_mag containing hydroid_manningn values per flood magnitude category
         df_nrange = df_nrange.merge(df_huc_lid, how='outer', on='HydroID') # join the df_huc_lid df to add attributes for lid and huc#
-        output_stats_n_csv = os.path.join(fim_directory, huc, 'stats_src_n_vals_' + huc + '.csv')
-        df_nrange.to_csv(output_stats_n_csv,index=True)
         log_text += 'Statistics for Modified Roughness Calcs -->' +'\n'
         log_text += df_nrange.to_string() + '\n'
         log_text += '----------------------------------------\n\n'
+
+        # Optional: Output csv with SRC calc stats
+        if optional_outputs == 'True':
+            output_stats_n_csv = os.path.join(fim_directory, huc, 'stats_src_n_vals_' + huc + '.csv')
+            df_nrange.to_csv(output_stats_n_csv,index=True)
 
         # subset the original hydrotable dataframe and subset to one row per HydroID
         df_nmerge = df_htable[['HydroID','feature_id','NextDownID','LENGTHKM','LakeID','order_']].drop_duplicates(['HydroID'],keep='first') 
@@ -114,24 +120,34 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
 
         # Merge the newly caluclated ManningN dataframes
         df_nmerge = df_nmerge.merge(df_mann_hydroid, how='left', on='HydroID')
-        df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id')
         df_nmerge = df_nmerge.merge(df_updated, how='left', on='HydroID')
 
         # Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first 10km of hydroids)
         #df_nmerge.sort_values(by=['NextDownID'], inplace=True)
         dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
         run_accum_mann = 0; group_ManningN = 0; branch_start = 1                                        # initialize counter and accumulation variables
+        lid_count = 0; prev_lid = 'x'
         for index, row in df_nmerge.iterrows():                                                         # loop through the df (parse by hydroid)
-            if int(df_nmerge.loc[index,'branch_id']) != branch_start:
-                dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
-                run_accum_mann = 0; group_ManningN = 0
+            if int(df_nmerge.loc[index,'branch_id']) != branch_start:                                   # check if start of new branch
+                dist_accum = 0; hyid_count = 0; hyid_accum_count = 0;                                   # initialize counter vars
+                run_accum_mann = 0; group_ManningN = 0                                                  # initialize counter vars
                 branch_start = int(df_nmerge.loc[index,'branch_id'])                                    # reassign the branch_start var to evaluate on next iteration
-            if np.isnan(row['hydroid_ManningN']):                                                       # check if the hydroid_ManningN value is nan (indicates a non-calibrated hydroid)
+            #     lid_count = 0                                                                         # use the code below to withold downstream hydroid_ManningN values (use this for downstream evaluation tests)
+            # if not pd.isna(df_nmerge.loc[index,'ahps_lid']):
+            #     if df_nmerge.loc[index,'ahps_lid'] == prev_lid:
+            #         lid_count += 1
+            #         if lid_count > 3: # only keep the first 3 HydroID n values (everything else set to null for downstream application)
+            #             df_nmerge.loc[index,'hydroid_ManningN'] = np.nan
+            #             df_nmerge.loc[index,'featid_ManningN'] = np.nan
+            #     else:
+            #         lid_count = 1
+            #     prev_lid = df_nmerge.loc[index,'ahps_lid']
+            if np.isnan(df_nmerge.loc[index,'hydroid_ManningN']):                                       # check if the hydroid_ManningN value is nan (indicates a non-calibrated hydroid)
                 df_nmerge.loc[index,'accum_dist'] = row['LENGTHKM'] + dist_accum                        # calculate accumulated river distance
                 dist_accum += row['LENGTHKM']                                                           # add hydroid length to the dist_accum var
                 hyid_count = 0                                                                          # reset the hydroid counter to 0
                 df_nmerge.loc[index,'hyid_accum_count'] = hyid_accum_count                              # output the hydroid accum counter
-                if dist_accum < 10.0:                                                                   # check if the accum distance is less than 10km downstream from valid hydroid_ManningN group value
+                if dist_accum < DOWNSTREAM_THRESHOLD:                                                   # check if the accum distance is less than Xkm downstream from valid hydroid_ManningN group value
                     if hyid_accum_count > 1:                                                            # only apply the group_ManningN if there are 2 or more valid hydorids that contributed to the upstream group_ManningN
                         df_nmerge.loc[index,'group_ManningN'] = group_ManningN                          # output the group_ManningN var
                 else:
@@ -153,7 +169,12 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
             df_nmerge.drop(['hyid_count'], axis=1, inplace=True) # drop hydroid counter if it exists
         df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop accum vars from group calc
 
-        # Temp filter to only use the hydroid manning n values (not featureid or group)
+        # Create a df with the median hydroid_ManningN value per feature_id
+        df_mann_featid = df_nmerge.groupby(["feature_id"])[['hydroid_ManningN']].mean()
+        df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'}, inplace=True)
+        df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id')
+
+        # Temp testing filter to only use the hydroid manning n values (drop the featureid and group ManningN variables)
         #df_nmerge = df_nmerge.assign(featid_ManningN=np.nan)
         #df_nmerge = df_nmerge.assign(group_ManningN=np.nan)
 
@@ -161,20 +182,28 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         conditions  = [ (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].notnull()), (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].isnull()) & (df_nmerge['group_ManningN'].notnull()) ]
         choices     = [ df_nmerge['featid_ManningN'], df_nmerge['group_ManningN'] ]
         df_nmerge['adjust_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
+        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
         
-        # Ouput merge_n_csv csv with all of the calculated n values
-        output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
-        df_nmerge.to_csv(output_merge_n_csv,index=False)
+        # Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
+        if optional_outputs == 'True':
+            output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
+            df_nmerge.to_csv(output_merge_n_csv,index=False)
+            # output new catchments polygon layer with the new manning's n value attributes appended
+            if catchments_poly_path != '':
+                input_catchments = gpd.read_file(catchments_poly_path)
+                output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(huc) + ".gpkg")
+                output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
+                output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
 
         # Merge the final ManningN dataframe to the original hydroTable
-        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
+        df_nmerge.drop(['ahps_lid','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
         df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
         df_htable['adjust_src_on'] = np.where(df_htable['adjust_ManningN'].notnull(), 'True', 'False') # create true/false column to clearly identify where new roughness values are applied
 
         # Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
         df_htable['ManningN'] = np.where(df_htable['adjust_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['adjust_ManningN'])
 
-        # Calculate new discharge_cms with new ManningN
+        # Calculate new discharge_cms with new adjusted ManningN
         df_htable['discharge_cms'] = df_htable['WetArea (m2)']* \
         pow(df_htable['HydraulicRadius (m)'],2.0/3)* \
         pow(df_htable['SLOPE'],0.5)/df_htable['ManningN']
@@ -184,18 +213,11 @@ def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_
         df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==-999,-999,inplace=True)
 
         # Export a new hydroTable.csv and overwrite the previous version
-        out_htable = os.path.join(fim_directory, huc, 'hydroTable_src_adjust.csv')
+        out_htable = os.path.join(fim_directory, huc, 'hydroTable.csv')
         df_htable.to_csv(out_htable,index=False)
 
         # output new src json (overwrite previous)
         output_src_json(df_htable,output_src_json_file)
-
-        # output new catchments polygon layer with the new manning's n value attributes appended
-        if catchments_poly_path != '':
-            input_catchments = gpd.read_file(catchments_poly_path)
-            output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(huc) + ".gpkg")
-            output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
-            output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
 
     else:
         print('ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate')
@@ -276,6 +298,7 @@ def process_points(args):
     water_edge_df = args[5]
     output_src_json_file = args[6]
     htable_path = args[7]
+    optional_outputs = args[8]
 
     # Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
     catch_poly = gpd.read_file(catchments_poly_path)
@@ -315,7 +338,7 @@ def process_points(args):
         # Call update_rating_curve() to perform the rating curve calibration.
         # Still testing, so I'm having the code print out any exceptions.
         try:
-            log_text = update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_json_file, huc, catchments_poly_path)
+            log_text = update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs)
         except Exception as e:
             print(e)
             log_text = 'ERROR!!!: HUC ' + str(huc) + ' --> ' + str(e)
@@ -325,7 +348,7 @@ def process_points(args):
     return(log_text)
 
 
-def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number):
+def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number, inter_outputs):
 
     # Define CRS to use for initial geoprocessing.
     if scale == 'HUC8':
@@ -405,7 +428,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             print("hydroTable for " + huc + " does not exist.")
             continue
 
-        procs_list.append([fim_directory, huc, hand_path, catchments_path, catchments_poly_path, water_edge_df, output_src_json_file, htable_path])
+        procs_list.append([fim_directory, huc, hand_path, catchments_path, catchments_poly_path, water_edge_df, output_src_json_file, htable_path, inter_outputs])
 
     with Pool(processes=job_number) as pool:
                 log_output = pool.map(process_points, procs_list)
@@ -421,6 +444,7 @@ if __name__ == '__main__':
     parser.add_argument('-p','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
     parser.add_argument('-d','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-w','--wbd-path',help='Path to national huc layer.',required=True)
+    parser.add_argument('-i','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
     parser.add_argument('-s','--scale',help='huc or HUC8', required=True)
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=available_cores - 2)
 
@@ -429,6 +453,7 @@ if __name__ == '__main__':
     points_layer = args['points_layer']
     fim_directory = args['fim_directory']
     wbd_path = args['wbd_path']
+    inter_outputs = args['extra_outputs']
     scale = args['scale']
     job_number = int(args['job_number'])
 
@@ -450,7 +475,7 @@ if __name__ == '__main__':
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number)
+    ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number, inter_outputs)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
