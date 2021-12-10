@@ -457,6 +457,9 @@ if __name__ == '__main__':
     scale = args['scale']
     job_number = int(args['job_number'])
 
+    if job_number > 2:
+        print('WARNING!! - Using more than 2 jobs may result in memory allocation errors when working with very large obs pt database (>2Gb)')
+
     if scale not in ['HUC6', 'HUC8']:
         print("scale (-s) must be HUC6s or HUC8")
         quit()
