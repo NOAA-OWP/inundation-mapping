@@ -1,12 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.5 - 2021-12-10 - [PR #493](https://github.com/NOAA-OWP/cahaba/pull/493)
+
+This merge adds the functionality to create a geopackage with a point layer whose attribute table includes statistical comparison between SRCs and USGS rating curves.
+
+## Changes
+- `/tools/rating_curve_comparison.py`: 
+    - updated recurrence intervals to reflect newest 17C run: 2, 5, 10, 25, 50, 100
+    - added `create_static_gpkg()` function which is called when the optional `--stat_gages` option is passed and will create a GPKG that joins a USGS gage dataset with the Sierra Test statistics
+- `/tools/rating_curve_get_usgs_gages.py`: bug fixes and added simple progress indicator for gage requests and metadata processing
+- `/tools/tools_shared_functions.py`: added `requests_get_with_retry()` function that is a wrapper for the requests to API calls that will retry and wait if the response is throttled
+
+<br/><br/>
+
 ## v3.0.24.4 - 2021-12-03 - [PR #491](https://github.com/NOAA-OWP/cahaba/pull/491)
 
 Adds Probability Not Detected (PND) as metric to evaluation code.
 
 ## Changes
- - `synthesize_test_cases.py`: added `PND` into the dictionary of searched metrics.
+- `synthesize_test_cases.py`: added `PND` into the dictionary of searched metrics.
 - `tool_shared_variables.py`: added `PND` to the `GO_DOWN_STATS` list variable.
 - `tools_shared_functions.py`: added the `PND` calculation and inclusion into stats_dictionary.
 - `eval_plots.py`: added automatic plotting of `PND` and inclusion in spatial outputs. Also updated an argument in matplotlib call (I changed `b` to `visible`) in accordance with matplotlib recommendations concerning an impending deprecation of `b`.
