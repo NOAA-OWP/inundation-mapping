@@ -17,6 +17,13 @@ running script outside of business hours seems to be most consistent way
 to avoid API errors. Currently configured to get rating curve data within
 CONUS. Tidal API call may need to be modified to get datum conversions for 
 AK, HI, PR/VI.
+
+EXAMPLES
+------------
+python3 rating_curve_get_usgs_curves.py -l all -w /data/sierra_test/usgs_rating_curves/ -t 2.0
+python3 rating_curve_get_usgs_curves.py -l 11174000 14211010 -w /data/sierra_test/usgs_rating_curves/
+python3 rating_curve_get_usgs_curves.py -l /data/sierra_test/usgs_gage_list.csv -w /data/sierra_test/usgs_rating_curves/ -t 1.5
+
 '''
 
 #import variables from .env file
@@ -125,8 +132,10 @@ def write_categorical_flow_files(metadata, workspace):
     workspace.mkdir(parents = True, exist_ok = True)
     #For each site in metadata 
     all_data = pd.DataFrame()
+    i = 1
     
     for site in metadata:
+        print(f' {i} / {len(metadata)}', end='\r'); i+=1
         #Get the feature_id and usgs_site_code
         feature_id = site.get('identifiers').get('nwm_feature_id')
         usgs_code = site.get('identifiers').get('usgs_site_code')
@@ -161,6 +170,7 @@ def write_categorical_flow_files(metadata, workspace):
                 all_data = all_data.append(data, ignore_index = True)
     
     #Write CatFIM flows to file
+    if len(all_data) == 0: return all_data      # exit if there are no catfims to write
     final_data = all_data[['feature_id','discharge_cms', 'recurr_interval']]
     final_data.to_csv(workspace / f'catfim_flows_cms.csv', index = False)
     return all_data
@@ -245,15 +255,21 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         else:
             #If selector has less than max sites, then get metadata.
             metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
+        _, acceptable_sites_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes = False)
+        #Rename gdf fields
+        acceptable_sites_gdf.columns = acceptable_sites_gdf.columns.str.replace('identifiers_','')
     
     #Create DataFrame to store all appended rating curves
     print('processing metadata')
     all_rating_curves = pd.DataFrame()
     regular_messages = []    
     api_failure_messages=[]
+    i = 1
     #For each site in metadata_list
     for metadata in metadata_list:
         
+        print(f' {i} / {len(metadata_list)}', end='\r'); i+=1
+
         #Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)        
         
@@ -357,7 +373,7 @@ if __name__ == '__main__':
     #Check if csv is supplied       
     if args['list_of_gage_sites'][0].endswith('.csv'):        
         #Convert csv list to python list
-        with open(args['list_of_gage_sites']) as f:
+        with open(args['list_of_gage_sites'][0]) as f:
             sites = f.read().splitlines()
         args['list_of_gage_sites'] = sites
 
