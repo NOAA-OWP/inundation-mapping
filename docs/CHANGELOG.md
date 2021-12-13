@@ -1,12 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.6 - 2021-12-13 - [PR #494](https://github.com/NOAA-OWP/cahaba/pull/494)
+
+This feature branch includes additional enhancements to the synthetic rating curve adjustment algorithm. In addition to local hydroid catchment calculations of roughness, the algorithm now applies adjustments to corresponding hydroids that share a common featureid, and the mean roughness values for interconnected hydroids are also propagated downstream by a set distance (e.g. 10km).
+
+## Changes
+- `tools/adjust_rc_with_feedback.py`: New additions include improved upstream to downstream traversal; blending roughness calculations for hydroid, featured, and group mean (prioritized in that order); new optional intermediate outputs for evaluating and debugging roughness calculations/application.
+- `tools/tools_shared_variables.py`: Added new variables for max roughness, min roughness and downstream distance used in `adjust_rc_with_feedback.py`
+
+<br/><br/>
+
 ## v3.0.24.5 - 2021-12-10 - [PR #493](https://github.com/NOAA-OWP/cahaba/pull/493)
 
 This merge adds the functionality to create a geopackage with a point layer whose attribute table includes statistical comparison between SRCs and USGS rating curves.
 
 ## Changes
-- `/tools/rating_curve_comparison.py`: 
+- `/tools/rating_curve_comparison.py`:
     - updated recurrence intervals to reflect newest 17C run: 2, 5, 10, 25, 50, 100
     - added `create_static_gpkg()` function which is called when the optional `--stat_gages` option is passed and will create a GPKG that joins a USGS gage dataset with the Sierra Test statistics
 - `/tools/rating_curve_get_usgs_gages.py`: bug fixes and added simple progress indicator for gage requests and metadata processing
