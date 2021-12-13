@@ -411,8 +411,14 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     fig, ax = plt.subplots(2, 2, figsize=(18, 10))
 
     # Bin data
-    usgs_gages['mean_abs_y_diff_ft'] = pd.cut(usgs_gages['mean_abs_y_diff_ft'], bins=(0, 1, 3, 6, 9, usgs_gages['mean_abs_y_diff_ft'].max()))
-    usgs_gages['mean_y_diff_ft'] = pd.cut(usgs_gages['mean_y_diff_ft'], bins=(usgs_gages['mean_y_diff_ft'].min(),-9, -6, -3, -1, 0, 1, 3, 6, 9, usgs_gages['mean_y_diff_ft'].max()))
+    max_bin = usgs_gages['mean_abs_y_diff_ft'].max()
+    bins = (0, 1, 3, 6, 9, max_bin if max_bin > 12 else 12)
+    usgs_gages['mean_abs_y_diff_ft'] = pd.cut(usgs_gages['mean_abs_y_diff_ft'], bins=bins)
+    
+    max_bin = usgs_gages['mean_y_diff_ft'].max()
+    min_bin = usgs_gages['mean_y_diff_ft'].min()
+    bins = (min_bin if min_bin < -12 else -12, -9, -6, -3, -1, 0, 1, 3, 6, 9, max_bin if max_bin > 12 else 12)
+    usgs_gages['mean_y_diff_ft'] = pd.cut(usgs_gages['mean_y_diff_ft'], bins=bins)
 
     # Create subplots
     sns.histplot(ax=ax[0,0], y='nrmse', data=usgs_gages, binwidth=0.2, binrange=(0, 10))
