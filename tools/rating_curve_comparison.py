@@ -71,9 +71,9 @@ def generate_rating_curve_metrics(args):
     catfim_flows_filename       = args[7]
     huc                         = args[8]
 
-    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': str})
-    hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': str,'feature_id': str})
-    usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': str})
+    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object})
+    hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': object,'feature_id': object})
+    usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object})
 
     # Join rating curves with elevation data
     hydrotable = hydrotable.merge(elev_table, on="HydroID")
@@ -518,7 +518,7 @@ if __name__ == '__main__':
             if isfile(elev_table_filename):
                 procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
                 # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-                read_elev_table = pd.read_csv(elev_table_filename)
+                read_elev_table = pd.read_csv(elev_table_filename, dtype={'location_id': str})
                 read_elev_table['huc'] = huc
                 merged_elev_table.append(read_elev_table)
 
