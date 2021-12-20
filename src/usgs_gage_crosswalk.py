@@ -53,7 +53,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
 
     # Identify closest HydroID
     closest_catchment = gpd.sjoin(usgs_gages, input_catchment, how='left', op='within').reset_index(drop=True)
-    closest_hydro_id = closest_catchment.filter(items=['location_id','HydroID','min_thal_elev','med_thal_elev','max_thal_elev', 'order_'])
+    closest_hydro_id = closest_catchment.filter(items=['location_id','HydroID','min_thal_elev','med_thal_elev','max_thal_elev', 'order_','feature_id'])
     closest_hydro_id = closest_hydro_id.dropna()
 
     # Get USGS gages that are within catchment boundaries
