@@ -52,6 +52,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 
     # Identify closest HydroID
+    usgs_gages = usgs_gages.drop(columns=["feature_id"]) # dropping feature_id attribute from USGS gages (going to use the FIM catchment feature_id)
     closest_catchment = gpd.sjoin(usgs_gages, input_catchment, how='left', op='within').reset_index(drop=True)
     closest_hydro_id = closest_catchment.filter(items=['location_id','HydroID','min_thal_elev','med_thal_elev','max_thal_elev', 'order_','feature_id'])
     closest_hydro_id = closest_hydro_id.dropna()
@@ -59,7 +60,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     # Get USGS gages that are within catchment boundaries
     usgs_gages = usgs_gages.loc[usgs_gages.location_id.isin(list(closest_hydro_id.location_id))]
 
-    columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order']
+    columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order','feature_id']
     gage_data = []
 
     # Move USGS gage to stream
@@ -68,6 +69,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
         # Get stream attributes
         hydro_id = closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].HydroID.item()
         str_order = str(int(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].order_.item()))
+        feat_id = str(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].feature_id.item())
         min_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].min_thal_elev.item(),2)
         med_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].med_thal_elev.item(),2)
         max_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].max_thal_elev.item(),2)
@@ -98,7 +100,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
         dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,shply_referenced_gage.coords))[0].item(),2)
 
         # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
-        site_elevations = [str(gage.location_id), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order)]
+        site_elevations = [str(gage.location_id), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order),str(feat_id)]
         gage_data.append(site_elevations)
 
     elev_table = pd.DataFrame(gage_data, columns=columns)
