@@ -10,11 +10,24 @@ import ast
 from tqdm import tqdm
 
 from run_test_case import run_alpha_test
-from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, BLE_MAGNITUDE_LIST, IFC_MAGNITUDE_LIST
+
+from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT
 
 
-def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_list):
-
+def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
+    """
+    This function searches for and collates metrics into a single CSV file that can queried database-style. The
+    CSV is an input to eval_plots.py. This function automatically looks for metrics produced for official versions
+    and loads them into memory to be written to the output CSV.
+    
+    Args:
+        master_metrics_csv_output (str): Full path to CSV output. If a file already exists at this path, it will be overwritten.
+        dev_versions_to_include_list (list): A list of non-official FIM version names. If a user supplied information on the command
+                                            line using the -dc flag, then this function will search for metrics in the "testing_versions"
+                                            library of metrics and include them in the CSV output.
+    
+    """
+    
     # Construct header
     metrics_to_write = ['true_negatives_count',
                         'false_negatives_count',
@@ -74,9 +87,9 @@ def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_lis
         if benchmark_source in ['ble', 'ifc']:
             
             if benchmark_source == 'ble':
-                magnitude_list = BLE_MAGNITUDE_LIST
+                magnitude_list = MAGNITUDE_DICT['ble']
             if benchmark_source == 'ifc':
-                magnitude_list = IFC_MAGNITUDE_LIST
+                magnitude_list = MAGNITUDE_DICT['ifc']
             try:
                 test_cases_list = os.listdir(benchmark_test_case_dir)
             except FileNotFoundError:
@@ -92,12 +105,10 @@ def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_lis
 
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
-                            versions_to_aggregate = os.listdir(versions_to_crawl) # gms
-                            #versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR) # cahaba/dev
+                            versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
-                            #versions_to_aggregate = [dev_comparison] # gms
-                            versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
+                            versions_to_aggregate = dev_versions_to_include_list
 
                         for magnitude in magnitude_list:
                             for version in versions_to_aggregate:
@@ -105,8 +116,6 @@ def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_lis
                                     extent_config = 'FR'
                                 elif '_ms' in version:
                                     extent_config = 'MS'
-                                elif '_gms' in version:
-                                    extent_config = 'GMS'
                                 else:
                                     extent_config = 'FR'
                                 if "_c" in version and version.split('_c')[1] == "":
@@ -122,8 +131,6 @@ def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_lis
                                         if '.json' in f:
                                             flow = 'NA'
                                             nws_lid = "NA"
-                                            # added by FA for GMS evals
-                                            benchmark_source = 'ble'
                                             sub_list_to_append = [version, nws_lid, magnitude, huc]
                                             full_json_path = os.path.join(magnitude_dir, f)
                                             if os.path.exists(full_json_path):
@@ -156,9 +163,6 @@ def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_lis
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
-                            
-                            #versions_to_aggregate = [dev_comparison] # gms
-                            versions_to_aggregate = dev_versions_to_include_list # cahaba/dev
 
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
@@ -210,7 +214,6 @@ def create_master_metrics_csv(master_metrics_csv_output, versions_to_include_lis
     with open(master_metrics_csv_output, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerows(list_to_write)
-
 
 
 if __name__ == '__main__':
@@ -289,7 +292,7 @@ if __name__ == '__main__':
     # Loop through benchmark categories.
     procs_list = [] ; procs_dict = {}
     for bench_cat in benchmark_category_list:
-
+        
         # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
         bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
         bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
@@ -319,20 +322,21 @@ if __name__ == '__main__':
                                 fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
                             elif config == 'PREV':
                                 fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
-
+                        
                         if os.path.exists(fim_run_dir):
 
                             # If a user supplies a special_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
 
+            
                             # Define the magnitude lists to use, depending on test_id.
                             if 'ble' == current_benchmark_category:
-                                magnitude = BLE_MAGNITUDE_LIST
+                                magnitude = MAGNITUDE_DICT['ble']
                             elif ('usgs' == current_benchmark_category) | ('nws' == current_benchmark_category):
                                 magnitude = ['action', 'minor', 'moderate', 'major']
                             elif 'ifc' == current_benchmark_category:
-                                magnitude = IFC_MAGNITUDE_LIST
+                                magnitude_list = MAGNITUDE_DICT['ifc']
                             else:
                                 continue
 
@@ -409,4 +413,5 @@ if __name__ == '__main__':
         # Do aggregate_metrics.
         print("Creating master metrics CSV...")
 
+        # this function is not compatible with GMS
         create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, versions_to_include_list=dev_versions_to_include_list)

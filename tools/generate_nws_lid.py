@@ -12,7 +12,6 @@ import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION
 
-
 load_dotenv()
 #import variables from .env file
 API_BASE_URL = os.getenv("API_BASE_URL")
@@ -36,7 +35,6 @@ def generate_nws_lid(workspace):
     None.
 
     '''
-    
     
     ##############################################################################
     #Get all nws_lid points
@@ -169,7 +167,6 @@ def generate_nws_lid(workspace):
     joined.dropna(subset =['nwm_feature_id'], inplace = True)
     Path(workspace).mkdir(parents = True, exist_ok = True)
     joined.to_file(Path(workspace) / 'nws_lid.gpkg', driver = 'GPKG')
-
 
 
 if __name__ == '__main__':

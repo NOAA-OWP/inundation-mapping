@@ -159,6 +159,7 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
 
         return nhd_streams, combined_pts
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='adjust headwater stream geometery based on headwater start points')
@@ -172,6 +173,8 @@ if __name__ == '__main__':
     parser.add_argument('-i','--headwater-id',help='Headwater id column name',required=True)
 
     args = vars(parser.parse_args())
+
+    #TODO variables below are not defined
 
     adj_streams_gdf, adj_headwaters_gdf = adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id)
 

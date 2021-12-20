@@ -66,14 +66,13 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
 
                 # Add headwaters_id column
                 streams_subset[id_col] = n
-
                 distance_from_upstream = {}
                 for index, point in headwaters_mask.iterrows():
 
-                    # Convert headwaterpoint geometries to WKB representation
+                    # Convert headwater point geometries to WKB representation
                     wkb_point = dumps(point.geometry)
 
-                    # Create pygeos headwaterpoint geometries from WKB representation
+                    # Create pygeos headwater point geometries from WKB representation
                     pointbin_geom = pygeos.io.from_wkb(wkb_point)
 
                     # Distance to each stream segment
@@ -81,7 +80,6 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
 
                     # Find minimum distance
                     min_index = np.argmin(distances)
-
                     headwater_point_name = point[headwater_id]
 
                     # Find stream segment closest to headwater point
@@ -91,14 +89,12 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
 
                             closest_stream = streams_subset.iloc[min_index]
                             distance_to_line = point.geometry.distance(Point(closest_stream.geometry.coords[-1]))
-
                             print(f"{point.nws_lid} distance on line {closest_stream.NHDPlusID}:  {np.round(distance_to_line,1)}")
-                            if not closest_stream.NHDPlusID in distance_from_upstream.keys():
 
+                            if not closest_stream.NHDPlusID in distance_from_upstream.keys():
                                 distance_from_upstream[closest_stream.NHDPlusID] = [point.nws_lid,distance_to_line]
 
                             elif distance_from_upstream[closest_stream.NHDPlusID][1] > distance_to_line:
-
                                 distance_from_upstream[closest_stream.NHDPlusID] = [point.nws_lid,distance_to_line]
 
                             headwater_point_name = distance_from_upstream[closest_stream.NHDPlusID][0]
@@ -128,11 +124,14 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
 
     if mainstem_flag == False:
         nhd_streams['downstream_of_headwater'] = False
+        nhd_streams['is_relevant_stream'] = nhd_streams['is_headwater'].copy()
     else:
         nwm_intersections = nwm_intersections.loc[nwm_intersections.mainstem==1]
 
     nhd_streams = nhd_streams.explode()
     nhd_streams = nhd_streams.reset_index(drop=True)
+
+
 
     # Find stream segment closest to nwm intersection point
     for index, point in nwm_intersections.iterrows():
@@ -153,12 +152,14 @@ def subset_nhd_network(huc4,huc4_mask,selected_wbd8,nhd_streams_,headwaters_file
     # Trace down from headwaters
     nhd_streams.set_index('NHDPlusID',inplace=True,drop=False)
 
-    nhd_streams = get_downstream_segments(nhd_streams,headwater_col,mainstem_flag)
+    nhd_streams = get_downstream_segments(nhd_streams.copy(),headwater_col,mainstem_flag)
 
+    # nhd_streams.fillna(value = {"is_relevant_stream": False}, inplace=True)
     nhd_streams = nhd_streams.loc[nhd_streams['is_relevant_stream'],:]
     nhd_streams.reset_index(drop=True,inplace=True)
 
     return nhd_streams
+
 
 def get_downstream_segments(streams, attribute,mainstem_flag):
 
@@ -187,6 +188,7 @@ def get_downstream_segments(streams, attribute,mainstem_flag):
             relevant_ids = downstream_ids
 
         if mainstem_flag == False:
+
             streams.loc[relevant_ids,'is_relevant_stream'] = True
             streams.loc[relevant_ids,'downstream_of_headwater'] = True
         else:
@@ -196,7 +198,8 @@ def get_downstream_segments(streams, attribute,mainstem_flag):
             if i not in visited:
                 Q.append(i)
 
-    return(streams)
+    return streams
+
 
 if __name__ == '__main__':
 

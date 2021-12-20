@@ -2,7 +2,6 @@
 
 import os
 import sys
-import geopandas as gpd
 import pandas as pd
 import numpy as np
 import argparse
@@ -10,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from functools import reduce
 from multiprocessing import Pool
-from os.path import isfile, join, dirname
+from os.path import isfile, join
 import shutil
 import warnings
 from pathlib import Path

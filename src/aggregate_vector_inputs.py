@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 # sys.path.append('/foss_fim/src')
 import geopandas as gpd
 from utils.shared_variables import PREP_PROJECTION
 from utils.shared_functions import getDriver
-from derive_headwaters import findHeadWaterPoints
 from reduce_nhd_stream_density import subset_nhd_network
 from adjust_headwater_streams import adjust_headwaters
 from shapely.geometry import Point
@@ -195,7 +193,6 @@ def collect_stream_attributes(nhdplus_vectors_dir, huc):
 
         burnline = gpd.read_file(burnline_filename)
         burnline = burnline[['NHDPlusID','ReachCode','geometry']]
-
         flowline = gpd.read_file(flowline_filename)
         flowline = flowline[['NHDPlusID','FType','FCode']]
         # flowline = flowline.loc[flowline["FType"].isin([334,420,428,460,558])]
@@ -212,9 +209,15 @@ def collect_stream_attributes(nhdplus_vectors_dir, huc):
         nhd_streams = nhd_streams.loc[nhd_streams.geometry!=None,:] # special case: remove segments without geometries
         nhd_streams['HUC4'] = str(huc)
 
+        # special case; breach in network at Tiber Dam
+        if huc == '1003' and nhd_streams.loc[nhd_streams.NHDPlusID==23001300078682.0,'DnLevelPat'] == 23001300001574.0:
+            nhd_streams = nhd_streams.loc[nhd_streams.NHDPlusID!=23001300009084.0]
+            nhd_streams.loc[nhd_streams.NHDPlusID==23001300078682.0,'DnLevelPat'] = 23001300001566.0
+
         # Write out NHDPlus HR aggregated
         nhd_streams_agg_fileName = os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_agg.gpkg')
         nhd_streams.to_file(nhd_streams_agg_fileName,driver=getDriver(nhd_streams_agg_fileName),index=False)
+
         del nhd_streams
 
         print (f"finished attribute collection for HUC {huc}",flush=True)
@@ -310,6 +313,7 @@ def subset_stream_networks(args, huc):
 
     print(f"finished stream subset for HUC {huc}",flush=True)
 
+
 def aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list):
 
     for huc in huc_list:
@@ -359,32 +363,9 @@ def clean_up_intermediate_files(nhdplus_vectors_dir):
             os.remove(headwater_adj_path)
 
 
-if(__name__=='__main__'):
+if __name__ == '__main__':
 
     # # Generate NWM Headwaters
-    # print ('deriving nwm headwater points')
-    # nwm_headwaters = findHeadWaterPoints(nwm_streams_orig_filename)
-    # nwm_headwaters['ID'] = nwm_headwaters.index + 1
-    # nwm_headwaters.to_file(nwm_headwaters_filename,driver=getDriver(nwm_headwaters_filename),index=False,layer='nwm_headwaters')
-    # del nwm_headwaters, nwm_streams
-    #
-    # # Identify NWM MS Streams
-    # print ('identifing nwm ms streams')
-    # ms_segments = identify_nwm_ms_streams(nwm_streams_orig_filename,ahps_filename,nwm_streams_all_filename)
-    #
-    # # Identify NWM MS Catchments
-    # print ('identifing nwm ms catchments')
-    # nwm_catchments = gpd.read_file(nwm_catchments_orig_filename)
-    # # Add column to FR nwm layer to indicate MS segments
-    # nwm_catchments['mainstem'] = np.where(nwm_catchments.ID.isin(ms_segments), 1, 0)
-    # nwm_catchments.to_file(nwm_catchments_all_filename,driver=getDriver(nwm_catchments_all_filename),index=False,layer='nwm_catchments')
-    # del nwm_catchments, ms_segments
-
-    # # Generate NWM intersection points with WBD4 boundaries
-    # print ('deriving NWM fr/ms intersection points')
-    # huc4_intersection = find_nwm_incoming_streams(nwm_streams_all_filename,wbd_filename,4)
-    # huc4_intersection.to_file(nwm_huc4_intersections_filename,driver=getDriver(nwm_huc4_intersections_filename),layer='huc4_intersection')
-    # del huc4_intersection
 
     print ('loading HUC4s')
     wbd4 = gpd.read_file(wbd_filename, layer='WBDHU4')
@@ -400,12 +381,13 @@ if(__name__=='__main__'):
         if not os.path.isfile(streams_adj_path):
             missing_subsets = missing_subsets + [huc]
 
+
     print (f"Subsetting stream network for {len(missing_subsets)} HUC4s")
     num_workers=11
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Preprocess nhd hr and add attributes
-        collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
+        # collect_attributes = [executor.submit(collect_stream_attributes, nhdplus_vectors_dir, str(huc)) for huc in huc_list]
         # Subset nhd hr network
         subset_results = [executor.submit(subset_stream_networks, subset_arg_list, str(huc)) for huc in missing_subsets]
 
@@ -413,7 +395,7 @@ if(__name__=='__main__'):
 
     # Aggregate subset nhd networks for entire nwm domain
     print ('Aggregating subset NHD networks for entire NWM domain')
-    aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list)
+    aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,missing_subsets)
 
     # Remove intermediate files
     # clean_up_intermediate_files(nhdplus_vectors_dir)

@@ -180,7 +180,7 @@ Tcount
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$srcDir/split_flows.py $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg $outputHucDataDir/wbd8_clp.gpkg $outputHucDataDir/nwm_lakes_proj_subset.gpkg
+$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
@@ -236,7 +236,7 @@ Tcount
 echo -e $startDiv"Process catchments and model streams $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg $outputHucDataDir/wbd8_clp.gpkg $hucNumber
+python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber
 Tcount
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
@@ -256,7 +256,7 @@ Tcount
 echo -e $startDiv"Generate Catchment List and Stage List Files $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$srcDir/make_stages_and_catchlist.py $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg $outputCurrentBranchDataDir/stage_$current_branch_id.txt $outputCurrentBranchDataDir/catch_list_$current_branch_id.txt $stage_min_meters $stage_interval_meters $stage_max_meters
+$srcDir/make_stages_and_catchlist.py -f $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -s $outputCurrentBranchDataDir/stage_$current_branch_id.txt -a $outputCurrentBranchDataDir/catch_list_$current_branch_id.txt -m $stage_min_meters -i $stage_interval_meters -t $stage_max_meters
 Tcount
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##

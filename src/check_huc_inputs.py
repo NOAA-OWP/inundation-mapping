@@ -4,6 +4,7 @@ import os
 import argparse
 from glob import glob
 
+
 def __read_included_files(parent_dir_path):
 
     filename_patterns = glob(os.path.join(parent_dir_path,'included_huc*.lst'))
@@ -45,6 +46,7 @@ def check_hucs(hucs):
     accepted_hucs = __read_included_files(os.path.join(os.environ['inputDataDir'],'huc_lists'))
     hucs = __read_input_hucs(hucs)
     __check_for_membership(hucs,accepted_hucs)
+
 
 if __name__ == '__main__':
 

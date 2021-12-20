@@ -3,11 +3,11 @@
 import sys
 import geopandas as gpd
 import argparse
-from os.path import splitext
-from shapely.geometry import MultiPolygon,Polygon,Point
-from utils.shared_functions import getDriver
+from shapely.geometry import MultiPolygon,Polygon
+from utils.shared_functions import getDriver, mem_profile
 
-@profile
+
+@mem_profile
 def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance):
 
     hucUnitLength = len(str(hucCode))
@@ -96,6 +96,13 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         to_list = nhd_streams.ToNode.to_list()
         missing_segments = list(set(from_list) - set(to_list))
 
+        # special case: stream meanders in and out of WBD buffer boundary
+        if str(hucCode) == '10030203':
+            missing_segments = missing_segments + [23001300001840.0, 23001300016571.0]
+            
+        if str(hucCode) == '08030100':
+            missing_segments = missing_segments + [20000600011559.0, 20000600045761.0, 20000600002821.0]
+
         # Remove incoming stream segment so it won't be routed as outflow during hydroconditioning
         nhd_streams = nhd_streams.loc[~nhd_streams.FromNode.isin(missing_segments)]
 
@@ -128,8 +135,13 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
 
     if extent == 'MS':
         nwm_streams = nwm_streams.loc[nwm_streams.mainstem==1]
-    nwm_streams.to_file(subset_nwm_streams_filename,driver=getDriver(subset_nwm_streams_filename),index=False)
+    if len(nwm_streams) > 0:
+        nwm_streams.to_file(subset_nwm_streams_filename,driver=getDriver(subset_nwm_streams_filename),index=False)
+    else:
+        print ("No NWM stream segments within HUC " + str(hucCode) +  " boundaries.")
+        sys.exit(0)
     del nwm_streams
+
 
 if __name__ == '__main__':
 

@@ -10,11 +10,14 @@ import argparse
 import sys
 from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver
+# sys.path.append('/foss_fim/src')
+# sys.path.append('/foss_fim/config')
+from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 from memory_profiler import profile
 
 
-@profile
+@mem_profile
 def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_fileName,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName,output_catchments_fileName,output_flows_fileName,output_src_fileName,output_src_json_fileName,output_crosswalk_fileName,output_hydro_table_fileName,input_huc_fileName,input_nwmflows_fileName,input_nwmcatras_fileName,mannings_n,input_nwmcat_fileName,extent,small_segments_filename,calibration_mode=False):
 
     input_catchments = gpd.read_file(input_catchments_fileName)
@@ -23,7 +26,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
     min_catchment_area = float(os.environ['min_catchment_area']) #0.25#
     min_stream_length = float(os.environ['min_stream_length']) #0.5#
-    bathy_src_calc = os.environ['bathy_src_modification'] == "True" # env variable to toggle on/off the bathy calc and src modifications
 
     if extent == 'FR':
         ## crosswalk using majority catchment method
@@ -135,7 +137,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     # replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
-
         if output_flows["areasqkm"][stream_index] < min_catchment_area and output_flows["LengthKm"][stream_index] < min_stream_length and output_flows["LakeID"][stream_index] < 0:
 
             short_id = output_flows['HydroID'][stream_index]
@@ -144,7 +145,10 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
             # multiple upstream segments
             if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
-                max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_']) # drainage area would be better than stream order but we would need to calculate
+                try:
+                    max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_']) # drainage area would be better than stream order but we would need to calculate
+                except:
+                    print(f"short_id {short_id} cannot calculate max stream order for multiple upstream segments scenario")
 
                 if len(output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID']) == 1:
                     update_id = output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID'].item()
@@ -158,7 +162,10 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
             # no upstream segments; multiple downstream segments
             elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID']) > 1:
-                max_order = max(output_flows.loc[output_flows.From_Node==to_node]['HydroID']['order_']) # drainage area would be better than stream order but we would need to calculate
+                try:
+                    max_order = max(output_flows.loc[output_flows.From_Node==to_node]['HydroID']['order_']) # drainage area would be better than stream order but we would need to calculate
+                except:
+                    print(f"To Node {to_node} cannot calculate max stream order for no upstream segments; multiple downstream segments scenario")
 
                 if len(output_flows.loc[(output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)]['HydroID']) == 1:
                     update_id = output_flows.loc[(output_flows.From_Node==to_node) & (output_flows['order_'] == max_order)]['HydroID'].item()
@@ -182,7 +189,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype= object)
     if input_src_base.CatchId.dtype != 'int': input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
-    input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID','order_']],left_on='CatchId',right_on='HydroID')
+    input_src_base = input_src_base.merge(output_flows[['ManningN','HydroID','NextDownID','order_']],left_on='CatchId',right_on='HydroID')
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric,**{'errors' : 'coerce'})
@@ -225,13 +232,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
     ## bathy estimation integration in synthetic rating curve calculations
-    if (bathy_src_calc == True and extent == 'MS'):
-        output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
-    else:
-        print('Note: NOT using bathy estimation approach to modify the SRC...')
+    #if (bathy_src_calc == True and extent == 'MS'):
+    #    output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
+    #else:
+    #    print('Note: NOT using bathy estimation approach to modify the SRC...')
 
     # make hydroTable
-    output_hydro_table = output_src.loc[:,['HydroID','feature_id','Stage','Discharge (m3s-1)']]
+    output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Stage','Discharge (m3s-1)', 'HydraulicRadius (m)', 'WetArea (m2)', 'SLOPE', 'ManningN']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
 
     if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
@@ -277,6 +284,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
         with open(output_src_json_fileName,'w') as f:
             json.dump(output_src_json,f,sort_keys=True,indent=2)
+
 
 if __name__ == '__main__':
 

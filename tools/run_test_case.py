@@ -20,20 +20,20 @@ from glob import glob
 from utils.shared_variables import elev_raster_ndv
 
 def run_alpha_test( fim_run_dir, version, test_id, magnitude, 
-                    calibrated, model,
-                    compare_to_previous=False, archive_results=False, 
-                    mask_type='filter', inclusion_area='', 
-                    inclusion_area_buffer=0, light_run=False, 
-                    overwrite=True, fr_run_dir=None, 
-                    gms_workers=1,verbose=False,
-                    gms_verbose=False
-                  ):
+                calibrated, model,
+                compare_to_previous=False, archive_results=False, 
+                mask_type='filter', inclusion_area='', 
+                inclusion_area_buffer=0, light_run=False, 
+                overwrite=True, fr_run_dir=None, 
+                gms_workers=1,verbose=False,
+                gms_verbose=False
+              ):
 
     # check eval_meta input
     if model not in {None,'FR','MS','GMS'}:
         raise ValueError("Model argument needs to be \'FR\', \'MS\', or \'GMS.\'")
 
-   # make bool
+    # make bool
     calibrated = bool( calibrated )
 
     if (model == "MS") & (fr_run_dir is None):
@@ -41,7 +41,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
-    
+
     # Construct paths to development test results if not existent.
     if archive_results:
         version_test_case_dir_parent = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', test_id, 'official_versions', version)
@@ -84,7 +84,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
 
     # Map necessary inputs for inundation().
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
-    
+
     # Create list of shapefile paths to use as exclusion areas.
     zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
     mask_dict = {'levees':
@@ -115,6 +115,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
         magnitude_list = [magnitude_list]
         
 
+
     # Get path to validation_data_{benchmark} directory and huc_dir.
     validation_data_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category)
     for magnitude in magnitude_list:
@@ -130,7 +131,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
             for lid in lid_dir_list:
                 lid_dir = os.path.join(validation_data_path, current_huc, lid)
                 benchmark_lid_raster_path = os.path.join(lid_dir, magnitude, 'ahps_' + lid + '_huc_' + current_huc + '_extent_' + magnitude + '.tif')
-                
+
                 # Only compare if the benchmark data exist.
                 if os.path.exists(benchmark_lid_raster_path):
                     benchmark_raster_path_list.append(benchmark_lid_raster_path)  # TEMP
@@ -138,7 +139,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                     lid_list.append(lid)
                     inundation_raster_list.append(os.path.join(version_test_case_dir, lid + '_inundation_extent.tif'))
                     domain_file_list.append(os.path.join(lid_dir, lid + '_domain.shp'))
-                    
+
         else:
             benchmark_raster_file = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_extent_' + magnitude + '.tif')
             benchmark_raster_path_list = [benchmark_raster_file]
@@ -160,7 +161,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                      'operation': 'include'}
                         })
 
-                
+
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_domain_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             else:  # If not in AHPS_BENCHMARK_CATEGORIES.

@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 import numpy as np
-import pathlib
 from pathlib import Path
 import pandas as pd
-import geopandas as gpd
 import rasterio
 import requests
-from collections import defaultdict
 from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wbd_hucs, get_thresholds, get_datum, ngvd_to_navd_ft, get_rating_curve, select_grids, get_nwm_segs, flow_data, process_extent, process_grid, raster_to_feature
 import argparse
 from dotenv import load_dotenv
@@ -14,7 +11,6 @@ import os
 import sys
 sys.path.append('/foss_fim/src')
 import traceback
-from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
 
 def get_env_paths():
