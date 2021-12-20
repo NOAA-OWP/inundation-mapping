@@ -73,6 +73,24 @@ class StreamNetwork(gpd.GeoDataFrame):
     
         self.to_file(fileName, driver=driver, layer=layer, index=index)
 
+    def apply(self,*args,**kwargs):
+        
+        branch_id_attribute = self.branch_id_attribute
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+        crs = self.crs
+        
+        self = super().apply(*args,**kwargs)
+        self = self.set_crs(crs)
+        
+        self = StreamNetwork( self,
+                              branch_id_attribute=branch_id_attribute,
+                              attribute_excluded=attribute_excluded,
+                              values_excluded=values_excluded
+                            )
+
+        return(self)
+
 
     def multilinestrings_to_linestrings(self):
         
@@ -90,12 +108,13 @@ class StreamNetwork(gpd.GeoDataFrame):
             
             return(row)
 
+        
         self = StreamNetwork( self.apply(convert_to_linestring,axis=1),
                               branch_id_attribute=branch_id_attribute,
                               attribute_excluded=attribute_excluded,
                               values_excluded=values_excluded
                             )
-
+        
         return(self)
 
 
@@ -621,7 +640,13 @@ class StreamNetwork(gpd.GeoDataFrame):
         # merges each multi-line string to a sigular linestring
         for lpid,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc="Merging mult-part geoms"):
             if isinstance(row.geometry,MultiLineString):
-                self.loc[lpid,'geometry'] = linemerge(self.loc[lpid,'geometry'])
+                merged_line = linemerge(row.geometry)
+                #self.loc[lpid,'geometry'] = merged_line
+                try:
+                    self.loc[lpid,'geometry'] = merged_line
+                except ValueError:
+                    merged_line = list(merged_line.geoms)[0]
+                    self.loc[lpid,'geometry'] = merged_line
         
         #self[branch_id_attribute] = bids
         self = StreamNetwork(self,branch_id_attribute=branch_id_attribute,
