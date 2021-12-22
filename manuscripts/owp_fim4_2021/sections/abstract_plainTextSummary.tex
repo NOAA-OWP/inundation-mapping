@@ -24,7 +24,7 @@ The National Water Model Version 2.1 (NWM V2.1) seeks to expand upon existing sy
 Additional modeling capabilities are required to convert these 1-D discharge forecasts into 2-D fluvial inundation extents used for forecasting purposes to protect life and property.
 Height Above Nearest Drainage (HAND) coupled with the use of synthetic rating curves can convert discharges into stages and stages to inundation extents in a rapid manner across large spatial domains and at high resolutions.
 The Office of Water Prediction Flood Inundation Mapping (OWP FIM) model `Cahaba' is an enhancement of the HAND method developed to improve upon some of HAND's limitations.
-Among the implemented enhancements are efficient computational performance, support for Hawaii and Puerto Rico NWM domains, enforcement of levee elevation data, support for the latest digital elevation model and stream network data sources, advanced stream burning techniques, thalweg conditioning, and simplified Manning's N variation.
+Among the implemented enhancements are efficient computational performance, support for Hawaii and Puerto Rico NWM domains, enforcement of levee elevation data, support for the latest digital elevation model and stream network data sources, advanced stream burning techniques, thalweg conditioning, and simplified Manning's n variation.
 Most importantly, we detail an issue previously mentioned with HAND as its FIM skill is dependent on a drainage threshold parameter used to delineate stream lines.
 Since our modeling assumptions are different, we illustrate how reducing Horton-Strahler stream order of the stream networks used within each HAND processing unit down to unary can improve FIM skill.
 This is accomplished by deriving level paths for the National Water Model stream network and utilizing those definitions for deriving HAND datasets independently from other level paths.
@@ -33,7 +33,7 @@ The modeled discharges from the BLE sections were used for the 100 and 500 year 
 The resulting maps are compared to the modeled extents from the BLE and binary contingency statistics are computed.
 Across the 49 sites, Critical Success Index (CSI) was found to increase across FIM versions driven by improvements to the Probability of Detection (POD) and slight reduction in False Alarm Ratio (FAR).
 Each successive version of HAND here utilizes greater stream order reduction illustrating a key limitation of HAND and enhanced agreement when utilizing stream networks of lower stream orders as a datum for HAND.
-Additionally we detail the effects of two different Manning's N values and how order reduction drives rating curve bias downward due to the nature of reach averaged synthetic rating curves.
+Additionally we detail the effects of two different Manning's n values and how order reduction drives rating curve bias downward due to the nature of reach averaged synthetic rating curves.
 These capabilities were implemented in an open-source package available on GitHub (\url{https://github.com/NOAA-OWP/cahaba}) for continued use and collaboration with the research community.
 %
 \end{abstract}

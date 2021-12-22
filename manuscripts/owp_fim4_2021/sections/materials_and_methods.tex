@@ -32,7 +32,7 @@ Instructions for accessing data are provided on the project's GitHub page via an
 The National Hydrography Dataset Plus High Resolution (NHDPlusHR) Beta Version is the latest hydrography dataset used for land surface hydrologic modeling in the US \cite{moore2019user}. 
 It is used in conjunction with the hydrofabric of the NWM V2.1 to help define flowlines for `Cahaba' while the NWM hydrofabric is also used to define reservoirs for exclusion and catchments to cross-walk to for forecasting purposes.
 For enforcing levee data into the NED DEMs, the USACE National Levee Database (NLD) is used via burning feature elevations \cite{engineers2016national}.
-Since NHDPlusHR datasets extend beyond land borders into sea and Great Lake regions, we used land-sea border from OpenStreetMap (OSM) and the land-lake border from Great Lakes Aquatic Habitat Framework (GLAHF) to exclude those areas from production of FIMs.
+Since NHDPlusHR datasets extend beyond land borders into sea and Great Lake regions, we used the land-sea border from OpenStreetMap (OSM) and the land-lake border from Great Lakes Hydrography Dataset (GLHD) to exclude those areas from production of FIMs \cite{OpenStreetMap,GreatLakesHydrographyDataset}.
 Additionally, the Base Level Engineering (BLE) datasets spanning parts of 9 states including Colorado, New Mexico, Texas, Oklahoma, Kansas, Arkansas, Louisiana, Missouri and Mississippi at two recurrence intervals, 1\% (100 year) and 0.2\% (500 year), are used as validation in this study and furnished by Region 6 of FEMA \cite{fema2021base,fema2021estimated}. 
 These BLE datasets are provided at the watershed scale (HUC8) utilizing best available simulations and DEMs.
 The full input datasets presented by source are listed in Table \ref{tab:data}.
@@ -52,21 +52,21 @@ USGS & NHDPlusHR Value-Added Attributes & Database of additional attributes asso
 \hline
 USGS & NHDPlusHR DEM & DEM used for NHDPlus HR at 1/3 arc-second (10m) spatial resolution and vertical units in centimeters \\
 \hline
-NOAA-OWP & NWM Streams & Stream network center lines used by NWM for routing and forecasting \\
+NOAA-OWP & NWM Streams & Stream network center lines used by NWM for routing and forecasting. \\
 \hline
-NOAA-OWP & NWM Catchments & Surface drainage area corresponding to each reach in the NWM \\
+NOAA-OWP & NWM Catchments & Surface drainage area corresponding to each reach in the NWM. \\
 \hline
-NOAA-OWP & NWM Waterbodies & Waterbodies considered by the NWM as reservoirs or lakes \\
+NOAA-OWP & Waterbodies considered by the NWM as reservoirs or lakes. \\
 \hline
 USACE & NLD & Levee database of locations and elevations  \\
 \hline
 OSM & Land-Sea Border & Border of land and sea. \\
 \hline
-GLAHF & Land-Great Lakes Border & Border of land and Great Lakes \\
+GLHD & Land-Great Lakes Border & Border of land and Great Lakes. \\
 \hline
-FEMA & Cross-Sections & HEC-RAS 1-D cross-sections used for modeling in BLE datasets. Include discharges for 1\% and 0.2\% recurrence interval events \\
+FEMA & Cross-Sections & HEC-RAS 1-D cross-sections used for modeling in BLE datasets. Includes discharges for 1\% and 0.2\% recurrence interval events. \\
 \hline
-FEMA & Flood Inundation Extents & Inundation depths produced by FEMA BLE HEC-RAS 1D for 1\% and 0.2\% recurrence interval events \\
+FEMA & Flood Inundation Extents & Inundation depths produced by FEMA BLE HEC-RAS 1D for 1\% and 0.2\% recurrence interval events. \\
 \hline
 \end{tabular}
 \end{table}
@@ -80,7 +80,7 @@ An enhancement of OWP FIM `Cahaba' over previous HAND based FIM versions is the 
 \label{ssec:hydro_conditioning}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-The DEM from the NED is subject to a series of hydro-conditioning procedures to enhance it's suitability for riverine flood inundation mapping. 
+The DEM from the NED is subject to a series of hydro-conditioning procedures to enhance its suitability for riverine flood inundation mapping. 
 These techniques are specific for making OWP FIM and differ from the conditioning methods used by the NHDPlusHR Beta \cite{moore2019user}.
 HAND inherently requires all areas eligible for inundation to drain to the designated drainage network so DEMs must undergo significant manipulation to make this the case.
 In other words, all areas within a given processing unit for HAND must have monotonically decreasing elevations if we wish to have them be eligble for flooding.
@@ -219,7 +219,7 @@ Catchments were derived using the D8 connectivity established by \citeA{o1984ext
 Gages are set at the pixel center points of the delineated stream lines explained in Section \ref{sssec:deriving_fim_stream_network}.
 The gages act as root nodes in a tree structure and the connectivity is traversed to derive the contributing area for each gage.
 Two sets of catchments are derived, one of which assigns the contributing area for each thalweg pixel which is used for relative elevation calculation.
-The other catchments is derived for the contributing area for each stream reach as defined in Section \ref{sssec:deriving_fim_stream_network}. 
+The other catchments are derived for the contributing area for each stream reach as defined in Section \ref{sssec:deriving_fim_stream_network}. 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Height Above Nearest Drainage}
