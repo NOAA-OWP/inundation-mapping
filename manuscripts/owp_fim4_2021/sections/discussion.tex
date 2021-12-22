@@ -20,13 +20,13 @@ Across the three methods explored, FR, MS, and GMS, one identifies differences i
 While the channel slope and reach lengths are not exactly the same across methods, their averaged differences are very negligible which only leaves room for deviations in volume and bed area.
 Again, volume (V[y] or simply V) is synonymous to reach-averaged cross-sectional area and bed area (B[y] or B) is analogous to reach-averaged hydraulic radius.
 Discharge, Q, is directly related to volume and inversely related to bed area and each parameter is weighed according to the magnitude of its exponent which are $\frac{5}{3}$ and $\frac{2}{3}$ respectively. 
-Figures \ref{fig:rating_curve_comparison} b and c show how volume and bed area compare across the three methods with GMS having significant higher values than MS which has higher values than FR.
+Figures \ref{fig:rating_curve_comparison} b and c show how volume and bed area compare across the three methods with GMS having significantly greater values than MS which has greater values than FR.
 Again the relative discrepancy between FR vs MS and MS vs GMS is explained by the extent of their spatial coverages.
 Both V and B values increase but since both are weighed differently by their respective exponents and pull Q in different directions.
 We show in Figure \ref{fig:rating_curve_comparison}d the relationship of $\frac{V^{5/3}}{B^{2/3}}$ is plotted against stage, y, to show how these two parameters collectively pull the rating curve Q up and biases the rating curve down.
 In other words, the magnitude and weight of the volume at each stage level exceeds the influence of the magnitude and weight of the bed area.
 Both parameters are set to increase mainly due to much larger catchments leading to more pixels at each stage level as shown in Figure \ref{fig:rating_curve_comparison}e.
-Much of the increase in inundated pixels, volume, and bed area can be explained by much larger catchments than encompass neighboring tributaries.
+Much of the increase in inundated pixels, volume, and bed area can be explained by much larger catchments that encompass neighboring tributaries.
 These tributaries have a significant amount of bathymetry that is low-lying thus easily including the SRC derivation. 
 They also contribute volume and bed area that is technically not perpendicular to the flux of streamflow being accounted for in the stream in question. 
 Careful examination of Figure \ref{fig:gms_enhancement}b shows how much larger catchments include neighboring tributaries and the geometry associated with those tributaries. 
@@ -43,7 +43,7 @@ The NWM stream network was derived using the NHD medium resolution dataset which
 Additional conflation is identified in cross-walking the stream network used by the BLE maps and those of HAND.
 Until a singular stream network is used for the NWM, BLE benchmark, and for HAND based FIM, conflation will continue being a source of error.
 
-For future development, we assert using experience from qualitative analysis that the synthetic rating curves offer a significant opportunity for improvement in HAND based FIM.
+Our qualitative analysis suggests that the synthetic rating curves offer a significant opportunity for improvement in HAND based FIM for future development.
 The bathymetry of the NED 10m DEM is known to be lacking proper representation thus leading to inadequate representation of volume and bed area with all three methods employed.
 Manning's N which typically accounts for roughness could be tuned to account for these DEM limitations or could be held fixed to some local value associated with a given flood magnitude.
 Some adjusting parameter must be introduced to enhance the estimation of the bathymetric representation.
@@ -55,7 +55,7 @@ In other words, an entire area eligible for flooding must monotonically decrease
 DEM's naturally don't do this and the dynamics of true flood events don't follow drainage patterns.
 Enforcing this assumption for HAND leads to significant amount of DEM manipulations that introduce basic errors.
 These errors are deep into the assumptions of HAND and thus more difficult to disentangle.
-Ultimately, the use of more advanced 2-D hydrodynamic models should be considered for dealing with this limitation of HAND but would come at significant expense at the given high resolution across very large scales.
+Ultimately, the use of more advanced 2-D hydrodynamic models should be considered for dealing with this limitation of HAND but would come at significant expense at the given high resolution across very large spatial scales and frequent forecast resolutions.
 %
 \begin{figure}[h!]
 \centering

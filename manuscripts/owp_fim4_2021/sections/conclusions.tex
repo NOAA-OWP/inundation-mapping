@@ -7,9 +7,12 @@
 %
 Overall, we have produced a product that is able to produce FIMs for the entire US using stream flows whether retrospective or forecast.
 Using the HAND method, we can produce this product at very large domains and high resolutions in a relatively short amount of time which enables creating forecast maps at high temporal frequencies.
-This yields a significant amount of information that was previously unavailable to forecasters before enabling for higher resolution and higher accuracy forecasts across areas of the country previously unsupported.
-All of this is presented in a open-source framework that utilizes some of the latest enhancements to HAND as well as some of the latest data sources available. 
-Additionally, a significant issue previously documented with HAND was identified and addressed via the reduction of stream order down to the unary level.
-We illustrate how reducing a HAND processing unit to a stream network with unit Horton-Strahler stream order improves FIM skill especially at junctions of higher order and higher flow magnitude rivers.
-We additionally illustrate the sensitivity to rating curve bias and implications of stream order reduction.
+This yields a significant amount of intelligence that was previously unavailable to forecasters.
+All of this is presented in an open-source framework that utilizes some of the latest enhancements to HAND as well as some of the latest data sources available. 
+HAND is a terrain index that normalizes height above mean sea level to height above the nearest, relevant drainage line thus detrending elevations.
+It is dependent on a series of drainage enforcing operations and suffers from limitations at stream junctions that partially result from independent catchments and multi-order stream networks.
+This issue is addressed here by reducing the scale at which HAND is derived from a HUC level to one of a levelpath that reduces the stream order down to a unary level.
+We illustrated how this technique improves FIM skill especially at junctions of higher order and higher flow magnitude rivers.
+We additionally illustrated the sensitivity to rating curve bias and implications of stream order reduction.
+Lastly, continental scale flood forecasting still has much progress left to make so we proposed a path forward for improving FIM via the enhancement of terrain data, roughness estimates, and physics constraints. 
 %
