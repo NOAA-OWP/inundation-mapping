@@ -16,7 +16,7 @@ Figure \ref{fig:rating_curve_comparison} illustrates the general effect that str
 Sub-figure \ref{fig:rating_curve_comparison}a shows how the average rating curves for all reaches for stage values 0 to 25 meters at one-third meter intervals tend to bias down (and to the right) with ever increasing stream order reduction (FR to MS to GMS). 
 This bias is more pronounced for GMS since that implements stream order reduction down to the unit level for the entire FR network while MS only does so for 4-5\% of the network.
 Attempting to diagnose this bias in the SRC leads one to Equation \ref{eq:reach_averaged_mannings_equation} which shows the reach averaged synthetic rating curve relationship between stage and discharge.
-Across the three methods explored, FR, MS, and GMS, one identifies differences in the inputs and outputs and notes no difference in the stages and Manning's N values.
+Across the three methods explored, FR, MS, and GMS, one identifies differences in the inputs and outputs and notes no difference in the stages and Manning's n values.
 While the channel slope and reach lengths are not exactly the same across methods, their averaged differences are very negligible which only leaves room for deviations in volume and bed area.
 Again, volume (V[y] or simply V) is synonymous to reach-averaged cross-sectional area and bed area (B[y] or B) is analogous to reach-averaged hydraulic radius.
 Discharge, Q, is directly related to volume and inversely related to bed area and each parameter is weighed according to the magnitude of its exponent which are $\frac{5}{3}$ and $\frac{2}{3}$ respectively. 
@@ -45,7 +45,7 @@ Until a singular stream network is used for the NWM, BLE benchmark, and for HAND
 
 Our qualitative analysis suggests that the synthetic rating curves offer a significant opportunity for improvement in HAND based FIM for future development.
 The bathymetry of the NED 10m DEM is known to be lacking proper representation thus leading to inadequate representation of volume and bed area with all three methods employed.
-Manning's N which typically accounts for roughness could be tuned to account for these DEM limitations or could be held fixed to some local value associated with a given flood magnitude.
+Manning's n which typically accounts for roughness could be tuned to account for these DEM limitations or could be held fixed to some local value associated with a given flood magnitude.
 Some adjusting parameter must be introduced to enhance the estimation of the bathymetric representation.
 Lidar DEMs from the USGS at 3m and 1m scale could be utilized to derive HAND as well which we conject should show better agreement with higher fidelity FIMs also derived from the same Lidar based DEMs.
 

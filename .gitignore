@@ -10,7 +10,7 @@ config/**
 !config/*calibrated*
 !config/symbology/
 *.zip
-manuscripts/**/owp_fim3.pdf
+manuscripts/**/owp_fim4.pdf
 manuscripts/**/*.aux
 manuscripts/**/*.log
 manuscripts/**/*.bbl
