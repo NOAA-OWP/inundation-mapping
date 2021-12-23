@@ -1,5 +1,75 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+
+## v3.0.24.3 - 2021-11-29 - [PR #488](https://github.com/NOAA-OWP/cahaba/pull/488)
+
+Fixed projection issue in `synthesize_test_cases.py`.
+
+## Changes
+
+- `Pipfile`: Added `Pyproj` to `Pipfile` to specify a version that did not have the current projection issues.
+
+<br/><br/>
+
+## v3.0.24.2 - 2021-11-18 - [PR #486](https://github.com/NOAA-OWP/cahaba/pull/486)
+
+Adding a new check to keep `usgs_elev_table.csv`, `src_base.csv`, `small_segments.csv` for runs not using the `-viz` flag. We unintentionally deleted some .csv files in `vary_mannings_n_composite.py` but need to maintain some of these for non `-viz` runs (e.g. `usgs_elev_table.csv` is used for sierra test input).
+
+## Changes
+
+- `fim_run.sh`: passing `-v` flag to `vary_mannings_n_composite.py` to determine which csv files to delete. Setting `$viz` = 0 for non `-v` runs.
+- `src/vary_mannings_n_composite.py`: added `-v` input arg and if statement to check which .csv files to delete.
+- `src/add_crosswalk.py`: removed deprecated barc variables from input args.
+- `src/run_by_unit.sh`: removed deprecated barc variables from input args to `add_crosswalk.py`.
+
+<br/><br/>
+
+## v3.0.24.1 - 2021-11-17 - [PR #484](https://github.com/NOAA-OWP/cahaba/pull/484)
+
+Patch to clean up unnecessary files and create better names for intermediate raster files.
+
+## Removals
+
+- `tools/run_test_case_gms.py`: Unnecessary file.
+
+## Changes
+
+- `tools/composite_ms_fr_inundation.py`: Clean up documentation and intermediate file names.
+- `tools/run_test_case.py`: Remove unnecessary imports.
+
+<br/><br/>
+
+## v3.0.24.0 - 2021-11-08 - [PR #482](https://github.com/NOAA-OWP/cahaba/pull/482)
+
+Adds `composite_ms_fr_inundation.py` to allow for the generation of an inundation map given a "flow file" CSV and full-resolution (FR) and mainstem (MS) relative elevation models, synthetic rating curves, and catchments rasters created by the `fim_run.sh` script.
+
+## Additions
+- `composite_ms_fr_inundation.py`: New module that is used to inundate both MS and FR FIM and composite the two inundation rasters.
+- `/tools/gms_tools/`: Three modules (`inundate_gms.py`, `mosaic_inundation.py`, `overlapping_inundation.py`) ported from the GMS branch used to composite inundation rasters.
+
+## Changes
+- `inundation.py`: Added 2 exception classes ported from the GMS branch.
+
+<br/><br/>
+
+## v3.0.23.3 - 2021-11-04 - [PR #481](https://github.com/NOAA-OWP/cahaba/pull/481)
+Includes additional hydraulic properties to the `hydroTable.csv`: `Number of Cells`, `SurfaceArea (m2)`, `BedArea (m2)`, `Volume (m3)`, `SLOPE`, `LENGTHKM`, `AREASQKM`, `Roughness`, `TopWidth (m)`, `WettedPerimeter (m)`. Also adds `demDerived_reaches_split_points.gpkg`, `flowdir_d8_burned_filled.tif`, and `dem_thalwegCond.tif` to `-v` whitelist.
+
+## Changes
+- `run_by_unit.sh`: Added `EXIT FLAG` tag and previous non-zero exit code tag to the print statement to allow log lookup.
+- `add_crosswalk.py`: Added extra attributes to the hydroTable.csv. Includes a default `barc_on` and `vmann_on` (=False) attribute that is overwritten (=True) if SRC post-processing modules are run.
+- `bathy_src_adjust_topwidth.py`: Overwrites the `barc_on` attribute where applicable and includes the BARC-modified Volume property.
+- `vary_mannings_n_composite.py`: Overwrites the `vmann_on` attribute where applicable.
+- `output_cleanup.py`: Adds new files to the `-v` whitelist.
+
+<br/><br/>
+
+## v3.0.23.2 - 2021-11-04 - [PR #480](https://github.com/NOAA-OWP/cahaba/pull/480)
+Hotfix for `vary_manning_n_composite.py` to address null discharge values for non-CONUS hucs.
+
+## Changes
+- `vary_manning_n_composite.py`: Add numpy where clause to set final discharge value to the original value if `vmann=False`
+
 <br/><br/>
 
 ## v3.0.23.1 - 2021-11-03 - [PR #479](https://github.com/NOAA-OWP/cahaba/pull/479)

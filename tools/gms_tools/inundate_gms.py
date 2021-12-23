@@ -69,8 +69,6 @@ def Inundate_gms(
                                                           verbose=False
                                                         )
 
-    #for i,ii in inundate_input_generator:
-    #    print(i,ii);exit()
     # start up process pool
     # better results with Process pool
     executor = ProcessPoolExecutor(max_workers=num_workers)
@@ -82,6 +80,7 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
        
+
     executor_generator = { 
                 executor.submit(inundate,**inp) : ids for inp,ids in inundate_input_generator 
                 }
@@ -258,5 +257,4 @@ if __name__ == '__main__':
     
     # extract to dictionary and run
     Inundate_gms( **vars(parser.parse_args()) )
-    
     

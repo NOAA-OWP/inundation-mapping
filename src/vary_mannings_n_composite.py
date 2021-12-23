@@ -42,10 +42,11 @@ def variable_mannings_calc(args):
     channel_ratio_src_column    = args[1]
     df_mann                     = args[2]
     huc                         = args[3]
-    out_src_bankfull_filename   = args[4]
+    out_src_vmann_filename   = args[4]
     htable_filename             = args[5]
     src_plot_option             = args[6]
     huc_output_dir              = args[7]
+    viz_clean_flag              = args[8]
 
     ## Read the src_full_crosswalked.csv
     log_text = 'Calculating: ' + str(huc) + '\n'
@@ -53,8 +54,10 @@ def variable_mannings_calc(args):
 
     ## Check that the channel ratio column the user specified exists in the def
     if channel_ratio_src_column not in df_src.columns:
-        log_text += 'WARNING --> ' + str(huc) + out_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
+        log_text += 'WARNING --> ' + str(huc) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
     else:
+        ## Raname the current discharge & ManningN columns
+        df_src = df_src.rename(columns={'Discharge (m3s-1)':'default_Discharge (m3s-1)','ManningN':'default_ManningN'})
         ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
         df_src = df_src.merge(df_mann,  how='left', on='feature_id')
         check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
@@ -69,7 +72,7 @@ def variable_mannings_calc(args):
         check_null_comp = df_src['comp_ManningN'].isnull().sum()
         if check_null_comp > 0:
             log_text += str(huc) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
-        df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # field to identify where vmann is on/off
+        df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
 
         ## Define the channel geometry variable names to use from the src
         hydr_radius = 'HydraulicRadius (m)'
@@ -87,20 +90,42 @@ def variable_mannings_calc(args):
             df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
             df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
 
+        ## Use the default discharge column when vmann is not being applied
+        df_src['Discharge (m3s-1)_varMann'] = np.where(df_src['vmann_on']==False, df_src['default_Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']) # reset the discharge value back to the original if vmann=false
+        df_src['comp_ManningN'] = np.where(df_src['vmann_on']==False, df_src['default_ManningN'], df_src['comp_ManningN']) # reset the ManningN value back to the original if vmann=false
+
         ## Output new SRC with bankfull column
-        df_src.to_csv(out_src_bankfull_filename,index=False)
+        df_src.to_csv(out_src_vmann_filename,index=False)
 
         ## Output new hydroTable with updated discharge and ManningN column
-        df_src_trim = df_src[['HydroID','Stage','vmann_on','Discharge (m3s-1)_varMann','comp_ManningN']]
+        df_src_trim = df_src[['HydroID','Stage','vmann_on',channel_ratio_src_column,'Discharge (m3s-1)_varMann','comp_ManningN']]
         df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms','comp_ManningN':'ManningN'})
         df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
         df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
+        df_htable.drop(['vmann_on'], axis=1, inplace=True) # drop the default "vmann_on" variable from add_crosswalk.py
         if not set(['orig_discharge_cms']).issubset(df_htable.columns):
             df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
         else:
             df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the previously modified discharge column to be replaced with updated version
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
+
+        # Delete intermediate CSVs outputs. Todo delete this block later.
+        htable_parent_dir = os.path.split(htable_filename)[0]
+        # List all CSVs.
+        file_list = os.listdir(htable_parent_dir)
+        for f in file_list:
+            if viz_clean_flag == 1: # if using the viz flag then delete all intermediate csv files
+                if '.csv' in f:
+                    if f != 'hydroTable.csv':
+                        os.remove(os.path.join(htable_parent_dir, f))
+            else:
+                keep_files = ['usgs_elev_table.csv', 'src_base.csv', 'small_segments.csv']
+                if '.csv' in f:
+                    if f not in keep_files:
+                        os.remove(os.path.join(htable_parent_dir, f))
+
         df_htable.to_csv(htable_filename,index=False)
+
         log_text += 'Completed: ' + str(huc)
 
         ## plot rating curves
@@ -165,6 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
+    parser.add_argument('-viz_clean','--viz-clean',help='Optional (Viz flag): pass the viz flag (0 or 1) to delete intermediate csv files',required=False,default=0,type=int)
 
     args = vars(parser.parse_args())
 
@@ -174,6 +200,7 @@ if __name__ == '__main__':
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     src_plot_option = args['src_plot_option']
+    viz_clean_flag = args['viz_clean']
     procs_list = []
 
     print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + output_suffix + '.log')))
@@ -199,13 +226,13 @@ if __name__ == '__main__':
             for huc in huc_list:
                 if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
                     in_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
-                    out_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_vmann.csv')
+                    out_src_vmann_filename = join(fim_dir,huc,'src_full_crosswalked_vmann.csv')
                     htable_filename = join(fim_dir,huc,'hydroTable.csv')
                     huc_plot_output_dir = join(fim_dir,huc,'src_plots')
 
                     if isfile(in_src_bankfull_filename):
                         print(str(huc))
-                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_bankfull_filename, htable_filename, src_plot_option, huc_plot_output_dir])
+                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir,viz_clean_flag])
                     else:
                         print(str(huc) + '\nWARNING --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)) + ' - skipping this HUC!!!\n')
 
