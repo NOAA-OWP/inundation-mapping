@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.7 - 2021-12-30 - [PR #500](https://github.com/NOAA-OWP/cahaba/pull/500)
+
+Update API Release Branch
+
+## Changes
+- `api/node/updater/updater.py`: Changed the branch used to run the "Release" feature from "dev" to "dev-fim3".
+
+<br/><br/>
+
 ## v3.0.24.6 - 2021-12-13 - [PR #494](https://github.com/NOAA-OWP/cahaba/pull/494)
 
 This feature branch includes additional enhancements to the synthetic rating curve adjustment algorithm. In addition to local hydroid catchment calculations of roughness, the algorithm now applies adjustments to corresponding hydroids that share a common featureid, and the mean roughness values for interconnected hydroids are also propagated downstream by a set distance (e.g. 10km).
