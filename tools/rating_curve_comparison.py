@@ -76,6 +76,7 @@ def generate_rating_curve_metrics(args):
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object})
 
     # Join rating curves with elevation data
+    usgs_gages.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
     hydrotable = hydrotable.merge(elev_table, on="HydroID")
     relevant_gages = list(hydrotable.location_id.unique())
     usgs_gages = usgs_gages[usgs_gages['location_id'].isin(relevant_gages)]
