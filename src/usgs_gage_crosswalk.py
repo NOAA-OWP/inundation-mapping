@@ -60,7 +60,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     # Get USGS gages that are within catchment boundaries
     usgs_gages = usgs_gages.loc[usgs_gages.location_id.isin(list(closest_hydro_id.location_id))]
 
-    columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order','feature_id_wrds','feature_id']
+    columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order','feature_id_wrds','feature_id','gage_distance_to_line']
     gage_data = []
 
     # Move USGS gage to stream
@@ -101,7 +101,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
         dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,shply_referenced_gage.coords))[0].item(),2)
 
         # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
-        site_elevations = [str(gage.location_id), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order),str(feat_id_wrds),str(feat_id)]
+        site_elevations = [str(gage.location_id), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order),str(feat_id_wrds),str(feat_id),gage_distance_to_line]
         gage_data.append(site_elevations)
 
     elev_table = pd.DataFrame(gage_data, columns=columns)
