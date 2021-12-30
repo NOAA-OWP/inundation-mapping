@@ -453,7 +453,7 @@ def ws_add_job_to_queue(data):
         job_name = data['job_name']
         hucs = data['hucs']
         extent = data['extent']
-        branch = 'dev'
+        branch = 'dev-fim3'
         config_path = './foss_fim/config/params_template.env'
         dev_run = False
         viz_run = True
