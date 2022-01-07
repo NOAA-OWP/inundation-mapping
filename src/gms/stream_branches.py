@@ -57,7 +57,11 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose: 
             print('Loading file')
         
-        return(cls(gpd.read_file(filename,*args,**kwargs),**inputs))
+        # NWM can have duplicate records, but appear to always be identical duplicates. Remove the duplicates
+        nwm_subset_streams = gpd.read_file(filename, *args,**kwargs)
+        nwm_subset_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+        
+        return(cls(nwm_subset_streams,**inputs))
 
 
     def write(self,fileName,layer=None,index=True,verbose=False):
