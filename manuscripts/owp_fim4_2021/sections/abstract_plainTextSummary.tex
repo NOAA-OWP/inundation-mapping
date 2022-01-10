@@ -20,16 +20,16 @@
 %% \begin{abstract} starts the second page
 
 \begin{abstract}
-The National Water Model Version 2.1 (NWM V2.1) seeks to expand upon existing systems to provide hourly forecast discharges at four time horizons (1, 3, 10, and 30 days) at over 2.7 million locations throughout the continental United States, Hawaii and Puerto Rico.
-Additional modeling capabilities are required to convert these 1-D discharge forecasts into 2-D fluvial inundation extents used for forecasting purposes to protect life and property.
+The National Water Model Version 2.1 (NWM V2.1) seeks to expand upon existing systems to provide up to hourly forecast discharges for four time horizons (1, 3, 10, and 30 days) at over 2.7 million locations throughout the continental United States, Hawaii and Puerto Rico.
+Additional modeling capabilities are required to convert these 1-D discharge forecasts into 2-D fluvial inundation extents used for forecasting purposes to aid in the protection of life and property.
 Height Above Nearest Drainage (HAND) coupled with the use of synthetic rating curves can convert discharges into stages and stages to inundation extents in a rapid manner across large spatial domains and at high resolutions.
 The Office of Water Prediction Flood Inundation Mapping (OWP FIM) model `Cahaba' is an enhancement of the HAND method developed to improve upon some of HAND's limitations.
 Among the implemented enhancements are efficient computational performance, support for Hawaii and Puerto Rico NWM domains, enforcement of levee elevation data, support for the latest digital elevation model and stream network data sources, advanced stream burning techniques, thalweg conditioning, and simplified Manning's n variation.
 Most importantly, we detail an issue previously mentioned with HAND as its FIM skill is dependent on a drainage threshold parameter used to delineate stream lines.
 Since our modeling assumptions are different, we illustrate how reducing Horton-Strahler stream order of the stream networks used within each HAND processing unit down to unary can improve FIM skill.
 This is accomplished by deriving level paths for the National Water Model stream network and utilizing those definitions for deriving HAND datasets independently from other level paths.
-`Cahaba' was evaluated at 49 Base Level Engineering (BLE) sites furnished by the Federal Emergency Management Agency (FEMA).
-The modeled discharges from the BLE sections were used for the 100 and 500 year flood events as input to OWP FIM instead of NWM discharges to isolate out factors related to hydro-meteorology.
+`Cahaba' was evaluated at 49 Base Level Engineering (BLE) sites furnished by the Interagency Flood Risk Management (InFIRM).
+The modeled discharges for 100 and 500 year events from the BLE cross-sections were used for input to OWP FIM instead of NWM discharges to isolate out factors related to hydro-meteorology.
 The resulting maps are compared to the modeled extents from the BLE and binary contingency statistics are computed.
 Across the 49 sites, Critical Success Index (CSI) was found to increase across FIM versions driven by improvements to the Probability of Detection (POD) and slight reduction in False Alarm Ratio (FAR).
 Each successive version of HAND here utilizes greater stream order reduction illustrating a key limitation of HAND and enhanced agreement when utilizing stream networks of lower stream orders as a datum for HAND.
@@ -40,7 +40,7 @@ These capabilities were implemented in an open-source package available on GitHu
 %
 \section*{Plain Language Summary}
 Flooding is one of the most impactful natural disasters on life and property.
-The United States National Water Model (NWM) seeks to provide flood forecasts for the entire country so that adequate warnings can be raised to the public to enable safe evacuations and protective measures.
+The United States National Water Model (NWM) provides flood forecasts for the entire country so that adequate warnings can be raised to the public to enable safe evacuations and protective measures.
 In order to convert forecasted flow rates from the NWM to flood inundation maps (FIM), a model is used that converts elevation data from height above mean sea-level to height above the nearest river bottom.
 This model known as Height Above Nearest Drainage (HAND) suffers from issues in mapping performance where rivers converge.
 We developed a technique that mitigates these errors by removing consideration for neighboring tributaries in the relative elevation computation process.

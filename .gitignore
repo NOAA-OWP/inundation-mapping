@@ -11,6 +11,7 @@ config/**
 !config/symbology/
 *.zip
 manuscripts/**/owp_fim4.pdf
+manuscripts/**/owp_fim4_*.pdf
 manuscripts/**/*.aux
 manuscripts/**/*.log
 manuscripts/**/*.bbl

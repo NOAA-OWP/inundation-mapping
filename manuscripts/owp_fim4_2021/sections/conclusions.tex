@@ -5,14 +5,19 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-Overall, we have produced a product that is able to produce FIMs for the entire US using stream flows whether retrospective or forecast.
-Using the HAND method, we can produce this product at very large domains and high resolutions in a relatively short amount of time which enables creating forecast maps at high temporal frequencies.
-This yields a significant amount of intelligence that was previously unavailable to forecasters.
-All of this is presented in an open-source framework that utilizes some of the latest enhancements to HAND as well as some of the latest data sources available. 
-HAND is a terrain index that normalizes height above mean sea level to height above the nearest, relevant drainage line thus detrending elevations.
-It is dependent on a series of drainage enforcing operations and suffers from limitations at stream junctions that partially result from independent catchments and multi-order stream networks.
-This issue is addressed here by reducing the scale at which HAND is derived from a HUC level to one of a levelpath that reduces the stream order down to a unary level.
-We illustrated how this technique improves FIM skill especially at junctions of higher order and higher flow magnitude rivers.
-We additionally illustrated the sensitivity to rating curve bias and implications of stream order reduction.
-Lastly, continental scale flood forecasting still has much progress left to make so we proposed a path forward for improving FIM via the enhancement of terrain data, roughness estimates, and physics constraints. 
+Floods present a significant, underserved, and expanding risk to life, property, and resources.
+Previous flood forecasting systems lacked the coverage to adequately inform society of these risks.
+The National Water Model (NWM) developed by the National Oceanic and Atmospheric Administration's Office of Water Prediction, along with partners, provides increased spatial coverage and resolution as well as additional forecast time horizons on mostly hourly intervals.
+Additional processing is required to convert streamflows from the NWM to river stages and finally to flood inundation maps (FIM).
+Height Above Nearest Drainage (HAND) is a means of detrending digital elevations maps (DEM) by normalizing elevation to the nearest relevant drainage point.
+HAND coupled with the use of reach averaged synthetic rating curves (SRC) provide such a means of creating continental scale FIM capabilities at high resolutions (1/3 arc-second, 10 m) and high temporal frequencies (up to 1 hr).
+Scalable, open-source software was developed to produce HAND and associated datasets (catchments, SRCs, and cross-walking data) for the NWM forecasting area including Hawaii and Puerto Rico (https://github.com/NOAA-OWP/cahaba).
+HAND is produced using the latest hydro-conditioning techniques to enforce monotonically decreasing elevations including stream burning, levee enforcement, pit-filling, stream channel excavation, thalweg breaching, headwater seeding, stream reach resampling, and more. 
+Finally, we use this implementation to investigate the skill of the FIMs by varying the scale of the processing units used to derive HAND.
+We illustrate that reducing the Horton-Strahler stream order of a HAND processing unit down to one enhances skill by significantly reducing false negatives at junctions of major streams.
+This also affects the parameters used to compute stage-discharge relationships biasing discharge higher at given stages which reduced the rate of false positives.
+FIM skill was evaluated over large spatial scales by comparsion to HEC-RAS 1D models.
+Further investment in the SRC's is warranted by accounting for bathymetric errors inherited by the DEM and better accounting for localized friction values at varying flow magnitudes.
+Utilizing the highest resolution Lidar and bathymetric data should also improve the vertical accuracy of HAND and better account for fine grain features that greatly affect inundation extents.
+Due to inherent limitations with HAND, scalable physics-based methods will need to be worked on to provide better representation of flood extent dynamics in steady and unsteady conditions. 
 %

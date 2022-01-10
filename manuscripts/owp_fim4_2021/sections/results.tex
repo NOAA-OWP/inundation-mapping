@@ -10,7 +10,7 @@
 \label{ssec:mapping_performance}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-We produced FIMs for the entire BLE domain within the 49 HUC8 area across several states in the south central US. 
+We produced FIMs for the entire BLE domain within the 49 HUC8 areas across several states in the south central US. 
 The forecasted FIMs using the discharges for the 1\% (100 year) and 0.2\% (500 year) recurrence flows directly from HEC-RAS were used to avoid noise and errors from hydrological processes.
 We computed the statistics (CSI, POD, and FAR) for both 100 and 500 year events for Mannings N set to 0.06 and 0.12. 
 The distribution of these statistics can be examined in Figure \ref{fig:violin_plot} as violin plots.
@@ -18,7 +18,7 @@ Each half of a violin plot represents the kernel density estimation (KDE) for a 
 We also denote trend lines for each metric and Manning's n setting as well as their respective slope estimate and one-tailed p-value denoting the level of significance of the trend.
 
 Aggregating the metrics in the method above treats each HUC8 as it's own unit and does little to consider the size differences of the HUCs. 
-In an opposing aggregation method, we illustrate in Table \ref{tab:aggregate_metrics} the sum of all the TPs, FPs, and FNs to recompute CSI, POD, and FAR across the entire domain. 
+In an opposing aggregation method, we illustrate in Table \ref{tab:aggregate_metrics}  the CSI, POD, and FAR recomputed for the entire domain using the sum of all the TPs, FPs, and FNs. 
 %
 \begin{figure}[h!]
 \centering
@@ -30,7 +30,8 @@ Trend lines for each metric - Mannings combination are shown (sample size = 294)
 \end{figure}
 %
 \begin{table}[h!]
-\caption{Primary metrics, TPs, FPs, and FNs, aggregated for BLE domain to recompute CSI, POD, and FAR.}
+\caption{Recomputed CSI, POD, and FAR using the primary metrics, TPs, FPs, and FNs, aggregated for BLE domain.
+         Best value for across models is highlighted in bold.}
 \label{tab:aggregate_metrics}
 \centering
 %\begin{tabular}{|p{2cm}|p{2cm}|p{2cm}|p{2cm}|}
@@ -40,17 +41,17 @@ Trend lines for each metric - Mannings combination are shown (sample size = 294)
 \cline{3-8}
   &  & 100yr & 500yr & 100yr & 500yr & 100yr & 500yr \\
 \hline
-\multirow{2}{*}{CSI} & 0.06 & 0.5576 & 0.5839 & 0.5717 & 0.5990 & 0.5796 & 0.6075 \\
+\multirow{2}{*}{CSI} & 0.06 & 0.5576 & 0.5839 & 0.5717 & 0.5990 & \textbf{0.5796} & \textbf{0.6075} \\
 \cline{2-8}
-  & 0.12 & 0.5915 & 0.6149 & 0.6054 & 0.6288 & 0.6182 & 0.6435 \\
+  & 0.12 & 0.5915 & 0.6149 & 0.6054 & 0.6288 & \textbf{0.6182} & \textbf{0.6435} \\
 \hline
-\multirow{2}{*}{POD} & 0.06 & 0.6354 & 0.6575 & 0.6524 & 0.6755 & 0.6633 & 0.6863 \\
+\multirow{2}{*}{POD} & 0.06 & 0.6354 & 0.6575 & 0.6524 & 0.6755 & \textbf{0.6633} & \textbf{0.6863} \\
 \cline{2-8}
-  & 0.12 & 0.7255 & 0.7446 & 0.7460 & 0.7648 & 0.7606 & 0.7810 \\
+  & 0.12 & 0.7255 & 0.7446 & 0.7460 & 0.7648 & \textbf{0.7606} & \textbf{0.7810} \\
 \hline
-\multirow{2}{*}{FAR} & 0.06 & 0.1800 & 0.1609 & 0.1778 & 0.1589 & 0.1787 & 0.1589 \\
+\multirow{2}{*}{FAR} & 0.06 & 0.1800 & 0.1609 & 0.1787 & \textbf{0.1589} & \textbf{0.1778} & \textbf{0.1589} \\
 \cline{2-8}
-  & 0.12 & 0.2379 & 0.2208 & 0.2374 & 0.2204 & 0.2324 & 0.2148 \\
+  & 0.12 & 0.2379 & 0.2208 & 0.2374 & 0.2204 & \textbf{0.2324} & \textbf{0.2148} \\
 \hline
 \end{tabular}
 \end{table}
@@ -58,7 +59,7 @@ Trend lines for each metric - Mannings combination are shown (sample size = 294)
 % Interpretation of metrics
 From Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metrics}, we denote several meaningful trends. 
 Using CSI as an overall proxy for skill of the FIM, we note that generally speaking the skill is correlated with a reduction of the stream orders of the processing units used for HAND.
-In other words, the more you derive HAND on networks of unit drainage density and mosaic the resulting FIMs, the better those FIMs perform.
+In other words, the more we derive HAND on networks of unit drainage density and mosaic the resulting FIMs, the better those FIMs perform.
 While this trend is evident for both sets of Manning's n values, the trend is slightly more significant for the higher value of 0.12.
 Other trends related to this Figure include the general performance premium for 0.2\% events as opposed to lower 1\% events.
 We also note how the higher Manning's n value enhances performance for both of these recurrence intervals across all models.

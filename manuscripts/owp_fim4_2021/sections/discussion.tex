@@ -18,12 +18,12 @@ This bias is more pronounced for GMS since that implements stream order reductio
 Attempting to diagnose this bias in the SRC leads one to Equation \ref{eq:reach_averaged_mannings_equation} which shows the reach averaged synthetic rating curve relationship between stage and discharge.
 Across the three methods explored, FR, MS, and GMS, one identifies differences in the inputs and outputs and notes no difference in the stages and Manning's n values.
 While the channel slope and reach lengths are not exactly the same across methods, their averaged differences are very negligible which only leaves room for deviations in volume and bed area.
-Again, volume (V[y] or simply V) is synonymous to reach-averaged cross-sectional area and bed area (B[y] or B) is analogous to reach-averaged hydraulic radius.
-Discharge, Q, is directly related to volume and inversely related to bed area and each parameter is weighed according to the magnitude of its exponent which are $\frac{5}{3}$ and $\frac{2}{3}$ respectively. 
+Again, volume (V(y) or simply V) is synonymous to reach-averaged cross-sectional area and bed area (B(y) or B) is analogous to reach-averaged hydraulic radius.
+Discharge, Q, is directly related to volume and inversely related to bed area and each parameter is weighed according to the magnitude of its exponent which are $\frac{5}{3}$ and $\frac{2}{3}$ respectively (see Equation \ref{eq:reach_averaged_mannings_equation}). 
 Figures \ref{fig:rating_curve_comparison} b and c show how volume and bed area compare across the three methods with GMS having significantly greater values than MS which has greater values than FR.
 Again the relative discrepancy between FR vs MS and MS vs GMS is explained by the extent of their spatial coverages.
-Both V and B values increase but since both are weighed differently by their respective exponents and pull Q in different directions.
-We show in Figure \ref{fig:rating_curve_comparison}d the relationship of $\frac{V^{5/3}}{B^{2/3}}$ is plotted against stage, y, to show how these two parameters collectively pull the rating curve Q up and biases the rating curve down.
+Both V and B values increase but are weighed differently by their respective exponents and pull Q in different directions.
+We show in Figure \ref{fig:rating_curve_comparison}d the relationship of $\frac{V^{5/3}}{B^{2/3}}$ and plot this ratio against stage, y, to show how these two parameters collectively pull the rating curve Q up and biases the rating curve down.
 In other words, the magnitude and weight of the volume at each stage level exceeds the influence of the magnitude and weight of the bed area.
 Both parameters are set to increase mainly due to much larger catchments leading to more pixels at each stage level as shown in Figure \ref{fig:rating_curve_comparison}e.
 Much of the increase in inundated pixels, volume, and bed area can be explained by much larger catchments that encompass neighboring tributaries.
@@ -44,10 +44,10 @@ Additional conflation is identified in cross-walking the stream network used by 
 Until a singular stream network is used for the NWM, BLE benchmark, and for HAND based FIM, conflation will continue being a source of error.
 
 Our qualitative analysis suggests that the synthetic rating curves offer a significant opportunity for improvement in HAND based FIM for future development.
-The bathymetry of the NED 10m DEM is known to be lacking proper representation thus leading to inadequate representation of volume and bed area with all three methods employed.
+The bathymetry of the 10 m DEM from 3DEP is known to be lacking proper representation thus leading to inadequate representation of volume and bed area with all three methods employed.
 Manning's n which typically accounts for roughness could be tuned to account for these DEM limitations or could be held fixed to some local value associated with a given flood magnitude.
 Some adjusting parameter must be introduced to enhance the estimation of the bathymetric representation.
-Lidar DEMs from the USGS at 3m and 1m scale could be utilized to derive HAND as well which we conject should show better agreement with higher fidelity FIMs also derived from the same Lidar based DEMs.
+Lidar DEMs from the USGS at 3 m and 1 m scale could be utilized to derive HAND as well which we conject should show better agreement with higher fidelity FIMs also derived from the same Lidar based DEMs.
 
 Lastly, after errors introduced by conflation, poor roughness estimation, bathymetric/elevation adjustment are accounted for, HAND still has another fundamental limitation that is inherently baked into how it works.
 For HAND to be derived and thus create a FIM for a given area, that area must entirely drain to the stream network and the stream network must also drain itself.
