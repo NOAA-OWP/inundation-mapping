@@ -76,7 +76,7 @@ def generate_rating_curve_metrics(args):
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object})
 
     # Join rating curves with elevation data
-    usgs_gages.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
+    elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
     hydrotable = hydrotable.merge(elev_table, on="HydroID")
     relevant_gages = list(hydrotable.location_id.unique())
     usgs_gages = usgs_gages[usgs_gages['location_id'].isin(relevant_gages)]
@@ -144,6 +144,7 @@ def generate_rating_curve_metrics(args):
                 continue
 
             str_order = np.unique(usgs_rc.str_order).item()
+            print(gage)
             feature_id = str(gage.feature_id)
 
             usgs_pred_elev = get_reccur_intervals(usgs_rc, usgs_crosswalk,nwm_recurr_intervals_all)
@@ -501,9 +502,9 @@ if __name__ == '__main__':
     print(check_file_age(usgs_gages_filename))
 
     # Open log file
-    sys.__stdout__ = sys.stdout
+    #sys.__stdout__ = sys.stdout
     log_file = open(join(output_dir,'rating_curve_comparison.log'),"w")
-    sys.stdout = log_file
+    #sys.stdout = log_file
 
     merged_elev_table = []
     huc_list  = os.listdir(fim_dir)
