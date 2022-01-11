@@ -131,12 +131,7 @@ else
     parallel $retry --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 fi
 
+
+# -------------------
 ## GET NON ZERO EXIT CODES ##
-# get positive non-zero exit codes 
-grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/branch > $outputRunDataDir/logs/branch/TEMP.log
-# append time outs (logs that dont have an exit code)
-grep -LER 'Exit status: ' $outputRunDataDir/logs/branch >> $outputRunDataDir/logs/branch/TEMP.log
-# remove the summary logs
-grep -v 'summary_gms_*.log' $outputRunDataDir/logs/branch/TEMP.log > $outputRunDataDir/logs/branch/non_zero_exit_codes.log
-# remove temp file
-rm $outputRunDataDir/logs/branch/TEMP.log
+grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/branch/*_branch_*.log > $outputRunDataDir/logs/branch/non_zero_exit_codes.log
