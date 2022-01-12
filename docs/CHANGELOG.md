@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.8 - 2022-01-12 - [PR #503](https://github.com/NOAA-OWP/cahaba/pull/503)
+
+This pull request adds an additional feature_id attribute associated with USGS gage locations (feature_id obtained from the WRDS API) output in the `usgs_gage_crosswalk.py`. There is also a new USGS gage query to ensure gage's HUC8 matches the FIM HUC when performing the gage-huc spatial query (avoids duplicating gages in multiple HUCs).
+
+## Changes
+- `src/run_by_unit.sh`: updated to include the HUC8 id as an input argument to `usgs_gage_crosswalk.py` when running `fim_run.sh`
+- `usgs_gage_crosswalk.py`: updated to include both `feature_id` (HAND-FIM crosswalked feature_id) and `feature_id_wrds` (feature_id assoicated with USGS gage location obtained from WRDS API). Also included the `gage_distance_to_line` attribute to potentially identify issues with correlating gage locations to the nearest thalweg pixel.
+
+<br/><br/>
+
+
 ## v3.0.24.7 - 2021-12-30 - [PR #500](https://github.com/NOAA-OWP/cahaba/pull/500)
 
 Update API Release Branch
