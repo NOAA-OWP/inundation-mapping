@@ -76,6 +76,8 @@ def generate_rating_curve_metrics(args):
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': str})
 
     # Join rating curves with elevation data
+    hydrotable.drop('feature_id', axis=1, inplace=True)
+    elev_table.feature_id = elev_table.feature_id_wrds
     hydrotable = hydrotable.merge(elev_table, on="HydroID")
     relevant_gages = list(hydrotable.location_id.unique())
     usgs_gages = usgs_gages[usgs_gages['location_id'].isin(relevant_gages)]
@@ -404,7 +406,6 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
 
     # Write to file
     usgs_gages.to_file(join(output_dir, output_gpkg), driver='GPKG', index=False)
-    #usgs_gages.to_file(join(output_dir, output_gpkg), driver='ESRI Shapefile', index=False)
 
     # Create figure
     usgs_gages.replace(np.inf, np.nan, inplace=True) # replace inf with nan for plotting

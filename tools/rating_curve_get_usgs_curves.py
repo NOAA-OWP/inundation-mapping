@@ -24,6 +24,12 @@ python3 rating_curve_get_usgs_curves.py -l all -w /data/sierra_test/usgs_rating_
 python3 rating_curve_get_usgs_curves.py -l 11174000 14211010 -w /data/sierra_test/usgs_rating_curves/
 python3 rating_curve_get_usgs_curves.py -l /data/sierra_test/usgs_gage_list.csv -w /data/sierra_test/usgs_rating_curves/ -t 1.5
 
+Notes
+------------
+USGS rating curve depot. 
+https://waterdata.usgs.gov/nwisweb/get_ratings?help
+08447300 is the location_id for the gage
+https://waterdata.usgs.gov/nwisweb/get_ratings?site_no=08447300&file_type=exsa
 '''
 
 #import variables from .env file
