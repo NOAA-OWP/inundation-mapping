@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.24.9 - 2022-01-19 - [PR #506](https://github.com/NOAA-OWP/cahaba/pull/506)
 
-Adding catchments and streams layers to viz post-processing outputs
+Adding catchments and streams layers to viz post-processing outputs.
 
 ## Additions
 - Added `catchments_{huc6}.gpkg` and `streams_{huc6}.gpkg` layers to aggregate_fim_outputs
