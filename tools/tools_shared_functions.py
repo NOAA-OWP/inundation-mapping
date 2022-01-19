@@ -9,6 +9,7 @@ import requests
 import numpy as np
 import pathlib
 from pathlib import Path
+from datetime import datetime, timezone
 import rasterio.shutil
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import rasterio.crs
@@ -16,6 +17,24 @@ from rasterio import features
 from shapely.geometry import shape
 from shapely.geometry import Polygon
 from shapely.geometry import MultiPolygon
+
+########################################################################
+#Function to check the age of a file (use for flagging potentially outdated input)
+########################################################################
+def check_file_age(file):
+    '''
+    Checks if file exists, determines the file age
+
+    Returns
+    -------
+    None.
+
+    '''
+    file = Path(file)
+    if file.is_file():
+        modified_date = datetime.fromtimestamp(file.stat().st_mtime, tz=timezone.utc)
+
+        return modified_date
 
 def requests_get_with_retry(url, url_params={}, connect=5, status=5, backoff_factor=10.0, status_forcelist=[429]):
     """

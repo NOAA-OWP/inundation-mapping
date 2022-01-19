@@ -15,10 +15,11 @@ from multiprocessing import Pool
 from tools_shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 
 
-def update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs):
+def update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs):
     print("Processing huc --> " + str(huc))
     log_text = "\nProcessing huc --> " + str(huc) + '\n'
-    df_nvalues = pd.read_csv(pt_n_values_csv) # read csv to import as a dataframe
+    df_nvalues = water_edge_median_ds
+    #df_nvalues = pd.read_csv(pt_n_values_csv) # read csv to import as a dataframe
     df_nvalues = df_nvalues[df_nvalues.hydroid != 0] # remove null entries that do not have a valid hydroid
 
     # Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
@@ -333,12 +334,12 @@ def process_points(args):
         # Write user_supplied_n_vals to CSV for next step.
         pt_n_values_csv = os.path.join(fim_directory, huc, 'user_supplied_n_vals_' + huc + '.csv')
         water_edge_median_ds.to_csv(pt_n_values_csv)
-        del water_edge_median_ds
+        #del water_edge_median_ds
 
         # Call update_rating_curve() to perform the rating curve calibration.
         # Still testing, so I'm having the code print out any exceptions.
         try:
-            log_text = update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs)
+            log_text = update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs)
         except Exception as e:
             print(e)
             log_text = 'ERROR!!!: HUC ' + str(huc) + ' --> ' + str(e)

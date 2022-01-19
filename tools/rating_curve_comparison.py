@@ -94,8 +94,15 @@ def generate_rating_curve_metrics(args):
         usgs_gages['source'] = "USGS"
         limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
-
-        rating_curves = limited_hydrotable.append(select_usgs_gages)
+        if 'default_discharge_cms' in hydrotable.columns:
+            hydrotable['default_discharge_cfs'] = hydrotable.default_discharge_cms * 35.3147
+            limited_hydrotable_default = hydrotable.filter(items=['location_id','elevation_ft', 'default_discharge_cfs'])
+            limited_hydrotable_default['discharge_cfs'] = limited_hydrotable_default.default_discharge_cfs
+            limited_hydrotable_default['source'] = "FIM_default"
+            rating_curves = limited_hydrotable.append(select_usgs_gages)
+            rating_curves = rating_curves.append(limited_hydrotable_default)
+        else:
+            rating_curves = limited_hydrotable.append(select_usgs_gages)
 
         # Add stream order
         stream_orders = hydrotable.filter(items=['location_id','str_order']).drop_duplicates()
@@ -281,6 +288,10 @@ def generate_facet_plot(rc, plot_filename):
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft > (max_elev + 2))].index)
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2)].index)
 
+        if 'default_discharge_cfs' in rc.columns:
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft > (max_elev + 2))].index)
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
+
     rc = rc.rename(columns={"location_id": "USGS Gage"})
 
     ## Generate rating curve plots
@@ -291,8 +302,13 @@ def generate_facet_plot(rc, plot_filename):
         columns = 1
 
     sns.set(style="ticks")
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
-    g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
+    if 'default_discharge_cfs' in rc.columns:
+        g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM','FIM_default'], sharex=False, sharey=False,col_wrap=columns)
+        g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
+    else:
+        g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
+        g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
+    
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     # Adjust the arrangement of the plots
