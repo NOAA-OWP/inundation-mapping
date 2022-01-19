@@ -14,7 +14,7 @@ AHPS_MAGNITUDE_LIST = ['action', 'minor', 'moderate', 'major']
 MAGNITUDE_DICT = {'ble': BLE_MAGNITUDE_LIST, 'ifc': IFC_MAGNITUDE_LIST, 'usgs': AHPS_MAGNITUDE_LIST, 'nws': AHPS_MAGNITUDE_LIST}
 PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
-GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc']
+GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc', 'PND']
 
 # Variables for eval_plots.py
 BAD_SITES = [
@@ -51,6 +51,11 @@ BAD_SITES = [
 DISCARD_AHPS_QUERY = "not flow.isnull() & masked_perc<97 & not nws_lid in @BAD_SITES"
 
 elev_raster_ndv = -9999.0
+
+# Rating Curve Adjustment (local calibration) variables
+DOWNSTREAM_THRESHOLD = 10 # distance in km to propogate new roughness values downstream
+ROUGHNESS_MAX_THRESH = 0.6 # max allowable adjusted roughness value (void values larger than this)
+ROUGHNESS_MIN_THRESH = 0.001 # min allowable adjusted roughness value (void values smaller than this)
 
 # Colors.
 ENDC = '\033[m'

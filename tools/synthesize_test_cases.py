@@ -45,6 +45,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                         'FAR',
                         'TPR',
                         'TNR',
+                        'PND',
                         'PPV',
                         'NPV',
                         'ACC',
@@ -317,7 +318,6 @@ if __name__ == '__main__':
 
                         # For previous versions of HAND computed at HUC6 scale
                         if not os.path.exists(fim_run_dir):
-                            print(fim_run_dir)
                             if config == 'DEV':
                                 fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
                             elif config == 'PREV':
