@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.9 - 2022-01-19 - [PR #506](https://github.com/NOAA-OWP/cahaba/pull/506)
+
+Adding catchments and streams layers to viz post-processing outputs
+
+## Additions
+- Added `catchments_{huc6}.gpkg` and `streams_{huc6}.gpkg` layers to aggregate_fim_outputs
+
+<br/><br/>
+
+
 ## v3.0.24.8 - 2022-01-12 - [PR #503](https://github.com/NOAA-OWP/cahaba/pull/503)
 
 This pull request adds an additional feature_id attribute associated with USGS gage locations (feature_id obtained from the WRDS API) output in the `usgs_gage_crosswalk.py`. There is also a new USGS gage query to ensure gage's HUC8 matches the FIM HUC when performing the gage-huc spatial query (avoids duplicating gages in multiple HUCs).
