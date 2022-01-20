@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 import pandas as pd, geopandas as gpd
 import numpy as np
 import argparse
@@ -71,7 +72,7 @@ def generate_rating_curve_metrics(args):
     catfim_flows_filename       = args[7]
     huc                         = args[8]
 
-    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': str})
+    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': str,'feature_id_wrds': str})
     hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': str,'feature_id': str})
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': str})
 
@@ -103,8 +104,6 @@ def generate_rating_curve_metrics(args):
         rating_curves = rating_curves.merge(stream_orders, on='location_id')
         rating_curves['str_order'] = rating_curves['str_order'].astype('int')
 
-        # plot rating curves
-        generate_facet_plot(rating_curves, rc_comparison_plot_filename)
 
         # NWM recurr intervals
         recurr_intervals = ("2","5","10","25","50","100")
@@ -130,6 +129,7 @@ def generate_rating_curve_metrics(args):
 
         # Identify unique gages
         usgs_crosswalk = hydrotable.filter(items=['location_id', 'feature_id']).drop_duplicates()
+        usgs_crosswalk.dropna(subset=['location_id'], inplace=True)
 
         nwm_recurr_data_table = pd.DataFrame()
         usgs_recurr_data = pd.DataFrame()
@@ -220,6 +220,9 @@ def generate_rating_curve_metrics(args):
             nwm_recurr_data_table.elevation_ft = np.round(nwm_recurr_data_table.elevation_ft,2)
             nwm_recurr_data_table.to_csv(nwm_recurr_data_filename,index=False)
 
+        # plot rating curves
+        generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
+
     else:
         print(f"no USGS data for gage(s): {relevant_gages} in huc {huc}")
 
@@ -270,16 +273,19 @@ def aggregate_metrics(output_dir,procs_list,stat_groups):
     return agg_recurr_stats_table
 
 
-def generate_facet_plot(rc, plot_filename):
+def generate_facet_plot(rc, plot_filename, recurr_data_table):
 
     # Filter FIM elevation based on USGS data
     for gage in rc.location_id.unique():
 
         min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.min()
         max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.max()
+        min_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.min()
+        max_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.max()
+        ri100 = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')].discharge_cfs.max()
 
-        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft > (max_elev + 2))].index)
-        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2)].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2) & (rc.discharge_cfs < min_q)].index)
 
     rc = rc.rename(columns={"location_id": "USGS Gage"})
 
@@ -291,9 +297,24 @@ def generate_facet_plot(rc, plot_filename):
         columns = 1
 
     sns.set(style="ticks")
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
-    g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
+    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], 
+                    sharex=False, sharey=False,col_wrap=columns,
+                    height=3.5, aspect=1.65)
+    g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2)
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
+
+    ## Plot recurrence intervals
+    axes = g.axes_dict
+    for gage in axes:
+        ax = axes[gage]
+        plt.sca(ax)
+        recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
+            .filter(items=['recurr_interval', 'discharge_cfs'])
+        for i, r in recurr_data.iterrows():
+            if not r.recurr_interval.isnumeric(): continue # skip catfim flows
+            l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
+            plt.axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
+            plt.text(r.discharge_cfs, ax.get_ylim()[1] - (ax.get_ylim()[1]-ax.get_ylim()[0])*0.03, r.recurr_interval, size='small', c='purple')
 
     # Adjust the arrangement of the plots
     g.fig.tight_layout(w_pad=1)
@@ -487,6 +508,8 @@ if __name__ == '__main__':
         gages_gpkg_filepath = args['stat_gages'][0]
         stat_gages = args['stat_gages'][1]
         assert (os.path.exists(gages_gpkg_filepath)), f"{gages_gpkg_filepath} does not exist. Please specify a full path to a USGS geopackage (.gpkg)"
+    else:
+        stat_gages = None
 
     assert (not stat_gages or (stat_gages and (not stat_groups or stat_groups == ['location_id']))), \
         "location_id is the only acceptable stat_groups argument when producting an output GPKG"
@@ -506,22 +529,21 @@ if __name__ == '__main__':
     sys.stdout = log_file
 
     merged_elev_table = []
-    huc_list  = os.listdir(fim_dir)
+    huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{8}$", huc)]
     for huc in huc_list:
 
-        if huc != 'logs':
-            elev_table_filename = join(fim_dir,huc,'usgs_elev_table.csv')
-            hydrotable_filename = join(fim_dir,huc,'hydroTable.csv')
-            usgs_recurr_stats_filename = join(tables_dir,f"usgs_interpolated_elevation_stats_{huc}.csv")
-            nwm_recurr_data_filename = join(tables_dir,f"nwm_recurrence_flow_elevations_{huc}.csv")
-            rc_comparison_plot_filename = join(plots_dir,f"FIM-USGS_rating_curve_comparison_{huc}.png")
+        elev_table_filename = join(fim_dir,huc,'usgs_elev_table.csv')
+        hydrotable_filename = join(fim_dir,huc,'hydroTable.csv')
+        usgs_recurr_stats_filename = join(tables_dir,f"usgs_interpolated_elevation_stats_{huc}.csv")
+        nwm_recurr_data_filename = join(tables_dir,f"nwm_recurrence_flow_elevations_{huc}.csv")
+        rc_comparison_plot_filename = join(plots_dir,f"FIM-USGS_rating_curve_comparison_{huc}.png")
 
-            if isfile(elev_table_filename):
-                procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
-                # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-                read_elev_table = pd.read_csv(elev_table_filename)
-                read_elev_table['huc'] = huc
-                merged_elev_table.append(read_elev_table)
+        if isfile(elev_table_filename):
+            procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
+            # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
+            read_elev_table = pd.read_csv(elev_table_filename)
+            read_elev_table['huc'] = huc
+            merged_elev_table.append(read_elev_table)
 
     # Output a concatenated elev_table to_csv
     if merged_elev_table:
