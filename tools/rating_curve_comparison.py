@@ -94,7 +94,7 @@ def generate_rating_curve_metrics(args):
         usgs_gages['source'] = "USGS"
         limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
-        if 'default_discharge_cms' in hydrotable.columns: # need this to plot both "FIM" and "FIM_default" rating curves
+        if 'default_discharge_cms' in hydrotable.columns: # check if both "FIM" and "FIM_default" SRCs are available
             hydrotable['default_discharge_cfs'] = hydrotable.default_discharge_cms * 35.3147
             limited_hydrotable_default = hydrotable.filter(items=['location_id','elevation_ft', 'default_discharge_cfs'])
             limited_hydrotable_default['discharge_cfs'] = limited_hydrotable_default.default_discharge_cfs
@@ -151,7 +151,6 @@ def generate_rating_curve_metrics(args):
                 continue
 
             str_order = np.unique(usgs_rc.str_order).item()
-            print(gage)
             feature_id = str(gage.feature_id)
 
             usgs_pred_elev = get_reccur_intervals(usgs_rc, usgs_crosswalk,nwm_recurr_intervals_all)
@@ -288,7 +287,7 @@ def generate_facet_plot(rc, plot_filename):
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft > (max_elev + 2))].index)
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2)].index)
 
-        if 'default_discharge_cfs' in rc.columns: # need this to plot both "FIM" and "FIM_default" rating curves
+        if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
             rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft > (max_elev + 2))].index)
             rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
 
@@ -302,7 +301,7 @@ def generate_facet_plot(rc, plot_filename):
         columns = 1
 
     sns.set(style="ticks")
-    if 'default_discharge_cfs' in rc.columns: # need this to plot both "FIM" and "FIM_default" rating curves
+    if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
         g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM','FIM_default'], sharex=False, sharey=False,col_wrap=columns)
         g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
     else:
@@ -518,9 +517,9 @@ if __name__ == '__main__':
     print(check_file_age(usgs_gages_filename))
 
     # Open log file
-    #sys.__stdout__ = sys.stdout
+    sys.__stdout__ = sys.stdout
     log_file = open(join(output_dir,'rating_curve_comparison.log'),"w")
-    #sys.stdout = log_file
+    sys.stdout = log_file
 
     merged_elev_table = []
     huc_list  = os.listdir(fim_dir)
@@ -536,7 +535,7 @@ if __name__ == '__main__':
             if isfile(elev_table_filename):
                 procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
                 # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-                read_elev_table = pd.read_csv(elev_table_filename, dtype={'location_id': str})
+                read_elev_table = pd.read_csv(elev_table_filename, dtype={'location_id': object})
                 read_elev_table['huc'] = huc
                 merged_elev_table.append(read_elev_table)
 
