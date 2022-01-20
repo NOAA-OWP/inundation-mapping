@@ -163,7 +163,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).')
     parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-usgs_rc','--usgs-ratings',help='Path to USGS rating curve csv file',required=True)
-    parser.add_argument('-nwm_recur','--nwm_recur',help='Path to NWM recur file (multiple NWM flow intervals).',required=True)
+    parser.add_argument('-nwm_recur','--nwm_recur',help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',required=True)
     parser.add_argument('-i','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
     parser.add_argument('-s','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=2)
@@ -214,6 +214,7 @@ if __name__ == '__main__':
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
+    ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
     huc_proc_list(usgs_df,fim_directory,inter_outputs)
 
     ## Record run time and close log file

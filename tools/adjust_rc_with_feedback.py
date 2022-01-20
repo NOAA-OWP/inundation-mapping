@@ -176,8 +176,6 @@ def update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output
         df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id')
 
         if not df_nmerge['hydroid_ManningN'].isnull().all():
-            bug_csv = os.path.join(fim_directory, huc, 'bug_find_' + huc + '.csv')
-            df_nmerge.to_csv(bug_csv,index=True)
             # Temp testing filter to only use the hydroid manning n values (drop the featureid and group ManningN variables)
             #df_nmerge = df_nmerge.assign(featid_ManningN=np.nan)
             #df_nmerge = df_nmerge.assign(group_ManningN=np.nan)
@@ -225,11 +223,11 @@ def update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output
 
         else:
             print('ALERT: ' + str(huc) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration')
-            log_text += 'ALERT: ' + str(huc) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration'
+            log_text += 'ALERT: ' + str(huc) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration\n'
 
     else:
         print('ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate')
-        log_text += 'ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate'
+        log_text += 'ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate\n'
 
     log_text += 'Completed: ' + str(huc)
     print("Completed huc --> " + str(huc))
