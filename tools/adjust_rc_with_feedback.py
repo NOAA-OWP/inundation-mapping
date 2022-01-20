@@ -175,50 +175,57 @@ def update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output
         df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'}, inplace=True)
         df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id')
 
-        # Temp testing filter to only use the hydroid manning n values (drop the featureid and group ManningN variables)
-        #df_nmerge = df_nmerge.assign(featid_ManningN=np.nan)
-        #df_nmerge = df_nmerge.assign(group_ManningN=np.nan)
+        if not df_nmerge['hydroid_ManningN'].isnull().all():
+            bug_csv = os.path.join(fim_directory, huc, 'bug_find_' + huc + '.csv')
+            df_nmerge.to_csv(bug_csv,index=True)
+            # Temp testing filter to only use the hydroid manning n values (drop the featureid and group ManningN variables)
+            #df_nmerge = df_nmerge.assign(featid_ManningN=np.nan)
+            #df_nmerge = df_nmerge.assign(group_ManningN=np.nan)
 
-        # Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
-        conditions  = [ (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].notnull()), (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].isnull()) & (df_nmerge['group_ManningN'].notnull()) ]
-        choices     = [ df_nmerge['featid_ManningN'], df_nmerge['group_ManningN'] ]
-        df_nmerge['adjust_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
-        df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
-        
-        # Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
-        if optional_outputs == 'True':
-            output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
-            df_nmerge.to_csv(output_merge_n_csv,index=False)
-            # output new catchments polygon layer with the new manning's n value attributes appended
-            if catchments_poly_path != '':
-                input_catchments = gpd.read_file(catchments_poly_path)
-                output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(huc) + ".gpkg")
-                output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
-                output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
+            # Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
+            conditions  = [ (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].notnull()), (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].isnull()) & (df_nmerge['group_ManningN'].notnull()) ]
+            choices     = [ df_nmerge['featid_ManningN'], df_nmerge['group_ManningN'] ]
+            df_nmerge['adjust_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
+            df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
+            
+            # Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
+            if optional_outputs == 'True':
+                output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
+                df_nmerge.to_csv(output_merge_n_csv,index=False)
+                # output new catchments polygon layer with the new manning's n value attributes appended
+                if catchments_poly_path != '':
+                    input_catchments = gpd.read_file(catchments_poly_path)
+                    output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(huc) + ".gpkg")
+                    output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
+                    output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
 
-        # Merge the final ManningN dataframe to the original hydroTable
-        df_nmerge.drop(['ahps_lid','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
-        df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
-        df_htable['adjust_src_on'] = np.where(df_htable['adjust_ManningN'].notnull(), 'True', 'False') # create true/false column to clearly identify where new roughness values are applied
+            # Merge the final ManningN dataframe to the original hydroTable
+            df_nmerge.drop(['ahps_lid','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
+            df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
+            df_htable['adjust_src_on'] = np.where(df_htable['adjust_ManningN'].notnull(), 'True', 'False') # create true/false column to clearly identify where new roughness values are applied
 
-        # Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
-        df_htable['ManningN'] = np.where(df_htable['adjust_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['adjust_ManningN'])
+            # Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
+            df_htable['ManningN'] = np.where(df_htable['adjust_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['adjust_ManningN'])
 
-        # Calculate new discharge_cms with new adjusted ManningN
-        df_htable['discharge_cms'] = df_htable['WetArea (m2)']* \
-        pow(df_htable['HydraulicRadius (m)'],2.0/3)* \
-        pow(df_htable['SLOPE'],0.5)/df_htable['ManningN']
+            # Calculate new discharge_cms with new adjusted ManningN
+            df_htable['discharge_cms'] = df_htable['WetArea (m2)']* \
+            pow(df_htable['HydraulicRadius (m)'],2.0/3)* \
+            pow(df_htable['SLOPE'],0.5)/df_htable['ManningN']
 
-        # Replace discharge_cms with 0 or -999 if present in the original discharge (carried over from thalweg notch workaround in SRC post-processing)
-        df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==0.0,0.0,inplace=True)
-        df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==-999,-999,inplace=True)
+            # Replace discharge_cms with 0 or -999 if present in the original discharge (carried over from thalweg notch workaround in SRC post-processing)
+            df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==0.0,0.0,inplace=True)
+            df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==-999,-999,inplace=True)
 
-        # Export a new hydroTable.csv and overwrite the previous version
-        out_htable = os.path.join(fim_directory, huc, 'hydroTable.csv')
-        df_htable.to_csv(out_htable,index=False)
+            # Export a new hydroTable.csv and overwrite the previous version
+            out_htable = os.path.join(fim_directory, huc, 'hydroTable.csv')
+            df_htable.to_csv(out_htable,index=False)
 
-        # output new src json (overwrite previous)
-        output_src_json(df_htable,output_src_json_file)
+            # output new src json (overwrite previous)
+            output_src_json(df_htable,output_src_json_file)
+
+        else:
+            print('ALERT: ' + str(huc) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration')
+            log_text += 'ALERT: ' + str(huc) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration'
 
     else:
         print('ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate')

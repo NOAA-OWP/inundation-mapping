@@ -94,7 +94,7 @@ def generate_rating_curve_metrics(args):
         usgs_gages['source'] = "USGS"
         limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
-        if 'default_discharge_cms' in hydrotable.columns:
+        if 'default_discharge_cms' in hydrotable.columns: # need this to plot both "FIM" and "FIM_default" rating curves
             hydrotable['default_discharge_cfs'] = hydrotable.default_discharge_cms * 35.3147
             limited_hydrotable_default = hydrotable.filter(items=['location_id','elevation_ft', 'default_discharge_cfs'])
             limited_hydrotable_default['discharge_cfs'] = limited_hydrotable_default.default_discharge_cfs
@@ -288,7 +288,7 @@ def generate_facet_plot(rc, plot_filename):
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft > (max_elev + 2))].index)
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2)].index)
 
-        if 'default_discharge_cfs' in rc.columns:
+        if 'default_discharge_cfs' in rc.columns: # need this to plot both "FIM" and "FIM_default" rating curves
             rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft > (max_elev + 2))].index)
             rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
 
@@ -302,7 +302,7 @@ def generate_facet_plot(rc, plot_filename):
         columns = 1
 
     sns.set(style="ticks")
-    if 'default_discharge_cfs' in rc.columns:
+    if 'default_discharge_cfs' in rc.columns: # need this to plot both "FIM" and "FIM_default" rating curves
         g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM','FIM_default'], sharex=False, sharey=False,col_wrap=columns)
         g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
     else:

@@ -1,10 +1,6 @@
 import argparse
-import geopandas as gpd
-from geopandas.tools import sjoin
 import os
-import rasterio
 import pandas as pd
-import numpy as np
 import sys
 import json
 import datetime as dt
@@ -12,11 +8,11 @@ from pathlib import Path
 from collections import deque
 import multiprocessing
 from multiprocessing import Pool
-from tools_shared_functions import check_file_age
+from tools_shared_functions import check_file_age, concat_huc_csv
 from adjust_rc_with_feedback import update_rating_curve
 
 
-def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_filepath, nwm_recurr_filepath, output_dir):
+def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_filepath, output_dir):
     start_time = dt.datetime.now()
     print('Reading USGS rating curve from csv...')
     log_text = 'Processing database for USGS flow/WSE at NWM flow recur intervals...\n'
@@ -29,13 +25,11 @@ def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_filepath, nwm_re
     
     # read in the aggregate USGS elev table csv
     start_time = dt.datetime.now()
-    print('Reading USGS gage HAND elevation from csv...')
-    col_cross = ["location_id", "HydroID", "feature_id", "huc", "dem_adj_elevation"]
-    cross_df = pd.read_csv(agg_crosswalk_filepath, dtype={'huc': object, 'location_id': object, 'feature_id': int}, usecols=col_cross)
-    print('Duration (read cross_df): {}'.format(dt.datetime.now() - start_time))
+    cross_df = agg_crosswalk_df[["location_id", "HydroID", "feature_id", "huc", "dem_adj_elevation"]].copy()
     cross_df.rename(columns={'dem_adj_elevation':'hand_datum', 'HydroID':'hydroid'}, inplace=True)
     
-    #usgs_rc_group_df = usgs_rc_df.groupby(["location_id"]).first()
+    # filter null location_id rows from cross_df (removes ahps lide entries that aren't associated with USGS gage)
+    cross_df = cross_df[cross_df.location_id.notnull()]
     
     # convert usgs flow from cfs to cms
     usgs_rc_df['discharge_cms'] = usgs_rc_df.flow / 35.3147
@@ -120,7 +114,7 @@ def huc_proc_list(usgs_df,fim_directory,inter_outputs):
     huc_list = list(set(huc_list))
     procs_list = []  # Initialize list for mulitprocessing.
     # Define paths to relevant HUC HAND data.
-    #huc_list = ['01010007','01010008']
+    #huc_list = ['01010007','05030102','01010008']
     for huc in huc_list:
         print(huc)
         # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
@@ -169,7 +163,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).')
     parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-usgs_rc','--usgs-ratings',help='Path to USGS rating curve csv file',required=True)
-    parser.add_argument('-usgs_elev','--usgs-hand-elev',help='Path to USGS gage location HAND elevation csv',required=True)
     parser.add_argument('-nwm_recur','--nwm_recur',help='Path to NWM recur file (multiple NWM flow intervals).',required=True)
     parser.add_argument('-i','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
     parser.add_argument('-s','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
@@ -179,7 +172,6 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     fim_directory = args['fim_directory']
     usgs_rc_filepath = args['usgs_ratings']
-    agg_crosswalk_filepath = args['usgs_hand_elev']
     nwm_recurr_filepath = args['nwm_recur']
     inter_outputs = args['extra_outputs']
     scale = args['scale']
@@ -187,6 +179,18 @@ if __name__ == '__main__':
 
     if scale not in ['HUC6', 'HUC8']:
         print("scale (-s) must be HUC6s or HUC8")
+        quit()
+
+    if not os.path.isdir(fim_directory):
+        print('ERROR: could not find the input fim_dir location: ' + str(fim_directory))
+        quit()
+
+    ## Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
+    print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
+    csv_name = 'usgs_elev_table.csv'
+    agg_crosswalk_df = concat_huc_csv(fim_directory,csv_name)
+    if agg_crosswalk_df.empty:
+        print('ERROR: agg_crosswalk_df is empty - check that usgs_elev_table.csv files exist in fim_dir!')
         quit()
 
     if job_number > available_cores:
@@ -201,7 +205,7 @@ if __name__ == '__main__':
     # Create log file for processing records
     print('This may take a few minutes...')
 
-    usgs_df = create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_filepath, nwm_recurr_filepath, output_dir)
+    usgs_df = create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_filepath, output_dir)
     print("Log file output here: " + str(output_dir))
 
     ## Create a time var to log run time
