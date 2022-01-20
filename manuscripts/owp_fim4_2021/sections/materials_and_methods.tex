@@ -5,19 +5,19 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-OWP FIM `Cahaba' is a fully operational pipeline of software tools to help acquire datasets, cache hydrofabrics, produce FIMs, and evaluate results.
+OWP FIM is a fully operational pipeline of software tools to help acquire datasets, cache hydrofabrics, produce FIMs, and evaluate results.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Software Dependencies and Architecture}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-OWP FIM `Cahaba' exclusively utilizes free and open source software dependencies including Python 3, GDAL, TauDEM, Geographic Resource Analysis Support System (GRASS), GNU Parallel, and MPICH \cite{python382,gdal2020,tarboton2005terrain,grass2020,tange2015gnu,amer2021mpich}.
+OWP FIM exclusively utilizes free and open source software dependencies including Python 3, GDAL, TauDEM, Geographic Resource Analysis Support System (GRASS), GNU Parallel, and MPICH \cite{python382,gdal2020,tarboton2005terrain,grass2020,tange2015gnu,amer2021mpich}.
 Within the Python 3 ecosystem, many common packages are employed including but not limited to RichDEM, GeoPandas, Rasterio, Rasterstats, and Numba \cite{barnes2018richdem,jordahl2014geopandas,lam2015numba}. 
 To simplify setup and enhance portability across host operating systems OWP FIM packages all dependencies up in a Docker image (\url{https://docs.docker.com/engine/install/}). 
 A user only needs to install Docker on their host machine and build the image from the provided recipe. 
 Source code is made available for this project on GitHub (https://github.com/NOAA-OWP/cahaba). 
 
-The `Cahaba' pipeline is discretized into key areas that a user can interact with to reproduce the results of this study. 
+The pipeline is discretized into key areas that a user can interact with to reproduce the results of this study. 
 Preprocessing acquires and prepares datasets for production of the FIM hydrofabric. 
 The FIM hydrofabric is defined as the datasets required to make an inundation map from discharges including the relative elevation model (REM) or HAND grid, the catchments in vector and raster form, and the hydro-table (contains synthetic rating curves and cross-walk information).
 Functionality is included to turn FIM hydrofabric and streamflows into inundation maps represented in both binary and depths.
@@ -29,10 +29,10 @@ A user should visit the Readme.md page on GitHub for more information on how to 
 \label{ssec:datasets}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-Data sources used within `Cahaba' are publicly available from a variety of government sources including the USGS, NWC, Federal Emergency Management Agency (FEMA), and US Army Core of Engineers (USACE) to enhance reproducibility and collaboration among government, academia, and industry.
+Data sources used within OWP FIM are publicly available from a variety of government sources including the USGS, NWC, Federal Emergency Management Agency (FEMA), and US Army Core of Engineers (USACE) to enhance reproducibility and collaboration among government, academia, and industry.
 Instructions for accessing data are provided on the project's GitHub page via an Amazon Web Services (AWS) S3 bucket furnished by Earth Science Information Partners (ESIP).
 The National Hydrography Dataset Plus High Resolution (NHDPlusHR) Beta Version is the latest hydrography dataset used for land surface hydrologic modeling in the US \cite{moore2019user}. 
-It is used in conjunction with the hydrofabric of the NWM V2.1 to help define flowlines for `Cahaba' while the NWM hydrofabric is also used to define reservoirs for exclusion and catchments to cross-walk to for forecasting purposes.
+It is used in conjunction with the hydrofabric of the NWM V2.1 to help define flowlines for OWP FIM while the NWM hydrofabric is also used to define reservoirs for exclusion and catchments to cross-walk to for forecasting purposes.
 For enforcing levee data into the DEMs, the USACE National Levee Database (NLD) is used to burn feature elevations \cite{engineers2016national}.
 Since NHDPlusHR datasets extend beyond land borders into sea and Great Lake regions, we used the land-sea border from OpenStreetMap (OSM) and the land-lake border from Great Lakes Hydrography Dataset (GLHD) to exclude those areas from production of FIMs \cite{OpenStreetMap,GreatLakesHydrographyDataset}.
 Additionally, the Base Level Engineering (BLE) datasets within FEMA Region 6 spanning parts of 9 states including Colorado, New Mexico, Texas, Oklahoma, Kansas, Arkansas, Louisiana, Missouri and Mississippi at two recurrence intervals, 1\% (100 year) and 0.2\% (500 year), are used as validation in this study and furnished by the Interagency Flood Risk Management (InFRM) consortium \cite{fema2021base,fema2021estimated}. 
@@ -75,7 +75,7 @@ FEMA & Flood Inundation Extents & Inundation depths produced by InFRM BLE HEC-RA
 %
 Areas with all the required data (from the NWM and the USGS) are labeled as the FIM domain which includes 2,188 HUC8s for the FR and GMS networks and 1,604 HUC8s for the MS method. 
 These methods will be explained more later.
-An enhancement of OWP FIM `Cahaba' over previous HAND based FIM versions is the support for Hawaii and Puerto Rico which the NWM V2.1 will cover.
+An enhancement of OWP FIM over previous HAND based FIM versions is the support for Hawaii and Puerto Rico which the NWM V2.1 will cover.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Hydro-conditioning}
@@ -89,7 +89,7 @@ In other words, all areas within a given processing unit for HAND must have mono
 Hydro-conditioning is implemented to obtain many objectives including enforcing the location of hydrologically relevant features such as flowlines, lakes, or drainage divides whether natural or anthropogenic. 
 It can also be used to simulate more accurate bathymetry which is not accounted for in the 10 m DEM \cite{gesch2002national}.
 
-Specifically within the context of `Cahaba', the hydro-conditioning operations that take place in sequential order are presented. 
+Specifically within the context of OWP FIM, the hydro-conditioning operations that take place in sequential order are presented. 
 Prior to any hydro-conditioning, all input datasets must be subset from their original spatial domain scales into the processing units of size HUC8. 
 The subsetting is done by spatial query for the cases of the levees, DEM, and NWM hydrofabric while the NHDPlusHR BurnLineEvents are subset via attribute query for the given reach code's membership in the processing unit.
 Hydro-conditioning raster operations take place on buffered boundary definitions to avoid edge contamination and effects \cite{lindsay2013measuring}. 
@@ -191,7 +191,7 @@ Software implementations have developed means to partition the problem and resol
 The excessive iteration and communication leads to poor computational performance which motivated further work on how to optimize flat resolution \cite{survila2016scalable,barnes2014efficient}.
 Specifically the work by \citeA{survila2016scalable} enables the use of parallel processing and made smoother catchments from our informal experience than those from \citeA{barnes2014efficient}.
 By processing flats local to each partition separately from flats shared with other partitions, the accelerated flat resolution algorithm demonstrated an average speed up of 468x when compared to prior implementations \cite{survila2016scalable}.
-`Cahaba' utilized a CyberGIS implementation of the D-8 flow direction algorithm with the accelerated resolution of flats \cite{survila2016scalable,cybergis2016}.
+OWP FIM utilized a CyberGIS implementation of the D-8 flow direction algorithm with the accelerated resolution of flats \cite{survila2016scalable,cybergis2016}.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Deriving FIM Stream Network}
@@ -280,7 +280,7 @@ More discussion on this will follow in Section \ref{sec:discussion}.
 FIM skill has been shown to be sensitive to the drainage density of the stream network employed as the datum for HAND \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
 In our evaluations, we note negative effects at the confluence of lower flow tributaries with higher flow rivers partly due to the independent nature of the catchments within HAND methods.
 Figure \ref{fig:catchment_boundaries_issue} illustrates this exact situation where two tributaries converge with a higher order stream segment. 
-A `Cahaba' FIM is generated using the NWM full-resolution stream network and compared with a FEMA 100 year extent (see Section \ref{ssec:evaluation} for more details) showing significant under-prediction in inundation extent.
+An actual map with OWP FIM is generated using the NWM full-resolution stream network and compared with a FEMA 100 year extent (see Section \ref{ssec:evaluation} for more details) showing significant under-prediction in inundation extent.
 The higher discharge along the MS of 1,900 cubic meters per second (CMS) does not translate to the lower flow rates along the tributaries of 84 and 195 CMS. 
 This is due to a lack of representation of backwater conditions in the hydraulic routing techniques used.
 As a parallel problem, there is excess water accumulated along the MS that cannot extend in either a fluvial or pluvial manner beyond the boundaries of the MS catchments.
