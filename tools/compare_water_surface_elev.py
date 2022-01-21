@@ -144,10 +144,7 @@ if __name__ == '__main__':
     print(f"Reading USGS gages csv and copying into database at {database}")
     usgs_rating_curves = pd.read_csv(usgs_gages_filename, dtype={'location_id': str})
     conn = sql.connect(database)
-    dtypes = {'flow':'REAL', 'stage':'REAL', 'location_id':'TEXT', 'location_type':'TEXT', 'source':'TEXT', 'flow_units':'TEXT',
-        'stage_units':'TEXT', 'wrds_timestamp':'TEXT', 'active':'TEXT', 'datum':'REAL', 'datum_vcs':'TEXT',
-        'navd88_datum':'REAL', 'elevation_navd88':'REAL'}
-    usgs_rating_curves.to_sql('usgs_rating_curves', conn, dtype=dtypes, if_exists='replace', index=False)
+    usgs_rating_curves.to_sql('usgs_rating_curves', conn, if_exists='replace', index=False)
 
 
     # Add FIM hydroTable and usgs_elev_table to database
@@ -156,11 +153,10 @@ if __name__ == '__main__':
         print(huc_folder, end='\r')
         if not os.path.exists(os.path.join(fim_dir, huc_folder, 'usgs_elev_table.csv')): continue
         hydrotable = pd.read_csv(os.path.join(fim_dir, huc_folder, 'hydroTable.csv'), dtype={'HUC': str,'feature_id': int})
-        elev_table = pd.read_csv(os.path.join(fim_dir, huc_folder, 'usgs_elev_table.csv'), dtype={'location_id': str, 'HydroID': int})
+        elev_table = pd.read_csv(os.path.join(fim_dir, huc_folder, 'usgs_elev_table.csv'), dtype={'location_id': str, 'HydroID': int, 'feature_id': int, 'feature_id_wrds': int})
         elev_table['huc8'] = huc_folder
-        # Join rating curves with elevation data
-        #hydrotable = hydrotable.merge(elev_table, on="HydroID") # removing this and adding elev_table below because that where the feature_id is going to come from
         # Calculate WSE and discharge fields for FIM hydrotable
+        hydrotable = hydrotable[hydrotable.HydroID.isin(elev_table.HydroID.unique())]
         hydrotable['elevation_ft'] = (hydrotable.stage + hydrotable.dem_adj_elevation) * 3.28084
         hydrotable['discharge_cfs'] = hydrotable.discharge_cms * 35.3147
         # Add tables to database
