@@ -177,7 +177,7 @@ if __name__ == '__main__':
     scale = args['scale']
     job_number = int(args['job_number'])
 
-    assert scale in ['HUC6', 'HUC8'], "scale (-s) must be HUC6s or HUC8"
+    assert scale in ['HUC6', 'HUC8'], "scale (-s) must be 'HUC6' or 'HUC8'"
 
     assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(fim_directory)
 
