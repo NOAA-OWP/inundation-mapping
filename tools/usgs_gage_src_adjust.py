@@ -177,21 +177,15 @@ if __name__ == '__main__':
     scale = args['scale']
     job_number = int(args['job_number'])
 
-    if scale not in ['HUC6', 'HUC8']:
-        print("scale (-s) must be HUC6s or HUC8")
-        quit()
+    assert scale in ['HUC6', 'HUC8'], "scale (-s) must be HUC6s or HUC8"
 
-    if not os.path.isdir(fim_directory):
-        print('ERROR: could not find the input fim_dir location: ' + str(fim_directory))
-        quit()
+    assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(fim_directory)
 
     ## Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
     print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
     csv_name = 'usgs_elev_table.csv'
     agg_crosswalk_df = concat_huc_csv(fim_directory,csv_name)
-    if agg_crosswalk_df.empty:
-        print('ERROR: agg_crosswalk_df is empty - check that usgs_elev_table.csv files exist in fim_dir!')
-        quit()
+    assert not agg_crosswalk_df.empty, 'ERROR: agg_crosswalk_df is empty - check that usgs_elev_table.csv files exist in fim_dir!'
 
     if job_number > available_cores:
         job_number = available_cores - 1
