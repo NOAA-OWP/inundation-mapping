@@ -1,6 +1,31 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.10 - 2022-01-21 - [PR #509](https://github.com/NOAA-OWP/cahaba/pull/509)
+
+This code enhancement generates a USGS gage database that contains the USGS rating curves with stage converted to water surface elevations (above HAND datum) and flow values sampled at NWM recurrence flow intervals. The database is then used to adjust the HAND-derived synthetic rating curves to more closely align with USGS gage rating curves (hydroID catchments that contain USGS gages).
+
+## Additions
+- `tools/usgs_gage_src_adjust.py`: Creates a database of USGS gage locations with USGS rating curve values converted to water surface elevations (sampled at flow values corresponding to NWM recurrence flow intervals -2, 5, 10, 25, 50, 100-year values). Log files are provided in the provided `fim_dir` in a new directory - `src_optimization/`
+
+## Changes
+- `tools/adjust_rc_with_feedback.py`: Modified to pass a dataframe of user supplied WSE/flow data instead of a csv file. Also, added an if statement to catch instances where all valid hydroID roughness calculations are removed when lakeid catchments are scrubbed.
+- `tools/rating_curve_comparison.py`: Updated to plot both "FIM" and "FIM_default" SRCs where available.
+- `tools/tools_shared_functions.py`: Added two new functions. 1) `concat_huc_csv` concatenates huc output csv files into a single dataframe and 2) `check_file_age` returns the date modified attribute of an input file
+- `tools/wrapper_usgs_gage_crosswalk.py`: This wrapper script allows the user to run the `src/usgs_gage_crosswalk.py` function without needing to perform an entire run of `fim_run.sh`
+
+<br/><br/>
+
+## v3.0.24.9 - 2022-01-19 - [PR #506](https://github.com/NOAA-OWP/cahaba/pull/506)
+
+Adding catchments and streams layers to viz post-processing outputs.
+
+## Additions
+- Added `catchments_{huc6}.gpkg` and `streams_{huc6}.gpkg` layers to aggregate_fim_outputs
+
+<br/><br/>
+
+
 ## v3.0.24.8 - 2022-01-12 - [PR #503](https://github.com/NOAA-OWP/cahaba/pull/503)
 
 This pull request adds an additional feature_id attribute associated with USGS gage locations (feature_id obtained from the WRDS API) output in the `usgs_gage_crosswalk.py`. There is also a new USGS gage query to ensure gage's HUC8 matches the FIM HUC when performing the gage-huc spatial query (avoids duplicating gages in multiple HUCs).

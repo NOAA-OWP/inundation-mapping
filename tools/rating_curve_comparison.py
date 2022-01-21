@@ -72,13 +72,12 @@ def generate_rating_curve_metrics(args):
     catfim_flows_filename       = args[7]
     huc                         = args[8]
 
-    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': str,'feature_id_wrds': str})
-    hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': str,'feature_id': str})
-    usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': str})
+    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object})
+    hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': object,'feature_id': object})
+    usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object})
 
     # Join rating curves with elevation data
-    hydrotable.drop('feature_id', axis=1, inplace=True)
-    elev_table.feature_id = elev_table.feature_id_wrds
+    elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
     hydrotable = hydrotable.merge(elev_table, on="HydroID")
     relevant_gages = list(hydrotable.location_id.unique())
     usgs_gages = usgs_gages[usgs_gages['location_id'].isin(relevant_gages)]
@@ -96,8 +95,15 @@ def generate_rating_curve_metrics(args):
         usgs_gages['source'] = "USGS"
         limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
-
-        rating_curves = limited_hydrotable.append(select_usgs_gages)
+        if 'default_discharge_cms' in hydrotable.columns: # check if both "FIM" and "FIM_default" SRCs are available
+            hydrotable['default_discharge_cfs'] = hydrotable.default_discharge_cms * 35.3147
+            limited_hydrotable_default = hydrotable.filter(items=['location_id','elevation_ft', 'default_discharge_cfs'])
+            limited_hydrotable_default['discharge_cfs'] = limited_hydrotable_default.default_discharge_cfs
+            limited_hydrotable_default['source'] = "FIM_default"
+            rating_curves = limited_hydrotable.append(select_usgs_gages)
+            rating_curves = rating_curves.append(limited_hydrotable_default)
+        else:
+            rating_curves = limited_hydrotable.append(select_usgs_gages)
 
         # Add stream order
         stream_orders = hydrotable.filter(items=['location_id','str_order']).drop_duplicates()
@@ -287,6 +293,10 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2) & (rc.discharge_cfs < min_q)].index)
 
+        if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft > (max_elev + 2))].index)
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
+
     rc = rc.rename(columns={"location_id": "USGS Gage"})
 
     ## Generate rating curve plots
@@ -297,10 +307,14 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
         columns = 1
 
     sns.set(style="ticks")
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], 
+
+    # Plot both "FIM" and "FIM_default" rating curves
+    hue_order = ['USGS','FIM','FIM_default'] if 'default_discharge_cfs' in rc.columns else ['USGS','FIM']
+
+    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=hue_order, 
                     sharex=False, sharey=False,col_wrap=columns,
                     height=3.5, aspect=1.65)
-    g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2)
+    g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2)   
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     ## Plot recurrence intervals
