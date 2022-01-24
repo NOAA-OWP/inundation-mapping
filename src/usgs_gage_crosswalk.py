@@ -33,10 +33,11 @@ warnings.simplefilter("ignore")
 
 
 @mem_profile
-def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent,huc8):
+def crosswalk_usgs_gage(usgs_gages_filename,nws_lid_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent,huc8):
 
     wbd_buffer = gpd.read_file(wbd_buffer_filename)
     usgs_gages = gpd.read_file(usgs_gages_filename, mask=wbd_buffer, dtype={'huc': object})
+    ahps_sites = gpd.read_file(nws_lid_filename, mask=wbd_buffer)
     dem_m = rasterio.open(dem_filename,'r')
     input_flows = gpd.read_file(input_flows_filename)
     input_catchment = gpd.read_file(input_catchment_filename)
@@ -53,6 +54,14 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
 
     if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
 
+     # Get AHPS sites within the HUC and add them to the USGS dataset
+    ahps_sites = ahps_sites[ahps_sites.HUC8 == huc8] # filter to HUC8
+    ahps_sites.rename(columns={'nwm_feature_id':'feature_id',
+                          'usgs_site_code':'location_id'}, inplace=True)
+    ahps_sites = ahps_sites[ahps_sites.location_id.isna()] # Filter sites that are already in the USGS dataset
+    usgs_gages = usgs_gages.append(ahps_sites[['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states','geometry']])
+    usgs_gages.location_id.fillna(usgs_gages.nws_lid, inplace=True) 
+
     # Identify closest HydroID
     usgs_gages.rename(columns={'feature_id':'feature_id_wrds'}, inplace=True)# rename feature_id attribute from USGS gages (obtained from WRDS api)
     closest_catchment = gpd.sjoin(usgs_gages, input_catchment, how='left', op='within').reset_index(drop=True)
@@ -62,7 +71,7 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
     # Get USGS gages that are within catchment boundaries
     usgs_gages = usgs_gages.loc[usgs_gages.location_id.isin(list(closest_hydro_id.location_id))]
 
-    columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order','feature_id_wrds','feature_id','gage_distance_to_line']
+    columns = ['location_id','nws_lid', 'HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order','feature_id_wrds','feature_id','gage_distance_to_line']
     gage_data = []
 
     # Move USGS gage to stream
@@ -103,10 +112,12 @@ def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,in
         dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,shply_referenced_gage.coords))[0].item(),2)
 
         # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
-        site_elevations = [str(gage.location_id), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order),str(feat_id_wrds),str(feat_id),gage_distance_to_line]
+        site_elevations = [str(gage.location_id), str(gage.nws_lid), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order),str(feat_id_wrds),str(feat_id),gage_distance_to_line]
         gage_data.append(site_elevations)
 
     elev_table = pd.DataFrame(gage_data, columns=columns)
+    elev_table.loc[elev_table['location_id'] == elev_table['nws_lid'], 'location_id'] = None # set location_id to None where there isn't a gage
+    elev_table.loc[elev_table['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None  # set bogus nws_lids to None
 
     if not elev_table.empty:
         elev_table.to_csv(output_table_filename,index=False)
@@ -116,6 +127,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Crosswalk USGS sites to HydroID and get elevations')
     parser.add_argument('-gages','--usgs-gages-filename', help='USGS gages', required=True)
+    parser.add_argument('-ahps','--nws-lid-filename', help='USGS gages', required=True)
     parser.add_argument('-dem','--dem-filename',help='DEM',required=True)
     parser.add_argument('-flows','--input-flows-filename', help='DEM derived streams', required=True)
     parser.add_argument('-cat','--input-catchment-filename', help='DEM derived catchments', required=True)
@@ -128,6 +140,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     usgs_gages_filename = args['usgs_gages_filename']
+    nws_lid_filename = args['nws_lid_filename']
     dem_filename = args['dem_filename']
     input_flows_filename = args['input_flows_filename']
     input_catchment_filename = args['input_catchment_filename']
@@ -137,4 +150,4 @@ if __name__ == '__main__':
     extent = args['extent']
     huc8 = args['huc8_id']
 
-    crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename, dem_adj_filename,output_table_filename, extent,huc8)
+    crosswalk_usgs_gage(usgs_gages_filename,nws_lid_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename, dem_adj_filename,output_table_filename, extent,huc8)

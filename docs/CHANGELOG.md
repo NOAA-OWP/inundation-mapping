@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.11 - 2022-01-24 - [PR #508](https://github.com/NOAA-OWP/cahaba/pull/508)
+
+Adds a tool that can be used to compare water surface elevation (WSE) between FIM synthetic rating curves and USGS/AHPS rating curves. There are also some enhancements made to the sierra test (`tools/rating_curve_comparison.py`), including updated rating curve comparison plots.
+
+## Additions
+
+- `tools/compare_water_surface_elev.py`: New class (`WaterSurfaceElev()`) for comparing water surface elevation of FIM and USGS/AHPS water surface elevation (WSE). Class includes methods for building a SQLite database that stores rating curves and datum info as well as a method (`convert_flows_to_wse`) that can be fed flows for real-time water surface elevation comparison to AHPS stages.
+
+## Changes
+
+- `tools/rating_curve_comparison.py`: Updated capability to work with new AHPS sites. Also enhanced the rating curve comparison plots to show NWM 17C recurrence intervals (2, 5, 10, 25, 50, 100) for each site.
+- `src/run_by_unit.sh`: Added AHPS sites as in input to `usgs_gage_crosswalk.py`
+- `src/usgs_gage_crosswalk.py`: AHPS sites are now crosswalked alongside USGS gages. The `usgs_elev_table.csv` output now has a `nws_lid` column.
+- `tools/rating_curve_get_usgs_curves.py`: Updated doc string.
+
+<br/><br/>
+
 ## v3.0.24.10 - 2022-01-21 - [PR #509](https://github.com/NOAA-OWP/cahaba/pull/509)
 
 This code enhancement generates a USGS gage database that contains the USGS rating curves with stage converted to water surface elevations (above HAND datum) and flow values sampled at NWM recurrence flow intervals. The database is then used to adjust the HAND-derived synthetic rating curves to more closely align with USGS gage rating curves (hydroID catchments that contain USGS gages).
