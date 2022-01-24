@@ -71,11 +71,12 @@ def generate_rating_curve_metrics(args):
     catfim_flows_filename       = args[7]
     huc                         = args[8]
 
-    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': str})
-    hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': str,'feature_id': str})
-    usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': str})
+    elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object})
+    hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': object,'feature_id': object})
+    usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object})
 
     # Join rating curves with elevation data
+    elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
     hydrotable = hydrotable.merge(elev_table, on="HydroID")
     relevant_gages = list(hydrotable.location_id.unique())
     usgs_gages = usgs_gages[usgs_gages['location_id'].isin(relevant_gages)]
@@ -93,8 +94,15 @@ def generate_rating_curve_metrics(args):
         usgs_gages['source'] = "USGS"
         limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
-
-        rating_curves = limited_hydrotable.append(select_usgs_gages)
+        if 'default_discharge_cms' in hydrotable.columns: # check if both "FIM" and "FIM_default" SRCs are available
+            hydrotable['default_discharge_cfs'] = hydrotable.default_discharge_cms * 35.3147
+            limited_hydrotable_default = hydrotable.filter(items=['location_id','elevation_ft', 'default_discharge_cfs'])
+            limited_hydrotable_default['discharge_cfs'] = limited_hydrotable_default.default_discharge_cfs
+            limited_hydrotable_default['source'] = "FIM_default"
+            rating_curves = limited_hydrotable.append(select_usgs_gages)
+            rating_curves = rating_curves.append(limited_hydrotable_default)
+        else:
+            rating_curves = limited_hydrotable.append(select_usgs_gages)
 
         # Add stream order
         stream_orders = hydrotable.filter(items=['location_id','str_order']).drop_duplicates()
@@ -279,6 +287,10 @@ def generate_facet_plot(rc, plot_filename):
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft > (max_elev + 2))].index)
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2)].index)
 
+        if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft > (max_elev + 2))].index)
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
+
     rc = rc.rename(columns={"location_id": "USGS Gage"})
 
     ## Generate rating curve plots
@@ -289,8 +301,13 @@ def generate_facet_plot(rc, plot_filename):
         columns = 1
 
     sns.set(style="ticks")
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
-    g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
+    if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
+        g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM','FIM_default'], sharex=False, sharey=False,col_wrap=columns)
+        g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
+    else:
+        g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
+        g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
+    
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     # Adjust the arrangement of the plots
@@ -518,7 +535,7 @@ if __name__ == '__main__':
             if isfile(elev_table_filename):
                 procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
                 # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-                read_elev_table = pd.read_csv(elev_table_filename)
+                read_elev_table = pd.read_csv(elev_table_filename, dtype={'location_id': object})
                 read_elev_table['huc'] = huc
                 merged_elev_table.append(read_elev_table)
 
