@@ -7,7 +7,7 @@ Adds a tool that can be used to compare water surface elevation (WSE) between FI
 
 ## Additions
 
-- `tools/compare_water_surface_elev.py`: New class (`water_surface_elev()`) for comparing water surface elevation of FIM and USGS/AHPS water surface elevation (WSE). Class includes methods for building a SQLite database that stores rating curves and datum info as well as a method (`convert_flows_to_wse`) that can be fed flows for real-time water surface elevation comparison to AHPS stages.
+- `tools/compare_water_surface_elev.py`: New class (`WaterSurfaceElev()`) for comparing water surface elevation of FIM and USGS/AHPS water surface elevation (WSE). Class includes methods for building a SQLite database that stores rating curves and datum info as well as a method (`convert_flows_to_wse`) that can be fed flows for real-time water surface elevation comparison to AHPS stages.
 
 ## Changes
 

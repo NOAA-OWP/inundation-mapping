@@ -5,33 +5,33 @@ import numpy as np
 import sqlite3 as sql
 import argparse
 
-class water_surface_elev():
+class WaterSurfaceElev():
     """
     Class for comparing water surface elevation of FIM and USGS/AHPS water surface elevation (WSE).
 
     Methods
     ----------
-    water_surface_elev.wse_compare(flows_dataframe)
+    WaterSurfaceElev.wse_compare(flows_dataframe)
         Compares water surface elevation given an input flow file.
 
-    water_surface_elev.get_feature_id_list()
+    WaterSurfaceElev.get_feature_id_list()
         Returns a list of feature_ids that the database can has stored and can compare WSE.
 
-    water_surface_elev.build(fim_dir, usgs_gages_filename)
+    WaterSurfaceElev.build(fim_dir, usgs_gages_filename)
         Use this method initially to build the database that the other methods use to compare WSE.
 
-    water_surface_elev.print_schema()
+    WaterSurfaceElev.print_schema()
         Prints the schema of all tables contained within the database.
 
     Example Usage
     ----------
     import pandas as pd
-    from compare_water_surface_elev import water_surface_elev
+    from compare_water_surface_elev import WaterSurfaceElev
 
     path_to_database = '/data/fim/sierra_test_rating_curves.db'
     flows_dataframe = pd.read_csv('/data/fim/flows_cfs.csv')
 
-    wse_compare = water_surface_elev(path_to_database)
+    wse_compare = WaterSurfaceElev(path_to_database)
     wse_compare.build_db(fim_dir, usgs_gages_filename)
     wse_dataframe = wse_compare.convert_flows_to_wse(flows_dataframe)
     """
@@ -250,5 +250,5 @@ if __name__ == '__main__':
         raise Exception(f'{database} already exists. Please specify a different output location or use the overwrite (-o) flag')
 
     # Make database for rating curve tables
-    wse_compare = water_surface_elev(database)
+    wse_compare = WaterSurfaceElev(database)
     wse_compare.build_db(fim_dir, usgs_gages_filename)
