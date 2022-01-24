@@ -315,15 +315,6 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
         columns = 1
 
     sns.set(style="ticks")
-<<<<<<< HEAD
-    if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
-        g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM','FIM_default'], sharex=False, sharey=False,col_wrap=columns)
-        g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
-    else:
-        g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=['USGS','FIM'], sharex=False, sharey=False,col_wrap=columns)
-        g.map(sns.scatterplot, "discharge_cfs", "elevation_ft", palette="tab20c", marker="o")
-    
-=======
 
     # Plot both "FIM" and "FIM_default" rating curves
     hue_order = ['USGS','FIM','FIM_default'] if 'default_discharge_cfs' in rc.columns else ['USGS','FIM']
@@ -332,7 +323,6 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
                     sharex=False, sharey=False,col_wrap=columns,
                     height=3.5, aspect=1.65)
     g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
->>>>>>> dev-fim3
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     ## Plot recurrence intervals
@@ -564,21 +554,6 @@ if __name__ == '__main__':
     huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{6,8}$", huc)]
     for huc in huc_list:
 
-<<<<<<< HEAD
-        if huc != 'logs':
-            elev_table_filename = join(fim_dir,huc,'usgs_elev_table.csv')
-            hydrotable_filename = join(fim_dir,huc,'hydroTable.csv')
-            usgs_recurr_stats_filename = join(tables_dir,f"usgs_interpolated_elevation_stats_{huc}.csv")
-            nwm_recurr_data_filename = join(tables_dir,f"nwm_recurrence_flow_elevations_{huc}.csv")
-            rc_comparison_plot_filename = join(plots_dir,f"FIM-USGS_rating_curve_comparison_{huc}.png")
-
-            if isfile(elev_table_filename):
-                procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
-                # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-                read_elev_table = pd.read_csv(elev_table_filename, dtype={'location_id': object})
-                read_elev_table['huc'] = huc
-                merged_elev_table.append(read_elev_table)
-=======
         elev_table_filename = join(fim_dir,huc,'usgs_elev_table.csv')
         hydrotable_filename = join(fim_dir,huc,'hydroTable.csv')
         usgs_recurr_stats_filename = join(tables_dir,f"usgs_interpolated_elevation_stats_{huc}.csv")
@@ -591,7 +566,6 @@ if __name__ == '__main__':
             read_elev_table = pd.read_csv(elev_table_filename)
             read_elev_table['huc'] = huc
             merged_elev_table.append(read_elev_table)
->>>>>>> dev-fim3
 
     # Output a concatenated elev_table to_csv
     if merged_elev_table:
