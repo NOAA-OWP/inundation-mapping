@@ -165,11 +165,6 @@ class water_surface_elev():
             File path to the sierra_test_rating_curve.db SQLite database.
         usgs_gages_filename : str
             File path to the usgs rating curve CSV.
-
-        Returns
-        -------
-        feature_id_list : list
-            List of all feature_ids.        
         """
 
         print(f"Reading USGS gages csv and copying into database at {self.db_filepath}")
@@ -222,10 +217,10 @@ class water_surface_elev():
         self.conn.close()
         
 if __name__ == '__main__':
-    '''
+    """
     Builds the database (sierra_test_rating_curves.db) that is used to compare FIM water surface elevations to AHPS/USGS water
     surface elevations.
-    '''
+    """
 
     parser = argparse.ArgumentParser(description='generate comparison between FIM and USGS water surface elevations')
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=False,type=str)
