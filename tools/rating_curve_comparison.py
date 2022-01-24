@@ -294,7 +294,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
         rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2) & (rc.discharge_cfs < min_q)].index)
 
         if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
-            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft > (max_elev + 2))].index)
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
             rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
 
     rc = rc.rename(columns={"location_id": "USGS Gage"})
@@ -310,11 +310,11 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
 
     # Plot both "FIM" and "FIM_default" rating curves
     hue_order = ['USGS','FIM','FIM_default'] if 'default_discharge_cfs' in rc.columns else ['USGS','FIM']
-
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=hue_order, 
+    # Facet Grid
+    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=hue_order,
                     sharex=False, sharey=False,col_wrap=columns,
                     height=3.5, aspect=1.65)
-    g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2)   
+    g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     ## Plot recurrence intervals
@@ -543,7 +543,7 @@ if __name__ == '__main__':
     sys.stdout = log_file
 
     merged_elev_table = []
-    huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{8}$", huc)]
+    huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{6,8}$", huc)]
     for huc in huc_list:
 
         elev_table_filename = join(fim_dir,huc,'usgs_elev_table.csv')
