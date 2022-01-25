@@ -91,7 +91,7 @@ def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_f
         log_text += ('Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n')
         log_text += (calc_df[calc_df['check_variance']>0.1].to_string() +'\n')
         final_df = final_df[final_df['check_variance']<0.1]
-        final_df['submitter'] = 'usgs_rating_wrds_api'
+        final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id']
         # Get datestamp from usgs rating curve file to use as coll_time attribute in hydroTable.csv
         datestamp = check_file_age(usgs_rc_filepath)
         final_df['coll_time'] = str(datestamp)[:15]

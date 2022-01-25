@@ -15,12 +15,12 @@ from multiprocessing import Pool
 from tools_shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 
 
-def update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs):
+def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs):
     print("Processing huc --> " + str(huc))
     log_text = "\nProcessing huc --> " + str(huc) + '\n'
-    df_nvalues = water_edge_median_ds
+    df_nvalues = water_edge_median_df.copy()
     #df_nvalues = pd.read_csv(pt_n_values_csv) # read csv to import as a dataframe
-    df_nvalues = df_nvalues[df_nvalues.hydroid != 0] # remove null entries that do not have a valid hydroid
+    df_nvalues = df_nvalues[df_nvalues.hydroid.notnull()] # remove null entries that do not have a valid hydroid
 
     # Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object})
@@ -186,12 +186,22 @@ def update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output
             df_nmerge['adjust_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
             df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
             
+            # Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
+            if os.path.isfile(catchments_poly_path):
+                input_catchments = gpd.read_file(catchments_poly_path)
+                # Create new "src_calibrated" column for viz query
+                if 'src_calibrated' in input_catchments.columns: # check if this attribute already exists and drop if needed
+                    input_catchments.drop(['src_calibrated'], axis=1, inplace=True)
+                df_nmerge['src_calibrated'] = np.where(df_nmerge['adjust_ManningN'].notnull(), 'True', 'False')
+                output_catchments = input_catchments.merge(df_nmerge[['HydroID','src_calibrated']], how='left', on='HydroID')
+                output_catchments['src_calibrated'].fillna('False', inplace=True)
+                output_catchments.to_file(catchments_poly_path,driver="GPKG",index=False) # overwrite the previous layer
             # Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
-            if optional_outputs == 'True':
+            if optional_outputs == 'True' and os.path.isfile(catchments_poly_path):
                 output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
                 df_nmerge.to_csv(output_merge_n_csv,index=False)
-                # output new catchments polygon layer with the new manning's n value attributes appended
-                if catchments_poly_path != '':
+                # output new catchments polygon layer with several new attributes appended
+                if os.path.isfile(catchments_poly_path):
                     input_catchments = gpd.read_file(catchments_poly_path)
                     output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(huc) + ".gpkg")
                     output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
@@ -339,16 +349,18 @@ def process_points(args):
         # Write user_supplied_n_vals to CSV for next step.
         pt_n_values_csv = os.path.join(fim_directory, huc, 'user_supplied_n_vals_' + huc + '.csv')
         water_edge_median_ds.to_csv(pt_n_values_csv)
-        #del water_edge_median_ds
+        # Convert pandas series to dataframe to pass to update_rating_curve
+        water_edge_median_df = water_edge_median_ds.reset_index()
+        del water_edge_median_ds
 
         # Call update_rating_curve() to perform the rating curve calibration.
         # Still testing, so I'm having the code print out any exceptions.
         try:
-            log_text = update_rating_curve(fim_directory, water_edge_median_ds, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs)
+            log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs)
         except Exception as e:
             print(e)
             log_text = 'ERROR!!!: HUC ' + str(huc) + ' --> ' + str(e)
-        #log_text = update_rating_curve(fim_directory, pt_n_values_csv, htable_path, output_src_json_file, huc, catchments_poly_path)
+        #log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs)
     else:
         log_text = 'WARNING: ' + str(huc) + ': no valid observation points found within the huc catchments (skipping)'
     return(log_text)
@@ -415,7 +427,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             hand_path = os.path.join(fim_directory, huc, 'hand_grid_' + huc + '.tif')
             catchments_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.tif')
             output_src_json_file = os.path.join(fim_directory, huc, 'rating_curves_' + huc + '.json')
-            catchments_poly_path = ''
+            catchments_poly_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.gpkg')
 
         # Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
         if not os.path.exists(hand_path):
@@ -425,8 +437,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             print("Catchments grid for " + huc + " does not exist.")
             continue
         if not os.path.isfile(output_src_json_file):
-            print("Rating Curve JSON file for " + huc + " does not exist.")
-            continue
+            print("ALERT: Rating Curve JSON file for " + huc + " does not exist. --> Will create a new file.")
 
         # Define path to hydroTable.csv.
         htable_path = os.path.join(fim_directory, huc, 'hydroTable.csv')
@@ -450,9 +461,10 @@ if __name__ == '__main__':
     parser.add_argument('-p','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
     parser.add_argument('-d','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-w','--wbd-path',help='Path to national huc layer.',required=True)
-    parser.add_argument('-i','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
-    parser.add_argument('-s','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
-    parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=2)
+    parser.add_argument('-i','--extra-outputs',help='Optional: "True" or "False" --> Include intermediate output files for debugging/testing',default='False',required=False)
+    parser.add_argument('-s','--scale',help='Optional: HUC6 or HUC8 -- default is HUC8', default='HUC8',required=False)
+    parser.add_argument('-m','--downstream-thresh',help='Optional Override: distance in km to propogate modified roughness values downstream', default=DOWNSTREAM_THRESHOLD,required=False)
+    parser.add_argument('-j','--job-number',help='Optional: Number of jobs to use',required=False,default=2)
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -461,6 +473,7 @@ if __name__ == '__main__':
     wbd_path = args['wbd_path']
     inter_outputs = args['extra_outputs']
     scale = args['scale']
+    ds_thresh_override = args['downstream_thresh']
     job_number = int(args['job_number'])
 
     if job_number > 2:
@@ -474,13 +487,22 @@ if __name__ == '__main__':
         job_number = available_cores - 1
         print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
 
+    if ds_thresh_override != DOWNSTREAM_THRESHOLD:
+        print('ALERT!! - Using a downstream distance threshold value (' + str(float(ds_thresh_override)) + 'km) different than the default (' + str(DOWNSTREAM_THRESHOLD) + 'km) - interpret results accordingly')
+        DOWNSTREAM_THRESHOLD = float(ds_thresh_override)
+
+    ## Create output dir for log file
+    output_dir = os.path.join(fim_directory,"src_optimization")
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+        
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
 
     # Create log file for processing records
     print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
-    log_file = open(os.path.join(fim_directory,'log_rating_curve_adjust.log'),"w")
+    log_file = open(os.path.join(output_dir,'log_rating_curve_adjust.log'),"w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
