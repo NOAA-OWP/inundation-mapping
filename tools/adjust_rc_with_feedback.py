@@ -319,7 +319,7 @@ def process_points(args):
     ## Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
     catch_poly = gpd.read_file(catchments_poly_path)
     catch_poly_crs = catch_poly.crs
-    water_edge_df.to_crs(catch_poly_crs) 
+    water_edge_df.to_crs(catch_poly_crs, inplace=True) 
     water_edge_df = gpd.clip(water_edge_df,catch_poly)
 
     ## Define coords variable to be used in point raster value attribution.
