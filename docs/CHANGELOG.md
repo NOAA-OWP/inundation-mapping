@@ -3,11 +3,11 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.24.12 - 2022-01-26 - [PR #512](https://github.com/NOAA-OWP/cahaba/pull/512)
 
-Hotfix to include the `usgs_elev_table.csv` in the `-v` (viz) file cleanup within `output_cleanup.py`. This file is needed for sierra test input and corresponding rating curve evaluation services.
+Hotfix to include the `usgs_elev_table.csv` in the `-v` (viz) file cleanup within `output_cleanup.py`. This file is needed for Sierra Test input and corresponding rating curve evaluation services.
 
 ## Changes
 
-- `output_cleanup.py`: added `usgs_elev_table.csv` to list of whitelist files
+- `output_cleanup.py`: added `usgs_elev_table.csv` to list of whitelist files.
 
 <br/><br/>
 
