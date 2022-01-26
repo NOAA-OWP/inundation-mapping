@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.12 - 2022-01-26 - [PR #512](https://github.com/NOAA-OWP/cahaba/pull/512)
+
+Hotfix to include the `usgs_elev_table.csv` in the `-v` (viz) file cleanup within `output_cleanup.py`. This file is needed for sierra test input and corresponding rating curve evaluation services.
+
+## Changes
+
+- `output_cleanup.py`: added `usgs_elev_table.csv` to list of whitelist files
+
+<br/><br/>
+
 ## v3.0.24.11 - 2022-01-24 - [PR #508](https://github.com/NOAA-OWP/cahaba/pull/508)
 
 Adds a tool that can be used to compare water surface elevation (WSE) between FIM synthetic rating curves and USGS/AHPS rating curves. There are also some enhancements made to the sierra test (`tools/rating_curve_comparison.py`), including updated rating curve comparison plots.
