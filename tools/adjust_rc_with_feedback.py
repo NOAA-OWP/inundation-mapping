@@ -503,8 +503,10 @@ if __name__ == '__main__':
     print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
     log_file = open(os.path.join(output_dir,'log_rating_curve_adjust.log'),"w")
-    log_file.write('START TIME: ' + str(begin_time) + '\n')
+    log_file.write('#########################################################\n')
+    log_file.write('Parameter Values:\n' + 'DOWNSTREAM_THRESHOLD= ' + str(DOWNSTREAM_THRESHOLD) + '\n' + 'ROUGHNESS_MIN_THRESH= ' + str( ROUGHNESS_MIN_THRESH) + '\n' + 'ROUGHNESS_MAX_THRESH=' + str(ROUGHNESS_MAX_THRESH) + '\n')
     log_file.write('#########################################################\n\n')
+    log_file.write('START TIME: ' + str(begin_time) + '\n')
 
     ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number, inter_outputs)
 
