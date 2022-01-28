@@ -101,15 +101,9 @@ def crosswalk_usgs_gage(usgs_gages_filename,nws_lid_filename,dem_filename,input_
         gage_distance_to_line = pygeos.linear.line_locate_point(stream_bin_geom, gage_bin_geom)
         referenced_gage = pygeos.linear.line_interpolate_point(stream_bin_geom, gage_distance_to_line)
 
-        # Convert geometries to wkb representation
-        bin_referenced_gage = pygeos.io.to_wkb(referenced_gage)
-
-        # Convert to shapely geometries
-        shply_referenced_gage = loads(bin_referenced_gage)
-
         # Sample rasters at adjusted gage
-        dem_m_elev = round(list(rasterio.sample.sample_gen(dem_m,shply_referenced_gage.coords))[0].item(),2)
-        dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,shply_referenced_gage.coords))[0].item(),2)
+        dem_m_elev = round(list(rasterio.sample.sample_gen(dem_m,pygeos.coordinates.get_coordinates(referenced_gage)))[0].item(),2)
+        dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,pygeos.coordinates.get_coordinates(referenced_gage)))[0].item(),2)
 
         # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
         site_elevations = [str(gage.location_id), str(gage.nws_lid), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order),str(feat_id_wrds),str(feat_id),gage_distance_to_line]
