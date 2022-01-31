@@ -91,7 +91,7 @@ def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_f
         log_text += ('Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n')
         log_text += (calc_df[calc_df['check_variance']>0.1].to_string() +'\n')
         final_df = final_df[final_df['check_variance']<0.1]
-        final_df['submitter'] = 'usgs_rating_wrds_api'
+        final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id']
         # Get datestamp from usgs rating curve file to use as coll_time attribute in hydroTable.csv
         datestamp = check_file_age(usgs_rc_filepath)
         final_df['coll_time'] = str(datestamp)[:15]
@@ -101,9 +101,12 @@ def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_f
     final_df.to_csv(os.path.join(output_dir,"usgs_rc_nwm_recurr.csv"),index=False)
 
     # Output log text to log file
-    log_text += ('Total entries per USGS gage location -->\n')
+    log_text += ('#########\nTotal entries per USGS gage location -->\n')
     loc_id_df = final_df.groupby(['location_id']).size().reset_index(name='count') 
     log_text += (loc_id_df.to_string() +'\n')
+    log_text += ('#########\nTotal entries per NWM recur value -->\n')
+    recur_count_df = final_df.groupby(['nwm_recur']).size().reset_index(name='count') 
+    log_text += (recur_count_df.to_string() +'\n')
     log_usgs_db = open(os.path.join(output_dir,'log_usgs_rc_database.log'),"w")
     log_usgs_db.write(log_text)
     log_usgs_db.close()

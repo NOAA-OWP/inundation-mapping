@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.24.13 - 2022-01-31 - [PR #514](https://github.com/NOAA-OWP/cahaba/pull/514)
+
+This feature branch includes minor enhancements to the SRC adjustment tools including a new attribute appended to the hydroID catchments .gpkg and an optional input argument to override the default downstream distance threshold for roughness application.
+
+## Changes
+
+- `tools/adjust_rc_with_feedback.py`: Added new attribute `src_calibrated` to output hydroid catchments .gpkg layer, added new input argument (optional `-m` flag) to override the downstream threshold distance for roughness application, fix for `to_crs` to override current crs of input points layer to match wbd layer , updated/cleaned docstrings, and added additional content to the log file
+- `tools/rating_curve_comparison.py`: Removed redundant code lines for plotting.
+- `tools/usgs_gage_src_adjust.py`: Added the USGS gage location id number to the `submitter` attribute stored in the database. Added additional content to the log file.
+
+<br/><br/>
+
 ## v3.0.24.12 - 2022-01-26 - [PR #512](https://github.com/NOAA-OWP/cahaba/pull/512)
 
 Hotfix to include the `usgs_elev_table.csv` in the `-v` (viz) file cleanup within `output_cleanup.py`. This file is needed for Sierra Test input and corresponding rating curve evaluation services.
