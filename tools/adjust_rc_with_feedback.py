@@ -198,7 +198,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
                 output_catchments.to_file(catchments_poly_path,driver="GPKG",index=False) # overwrite the previous layer
                 df_nmerge.drop(['src_calibrated'], axis=1, inplace=True)
             ## Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
-            if optional_outputs == 'True' and os.path.isfile(catchments_poly_path):
+            if optional_outputs == 'True':
                 output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
                 df_nmerge.to_csv(output_merge_n_csv,index=False)
                 ## output new catchments polygon layer with several new attributes appended
