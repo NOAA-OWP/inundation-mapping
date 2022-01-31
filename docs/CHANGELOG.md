@@ -7,9 +7,9 @@ This feature branch includes minor enhancements to the SRC adjustment tools incl
 
 ## Changes
 
-- `tools/adjust_rc_with_feedback.py`: Added new attribute "src_calibrated" to output hydroid catchments .gpkg layer, added new input argument (optional `-m` flag) to override the downstream threshold distance for roughness application, fix for `to_crs` to override current crs of input points layer to match wbd layer , updated/cleaned docstrings, and added additional content to the log file
-- `tools/rating_curve_comparison.py`: Removed redundant code lines for plotting
-- `tools/usgs_gage_src_adjust.py`: Added the USGS gage location id number to the "submitter" attribute stored in the database. Added additional content to the log file.
+- `tools/adjust_rc_with_feedback.py`: Added new attribute `src_calibrated` to output hydroid catchments .gpkg layer, added new input argument (optional `-m` flag) to override the downstream threshold distance for roughness application, fix for `to_crs` to override current crs of input points layer to match wbd layer , updated/cleaned docstrings, and added additional content to the log file
+- `tools/rating_curve_comparison.py`: Removed redundant code lines for plotting.
+- `tools/usgs_gage_src_adjust.py`: Added the USGS gage location id number to the `submitter` attribute stored in the database. Added additional content to the log file.
 
 <br/><br/>
 
