@@ -101,9 +101,12 @@ def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_f
     final_df.to_csv(os.path.join(output_dir,"usgs_rc_nwm_recurr.csv"),index=False)
 
     # Output log text to log file
-    log_text += ('Total entries per USGS gage location -->\n')
+    log_text += ('#########\nTotal entries per USGS gage location -->\n')
     loc_id_df = final_df.groupby(['location_id']).size().reset_index(name='count') 
     log_text += (loc_id_df.to_string() +'\n')
+    log_text += ('#########\nTotal entries per NWM recur value -->\n')
+    recur_count_df = final_df.groupby(['nwm_recur']).size().reset_index(name='count') 
+    log_text += (recur_count_df.to_string() +'\n')
     log_usgs_db = open(os.path.join(output_dir,'log_usgs_rc_database.log'),"w")
     log_usgs_db.write(log_text)
     log_usgs_db.close()
