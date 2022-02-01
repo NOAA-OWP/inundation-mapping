@@ -5,8 +5,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 FIM4 builds upon FIM3 and allows for better representation of inundation through the reduction of artificial restriction of inundation at catchment boundaries. 
 
-## Changes
+## Additions
 
+- `/src/gms`: A new directory containing scripts necessary to produce the FIM4 Height Above Nearest Drainage grids and synthetic rating curves needed for inundation mapping.
+- `/tools/gms_tools`: A new directory containing scripts necessary to post-process and evaluate the FIM4 Height Above Nearest Drainage grids and synthetic rating curves. The post-processing capabilities include the capability for inundation mapping.
 
 <br/><br/>
 
