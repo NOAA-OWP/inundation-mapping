@@ -3,12 +3,15 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.0.0.0 - 2022-02-01 - [PR #524](https://github.com/NOAA-OWP/cahaba/pull/524)
 
-FIM4 builds upon FIM3 and allows for better representation of inundation through the reduction of artificial restriction of inundation at catchment boundaries. 
+FIM4 builds upon FIM3 and allows for better representation of inundation through the reduction of artificial restriction of inundation at catchment boundaries.
+
+More details will be made available through a publication by Aristizabal et. al. and will be included in the "Credits and References" section of the README.md, titled "Reducing Horton-Strahler Stream Order Can Enhance Flood Inundation Mapping Skill with Applications for the U.S. National Water Model."
 
 ## Additions
 
 - `/src/gms`: A new directory containing scripts necessary to produce the FIM4 Height Above Nearest Drainage grids and synthetic rating curves needed for inundation mapping.
-- `/tools/gms_tools`: A new directory containing scripts necessary to post-process and evaluate the FIM4 Height Above Nearest Drainage grids and synthetic rating curves. The post-processing capabilities include the capability for inundation mapping.
+- `/tools/gms_tools`: A new directory containing scripts necessary to generate and evaluate inundation maps produced from FIM4 Height Above Nearest Drainage grids and synthetic rating curves.
+
 
 <br/><br/>
 
