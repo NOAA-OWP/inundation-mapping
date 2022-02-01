@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v3.0.24.14 - 2022-01-31 - [PR #515](https://github.com/NOAA-OWP/cahaba/pull/515)
+
+Hotfix to correct the bug introduced in two Hawaiian HUCs when `usgs_gage_crosswalk.py` includes AHPS points.
+
+## Changes
+
+- `src/usgs_gage_crosswalk.py`: Use `pygeos.coordinates.get_coordinates()` to get the snapped coordinates instead of converting to shapley objects to get the coordinates. Using `pygoes` ensures that any Z-values are not included in the coordinates.
+
+<br/><br/>
+
 ## v3.0.24.13 - 2022-01-31 - [PR #514](https://github.com/NOAA-OWP/cahaba/pull/514)
 
 This feature branch includes minor enhancements to the SRC adjustment tools including a new attribute appended to the hydroID catchments .gpkg and an optional input argument to override the default downstream distance threshold for roughness application.
