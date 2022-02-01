@@ -36,9 +36,9 @@ At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level
 
 
 ## Key Notes for creating new unit tests
-1) All test methods must start with the phrase "test_". That is how the unit test engine picks it up.
+1) All test functions must start with the phrase "test_". That is how the unit test engine picks it up. The rest of the function name does not have to match the pattern of {function name being tested} but should. Further, the rest of the function name should say what the test is about, ie) _failed_input_path.  ie) test_{some_function_name_from_the_source_code_file}_failed_input_path. It is fine that the function names get very long (common in the industry).
 
-2) The output for a selected "unittest" import engine can be ugly and hard to read. It sometimes mixed outputs from multiple unit test methods simulataneously instead of keeping all output together for a given unit test. We will try to make this better later.
+2) The output for a selected "unittest" import engine can be ugly and hard to read. It sometimes mixed outputs from multiple unit test functions simulataneously instead of keeping all output together for a given unit test. We will try to make this better later.
 
 3) If you are using this for development purposes, use caution when checking back in files for unit tests files and json file. If you check it in, it still has to work and work for others and not just for a dev test you are doing.
 
@@ -46,7 +46,9 @@ At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level
 
 5) There must be at one "{original py file name}_params.json" file.
 
-6) There must be at least one "happy path" test inside the unittest file. ie) one function that is expected to full pass. You can have multiple "happy path" tests if you want to change values that are fundamentally different, but fully expected to pass.
+6) There must be at least one "happy path (successful)" test inside the unittest file. ie) one function that is expected to full pass. You can have multiple "happy path" tests if you want to change values that are fundamentally different, but fully expected to pass.
+
+7) Unit test functions can and should test for all "outputs" from a source function. This includes the functions's return output, but any global variables it might set, and even that saved output files (such as .tif files) have been created and successfully. It is ok to have multiple validation checks (or asserts) in one unit test function.
 
 7) One py file = one "{original py file name}_unittests.py" file.
 
@@ -60,15 +62,17 @@ At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level
 
 4) At this time, the root json file has only one "node". We may consider have more than one node in the json file, which has a different set of data for different test conditions. 
 
+5) Over time, it is expected that python code files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each code file which makes unit testing harder and less specific. Generally for each function in a python code file will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample tif or small gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: Our first two files of derive_level_paths_unittests and clip_vectors_to_wbd_unittests are not complete as they do not yet test all output from a method.
+
 
 ## testing for failing conditions
-- Over time, you want to start adding functions that specifically look for fail conditions. This is a key part of unit test systems. It is not uncommon to have many dozens of tests methods in one unit test file. Each "fail" type test, must check for `ONLY one variable value change`. Aka.. a "fail" test method should not fundamentally pass in an invalid huc AND an invalid file path.  Those two failing test conditions and must have two seperate unit test methods. 
+- Over time, you want to start adding functions that specifically look for fail conditions. This is a key part of unit test systems. It is not uncommon to have many dozens of tests functions in one unit test file. Each "fail" type test, must check for `ONLY one variable value change`. Aka.. a "fail" test function should not fundamentally pass in an invalid huc AND an invalid file path.  Those two failing test conditions and must have two seperate unit test functions. 
 
-- It is possible to let a unit test have more than one failed value but only if they are tightly related to trigger just one failure (RARE though). YES.. Over time, we will see TONS of these types of fail unit test methods and they will take a while to run.
+- It is possible to let a unit test have more than one failed value but only if they are tightly related to trigger just one failure (RARE though). YES.. Over time, we will see TONS of these types of fail unit test functions and they will take a while to run.
 
-- When you create a "fail" test method, you can load up the normal full "params" from the json file, but then you can override (hardcoded) the one (or rarely more than one) variable inside the function. There is a way to "catch" a failure you are expecting, ensure it is the type of failure you expected and make that "failure" to become a true fail, ie) a unit test pass. 
+- When you create a "fail" test function, you can load up the normal full "params" from the json file, but then you can override (hardcoded) the one (or rarely more than one) variable inside the function. There is a way to "catch" a failure you are expecting, ensure it is the type of failure you expected and make that "failure" to become a true fail, ie) a unit test pass. 
 
-An example is in unit_tests/gms/Derive_level_paths_unittests.py -> test_Derive_level_paths_invalid_input_stream_network (method). It is incomplete but give you the pattern.
+An example is in unit_tests/gms/Derive_level_paths_unittests.py -> test_Derive_level_paths_invalid_input_stream_network (function). It is incomplete but give you the pattern.
 
 We have almost no "assert"s yet, but most unit test usually have one or more "assert" test. See https://docs.python.org/3/library/unittest.html for more details.
 
