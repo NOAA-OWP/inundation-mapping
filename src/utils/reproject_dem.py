@@ -16,9 +16,15 @@ def reproject_dem(args):
     elev_cm               = args[1]
     elev_cm_proj          = args[2]
     reprojection          = args[3]
+    overwrite             = args[4]
 
-    if os.path.exists(elev_cm_proj):
+    if os.path.exists(elev_cm_proj) & overwrite:
         os.remove(elev_cm_proj)
+    elif not os.path.exists(elev_cm_proj):
+        pass
+    else:
+        print(f"Skipping {elev_cm_proj}. Raster already exists. Use overwrite option.")
+        return
 
     shutil.copy(elev_cm, elev_cm_proj)
 

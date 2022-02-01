@@ -7,7 +7,7 @@ import argparse
 import os
 import pandas as pd
 from tqdm import tqdm
-from tools_shared_variables import elev_raster_ndv
+from utils.shared_variables import elev_raster_ndv
 
 def Mosaic_inundation(
                       map_file,mosaic_attribute='inundation_rasters',mosaic_output=None,
@@ -53,7 +53,7 @@ def Mosaic_inundation(
     else:
         tqdm_disable = True
 
-    for ag in tqdm(aggregation_units,disable=tqdm_disable,desc='Compositing MS and FR maps'):
+    for ag in tqdm(aggregation_units,disable=tqdm_disable,desc='Mosaicing FIMs'):
 
         try:
             inundation_maps_list = inundation_maps_df.loc[ag,mosaic_attribute].tolist()

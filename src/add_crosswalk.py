@@ -8,10 +8,13 @@ from rasterstats import zonal_stats
 import json
 import argparse
 import sys
+from bathy_rc_adjust import bathy_rc_lookup
+from utils.shared_functions import getDriver
 # sys.path.append('/foss_fim/src')
 # sys.path.append('/foss_fim/config')
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
+from memory_profiler import profile
 
 
 @mem_profile
@@ -51,10 +54,14 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
         output_flows = output_flows.merge(relevant_input_nwmflows[['order_','feature_id']],on='feature_id')
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
-    elif extent == 'MS':
+    elif (extent == 'MS') | (extent == 'GMS'):
         ## crosswalk using stream segment midpoint method
         input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
-        input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem==1]
+
+        # only reduce nwm catchments to mainstems if running mainstems
+        if extent == 'MS':
+            input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem==1]
+
         input_nwmcat = input_nwmcat.rename(columns={'ID':'feature_id'})
         if input_nwmcat.feature_id.dtype != 'int': input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
         input_nwmcat=input_nwmcat.set_index('feature_id')
@@ -103,6 +110,11 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
         if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
         output_flows = input_flows.merge(crosswalk,on='HydroID')
+
+        # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
+        if 'areasqkm' not in output_catchments.columns:
+            output_catchments['areasqkm'] = output_catchments.geometry.area/(1000**2)
+
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
     # read in manning's n values
@@ -213,11 +225,17 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID','feature_id']],on='HydroID')
-    elif extent == 'MS':
+    elif (extent == 'MS') | (extent == 'GMS'):
         output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
 
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
+
+    ## bathy estimation integration in synthetic rating curve calculations
+    #if (bathy_src_calc == True and extent == 'MS'):
+    #    output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
+    #else:
+    #    print('Note: NOT using bathy estimation approach to modify the SRC...')
 
     # make hydroTable
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Number of Cells','SurfaceArea (m2)','BedArea (m2)','TopWidth (m)','LENGTHKM','AREASQKM','WettedPerimeter (m)','HydraulicRadius (m)','WetArea (m2)','Volume (m3)','SLOPE','ManningN','Stage','Discharge (m3s-1)']]

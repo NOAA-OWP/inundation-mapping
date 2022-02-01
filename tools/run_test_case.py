@@ -4,12 +4,40 @@ import os
 import sys
 import shutil
 import argparse
+import traceback
+from pathlib import Path
+import json
+import ast
+import pandas as pd
 
 from tools_shared_functions import compute_contingency_stats_from_rasters
-from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES)
+from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES, IFC_MAGNITUDE_LIST, BLE_MAGNITUDE_LIST )
 from inundation import inundate
+from gms_tools.inundate_gms import Inundate_gms
+from gms_tools.mosaic_inundation import Mosaic_inundation
+from gms_tools.overlapping_inundation import OverlapWindowMerge
+from glob import glob
+from utils.shared_variables import elev_raster_ndv
 
-def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous=False, archive_results=False, mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True):
+def run_alpha_test( fim_run_dir, version, test_id, magnitude, 
+                calibrated, model,
+                compare_to_previous=False, archive_results=False, 
+                mask_type='filter', inclusion_area='', 
+                inclusion_area_buffer=0, light_run=False, 
+                overwrite=True, fr_run_dir=None, 
+                gms_workers=1,verbose=False,
+                gms_verbose=False
+              ):
+
+    # check eval_meta input
+    if model not in {None,'FR','MS','GMS'}:
+        raise ValueError("Model argument needs to be \'FR\', \'MS\', or \'GMS.\'")
+
+    # make bool
+    calibrated = bool( calibrated )
+
+    if (model == "MS") & (fr_run_dir is None):
+        raise ValueError("fr_run_dir argument needs to be specified with MS model")
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
@@ -24,17 +52,22 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
     if os.path.exists(version_test_case_dir_parent):
         if overwrite == True:
             shutil.rmtree(version_test_case_dir_parent)
+        elif model == 'MS':
+            pass
         else:
             print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.".format(version=version, test_id=test_id))
             return
 
-    os.mkdir(version_test_case_dir_parent)
+    os.makedirs(version_test_case_dir_parent,exist_ok=True)
 
-    print("Running the alpha test for test_id: " + test_id + ", " + version + "...")
+    __vprint("Running the alpha test for test_id: " + test_id + ", " + version + "...",verbose)
     stats_modes_list = ['total_area']
 
     fim_run_parent = os.path.join(os.environ['outputDataDir'], fim_run_dir)
     assert os.path.exists(fim_run_parent), "Cannot locate " + fim_run_parent
+
+    # get hydrofabric directory
+    hydrofabric_dir = Path(fim_run_parent).parent.absolute()
 
     # Create paths to fim_run outputs for use in inundate().
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
@@ -80,6 +113,7 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
     magnitude_list = magnitude
     if type(magnitude_list) != list:
         magnitude_list = [magnitude_list]
+        
 
 
     # Get path to validation_data_{benchmark} directory and huc_dir.
@@ -134,46 +168,115 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             # Run inundate.
-#            print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
+            __vprint("-----> Running inundate() to produce inundation extent for the " + magnitude + " magnitude...",verbose)
+            # The inundate adds the huc to the name so I account for that here.
+            predicted_raster_path = os.path.join(
+                                        os.path.split(inundation_raster)[0], 
+                                        os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
+                                                )  
             try:
-                inundate_test = inundate(
-                         rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                         subset_hucs=current_huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
-                         depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
+                if model == 'GMS':
+                    
+                    map_file = Inundate_gms(
+                                             hydrofabric_dir=hydrofabric_dir, 
+                                             forecast=forecast, 
+                                             num_workers=gms_workers,
+                                             hucs=current_huc,
+                                             inundation_raster=inundation_raster,
+                                             inundation_polygon=None, depths_raster=None,
+                                             verbose=gms_verbose,
+                                             log_file=None,
+                                             output_fileNames=None
+                                            )
+                    
+                    mask_path_gms = os.path.join(fim_run_parent, 'wbd.gpkg')
+
+                    Mosaic_inundation(
+                                        map_file,mosaic_attribute='inundation_rasters',
+                                        mosaic_output=inundation_raster,
+                                        mask=mask_path_gms,unit_attribute_name='huc8',
+                                        nodata=elev_raster_ndv,workers=1,
+                                        remove_inputs=True,
+                                        subset=None,verbose=verbose
+                                      )
+                
+                else:
+                    inundate(
+                             rem,catchments,catchment_poly,hydro_table,forecast,
+                             mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                             subset_hucs=current_huc,num_workers=1,aggregate=False,
+                             inundation_raster=inundation_raster,inundation_polygon=None,
+                             depths=None,out_raster_profile=None,out_vector_profile=None,
+                             quiet=True
                         )
-                if inundate_test == 0:
-#                    print("-----> Inundation mapping complete.")
-                    predicted_raster_path = os.path.join(os.path.split(inundation_raster)[0], os.path.split(inundation_raster)[1].replace('.tif', '_' + current_huc + '.tif'))  # The inundate adds the huc to the name so I account for that here.
 
-                    # Define outputs for agreement_raster, stats_json, and stats_csv.
-                    if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
-                        agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
-                    else:
-                        agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
+                if model =='MS':
+                    
+                    # Mainstems inundation
+                    #fr_run_parent = os.path.join(os.environ['outputDataDir'], fr_run_dir,current_huc)
+                    #assert os.path.exists(fr_run_parent), "Cannot locate " + fr_run_parent
+                    
+                    inundation_raster_ms = os.path.join(
+                                        os.path.split(inundation_raster)[0], 
+                                        os.path.split(inundation_raster)[1].replace('.tif', '_{}_MS.tif'.format(current_huc))
+                                           )  
+                    inundation_raster_fr = os.path.join(
+                                        os.path.split(version_test_case_dir_parent)[0],
+                                        fr_run_dir,
+                                        magnitude,
+                                        os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
+                                           )  
+                    
+                    os.rename(predicted_raster_path,inundation_raster_ms)
 
-                    compute_contingency_stats_from_rasters(predicted_raster_path,
-                                                           benchmark_raster_path,
-                                                           agreement_raster,
-                                                           stats_csv=stats_csv,
-                                                           stats_json=stats_json,
-                                                           mask_values=[],
-                                                           stats_modes_list=stats_modes_list,
-                                                           test_id=test_id,
-                                                           mask_dict=mask_dict,
-                                                           )
+                    ms_inundation_map_file = { 
+                                               'huc8' : [current_huc] * 2,
+                                               'branchID' : [None] * 2,
+                                               'inundation_rasters' : [inundation_raster_fr,inundation_raster_ms],
+                                               'depths_rasters' : [None] * 2,
+                                               'inundation_polygons' : [None] * 2
+                                             }
+                    ms_inundation_map_file = pd.DataFrame(ms_inundation_map_file)
+                    
+                    Mosaic_inundation(
+                                        ms_inundation_map_file,mosaic_attribute='inundation_rasters',
+                                        mosaic_output=inundation_raster,
+                                        mask=catchment_poly,unit_attribute_name='huc8',
+                                        nodata=elev_raster_ndv,workers=1,
+                                        remove_inputs=False,
+                                        subset=None,verbose=verbose
+                                      )
 
-                    if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
-                        del mask_dict[ahps_lid]
+                __vprint("-----> Inundation mapping complete.",verbose)
 
-                    print(" ")
-                    print("Evaluation metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC)
-                    print(" ")
-                elif inundate_test == 1:
-                    pass
-                    print (f"No matching feature IDs between forecast and hydrotable for magnitude: {magnitude}")
-                    #return
+                # Define outputs for agreement_raster, stats_json, and stats_csv.
+                if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
+                    agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, lid + 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
+                else:
+                    agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
+                
+                compute_contingency_stats_from_rasters(predicted_raster_path,
+                                                       benchmark_raster_path,
+                                                       agreement_raster,
+                                                       stats_csv=stats_csv,
+                                                       stats_json=stats_json,
+                                                       mask_values=[],
+                                                       stats_modes_list=stats_modes_list,
+                                                       test_id=test_id,
+                                                       mask_dict=mask_dict,
+                                                       )
+
+                if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
+                    del mask_dict[ahps_lid]
+
+                __vprint(" ",verbose)
+                # print("Evaluation complete. All metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC) # GMS
+                __vprint("Evaluation metrics for " + test_id + ", " + version + ", " + magnitude + " are available at " + CYAN_BOLD + version_test_case_dir + ENDC,verbose) # cahaba/dev
+                __vprint(" ",verbose)
+
             except Exception as e:
-                print(e)
+                print(traceback.print_exc())
+                #print(e)
 
         if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
             # -- Delete temp files -- #
@@ -184,6 +287,17 @@ def run_alpha_test(fim_run_dir, version, test_id, magnitude, compare_to_previous
                     full_output_file_path = os.path.join(version_test_case_dir, output_file)
                     os.remove(full_output_file_path)
 
+    # write out evaluation meta-data
+    with open(os.path.join(version_test_case_dir_parent,'eval_metadata.json'),'w') as meta:
+        eval_meta = { 'calibrated' : calibrated , 'model' : model }
+        meta.write( 
+                    json.dumps(eval_meta,indent=2) 
+                   )
+
+def __vprint(message,verbose):
+    if verbose:
+        print(message)
+
 
 if __name__ == '__main__':
 
@@ -192,7 +306,9 @@ if __name__ == '__main__':
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-b', '--version',help='The name of the working version in which features are being tested',required=True,default="")
     parser.add_argument('-t', '--test-id',help='The test_id to use. Format as: HUC_BENCHMARKTYPE, e.g. 12345678_ble.',required=True,default="")
-    parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
+    parser.add_argument('-m', '--mask-type', help='Specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method. MS and GMS are currently on supporting huc', required=False,default="filter")
+    parser.add_argument('-n','--calibrated',help='Denotes use of calibrated n values',required=False, default=False,action='store_true')
+    parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed',required=True)
     parser.add_argument('-y', '--magnitude',help='The magnitude to run.',required=False, default="")
     parser.add_argument('-c', '--compare-to-previous', help='Compare to previous versions of HAND.', required=False,action='store_true')
     parser.add_argument('-a', '--archive-results', help='Automatically copy results to the "previous_version" archive for test_id. For admin use only.', required=False,action='store_true')
@@ -200,6 +316,10 @@ if __name__ == '__main__':
     parser.add_argument('-ib','--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
+    parser.add_argument('-w','--gms-workers', help='Number of workers to use for GMS Branch Inundation', required=False, default=1)
+    parser.add_argument('-d','--fr-run-dir',help='Name of test case directory containing inundation for FR configuration',required=False,default=None)
+    parser.add_argument('-v', '--verbose', help='Verbose operation', required=False, action='store_true', default=False)
+    parser.add_argument('-vg', '--gms-verbose', help='Prints progress bar for GMS', required=False, action='store_true', default=False)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -207,7 +327,7 @@ if __name__ == '__main__':
     valid_test_id_list = os.listdir(TEST_CASES_DIR)
 
     exit_flag = False  # Default to False.
-    print()
+    __vprint("",args['verbose'])
 
     # Ensure test_id is valid.
 #    if args['test_id'] not in valid_test_id_list:
@@ -236,11 +356,15 @@ if __name__ == '__main__':
     except ValueError:
         print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided inclusion_area_buffer (-ib) " + CYAN_BOLD + args['inclusion_area_buffer'] + WHITE_BOLD + " is not a round number." + ENDC)
 
+    benchmark_category = args['test_id'].split('_')[1]
+
     if args['magnitude'] == '':
-        if 'ble' in args['test_id'].split('_'):
-            args['magnitude'] = ['100yr', '500yr']
-        elif 'nws' or 'usgs' in args['test_id'].split('_'):
+        if 'ble' == benchmark_category:
+            args['magnitude'] = BLE_MAGNITUDE_LIST
+        elif ('nws' == benchmark_category) | ('usgs' == benchmark_category):
             args['magnitude'] = ['action', 'minor', 'moderate', 'major']
+        elif 'ifc' == current_benchmark_category:
+            args['magnitude'] = IFC_MAGNITUDE_LIST
         else:
             print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)
             exit_flag = True

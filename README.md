@@ -1,6 +1,6 @@
 ## Cahaba: Flood Inundation Mapping for U.S. National Water Model
 
-Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
+Flood inundation mapping softwaconfigured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids. This repository also includes functionality to generate flood inundation maps (FIMs) and evaluate FIM accuracy.
 
@@ -114,6 +114,11 @@ pipenv lock
 and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image installs the environment from the lock file.
 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
+
+----
+## Citing This Work
+
+Please cite this work in your research and projects according to the CITATION.cff file found in the root of this repository.
 
 ----
 ### Known Issues & Getting Help

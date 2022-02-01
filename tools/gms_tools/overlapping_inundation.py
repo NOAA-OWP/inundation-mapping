@@ -442,10 +442,12 @@ def merge_data(rst_data,
                  data]
 
         del data
+        
         with warnings.catch_warnings():
             # This `with` block supresses the RuntimeWarning thrown by numpy when aggregating nan values
             warnings.simplefilter("ignore", category=RuntimeWarning)
             window_data[row_slice, col_slice] = agg_function(merge)
+        
         window_data[np.isnan(window_data)] = nodata
         del merge
 

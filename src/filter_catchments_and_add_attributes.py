@@ -40,18 +40,18 @@ def filter_catchments_and_add_attributes(input_catchments_filename, input_flows_
         # add geometry column
         output_catchments['areasqkm'] = output_catchments.geometry.area/(1000**2)
 
-        output_catchments.to_file(output_catchments_filename, driver="GPKG",index=False)
-        output_flows.to_file(output_flows_filename, driver="GPKG", index=False)
+        try:
+            output_catchments.to_file(output_catchments_filename, driver="GPKG",index=False)
+            output_flows.to_file(output_flows_filename, driver="GPKG", index=False)
+        except ValueError:
+
+            class NoFlowLinesInHUC(Exception):
+                pass
+
+            raise NoFlowLinesInHUC("There are no flowlines in the HUC. These should be better filtered in derive_level_paths.py")
 
 
 if __name__ == '__main__':
-
-    input_catchments_filename = sys.argv[1]
-    input_flows_filename = sys.argv[2]
-    output_catchments_filename = sys.argv[3]
-    output_flows_filename = sys.argv[4]
-    wbd_filename = sys.argv[5]
-    huc_code = str(sys.argv[6])
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='filter_catchments_and_add_attributes.py')

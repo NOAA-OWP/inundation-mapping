@@ -499,6 +499,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             operation = mask_dict[poly_layer]['operation']
 
             if operation == 'include':
+
                 poly_path = mask_dict[poly_layer]['path']
                 buffer_val = mask_dict[poly_layer]['buffer']
 
@@ -1447,4 +1448,67 @@ def process_grid(benchmark, benchmark_profile, domain, domain_profile, reference
     profile.update(nodata = new_nodata_value) 
     profile.update (width = new_benchmark_width)
     profile.update(height = new_benchmark_height)   
+    
     return classified_benchmark_projected, profile
+
+
+def calculate_metrics_from_agreement_raster(agreement_raster):
+
+    ''' Calculates metrics from an agreement raster '''
+
+    agreement_encoding_digits_to_names = { 0: "TN",
+                                           1: "FN",
+                                           2: "FP",
+                                           3: "TP"
+                                          }
+
+
+    if isinstance(agreement_raster,rasterio.DatasetReader):
+        pass
+    elif isinstance(agreement_raster,str):
+        agreement_raster = rasterio.open(agreement_raster)
+    else:
+        raise TypeError(f"{agreement_raster} is not a Rasterio Dataset Reader or a filepath to a raster")
+
+    # cycle through blocks 
+    totals = dict.from_keys(list(range(4)),0)
+    for idx,wind in agreement_raster.block_windows(1):
+        window_data = agreement_raster.read(1,window=wind)
+        values, counts = np.unique(window_data,return_counts=True)
+        for val,cts in values_counts:
+            totals[val] += cts
+
+    results = dict()
+    for digit,count in totals.items():
+        results[agreement_encoding_digits_to_names[digit]] = count
+   
+    return(results)
+
+
+# evaluation metric fucntions
+
+def csi(TP,FP,FN,TN=None):
+
+    ''' Critical Success Index '''
+
+    return TP / (FP + FN + TP)
+
+    
+def tpr(TP,FP,FN,TN=None):
+
+    ''' True Positive Rate '''
+    
+    return TP / (TP + FN)
+
+
+def far(TP,FP,FN,TN=None):
+
+    ''' False Alarm Rate '''
+
+    return FP / (TP + FP)
+
+
+def mcc(TP,FP,FN,TN=None):
+
+    ''' Matthew's Correlation Coefficient '''
+    return (TP*TN - FP*FN) / np.sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN))

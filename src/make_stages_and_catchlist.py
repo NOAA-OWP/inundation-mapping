@@ -23,6 +23,16 @@ def make_stages_and_catchlist(flows_filename, catchments_filename, stages_filena
     stages_max = stages_max + stages_interval
     stages = np.round(np.arange(stages_min,stages_max,stages_interval),4)
 
+    hydroIDs = flows['HydroID'].tolist()
+    len_of_hydroIDs = len(hydroIDs)
+    slopes = flows['S0'].tolist()
+    lengthkm = flows['LengthKm'].tolist()
+
+    try:
+        areasqkm = catchments['areasqkm'].tolist()
+    except KeyError:
+        areasqkm = catchments['geometry'].area/ 10**6
+        
     with open(stages_filename,'w') as f:
         f.write("Stage\n")
         for stage in stages:

@@ -19,12 +19,16 @@ from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_VECTOR_EXTRACTION_SUFFIX,
                                     PREP_PROJECTION,
                                     WBD_NATIONAL_URL,
-                                    FIM_ID
+                                    FIM_ID,
+                                    OVERWRITE_WBD,
+                                    OVERWRITE_NHD,
+                                    OVERWRITE_ALL,
+                                    nhd_raster_url_template,
+                                    nhd_vector_url_template
                                     )
 
-from utils.shared_functions import (pull_file, 
-                                    run_system_command,
-                                    delete_file,
+from utils.shared_functions import (pull_file, run_system_command,
+                                    subset_wbd_gpkg, delete_file,
                                     getDriver)
 
 NHDPLUS_VECTORS_DIRNAME = 'nhdplus_vectors'
@@ -32,13 +36,11 @@ NHDPLUS_RASTERS_DIRNAME = 'nhdplus_rasters'
 NWM_HYDROFABRIC_DIRNAME = 'nwm_hydrofabric'
 NWM_FILE_TO_SUBSET_WITH = 'nwm_flows.gpkg'
 
-
 def subset_wbd_to_nwm_domain(wbd,nwm_file_to_use):
 
     intersecting_indices = [not (gpd.read_file(nwm_file_to_use,mask=b).empty) for b in wbd.geometry]
 
     return(wbd[intersecting_indices])
-
 
 def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_use,overwrite_wbd,num_workers):
     """
@@ -126,7 +128,6 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
 
     return(wbd_directory)
 
-
 def pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_preinputs_dir,num_workers):
     """
     This helper function pulls and unzips NWM hydrofabric data. It uses the NWM hydrofabric URL defined by NWM_HYDROFABRIC_URL.
@@ -156,20 +157,20 @@ def pull_and_prepare_nwm_hydrofabric(path_to_saved_data_parent_dir, path_to_prei
         pool.map(run_system_command, procs_list)
 
 
-def pull_and_prepare_nhd_data(args):
+def pull_and_prepare_nhd_data(nhd_raster_download_url,
+                              nhd_raster_extraction_path,
+                              nhd_vector_download_url,
+                              nhd_vector_extraction_path,
+                              overwrite_nhd_dem,
+                              overwrite_nhd_gdb
+                             ):
     """
     This helper function is designed to be multiprocessed. It pulls and unzips NHD raster and vector data.
     Args:
         args (list): A list of arguments in this format: [nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path]
     """
-    # Parse urls and extraction paths from procs_list.
-    nhd_raster_download_url = args[0]
-    nhd_raster_extraction_path = args[1]
-    nhd_vector_download_url = args[2]
-    nhd_vector_extraction_path = args[3]
-    overwrite_nhd = args[4]
-
-    nhd_gdb = nhd_vector_extraction_path.replace('.zip', '.gdb')  # Update extraction path from .zip to .gdb.
+    # Update extraction path from .zip to .gdb
+    nhd_gdb = nhd_vector_extraction_path.replace('.zip', '.gdb')
 
     # Download raster and vector, if not already in user's directory (exist check performed by pull_file()).
     nhd_raster_extraction_parent = os.path.dirname(nhd_raster_extraction_path)
@@ -181,7 +182,8 @@ def pull_and_prepare_nhd_data(args):
         os.mkdir(nhd_raster_parent_dir)
 
     elev_cm_tif = os.path.join(nhd_raster_parent_dir, 'elev_cm.tif')
-    if not os.path.exists(elev_cm_tif) or overwrite_nhd:
+    elev_m_tif = os.path.join(nhd_raster_parent_dir, 'elev_m.tif')
+    if not os.path.exists(elev_cm_tif) or overwrite_nhd_dem:
         pull_file(nhd_raster_download_url, nhd_raster_extraction_path)
         os.system("7za e {nhd_raster_extraction_path} -o{nhd_raster_parent_dir} elev_cm.tif -r ".format(nhd_raster_extraction_path=nhd_raster_extraction_path, nhd_raster_parent_dir=nhd_raster_parent_dir))
 
@@ -200,7 +202,7 @@ def pull_and_prepare_nhd_data(args):
     if not os.path.exists(nhd_vector_extraction_parent):
         os.mkdir(nhd_vector_extraction_parent)
 
-    if not os.path.exists(nhd_gdb) or overwrite_nhd:  # Only pull if not already pulled and processed.
+    if not os.path.exists(nhd_gdb) or overwrite_nhd_gdb:  # Only pull if not already pulled and processed.
         # Download and fully unzip downloaded GDB.
         pull_file(nhd_vector_download_url, nhd_vector_extraction_path)
         huc = os.path.split(nhd_vector_extraction_parent)[1]  # Parse HUC.
@@ -285,7 +287,12 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
             f.write("%s\n" % item)
 
 
-def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, overwrite_wbd=False):
+def manage_preprocessing( hucs_of_interest,
+                          num_workers=1,
+                          overwrite_nhd_dem=False,
+                          overwrite_nhd_gdb=False,
+                          overwrite_wbd=False
+                        ):
     """
     This functions manages the downloading and preprocessing of gridded and vector data for FIM production.
 
@@ -330,24 +337,29 @@ def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, ov
         except FileNotFoundError:
             huc_list = list(hucs_of_interest)
 
+    # get unique huc4s
+    huc_list = [h[0:4] for h in huc_list]
+    huc_list = list( set(huc_list) )
 
     # Construct paths to data to download and append to procs_list for multiprocessed pull, project, and converstion to geopackage.
     for huc in huc_list:
         huc = str(huc)  # Ensure huc is string.
 
         # Construct URL and extraction path for NHDPlus raster.
-        nhd_raster_download_url = os.path.join(NHD_URL_PARENT, NHD_URL_PREFIX + huc + NHD_RASTER_URL_SUFFIX)
+        #nhd_raster_download_url = os.path.join(NHD_URL_PARENT, NHD_URL_PREFIX + huc + NHD_RASTER_URL_SUFFIX)
+        nhd_raster_download_url = nhd_raster_url_template.format(huc) 
         nhd_raster_extraction_path = os.path.join(nhd_raster_dir, NHD_URL_PREFIX + huc + NHD_RASTER_URL_SUFFIX)
-
+        
         # Construct URL and extraction path for NHDPlus vector. Organize into huc-level subdirectories.
-        nhd_vector_download_url = os.path.join(NHD_URL_PARENT, NHD_URL_PREFIX + huc + NHD_VECTOR_URL_SUFFIX)
+        #nhd_vector_download_url = os.path.join(NHD_URL_PARENT, NHD_URL_PREFIX + huc + NHD_VECTOR_URL_SUFFIX)
+        nhd_vector_download_url = nhd_vector_url_template.format(huc) 
         nhd_vector_download_parent = os.path.join(vector_data_dir, huc)
         if not os.path.exists(nhd_vector_download_parent):
             os.mkdir(nhd_vector_download_parent)
         nhd_vector_extraction_path = os.path.join(nhd_vector_download_parent, NHD_VECTOR_EXTRACTION_PREFIX + huc + NHD_VECTOR_EXTRACTION_SUFFIX)
 
         # Append extraction instructions to nhd_procs_list.
-        nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd])
+        nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd_dem, overwrite_nhd_gdb])
 
     # Pull and prepare NHD data.
     # with Pool(processes=num_workers) as pool:
@@ -355,7 +367,7 @@ def manage_preprocessing(hucs_of_interest, num_workers=1,overwrite_nhd=False, ov
 
     for huc in nhd_procs_list:
         try:
-            pull_and_prepare_nhd_data(huc)
+            pull_and_prepare_nhd_data(*huc)
         except HTTPError:
             print("404 error for HUC4 {}".format(huc))
 
@@ -375,7 +387,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Acquires and preprocesses WBD and NHD data for use in fim_run.sh.')
     parser.add_argument('-u','--hucs-of-interest',help='HUC4, series of HUC4s, or path to a line-delimited file of HUC4s to acquire.',required=True,nargs='+')
     #parser.add_argument('-j','--num-workers',help='Number of workers to process with',required=False,default=1,type=int)
-    parser.add_argument('-n', '--overwrite-nhd', help='Optional flag to overwrite NHDPlus Data',required=False,action='store_true')
+    parser.add_argument('-nd', '--overwrite-nhd-dem', help='Optional flag to overwrite NHDPlus DEM Data',required=False,action='store_true',default=False)
+    parser.add_argument('-ng', '--overwrite-nhd-gdb', help='Optional flag to overwrite NHDPlus GDB Data',required=False,action='store_true',default=False)
     parser.add_argument('-w', '--overwrite-wbd', help='Optional flag to overwrite WBD Data',required=False,action='store_true')
 
     # Extract to dictionary and assign to variables.

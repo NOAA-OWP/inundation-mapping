@@ -1,12 +1,14 @@
 *.pyc
 *.swp
+*.swo
+*.swn
 .nfs*
 __pycache__/
 config/**
 !config/*template*
 !config/*default*
-!config/*calibrated*
 !config/symbology/
+config/*.swp
 .vscode/
 **/.DS_Store
 **/*_pytest.py

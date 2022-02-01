@@ -2,6 +2,7 @@
 
 import os
 from os.path import splitext
+import fiona
 import rasterio
 import numpy as np
 from rasterio.warp import calculate_default_transform, reproject, Resampling
@@ -89,6 +90,17 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
     gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)
 
 
+def get_fossid_from_huc8(huc8_id,foss_id_attribute='fossid',
+                         hucs=os.path.join(os.environ['inputDataDir'],'wbd','WBD_National.gpkg'),
+                         hucs_layerName=None):
+
+    hucs = fiona.open(hucs,'r',layer=hucs_layerName)
+
+    for huc in hucs:
+        if huc['properties']['HUC8'] == huc8_id:
+            return(huc['properties'][foss_id_attribute])
+
+
 def update_raster_profile(args):
 
     elev_cm_filename   = args[0]
@@ -97,6 +109,15 @@ def update_raster_profile(args):
     nodata_val         = args[3]
     blocksize          = args[4]
     keep_intermediate  = args[5]
+    overwrite  = args[6]
+
+    if os.path.exists(elev_m_filename) & overwrite:
+        os.remove(elev_m_filename)
+    elif not os.path.exists(elev_m_filename):
+        pass
+    else:
+        print(f"Skipping {elev_m_filename}. Use overwrite option.")
+        return
 
     if isinstance(blocksize, int):
         pass
@@ -111,29 +132,38 @@ def update_raster_profile(args):
 
     # Update nodata value and convert from cm to meters
     dem_cm = rasterio.open(elev_cm_filename)
-
+    
     no_data = dem_cm.nodata
-    data = dem_cm.read(1)
-
-    dem_m = np.where(data == int(no_data), nodata_val, (data/100).astype(rasterio.float32))
-
-    del data
-
+    
     dem_m_profile = dem_cm.profile.copy()
-
     dem_m_profile.update(driver='GTiff',tiled=True,nodata=nodata_val,
                          blockxsize=blocksize, blockysize=blocksize,
                          dtype='float32',crs=projection,compress='lzw',interleave='band')
 
-    with rasterio.open(elev_m_filename, "w", **dem_m_profile, BIGTIFF='YES') as dest:
-        dest.write(dem_m, indexes = 1)
+    dest = rasterio.open(elev_m_filename, "w", **dem_m_profile, BIGTIFF='YES')
 
+    for idx,window in dem_cm.block_windows(1):
+        data = dem_cm.read(1,window=window)
+
+        # wrote out output of this line as the same variable.
+        data = np.where(data == int(no_data), nodata_val, (data/100).astype(rasterio.float32))
+
+    # removed this line to avoid having two array copies of data. Kills memory usage
+    #del data
+
+        dest.write(data, indexes = 1, window=window)
+
+
+    # not necessary
+    #del dem_m
+
+    dem_cm.close()
+    dest.close()
+    
     if keep_intermediate == False:
         os.remove(elev_cm_filename)
-
-    del dem_m
-    dem_cm.close()
-
+    
+    return(elev_m_filename)
 
 '''
 This function isn't currently used but is the preferred method for
@@ -208,7 +238,6 @@ def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_r
                     resampling=Resampling.nearest)
                 del dst
         del src
-
 
 def mem_profile(func):
     def wrapper(*args, **kwargs):

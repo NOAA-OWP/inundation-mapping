@@ -23,6 +23,13 @@ NHD_RASTER_EXTRACTION_SUFFIX = 'elev_cm.tif'
 NHD_VECTOR_EXTRACTION_PREFIX = 'NHDPLUS_H_'
 NHD_VECTOR_EXTRACTION_SUFFIX = '_HU4_GDB.zip'
 
+## added here bc prefixs and suffixes just aren't necessary in python3
+nhd_raster_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_RASTER.7z"
+nhd_vector_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_GDB.zip"
+
+# --- Values ---- #
+elev_raster_ndv = -9999.0
+
 # -- Field Names -- #
 FIM_ID = 'fimid'
 
@@ -46,7 +53,7 @@ os.environ['nhdplus_rasters_dir'] = os.path.join(os.environ.get('input_dir'),'nh
 os.environ['nhdplus_vectors_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors')
 os.environ['nwm_dir'] = os.path.join(os.environ.get('input_dir'),'nwm_hydrofabric')
 os.environ['wbd_dir'] = os.path.join(os.environ.get('input_dir'),'wbd')
-os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahps_sites')
+os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahp_sites')
 os.environ['nhdplus_aggregate_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors_aggregate')
 
 # File Paths

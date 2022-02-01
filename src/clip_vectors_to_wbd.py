@@ -127,7 +127,15 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
 
     # Subset nwm streams
     print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
-    nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd_buffer)
+    if extent == 'GMS':
+        nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd)
+        nwm_streams = gpd.clip(nwm_streams,wbd)
+    else:
+        nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd_buffer)
+
+     # NWM can have duplicate records, but appear to always be identical duplicates
+    nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+
     if extent == 'MS':
         nwm_streams = nwm_streams.loc[nwm_streams.mainstem==1]
     if len(nwm_streams) > 0:

@@ -209,7 +209,7 @@ def __inundate_gms_generator(
                             'out_vector_profile' : None,
                             'quiet' : not verbose
                           }
-
+        
         yield (inundate_input,identifiers)
 
 
@@ -257,5 +257,4 @@ if __name__ == '__main__':
     
     # extract to dictionary and run
     Inundate_gms( **vars(parser.parse_args()) )
-    
     

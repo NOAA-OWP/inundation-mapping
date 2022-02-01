@@ -58,8 +58,6 @@ ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 ## ADDING FIM GROUP ##
-# ARG GroupID=1370800120
-# ARG GroupName=apd_dev
 ARG GroupID=1370800235
 ARG GroupName=fim
 RUN addgroup --gid $GroupID $GroupName
@@ -69,8 +67,8 @@ ENV GN=$GroupName
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
-
-RUN apt update --fix-missing && apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1
+RUN apt update --fix-missing 
+RUN apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1
 
 RUN DEBIAN_FRONTEND=noninteractive apt install -y grass=7.8.2-1build3 grass-doc=7.8.2-1build3
 
@@ -83,6 +81,7 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
+ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 
 ## install python 3 modules ##
 COPY Pipfile .
