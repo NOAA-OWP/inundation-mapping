@@ -2,6 +2,8 @@
 FROM ubuntu:20.04
 ARG dataDir=/data
 ARG projectDir=/foss_fim
+ARG binDir=/usr/bin
+ARG tmpDir=/tmp
 
 
 ## ADDING FIM GROUP ##
@@ -14,9 +16,28 @@ ENV GN=$GroupName
 
 ## INSTALLS
 RUN apt update --fix-missing
-RUN DEBIAN_FRONTEND=noninteractive apt install -y texlive-full
+RUN DEBIAN_FRONTEND=noninteractive apt install -y texlive-full wget p7zip-full
 RUN apt auto-remove
 
+## LATEX DEPENDENCIES
+
+# latex expand: used to flatten tex files with "input" or "include" commands.
+RUN wget https://mirrors.ctan.org/support/latexpand.zip -P $tmpDir
+RUN rm -f $binDir/latexpand
+RUN 7z x -sdel -o$binDir $tmpDir/latexpand.zip 
+
+# latex diff: used to create difference document with additions and removals
+RUN wget https://mirrors.ctan.org/support/latexdiff.zip -P $tmpDir
+RUN rm -f $binDir/latexdiff
+RUN 7z x -sdel -o$binDir $tmpDir/latexdiff.zip
+
+# latex diff: used to create difference document with additions and removals
+RUN wget https://mirrors.ctan.org/support/texcount.zip -P $tmpDir
+RUN rm -f $binDir/texcount
+RUN 7z x -sdel -o$binDir $tmpDir/texcount.zip
+
+
+#RUN rm $tmpDir/*
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
