@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.0.0 - 2022-02-01 - [PR #524](https://github.com/NOAA-OWP/cahaba/pull/524)
+
+FIM4 builds upon FIM3 and allows for better representation of inundation through the reduction of artificial restriction of inundation at catchment boundaries. 
+
+## Changes
+
+
+<br/><br/>
+
+
 ## v3.0.24.3 - 2021-11-29 - [PR #488](https://github.com/NOAA-OWP/cahaba/pull/488)
 
 Fixed projection issue in `synthesize_test_cases.py`.
