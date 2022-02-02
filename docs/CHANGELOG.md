@@ -1,6 +1,30 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.1.0 - 2022-02-02 - [PR #525](https://github.com/NOAA-OWP/cahaba/pull/525)
+
+The addition of a very simple and evolving unit test system which has two unit tests against two py files.  This will set a precendence and will grow over time and may be automated, possibly during git check-in triggered. The embedded README.md has more details of what we currently have, how to use it, how to add new unit tests, and expected future enhancements.
+
+## Additions
+
+- `/unit_tests/` folder which has the following:
+
+   - `clip_vectors_to_wbd_params.json`: A set of default "happy path" values that are expected to pass validation for the clip_vectors_to_wbd.py -> clip_vectors_to_wbd (function).
+
+   - `clip_vectors_to_wbd_unittests.py`: A unit test file for src/clip_vectors_to_wbd.py. Incomplete but evolving.
+
+   - `README.md`: Some information about how to create unit tests and how to use them.
+
+   - `unit_tests_utils.py`: A python file where methods that are common to all unit tests can be placed.
+
+   - `gms/derive_level_paths_params.json`: A set of default "happy path" values that are expected to pass validation for the derive_level_paths_params.py -> Derive_level_paths (function). 
+
+   - `gms/derive_level_paths_unittests.py`: A unit test file for `src/derive_level_paths.py`. Incomplete but evolving.
+
+<br/><br/>
+
+
 ## v4.0.0.0 - 2022-02-01 - [PR #524](https://github.com/NOAA-OWP/cahaba/pull/524)
 
 FIM4 builds upon FIM3 and allows for better representation of inundation through the reduction of artificial restriction of inundation at catchment boundaries.
