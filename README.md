@@ -1,10 +1,10 @@
-## Cahaba: Flood Inundation Mapping for U.S. National Water Model
+## Inundation Mapping: Flood Inundation Mapping for U.S. National Water Model
 
-Flood inundation mapping softwaconfigured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
+This repository includes flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids. This repository also includes functionality to generate flood inundation maps (FIMs) and evaluate FIM accuracy.
 
-#### For more information, see the [Cahaba Wiki](https://github.com/NOAA-OWP/cahaba/wiki).
+#### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/cahaba/wiki).
 
 ## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
@@ -34,6 +34,8 @@ Download a directory of outputs for a HUC8:
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_21_0/outputs/fr/12090301 12090301 --request-payer requester
 ```
+
+# FIM Version 3 
 
 ## Running the Code
 ### Input Data
@@ -114,6 +116,11 @@ pipenv lock
 and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image installs the environment from the lock file.
 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
+
+# FIM Version 4
+
+Details to come.
+
 
 ----
 ## Citing This Work
