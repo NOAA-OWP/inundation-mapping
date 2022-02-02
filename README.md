@@ -6,6 +6,10 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 
 #### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/cahaba/wiki).
 
+---
+
+# FIM Version 3 
+
 ## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
 
@@ -34,8 +38,6 @@ Download a directory of outputs for a HUC8:
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_21_0/outputs/fr/12090301 12090301 --request-payer requester
 ```
-
-# FIM Version 3 
 
 ## Running the Code
 ### Input Data
