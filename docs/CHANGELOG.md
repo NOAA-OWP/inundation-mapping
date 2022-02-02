@@ -4,7 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.0.1.0 - 2022-02-02 - [PR #525](https://github.com/NOAA-OWP/cahaba/pull/525)
 
-The addition of a very simple and evolving unit test system which has two unit tests against two py files.  This will set a precendence and will grow over time to become a full automated, possibly git checkin triggered, unit test system. The embedded README.md has more details of what we currently have, how to use it, how to add new unit tests, and expected future enhancements.
+The addition of a very simple and evolving unit test system which has two unit tests against two py files.  This will set a precendence and will grow over time and may be automated, possibly during git check-in triggered. The embedded README.md has more details of what we currently have, how to use it, how to add new unit tests, and expected future enhancements.
 
 ## Additions
 
@@ -20,7 +20,7 @@ The addition of a very simple and evolving unit test system which has two unit t
 
    - `gms/derive_level_paths_params.json`: A set of default "happy path" values that are expected to pass validation for the derive_level_paths_params.py -> Derive_level_paths (function). 
 
-   - `gms/derive_level_paths_unittests.py`: A unit test file for src/derive_level_paths.py. Incomplete but evolving.
+   - `gms/derive_level_paths_unittests.py`: A unit test file for `src/derive_level_paths.py`. Incomplete but evolving.
 
 <br/><br/>
 
