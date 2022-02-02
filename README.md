@@ -119,10 +119,11 @@ and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image 
 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
 
+
+---
 # FIM Version 4
 
 Details to come.
-
 
 ----
 ## Citing This Work
