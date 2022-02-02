@@ -132,11 +132,11 @@ Please cite this work in your research and projects according to the CITATION.cf
 ----
 ### Known Issues & Getting Help
 
-Please see the issue tracker on GitHub and the [Cahaba Wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home) for known issues and getting help.
+Please see the issue tracker on GitHub and the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home) for known issues and getting help.
 
 ### Getting Involved
 
-NOAA's National Water Center welcomes anyone to contribute to the Cahaba repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
+NOAA's National Water Center welcomes anyone to contribute to the Inundation Mapping repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
 ### Open Source Licensing Info
 1. [TERMS](docs/TERMS.md)
