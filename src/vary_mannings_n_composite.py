@@ -14,6 +14,7 @@ import shutil
 import warnings
 from pathlib import Path
 import datetime as dt
+from output_cleanup import output_cleanup
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -42,11 +43,13 @@ def variable_mannings_calc(args):
     channel_ratio_src_column    = args[1]
     df_mann                     = args[2]
     huc                         = args[3]
-    out_src_vmann_filename   = args[4]
+    out_src_vmann_filename      = args[4]
     htable_filename             = args[5]
     src_plot_option             = args[6]
     huc_output_dir              = args[7]
-    viz_clean_flag              = args[8]
+    additional_whitelist        = args[8]
+    is_production               = args[9]
+    is_viz_post_processing      = args[10]
 
     ## Read the src_full_crosswalked.csv
     log_text = 'Calculating: ' + str(huc) + '\n'
@@ -109,20 +112,26 @@ def variable_mannings_calc(args):
             df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the previously modified discharge column to be replaced with updated version
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
 
+        # Delete intermediate CSVs outputs for -p or -v runs
+        htable_parent_dir = os.path.split(htable_filename)[0]
+        if is_production or is_viz_post_processing: # Remove intermediate SRC adjust csv files if using either -p or -v flags
+            output_cleanup('00000000', htable_parent_dir, additional_whitelist, is_production, is_viz_post_processing)
+        '''
         # Delete intermediate CSVs outputs. Todo delete this block later.
         htable_parent_dir = os.path.split(htable_filename)[0]
         # List all CSVs.
         file_list = os.listdir(htable_parent_dir)
         for f in file_list:
-            if viz_clean_flag == 1: # if using the viz flag then delete all intermediate csv files
+            if debug_mode == True: # if using the viz flag then delete all intermediate csv files
                 if '.csv' in f:
-                    if f != 'hydroTable.csv':
+                    if f != 'hydroTable.csv' and f != 'usgs_elev_table.csv':
                         os.remove(os.path.join(htable_parent_dir, f))
             else:
                 keep_files = ['usgs_elev_table.csv', 'src_base.csv', 'small_segments.csv']
                 if '.csv' in f:
                     if f not in keep_files:
                         os.remove(os.path.join(htable_parent_dir, f))
+        '''
 
         df_htable.to_csv(htable_filename,index=False)
 
@@ -190,7 +199,9 @@ if __name__ == '__main__':
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
-    parser.add_argument('-viz_clean','--viz-clean',help='Optional (Viz flag): pass the viz flag (0 or 1) to delete intermediate csv files',required=False,default=0,type=int)
+    parser.add_argument('-w', '--additional_whitelist', type=str, help='List of additional files to keep in a production run')
+    parser.add_argument('-p', '--is_production', help='Keep only white-listed files for production runs', action='store_true')
+    parser.add_argument('-v', '--is_viz_post_processing', help='Formats output files to be useful for Viz', action='store_true')
 
     args = vars(parser.parse_args())
 
@@ -200,7 +211,9 @@ if __name__ == '__main__':
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     src_plot_option = args['src_plot_option']
-    viz_clean_flag = args['viz_clean']
+    additional_whitelist = args['additional_whitelist']
+    is_production = args['is_production']
+    is_viz_post_processing = args['is_viz_post_processing']
     procs_list = []
 
     print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + output_suffix + '.log')))
@@ -232,7 +245,7 @@ if __name__ == '__main__':
 
                     if isfile(in_src_bankfull_filename):
                         print(str(huc))
-                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir,viz_clean_flag])
+                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir,additional_whitelist, is_production, is_viz_post_processing])
                     else:
                         print(str(huc) + '\nWARNING --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)) + ' - skipping this HUC!!!\n')
 
