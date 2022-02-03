@@ -111,38 +111,19 @@ def variable_mannings_calc(args):
         else:
             df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the previously modified discharge column to be replaced with updated version
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
+        df_htable.to_csv(htable_filename,index=False)
 
         # Delete intermediate CSVs outputs for -p or -v runs
         htable_parent_dir = os.path.split(htable_filename)[0]
         if is_production or is_viz_post_processing: # Remove intermediate SRC adjust csv files if using either -p or -v flags
             output_cleanup('00000000', htable_parent_dir, additional_whitelist, is_production, is_viz_post_processing)
-        '''
-        # Delete intermediate CSVs outputs. Todo delete this block later.
-        htable_parent_dir = os.path.split(htable_filename)[0]
-        # List all CSVs.
-        file_list = os.listdir(htable_parent_dir)
-        for f in file_list:
-            if debug_mode == True: # if using the viz flag then delete all intermediate csv files
-                if '.csv' in f:
-                    if f != 'hydroTable.csv' and f != 'usgs_elev_table.csv':
-                        os.remove(os.path.join(htable_parent_dir, f))
-            else:
-                keep_files = ['usgs_elev_table.csv', 'src_base.csv', 'small_segments.csv']
-                if '.csv' in f:
-                    if f not in keep_files:
-                        os.remove(os.path.join(htable_parent_dir, f))
-        '''
 
-        df_htable.to_csv(htable_filename,index=False)
-
-        log_text += 'Completed: ' + str(huc)
-
-        ## plot rating curves
+        ## Optional: plot rating curves
         if src_plot_option == 'True':
             if isdir(huc_output_dir) == False:
                 os.mkdir(huc_output_dir)
             generate_src_plot(df_src, huc_output_dir)
-
+        log_text += 'Completed: ' + str(huc)
     return(log_text)
 
 def generate_src_plot(df_src, plt_out_dir):
