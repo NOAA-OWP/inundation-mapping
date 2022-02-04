@@ -7,8 +7,8 @@ Hotfix to updated `vary_mannings_n_composite.py` to use the same cleanup structu
 
 ## Changes
 
-- `fim_run.sh`: Passing `-v`, `-p`, and `-whitelist` arguments to `vary_mannings_n_composite.py`
-- `src/output_cleanup.py`: Fixed an arg name in used in the `output_cleanup` function
+- `fim_run.sh`: Passing `-v`, `-p`, and `-whitelist` arguments to `vary_mannings_n_composite.py`.
+- `src/output_cleanup.py`: Fixed an arg name in used in the `output_cleanup` function.
 - `src/vary_mannings_n_composite.py`: Replace the previous file cleanup code to call the `output_cleanup` function from `output_cleanup.py`. Upon completion of the SRC variable roughness workflow, the script will perform a file cleanup using the existing `output_cleanup.py` whitelist and removal process.
 
 <br/><br/>
