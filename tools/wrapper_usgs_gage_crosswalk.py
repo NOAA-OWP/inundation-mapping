@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Wrapper for Crosswalk USGS sites to HydroID and get elevations')
     parser.add_argument('-fim_dir','--fim-directory',help='Directory containing FIM outputs by HUC',required=True)
     parser.add_argument('-gages','--usgs-gages-filename', help='USGS gages (gpkg point layer)', required=True)
+    parser.add_argument('-ahps','--nws-lid-filename', help='USGS gages', required=True)
     parser.add_argument('-e', '--extent', help="extent configuration entered by user when running fim_run.sh (MS or FR)", required = True)
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=1)
 
@@ -42,6 +43,7 @@ if __name__ == '__main__':
 
     fim_dir = args['fim_directory']
     usgs_gages_filename = args['usgs_gages_filename']
+    nws_lid_filename = args['nws_lid_filename']
     extent = args['extent']
     job_number = int(args['job_number'])
     procs_list = []
@@ -59,6 +61,10 @@ if __name__ == '__main__':
         print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided usgs_gages_filename " + CYAN_BOLD + usgs_gages_filename + WHITE_BOLD + " could not be located." + ENDC)
         exit_flag = True
 
+    if not os.path.exists(nws_lid_filename):
+        print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided nws_lid_filename " + CYAN_BOLD + nws_lid_filename + WHITE_BOLD + " could not be located." + ENDC)
+        exit_flag = True
+
     if job_number > available_cores:
         job_number = available_cores - 1
         print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
@@ -68,17 +74,22 @@ if __name__ == '__main__':
         sys.exit()
     else:
         huc_list  = os.listdir(fim_dir)
+        print("Preparing HUC input list...")
         for huc in huc_list:
-            print(huc)
             # Define path to FIM output variables
-            dem_filename = os.path.join(fim_dir, huc, 'rem_zeroed_masked.tif') ## Should use dem_meters.tif (not available in -p FIM outputs
+            dem_filename = os.path.join(fim_dir, huc, 'dem_thalwegCond.tif') ## Should use dem_meters.tif (not available in -p FIM outputs
             input_flows_filename = os.path.join(fim_dir, huc, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg')
             input_catchment_filename = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
             wbd_buffer_filename = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg') ## Should use wbd_buffered.gpkg (not available in -p FIM outputs)
-            dem_adj_filename = os.path.join(fim_dir, huc, 'rem_zeroed_masked.tif') ## Should use dem_thalwegCond.tif (not available in -p FIM outputs
+            dem_adj_filename = os.path.join(fim_dir, huc, 'dem_thalwegCond.tif') ## Should use dem_thalwegCond.tif (not available in some previous FIM outputs)
+            dem_adj_filename_backup = os.path.join(fim_dir, huc, 'rem_zeroed_masked.tif') ## Use placeholder rem_zeroed_masked.tif 
             output_table_filename = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
-            if os.path.exists(input_catchment_filename):
-                procs_list.append([usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent])
+            if os.path.exists(input_catchment_filename): # confirm the catchment layer exists for a given huc
+                if os.path.exists(dem_adj_filename):
+                    procs_list.append([usgs_gages_filename,nws_lid_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent,str(huc)])
+                elif os.path.exists(dem_adj_filename_backup):
+                    print('WARNING!!! - using rem_zeroed_masked.tif for placeholder elevation values. DO NOT use the outputs for sierra test!')
+                    procs_list.append([usgs_gages_filename,nws_lid_filename,dem_adj_filename_backup,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename_backup,output_table_filename,extent,str(huc)])
                 #crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent)
                 #print('Complete')
             else:
