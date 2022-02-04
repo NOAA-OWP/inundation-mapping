@@ -16,6 +16,10 @@ import warnings
 from pathlib import Path
 import time
 warnings.simplefilter(action='ignore', category=FutureWarning)
+import rasterio
+from rasterio import features as riofeatures
+from rasterio import plot as rioplot
+from shapely.geometry import Polygon
 
 """
     Plot Rating Curves and Compare to USGS Gages
@@ -73,6 +77,7 @@ def generate_rating_curve_metrics(args):
     huc                         = args[8]
 
     elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object})
+    elev_table.dropna(subset=['location_id'], inplace=True)
     hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': object,'feature_id': object})
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object})
 
@@ -93,7 +98,7 @@ def generate_rating_curve_metrics(args):
 
         hydrotable['source'] = "FIM"
         usgs_gages['source'] = "USGS"
-        limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
+        limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source', 'HydroID', 'dem_adj_elevation'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
         if 'default_discharge_cms' in hydrotable.columns: # check if both "FIM" and "FIM_default" SRCs are available
             hydrotable['default_discharge_cfs'] = hydrotable.default_discharge_cms * 35.3147
@@ -227,7 +232,8 @@ def generate_rating_curve_metrics(args):
             nwm_recurr_data_table.to_csv(nwm_recurr_data_filename,index=False)
 
         # plot rating curves
-        generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
+        #generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
+        generate_rc_and_rem_plots(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table, hydrotable_filename)
 
     else:
         print(f"no USGS data for gage(s): {relevant_gages} in huc {huc}")
@@ -337,6 +343,110 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
     plt.savefig(plot_filename)
     plt.close()
 
+def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, hydrotable_filename):
+    gages_list = rc.location_id.unique()
+    ###################################################################################################################
+    # Filter FIM elevation based on USGS data
+    for gage in gages_list:
+
+        min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.min()
+        max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.max()
+        min_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.min()
+        max_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.max()
+        ri100 = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')].discharge_cfs.max()
+
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2) & (rc.discharge_cfs < min_q)].index)
+
+        if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
+
+    #rc = rc.rename(columns={"location_id": "USGS Gage"})
+
+    ## Generate rating curve plots
+    num_plots = len(rc["location_id"].unique())
+    ###################################################################################################################
+    ## Read in reaches, catchment raster, and rem raster
+    huc_folder = os.path.dirname(hydrotable_filename)
+    reaches = gpd.read_file(os.path.join(huc_folder, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg'))
+    with rasterio.open(os.path.join(huc_folder, 'gw_catchments_reaches_filtered_addedAttributes.tif')) as catch_rast:
+        catchments = catch_rast.read()
+    with rasterio.open(os.path.join(huc_folder, 'rem_zeroed_masked.tif')) as rem:
+        rem_transform = rem.transform
+        rem_extent = rioplot.plotting_extent(rem)
+        rem_sub25 = rem.read()
+        # Set all pixels above the SRC calculation height to nan
+        rem_sub25[np.where(rem_sub25 > 25.3)] = -9999.
+        rem_sub25[np.where(rem_sub25 == -9999.)] = np.nan
+        
+    ## Set up figure
+    fig = plt.figure(figsize=(6, 2.4*num_plots))
+    gs = fig.add_gridspec(num_plots, 2, width_ratios=[2, 3])
+    ax = gs.subplots()
+    if ax.ndim == 1:                     # hucs with only one plot will only have one-dimensional axes;
+        ax = np.expand_dims(ax, axis=0)  # the axes manipulations below require 2 dimensions
+    plt.tight_layout(w_pad=1)
+    
+    for i, gage in enumerate(gages_list):
+
+        # Get the hydroid    
+        hydroid = rc[rc.location_id == gage].HydroID.unique()[0]
+        # Filter the reaches and REM by the hydroid
+        reach = reaches[reaches.HydroID == str(int(hydroid))]
+        catchment_rem = rem_sub25.copy()
+        catchment_rem[np.where(catchments != int(hydroid))] = np.nan
+
+        # Convert raster to WSE feet and limit to upper bound of rating curve
+        dem_adj_elevation = rc[rc.location_id == gage].dem_adj_elevation.unique()[0]
+        catchment_rem = (catchment_rem + dem_adj_elevation) * 3.28084
+        max_elev = rc[(rc.source == 'FIM') & (rc.location_id == gage)].elevation_ft.max()
+        catchment_rem[np.where(catchment_rem > max_elev)] = np.nan         # <-- Comment out this line to get the full raster that is
+                                                                           # used in rating curve creation
+        # Create polygon for perimeter/area stats                          
+        catchment_rem_1s = catchment_rem.copy()
+        catchment_rem_1s[np.where(~np.isnan(catchment_rem_1s))] = 1
+        #features = riofeatures.shapes(catchment_rem_1s, mask=((~np.isnan(catchment_rem_1s)) & (rem_sub25 < 25.3)), transform=rem_transform, connectivity=8)
+        features = riofeatures.shapes(catchment_rem_1s, mask=~np.isnan(catchment_rem), transform=rem_transform, connectivity=8)
+        del catchment_rem_1s
+        features = [f for f in features]
+        geom = [Polygon(f[0]['coordinates'][0]) for f in features]
+        poly = gpd.GeoDataFrame({'geometry':geom})
+        poly['perimeter'] = poly.length                                        # These lines are calculating perimeter/area stats
+        poly['area'] = poly.area                                               # and can be removed if there is a separate process
+        poly['perimeter_area_ratio'] = poly.length/poly.area                   # set up later that calculates these for all hydroids
+        poly['perimeter_area_ratio_sqrt'] = poly.length/(poly.area**.5)        # within a catchment.
+        bounds = poly.total_bounds
+        bounds = ((bounds[0]-20, bounds[2]+20), (bounds[1]-20, bounds[3]+20))
+        
+        # REM plot
+        reach.plot(ax=ax[i,0], color='#999999', linewidth=0.9)
+        im = ax[i,0].imshow(rasterio.plot.reshape_as_image(catchment_rem), cmap='gnuplot', extent=rem_extent, interpolation='none')
+        plt.colorbar(im, ax=ax[i,0], location='left')
+        ax[i,0].set_xbound(bounds[0]); ax[i,0].set_ybound(bounds[1])
+        ax[i,0].set_xticks([]); ax[i,0].set_yticks([])
+        ax[i,0].set_title(gage)
+
+        # Plot the rating curve
+        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'USGS') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='USGS')
+        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM')
+        if 'default_discharge_cfs' in rc.columns:
+            ax[i,1].plot("default_discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM_default') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM_default')
+        
+        # Plot the recurrence intervals
+        recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
+            .filter(items=['recurr_interval', 'discharge_cfs'])
+        for _, r in recurr_data.iterrows():
+            if not r.recurr_interval.isnumeric(): continue # skip catfim flows
+            l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
+            ax[i,1].axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
+            ax[i,1].text(r.discharge_cfs, ax[i,1].get_ylim()[1] - (ax[i,1].get_ylim()[1]-ax[i,1].get_ylim()[0])*0.06, r.recurr_interval, size='small', c='purple')
+
+    
+    del reaches, catchments, rem_sub25, catchment_rem
+    ax[0,1].legend()
+    plt.savefig(plot_filename, dpi=200)
+    plt.close()
 
 def get_reccur_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
 
@@ -540,7 +650,7 @@ if __name__ == '__main__':
     # Open log file
     sys.__stdout__ = sys.stdout
     log_file = open(join(output_dir,'rating_curve_comparison.log'),"w")
-    sys.stdout = log_file
+    # sys.stdout = log_file
 
     merged_elev_table = []
     huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{6,8}$", huc)]
@@ -568,8 +678,10 @@ if __name__ == '__main__':
 
     # Initiate multiprocessing
     print(f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs")
-    with Pool(processes=number_of_jobs) as pool:
-        pool.map(generate_rating_curve_metrics, procs_list)
+    #with Pool(processes=number_of_jobs) as pool:
+    #    pool.map(generate_rating_curve_metrics, procs_list)
+    for p in procs_list:
+        generate_rating_curve_metrics(p)
 
     # Create point layer of usgs gages with joined stats attributes
     if stat_gages:

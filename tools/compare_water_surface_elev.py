@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import sqlite3 as sql
 import argparse
+import warnings
 
 class WaterSurfaceElev():
     """
@@ -57,13 +58,13 @@ class WaterSurfaceElev():
         -------
         gage_dataframe : pandas.DataFrame
             DataFrame that contains the columns for the dynamic sierra test service. Columns:
-            [location_id, nws_lid, HydroID, huc8, dem_adj_elevation, str_order, feature_id, discharge_cfs, fim_wse_ft, usgs_wse_ft, wse_diff_ft
+            [location_id, nws_lid, HydroID, huc, dem_adj_elevation, feature_id, discharge_cfs, fim_wse_ft, usgs_wse_ft, wse_diff_ft
         """
 
         self.conn = sql.connect(self.db_filepath)
 
         crosswalk_table = pd.read_sql('''
-            SELECT DISTINCT location_id,nws_lid,hydroid,huc8,dem_adj_elevation,feature_id_wrds
+            SELECT DISTINCT location_id,nws_lid,hydroid,huc,dem_adj_elevation,feature_id_wrds
             FROM usgs_elev_table
             ''', self.conn)
 
