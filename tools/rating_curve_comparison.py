@@ -650,7 +650,7 @@ if __name__ == '__main__':
     # Open log file
     sys.__stdout__ = sys.stdout
     log_file = open(join(output_dir,'rating_curve_comparison.log'),"w")
-    # sys.stdout = log_file
+    sys.stdout = log_file
 
     merged_elev_table = []
     huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{6,8}$", huc)]
@@ -678,10 +678,8 @@ if __name__ == '__main__':
 
     # Initiate multiprocessing
     print(f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs")
-    #with Pool(processes=number_of_jobs) as pool:
-    #    pool.map(generate_rating_curve_metrics, procs_list)
-    for p in procs_list:
-        generate_rating_curve_metrics(p)
+    with Pool(processes=number_of_jobs) as pool:
+        pool.map(generate_rating_curve_metrics, procs_list)
 
     # Create point layer of usgs gages with joined stats attributes
     if stat_gages:
