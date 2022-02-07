@@ -5,7 +5,7 @@ from utils.shared_functions import mem_profile
 
 
 @mem_profile
-def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, viz_post_processing):
+def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, is_viz_post_processing):
     '''
     Processes all the final output files to cleanup and add post-processing
 

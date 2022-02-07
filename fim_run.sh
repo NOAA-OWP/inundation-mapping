@@ -164,14 +164,17 @@ fi
 
 echo -e $startDiv"Estimating bankfull stage in SRCs"$stopDiv
 if [ "$src_bankfull_toggle" = "True" ]; then
-    # Run BARC routine
+    # Run SRC bankfull estimation routine routine
     time python3 /foss_fim/src/identify_src_bankfull.py -fim_dir $outputRunDataDir -flows $bankfull_flows_file -j $jobLimit -plots $src_bankfull_plot_option
 fi
 
 echo -e $startDiv"Applying variable roughness in SRCs"$stopDiv
 if [ "$src_vrough_toggle" = "True" ]; then
-    # Run BARC routine
-    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit -plots $src_vrough_plot_option -viz_clean $viz
+    # Run SRC Variable Roughness routine
+    [[ ! -z "$whitelist" ]] && args+=( "-w$whitelist" )
+    (( production == 1 )) && args+=( '-p' )
+    (( viz == 1 )) && args+=( '-v' )
+    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit -plots $src_vrough_plot_option "${args[@]}"
 fi
 
 echo "$viz"
