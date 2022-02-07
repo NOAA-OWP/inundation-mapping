@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v3.0.24.16 - 2022-02-07 - [PR #534](https://github.com/NOAA-OWP/cahaba/pull/534)
+
+Updated the evaluation tools to accept `ras2fim` test_cases.
+
+## Changes
+
+- `/tools/tools_shared_variables.py`: Added `ras2fim` benchmark magnitudes.
+- `/tools/synthesize_test_cases.py`: Added `ras2fim` recognition.
+- `/tools_eval_plots.py`: Included `ras2fim` in the test case categories to include in plotting.
+- `/tools/tools_shared_functions.py`: Added a validity check before the calculation of PND.
+
+<br/><br/>
+
 ## v3.0.24.15 - 2022-02-03 - [PR #529](https://github.com/NOAA-OWP/cahaba/pull/529)
 
 Hotfix to updated `vary_mannings_n_composite.py` to use the same cleanup structure as `output_cleanup.py`. This addresses an issue with a hard-coded file delete step that was removing necessary csv files (i.e. `usgs_elev_table.csv`).
