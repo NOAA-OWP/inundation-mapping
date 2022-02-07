@@ -79,14 +79,11 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
     else:
         iteration_list = ['official']
 
-    for benchmark_source in ['ble', 'nws', 'usgs', 'ifc']:
+    for benchmark_source in ['ble', 'nws', 'usgs', 'ifc', 'ras2fim']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
-        if benchmark_source in ['ble', 'ifc']:
+        if benchmark_source in ['ble', 'ifc', 'ras2fim']:
             
-            if benchmark_source == 'ble':
-                magnitude_list = MAGNITUDE_DICT['ble']
-            if benchmark_source == 'ifc':
-                magnitude_list = MAGNITUDE_DICT['ifc']
+            magnitude_list = MAGNITUDE_DICT[benchmark_source]
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
             for test_case in test_cases_list:
@@ -220,7 +217,6 @@ def process_alpha_test(args):
     
     """
     
-    
     fim_run_dir = args[0]
     version = args[1]
     test_id = args[2]
@@ -327,8 +323,7 @@ if __name__ == '__main__':
                             # If a user supplies a special_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
-
-            
+                                
                             # Define the magnitude lists to use, depending on test_id.
                             benchmark_type = test_id.split('_')[1]
                             magnitude = MAGNITUDE_DICT[benchmark_type]
