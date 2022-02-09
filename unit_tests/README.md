@@ -29,7 +29,8 @@ One way is to use the incoming arg parser. Most py files, they include the code 
 
 ## Running unit tests
 
-Start a docker container as you normally would for any development. ie) docker run --rm -it --name rob_levelpaths -v /home/{your name}/projects/gms_ms_level_paths/fim_4/:/foss_fim {your docker image name}
+Start a docker container as you normally would for any development. ie) docker run --rm -it --name <a docker container name> -v /home/<your name>/projects/<folder path>/:/foss_fim {your docker image name}
+	- ie) docker run --rm -it --name Rob_GMS -v /home/rob_abcd/projects/dev/innudation-mapping/:/foss_fim -v /abcd_share/foss_fim/outputs/:/outputs -v /abcs_share/foss_fim/:/data fim_4:dev_20220208_8eba0ee
 
 At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level_paths_unittests.py  or python ./foss_fim/unit_tests/clip_vectors_to_wbd_unittests.py
 (replace with your own script and path name)
@@ -46,23 +47,26 @@ At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level
 
 5) There must be at one "{original py file name}_params.json" file.
 
-6) There must be at least one "happy path (successful)" test inside the unittest file. ie) one function that is expected to full pass. You can have multiple "happy path" tests if you want to change values that are fundamentally different, but fully expected to pass.
+6) There must be at least one "happy path (successful)" test inside the unittest file. ie) one function that is expected to full pass. You can have multiple "happy path" tests if you want to change values that are fundamentally different, but fully expected to pass. Json files can have multiple nodes, so the default "happy path/success" is suggested to be called "valid_data"
 
-7) Unit test functions can and should test for all "outputs" from a source function. This includes the functions's return output, but any global variables it might set, and even that saved output files (such as .tif files) have been created and successfully. It is ok to have multiple validation checks (or asserts) in one unit test function.
+7) Json files can have multiple nodes, so the default "happy path/success" is suggested to be called "valid_data", if one does not already exist. Generally, the individual unit tests, will call the "valid_data" node and override a local method value to a invalid data. In semi-rare, but possible cases, you can add more nodes if you like, but try not to create new Json nodes for a few small field changes, generally only use a new node if there are major and lots of value changes (ie.. major different test conditions).
 
-7) One py file = one "{original py file name}_unittests.py" file.
+8) Unit test functions can and should test for all "outputs" from a source function. This includes the functions's return output (if any), but any global variables it might set, and even that saved output files (such as .tif files) have been created and successfully. It is ok to have multiple validation checks (or asserts) in one unit test function.
+
+9) One py file = one "{original py file name}_unittests.py" file.
+
+10) Sometimes you may want to run a full successful "happy path" version through gms_run_by_unit.sh (or similar), to get all of the files you need in place to do your testing. However.. you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the "-d" parameter (denylist). ie) Normally:  gms_run_unit.sh -n gms_example_unit_tests -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_gms_unit_default.lst -o, but ours would be 
+gms_run_unit.sh -n gms_example_unit_tests -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o. 
 
 
 ## Future Enhancements
 1) We can automate triggers on these files for things like checking triggers or an single global "run_all_unittest" script, but for now.. its one offs.
 
-2) Better output from the unit tests.
+2) Better output from the unit tests including verbosity output control
 
 3) We will upgrade it so you can pass in a params.json file to the call to give you even more flexibility by passing in your own params.json (think params_template.json idea)
 
-4) At this time, the root json file has only one "node". We may consider have more than one node in the json file, which has a different set of data for different test conditions. 
-
-5) Over time, it is expected that python code files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each code file which makes unit testing harder and less specific. Generally for each function in a python code file will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample tif or small gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: Our first two files of derive_level_paths_unittests and clip_vectors_to_wbd_unittests are not complete as they do not yet test all output from a method.
+4) Over time, it is expected that python code files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each code file which makes unit testing harder and less specific. Generally for each function in a python code file will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample tif or small gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: Our first two files of derive_level_paths_unittests and clip_vectors_to_wbd_unittests are not complete as they do not yet test all output from a method.
 
 
 ## testing for failing conditions

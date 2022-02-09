@@ -33,11 +33,6 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
     # MUST start with the name of "test_"
     def test_subset_vector_layers_success(self):
 
-        #global params_file
-        helpers.print_unit_test_function_header()
-        
-        params = self.params
-        
         '''
         This NEEDS be upgraded to check the output, as well as the fact that all of the output files exist as expected.
         Most of the output test and internal tests with this function will test a wide variety of conditions.
@@ -45,6 +40,12 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
         Only the basic return output value shoudl be tested to ensure it is as expected.
         For now, we are adding the very basic "happy path" test.
         '''
+
+        #global params_file
+        helpers.print_unit_test_function_header()
+        
+        params = self.params["valid_data"].copy()
+        
        
         # There is no default return value.
         # Later we need to check in this function that files were being created on the file system
@@ -72,8 +73,6 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
                                                 wbd_buffer_distance = params["wbd_buffer_distance"],
                                                 lake_buffer_distance = params["lake_buffer_distance"])
        
-       
-
        
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")
