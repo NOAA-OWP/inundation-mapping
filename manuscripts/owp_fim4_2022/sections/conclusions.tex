@@ -5,13 +5,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-Floods present a significant, underserved, and expanding risk to life, property, and resources.
+Floods present a significant, under-served, and expanding risk to life, property, and resources.
 Previous flood forecasting systems lacked the coverage to adequately inform society of these risks.
 The National Water Model (NWM) developed by the National Oceanic and Atmospheric Administration's Office of Water Prediction, along with partners, provides increased spatial coverage and resolution as well as additional forecast time horizons on mostly hourly intervals.
 Additional processing is required to convert streamflows from the NWM to river stages and finally to flood inundation maps (FIM).
 Height Above Nearest Drainage (HAND) is a means of detrending digital elevations maps (DEM) by normalizing elevation to the nearest relevant drainage point.
 HAND coupled with the use of reach averaged synthetic rating curves (SRC) provide such a means of creating continental scale FIM capabilities at high resolutions (1/3 arc-second, 10 m) and high temporal frequencies (up to 1 hr).
-Scalable, open-source software was developed to produce HAND and associated datasets (catchments, SRCs, and cross-walking data) for the NWM forecasting area including Hawaii and Puerto Rico (https://github.com/NOAA-OWP/cahaba).
+Scalable, open-source software was developed to produce HAND and associated datasets (catchments, SRCs, and cross-walking data) for the NWM forecasting area including Hawaii and Puerto Rico \cite{inundationMapping2022}.
 HAND is produced using the latest hydro-conditioning techniques to enforce monotonically decreasing elevations including stream burning, levee enforcement, pit-filling, stream channel excavation, thalweg breaching, headwater seeding, stream reach resampling, and more. 
 Finally, we use this implementation to investigate the skill of the FIMs by varying the scale of the processing units used to derive HAND.
 We illustrate that reducing the Horton-Strahler stream order of a HAND processing unit down to one enhances skill by significantly reducing false negatives at junctions of major streams.

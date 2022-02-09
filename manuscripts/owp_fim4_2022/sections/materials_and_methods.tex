@@ -15,7 +15,7 @@ OWP FIM exclusively utilizes free and open source software dependencies includin
 Within the Python 3 ecosystem, many common packages are employed including but not limited to RichDEM, GeoPandas, Rasterio, Rasterstats, and Numba \cite{barnes2018richdem,jordahl2014geopandas,lam2015numba}. 
 To simplify setup and enhance portability across host operating systems OWP FIM packages all dependencies up in a Docker image (\url{https://docs.docker.com/engine/install/}). 
 A user only needs to install Docker on their host machine and build the image from the provided recipe. 
-Source code is made available for this project on GitHub (https://github.com/NOAA-OWP/cahaba). 
+Source code is made available for this project on GitHub \cite{inundationMapping2022}. 
 
 The pipeline is discretized into key areas that a user can interact with to reproduce the results of this study. 
 Preprocessing acquires and prepares datasets for production of the FIM hydrofabric. 
@@ -30,7 +30,7 @@ A user should visit the Readme.md page on GitHub for more information on how to 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Data sources used within OWP FIM are publicly available from a variety of government sources including the USGS, NWC, Federal Emergency Management Agency (FEMA), and US Army Core of Engineers (USACE) to enhance reproducibility and collaboration among government, academia, and industry.
-Instructions for accessing data are provided on the project's GitHub page via an Amazon Web Services (AWS) S3 bucket furnished by Earth Science Information Partners (ESIP).
+Instructions for accessing data are provided on the project's GitHub page via an Amazon Web Services (AWS) S3 bucket furnished by Earth Science Information Partners (ESIP) \cite{esipData2022}.
 The National Hydrography Dataset Plus High Resolution (NHDPlusHR) Beta Version is the latest hydrography dataset used for land surface hydrologic modeling in the US \cite{moore2019user}. 
 It is used in conjunction with the hydrofabric of the NWM V2.1 to help define flowlines for OWP FIM while the NWM hydrofabric is also used to define reservoirs for exclusion and catchments to cross-walk to for forecasting purposes.
 For enforcing levee data into the DEMs, the USACE National Levee Database (NLD) is used to burn feature elevations \cite{engineers2016national}.

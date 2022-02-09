@@ -31,7 +31,7 @@ RUN wget https://mirrors.ctan.org/support/latexdiff.zip -P $tmpDir
 RUN rm -f $binDir/latexdiff
 RUN 7z x -sdel -o$binDir $tmpDir/latexdiff.zip
 
-# latex diff: used to create difference document with additions and removals
+# texcount: used to count characters, words, etc
 RUN wget https://mirrors.ctan.org/support/texcount.zip -P $tmpDir
 RUN rm -f $binDir/texcount
 RUN 7z x -sdel -o$binDir $tmpDir/texcount.zip
