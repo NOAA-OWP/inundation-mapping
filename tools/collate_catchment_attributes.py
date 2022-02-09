@@ -1,20 +1,16 @@
 import argparse
 import pandas as pd
-
-
-
+import os
 
 
 def collate_catchment_attributes(fim_directory,sierra_test_input,output_csv_destination):
-    root_dir = '/data/outputs/calebs_run'
+    
+    aggregate_df = pd.DataFrame()  #here describes the line
 
-    aggregate_df = pd.DataFrame()
-
-    for huc_dir in os.listdir(root_dir):
-        hydroTable = pd.read_csv(os.path.join(root_dir, huc_dir, "hydroTable.csv"))
+    #comment
+    for huc_dir in os.listdir(fim_directory):
+        hydroTable = pd.read_csv(os.path.join(fim_directory, huc_dir, "hydroTable.csv"))
         aggregate_df.append(hydroTable)
-
-
 
 
 if __name__ == '__main__':
