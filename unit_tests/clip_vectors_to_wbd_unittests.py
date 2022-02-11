@@ -6,6 +6,7 @@ import sys
 
 import argparse
 import json
+import warnings
 import unittest
 
 import unit_tests_utils as helpers
@@ -23,6 +24,8 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
     '''
     @classmethod
     def setUpClass(self):
+
+        warnings.simplefilter('ignore')
 
         params_file_path = '/foss_fim/unit_tests/clip_vectors_to_wbd_params.json'
     
