@@ -8,8 +8,8 @@ from pathlib import Path
 from collections import deque
 import multiprocessing
 from multiprocessing import Pool
-from tools_shared_functions import check_file_age, concat_huc_csv
-from adjust_rc_with_feedback import update_rating_curve
+from utils.shared_functions import check_file_age, concat_huc_csv
+from src_roughness_optimization import update_rating_curve
 
 
 def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_filepath, output_dir):

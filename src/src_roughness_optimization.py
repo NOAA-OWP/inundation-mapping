@@ -12,7 +12,7 @@ from collections import deque
 import multiprocessing
 from multiprocessing import Pool
 
-from tools_shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
+from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 
 
 def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs):
