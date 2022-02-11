@@ -195,7 +195,7 @@ if __name__ == '__main__':
         print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
 
     ## Create output dir for log and usgs rc database
-    output_dir = os.path.join(fim_directory,"src_optimization")
+    output_dir = os.path.join(fim_directory,"logs","src_optimization")
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
