@@ -10,6 +10,12 @@ from multiprocessing import Pool
 import geopandas as gpd
 from urllib.error import HTTPError
 from tqdm import tqdm
+import xarray
+import py3dep
+import fiona
+from fiona.crs import to_string
+from shapely.geometry import shape
+from rasterio.enums import Resampling
 
 from utils.shared_variables import (NHD_URL_PARENT,
                                     NHD_URL_PREFIX,
@@ -24,7 +30,9 @@ from utils.shared_variables import (NHD_URL_PARENT,
                                     OVERWRITE_NHD,
                                     OVERWRITE_ALL,
                                     nhd_raster_url_template,
-                                    nhd_vector_url_template
+                                    nhd_vector_url_template,
+                                    elev_raster_ndv,
+                                    DEM_3DEP_RASTER_DIR_NAME
                                     )
 
 from utils.shared_functions import (pull_file, run_system_command,
@@ -96,7 +104,7 @@ def pull_and_prepare_wbd(path_to_saved_data_parent_dir,nwm_dir_name,nwm_file_to_
         del wbd_hu8
 
         # Prepare procs_list for multiprocessed geopackaging.
-        for wbd_layer_num in ['4', '6']:
+        for wbd_layer_num in ['4', '6','10','12']:
             wbd_layer = 'WBDHU' + wbd_layer_num
             print("\t{}".format(wbd_layer))
             wbd = gpd.read_file(wbd_gdb_path,layer=wbd_layer)
@@ -287,11 +295,91 @@ def build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory):
             f.write("%s\n" % item)
 
 
+def retrieve_and_reproject_3dep_for_huc( wbd, 
+                                         huc4s:(str,list),
+                                         huc_length,
+                                         dem_resolution:(float,int),
+                                         output_dir=None,
+                                         ndv=elev_raster_ndv,
+                                         num_workers=1
+                                       ):
+
+    print('Retrieving and Processing 3DEP Data ...')
+
+    if isinstance(huc4s,str):
+        huc4s = {huc4s}
+    elif isinstance(huc4s,list):
+        huc4s = set(huc4s)
+        
+    huc_layer = f'WBDHU{huc_length}'
+    huc_attribute = f'HUC{huc_length}'
+    
+    print(' Loading WBDs ...')
+
+    # load wbd
+    if isinstance(wbd,fiona.Collection):
+        pass
+    elif isinstance(wbd,str):
+        #wbd = gpd.read_file(wbd,layer=huc_layer)
+        wbd = fiona.open(wbd,layer=huc_layer)
+    else:
+        raise TypeError("Pass Fiona Collection or file path to vector file for wbd argument.")
+    
+    # get wbd crs
+    wbd_crs = to_string(wbd.crs)
+    
+    # building geometry dictionary
+    geometry_dict = dict()
+    for row in tqdm(wbd,total=len(wbd),desc=' Loading relevant geometries'):
+
+        huc = row['properties'][huc_attribute]
+
+        #if huc_length != len(huc):
+        current_huc4 = huc[0:4]
+
+        if current_huc4 not in huc4s:
+            continue
+        
+        geometry = shape(row['geometry'])
+
+        geometry_dict[huc] = geometry
+    
+
+    for huc,geometry in tqdm(geometry_dict.items(),desc=' Retrieving and processing 3DEP'):
+
+        # retrieve
+        dem = py3dep.get_map( 'DEM',
+                              geometry=geometry,
+                              resolution=dem_resolution,
+                              geo_crs=wbd_crs
+                            ) 
+
+        # reproject and resample
+        dem = dem.rio.reproject( wbd_crs,
+                                 resolution=dem_resolution,
+                                 resampling=Resampling.linear
+                               )
+
+        # reset ndv to project value
+        dem.rio.write_nodata(ndv,inplace=True)
+
+        # write out
+        if output_dir:
+        
+            # directory location
+            os.makedirs(output_dir,exist_ok=True)
+
+            dem.rio.to_raster( os.path.join(output_dir,f'dem_3dep_{huc}.tif') )
+
+
 def manage_preprocessing( hucs_of_interest,
                           num_workers=1,
                           overwrite_nhd_dem=False,
                           overwrite_nhd_gdb=False,
-                          overwrite_wbd=False
+                          overwrite_wbd=False,
+                          download_3dep=False,
+                          huc_length=12,
+                          resolution=1
                         ):
     """
     This functions manages the downloading and preprocessing of gridded and vector data for FIM production.
@@ -319,6 +407,10 @@ def manage_preprocessing( hucs_of_interest,
     vector_data_dir = os.path.join(path_to_saved_data_parent_dir, NHDPLUS_VECTORS_DIRNAME)
     if not os.path.exists(vector_data_dir):
         os.mkdir(vector_data_dir)
+    
+    # Create the 3DEP data parent directory if nonexistent.
+    dem_3dep_data_dir = os.path.join(path_to_saved_data_parent_dir, DEM_3DEP_RASTER_DIR_NAME)
+    os.makedirs(dem_3dep_data_dir, exist_ok=True)
 
     # Parse HUCs from hucs_of_interest.
     if isinstance(hucs_of_interest,list):
@@ -367,7 +459,8 @@ def manage_preprocessing( hucs_of_interest,
 
     for huc in nhd_procs_list:
         try:
-            pull_and_prepare_nhd_data(*huc)
+            pass
+            #pull_and_prepare_nhd_data(*huc)
         except HTTPError:
             print("404 error for HUC4 {}".format(huc))
 
@@ -376,6 +469,17 @@ def manage_preprocessing( hucs_of_interest,
 
     # Pull and prepare WBD data.
     wbd_directory = pull_and_prepare_wbd(path_to_saved_data_parent_dir,NWM_HYDROFABRIC_DIRNAME,NWM_FILE_TO_SUBSET_WITH,overwrite_wbd,num_workers)
+    
+    # retrieve and process 3dep data
+    if download_3dep:
+        retrieve_and_reproject_3dep_for_huc( wbd=os.path.join(wbd_directory,"WBD_National.gpkg"),
+                                             huc4s=huc_list,
+                                             huc_length=huc_length,
+                                             dem_resolution=resolution,
+                                             output_dir=dem_3dep_data_dir,
+                                             ndv=elev_raster_ndv, 
+                                             num_workers=num_workers
+                                            )
 
     # Create HUC list files.
     build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)
@@ -386,10 +490,15 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Acquires and preprocesses WBD and NHD data for use in fim_run.sh.')
     parser.add_argument('-u','--hucs-of-interest',help='HUC4, series of HUC4s, or path to a line-delimited file of HUC4s to acquire.',required=True,nargs='+')
-    #parser.add_argument('-j','--num-workers',help='Number of workers to process with',required=False,default=1,type=int)
+    parser.add_argument('-j','--num-workers',help='Number of workers to process with',required=False,default=1,type=int)
     parser.add_argument('-nd', '--overwrite-nhd-dem', help='Optional flag to overwrite NHDPlus DEM Data',required=False,action='store_true',default=False)
     parser.add_argument('-ng', '--overwrite-nhd-gdb', help='Optional flag to overwrite NHDPlus GDB Data',required=False,action='store_true',default=False)
     parser.add_argument('-w', '--overwrite-wbd', help='Optional flag to overwrite WBD Data',required=False,action='store_true')
+    dem_group = parser.add_argument_group('3DEP DEM', 'Options for 3DEP DEM Acquisition and Processing')
+    #dem_group.add_argument('-d', '--dem-source', help='DEM Source',required=False,default='nhd', choices=['nhd','3dep'])
+    dem_group.add_argument('-d', '--download-3dep', help='Retrieve 3DEP data',required=False,default=True,action='store_true')
+    dem_group.add_argument('-l', '--huc-length', help='HUC Length desired for 3DEP',required=False,default=12)
+    dem_group.add_argument('-r', '--resolution', help='Desired DEM resolution',required=False,default=1,type=float)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
