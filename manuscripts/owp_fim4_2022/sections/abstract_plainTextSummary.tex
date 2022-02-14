@@ -26,7 +26,7 @@ However, HAND based FIMs suffer from a known limitation caused by independent ca
 To counter this constraint, a version of HAND known as Generalized Mainstems (GMS) is proposed that reduces the Horton-Strahler stream order of the stream network.
 GMS contains all segments within the NWM stream network but instead of deriving HAND by accounting for all river segments at once, it is derived independently at the level path (LP) scale.
 LPs are unique identifiers propagated upstream from a sub-basin’s outlet along the direction of maximum flow distance and repeated recursively until all segments are assigned LP identifiers.
-These FIMs are then mosaiced together, effectively turning the stream network into discrete groups of homogenous unit stream order by removing the influence of neighboring tributaries.
+These FIMs are then mosaiced together, effectively turning the stream network into discrete groups of homogeneous unit stream order by removing the influence of neighboring tributaries.
 Improvement in mapping skill is observed when compared to HEC-RAS 1D models by significantly reducing false negatives at river junctions.
 A more marginal reduction in the false alarm rate is also observed due to a bias introduced in the stage-discharge relationship by increasing the size of the catchments.
 \end{abstract}
