@@ -282,6 +282,15 @@ Tstart
 python3 -m memory_profiler $srcDir/add_crosswalk.py -d $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -a $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -s $outputCurrentBranchDataDir/src_base_$current_branch_id.csv -l $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -r $outputCurrentBranchDataDir/src_full_crosswalked_$current_branch_id.csv -j $outputCurrentBranchDataDir/src_$current_branch_id.json -x $outputCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv -t $outputCurrentBranchDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg -y $outputCurrentBranchDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $outputCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg -p $extent -k $outputCurrentBranchDataDir/small_segments_$current_branch_id.csv
 Tcount
 
+## USGS CROSSWALK ##
+if [ -f $outputHucDataDir/usgs_subset_gages.gpkg ]; then
+    echo -e $startDiv"USGS Crosswalk $hucNumber $current_branch_id"$stopDiv
+    date -u
+    Tstart
+    python3 $srcDir/usgs_gage_crosswalk.py -gages $outputHucDataDir/usgs_subset_gages.gpkg -flows $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -cat $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -dem_adj $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -outtable $outputCurrentBranchDataDir/usgs_elev_table.csv -b $current_branch_id
+    Tcount
+fi
+
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_gms_branches_list ]; then
     echo -e $startDiv"Remove files $hucNumber $current_branch_id"$stopDiv

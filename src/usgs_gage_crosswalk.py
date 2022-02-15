@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
+import os
 import geopandas as gpd
-import pandas as pd
 import rasterio
 import argparse
-import pygeos
-from shapely.wkb import dumps, loads
 import warnings
 from utils.shared_functions import mem_profile
 warnings.simplefilter("ignore")
@@ -31,103 +29,107 @@ warnings.simplefilter("ignore")
         File name of output table.
 '''
 
+class GageCrosswalk(object):
 
-@mem_profile
-def crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename,dem_adj_filename,output_table_filename,extent):
+    def __init__(self, usgs_subset_gages_filename, branch_id):
+        
+        self.branch_id = branch_id
+        self.gages = self._load_gages(usgs_subset_gages_filename)
 
-    wbd_buffer = gpd.read_file(wbd_buffer_filename)
-    usgs_gages = gpd.read_file(usgs_gages_filename, mask=wbd_buffer)
-    dem_m = rasterio.open(dem_filename,'r')
-    input_flows = gpd.read_file(input_flows_filename)
-    input_catchment = gpd.read_file(input_catchment_filename)
-    dem_adj = rasterio.open(dem_adj_filename,'r')
+    def _load_gages(self, gages_filename):
+        '''Reads gage geopackage from huc level and filters based on current branch id'''
 
-    #MS extent use gages that are mainstem
-    if extent == "MS":
-        usgs_gages = usgs_gages.query('curve == "yes" & mainstem == "yes"')
-    #FR extent use gages that are not mainstem
-    if extent == "FR":
-        usgs_gages = usgs_gages.query('curve == "yes" & mainstem == "no"')
+        usgs_gages = gpd.read_file(gages_filename)
+        return  usgs_gages[usgs_gages.levpa_id == self.branch_id]
 
-    if input_flows.HydroID.dtype != 'int': input_flows.HydroID = input_flows.HydroID.astype(int)
+    def catchment_sjoin(self, input_catchment_filename):
+        '''Spatial joins gages to FIM catchments'''
 
-    # Identify closest HydroID
-    closest_catchment = gpd.sjoin(usgs_gages, input_catchment, how='left', op='within').reset_index(drop=True)
-    closest_hydro_id = closest_catchment.filter(items=['location_id','HydroID','min_thal_elev','med_thal_elev','max_thal_elev', 'order_'])
-    closest_hydro_id = closest_hydro_id.dropna()
+        input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID':int})
+        self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='left')
 
-    # Get USGS gages that are within catchment boundaries
-    usgs_gages = usgs_gages.loc[usgs_gages.location_id.isin(list(closest_hydro_id.location_id))]
+    def snap_to_dem_derived_flows(self, input_flows_filename):
+        '''Joins to dem derived flow line and produces snap_distance and geometry_snapped for sampling DEMs on the thalweg'''
 
-    columns = ['location_id','HydroID','dem_elevation','dem_adj_elevation','min_thal_elev', 'med_thal_elev','max_thal_elev','str_order']
-    gage_data = []
+        input_flows = gpd.read_file(input_flows_filename)
+        input_flows['geometry_ln'] = input_flows.geometry
+        self.gages = self.gages.merge(input_flows[['HydroID', 'geometry_ln']], on='HydroID')
+        
+        # Snap each point to its feature_id line
+        self.gages['geometry_snapped'], self.gages['snap_distance'] = self.gages.apply(self.snap_to_line, axis=1,result_type='expand').T.values
 
-    # Move USGS gage to stream
-    for index, gage in usgs_gages.iterrows():
+    def sample_dem(self, dem_filename, column_name):
+        '''Sample an input DEM at snapped points. Make sure to run self.gages.set_geometry("geometry_snapped") before runnig
+        this method, otherwise the DEM will be sampled at the actual gage locations.'''
 
-        # Get stream attributes
-        hydro_id = closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].HydroID.item()
-        str_order = str(int(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].order_.item()))
-        min_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].min_thal_elev.item(),2)
-        med_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].med_thal_elev.item(),2)
-        max_thal_elev = round(closest_hydro_id.loc[closest_hydro_id.location_id==gage.location_id].max_thal_elev.item(),2)
+        coord_list = [(x,y) for x,y in zip(self.gages['geometry'].x , self.gages['geometry'].y)]
+        
+        with rasterio.open(dem_filename) as dem:
+            self.gages[column_name] = [x[0] for x in dem.sample(coord_list)]
 
-        # Convert headwater point geometries to WKB representation
-        wkb_gages = dumps(gage.geometry)
+    def write(self, output_table_filename):
+        '''Write to csv file'''
 
-        # Create pygeos headwater point geometries from WKB representation
-        gage_bin_geom = pygeos.io.from_wkb(wkb_gages)
+        elev_table = self.gages.copy()
+        # Elev table cleanup
+        elev_table.loc[elev_table['location_id'] == elev_table['nws_lid'], 'location_id'] = None # set location_id to None where there isn't a gage
+        elev_table = elev_table[['location_id', 'nws_lid', 'feature_id', 'HydroID', 'levpa_id', 'dem_elevation', 'dem_adj_elevation', 'order_', 'LakeID', 'HUC8', 'snap_distance']]
 
-        # Closest segment to headwater
-        closest_stream = input_flows.loc[input_flows.HydroID==hydro_id]
-        wkb_closest_stream = dumps(closest_stream.geometry.item())
-        stream_bin_geom = pygeos.io.from_wkb(wkb_closest_stream)
+        if not elev_table.empty:
+            elev_table.to_csv(output_table_filename, index=False)
 
-        # Linear reference headwater to closest stream segment
-        gage_distance_to_line = pygeos.linear.line_locate_point(stream_bin_geom, gage_bin_geom)
-        referenced_gage = pygeos.linear.line_interpolate_point(stream_bin_geom, gage_distance_to_line)
-
-        # Convert geometries to wkb representation
-        bin_referenced_gage = pygeos.io.to_wkb(referenced_gage)
-
-        # Convert to shapely geometries
-        shply_referenced_gage = loads(bin_referenced_gage)
-
-        # Sample rasters at adjusted gage
-        dem_m_elev = round(list(rasterio.sample.sample_gen(dem_m,shply_referenced_gage.coords))[0].item(),2)
-        dem_adj_elev = round(list(rasterio.sample.sample_gen(dem_adj,shply_referenced_gage.coords))[0].item(),2)
-
-        # Append dem_m_elev, dem_adj_elev, hydro_id, and gage number to table
-        site_elevations = [str(gage.location_id), str(hydro_id), dem_m_elev, dem_adj_elev, min_thal_elev, med_thal_elev, max_thal_elev,str(str_order)]
-        gage_data.append(site_elevations)
-
-    elev_table = pd.DataFrame(gage_data, columns=columns)
-
-    if not elev_table.empty:
-        elev_table.to_csv(output_table_filename,index=False)
+    @staticmethod
+    def snap_to_line(row):
+        if not row.geometry_ln:
+            return (None, None)
+        snap_geom = row.geometry_ln.interpolate(row.geometry_ln.project(row.geometry))
+        return (snap_geom, snap_geom.distance(row.geometry))
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Crosswalk USGS sites to HydroID and get elevations')
-    parser.add_argument('-gages','--usgs-gages-filename', help='USGS gages', required=True)
-    parser.add_argument('-dem','--dem-filename',help='DEM',required=True)
+    parser.add_argument('-gages','--usgs-gages-filename', help='USGS gage subset at the huc level', required=True)
     parser.add_argument('-flows','--input-flows-filename', help='DEM derived streams', required=True)
     parser.add_argument('-cat','--input-catchment-filename', help='DEM derived catchments', required=True)
-    parser.add_argument('-wbd','--wbd-buffer-filename', help='WBD buffer', required=True)
+    parser.add_argument('-dem','--dem-filename',help='DEM',required=True)
     parser.add_argument('-dem_adj','--dem-adj-filename', help='Thalweg adjusted DEM', required=True)
     parser.add_argument('-outtable','--output-table-filename', help='Table to append data', required=True)
-    parser.add_argument('-e', '--extent', help="extent configuration entered by user when running fim_run.sh", required = True)
+    parser.add_argument('-b','--branch-id', help='Branch ID used to filter the gages', type=str, required=True)
 
     args = vars(parser.parse_args())
 
     usgs_gages_filename = args['usgs_gages_filename']
-    dem_filename = args['dem_filename']
     input_flows_filename = args['input_flows_filename']
     input_catchment_filename = args['input_catchment_filename']
-    wbd_buffer_filename = args['wbd_buffer_filename']
+    dem_filename = args['dem_filename']
     dem_adj_filename = args['dem_adj_filename']
     output_table_filename = args['output_table_filename']
-    extent = args['extent']
+    branch_id = args['branch_id']
 
-    crosswalk_usgs_gage(usgs_gages_filename,dem_filename,input_flows_filename,input_catchment_filename,wbd_buffer_filename, dem_adj_filename,output_table_filename, extent)
+    assert os.path.isfile(usgs_gages_filename), f"The input file {usgs_gages_filename} does not exist."
+
+    # Instantiate class
+    gage_crosswalk = GageCrosswalk(usgs_gages_filename, branch_id)
+    if gage_crosswalk.gages.empty:
+        print(f'There are no gages for branch {branch_id}')
+        os._exit(0)
+    # Spatial join to fim catchments
+    gage_crosswalk.catchment_sjoin(input_catchment_filename)
+    # Snap to dem derived flow lines
+    gage_crosswalk.snap_to_dem_derived_flows(input_flows_filename)
+    # Set gage geometry to the snapped points
+    gage_crosswalk.gages.set_geometry('geometry_snapped')
+    # Sample DEM and thalweg adjusted DEM
+    gage_crosswalk.sample_dem(dem_filename, 'dem_elevation')
+    gage_crosswalk.sample_dem(dem_adj_filename, 'dem_adj_elevation')
+    # Write to csv
+    num_gages = len(gage_crosswalk.gages)
+    print(f"{num_gages} gage{'' if num_gages == 1 else 's'} in branch {branch_id}")
+    gage_crosswalk.write(output_table_filename)
+
+"""
+python /foss_fim/src/usgs_gage_crosswalk.py -gages /data/outputs/carson_gms_bogus/02020005/usgs_subset_gages.gpkg -flows /data/outputs/carson_gms_bogus/02020005/branches/3246000305/demDerived_reaches_split_filtered_3246000305.gpkg -cat /data/outputs/carson_gms_bogus/02020005/branches/3246000305/gw_catchments_reaches_filtered_addedAttributes_3246000305.gpkg -dem /data/outputs/carson_gms_bogus/02020005/branches/3246000305/dem_meters_3246000305.tif -dem_adj /data/outputs/carson_gms_bogus/02020005/branches/3246000305/dem_thalwegCond_3246000305.tif -outtable /data/outputs/carson_gms_bogus/02020005/branches/3246000305/usgs_elev_table.csv -b 3246000305
+
+python /foss_fim/src/usgs_gage_crosswalk.py -gages /data/outputs/carson_gms_bogus/02020005/usgs_subset_gages.gpkg -flows /data/outputs/carson_gms_bogus/02020005/branches/3246000257/demDerived_reaches_split_filtered_3246000257.gpkg -cat /data/outputs/carson_gms_bogus/02020005/branches/3246000257/gw_catchments_reaches_filtered_addedAttributes_3246000257.gpkg -dem /data/outputs/carson_gms_bogus/02020005/branches/3246000257/dem_meters_3246000257.tif -dem_adj /data/outputs/carson_gms_bogus/02020005/branches/3246000257/dem_thalwegCond_3246000257.tif -outtable /data/outputs/carson_gms_bogus/02020005/branches/3246000257/usgs_elev_table.csv -b 3246000257
+"""
