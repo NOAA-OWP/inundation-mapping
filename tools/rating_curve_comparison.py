@@ -232,8 +232,8 @@ def generate_rating_curve_metrics(args):
             nwm_recurr_data_table.to_csv(nwm_recurr_data_filename,index=False)
 
         # plot rating curves
-        #generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
-        generate_rc_and_rem_plots(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table, hydrotable_filename)
+        generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
+        #generate_rc_and_rem_plots(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table, hydrotable_filename)
 
     else:
         print(f"no USGS data for gage(s): {relevant_gages} in huc {huc}")
@@ -320,7 +320,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
     g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=hue_order,
                     sharex=False, sharey=False,col_wrap=columns,
                     height=3.5, aspect=1.65)
-    g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
+    g.map(plt.plot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     ## Plot recurrence intervals
@@ -389,9 +389,28 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, hydrotable_f
     plt.tight_layout(w_pad=1)
     
     for i, gage in enumerate(gages_list):
+        
+        # Plot the rating curve
+        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'USGS') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='USGS')
+        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM')
+        if 'default_discharge_cfs' in rc.columns:
+            ax[i,1].plot("default_discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM_default') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM_default')
+        
+        # Plot the recurrence intervals
+        recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
+            .filter(items=['recurr_interval', 'discharge_cfs'])
+        for _, r in recurr_data.iterrows():
+            if not r.recurr_interval.isnumeric(): continue # skip catfim flows
+            l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
+            ax[i,1].axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
+            ax[i,1].text(r.discharge_cfs, ax[i,1].get_ylim()[1] - (ax[i,1].get_ylim()[1]-ax[i,1].get_ylim()[0])*0.06, r.recurr_interval, size='small', c='purple')
 
         # Get the hydroid    
         hydroid = rc[rc.location_id == gage].HydroID.unique()[0]
+        if np.isnan(hydroid):
+            print(f'Gage {gage} in HUC {huc_folder} has no HydroID')
+            continue
+
         # Filter the reaches and REM by the hydroid
         reach = reaches[reaches.HydroID == str(int(hydroid))]
         catchment_rem = rem_sub25.copy()
@@ -427,22 +446,6 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, hydrotable_f
         ax[i,0].set_xticks([]); ax[i,0].set_yticks([])
         ax[i,0].set_title(gage)
 
-        # Plot the rating curve
-        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'USGS') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='USGS')
-        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM')
-        if 'default_discharge_cfs' in rc.columns:
-            ax[i,1].plot("default_discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM_default') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM_default')
-        
-        # Plot the recurrence intervals
-        recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
-            .filter(items=['recurr_interval', 'discharge_cfs'])
-        for _, r in recurr_data.iterrows():
-            if not r.recurr_interval.isnumeric(): continue # skip catfim flows
-            l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
-            ax[i,1].axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
-            ax[i,1].text(r.discharge_cfs, ax[i,1].get_ylim()[1] - (ax[i,1].get_ylim()[1]-ax[i,1].get_ylim()[0])*0.06, r.recurr_interval, size='small', c='purple')
-
-    
     del reaches, catchments, rem_sub25, catchment_rem
     ax[0,1].legend()
     plt.savefig(plot_filename, dpi=200)
