@@ -81,6 +81,6 @@ if __name__ == '__main__':
     output_csv_destination = args['output_csv_destination']
     link_elev_table = args['link_elev_table']
     
-    aggregate_df = performMerge(assembleSierraTest(sierra_test_input),importLinkTable(),aggregateHydroTables(fim_directory))
+    aggregate_df = performMerge(assembleSierraTest(sierra_test_input),importLinkTable(link_elev_table),aggregateHydroTables(fim_directory))
     outFileDest(aggregate_df,output_csv_destination)
     
