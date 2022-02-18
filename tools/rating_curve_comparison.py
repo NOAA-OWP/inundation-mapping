@@ -656,7 +656,7 @@ if __name__ == '__main__':
     sys.stdout = log_file
 
     merged_elev_table = []
-    huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{6,8}$", huc)]
+    huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("^\d{6,8}$", huc)]
     for huc in huc_list:
 
         elev_table_filename = join(fim_dir,huc,'usgs_elev_table.csv')
@@ -668,7 +668,7 @@ if __name__ == '__main__':
         if isfile(elev_table_filename):
             procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
             # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-            read_elev_table = pd.read_csv(elev_table_filename)
+            read_elev_table = pd.read_csv(elev_table_filename, dtype={'location_id':str, 'HydroID':str, 'huc':str, 'feature_id':int})
             read_elev_table['huc'] = huc
             merged_elev_table.append(read_elev_table)
 
