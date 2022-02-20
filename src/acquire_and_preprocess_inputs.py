@@ -488,7 +488,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         # for some reason gdal_merge won't create 
         subprocess.call( [ 'gdal_merge.py','-o',destTiff, '-ot', 'Float32',
                            '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512',
-                           '-co','TILED=YES', '-co', 'COMPRESS=LZW','-co',
+                           '-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','-q',
                            'BIGTIFF=YES', '-ps', f'{dem_resolution}',f'{dem_resolution}',
                            '-n',str(ndv), '-a_nodata',str(ndv),'-init',str(ndv),
                            destVRT
