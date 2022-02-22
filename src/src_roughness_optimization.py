@@ -25,7 +25,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
 
     '''
     print("Processing huc --> " + str(huc))
-    print("DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh))
+    print("DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km')
     print("Merge Previous Adj Values: " + str(merge_prev_adj))
     log_text = "\nProcessing huc --> " + str(huc) + '\n'
     df_nvalues = water_edge_median_df.copy()
@@ -42,7 +42,6 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
             df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
             # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
             df_prev_adj = df_prev_adj_htable[df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating", na=False)] 
-            print('created previous adj htable df...')
         # Delete previous adj columns to prevent duplicate issues (if src_roughness_optimization.py was previously applied)
         df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN','adjust_src_on','obs_source'], axis=1, inplace=True) 
         df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
@@ -141,52 +140,8 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
         df_nmerge = df_nmerge.merge(df_mann_hydroid, how='left', on='HydroID')
         df_nmerge = df_nmerge.merge(df_updated, how='left', on='HydroID')
 
-        ## Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first 10km of hydroids)
-        #df_nmerge.sort_values(by=['NextDownID'], inplace=True)
-        dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
-        run_accum_mann = 0; group_ManningN = 0; branch_start = 1                                        # initialize counter and accumulation variables
-        lid_count = 0; prev_lid = 'x'
-        for index, row in df_nmerge.iterrows():                                                         # loop through the df (parse by hydroid)
-            if int(df_nmerge.loc[index,'branch_id']) != branch_start:                                   # check if start of new branch
-                dist_accum = 0; hyid_count = 0; hyid_accum_count = 0;                                   # initialize counter vars
-                run_accum_mann = 0; group_ManningN = 0                                                  # initialize counter vars
-                branch_start = int(df_nmerge.loc[index,'branch_id'])                                    # reassign the branch_start var to evaluate on next iteration
-            #     lid_count = 0                                                                         # use the code below to withold downstream hydroid_ManningN values (use this for downstream evaluation tests)
-            # if not pd.isna(df_nmerge.loc[index,'ahps_lid']):
-            #     if df_nmerge.loc[index,'ahps_lid'] == prev_lid:
-            #         lid_count += 1
-            #         if lid_count > 3: # only keep the first 3 HydroID n values (everything else set to null for downstream application)
-            #             df_nmerge.loc[index,'hydroid_ManningN'] = np.nan
-            #             df_nmerge.loc[index,'featid_ManningN'] = np.nan
-            #     else:
-            #         lid_count = 1
-            #     prev_lid = df_nmerge.loc[index,'ahps_lid']
-            if np.isnan(df_nmerge.loc[index,'hydroid_ManningN']):                                       # check if the hydroid_ManningN value is nan (indicates a non-calibrated hydroid)
-                df_nmerge.loc[index,'accum_dist'] = row['LENGTHKM'] + dist_accum                        # calculate accumulated river distance
-                dist_accum += row['LENGTHKM']                                                           # add hydroid length to the dist_accum var
-                hyid_count = 0                                                                          # reset the hydroid counter to 0
-                df_nmerge.loc[index,'hyid_accum_count'] = hyid_accum_count                              # output the hydroid accum counter
-                if dist_accum < down_dist_thresh:                                                   # check if the accum distance is less than Xkm downstream from valid hydroid_ManningN group value
-                    if hyid_accum_count > 1:                                                            # only apply the group_ManningN if there are 2 or more valid hydorids that contributed to the upstream group_ManningN
-                        df_nmerge.loc[index,'group_ManningN'] = group_ManningN                          # output the group_ManningN var
-                else:
-                    run_avg_mann = 0                                                                    # reset the running average manningn variable (greater than 10km downstream)
-            else:                                                                                       # performs the following for hydroids that have a valid hydroid_ManningN value
-                dist_accum = 0; hyid_count += 1                                                         # initialize vars
-                df_nmerge.loc[index,'accum_dist'] = 0                                                   # output the accum_dist value (set to 0)
-                if hyid_count == 1:                                                                     # checks if this the first in a series of valid hydroid_ManningN values
-                    run_accum_mann = 0; hyid_accum_count = 0                                            # initialize counter and running accumulated manningN value
-                group_ManningN = (row['hydroid_ManningN'] + run_accum_mann)/float(hyid_count)           # calculate the group_ManningN (NOTE: this will continue to change as more hydroid values are accumulated in the "group" moving downstream)
-                df_nmerge.loc[index,'group_ManningN'] = group_ManningN                                  # output the group_ManningN var 
-                df_nmerge.loc[index,'hyid_count'] = hyid_count                                          # output the hyid_count var 
-                run_accum_mann += row['hydroid_ManningN']                                               # add current hydroid manningn value to the running accum mann var
-                hyid_accum_count += 1                                                                   # increase the # of hydroid accum counter
-                df_nmerge.loc[index,'hyid_accum_count'] = hyid_accum_count                              # output the hyid_accum_count var
-
-        ## Delete unnecessary intermediate outputs
-        if 'hyid_count' in df_nmerge.columns:
-            df_nmerge.drop(['hyid_count'], axis=1, inplace=True) # drop hydroid counter if it exists
-        df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop accum vars from group calc
+        ## Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg)
+        df_nmerge = group_manningn_calc(df_nmerge, down_dist_thresh)
 
         ## Create a df with the median hydroid_ManningN value per feature_id
         df_mann_featid = df_nmerge.groupby(["feature_id"])[['hydroid_ManningN']].mean()
@@ -308,6 +263,58 @@ def branch_network(df_input_htable):
     df_input_htable.reset_index(drop=True, inplace=True) # reset index (previously using hydroid as index)
     df_input_htable.sort_values(['branch_id','route_count'], inplace=True) # sort the dataframe by branch_id and then by route_count (need this ordered to ensure upstream to downstream ranking for each branch)
     return(df_input_htable)
+
+def group_manningn_calc(df_nmerge, down_dist_thresh):
+    ## Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg
+    #df_nmerge.sort_values(by=['NextDownID'], inplace=True)
+    dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
+    run_accum_mann = 0; group_ManningN = 0; branch_start = 1                                        # initialize counter and accumulation variables
+    lid_count = 0; prev_lid = 'x'
+    for index, row in df_nmerge.iterrows():                                                         # loop through the df (parse by hydroid)
+        if int(df_nmerge.loc[index,'branch_id']) != branch_start:                                   # check if start of new branch
+            dist_accum = 0; hyid_count = 0; hyid_accum_count = 0;                                   # initialize counter vars
+            run_accum_mann = 0; group_ManningN = 0                                                  # initialize counter vars
+            branch_start = int(df_nmerge.loc[index,'branch_id'])                                    # reassign the branch_start var to evaluate on next iteration
+            # use the code below to withold downstream hydroid_ManningN values (use this for downstream evaluation tests)
+            '''
+            lid_count = 0                                                                         
+        if not pd.isna(df_nmerge.loc[index,'ahps_lid']):
+            if df_nmerge.loc[index,'ahps_lid'] == prev_lid:
+                lid_count += 1
+                if lid_count > 3: # only keep the first 3 HydroID n values (everything else set to null for downstream application)
+                    df_nmerge.loc[index,'hydroid_ManningN'] = np.nan
+                    df_nmerge.loc[index,'featid_ManningN'] = np.nan
+            else:
+                lid_count = 1
+            prev_lid = df_nmerge.loc[index,'ahps_lid']
+            '''
+        if np.isnan(df_nmerge.loc[index,'hydroid_ManningN']):                                       # check if the hydroid_ManningN value is nan (indicates a non-calibrated hydroid)
+            df_nmerge.loc[index,'accum_dist'] = row['LENGTHKM'] + dist_accum                        # calculate accumulated river distance
+            dist_accum += row['LENGTHKM']                                                           # add hydroid length to the dist_accum var
+            hyid_count = 0                                                                          # reset the hydroid counter to 0
+            df_nmerge.loc[index,'hyid_accum_count'] = hyid_accum_count                              # output the hydroid accum counter
+            if dist_accum < down_dist_thresh:                                                   # check if the accum distance is less than Xkm downstream from valid hydroid_ManningN group value
+                if hyid_accum_count > 1:                                                            # only apply the group_ManningN if there are 2 or more valid hydorids that contributed to the upstream group_ManningN
+                    df_nmerge.loc[index,'group_ManningN'] = group_ManningN                          # output the group_ManningN var
+            else:
+                run_avg_mann = 0                                                                    # reset the running average manningn variable (greater than 10km downstream)
+        else:                                                                                       # performs the following for hydroids that have a valid hydroid_ManningN value
+            dist_accum = 0; hyid_count += 1                                                         # initialize vars
+            df_nmerge.loc[index,'accum_dist'] = 0                                                   # output the accum_dist value (set to 0)
+            if hyid_count == 1:                                                                     # checks if this the first in a series of valid hydroid_ManningN values
+                run_accum_mann = 0; hyid_accum_count = 0                                            # initialize counter and running accumulated manningN value
+            group_ManningN = (row['hydroid_ManningN'] + run_accum_mann)/float(hyid_count)           # calculate the group_ManningN (NOTE: this will continue to change as more hydroid values are accumulated in the "group" moving downstream)
+            df_nmerge.loc[index,'group_ManningN'] = group_ManningN                                  # output the group_ManningN var 
+            df_nmerge.loc[index,'hyid_count'] = hyid_count                                          # output the hyid_count var 
+            run_accum_mann += row['hydroid_ManningN']                                               # add current hydroid manningn value to the running accum mann var
+            hyid_accum_count += 1                                                                   # increase the # of hydroid accum counter
+            df_nmerge.loc[index,'hyid_accum_count'] = hyid_accum_count                              # output the hyid_accum_count var
+
+    ## Delete unnecessary intermediate outputs
+    if 'hyid_count' in df_nmerge.columns:
+        df_nmerge.drop(['hyid_count','accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop hydroid counter if it exists
+    #df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop accum vars from group calc
+    return(df_nmerge)
 
 def output_src_json(df_htable,output_src_json_file):
     output_src_json = dict()

@@ -131,6 +131,10 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
 
     ## Define paths to relevant HUC HAND data.
     for huc in huc_list:
+        ## Check to make sure the HUC directory exists in the current fim_directory
+        if not os.path.exists(os.path.join(fim_directory, huc)):
+            print("FIM Directory for huc: " + str(huc) + " does not exist --> skipping SRC adjustments for this HUC")
+            continue
         print(huc)
         ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
         if scale == 'HUC8':
@@ -145,9 +149,6 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             catchments_poly_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.gpkg')
 
         ## Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
-        if not os.path.exists(os.path.join(fim_directory, huc)):
-            print("FIM Directory for huc: " + str(huc) + " does not exist --> skipping this HUC")
-            continue
         if not os.path.exists(hand_path):
             print("HAND grid for HUC " + huc + " not found (" + str(hand_path) + ") --> skipping this HUC")
             continue
