@@ -1,60 +1,49 @@
 import argparse
 import pandas as pd
 import os
-
-
-import os
-import pandas as pd
 import re
 import geopandas as gpd
 
 
 
 
-def aggregateHydroTables(root_dir):
+def aggregate_hydro_tables(root_dir):
     aggregate_df = pd.DataFrame()
     dtype_dict_py ={'HydroID': int,'feature_id':int, 'SLOPE':float, 'AREASQKM':float, 'order_':int,'LENGTHKM':float,'LakeID':int, 'orig_ManningN':float}
-    for huc_dir in os.listdir(root_dir):
-    
-        if not re.search("^\d{6,8}$",huc_dir):
-        
+    for huc_dir in os.listdir(root_dir):    
+        if not re.search("^\d{6,8}$",huc_dir):        
             continue 
     
         hydroTable = pd.read_csv(os.path.join(root_dir, huc_dir, "hydroTable.csv"),dtype = dtype_dict_py)
-
         hydroTable = hydroTable.filter(['HydroID',"feature_id", 'SLOPE', 'AREASQKM','LENGTHKM','LakeID', 'order_', 'orig_ManningN', 'sinuosity'])
-
-        aggregate_df = aggregate_df.append(hydroTable)
-        
+        aggregate_df = aggregate_df.append(hydroTable)        
     aggregate_df = aggregate_df.drop_duplicates(subset=['HydroID'], keep='first')
     return aggregate_df
 
 
-def assembleSierraTest(geoPackagePath):
+def assemble_sierra_test(geoPackagePath):
     sierra_test_results = gpd.read_file(geoPackagePath)
-    
-    #sierra_test_results.location_id = sierra_test_results.location_id.astype(str)
-    print(type(sierra_test_results.location_id.loc[0]))
     return sierra_test_results
     
-def importLinkTable(link_table_path):
+
+def import_link_table(link_table_path):
     link_df = pd.read_csv(link_table_path,dtype = {'location_id':str,'HydroID':int})
     link_df = link_df.dropna(subset=['location_id'])
     link_df = link_df.filter(['HydroID','location_id'])
-    print(link_df)
     return link_df
     
-def performMerge(sierra_test_results,link_df,aggregate_df,):
+
+def perform_merge(sierra_test_results,link_df,aggregate_df,):
     filter_list = ['HydroID','SLOPE','AREASQKM','LENGTHKM','LakeID','order_','sinuosity','nws_lid','location_id','HUC8','name','states','curve','mainstem','nrmse','mean_abs_y_diff_ft','mean_y_diff_ft','percent_bias','2','5','10','25','50','100','action','minor','moderate','major','geometry']
     sierra_test_merged = sierra_test_results.merge(link_df, on='location_id')
-    aggregate_df = aggregate_df.merge(sierra_test_merged, on='HydroID')
-    aggregate_df = aggregate_df.filter(filter_list)
-    
-    return aggregate_df
-def outFileDest(aggregate_df,outFile):
+    aggregate_df_merged = aggregate_df.merge(sierra_test_merged, on='HydroID')
+    aggregate_df_merged = aggregate_df.filter(filter_list)    
+    return aggregate_df_merged
+
+
+def out_file_dest(aggregate_df,outFile):
     aggregate_df.to_csv(outFile, encoding='utf-8', index=False) 
   
-
 
 if __name__ == '__main__':
     """
@@ -81,6 +70,8 @@ if __name__ == '__main__':
     output_csv_destination = args['output_csv_destination']
     link_elev_table = args['link_elev_table']
     
-    aggregate_df = performMerge(assembleSierraTest(sierra_test_input),importLinkTable(link_elev_table),aggregateHydroTables(fim_directory))
-    outFileDest(aggregate_df,output_csv_destination)
-    
+    sierra_test_results = assemble_sierra_test(sierra_test_input)
+    link_df = import_link_table(link_elev_table)
+    aggregate_df = aggregate_hydro_tables(fim_directory)
+    aggregate_df_merged = perform_merge(sierra_test_results,link_df,aggregate_df)
+    out_file_dest(aggregate_df_merged, output_csv_destination)    
