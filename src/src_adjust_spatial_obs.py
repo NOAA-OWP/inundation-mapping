@@ -145,11 +145,14 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             catchments_poly_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.gpkg')
 
         ## Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
+        if not os.path.exists(os.path.join(fim_directory, huc):
+            print("FIM Directory for huc: " + str(huc) + " does not exist --> skipping this HUC")
+            continue
         if not os.path.exists(hand_path):
-            print("HAND grid for " + huc + " does not exist.")
+            print("HAND grid for HUC " + huc + " not found (" + str(hand_path) + ") --> skipping this HUC")
             continue
         if not os.path.exists(catchments_path):
-            print("Catchments grid for " + huc + " does not exist.")
+            print("Catchments grid for HUC " + huc + " not found (" + str(catchments_path) + ") --> skipping this HUC")
             continue
         if not os.path.isfile(output_src_json_file):
             print("ALERT: Rating Curve JSON file for " + huc + " does not exist. --> Will create a new file.")
