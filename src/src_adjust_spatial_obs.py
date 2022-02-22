@@ -145,7 +145,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             catchments_poly_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.gpkg')
 
         ## Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
-        if not os.path.exists(os.path.join(fim_directory, huc):
+        if not os.path.exists(os.path.join(fim_directory, huc)):
             print("FIM Directory for huc: " + str(huc) + " does not exist --> skipping this HUC")
             continue
         if not os.path.exists(hand_path):
