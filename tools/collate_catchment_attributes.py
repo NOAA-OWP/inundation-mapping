@@ -37,7 +37,7 @@ def perform_merge(sierra_test_results,link_df,aggregate_df,):
     filter_list = ['HydroID','SLOPE','AREASQKM','LENGTHKM','LakeID','order_','sinuosity','nws_lid','location_id','HUC8','name','states','curve','mainstem','nrmse','mean_abs_y_diff_ft','mean_y_diff_ft','percent_bias','2','5','10','25','50','100','action','minor','moderate','major','geometry']
     sierra_test_merged = sierra_test_results.merge(link_df, on='location_id')
     aggregate_df_merged = aggregate_df.merge(sierra_test_merged, on='HydroID')
-    aggregate_df_merged = aggregate_df.filter(filter_list)    
+    aggregate_df_merged = aggregate_df_merged.filter(filter_list)    
     return aggregate_df_merged
 
 
