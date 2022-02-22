@@ -112,7 +112,7 @@ def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_f
     log_usgs_db.close()
     return(final_df)
 
-def huc_proc_list(usgs_df,fim_directory,inter_outputs):
+def huc_proc_list(usgs_df,fim_directory,debug_outputs_option):
     huc_list = usgs_df['huc'].tolist()
     huc_list = list(set(huc_list))
     procs_list = []  # Initialize list for mulitprocessing.
@@ -151,7 +151,11 @@ def huc_proc_list(usgs_df,fim_directory,inter_outputs):
             print("hydroTable for " + huc + " does not exist.")
             continue
 
-        procs_list.append([fim_directory, water_edge_median_ds, htable_path, output_src_json_file, huc, catchments_poly_path, inter_outputs])
+        ## Additional arguments for src_roughness_optimization
+        source_tag = 'usgs_rating' # tag to use in source attribute field
+        merge_prev_adj = False # merge in previous SRC adjustment calculations
+
+        procs_list.append([fim_directory, water_edge_median_ds, htable_path, output_src_json_file, huc, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
 
     print(f"Calculating new SRCs for {len(procs_list)} hucs using {job_number} jobs...")
     with Pool(processes=job_number) as pool:
@@ -167,8 +171,8 @@ if __name__ == '__main__':
     parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-usgs_rc','--usgs-ratings',help='Path to USGS rating curve csv file',required=True)
     parser.add_argument('-nwm_recur','--nwm_recur',help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',required=True)
-    parser.add_argument('-i','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
-    parser.add_argument('-s','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
+    parser.add_argument('-debug','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
+    parser.add_argument('-scale','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=2)
 
     # Assign variables from arguments.
@@ -176,7 +180,7 @@ if __name__ == '__main__':
     fim_directory = args['fim_directory']
     usgs_rc_filepath = args['usgs_ratings']
     nwm_recurr_filepath = args['nwm_recur']
-    inter_outputs = args['extra_outputs']
+    debug_outputs_option = args['extra_outputs']
     scale = args['scale']
     job_number = int(args['job_number'])
 
@@ -212,7 +216,7 @@ if __name__ == '__main__':
     log_file.write('#########################################################\n\n')
 
     ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-    huc_proc_list(usgs_df,fim_directory,inter_outputs)
+    huc_proc_list(usgs_df,fim_directory,debug_outputs_option)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()

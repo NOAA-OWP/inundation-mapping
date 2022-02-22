@@ -180,7 +180,13 @@ fi
 echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
 if [ "$src_adjust_usgs" = "True" ]; then
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    time python3 foss_fim/tools/usgs_gage_src_adjust.py -fim_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    time python3 foss_fim/tools/src_adjust_usgs_rating.py -fim_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -debug False -j $jobLimit
+fi
+
+echo -e $startDiv"Performing SRC adjustments using obs FIM/flow point database"$stopDiv
+if [ "$src_adjust_spatial" = "True" ]; then
+    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
+    time python3 foss_fim/tools/src_adjust_spatial_obs.py -db $fim_obs_pnt_data -fim_dir $outputRunDataDir -wbd $input_WBD_gdb -debug False -j $jobLimit
 fi
 
 echo "$viz"
