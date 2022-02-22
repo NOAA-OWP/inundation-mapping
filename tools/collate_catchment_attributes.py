@@ -8,6 +8,7 @@ import geopandas as gpd
 
 
 def aggregate_hydro_tables(root_dir):
+    #loops through huc dircectories and appends hydrotable.csv from each one. Drops duplicates on hydroID so that this code ignores stage changes, and only assembles one row per hydroID.
     aggregate_df = pd.DataFrame()
     dtype_dict_py ={'HydroID': int,'feature_id':int, 'SLOPE':float, 'AREASQKM':float, 'order_':int,'LENGTHKM':float,'LakeID':int, 'orig_ManningN':float}
     for huc_dir in os.listdir(root_dir):    
@@ -22,11 +23,13 @@ def aggregate_hydro_tables(root_dir):
 
 
 def assemble_sierra_test(geoPackagePath):
+    #uses geopandas to injest sierra test geopackage into a geodataframe
     sierra_test_results = gpd.read_file(geoPackagePath)
     return sierra_test_results
     
 
 def import_link_table(link_table_path):
+    #link table necesary for maintaining uniqueness of hydroID. Used to link hydrotable to sierra test metrics.
     link_df = pd.read_csv(link_table_path,dtype = {'location_id':str,'HydroID':int})
     link_df = link_df.dropna(subset=['location_id'])
     link_df = link_df.filter(['HydroID','location_id'])
@@ -34,6 +37,7 @@ def import_link_table(link_table_path):
     
 
 def perform_merge(sierra_test_results,link_df,aggregate_df,):
+    #function to merge the hydrotables to the sierra test via the link table. Also defines the columns/fields desired in final csv result.
     filter_list = ['HydroID','SLOPE','AREASQKM','LENGTHKM','LakeID','order_','sinuosity','nws_lid','location_id','HUC8','name','states','curve','mainstem','nrmse','mean_abs_y_diff_ft','mean_y_diff_ft','percent_bias','2','5','10','25','50','100','action','minor','moderate','major','geometry']
     sierra_test_merged = sierra_test_results.merge(link_df, on='location_id')
     aggregate_df_merged = aggregate_df.merge(sierra_test_merged, on='HydroID')
@@ -42,6 +46,7 @@ def perform_merge(sierra_test_results,link_df,aggregate_df,):
 
 
 def out_file_dest(aggregate_df,outFile):
+    #defines the destination of csv output
     aggregate_df.to_csv(outFile, encoding='utf-8', index=False) 
   
 
