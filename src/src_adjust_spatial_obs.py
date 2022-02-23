@@ -14,6 +14,29 @@ from multiprocessing import Pool
 from src_roughness_optimization import update_rating_curve
 
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
+'''
+The script ingests a point database (.gpkg) representing observed FIM extent and flow data. Data is attributed with the HUC id, hydroid, and HAND value.
+
+Processing
+- Define CRS to use for initial geoprocessing and read wbd_path and points_layer.
+- Spatially join the point layer and WBD polygons
+- Define paths to hydroTable.csv, HAND raster, catchments raster, and synthetic rating curve JSON.
+- Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
+- Define coords variable to be used in point raster value attribution and use point geometry to determine catchment raster pixel values
+- Check that there are valid obs in the water_edge_df (not empty) and convert pandas series to dataframe to pass to update_rating_curve
+- Call update_rating_curve() to perform the rating curve calibration.
+
+Inputs
+- points_layer:         .gpkg layer containing observed/truth FIM extent points and associated flow value 
+- fim_directory:        fim directory containing individual HUC output dirs
+- wbd_path:             path the watershed boundary dataset layer (HUC polygon boundaries)
+- scale:                HUC6 or HUC8
+- job_number:           number of multi-processing jobs to use
+- debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
+
+Outputs
+- water_edge_median_df: dataframe containing "hydroid", "flow", "submitter", "coll_time", "flow_unit", "layer", and median "HAND" value
+'''
 
 def process_points(args):
 

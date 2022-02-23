@@ -10,7 +10,33 @@ import multiprocessing
 from multiprocessing import Pool
 from utils.shared_functions import check_file_age, concat_huc_csv
 from src_roughness_optimization import update_rating_curve
+'''
+The script ingests a USGS rating curve database and a NWM flow recurrence interval database. The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value
 
+Processing
+- Read in USGS rating curve from csv and convert WSE navd88 values to meters
+- Read in the aggregate USGS elev table csv from the HUC fim directory (output from usgs_gage_crosswalk.py)
+- Filter null entries and convert usgs flow from cfs to cms
+- Calculate HAND elevation value for each gage location (NAVD88 elevation - NHD DEM thalweg elevation)
+- Read in the NWM recurr csv file and convert flow to cfs
+- Calculate the closest SRC discharge value to the NWM flow value
+- Create dataframe with crosswalked USGS flow and NWM recurr flow and assign metadata attributes
+- Calculate flow difference (variance) to check for large discrepancies btw NWM flow and USGS closest flow
+- Log any signifant differences (or negative HAND values) btw the NWM flow value and closest USGS rating flow
+- Produce log file
+- Call update_rating_curve() to perform the rating curve calibration.
+
+Inputs
+- fim_directory:        fim directory containing individual HUC output dirs
+- usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
+- nwm_recurr_filepath:  NWM flow recurrence interval dataset
+- debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
+- scale:                HUC6 or HUC8
+- job_number:           number of multi-processing jobs to use
+
+Outputs
+- water_edge_median_ds: dataframe containing 'location_id','hydroid','feature_id','huc','hand','discharge_cms','nwm_recur_flow_cms','nwm_recur','layer'
+'''
 
 def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_filepath, output_dir):
     start_time = dt.datetime.now()
@@ -61,7 +87,7 @@ def create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_f
     for interval in recurr_intervals:
         log_text += ('\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n')
         print('Processing: ' + str(interval) + '-year NWM recurr intervals')
-        ## Calculate the closest SRC discharge value to the NWM 1.5yr flow
+        ## Calculate the closest SRC discharge value to the NWM flow value
         merge_df['Q_find'] = (merge_df['discharge_cms'] - merge_df[interval+"_0_year"]).abs()
         
         ## Check for any missing/null entries in the input SRC

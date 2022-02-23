@@ -17,11 +17,45 @@ from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, R
 
 def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj=False, down_dist_thresh=DOWNSTREAM_THRESHOLD):
     '''
+    This script ingests a dataframe containing observed data (HAND elevation and flow) and then calculates new SRC roughness values via Manning's equation. The new roughness values are averaged for each HydroID and then progated downstream and a new discharge value is calculated where applicable.
+
     Processing Steps:
+    - Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
+    - Loop through the user provided point data --> stage/flow dataframe row by row and copy the corresponding htable values for the matching stage->HAND lookup
+    - Calculate new HydroID roughness values for input obs data using Manning's equation
+    - Create dataframe to check for erroneous Manning's n values (values set in tools_shared_variables.py: >0.6 or <0.001 --> see input args)
+    - Create magnitude and ahps column by subsetting the "layer" attribute
+    - Create df grouped by hydroid with ahps_lid and huc number and then pivot the magnitude column to display n value for each magnitude at each hydroid
+    - Create df with the most recent collection time entry and submitter attribs
+    - Cacluate median ManningN to handle cases with multiple hydroid entries and create a df with the median hydroid_ManningN value per feature_id
+    - Rename the original hydrotable variables to allow new calculations to use the primary var name 
+    - Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a singel hydroid)
+    - Create attributes to traverse the flow network between HydroIDs
+    - Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg)
+    - Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
+    - Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new adjusted roughness value
+    - Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
+    - Merge the final ManningN dataframe to the original hydroTable
+    - Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
+    - Calculate new discharge_cms with new adjusted ManningN
+    - Export a new hydroTable.csv and overwrite the previous version and output new src json (overwrite previous)
 
     Inputs:
+    - fim_directory:        fim directory containing individual HUC output dirs
+    - water_edge_median_df: dataframe containing observation data (attributes: "hydroid", "flow", "submitter", "coll_time", "flow_unit", "layer", "HAND")
+    - htable_path:          path to the current HUC hydroTable.csv
+    - output_src_json_file: path to the current HUC src.json
+    - huc:                  string variable for the HUC id # (huc8 or huc6)
+    - catchments_poly_path: path to the current HUC catchments polygon layer .gpkg 
+    - debug_outputs_option: optional input argument to output additional intermediate data files (csv files with SRC calculations)
+    - source_tag:           input text tag used to specify the type/source of the input obs data used for the SRC adjustments (e.g. usgs_rating or point_obs)
+    - merge_prev_adj:       boolean argument to specify when to merge previous SRC adjustments vs. overwrite (default=False)
+    - down_dist_thresh:     optional input argument to override the env variable that controls the downstream distance new roughness values are applied downstream of locations with valid obs data
 
     Ouputs:
+    - output_catchments:    same input "catchments_poly_path" .gpkg with appened attributes for SRC adjustments fields
+    - df_htable:            same input "htable_path" --> updated hydroTable.csv with new/modified attributes
+    - output_src_json:      src.json file with new SRC discharge values
 
     '''
     print("Processing huc --> " + str(huc))
