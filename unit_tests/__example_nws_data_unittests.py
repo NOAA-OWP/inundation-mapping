@@ -6,6 +6,7 @@ import sys
 
 import argparse
 import json
+import warnings
 import unittest
 
 import unit_tests_utils as helpers
@@ -22,6 +23,8 @@ class test_get_huc8_by_nws_lid(unittest.TestCase):
     @classmethod
     def setUpClass(self):
 
+        warnings.simplefilter('ignore')
+        
         params_file_path = '/foss_fim/unit_tests/nws_data_params.json'
     
         with open(params_file_path) as params_file:
