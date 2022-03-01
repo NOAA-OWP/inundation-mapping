@@ -61,7 +61,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     print("Processing huc --> " + str(huc))
     log_text = "\nProcessing huc --> " + str(huc) + '\n'
     log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
-    log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n')
+    log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
     df_nvalues = df_nvalues[df_nvalues.hydroid.notnull()] # remove null entries that do not have a valid hydroid
 
