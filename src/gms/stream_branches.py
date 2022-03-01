@@ -39,7 +39,8 @@ class StreamNetwork(gpd.GeoDataFrame):
 
 
     @classmethod
-    def from_file(cls,filename,branch_id_attribute=None,values_excluded=None,attribute_excluded=None, verbose=False,*args,**kwargs):
+    def from_file(cls, filename, branch_id_attribute=None,values_excluded=None, 
+                  attribute_excluded=None, verbose=False, drop_low_stream_orders=False, *args, **kwargs):
 
         """ loads stream network from file to streamnetwork geopandas """
 
@@ -56,8 +57,22 @@ class StreamNetwork(gpd.GeoDataFrame):
             
         if verbose: 
             print('Loading file')
+            
+        dataframe = gpd.read_file(filename,*args,**kwargs)
+        filtered_df = gpd.GeoDataFrame()
         
-        return(cls(gpd.read_file(filename,*args,**kwargs),**inputs))
+        if (drop_low_stream_orders) and ("nwm_subset_streams" in filename):
+             filtered_df = dataframe[dataframe["order_"] > 2]
+        else:
+             filtered_df = dataframe
+            
+        #filtered_df = dataframe            
+        
+        if verbose:         
+             print("======" + filename)
+             print("Number of df rows = " + str(filtered_df.shape[0]))
+        
+        return(cls(filtered_df,**inputs))
 
 
     def write(self,fileName,layer=None,index=True,verbose=False):
