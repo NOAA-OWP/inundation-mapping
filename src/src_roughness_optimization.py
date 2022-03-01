@@ -20,7 +20,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     This script ingests a dataframe containing observed data (HAND elevation and flow) and then calculates new SRC roughness values via Manning's equation. The new roughness values are averaged for each HydroID and then progated downstream and a new discharge value is calculated where applicable.
 
     Processing Steps:
-    - Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
+    - Read in the hydroTable.csv and check whether it has previously been updated (rename default columns if needed)
     - Loop through the user provided point data --> stage/flow dataframe row by row and copy the corresponding htable values for the matching stage->HAND lookup
     - Calculate new HydroID roughness values for input obs data using Manning's equation
     - Create dataframe to check for erroneous Manning's n values (values set in tools_shared_variables.py: >0.6 or <0.001 --> see input args)

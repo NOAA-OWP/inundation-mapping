@@ -74,6 +74,7 @@ def process_points(args):
     water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
     catchments_src.close()
     del catchments_src, catchments_crs
+    #water_edge_df.to_file(fim_directory + 'export_water_edge_df.gpkg', driver="GPKG",index=False)
 
     ## Check that there are valid obs in the water_edge_df (not empty)
     if not water_edge_df.empty:
@@ -122,7 +123,7 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
 
     ## Update CRS of points_layer_read.
     points_layer_read = points_layer_read.to_crs(hand_crs_default)
-    wbd_huc_read = wbd_huc_read.to_crs(hand_crs_default)
+    wbd_huc_read = wbd_huc_read.to_crs(hand_crs_default)#[['geometry',scale]]
 
     ## Spatially join the two layers.
     print("Joining points to WBD...")
