@@ -26,11 +26,14 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     if verbose:
         print("Loading stream network ...")
         
-    # adding drop-low-stream-orders param is not optimal but functional. A true solution
-    # would have been to assign it as part of some of the other attributes, but it had down code stream affects.
-    stream_network = StreamNetwork.from_file(filename=in_stream_network,
-                                             drop_low_stream_orders=drop_low_stream_orders)
-
+    if (drop_low_stream_orders):
+        stream_network = StreamNetwork.from_file(filename=in_stream_network,
+                                                 branch_id_attribute="order_",
+                                                 values_excluded=[1,2]
+                                                 )
+    else:
+        stream_network = StreamNetwork.from_file(filename=in_stream_network)
+                                                 
     inlets_attribute = 'inlet_id'
     outlets_attribute = 'outlet_id'
     outlet_linestring_index = -1
