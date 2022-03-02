@@ -3,9 +3,11 @@
 import inspect
 import os
 import sys
-import unittest
 
+import argparse
 import json
+import warnings
+import unittest
 
 # importing python folders in other direcories
 sys.path.append('/foss_fim/unit_tests/')
@@ -26,6 +28,8 @@ class test_Derive_level_paths(unittest.TestCase):
     @classmethod
     def setUpClass(self):
     
+        warnings.simplefilter('ignore')
+        
         params_file_path = '/foss_fim/unit_tests/gms/derive_level_paths_params.json'    
     
         with open(params_file_path) as params_file:
