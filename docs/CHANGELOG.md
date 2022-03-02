@@ -14,8 +14,10 @@ This code modification appends the SRC optimization steps to `fim_run.sh` and pe
 - `src/src_adjust_usgs_rating.py`: moved and renamed the script
 - `src/src_roughness_optimization.py`: moved and renamed the script; added functionality to preserve previous iterations of SRC adjustments
 - `src/utils/shared_functions.py`: copied `concat_huc_csv` and `check_file_age` functions over from `tools/tools_shared_functions.py`
-- `src/utils/shared_variables.py`: copied the `DOWNSTREAM_THRESHOLD`, `ROUGHNESS_MAX_THRESH`, and `ROUGHNESS_MIN_THRESH` variables from `tools\tools_shared_variables.py`
+- `src/utils/shared_variables.py`: copied the `DOWNSTREAM_THRESHOLD`, `ROUGHNESS_MAX_THRESH`, and `ROUGHNESS_MIN_THRESH` variables from `tools/tools_shared_variables.py`
 - `tools/tools_shared_variables.py`: removed the `DOWNSTREAM_THRESHOLD`, `ROUGHNESS_MAX_THRESH`, and `ROUGHNESS_MIN_THRESH` variables 
+
+<br/><br/>
 
 ## v3.0.25.0 - 2022-02-18 - [PR #542](https://github.com/NOAA-OWP/cahaba/pull/542)
 
