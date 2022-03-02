@@ -2,6 +2,9 @@
 
 import os
 from os.path import splitext
+from pathlib import Path
+from datetime import datetime, timezone
+import pandas as pd
 import rasterio
 import numpy as np
 from rasterio.warp import calculate_default_transform, reproject, Resampling
@@ -217,3 +220,52 @@ def mem_profile(func):
         else:
             func(*args, **kwargs)
     return wrapper
+
+########################################################################
+#Function to concatenate huc csv files to a single dataframe/csv
+########################################################################
+def concat_huc_csv(fim_dir,csv_name):
+    '''
+    Checks if huc csv file exist, concatenates contents of csv
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    merged_csv = []
+    huc_list  = os.listdir(fim_dir)
+    for huc in huc_list:
+        if huc != 'logs':
+            csv_file = os.path.join(fim_dir,huc,str(csv_name))
+            if Path(csv_file).is_file():
+                # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
+                read_csv = pd.read_csv(csv_file, dtype={'huc': object, 'location_id': object, 'feature_id': int})
+                # Add huc field to dataframe
+                read_csv['huc'] = huc 
+                merged_csv.append(read_csv)
+
+    # Create and return a concatenated pd dataframe
+    if merged_csv:
+        print(f"Creating aggregate csv")
+        concat_df = pd.concat(merged_csv)
+        return concat_df
+
+########################################################################
+#Function to check the age of a file (use for flagging potentially outdated input)
+########################################################################
+def check_file_age(file):
+    '''
+    Checks if file exists, determines the file age
+
+    Returns
+    -------
+    None.
+
+    '''
+    file = Path(file)
+    if file.is_file():
+        modified_date = datetime.fromtimestamp(file.stat().st_mtime, tz=timezone.utc)
+
+        return modified_date
