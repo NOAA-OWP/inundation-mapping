@@ -66,7 +66,7 @@ class Gage2Branch(object):
 
         snap_geom = union.interpolate(union.project(pnt))
         queried_index = lines.geometry.sindex.query(snap_geom)
-        if queried_index:
+        if len(queried_index):
             return int(lines.iloc[queried_index[0]].feature_id.item())
 
     @staticmethod
@@ -74,7 +74,7 @@ class Gage2Branch(object):
 
         fim_dir = os.path.dirname(gms_inputs_filename)
         gms_inputs = pd.read_csv(gms_inputs_filename, header=None, names=['huc', 'levpa_id'],
-            dtype={'huc':object, 'levpa_id':object})
+            dtype={'huc':str, 'levpa_id':str})
 
         for huc_dir in [d for d in os.listdir(fim_dir) if re.search('^\d{8}$', d)]:
 

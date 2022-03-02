@@ -1,0 +1,13 @@
+{
+	"valid_data":
+	{
+		"usgs_gages_filename": "/data/outputs/gms_example_unit_tests/02020005/usgs_subset_gages.gpkg",
+		"input_flows_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000257/demDerived_reaches_split_filtered_3246000257.gpkg",
+		"input_catchment_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000257/gw_catchments_reaches_filtered_addedAttributes_3246000257.gpkg",
+		"dem_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000257/dem_meters_3246000257.tif",
+		"dem_adj_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000257/dem_thalwegCond_3246000257.tif",
+		"output_table_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000257/usgs_elev_table.csv",
+		"branch_id": "3246000257"
+
+	}
+}

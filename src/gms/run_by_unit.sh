@@ -88,7 +88,7 @@ Tcount
 echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -ahps $inputDataDir/ahps_sites/nws_lid.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber
+python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputDataDir/ahps_sites/nws_lid.gpkg
 Tcount
 
 ## REMOVE FILES FROM DENY LIST ##

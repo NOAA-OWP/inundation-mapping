@@ -14,19 +14,19 @@ warnings.simplefilter("ignore")
     Parameters
     ----------
     usgs_gages_filename : str
-        File name of USGS stations layer.
-    dem_filename : str
-        File name of original DEM.
+        File path of USGS stations subset layer. i.e. '/data/path/usgs_subset_gages.gpkg'
     input_flows_filename : str
-        File name of FIM streams layer.
+        File path of FIM streams layer. i.e. '/data/path/demDerived_reaches_split_filtered_3246000257.gpkg'
     input_catchment_filename : str
-        File name of FIM catchment layer.
-    wbd_buffer_filename : str
-        File name of buffered wbd.
+        File path of FIM catchment layer. i.e. '/data/path/gw_catchments_reaches_filtered_addedAttributes_3246000257.gpkg'
+    dem_filename : str
+        File path of original DEM. i.e. '/data/path/dem_meters_3246000257.tif'
     dem_adj_filename : str
-        File name of thalweg adjusted DEM.
+        File path of thalweg adjusted DEM. i.e. '/data/path/dem_thalwegCond_3246000257.tif'
     output_table_filename : str
-        File name of output table.
+        File path of output table. i.e. '/data/path/usgs_elev_table.csv'
+    branch_id: str
+        ID of the current branch i.e. '3246000257'
 '''
 
 class GageCrosswalk(object):
@@ -35,6 +35,31 @@ class GageCrosswalk(object):
         
         self.branch_id = branch_id
         self.gages = self._load_gages(usgs_subset_gages_filename)
+
+    def run_crosswalk(self, input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_table_filename):
+        '''Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to 
+        the dem-derived flows 3) sample both dems at the snapped points 4) write the crosswalked points
+        to usgs_elev_table.csv
+        '''
+
+        if self.gages.empty:
+            print(f'There are no gages for branch {branch_id}')
+            os._exit(0)
+        # Spatial join to fim catchments
+        self.catchment_sjoin(input_catchment_filename)
+        if self.gages.empty:
+            print(f'There are no gages for branch {branch_id}')
+            os._exit(0)
+        # Snap to dem derived flow lines
+        self.snap_to_dem_derived_flows(input_flows_filename)
+        # Sample DEM and thalweg adjusted DEM
+        self.sample_dem(dem_filename, 'dem_elevation')
+        self.sample_dem(dem_adj_filename, 'dem_adj_elevation')
+        # Write to csv
+        num_gages = len(self.gages)
+        print(f"{num_gages} gage{'' if num_gages == 1 else 's'} in branch {self.branch_id}")
+        self.write(output_table_filename)
+
 
     def _load_gages(self, gages_filename):
         '''Reads gage geopackage from huc level and filters based on current branch id'''
@@ -46,7 +71,7 @@ class GageCrosswalk(object):
         '''Spatial joins gages to FIM catchments'''
 
         input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID':int})
-        self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='left')
+        self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
 
     def snap_to_dem_derived_flows(self, input_flows_filename):
         '''Joins to dem derived flow line and produces snap_distance and geometry_snapped for sampling DEMs on the thalweg'''
@@ -57,12 +82,13 @@ class GageCrosswalk(object):
         
         # Snap each point to its feature_id line
         self.gages['geometry_snapped'], self.gages['snap_distance'] = self.gages.apply(self.snap_to_line, axis=1,result_type='expand').T.values
+        self.gages.geometry_snapped = self.gages.geometry_snapped.astype('geometry')
 
     def sample_dem(self, dem_filename, column_name):
         '''Sample an input DEM at snapped points. Make sure to run self.gages.set_geometry("geometry_snapped") before runnig
         this method, otherwise the DEM will be sampled at the actual gage locations.'''
 
-        coord_list = [(x,y) for x,y in zip(self.gages['geometry'].x , self.gages['geometry'].y)]
+        coord_list = [(x,y) for x,y in zip(self.gages['geometry_snapped'].x , self.gages['geometry_snapped'].y)]
         
         with rasterio.open(dem_filename) as dem:
             self.gages[column_name] = [x[0] for x in dem.sample(coord_list)]
@@ -111,25 +137,12 @@ if __name__ == '__main__':
 
     # Instantiate class
     gage_crosswalk = GageCrosswalk(usgs_gages_filename, branch_id)
-    if gage_crosswalk.gages.empty:
-        print(f'There are no gages for branch {branch_id}')
-        os._exit(0)
-    # Spatial join to fim catchments
-    gage_crosswalk.catchment_sjoin(input_catchment_filename)
-    # Snap to dem derived flow lines
-    gage_crosswalk.snap_to_dem_derived_flows(input_flows_filename)
-    # Set gage geometry to the snapped points
-    gage_crosswalk.gages.set_geometry('geometry_snapped')
-    # Sample DEM and thalweg adjusted DEM
-    gage_crosswalk.sample_dem(dem_filename, 'dem_elevation')
-    gage_crosswalk.sample_dem(dem_adj_filename, 'dem_adj_elevation')
-    # Write to csv
-    num_gages = len(gage_crosswalk.gages)
-    print(f"{num_gages} gage{'' if num_gages == 1 else 's'} in branch {branch_id}")
-    gage_crosswalk.write(output_table_filename)
+    gage_crosswalk.run_crosswalk(input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_table_filename)
 
 """
 python /foss_fim/src/usgs_gage_crosswalk.py -gages /data/outputs/carson_gms_bogus/02020005/usgs_subset_gages.gpkg -flows /data/outputs/carson_gms_bogus/02020005/branches/3246000305/demDerived_reaches_split_filtered_3246000305.gpkg -cat /data/outputs/carson_gms_bogus/02020005/branches/3246000305/gw_catchments_reaches_filtered_addedAttributes_3246000305.gpkg -dem /data/outputs/carson_gms_bogus/02020005/branches/3246000305/dem_meters_3246000305.tif -dem_adj /data/outputs/carson_gms_bogus/02020005/branches/3246000305/dem_thalwegCond_3246000305.tif -outtable /data/outputs/carson_gms_bogus/02020005/branches/3246000305/usgs_elev_table.csv -b 3246000305
 
 python /foss_fim/src/usgs_gage_crosswalk.py -gages /data/outputs/carson_gms_bogus/02020005/usgs_subset_gages.gpkg -flows /data/outputs/carson_gms_bogus/02020005/branches/3246000257/demDerived_reaches_split_filtered_3246000257.gpkg -cat /data/outputs/carson_gms_bogus/02020005/branches/3246000257/gw_catchments_reaches_filtered_addedAttributes_3246000257.gpkg -dem /data/outputs/carson_gms_bogus/02020005/branches/3246000257/dem_meters_3246000257.tif -dem_adj /data/outputs/carson_gms_bogus/02020005/branches/3246000257/dem_thalwegCond_3246000257.tif -outtable /data/outputs/carson_gms_bogus/02020005/branches/3246000257/usgs_elev_table.csv -b 3246000257
+
+python /foss_fim/src/usgs_gage_crosswalk.py -gages /data/outputs/carson_gage_test/04130001/usgs_subset_gages.gpkg -flows /data/outputs/carson_gage_test/04130001/branches/9041000030/demDerived_reaches_split_filtered_9041000030.gpkg -cat /data/outputs/carson_gage_test/04130001/branches/9041000030/gw_catchments_reaches_filtered_addedAttributes_9041000030.gpkg -dem /data/outputs/carson_gage_test/04130001/branches/9041000030/dem_meters_9041000030.tif -dem_adj /data/outputs/carson_gage_test/04130001/branches/904100030/dem_thalwegCond_0941000030.tif -outtable /data/outputs/carson_gage_test/04130001/branches/9041000030/usgs_elev_table.csv -b 9041000030
 """
