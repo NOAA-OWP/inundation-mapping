@@ -19,6 +19,20 @@ from scipy.stats import mode
 
 class StreamNetwork(gpd.GeoDataFrame):
 
+    '''
+    Notes:
+        - Many of the methods support two attributes called branch_id_attribute and values_excluded.
+          This can be used to filter out records. 
+            ie) When calling the nwm_subset_streams.gpkg, you can filter some records like this:
+                StreamNetwork.from_file(filename=outputs/<some huc>/nwm_subset_streams.gpkg,
+                                                 branch_id_attribute="order_",
+                                                 values_excluded=[1,2]
+                (which means drop all records that have an order_ of 1 or 2.
+                
+        - Note: from_file is using its branch_id_attribute and values_excluded as intended but other
+             methods may not be incomplete and not filtering as expected.
+    '''
+    
     geom_name = 'geometry' # geometry attribute name
     branch_id_attribute = None # branch id attribute name
     values_excluded = None
@@ -39,7 +53,8 @@ class StreamNetwork(gpd.GeoDataFrame):
 
 
     @classmethod
-    def from_file(cls,filename,branch_id_attribute=None,values_excluded=None,attribute_excluded=None, verbose=False,*args,**kwargs):
+    def from_file(cls, filename, branch_id_attribute=None, values_excluded=None, 
+                  attribute_excluded=None, verbose=False, *args, **kwargs):
 
         """ loads stream network from file to streamnetwork geopandas """
 
@@ -56,8 +71,20 @@ class StreamNetwork(gpd.GeoDataFrame):
             
         if verbose: 
             print('Loading file')
+            
+        raw_df = gpd.read_file(filename,*args,**kwargs)
+        filtered_df = gpd.GeoDataFrame()
+                      
+        if (branch_id_attribute is not None) and (values_excluded is not None):
+            filtered_df = raw_df[~raw_df[branch_id_attribute].isin(values_excluded)]
+        else:
+            filtered_df = raw_df
+       
+        if verbose:         
+             print("======" + filename)
+             print("Number of df rows = " + str(filtered_df.shape[0]))
         
-        return(cls(gpd.read_file(filename,*args,**kwargs),**inputs))
+        return(cls(filtered_df,**inputs))
 
 
     def write(self,fileName,layer=None,index=True,verbose=False):

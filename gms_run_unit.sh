@@ -3,7 +3,8 @@
 usage ()
 {
     echo 'Produce GMS hydrofabric datasets for unit scale. Run after fim_run.sh but before gms_run_branch.sh'
-    echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
+    echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -c <config file> -n <run name> ]'
+    echo '  	 						 [OPT: -h -j <job limit>] -o -r -d <deny list file> -s ]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
@@ -13,12 +14,14 @@ usage ()
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : help file'
-    echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
+    echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time.'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -r/--retry      : retries failed jobs'
     echo '  -d/--denylist   : file with line delimited list of files in huc directories to remove upon completion'
     echo '                   (see config/deny_gms_unit_default.lst for a starting point)'
+	 echo '  -s/--dropStreamOrder_1_2 : If this flag is included, the system will leave out stream orders 1 and 2 at the very'
+	 echo	'                     top initial load of the nwm_subset_streams'
     exit
 }
 
@@ -62,6 +65,9 @@ in
         shift
         deny_gms_unit_list=$1
         ;;
+	 -s|--dropLowStreamOrders)
+		  dropLowStreamOrders=1
+		  ;;
     *) ;;
     esac
     shift
@@ -92,6 +98,10 @@ if [ -z "$retry" ]
 then
     retry=""
 fi
+if [ -z "$dropLowStreamOrders" ]
+then
+    dropLowStreamOrders=0
+fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
@@ -105,7 +115,10 @@ fi
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
 logFile=$outputRunDataDir/logs/unit/summary_gms_unit.log
+
+## Set misc global variables
 export overwrite=$overwrite
+export dropLowStreamOrders=$dropLowStreamOrders
 
 ## Define inputs
 export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg

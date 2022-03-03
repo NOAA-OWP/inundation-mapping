@@ -6,18 +6,18 @@ from utils.shared_functions import get_fossid_from_huc8
 import geopandas as gpd
 
 
-def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute,
-                       out_stream_network_dissolved=None,huc_id=None,
-                       headwaters_outfile=None,catchments=None,
+def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribute,
+                       out_stream_network_dissolved=None, huc_id=None,
+                       headwaters_outfile=None, catchments=None,
                        catchments_outfile=None,
                        branch_inlets_outfile=None,
-                       toNode_attribute='To_Node',fromNode_attribute='From_Node',
-                       reach_id_attribute='HydroID',verbose=False
-                       ):
-
+                       toNode_attribute='To_Node', fromNode_attribute='From_Node',
+                       reach_id_attribute='HydroID', verbose=False,
+                       drop_low_stream_orders=False ):
+    
     # getting foss_id of huc8
     #foss_id = get_fossid_from_huc8(huc8_id=huc_id,foss_id_attribute='fossid',
-                                   #hucs_layerName='WBDHU8')
+                                   #hucs_layerName='WBDHU8')    
     
     if verbose:
         print("Deriving level paths ...")
@@ -25,8 +25,15 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
     # load file
     if verbose:
         print("Loading stream network ...")
-    stream_network = StreamNetwork.from_file(in_stream_network)
-
+        
+    if (drop_low_stream_orders):
+        stream_network = StreamNetwork.from_file(filename=in_stream_network,
+                                                 branch_id_attribute="order_",
+                                                 values_excluded=[1,2]
+                                                 )
+    else:
+        stream_network = StreamNetwork.from_file(filename=in_stream_network)
+                                                 
     inlets_attribute = 'inlet_id'
     outlets_attribute = 'outlet_id'
     outlet_linestring_index = -1
@@ -152,15 +159,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create stream network level paths')
     parser.add_argument('-i','--in-stream-network', help='Input stream network', required=True)
     parser.add_argument('-b','--branch-id-attribute', help='Name of the branch attribute desired', required=True)
-    parser.add_argument('-u','--huc-id', help='Current HUC ID', required=False,default=None)
-    parser.add_argument('-r','--reach-id-attribute', help='Reach ID attribute to use in source file', required=False,default='HydroID')
+    parser.add_argument('-u','--huc-id', help='Current HUC ID', required=False, default=None)
+    parser.add_argument('-r','--reach-id-attribute', help='Reach ID attribute to use in source file', required=False, default='HydroID')
     parser.add_argument('-c','--catchments', help='NWM catchments to append level path data to', required=False, default=None)
     parser.add_argument('-t','--catchments-outfile', help='NWM catchments outfile with appended level path data', required=False, default=None)
-    parser.add_argument('-n','--branch_inlets_outfile', help='Output level paths inlets', required=False,default=None)
-    parser.add_argument('-o','--out-stream-network', help='Output stream network', required=False,default=None)
-    parser.add_argument('-e','--headwaters-outfile', help='Output stream network headwater points', required=False,default=None)
-    parser.add_argument('-d','--out-stream-network-dissolved', help='Dissolved output stream network', required=False,default=None)
-    parser.add_argument('-v','--verbose', help='Verbose output', required=False,default=False,action='store_true')
+    parser.add_argument('-n','--branch_inlets_outfile', help='Output level paths inlets', required=False, default=None)
+    parser.add_argument('-o','--out-stream-network', help='Output stream network', required=False, default=None)
+    parser.add_argument('-e','--headwaters-outfile', help='Output stream network headwater points', required=False, default=None)
+    parser.add_argument('-d','--out-stream-network-dissolved', help='Dissolved output stream network', required=False, default=None)
+    parser.add_argument('-v','--verbose', help='Verbose output', required=False, default=False, action='store_true')
+    parser.add_argument('-s','--drop-low-stream-orders', help='Drop stream orders 1 and 2', type=int, required=False, default=False)
     
     args = vars(parser.parse_args())
 
