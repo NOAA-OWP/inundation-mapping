@@ -163,6 +163,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
+                            versions_to_aggregate = dev_versions_to_include_list
 
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
@@ -357,7 +358,7 @@ if __name__ == '__main__':
                                                 'gms_verbose': False
                                               }
                             
-                            procs_dict[current_huc] = alpha_test_args
+                            procs_dict[test_id] = alpha_test_args
 
     if job_number_huc == 1:
         
@@ -414,4 +415,4 @@ if __name__ == '__main__':
         print("Creating master metrics CSV...")
 
         # this function is not compatible with GMS
-        create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, versions_to_include_list=dev_versions_to_include_list)
+        create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_versions_to_include_list=dev_versions_to_include_list)
