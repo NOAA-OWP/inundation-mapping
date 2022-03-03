@@ -2,6 +2,26 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.2.0 - 2022-03-02 - [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548)
+
+Added a new optional system which allows an argument to be added to the `gms_run_unit.sh` command line to filter out stream orders 1 and 2 when calculating branches. 
+
+## Changes
+
+- `gms_run_unit.sh`: Add the new optional `-s` command line argument. Inclusion of this argument means "drop stream orders 1 and 2".
+
+- `src/gms`
+   - `run_by_unit.sh`: Capture and forward the drop stream orders flag to `derive_level_paths.py`
+	
+	- `derive_level_paths.py`: Capture the drop stream order flag and working with `stream_branches.py` to include/not include loading nwm stream with stream orders 1 and 2.
+	
+	- `stream_branchs.py`: A correction was put in place to allow for the filter of branch attributes and values to be excluded. The `from_file` method has the functionality but was incomplete. This was corrected and how could accept the values from `derive_level_paths.py` to use the branch attribute of "order_" (gkpg field) and values excluded of [1,2] when optionally desired.
+
+- `unit_tests/gms`
+	- `derive_level_paths_unittests.py` and `derive_level_paths_params.py`: Updated for testing for the new "drop stream orders 1 and 2" feature. Upgrades were also made to earlier existing incomplete test methods to test more output conditions.
+	
+<br/><br/>
+
 ## v4.0.1.0 - 2022-02-02 - [PR #525](https://github.com/NOAA-OWP/cahaba/pull/525)
 
 The addition of a very simple and evolving unit test system which has two unit tests against two py files.  This will set a precendence and will grow over time and may be automated, possibly during git check-in triggered. The embedded README.md has more details of what we currently have, how to use it, how to add new unit tests, and expected future enhancements.
