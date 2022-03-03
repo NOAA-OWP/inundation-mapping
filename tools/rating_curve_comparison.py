@@ -694,8 +694,11 @@ if __name__ == '__main__':
     else:
         stat_gages = None
 
+    # Make sure that location_id is the only -group when using -pnts
     assert (not stat_gages or (stat_gages and (not stat_groups or stat_groups == ['location_id']))), \
         "location_id is the only acceptable stat_groups argument when producting an output GPKG"
+    # Make sure that the -pnts flag is used with the -eval flag
+    assert not eval or (eval and stat_gages), "You must use the -pnts flag with the -eval flag"
     procs_list = []
 
     plots_dir = join(output_dir,'plots')
