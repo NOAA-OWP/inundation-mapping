@@ -630,7 +630,26 @@ def calculate_rc_diff(rc):
     
 def evaluate_results(sierra_results=[], labels=[], save_location=''):
     '''
-    Compares multiple Sierra Test
+    Compares multiple Sierra Test results using a boxplot.
+
+    Parameters
+    ------------
+    sierra_results : list
+        List of GeoDataFrames with sierra test results.
+    labels : list
+        List of strings that will be used as labels for sierra_results. Length must be equal to sierra_results.
+    save_location : str
+        Path to save output boxplot figure.
+
+    Example
+    ------------
+    from rating_curve_comparison import evaluate_results
+    import geopandas as gpd
+
+    sierra_1 = gpd.read_file("/data/path/to/fim_3_X_ms.gpkg")
+    sierra_new = gpd.read_file("/data/path/to/fim_experiment.gpkg")
+
+    evaluate_results([sierra_1, sierra_new], ["fim_3_X_ms", "fim_calibrate_SRC"], "/path/to/output.png")
     '''
 
     assert len(sierra_results) == len(labels), "Each Sierra Test results must also have a label"
