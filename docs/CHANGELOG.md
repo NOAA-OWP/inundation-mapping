@@ -1,6 +1,33 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.3.0 - 2022-03-03 - [PR #550](https://github.com/NOAA-OWP/inundation-mapping/pull/550)
+
+This PR ports the functionality of `usgs_gage_crosswalk.py` and `rating_curve_comparison.py` to FIM 4.
+
+## Additions
+
+- `src/`:
+    - `usgs_gage_aggregate.py`: Aggregates all instances of `usgs_elev_table.csv` to the HUC level. This makes it easier to view the gages in each HUC without having to hunt through branch folders and easier for the Sierra Test to run at the HUC level.
+    - `usgs_gage_unit_setup.py`: Assigns a branch to each USGS gage within a unit. The output of this module is `usgs_subset_gages.gpkg` at the HUC level containing the `levpa_id` attribute.
+
+## Changes
+
+- `gms_run_branch.sh`: Added a line to aggregate all `usgs_elev_table.csv` into the HUC directory level using `src/usgs_gage_aggregate.py`.
+- `src/`:
+    -  `gms/`
+        - `run_by_branch.sh`: Added a block to run `src/usgs_gage_crosswalk.py`. 
+        - `run_by_unit.sh`: Added a block to run `src/usgs_gage_unit_setup.py`.
+    - `usgs_gage_crosswalk.py`: Similar to it's functionality in FIM 3, this module snaps USGS gages to the stream network, samples the underlying DEMs, and writes the attributes to `usgs_elev_table.csv`. This CSV is later aggregated to the HUC level and eventually used in `tools/rating_curve_comparison.py`. Addresses #539 
+- `tools/rating_curve_comparison.py`: Updated Sierra Test to work with FIM 4 data structure.
+- `unit_tests/`:
+    - `rating_curve_comparison_unittests.py` & `rating_curve_comparison_params.json`: Unit test code and parameters for the Sierra Test.
+    - `usgs_gage_crosswalk_unittests.py` & `usgs_gage_crosswalk_params.json`: Unit test code and parameters for `usgs_gage_crosswalk.py`
+- `config/`:
+    - `deny_gms_branches_default.lst` & `config/deny_gms_branches_min.lst`: Add `usgs_elev_table.csv` to the lists as a comment so it doesn't get deleted during cleanup.
+    - `deny_gms_unit_default.lst`: Add `usgs_subset_gages.gpkg` to the lists as a comment so it doesn't get deleted during cleanup.
+
+<br/><br/>
 
 ## v4.0.2.0 - 2022-03-02 - [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548)
 

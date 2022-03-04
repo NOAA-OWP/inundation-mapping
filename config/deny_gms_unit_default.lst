@@ -13,6 +13,7 @@ nwm_subset_streams.gpkg
 #nwm_subset_streams_levelPaths.gpkg
 #nwm_subset_streams_levelPaths_dissolved.gpkg
 #nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
+#usgs_subset_gages.gpkg
 #wbd.gpkg
 #wbd8_clp.gpkg
 wbd_buffered.gpkg

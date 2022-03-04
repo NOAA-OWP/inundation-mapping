@@ -131,6 +131,8 @@ else
     parallel $retry --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 fi
 
+## RUN AGGREGATE BRANCH ELEV TABLES ##
+python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
 # -------------------
 ## GET NON ZERO EXIT CODES ##
