@@ -10,7 +10,7 @@ New alternate plotting method for the Sierra Test maps the HAND grid next to the
 - `tools/rating_curve_comparison.py`:
     - New alternate plots that show a map of the HAND grid next to the rating curve comparison plot. The optional `-alt` flag enables the enhanced plots. Omitting this flag defaults to using the classic rating-curve-only facet plots.
     - Sierra Test comparison boxplots are an option using the `-eval` flag. Multiple Sierra Test results can be compared by using multiple `-eval` flags. See Testing number 3 for an example.
-- `tools/compare_water_surface_elev.py`: small bug fix
+- `tools/compare_water_surface_elev.py`: Fixed variable name.
 
 <br/><br/>
 
