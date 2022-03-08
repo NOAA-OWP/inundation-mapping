@@ -195,6 +195,45 @@ class test_Derive_level_paths(unittest.TestCase):
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        
 
+
+    def test_Derive_level_paths_success_drop_low_stream_orders_no_branches_left(self):
+    
+        '''
+        This test includes a huc that after stream orders 1 and 2 are dropped, no 
+        branches are remaining (the original huc only had 1 and 2 reaches.
+
+        # expecting an exception with a specific note
+        # NOTE: this only works for a few hucs, one is 02030201
+
+        '''
+        
+        # makes output readability easier and consistant with other unit tests       
+        helpers.print_unit_test_function_header()
+        
+        params = self.params["dropped_stream_orders_no_branches_remaining"].copy()
+
+        try:
+            actual_df = derive_level_paths.Derive_level_paths(in_stream_network = params["in_stream_network"],
+                                                           out_stream_network = params["out_stream_network"],
+                                                           branch_id_attribute = params["branch_id_attribute"],
+                                                           out_stream_network_dissolved = params["out_stream_network_dissolved"],
+                                                           headwaters_outfile = params["headwaters_outfile"],
+                                                           catchments = params["catchments"],
+                                                           catchments_outfile = params["catchments_outfile"],
+                                                           branch_inlets_outfile = params["branch_inlets_outfile"],
+                                                           reach_id_attribute = params["reach_id_attribute"],
+                                                           verbose = params["verbose"],
+                                                           drop_low_stream_orders=params["drop_low_stream_orders"])
+
+            raise AssertionError("Fail = excepted a thrown exception but did not get it but was received. Unit Test has 'failed'")
+            
+        except UserWarning as e:
+            print()
+            print(f"Test Success (failed as expected): {inspect.currentframe().f_code.co_name}")
+            
+        finally:
+            print("*************************************************************")             
+
     
     # Invalid Input stream for demo purposes. Normally, you would not have this basic of a test (input validation).
     def test_Derive_level_paths_invalid_input_stream_network(self):

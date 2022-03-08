@@ -31,8 +31,19 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                  branch_id_attribute="order_",
                                                  values_excluded=[1,2]
                                                  )
+                                                 
+                                                 
     else:
         stream_network = StreamNetwork.from_file(filename=in_stream_network)
+
+
+    # if there are no reaches at this point (due to filtering if applicable)
+    if (len(stream_network) == 0):
+        # This is technically not an error but we need to have it logged so the user know what happened to it
+        # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
+        # Later, we can look at creating custom sys exit codes 
+        raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
+
                                                  
     inlets_attribute = 'inlet_id'
     outlets_attribute = 'outlet_id'
@@ -119,7 +130,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         catchments.to_file(catchments_outfile,index=False,driver='GPKG')
 
     # derive headwaters
-    if headwaters_outfile is not None:
+    if (headwaters_outfile is not None):
         headwaters = stream_network.derive_headwater_points_with_inlets(
                                                         fromNode_attribute=fromNode_attribute,
                                                         inlets_attribute=inlets_attribute,
