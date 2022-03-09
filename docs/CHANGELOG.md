@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.3.1 - 2022-03-08 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
+
+During large scale testing of the new `filtering out stream orders 1 and 2` feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in an unmanaged and unclear exception. An exception will still be raised in this fix for logging purposes, but it is now very clear what happened.
+
+## Changes
+
+- `src`
+   - `gms`
+      - `derive_level_paths.py` :  Check if the remaining stream_network reach count is 0. If so, the code will raise UserWarning exception with the message of "Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering."
+- `unit_tests`
+   - `gms`
+      - `derive_level_paths_unittests.py` :  Added a new unit test specifically testing this type of condition with a known HUC that triggered this error. 
+      - `derive_level_paths_params.json`:
+           - Added a new node with a HUC number known to fail.
+           - Changed pathing for unit test data pathing from `/data/outputs/gms_example_unit_tests` to `/data/outputs/fim_unit_test_data_do_not_remove`. The new folder is intended to be a more permanent folder for unit test data.
+
+<br/><br/>
+
 ## v4.0.3.0 - 2022-03-03 - [PR #550](https://github.com/NOAA-OWP/inundation-mapping/pull/550)
 
 This PR ports the functionality of `usgs_gage_crosswalk.py` and `rating_curve_comparison.py` to FIM 4.
@@ -40,12 +58,12 @@ Added a new optional system which allows an argument to be added to the `gms_run
 - `src/gms`
    - `run_by_unit.sh`: Capture and forward the drop stream orders flag to `derive_level_paths.py`
 	
-	- `derive_level_paths.py`: Capture the drop stream order flag and working with `stream_branches.py` to include/not include loading nwm stream with stream orders 1 and 2.
+   - `derive_level_paths.py`: Capture the drop stream order flag and working with `stream_branches.py` to include/not include loading nwm stream with stream orders 1 and 2.
 	
-	- `stream_branchs.py`: A correction was put in place to allow for the filter of branch attributes and values to be excluded. The `from_file` method has the functionality but was incomplete. This was corrected and how could accept the values from `derive_level_paths.py` to use the branch attribute of "order_" (gkpg field) and values excluded of [1,2] when optionally desired.
+   - `stream_branchs.py`: A correction was put in place to allow for the filter of branch attributes and values to be excluded. The `from_file` method has the functionality but was incomplete. This was corrected and how could accept the values from `derive_level_paths.py` to use the branch attribute of "order_" (gkpg field) and values excluded of [1,2] when optionally desired.
 
 - `unit_tests/gms`
-	- `derive_level_paths_unittests.py` and `derive_level_paths_params.py`: Updated for testing for the new "drop stream orders 1 and 2" feature. Upgrades were also made to earlier existing incomplete test methods to test more output conditions.
+    - `derive_level_paths_unittests.py` and `derive_level_paths_params.py`: Updated for testing for the new "drop stream orders 1 and 2" feature. Upgrades were also made to earlier existing incomplete test methods to test more output conditions.
 	
 <br/><br/>
 
