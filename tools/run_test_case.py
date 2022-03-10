@@ -363,7 +363,7 @@ if __name__ == '__main__':
             args['magnitude'] = BLE_MAGNITUDE_LIST
         elif ('nws' == benchmark_category) | ('usgs' == benchmark_category):
             args['magnitude'] = ['action', 'minor', 'moderate', 'major']
-        elif 'ifc' == current_benchmark_category:
+        elif 'ifc' == benchmark_category:
             args['magnitude'] = IFC_MAGNITUDE_LIST
         else:
             print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. ble options include: 100yr, 500yr. ahps options include action, minor, moderate, major." + ENDC)

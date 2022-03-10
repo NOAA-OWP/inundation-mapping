@@ -454,7 +454,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
     # If versions are supplied then filter out
     if versions:
         #Filter out versions based on supplied version list
-        metrics = csv_df.query('version.str.startswith(tuple(@versions))')
+        metrics = csv_df.query('version.str.startswith(tuple(@versions))', engine='python')
     else:
         metrics = csv_df
 
@@ -481,7 +481,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             base_resolution = 'nws_lid'
 
             # Filter the dataset based on query (IMPORTED FROM TOOLS_SHARED_VARIABLES.py)
-            ahps_metrics = benchmark_metrics.query(DISCARD_AHPS_QUERY)
+            ahps_metrics = benchmark_metrics.query(DISCARD_AHPS_QUERY, engine='python')
 
             # Filter out all instances where the base_resolution doesn't exist across all desired fim versions for a given magnitude
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(ahps_metrics, base_resolution)
