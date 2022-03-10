@@ -3,13 +3,13 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.0.3.1 - 2022-03-10 - [PR #561](https://github.com/NOAA-OWP/inundation-mapping/pull/561)
 
-Bug fixes to get the Alpha Test working in FIM 4
+Bug fixes to get the Alpha Test working in FIM 4.
 
 ## Changes
 
-- `tools/sythesize_test_cases.py`: bugs that prevented multiple benchmark types in the same huc from running `run_test_case.py`
-- `tools/run_test_case.py`: small bug for IFC benchmark
-- `tools/eval_plots.py`: pandas query bugs
+- `tools/sythesize_test_cases.py`: Fixed bugs that prevented multiple benchmark types in the same huc from running `run_test_case.py`.
+- `tools/run_test_case.py`: Fixed mall bug for IFC benchmark.
+- `tools/eval_plots.py`: Fixed Pandas query bugs.
 
 <br/><br/>
 
