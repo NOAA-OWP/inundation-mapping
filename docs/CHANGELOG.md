@@ -2,11 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.3.2 - 2022-03-08 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
+## v4.0.3.2 - 2022-03-11 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
 
 During large scale testing of the new `filtering out stream orders 1 and 2` feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in an unmanaged and unclear exception. An exception will still be raised in this fix for logging purposes, but it is now very clear what happened.
 
 ## Changes
+
+- `gms_run_unit.sh` : Minor adjustments to how the non zero exit code logs were created. Testing revealed that grep can run into command length issues.
+
+- `gms_run_branch.sh` : Minor adjustments to how the non zero exit code logs were created. Testing revealed that grep can run into command length issues.
 
 - `src/`
    - `gms/`
@@ -17,6 +21,7 @@ During large scale testing of the new `filtering out stream orders 1 and 2` feat
       - `derive_level_paths_params.json`:
            - Added a new node with a HUC number known to fail.
            - Changed pathing for unit test data pathing from `/data/outputs/gms_example_unit_tests` to `/data/outputs/fim_unit_test_data_do_not_remove`. The new folder is intended to be a more permanent folder for unit test data.
+
 
 <br/><br/>
 

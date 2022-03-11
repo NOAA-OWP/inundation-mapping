@@ -170,5 +170,5 @@ python3 $srcDir/gms/aggregate_branch_lists.py -l $hucList
 
 
 ## GET NON ZERO EXIT CODES ##
-# get positive non-zero exit codes 
-grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/unit/*_unit.log > $outputRunDataDir/logs/unit/non_zero_exit_codes.log
+cd $outputRunDataDir/logs/unit
+find ./ -name "*_unit.log" -type f | xargs grep "Exit status: [1-9]" >./non_zero_exit_codes.log
