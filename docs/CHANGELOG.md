@@ -1,21 +1,34 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.0.3.1 - 2022-03-08 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
+
+## v4.0.3.2 - 2022-03-08 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
 
 During large scale testing of the new `filtering out stream orders 1 and 2` feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in an unmanaged and unclear exception. An exception will still be raised in this fix for logging purposes, but it is now very clear what happened.
 
 ## Changes
 
-- `src`
-   - `gms`
+- `src/`
+   - `gms/`
       - `derive_level_paths.py` :  Check if the remaining stream_network reach count is 0. If so, the code will raise UserWarning exception with the message of "Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering."
-- `unit_tests`
-   - `gms`
+- `unit_tests/`
+   - `gms/`
       - `derive_level_paths_unittests.py` :  Added a new unit test specifically testing this type of condition with a known HUC that triggered this error. 
       - `derive_level_paths_params.json`:
            - Added a new node with a HUC number known to fail.
            - Changed pathing for unit test data pathing from `/data/outputs/gms_example_unit_tests` to `/data/outputs/fim_unit_test_data_do_not_remove`. The new folder is intended to be a more permanent folder for unit test data.
+
+<br/><br/>
+
+## v4.0.3.1 - 2022-03-10 - [PR #561](https://github.com/NOAA-OWP/inundation-mapping/pull/561)
+
+Bug fixes to get the Alpha Test working in FIM 4.
+
+## Changes
+
+- `tools/sythesize_test_cases.py`: Fixed bugs that prevented multiple benchmark types in the same huc from running `run_test_case.py`.
+- `tools/run_test_case.py`: Fixed mall bug for IFC benchmark.
+- `tools/eval_plots.py`: Fixed Pandas query bugs.
 
 <br/><br/>
 
