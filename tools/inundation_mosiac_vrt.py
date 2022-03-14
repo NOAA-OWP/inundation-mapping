@@ -14,17 +14,21 @@ from multiprocessing import Pool
 PREP_PROJECTION = 'PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.2572221010042,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4269"]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",29.5],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_center",23],PARAMETER["longitude_of_center",-96],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
 
 '''
-The script ingests multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosiacs them together
+The script ingests multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosaics them together
 
-Processing
-- 
+Processing Steps
+- Locate raster FIM extent files in input directory and create a list of hucs to process
+- Use multiprocessing
+- Create boolean extent rasters for each huc
+- Use gdal virtual raster to create a mosaic of all boolean rasters
+- Ouput new FIM mosaic raster
 
 Inputs
-- raster_directory:     fim directory containing individual HUC output dirs
-- output_path:          USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
+- raster_directory:     fim directory containing individual HUC FIM rasters (output from inundation.py)
+- output_path:          directory location for output mosaic file
 
 Outputs
-- raster_mosiac: 
+- raster_mosaic:        raster .tif file
 '''
 
 OUTPUT_BOOL_PARENT_DIR = '/data/inundation_review/inundate_nation/bool_temp/'
@@ -52,27 +56,27 @@ def create_bool_rasters(args):
                 nodata=0,
                 blockxsize=512, 
                 blockysize=512,
-                dtype='uint8',
+                dtype='int8',
                 crs=PREP_PROJECTION,
                 compress='lzw')
     with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, 'w', **profile) as dst:
-        dst.write(array.astype(rasterio.uint8))
+        dst.write(array.astype(rasterio.int8))
 
 
 def vrt_raster_mosaic(output_bool_dir, ouput_dir, fim_version):
-    #raster_to_mosiac = ['data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090301.tif','data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090302.tif']
-    raster_to_mosiac = []
+    #raster_to_mosaic = ['data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090301.tif','data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090302.tif']
+    raster_to_mosaic = []
     for rasfile in os.listdir(output_bool_dir):
         if rasfile.endswith('.tif') and "extent" in rasfile:
             p = output_bool_dir + os.sep + rasfile
             print("Processing: " + p)
-            raster_to_mosiac.append(p)
+            raster_to_mosaic.append(p)
 
     print("Creating virtual raster...")
-    vrt = gdal.BuildVRT(ouput_dir + "merged.vrt", raster_to_mosiac)
+    vrt = gdal.BuildVRT(ouput_dir + "merged.vrt", raster_to_mosaic)
 
-    print("Building raster mosiac...")
-    gdal.Translate(output_dir + fim_version + "_mosiac.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
+    print("Building raster mosaic...")
+    gdal.Translate(output_dir + fim_version + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
     vrt = None
 
 if __name__ == '__main__':

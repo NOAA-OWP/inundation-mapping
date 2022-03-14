@@ -14,7 +14,7 @@ def run_inundation(args):
     This script is basically a wrapper for the inundate function and is designed for multiprocessing.
     
     Args:
-        args (list): [fim_run_dir (str), huc (str), magnitude (str), magnitude_output_dir (str), config (str)]
+        args (list): [fim_run_dir (str), huc (str), magnitude (str), magnitude_output_dir (str), config (str), forecast (str), depth_option (str)]
     
     """
     
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     fim_run_dir = args['fim_run_dir']
     output_dir = args['output_dir']
     depth_option = args['depth']
-    magnitude_list = ['5_0']
+    magnitude_list = ['100_0']
     job_number = int(args['job_number'])
 
     assert os.path.isdir(fim_run_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_run_dir)
