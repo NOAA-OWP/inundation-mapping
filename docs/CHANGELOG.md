@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+Implemented changes to `inundate_nation.py` to allow more flexibility in choosing which FIM outputs to generate. Created new tool (`inundation_mosaic_vrt.py`) to ingest multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosaic them together for easier qualitative QA/QC.
+
+## v3.0.26.2 - 2022-03-14 - [PR #565](https://github.com/NOAA-OWP/cahaba/pull/565)
+
+## Additions
+
+- `tools/inundation_mosaic_vrt.py`: new script to perform FIM extent mosaic process. Workflow: 1) Locate raster FIM extent files in input directory and create a list of hucs to process 2) Use multiprocessing to create boolean extent rasters for each huc 3) Use gdal virtual raster to create a mosaic of all boolean rasters 4) Ouput new FIM mosaic raster
+
+## Changes
+
+- `tools/inundate_nation.py`: new input args to specify which NWM recurr flow interval(s) to use, whether to generate depth grids, and output name/location
+
+<br/><br/>
+
 New alternate plotting method for the Sierra Test maps the HAND grid next to the rating curve comparison plot. Also, the `evaluate_results()` function can be easily applied to compare previous Sierra Test runs.
 
 ## v3.0.26.1 - 2022-03-03 - [PR #546](https://github.com/NOAA-OWP/cahaba/pull/546)
