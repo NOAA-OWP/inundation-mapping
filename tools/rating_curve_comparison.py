@@ -16,6 +16,10 @@ import warnings
 from pathlib import Path
 import time
 warnings.simplefilter(action='ignore', category=FutureWarning)
+import rasterio
+from rasterio import features as riofeatures
+from rasterio import plot as rioplot
+from shapely.geometry import Polygon
 
 """
     Plot Rating Curves and Compare to USGS Gages
@@ -71,8 +75,10 @@ def generate_rating_curve_metrics(args):
     nwm_flow_dir                = args[6]
     catfim_flows_filename       = args[7]
     huc                         = args[8]
+    alt_plot                    = args[9]
 
     elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object})
+    elev_table.dropna(subset=['location_id'], inplace=True)
     hydrotable = pd.read_csv(hydrotable_filename,dtype={'HUC': object,'feature_id': object})
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object})
 
@@ -93,7 +99,7 @@ def generate_rating_curve_metrics(args):
 
         hydrotable['source'] = "FIM"
         usgs_gages['source'] = "USGS"
-        limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source'])
+        limited_hydrotable = hydrotable.filter(items=['location_id','elevation_ft','discharge_cfs','source', 'HydroID', 'dem_adj_elevation'])
         select_usgs_gages = usgs_gages.filter(items=['location_id', 'elevation_ft', 'discharge_cfs','source'])
         if 'default_discharge_cms' in hydrotable.columns: # check if both "FIM" and "FIM_default" SRCs are available
             hydrotable['default_discharge_cfs'] = hydrotable.default_discharge_cms * 35.3147
@@ -227,7 +233,10 @@ def generate_rating_curve_metrics(args):
             nwm_recurr_data_table.to_csv(nwm_recurr_data_filename,index=False)
 
         # plot rating curves
-        generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
+        if alt_plot:
+            generate_rc_and_rem_plots(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table, hydrotable_filename)
+        else:
+            generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
 
     else:
         print(f"no USGS data for gage(s): {relevant_gages} in huc {huc}")
@@ -314,7 +323,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
     g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=hue_order,
                     sharex=False, sharey=False,col_wrap=columns,
                     height=3.5, aspect=1.65)
-    g.map(sns.lineplot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
+    g.map(plt.plot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
     g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
     ## Plot recurrence intervals
@@ -337,6 +346,114 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
     plt.savefig(plot_filename)
     plt.close()
 
+def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, hydrotable_filename):
+    gages_list = rc.location_id.unique()
+    num_plots = len(rc["location_id"].unique())
+
+    ## Set up figure
+    fig = plt.figure(figsize=(6, 2.4*num_plots))
+    gs = fig.add_gridspec(num_plots, 2, width_ratios=[2, 3])
+    ax = gs.subplots()
+    if ax.ndim == 1:                     # hucs with only one plot will only have one-dimensional axes;
+        ax = np.expand_dims(ax, axis=0)  # the axes manipulations below require 2 dimensions
+    plt.tight_layout(w_pad=1)
+
+    ## Read in reaches, catchment raster, and rem raster
+    huc_folder = os.path.dirname(hydrotable_filename)
+    reaches = gpd.read_file(os.path.join(huc_folder, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg'))
+    with rasterio.open(os.path.join(huc_folder, 'gw_catchments_reaches_filtered_addedAttributes.tif')) as catch_rast:
+        catchments = catch_rast.read()
+    with rasterio.open(os.path.join(huc_folder, 'rem_zeroed_masked.tif')) as rem:
+        rem_transform = rem.transform
+        rem_extent = rioplot.plotting_extent(rem)
+        rem_sub25 = rem.read()
+        # Set all pixels above the SRC calculation height to nan
+        rem_sub25[np.where(rem_sub25 > 25.3)] = -9999.
+        rem_sub25[np.where(rem_sub25 == -9999.)] = np.nan
+
+    ###################################################################################################################
+    # Filter FIM elevation based on USGS data
+    for i, gage in enumerate(gages_list):
+    #for gage in gages_list:
+
+        min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.min()
+        max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.max()
+        min_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.min()
+        max_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.max()
+        ri100 = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')].discharge_cfs.max()
+
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
+        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2) & (rc.discharge_cfs < min_q)].index)
+
+        if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
+
+    #rc = rc.rename(columns={"location_id": "USGS Gage"})
+
+    ## Generate rating curve plots
+    ###################################################################################################################
+        
+        # Plot the rating curve
+        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'USGS') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='USGS')
+        ax[i,1].plot("discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM')
+        if 'default_discharge_cfs' in rc.columns:
+            ax[i,1].plot("default_discharge_cfs", "elevation_ft", data=rc[(rc.source == 'FIM_default') & (rc.location_id == gage)], linewidth=2, alpha=0.8, label='FIM_default')
+        
+        # Plot the recurrence intervals
+        recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
+            .filter(items=['recurr_interval', 'discharge_cfs'])
+        for _, r in recurr_data.iterrows():
+            if not r.recurr_interval.isnumeric(): continue # skip catfim flows
+            l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
+            ax[i,1].axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
+            ax[i,1].text(r.discharge_cfs, ax[i,1].get_ylim()[1] - (ax[i,1].get_ylim()[1]-ax[i,1].get_ylim()[0])*0.06, r.recurr_interval, size='small', c='purple')
+
+        # Get the hydroid    
+        hydroid = rc[rc.location_id == gage].HydroID.unique()[0]
+        if np.isnan(hydroid):
+            print(f'Gage {gage} in HUC {huc_folder} has no HydroID')
+            continue
+
+        # Filter the reaches and REM by the hydroid
+        reach = reaches[reaches.HydroID == str(int(hydroid))]
+        catchment_rem = rem_sub25.copy()
+        catchment_rem[np.where(catchments != int(hydroid))] = np.nan
+
+        # Convert raster to WSE feet and limit to upper bound of rating curve
+        dem_adj_elevation = rc[rc.location_id == gage].dem_adj_elevation.unique()[0]
+        catchment_rem = (catchment_rem + dem_adj_elevation) * 3.28084
+        max_elev = rc[(rc.source == 'FIM') & (rc.location_id == gage)].elevation_ft.max()
+        catchment_rem[np.where(catchment_rem > max_elev)] = np.nan         # <-- Comment out this line to get the full raster that is
+                                                                           # used in rating curve creation
+        # Create polygon for perimeter/area stats                          
+        catchment_rem_1s = catchment_rem.copy()
+        catchment_rem_1s[np.where(~np.isnan(catchment_rem_1s))] = 1
+        #features = riofeatures.shapes(catchment_rem_1s, mask=((~np.isnan(catchment_rem_1s)) & (rem_sub25 < 25.3)), transform=rem_transform, connectivity=8)
+        features = riofeatures.shapes(catchment_rem_1s, mask=~np.isnan(catchment_rem), transform=rem_transform, connectivity=8)
+        del catchment_rem_1s
+        features = [f for f in features]
+        geom = [Polygon(f[0]['coordinates'][0]) for f in features]
+        poly = gpd.GeoDataFrame({'geometry':geom})
+        poly['perimeter'] = poly.length                                        # These lines are calculating perimeter/area stats
+        poly['area'] = poly.area                                               # and can be removed if there is a separate process
+        poly['perimeter_area_ratio'] = poly.length/poly.area                   # set up later that calculates these for all hydroids
+        poly['perimeter_area_ratio_sqrt'] = poly.length/(poly.area**.5)        # within a catchment.
+        bounds = poly.total_bounds
+        bounds = ((bounds[0]-20, bounds[2]+20), (bounds[1]-20, bounds[3]+20))
+        
+        # REM plot
+        reach.plot(ax=ax[i,0], color='#999999', linewidth=0.9)
+        im = ax[i,0].imshow(rasterio.plot.reshape_as_image(catchment_rem), cmap='gnuplot', extent=rem_extent, interpolation='none')
+        plt.colorbar(im, ax=ax[i,0], location='left')
+        ax[i,0].set_xbound(bounds[0]); ax[i,0].set_ybound(bounds[1])
+        ax[i,0].set_xticks([]); ax[i,0].set_yticks([])
+        ax[i,0].set_title(gage)
+
+    del reaches, catchments, rem_sub25, catchment_rem
+    ax[0,1].legend()
+    plt.savefig(plot_filename, dpi=200)
+    plt.close()
 
 def get_reccur_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
 
@@ -497,6 +614,58 @@ def calculate_rc_diff(rc):
 
     return rc_unmelt
 
+def evaluate_results(sierra_results=[], labels=[], save_location=''):
+    '''
+    Compares multiple Sierra Test results using a boxplot.
+
+    Parameters
+    ------------
+    sierra_results : list
+        List of GeoDataFrames with sierra test results.
+    labels : list
+        List of strings that will be used as labels for sierra_results. Length must be equal to sierra_results.
+    save_location : str
+        Path to save output boxplot figure.
+
+    Example
+    ------------
+    from rating_curve_comparison import evaluate_results
+    import geopandas as gpd
+
+    sierra_1 = gpd.read_file("/data/path/to/fim_3_X_ms.gpkg")
+    sierra_new = gpd.read_file("/data/path/to/fim_experiment.gpkg")
+
+    evaluate_results([sierra_1, sierra_new], ["fim_3_X_ms", "fim_calibrate_SRC"], "/path/to/output.png")
+    '''
+
+    assert len(sierra_results) == len(labels), "Each Sierra Test results must also have a label"
+
+    # Define recurrence intervals to plot
+    recurr_intervals = ("2","5","10","25","50","100","action","minor","moderate","major")
+
+    # Assign labels to the input sierra test result dataframes
+    for df, label in zip(sierra_results, labels):
+        df['_version'] = label
+
+    # Combine all dataframes into one
+    all_results = sierra_results[0]
+    all_results = all_results.append(sierra_results[1:])
+
+    # Melt results for boxplotting
+    all_results_melted = all_results.melt(id_vars=["location_id", '_version'], 
+                                        value_vars=recurr_intervals, 
+                                        var_name='recurr_interval', 
+                                        value_name='error_ft')
+
+    # Plot all results in a comparison boxplot
+    fig, ax = plt.subplots(figsize=(10,5))
+    sns.boxplot(x='recurr_interval', y='error_ft', hue='_version', data=all_results_melted, ax=ax, fliersize=3)
+    ax.set(ylim=(-30, 30))
+    ax.grid()
+    ax.legend(bbox_to_anchor=(1, 1), loc='upper right', title='FIM Version')
+    ax.set_title('Sierra Test Results Comparison')
+    plt.savefig(save_location)
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='generate rating curve plots and tables for FIM and USGS gages')
@@ -508,6 +677,9 @@ if __name__ == '__main__':
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
     parser.add_argument('-group','--stat-groups',help='column(s) to group stats',required=False,type=str,nargs='+')
     parser.add_argument('-pnts','--stat-gages',help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS gages with joined stats',required=False,type=str,nargs=2)
+    parser.add_argument('-alt','--alt-plot',help='Use enchanced plots that show a map of the HAND grid along side the rating curve comparison plot',required=False,default=False,action='store_true')
+    parser.add_argument('-eval','--evaluate-results',help='Create a boxplot comparison of multiple input Sierra Test results. \
+        Expects 2 arguments: 1) path to the Sierra Test results for comparison and 2) the corresponding label for the boxplot.',required=False,nargs=2,action='append')
 
     args = vars(parser.parse_args())
 
@@ -518,6 +690,8 @@ if __name__ == '__main__':
     catfim_flows_filename = args['catfim_flows_filename']
     number_of_jobs = args['number_of_jobs']
     stat_groups = args['stat_groups']
+    alt_plot = args['alt_plot']
+    eval = args['evaluate_results']
     if args['stat_gages']:
         gages_gpkg_filepath = args['stat_gages'][0]
         stat_gages = args['stat_gages'][1]
@@ -525,8 +699,11 @@ if __name__ == '__main__':
     else:
         stat_gages = None
 
+    # Make sure that location_id is the only -group when using -pnts
     assert (not stat_gages or (stat_gages and (not stat_groups or stat_groups == ['location_id']))), \
         "location_id is the only acceptable stat_groups argument when producting an output GPKG"
+    # Make sure that the -pnts flag is used with the -eval flag
+    assert not eval or (eval and stat_gages), "You must use the -pnts flag with the -eval flag"
     procs_list = []
 
     plots_dir = join(output_dir,'plots')
@@ -543,7 +720,7 @@ if __name__ == '__main__':
     sys.stdout = log_file
 
     merged_elev_table = []
-    huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("\d{6,8}$", huc)]
+    huc_list  = [huc for huc in os.listdir(fim_dir) if re.search("^\d{6,8}$", huc)]
     for huc in huc_list:
 
         elev_table_filename = join(fim_dir,huc,'usgs_elev_table.csv')
@@ -553,9 +730,11 @@ if __name__ == '__main__':
         rc_comparison_plot_filename = join(plots_dir,f"FIM-USGS_rating_curve_comparison_{huc}.png")
 
         if isfile(elev_table_filename):
-            procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,nwm_flow_dir, catfim_flows_filename, huc])
+            procs_list.append([elev_table_filename, hydrotable_filename, usgs_gages_filename, 
+                            usgs_recurr_stats_filename, nwm_recurr_data_filename, rc_comparison_plot_filename,
+                            nwm_flow_dir, catfim_flows_filename, huc, alt_plot])
             # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-            read_elev_table = pd.read_csv(elev_table_filename)
+            read_elev_table = pd.read_csv(elev_table_filename, dtype={'location_id':str, 'HydroID':str, 'huc':str, 'feature_id':int})
             read_elev_table['huc'] = huc
             merged_elev_table.append(read_elev_table)
 
@@ -583,6 +762,20 @@ if __name__ == '__main__':
 
     print('Delete intermediate tables')
     shutil.rmtree(tables_dir, ignore_errors=True)
+
+    # Compare current sierra test results to previous tests
+    if eval:
+        # Transpose comparison sierra results
+        sierra_test_paths, sierra_test_labels = np.array(eval).T.tolist()
+        # Add current sierra test to lists
+        sierra_test_paths = sierra_test_paths + [join(output_dir, stat_gages)]
+        sierra_test_labels = sierra_test_labels + [stat_gages.replace('.gpkg', '')]
+        # Read in all sierra test results
+        sierra_test_dfs = [gpd.read_file(i) for i in sierra_test_paths]
+        # Feed results into evaluation function
+        evaluate_results(sierra_test_dfs,
+                        sierra_test_labels,
+                        join(output_dir, 'Sierra_Test_Eval_boxplot.png'))
 
     # Close log file
     sys.stdout = sys.__stdout__
