@@ -93,7 +93,7 @@ if __name__ == '__main__':
     recomended current sierra test: "/data/tools/sierra_test/official_versions/fim_3_0_24_14_ms/usgs_gages_stats.gpkg" 
     recomended current elev link table: "/data/tools/sierra_test/official_versions/fim_3_0_24_14_ms/agg_usgs_elev_table.csv"
     recomended current fim directory: "/data/previous_fim/fim_3_0_24_14_ms/"
-    recomended current lulc data set: "/data/temp/nlcd_pixel_counts_fim_3_0_26_0/
+    recomended current lulc data set: "/data/temp/nlcd_pixel_counts_fim_3_0_26_0/"
     
     TODO
     """
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--sierra-test-input', help='layer containing sierra test by hydroId',required=True)
     parser.add_argument('-o','--output-csv-destination',help='location and name for output csv',required=True)
     parser.add_argument('-l','--link-elev-table',help='elev table for linking sierra tests to hydrotable on locationid and hydroid',required=True)
-    parser.add_argument('lc','--lulc', help='data set with lulc pixel counts', required=True)
+    parser.add_argument('-lc','--lulc', help='data set with lulc pixel counts', required=True)
 
     args = vars(parser.parse_args())
 
