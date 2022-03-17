@@ -64,9 +64,8 @@ def aggregate_lclu(pixel_dir,aggregate_df):
     for each_dir in os.listdir(pixel_dir):
         if re.search("ms",each_dir) and re.search("pixel_counts.csv",each_dir):  
             csv_str = each_dir                                                           #cast name of each dir to string
-            lclu_table = pd.read_csv(os.path.join(pixel_dir, csv_str),dtype ={'hydroid': int})
-            lclu_table = lclu_table.rename(columns={"hydroID": "Hydroid"})
-            innerj = csv_data.merge(lclu_table, on='Hydroid', how= 'inner')
+            lclu_table = pd.read_csv(os.path.join(pixel_dir, csv_str),dtype ={'HydroID': int})
+            innerj = csv_data.merge(lclu_table, on='HydroID', how= 'inner')
             if innerj.empty:
                 continue                                                                 #steps to next loop pass if df is empty
             if not new_df.empty:
