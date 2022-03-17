@@ -1,6 +1,46 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+New alternate plotting method for the Sierra Test maps the HAND grid next to the rating curve comparison plot. Also, the `evaluate_results()` function can be easily applied to compare previous Sierra Test runs.
+
+## v3.0.26.1 - 2022-03-03 - [PR #546](https://github.com/NOAA-OWP/cahaba/pull/546)
+
+## Changes
+
+- `tools/rating_curve_comparison.py`:
+    - New alternate plots that show a map of the HAND grid next to the rating curve comparison plot. The optional `-alt` flag enables the enhanced plots. Omitting this flag defaults to using the classic rating-curve-only facet plots.
+    - Sierra Test comparison boxplots are an option using the `-eval` flag. Multiple Sierra Test results can be compared by using multiple `-eval` flags. See Testing number 3 for an example.
+- `tools/compare_water_surface_elev.py`: Fixed variable name.
+
+<br/><br/>
+
+## v3.0.26.0 - 2022-03-01 - [PR #547](https://github.com/NOAA-OWP/cahaba/pull/547)
+
+This code modification appends the SRC optimization steps to `fim_run.sh` and performs the SRC adjustments as a default post-processing step in the workflow. Added the functionality to preserve previous SRC adjustments.
+
+## Changes
+
+- `config/params_template.env`: added new env variables
+- `fim_run.sh`: added the `src_adjust_usgs_rating.py` and `src_adjust_spatial_obs.py` steps to the workflow
+- `src/output_cleanup.py`: removed intermediate (debugging) BARC files from the production whitelist
+- `src/src_adjust_spatial_obs.py`: reconfigured to produce the necessary dataframe and then call the `update_rating_curve` function from `src_roughness_optimization.py`
+- `src/src_adjust_usgs_rating.py`: moved and renamed the script
+- `src/src_roughness_optimization.py`: moved and renamed the script; added functionality to preserve previous iterations of SRC adjustments
+- `src/utils/shared_functions.py`: copied `concat_huc_csv` and `check_file_age` functions over from `tools/tools_shared_functions.py`
+- `src/utils/shared_variables.py`: copied the `DOWNSTREAM_THRESHOLD`, `ROUGHNESS_MAX_THRESH`, and `ROUGHNESS_MIN_THRESH` variables from `tools/tools_shared_variables.py`
+- `tools/tools_shared_variables.py`: removed the `DOWNSTREAM_THRESHOLD`, `ROUGHNESS_MAX_THRESH`, and `ROUGHNESS_MIN_THRESH` variables 
+
+<br/><br/>
+
+## v3.0.25.0 - 2022-02-18 - [PR #542](https://github.com/NOAA-OWP/cahaba/pull/542)
+
+`collate_catchment_attributes.py` is located in tools. It is a simple script to assemble desired attributes for further study. The code loops through huc directories and pulls out static (does not change with stage) attributes by `HydroID`. It then links to sierra test metrics via `location_id` and `HydroID`.
+
+## Additions
+
+-`/tools/collate_catchment_attributes.py`: New tool to collate catchment attributes
+
+<br/><br/>
 
 ## v3.0.25.00 - 2022-02-18 - [PR #542](https://github.com/NOAA-OWP/cahaba/pull/542)
 
