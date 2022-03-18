@@ -43,12 +43,13 @@ def perform_merge(sierra_test_results,link_df,aggregate_df):
     return aggregate_df_merged
 
 
-def aggregate_nlcd(pixel_dir,aggregate_df):
+def aggregate_nlcd(pixel_dir,aggregate_df,run_type):
+    ms_or_fr = str(run_type)
     new_df = pd.DataFrame()
     csv_data = aggregate_df
         
     for each_dir in os.listdir(pixel_dir):
-        if re.search("ms",each_dir) and re.search("pixel_counts.csv",each_dir):  
+        if re.search(ms_or_fr,each_dir) and re.search("pixel_counts.csv",each_dir):  
             csv_str = each_dir  #cast name of each dir to string
             nlcd_table = pd.read_csv(os.path.join(pixel_dir, csv_str),dtype ={'HydroID': int})
             innerj = csv_data.merge(nlcd_table, on='HydroID', how= 'inner')
@@ -86,6 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('-o','--output-csv-destination',help='location and name for output csv',required=True)
     parser.add_argument('-l','--link-elev-table',help='elev table for linking sierra tests to hydrotable on locationid and hydroid',required=True)
     parser.add_argument('-lc','--nlcd', help='data set with lulc pixel counts', required=True)
+    parser.add_argument('-rt','--run-type', help='tells whether the run is ms or fr', required=True)
 
     args = vars(parser.parse_args())
 
@@ -94,10 +96,11 @@ if __name__ == '__main__':
     output_csv_destination = args['output_csv_destination']
     link_elev_table = args['link_elev_table']
     nlcd_pixel_count_dir = args['nlcd']
+    run_type = args['run_type']
     
     sierra_test_results = assemble_sierra_test(sierra_test_input)  #reads in single geopackage contianing sierra test.
     link_df = import_link_table(link_elev_table)  #the link table is required to prevent duplicate values when joining sierra test to hydrotables.
     aggregate_df = aggregate_hydro_tables(fim_directory)  #loops through the hydrotables and collects static metrics into a df.
     aggregate_df_merged = perform_merge(sierra_test_results,link_df,aggregate_df)  #merges the hydrotable df with the sierra test df via the link table.
-    aggregate_df_merged_with_nlcd = aggregate_nlcd(nlcd_pixel_count_dir,aggregate_df)  #merges in the nlcd data. This requires looping through many entries. 
+    aggregate_df_merged_with_nlcd = aggregate_nlcd(nlcd_pixel_count_dir,aggregate_df,run_type)  #merges in the nlcd data. This requires looping through many entries. 
     out_file_dest(aggregate_df_merged_with_nlcd, output_csv_destination)  #determines the output location and writes to csv.
