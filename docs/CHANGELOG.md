@@ -1,9 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-New alternate plotting method for the Sierra Test maps the HAND grid next to the rating curve comparison plot. Also, the `evaluate_results()` function can be easily applied to compare previous Sierra Test runs.
+
+
+## v3.0.27.0 - 2022-03-18 - [PR #568](https://github.com/NOAA-OWP/cahaba/pull/568)
+
+Adding functionality to ingest NLCD (National Landcover Database) data. Running the `collate_catchment_attributes.py` tool now produces a csv of static huc metrics, Sierra Test metrics, and NLCD metrics. It produces one row per hydroid.
+
+## Changes
+
+- `tools/collate_catchment_attributes.py`:
+    - This commit adds an additional function `aggregate_nlcd()` to the existing script. This new funtion collects the NLCD information into the csv storing static Hydrotable metrics.
+
+<br/><br/>
 
 ## v3.0.26.1 - 2022-03-03 - [PR #546](https://github.com/NOAA-OWP/cahaba/pull/546)
+
+New alternate plotting method for the Sierra Test maps the HAND grid next to the rating curve comparison plot. Also, the `evaluate_results()` function can be easily applied to compare previous Sierra Test runs.
 
 ## Changes
 
