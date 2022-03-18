@@ -80,7 +80,7 @@ def aggregate_nlcd(pixel_dir,aggregate_df,run_type):
                 #steps to next loop pass if df is empty
                 continue  
             if not new_df.empty:
-                new_df = aggregate_df.append(innerj)                
+                new_df = new_df.append(innerj)                
             else:
                 new_df = innerj
      
