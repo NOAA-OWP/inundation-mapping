@@ -5,12 +5,12 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.27.0 - 2022-03-18 - [PR #568](https://github.com/NOAA-OWP/cahaba/pull/568)
 
-Adding functionality to ingest NLCD (National Landcover Database) data. Running the `collate_catchment_attributes.py` tool now produces a csv of static huc metrics, Sierra Test metrics, and NLCD metrics. It produces one row per hydroid.
+Adding functionality to ingest NLCD (National Landcover Database) data. Running the `collate_catchment_attributes.py` tool now produces a CSV of static HUC metrics, Sierra Test metrics, and NLCD metrics. It produces one row per hydroid.
 
 ## Changes
 
 - `tools/collate_catchment_attributes.py`:
-    - This commit adds an additional function `aggregate_nlcd()` to the existing script. This new funtion collects the NLCD information into the csv storing static Hydrotable metrics.
+    - This commit adds an additional function `aggregate_nlcd()` to the existing script. This new funtion collects the NLCD information into the CSV storing static hydroTable metrics.
 
 <br/><br/>
 
