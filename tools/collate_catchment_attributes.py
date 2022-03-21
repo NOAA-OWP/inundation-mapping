@@ -113,33 +113,41 @@ if __name__ == '__main__':
     parser.add_argument('-d','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-s', '--sierra-test-input', help='layer containing sierra test by hydroId',required=True)
     parser.add_argument('-o','--output-csv-destination',help='location and name for output csv',required=True)
+    parser.add_argument('-on','--output-with-nlcd',help='location and name for output csv containing nlcd data',required=True)
     parser.add_argument('-l','--link-elev-table',help='elev table for linking sierra tests to hydrotable on locationid and hydroid',required=True)
     parser.add_argument('-lc','--nlcd', help='data set with lulc pixel counts', required=True)
     parser.add_argument('-rt','--run-type', help='tells whether the run is ms or fr', required=True)
 
     args = vars(parser.parse_args())
 
+    args = vars(parser.parse_args())
+
     fim_directory = args['fim_directory']
     sierra_test_input = args['sierra_test_input']
     output_csv_destination = args['output_csv_destination']
+    output_with_nlcd = args['output_with_nlcd']
     link_elev_table = args['link_elev_table']
     nlcd_pixel_count_dir = args['nlcd']
     run_type = args['run_type']
     
-    #reads in single geopackage contianing sierra test.
-    sierra_test_results = assemble_sierra_test(sierra_test_input)
 
-    #the link table is required to prevent duplicate values when joining sierra test to hydrotables.  
-    link_df = import_link_table(link_elev_table)  
+#reads in single geopackage contianing sierra test.
+sierra_test_results = assemble_sierra_test(sierra_test_input)
 
-    #loops through the hydrotables and collects static metrics into a df.
-    aggregate_df = aggregate_hydro_tables(fim_directory)
+#the link table is required to prevent duplicate values when joining sierra test to hydrotables.  
+link_df = import_link_table(link_elev_table)  
 
-    #merges the hydrotable df with the sierra test df via the link table.
-    aggregate_df_merged = perform_merge(sierra_test_results,link_df,aggregate_df)  
+#loops through the hydrotables and collects static metrics into a df.
+aggregate_df = aggregate_hydro_tables(fim_directory)
 
-    #merges in the nlcd data. This requires looping through many entries. 
-    aggregate_df_merged_with_nlcd = aggregate_nlcd(nlcd_pixel_count_dir,aggregate_df,run_type) 
+#merges the hydrotable df with the sierra test df via the link table.
+aggregate_df_merged = perform_merge(sierra_test_results,link_df,aggregate_df)  
 
-    #determines the output location and writes to csv.
-    out_file_dest(aggregate_df_merged_with_nlcd, output_csv_destination)  
+#merges in the nlcd data. This requires looping through many entries. 
+aggregate_df_merged_with_nlcd = aggregate_nlcd(nlcd_pixel_count_dir,aggregate_df_merged,run_type) 
+
+#determines the output sans nlcd location and writes to csv.
+out_file_dest(aggregate_df_merged, output_csv_destination)
+
+#determines the output with nlcd location and writes to csv
+out_file_dest(aggregate_df_merged_with_nlcd, output_with_nlcd)
