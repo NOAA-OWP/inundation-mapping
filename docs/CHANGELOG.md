@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Implemented changes to `inundate_nation.py` to allow more flexibility in choosing which FIM outputs to generate. Created new tool (`inundation_mosaic_vrt.py`) to ingest multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosaic them together for easier qualitative QA/QC.
 
-## v3.0.26.2 - 2022-03-14 - [PR #565](https://github.com/NOAA-OWP/cahaba/pull/565)
+## v3.0.27.1 - 2022-03-22 - [PR #565](https://github.com/NOAA-OWP/cahaba/pull/565)
 
 ## Additions
 
@@ -17,7 +17,21 @@ Implemented changes to `inundate_nation.py` to allow more flexibility in choosin
 
 New alternate plotting method for the Sierra Test maps the HAND grid next to the rating curve comparison plot. Also, the `evaluate_results()` function can be easily applied to compare previous Sierra Test runs.
 
+
+## v3.0.27.0 - 2022-03-18 - [PR #568](https://github.com/NOAA-OWP/cahaba/pull/568)
+
+Adding functionality to ingest NLCD (National Landcover Database) data. Running the `collate_catchment_attributes.py` tool now produces a CSV of static HUC metrics, Sierra Test metrics, and NLCD metrics. It produces one row per hydroid.
+
+## Changes
+
+- `tools/collate_catchment_attributes.py`:
+    - This commit adds an additional function `aggregate_nlcd()` to the existing script. This new funtion collects the NLCD information into the CSV storing static hydroTable metrics.
+
+<br/><br/>
+
 ## v3.0.26.1 - 2022-03-03 - [PR #546](https://github.com/NOAA-OWP/cahaba/pull/546)
+
+New alternate plotting method for the Sierra Test maps the HAND grid next to the rating curve comparison plot. Also, the `evaluate_results()` function can be easily applied to compare previous Sierra Test runs.
 
 ## Changes
 
@@ -47,6 +61,16 @@ This code modification appends the SRC optimization steps to `fim_run.sh` and pe
 <br/><br/>
 
 ## v3.0.25.0 - 2022-02-18 - [PR #542](https://github.com/NOAA-OWP/cahaba/pull/542)
+
+`collate_catchment_attributes.py` is located in tools. It is a simple script to assemble desired attributes for further study. The code loops through huc directories and pulls out static (does not change with stage) attributes by `HydroID`. It then links to sierra test metrics via `location_id` and `HydroID`.
+
+## Additions
+
+-`/tools/collate_catchment_attributes.py`: New tool to collate catchment attributes
+
+<br/><br/>
+
+## v3.0.25.00 - 2022-02-18 - [PR #542](https://github.com/NOAA-OWP/cahaba/pull/542)
 
 `collate_catchment_attributes.py` is located in tools. It is a simple script to assemble desired attributes for further study. The code loops through huc directories and pulls out static (does not change with stage) attributes by `HydroID`. It then links to sierra test metrics via `location_id` and `HydroID`.
 
