@@ -75,7 +75,7 @@ def vrt_raster_mosaic(output_bool_dir, ouput_dir, fim_version):
     print("Creating virtual raster...")
     vrt = gdal.BuildVRT(ouput_dir + "merged.vrt", raster_to_mosaic)
 
-    print("Building raster mosaic...")
+    print("Building raster mosaic: " + str(output_dir + fim_version + "_mosaic.tif"))
     gdal.Translate(output_dir + fim_version + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
     vrt = None
 
