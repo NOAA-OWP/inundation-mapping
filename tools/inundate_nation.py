@@ -116,7 +116,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-dir',help='Optional: The path to a directory to write the outputs. If not used, the inundation_nation directory is used by default -> type=str',required=False, default="")
     parser.add_argument('-m', '--magnitude-list', help = 'List of NWM recurr flow intervals to process (Default: 100_0) (Other options: 2_0 5_0 10_0 25_0 50_0 100_0)', nargs = '+', default = ['100_0'], required = False)
     parser.add_argument('-d', '--depth',help='Optional flag to produce inundation depth rasters (extent raster created by default)', action='store_true')
-    parser.add_argument('-s', '--mosaic',help='Optional flag to mosaic FIM extent rasters (use inundate_nation.py)', action='store_true')
+    parser.add_argument('-s', '--mosaic',help='Optional flag to produce mosaic of FIM extent rasters', action='store_true')
     parser.add_argument('-j', '--job-number',help='The number of jobs',required=False,default=1)
         
     args = vars(parser.parse_args())
