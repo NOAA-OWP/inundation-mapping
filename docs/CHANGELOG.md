@@ -2,6 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v3.0.27.1 - 2022-03-23 - [PR #570](https://github.com/NOAA-OWP/cahaba/pull/570)
+
+Hotfix to address error with mismatched HUC8 catchment attributes when aggregating/appending. Added a check to create "src_calibrated" field if it doesn't exist for a HUC prior to appending. 
+
+## Changes
+
+- `src/aggregate_fim_outputs.py`: Added check to create "src_calibrated" field with "null" entries if the field doesn't exist for a HUC8. This address an error when appending catchment layers that have the field (HUC8 with calibration performed) with HUCs that do not have the field.
+
+<br/><br/>
 
 ## v3.0.27.0 - 2022-03-18 - [PR #568](https://github.com/NOAA-OWP/cahaba/pull/568)
 
