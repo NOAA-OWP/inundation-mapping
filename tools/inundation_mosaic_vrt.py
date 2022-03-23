@@ -67,16 +67,16 @@ def vrt_raster_mosaic(output_bool_dir, ouput_dir, fim_version):
     #raster_to_mosaic = ['data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090301.tif','data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090302.tif']
     raster_to_mosaic = []
     for rasfile in os.listdir(output_bool_dir):
-        if rasfile.endswith('.tif') and "extent" in rasfile:
+        if rasfile.endswith('.tif') and "depth" not in rasfile:
             p = output_bool_dir + os.sep + rasfile
             print("Processing: " + p)
             raster_to_mosaic.append(p)
 
     print("Creating virtual raster...")
-    vrt = gdal.BuildVRT(ouput_dir + "merged.vrt", raster_to_mosaic)
+    vrt = gdal.BuildVRT(ouput_dir + os.sep + "merged.vrt", raster_to_mosaic)
 
-    print("Building raster mosaic: " + str(output_dir + fim_version + "_mosaic.tif"))
-    gdal.Translate(output_dir + fim_version + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
+    print("Building raster mosaic: " + str(output_dir + os.sep + fim_version + "_mosaic.tif"))
+    gdal.Translate(output_dir + os.sep + fim_version + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
     vrt = None
 
 if __name__ == '__main__':
@@ -87,46 +87,58 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Converts huc inundation extent rasters to boolean rasters and then creates a mosaic of all input rasters')
     parser.add_argument('-in_dir','--inund-rast-dir',help='Parent directory of FIM inundation rasters',required=True)
     parser.add_argument('-out_dir','--out-mosaic-dir',help='Directory to output raster mosaic (if blank - use default location)',required=False,default="")
+    parser.add_argument('-res','--resolution',help='Optional: string or comma sep list to use for inundation file lookup/naming (options: fr, ms, composite)',required=False,default="")
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=2)
 
     args = vars(parser.parse_args())
 
     input_raster_extent_dir = args['inund_rast_dir']
     output_dir = args['out_mosaic_dir']
+    fim_res_list = args['resolution'].replace(' ', '').split(',')
     job_number = int(args['job_number'])
 
     assert os.path.isdir(input_raster_extent_dir), 'ERROR: could not find the input raster directory location: ' + str(input_raster_extent_dir)
     print("Input Raster Directory: " + str(input_raster_extent_dir))
-    fim_version = os.path.basename(os.path.normpath(input_raster_extent_dir))
-    print("fim_version: " + fim_version)
-    
-    output_bool_dir = os.path.join(OUTPUT_BOOL_PARENT_DIR, fim_version)
-    if not os.path.exists(output_bool_dir):
-        print('Creating new output directory for boolean temporary outputs: ' + str(output_bool_dir))
-        os.mkdir(output_bool_dir)
 
-    if output_dir == "":
-        output_dir = DEFAULT_OUTPUT_DIR
-    if not os.path.exists(output_dir):
-        print('Creating new output directory: ' + str(output_dir))
-        os.mkdir(output_dir)
+    for fim_res in fim_res_list:
+        fim_version = os.path.basename(os.path.normpath(input_raster_extent_dir))
+        print("fim_version: " + fim_version)
+        if not fim_res == "":
+            print("fim resolution: " + fim_res)
+            fim_res = "_" + fim_res
+            fim_version = fim_version + fim_res
+        
+        output_bool_dir = os.path.join(OUTPUT_BOOL_PARENT_DIR, fim_version)
+        if not os.path.exists(output_bool_dir):
+            print('Creating new output directory for boolean temporary outputs: ' + str(output_bool_dir))
+            os.mkdir(output_bool_dir)
 
-    if job_number > available_cores:
-        job_number = available_cores - 1
-        print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
+        if output_dir == "":
+            output_dir = DEFAULT_OUTPUT_DIR
+        if not os.path.exists(output_dir):
+            print('Creating new output directory: ' + str(output_dir))
+            os.mkdir(output_dir)
 
-    procs_list = []
-    for rasfile in os.listdir(input_raster_extent_dir):
-        if rasfile.endswith('.tif') and "extent" in rasfile:
-            #p = input_raster_extent_dir + rasfile
-            procs_list.append([input_raster_extent_dir,rasfile,output_bool_dir])
+        if job_number > available_cores:
+            job_number = available_cores - 1
+            print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
 
-    # Multiprocess --> create boolean inundation rasters for all hucs
-    if len(procs_list) > 0:
-        with Pool(processes=job_number) as pool:
-            pool.map(create_bool_rasters, procs_list)
-    else:
-        print('Did not find any valid FIM extent rasters: ' + input_raster_extent_dir)
+        procs_list = []
+        for rasfile in os.listdir(input_raster_extent_dir):
+            if rasfile.endswith('.tif') and "depth" not in rasfile: # only use .tif files and non-depth rasters
+                if fim_res != "":
+                    if fim_res in rasfile:
+                        #p = input_raster_extent_dir + rasfile
+                        procs_list.append([input_raster_extent_dir,rasfile,output_bool_dir])
+                else:
+                    procs_list.append([input_raster_extent_dir,rasfile,output_bool_dir])
 
-    # Perform VRT creation and final mosaic using boolean rasters
-    vrt_raster_mosaic(output_bool_dir,output_dir,fim_version)
+        # Multiprocess --> create boolean inundation rasters for all hucs
+        if len(procs_list) > 0:
+            with Pool(processes=job_number) as pool:
+                pool.map(create_bool_rasters, procs_list)
+        else:
+            print('Did not find any valid FIM extent rasters: ' + input_raster_extent_dir)
+
+        # Perform VRT creation and final mosaic using boolean rasters
+        vrt_raster_mosaic(output_bool_dir,output_dir,fim_version)
