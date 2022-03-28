@@ -88,6 +88,8 @@ def aggregate_fim_outputs(args):
 
             # Open catchments
             catchments = gpd.read_file(catchments_filename)
+            if 'src_calibrated' not in catchments.columns:
+                catchments['src_calibrated'] = pd.NA
 
             # Write/append aggregate catchments
             if aggregate_catchments.exists():

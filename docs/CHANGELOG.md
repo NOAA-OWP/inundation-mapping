@@ -1,9 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-Implemented changes to `inundate_nation.py` to allow more flexibility in choosing which FIM outputs to generate. Created new tool (`inundation_mosaic_vrt.py`) to ingest multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosaic them together for easier qualitative QA/QC.
+
+## v3.0.28.1 - 2022-03-23 - [PR #570](https://github.com/NOAA-OWP/cahaba/pull/570)
+
+Hotfix to address error with mismatched HUC8 catchment attributes when aggregating/appending. Added a check to create "src_calibrated" field if it doesn't exist for a HUC prior to appending. 
+
+## Changes
+
+- `src/aggregate_fim_outputs.py`: Added check to create "src_calibrated" field with "null" entries if the field doesn't exist for a HUC8. This address an error when appending catchment layers that have the field (HUC8 with calibration performed) with HUCs that do not have the field.
+
+<br/><br/>
 
 ## v3.0.28.0 - 2022-03-22 - [PR #565](https://github.com/NOAA-OWP/cahaba/pull/565)
+
+Implemented changes to `inundate_nation.py` to allow more flexibility in choosing which FIM outputs to generate. Created new tool (`inundation_mosaic_vrt.py`) to ingest multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosaic them together for easier qualitative QA/QC.
 
 ## Additions
 
@@ -12,6 +23,7 @@ Implemented changes to `inundate_nation.py` to allow more flexibility in choosin
 ## Changes
 
 - `tools/inundate_nation.py`: new input args to specify which NWM recurr flow interval(s) to use, whether to generate depth grids, and output name/location
+
 
 <br/><br/>
 
