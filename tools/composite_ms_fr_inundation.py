@@ -167,6 +167,7 @@ if __name__ == '__main__':
     parser.add_argument('-fr','--fim-dir-fr',help='Directory that contains FR FIM outputs.',required=True)
     parser.add_argument('-u','--huc',help='HUC within FIM directories to inunundate. Can be a comma-separated list.',required=True)
     parser.add_argument('-f','--flows-file',help='File path of flows csv or comma-separated list of paths if running multiple HUCs',required=True)
+    parser.add_argument('-fe','--flows-event',help='Optional flag to use a single flow file for multiple hucs (event flow file)',required=False,default=False,action='store_true')
     parser.add_argument('-o','--ouput-dir',help='Folder to write Composite Raster output.',required=True)
     parser.add_argument('-n','--ouput-name',help='File name for output(s).',default=None,required=False)
     parser.add_argument('-b','--bin-raster',help='Output raster is a binary wet/dry grid. This is the default if no raster flags are passed.',required=False,default=False,action='store_true')
@@ -181,6 +182,7 @@ if __name__ == '__main__':
     fim_dir_fr    = args['fim_dir_fr']
     hucs          = args['huc'].replace(' ', '').split(',')
     flows_files   = args['flows_file'].replace(' ', '').split(',')
+    flows_event    = args['flows_event']
     num_workers   = int(args['num_workers'])
     output_dir    = args['ouput_dir']
     ouput_name    = args['ouput_name']
@@ -190,7 +192,10 @@ if __name__ == '__main__':
     quiet         = bool(args['quiet'])
 
     assert num_workers >= 1, "Number of workers should be 1 or greater"
-    assert len(flows_files) == len(hucs), "Number of hucs must be equal to the number of forecasts provided"
+    if not flows_event:
+        assert len(flows_files) == len(hucs), "Number of hucs must be equal to the number of forecasts provided"
+    else:
+        print("Using a single flow file for multiple HUCs - event flow file")
     assert not (bin_raster and depth_raster), "Cannot use both -b and -d flags"
 
     # Create output directory if it does not exist
@@ -199,8 +204,13 @@ if __name__ == '__main__':
 
     # Create nested list for input into multi-threading
     arg_list = []
-    for huc, flows_file in zip(hucs, flows_files):
-        arg_list.append((fim_dir_ms, fim_dir_fr, huc, flows_file, output_dir, ouput_name, bin_raster, depth_raster, clean, quiet))
+    if len(flows_files) == len(hucs):
+        for huc, flows_file in zip(hucs, flows_files):
+            arg_list.append((fim_dir_ms, fim_dir_fr, huc, flows_file, output_dir, ouput_name, bin_raster, depth_raster, clean, quiet))
+    else:
+        flows_file = flows_files[0]
+        for huc in hucs:
+            arg_list.append((fim_dir_ms, fim_dir_fr, huc, flows_file, output_dir, ouput_name, bin_raster, depth_raster, clean, quiet))
 
     # Multi-thread for each huc in input hucs
     if num_workers > 1:
