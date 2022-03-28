@@ -136,5 +136,5 @@ python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
 # -------------------
 ## GET NON ZERO EXIT CODES ##
-cd $outputRunDataDir/logs/branch
+cd $outputRunDataDir/logs/branches
 find ./ -name "*_branch_*.log" -type f | xargs grep "Exit status: [1-9]" >./non_zero_exit_codes.log
