@@ -1,8 +1,6 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-Implemented changes to `inundate_nation.py` to allow more flexibility in choosing which FIM outputs to generate. Created new tool (`inundation_mosaic_vrt.py`) to ingest multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosaic them together for easier qualitative QA/QC.
-
 
 ## v3.0.28.1 - 2022-03-23 - [PR #570](https://github.com/NOAA-OWP/cahaba/pull/570)
 
@@ -15,6 +13,8 @@ Hotfix to address error with mismatched HUC8 catchment attributes when aggregati
 <br/><br/>
 
 ## v3.0.28.0 - 2022-03-22 - [PR #565](https://github.com/NOAA-OWP/cahaba/pull/565)
+
+Implemented changes to `inundate_nation.py` to allow more flexibility in choosing which FIM outputs to generate. Created new tool (`inundation_mosaic_vrt.py`) to ingest multiple HUC inundation extent rasters, converts them to boolean (0 or 1), and mosaic them together for easier qualitative QA/QC.
 
 ## Additions
 
