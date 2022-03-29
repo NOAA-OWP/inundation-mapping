@@ -12,6 +12,7 @@ from collections import deque
 import multiprocessing
 from multiprocessing import Pool
 from src_roughness_optimization import update_rating_curve
+import psycopg2 # python package for connecting to postgres
 
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 '''
@@ -50,11 +51,15 @@ def process_points(args):
     htable_path = args[7]
     optional_outputs = args[8]
 
+'''
     ## Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
     catch_poly = gpd.read_file(catchments_poly_path)
     catch_poly_crs = catch_poly.crs
     water_edge_df.to_crs(catch_poly_crs, inplace=True) 
     water_edge_df = gpd.clip(water_edge_df,catch_poly)
+'''
+    ## Subset database to huc points
+
 
     ## Define coords variable to be used in point raster value attribution.
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
@@ -105,8 +110,31 @@ def process_points(args):
     return(log_text)
 
 
+def find_points_in_huc(huc_id, conn):
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ST_X(P.geom), ST_Y(P.geom), P.submitter, P.flow
+        FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom)
+        WHERE H.huc8 = %s;
+    """, (huc_id,))
+    points = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
+    cursor.close()
+    return points
+
+
+def find_hucs_with_points(conn):
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT H.huc8
+        FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom);
+    """)
+    hucs_wpoints = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
+    cursor.close()
+    return hucs_wpoints
+
 def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number, debug_outputs_option):
 
+    '''
     ## Define CRS to use for initial geoprocessing.
     if scale == 'HUC8':
         hand_crs_default = 'EPSG:5070'
@@ -129,9 +157,16 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
     print("Joining points to WBD...")
     water_edge_df = sjoin(points_layer_read, wbd_huc_read, op='within')
     del wbd_huc_read
-
+    '''
+    
+    conn = connect() # move this to happen once before looping hucs
+    print("Initial test, find points in huc from spatial query")
+    points = find_points_in_huc(huc, conn)
+    print(f"{len(points)} points found in " + str(huc))
+    disconnect(conn) # move this to happen at the end of the huc looping
+    
     ## Convert to GeoDataFrame and add two columns for X and Y.
-    gdf = gpd.GeoDataFrame(water_edge_df)
+    #gdf = gpd.GeoDataFrame(water_edge_df)
     gdf['X'] = gdf['geometry'].x
     gdf['Y'] = gdf['geometry'].y
 
@@ -194,6 +229,49 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
                 log_output = pool.map(process_points, procs_list)
                 log_file.writelines(["%s\n" % item  for item in log_output])
 
+def connect():
+    """ Connect to the PostgreSQL database server """
+
+    print('Connecting to the PostgreSQL database...')
+    conn = None
+    not_connected = True
+    while not_connected:
+        try:
+
+            # connect to the PostgreSQL server
+            conn = psycopg2.connect(
+                host="calibration_db",
+                database="calibration",
+                user="postgres",
+                password="postgres")
+
+            # create a cursor
+            cur = conn.cursor()
+
+            # execute a statement
+            # print('PostgreSQL database version:')
+            cur.execute('SELECT version()')
+
+            # display the PostgreSQL database server version
+            db_version = cur.fetchone()
+            # print(db_version)
+
+               # close the communication with the PostgreSQL
+            cur.close()
+            not_connected = False
+            print("Connected to database\n\n")
+        except (Exception, psycopg2.DatabaseError) as error:
+            print("Waiting for database to come online")
+            time.sleep(5)
+
+    return conn
+
+def disconnect(conn):
+    """ Disconnect from the PostgreSQL database server """
+
+    if conn is not None:
+        conn.close()
+        print('Database connection closed.')
 
 if __name__ == '__main__':
 

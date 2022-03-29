@@ -183,6 +183,12 @@ if [ "$src_adjust_usgs" = "True" ]; then
     time python3 foss_fim/src/src_adjust_usgs_rating.py -fim_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -debug False -j $jobLimit
 fi
 
+echo "Loading HUC Data"
+time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=calibration_db dbname=calibration user=postgres password=postgres" /data/temp/water_edge_rc_adjust/WBD_National_copy.gpkg WBDHU8
+
+echo "Loading Point Data"
+time ogr2ogr -overwrite -f PostgreSQL PG:"host=calibration_db dbname=calibration user=postgres password=postgres" /data/temp/water_edge_rc_adjust/known_water_edge_nws_usgs_magnitude.gpkg points
+
 echo -e $startDiv"Performing SRC adjustments using obs FIM/flow point database"$stopDiv
 if [ "$src_adjust_spatial" = "True" ]; then
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
