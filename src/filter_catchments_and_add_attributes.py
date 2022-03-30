@@ -9,22 +9,32 @@ from utils.shared_functions import mem_profile
 
 
 @mem_profile
-def filter_catchments_and_add_attributes(input_catchments_filename, input_flows_filename, output_catchments_filename, output_flows_filename, wbd_filename, huc_code):
+def filter_catchments_and_add_attributes(input_catchments_filename,
+                                         input_flows_filename,
+                                         output_catchments_filename,
+                                         output_flows_filename,
+                                         wbd_filename,
+                                         huc_code):
+
     input_catchments = gpd.read_file(input_catchments_filename)
     wbd = gpd.read_file(wbd_filename)
     input_flows = gpd.read_file(input_flows_filename)
 
     # filter segments within huc boundary
     select_flows = tuple(map(str,map(int,wbd[wbd.HUC8.str.contains(huc_code)][FIM_ID])))
-
-    if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)
+    
+    if input_flows.HydroID.dtype != 'str':
+        input_flows.HydroID = input_flows.HydroID.astype(str)
     output_flows = input_flows[input_flows.HydroID.str.startswith(select_flows)].copy()
-    if output_flows.HydroID.dtype != 'int': output_flows.HydroID = output_flows.HydroID.astype(int)
+    
+    if output_flows.HydroID.dtype != 'int':
+        output_flows.HydroID = output_flows.HydroID.astype(int)
 
     if len(output_flows) > 0:
 
         # merges input flows attributes and filters hydroids
-        if input_catchments.HydroID.dtype != 'int': input_catchments.HydroID = input_catchments.HydroID.astype(int)
+        if input_catchments.HydroID.dtype != 'int':
+            input_catchments.HydroID = input_catchments.HydroID.astype(int)
         output_catchments = input_catchments.merge(output_flows.drop(['geometry'],axis=1),on='HydroID')
 
         # filter out smaller duplicate features
@@ -48,7 +58,9 @@ def filter_catchments_and_add_attributes(input_catchments_filename, input_flows_
             class NoFlowLinesInHUC(Exception):
                 pass
 
-            raise NoFlowLinesInHUC("There are no flowlines in the HUC. These should be better filtered in derive_level_paths.py")
+            raise UserWarning("There are no flowlines in the HUC. These should be better filtered in derive_level_paths.py")
+    else:
+        raise UserWarning("Sorry, there are no flowlines in the HUC. This may be related to stream filtering if applicable.")
 
 
 if __name__ == '__main__':

@@ -125,6 +125,7 @@ if [ ! -d "$outputRunDataDir/logs/branch" ]; then
 fi
 
 ## RUN GMS BY BRANCH ##
+echo "Start of individual branch processing"
 if [ "$jobLimit" -eq 1 ]; then
     parallel $retry --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 else
@@ -132,9 +133,14 @@ else
 fi
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
+echo "Start of usgs gage aggregation"
 python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
 # -------------------
 ## GET NON ZERO EXIT CODES ##
-cd $outputRunDataDir/logs/branches
+
+echo "Start of output log evaluation"
+cd $outputRunDataDir/logs/branch
 find ./ -name "*_branch_*.log" -type f | xargs grep "Exit status: [1-9]" >./non_zero_exit_codes.log
+
+echo "Complete"

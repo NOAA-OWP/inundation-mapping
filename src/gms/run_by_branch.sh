@@ -37,7 +37,7 @@ fi
 mkdir -p $outputCurrentBranchDataDir
 
 ## START MESSAGE ##
-echo -e $startDiv$startDiv"Processing branch_id: $current_branch_id in HUC: $hucNumber ..."$stopDiv$stopDiv
+echo -e $startDiv"Processing branch_id: $current_branch_id in HUC: $hucNumber ..."$stopDiv
 
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"$stopDiv

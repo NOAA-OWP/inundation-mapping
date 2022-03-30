@@ -4,9 +4,10 @@ import pandas as pd
 from stream_branches import StreamNetwork
 import argparse
 
-def Generate_branch_list(stream_network_dissolved,branch_id_attribute,output_branch_list):
+def Generate_branch_list(stream_network_dissolved, branch_id_attribute, output_branch_list):
 
     # load stream network
+
     stream_network_dissolved = StreamNetwork.from_file( stream_network_dissolved,
                                                         branch_id_attribute=branch_id_attribute )
 
