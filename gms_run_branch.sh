@@ -132,14 +132,22 @@ else
 fi
 
 ## RUN GMS BY BRANCH ##
-echo "Start of individual branch processing"
+echo "================================================================================"
+echo "Start of branch processing"
 if [ "$jobLimit" -eq 1 ]; then
     parallel $retry --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 else
     parallel $retry --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 fi
 
+# -------------------
+## GET NON ZERO EXIT CODES ##
+# Needed in case aggregation fails, we will need the logs
+find $outputRunDataDir/logs/branch/ -name "*_branch_*.log" -type f | xargs grep "Exit status: [1-9]" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log"
+
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
+# TODO: How do we skip aggregation if there is a branch error
+# maybe against the non_zero logs above
 echo 
 echo "Processing usgs gage aggregation"
 python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
@@ -147,4 +155,3 @@ python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 echo "================================================================================"
 echo "Branch processing is complete"
 echo
-

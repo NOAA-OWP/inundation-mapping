@@ -36,7 +36,7 @@ input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Iden
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
 
 ## START MESSAGE ##
-echo -e $startDiv"Processing HUC: $hucNumber ..."$stopDiv$stopDiv
+echo -e $startDiv"Processing HUC: $hucNumber ..."$stopDiv
 
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then
