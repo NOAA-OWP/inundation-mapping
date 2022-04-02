@@ -145,6 +145,13 @@ fi
 if [ ! -d "$outputRunDataDir/logs/unit" ]; then
     mkdir -p $outputRunDataDir/logs/unit
 fi
+if [ ! -d "$outputRunDataDir/unit_errors" ]; then
+    mkdir -p $outputRunDataDir/unit_errors
+else
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputRunDataDir/unit_errors/*.*
+    fi
+fi
 
 # copy over config file
 cp -a $envFile $outputRunDataDir
@@ -168,7 +175,6 @@ else
 ## AGGREGATE BRANCH LISTS INTO ONE ##
 python3 $srcDir/gms/aggregate_branch_lists.py -l $hucList
 
-
-## GET NON ZERO EXIT CODES ##
-cd $outputRunDataDir/logs/unit
-find ./ -name "*_unit.log" -type f | xargs grep "Exit status: [1-9]" >./non_zero_exit_codes.log
+echo "================================================================================"
+echo "Unit processing is complete"
+echo

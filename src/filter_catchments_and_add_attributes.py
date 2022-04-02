@@ -54,13 +54,9 @@ def filter_catchments_and_add_attributes(input_catchments_filename,
             output_catchments.to_file(output_catchments_filename, driver="GPKG",index=False)
             output_flows.to_file(output_flows_filename, driver="GPKG", index=False)
         except ValueError:
-
-            class NoFlowLinesInHUC(Exception):
-                pass
-
-            raise UserWarning("There are no flowlines in the HUC. These should be better filtered in derive_level_paths.py")
+            raise Exception("There are no flowlines in the HUC.")
     else:
-        raise UserWarning("Sorry, there are no flowlines in the HUC. This may be related to stream filtering if applicable.")
+        raise Exception("There are no flowlines in the HUC.")
 
 
 if __name__ == '__main__':

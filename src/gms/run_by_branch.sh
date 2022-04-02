@@ -300,4 +300,5 @@ if [ -f $deny_gms_branches_list ]; then
     Tcount
 fi
 
-
+echo -e $startDiv"End Processing $hucNumber $current_branch_id ..."
+echo

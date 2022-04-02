@@ -123,6 +123,13 @@ fi
 if [ ! -d "$outputRunDataDir/logs/branch" ]; then
     mkdir -p $outputRunDataDir/logs/branch
 fi
+if [ ! -d "$outputRunDataDir/branch_errors" ]; then
+    mkdir -p "$outputRunDataDir/branch_errors"
+else
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputRunDataDir/branch_errors/*.*
+    fi
+fi
 
 ## RUN GMS BY BRANCH ##
 echo "Start of individual branch processing"
@@ -133,14 +140,11 @@ else
 fi
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo "Start of usgs gage aggregation"
+echo 
+echo "Processing usgs gage aggregation"
 python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
-# -------------------
-## GET NON ZERO EXIT CODES ##
+echo "================================================================================"
+echo "Branch processing is complete"
+echo
 
-echo "Start of output log evaluation"
-cd $outputRunDataDir/logs/branch
-find ./ -name "*_branch_*.log" -type f | xargs grep "Exit status: [1-9]" >./non_zero_exit_codes.log
-
-echo "Complete"
