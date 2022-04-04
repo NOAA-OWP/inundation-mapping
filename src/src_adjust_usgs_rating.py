@@ -218,36 +218,39 @@ if __name__ == '__main__':
     print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
     csv_name = 'usgs_elev_table.csv'
     agg_crosswalk_df = concat_huc_csv(fim_directory,csv_name)
-    assert not agg_crosswalk_df.empty, 'ERROR: agg_crosswalk_df is empty - check that usgs_elev_table.csv files exist in fim_dir!'
+    if agg_crosswalk_df is None:
+        print('WARNING: agg_crosswalk_df not created - check that usgs_elev_table.csv files exist in fim_dir!')
+    elif agg_crosswalk_df.empty:
+        print('WARNING: agg_crosswalk_df is empty - check that usgs_elev_table.csv files exist in fim_dir!')
+    else:
+        if job_number > available_cores:
+            job_number = available_cores - 1
+            print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
 
-    if job_number > available_cores:
-        job_number = available_cores - 1
-        print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
+        ## Create output dir for log and usgs rc database
+        output_dir = os.path.join(fim_directory,"logs","src_optimization")
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
 
-    ## Create output dir for log and usgs rc database
-    output_dir = os.path.join(fim_directory,"logs","src_optimization")
-    if not os.path.isdir(output_dir):
-        os.makedirs(output_dir)
+        # Create log file for processing records
+        print('This may take a few minutes...')
 
-    # Create log file for processing records
-    print('This may take a few minutes...')
+        usgs_df = create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_filepath, output_dir)
+        print("Log file output here: " + str(output_dir))
 
-    usgs_df = create_usgs_rating_database(usgs_rc_filepath, agg_crosswalk_df, nwm_recurr_filepath, output_dir)
-    print("Log file output here: " + str(output_dir))
+        ## Create a time var to log run time
+        begin_time = dt.datetime.now()
+        log_file = open(os.path.join(output_dir,'log_usgs_rc_src_adjust.log'),"w")
+        log_file.write('START TIME: ' + str(begin_time) + '\n')
+        log_file.write('#########################################################\n\n')
 
-    ## Create a time var to log run time
-    begin_time = dt.datetime.now()
-    log_file = open(os.path.join(output_dir,'log_usgs_rc_src_adjust.log'),"w")
-    log_file.write('START TIME: ' + str(begin_time) + '\n')
-    log_file.write('#########################################################\n\n')
+        ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
+        huc_proc_list(usgs_df,fim_directory,debug_outputs_option)
 
-    ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-    huc_proc_list(usgs_df,fim_directory,debug_outputs_option)
-
-    ## Record run time and close log file
-    end_time = dt.datetime.now()
-    log_file.write('END TIME: ' + str(end_time) + '\n')
-    tot_run_time = end_time - begin_time
-    log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
-    sys.stdout = sys.__stdout__
-    log_file.close()
+        ## Record run time and close log file
+        end_time = dt.datetime.now()
+        log_file.write('END TIME: ' + str(end_time) + '\n')
+        tot_run_time = end_time - begin_time
+        log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
+        sys.stdout = sys.__stdout__
+        log_file.close()

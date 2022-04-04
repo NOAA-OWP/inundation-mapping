@@ -68,18 +68,22 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     ## Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object})
     df_prev_adj = pd.DataFrame() # initialize empty df for populating/checking later
-    if 'default_ManningN' in df_htable.columns:
-        if merge_prev_adj:
-            # Create a subset of hydrotable with previous adjusted SRC attributes
-            df_prev_adj_htable = df_htable.copy()[['HydroID','submitter','last_updated','adjust_ManningN','obs_source']] 
-            df_prev_adj_htable.rename(columns={'submitter':'submitter_prev','last_updated':'last_updated_prev','adjust_ManningN':'adjust_ManningN_prev','obs_source':'obs_source_prev'}, inplace=True)
-            df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
-            # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
-            df_prev_adj = df_prev_adj_htable[df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating", na=False)] 
-        # Delete previous adj columns to prevent duplicate issues (if src_roughness_optimization.py was previously applied)
-        df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN','adjust_src_on','obs_source'], axis=1, inplace=True) 
-        df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
-        log_text += str(huc) + ': found previous hydroTable calibration attributes --> removing previous calb columns...\n'
+    if df_htable['default_discharge_cms'].isnull().values.any():
+        df_htable['default_discharge_cms'] = df_htable['discharge_cms'].values
+        df_htable['default_ManningN'] = df_htable['ManningN'].values
+
+    if merge_prev_adj and not df_htable['adjust_ManningN'].isnull().all():
+        # Create a subset of hydrotable with previous adjusted SRC attributes
+        df_prev_adj_htable = df_htable.copy()[['HydroID','submitter','last_updated','adjust_ManningN','obs_source']] 
+        df_prev_adj_htable.rename(columns={'submitter':'submitter_prev','last_updated':'last_updated_prev','adjust_ManningN':'adjust_ManningN_prev','obs_source':'obs_source_prev'}, inplace=True)
+        df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
+        # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
+        df_prev_adj = df_prev_adj_htable[df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating", na=False)] 
+        log_text += str(huc) + ': found previous hydroTable calibration attributes --> retaining previous calb attributes for blending...\n'
+    # Delete previous adj columns to prevent duplicate issues (if src_roughness_optimization.py was previously applied)
+    df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN','adjust_src_on','obs_source'], axis=1, inplace=True) 
+    df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
+    
 
     ## loop through the user provided point data --> stage/flow dataframe row by row
     for index, row in df_nvalues.iterrows():
@@ -194,7 +198,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
             conditions  = [ (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].notnull()), (df_nmerge['hydroid_ManningN'].isnull()) & (df_nmerge['featid_ManningN'].isnull()) & (df_nmerge['group_ManningN'].notnull()) ]
             choices     = [ df_nmerge['featid_ManningN'], df_nmerge['group_ManningN'] ]
             df_nmerge['adjust_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
-            df_nmerge['obs_source'] = np.where(df_nmerge['adjust_ManningN'].notnull(), source_tag, None)
+            df_nmerge['obs_source'] = np.where(df_nmerge['adjust_ManningN'].notnull(), source_tag, pd.NA)
             df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
 
             ## Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new adjusted roughness value

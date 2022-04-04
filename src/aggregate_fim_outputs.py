@@ -46,7 +46,14 @@ def aggregate_fim_outputs(args):
         if len(huc)> 6:
 
             # Open hydrotable
-            hydrotable = pd.read_csv(hydrotable_filename)
+            hydrotable_read = pd.read_csv(hydrotable_filename)
+
+            # Filter hydrotable to subset list of variables
+            filtered_vars = ['HydroID','feature_id','order_','HUC','LakeID','barc_on','vmann_on','adjust_src_on','stage','discharge_cms']
+            for var in filtered_vars:
+                if var not in hydrotable_read.columns:
+                    hydrotable_read[var] = pd.NA
+            hydrotable = hydrotable_read[filtered_vars]
 
             # Write/append aggregate hydrotable
             if aggregate_hydrotable.exists():
@@ -253,3 +260,4 @@ if __name__ == '__main__':
     print(f"aggregating {len(huc_list)} hucs to HUC6 scale using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         pool.map(aggregate_fim_outputs, procs_list)
+    print('Aggregation finished')
