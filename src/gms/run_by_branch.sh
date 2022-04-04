@@ -219,12 +219,14 @@ gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIF
 Tcount
 
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
-echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-[ -f $outputHucDataDir/LandSea_subset.gpkg ] && \
-gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LandSea_subset.gpkg $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif
-Tcount
+if [ -f $outputHucDataDir/LandSea_subset.gpkg ]; then
+    echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber $current_branch_id"$stopDiv
+    date -u
+    Tstart
+
+    gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LandSea_subset.gpkg $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif
+    Tcount
+fi
 
 ## POLYGONIZE REACH WATERSHEDS ##
 echo -e $startDiv"Polygonize Reach Watersheds $hucNumber $current_branch_id"$stopDiv
@@ -237,7 +239,12 @@ Tcount
 echo -e $startDiv"Process catchments and model streams $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber
+python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber -s $dropLowStreamOrders
+
+# test if we received a non-zero code back from derive_level_paths.py
+subscript_exit_code=$?
+# we have to retrow it if it is not a zero (but it will stop further execution in this script)
+if [ $subscript_exit_code -ne 0 ]; then exit $subscript_exit_code; fi
 Tcount
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##

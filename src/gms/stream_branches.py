@@ -661,9 +661,15 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # dissolve lines
         self['bids_temp'] = self.loc[:,branch_id_attribute].copy()
+
+        # ensure the new stream order has the order from it's highest child
+        max_stream_order = self.groupby(branch_id_attribute).max()['order_'].copy()        
+
         self = self.dissolve(by=branch_id_attribute)
         self.rename(columns={'bids_temp' : branch_id_attribute},inplace=True)
         
+        self["order_"] = max_stream_order.values
+
         # merges each multi-line string to a sigular linestring
         for lpid,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc="Merging mult-part geoms"):
             if isinstance(row.geometry,MultiLineString):
