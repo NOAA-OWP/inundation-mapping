@@ -2,6 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v3.0.27.0 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
+
+Adding code to garauntee correct write action is performed in export process of `collate_catchment_attributes.py`. Tool now correctly writes intermediate files and produces correct number of output rows.
+
+## Changes
+
+- `tools/collate_catchment_attributes.py`:
+    - This commit adds a `sleep(60)` command betwen the two csv writes to garauntee the first write is complete before next write is begun.
+
+<br/><br/>
+
 
 ## v3.0.27.0 - 2022-03-18 - [PR #568](https://github.com/NOAA-OWP/cahaba/pull/568)
 
