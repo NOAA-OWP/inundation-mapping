@@ -135,7 +135,16 @@ elif [ -d "$outputRunDataDir" ] && [ -z "$overwrite" ] ; then
     echo "$runName data directories already exist. Use -o/--overwrite to continue"
     exit 1
 fi
+
 mkdir -p $outputRunDataDir/logs
+if [ ! -d "$outputRunDataDir/unit_errors" ]; then
+    mkdir -p $outputRunDataDir/unit_errors
+else
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputRunDataDir/unit_errors/*.*
+        rm -rf $outputRunDataDir/logs/unit/*.*
+    fi
+fi
 
 ## RUN ##
 if [ -f "$hucList" ]; then
@@ -179,3 +188,11 @@ if [[ "$viz" -eq 1 ]]; then
     # aggregate outputs
     time python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 6
 fi
+
+## GET NON ZERO EXIT CODES ##
+# Needed in case aggregation fails, we will need the logs
+find $outputRunDataDir/logs/ -name "*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log"
+
+echo "================================================================================"
+echo "Unit processing is complete"
+echo

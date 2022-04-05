@@ -18,6 +18,7 @@ def filter_catchments_and_add_attributes(input_catchments_filename,
                                          huc_code,
                                          drop_stream_orders=False):
 
+
     input_catchments = gpd.read_file(input_catchments_filename)
     wbd = gpd.read_file(wbd_filename)
     input_flows = gpd.read_file(input_flows_filename)
@@ -61,7 +62,7 @@ def filter_catchments_and_add_attributes(input_catchments_filename,
         if (drop_stream_orders):
             # this is not an exception, but a custom exit code that can be trapped
             print("There are no flowlines in the HUC after stream order filtering.")
-            sys.exit(FIM_system_exit_codes.GMS_BRANCH_NO_FLOWLINES.value)  # will send a 61 back
+            sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIT.value)  # will send a 61 back
         else:
             # if we are not dropping stream orders, then something is wrong
             raise Exception("There are no flowlines in the HUC.")

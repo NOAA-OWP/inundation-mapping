@@ -181,8 +181,7 @@ python3 $srcDir/gms/aggregate_branch_lists.py -l $hucList
 
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
-
-find $outputRunDataDir/logs/unit/ -name "*_unit.log" -type f | xargs grep "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log"
+find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log"
 
 echo "================================================================================"
 echo "Unit processing is complete"

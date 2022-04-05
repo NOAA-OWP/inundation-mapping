@@ -24,5 +24,5 @@ class FIM_system_exit_codes(Enum):
     '''
 
     GMS_UNIT_NO_BRANCHES = 60
-    GMS_BRANCH_NO_FLOWLINES = 61
+    NO_FLOWLINES_EXIT = 61
             

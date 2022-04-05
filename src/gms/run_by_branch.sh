@@ -241,7 +241,7 @@ date -u
 Tstart
 python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber -s $dropLowStreamOrders
 
-# test if we received a non-zero code back from derive_level_paths.py
+# test if we received a non-zero code back from filter_catchments_and_add_attributes.py
 subscript_exit_code=$?
 # we have to retrow it if it is not a zero (but it will stop further execution in this script)
 if [ $subscript_exit_code -ne 0 ]; then exit $subscript_exit_code; fi
