@@ -2,6 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v3.0.28.2 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
+
+Patch to guarantee correct write action is performed in export process of `collate_catchment_attributes.py`. Tool now correctly writes intermediate files and produces correct number of output rows.
+
+## Changes
+
+- `tools/collate_catchment_attributes.py`:
+    - This commit adds a `sleep(60)` command betwen the two csv writes to garauntee the first write is complete before next write is begun.
+
+<br/><br/>
+
 ## v3.0.28.1 - 2022-03-23 - [PR #570](https://github.com/NOAA-OWP/cahaba/pull/570)
 
 Hotfix to address error with mismatched HUC8 catchment attributes when aggregating/appending. Added a check to create "src_calibrated" field if it doesn't exist for a HUC prior to appending. 
@@ -31,9 +42,11 @@ Implemented changes to `inundate_nation.py` to allow more flexibility in choosin
 
 Adding functionality to ingest NLCD (National Landcover Database) data. Running the `collate_catchment_attributes.py` tool now produces a CSV of static HUC metrics, Sierra Test metrics, and NLCD metrics. It produces one row per hydroid.
 
+
 ## Changes
 
 - `tools/collate_catchment_attributes.py`:
+
     - This commit adds an additional function `aggregate_nlcd()` to the existing script. This new funtion collects the NLCD information into the CSV storing static hydroTable metrics.
 
 <br/><br/>
