@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v3.0.27.0 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
+## v3.0.27.1 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
 
 Adding code to garauntee correct write action is performed in export process of `collate_catchment_attributes.py`. Tool now correctly writes intermediate files and produces correct number of output rows.
 
