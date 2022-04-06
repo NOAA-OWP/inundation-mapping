@@ -917,7 +917,7 @@ class StreamBranchPolygons(StreamNetwork):
         return(out_records)
 
 
-    def clip(self,to_clip,out_filename_template=None,branch_id=None,branch_id_attribute=None):
+    def clip(self,to_clip,out_filename_template=None,branch_id=None,branch_id_attribute=None,out_file_driver='GTiff'):
 
         """ Clips a raster or vector to the stream branch polygons """
 
@@ -960,7 +960,8 @@ class StreamBranchPolygons(StreamNetwork):
 
                 buffered_meta.update(height = buffered_array.shape[1],
                                      width = buffered_array.shape[2],
-                                     transform = buffered_transform
+                                     transform = buffered_transform,
+                                     driver = out_file_driver
                                     )
 
                 # write out files

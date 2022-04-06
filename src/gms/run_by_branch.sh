@@ -18,10 +18,19 @@ outputBranchDataDir=$outputHucDataDir/branches
 outputCurrentBranchDataDir=$outputBranchDataDir/$current_branch_id
 
 # set input files
-input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
+#input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
 input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
+
+if [[ $dem_source == "3dep" ]] ; then
+    input_DEM=$inputDataDir/dem_3dep_rasters/dem_3dep_"$huc4Identifier"_"$dem_resolution".vrt
+elif [[ $dem_source == "nhd" ]] ; then
+    input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
+else
+    echo "Invalid value for dem_source parameter. Pass 3dep or nhd only." 
+    exit 1
+fi
 
 ## OVERWRITE
 if [ -d "$outputCurrentBranchDataDir" ];then

@@ -32,9 +32,17 @@ hucUnitLength=${#hucNumber}
 huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
-input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
+
+if [[ $dem_source == "3dep" ]] ; then
+    input_DEM=$inputDataDir/dem_3dep_rasters/dem_3dep_"$huc4Identifier"_"$dem_resolution".vrt
+elif [[ $dem_source == "nhd" ]] ; then
+    input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
+else
+    echo "Invalid value for dem_source parameter. Pass 3dep or nhd only." 
+    exit 1
+fi
 
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then

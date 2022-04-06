@@ -6,6 +6,7 @@ import argparse
 import os
 from glob import iglob,glob
 from gms.stream_branches import StreamNetwork
+from tqdm import tqdm
 
 def Reset_mannings(hydrofabric_dir,mannings_value,overwrite_files=False):
 
@@ -18,7 +19,9 @@ def Reset_mannings(hydrofabric_dir,mannings_value,overwrite_files=False):
         stream_network = StreamNetwork.from_file(stream_network_filePaths[0])
     
     
-    for i,(srcFP,hydFP) in enumerate(zip(src_table_filePaths,hydro_table_filePaths)):
+    for i,(srcFP,hydFP) in tqdm( enumerate(zip(src_table_filePaths,hydro_table_filePaths)),
+                                 desc=f'Resetting n to {mannings_value}',
+                                 total=len(stream_network_filePaths)):
 
         src_table = load_src_table(srcFP)
         hydro_table = load_hydro_table(hydFP)
@@ -85,6 +88,7 @@ def make_file_paths_for_inputs(hydrofabric_dir):
 def reset_mannings_for_a_processing_unit(src_table,hydro_table,mannings_value):
 
     src_table = override_mannings(src_table,mannings_value)
+    hydro_table = override_mannings(hydro_table,mannings_value)
 
     src_table = calculate_discharge(src_table)
 

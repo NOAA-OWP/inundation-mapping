@@ -14,7 +14,7 @@ import xarray
 import py3dep
 import fiona
 from fiona.crs import to_string
-from shapely.geometry import shape,box,Polygon
+from shapely.geometry import shape,box,Polygon, MultiPolygon
 from rasterio.enums import Resampling
 import dask
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,6 +25,7 @@ from dask.diagnostics import ProgressBar
 from usr.bin.gdal_merge import main as gdal_merge
 from glob import glob
 import subprocess
+from tqdm.dask import TqdmCallback
 
 
 from utils.shared_variables import (NHD_URL_PARENT,
@@ -320,7 +321,6 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         
         xmin, ymin, xmax, ymax = geometry.bounds
 
-
         grid_cells = [ box(x0, y0, x0-(cell_size_meters+cell_buffer), y0+(cell_size_meters+cell_buffer))
                        for x0, y0 in product( np.arange(xmin,xmax + cell_size_meters,cell_size_meters),
                        np.arange(ymin,ymax + cell_size_meters,cell_size_meters) )
@@ -328,7 +328,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
 
         grid_cells = [gc.intersection(geometry) for gc in grid_cells]
 
-        check_intersection = lambda g: (not g.is_empty) & g.is_valid & isinstance(g,Polygon)
+        check_intersection = lambda g: (not g.is_empty) & g.is_valid & ( isinstance(g,Polygon) | isinstance(g,MultiPolygon) )
 
         grid_cells = filter(check_intersection,grid_cells)
         grid_cells = list(grid_cells)
@@ -363,10 +363,10 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
     # get wbd crs
     wbd_crs = to_string(wbd.crs)
     
-    #"""
     # building inputs
     geometry_boxes = list()
     hucs = list()
+    huc4_output_dirs = list()
     for row in tqdm(wbd,total=len(wbd),desc=' Loading relevant geometries'):
         
         # get hucs
@@ -381,10 +381,10 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         geometry = shape(row['geometry'])
 
         # huc4 output dir
-        huc4_output_dir = os.path.join(output_dir,current_huc4)
+        huc4_output_dir = os.path.join(output_dir,f'{current_huc4}_{int(dem_resolution)}m')
         
         # remove
-        shutil.rmtree(huc4_output_dir,ignore_errors=True)
+        #shutil.rmtree(huc4_output_dir,ignore_errors=True)
         
         # re-create
         os.makedirs(huc4_output_dir,exist_ok=True)
@@ -396,19 +396,29 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         gbs = __fishnet_geometry(geometry,tile_size,dem_resolution*4)
         geometry_boxes += gbs
         hucs += [huc] * len(gbs)
+        huc4_output_dirs += [huc4_output_dir] * len(gbs)
 
     number_of_boxes = len(geometry_boxes)
+
+    """
+    g=gpd.GeoDataFrame({'geometry':geometry_boxes, 'idx':[i for i in range(number_of_boxes)] })
+    g.to_file('/data/inputs/dem_3dep_rasters/test.gpkg',driver='GPKG',index=False)
+    print(g)
+    
+    g2=gpd.GeoDataFrame({'geometry': [geometry]})
+    g2.to_file('/data/inputs/dem_3dep_rasters/test_wbd.gpkg',driver='GPKG',index=False)
+    print(g2)
+    breakpoint()"""
 
     #input_dict[huc] = geometry
     input_dict = [ geometry_boxes, 
                    [dem_resolution for _ in range(number_of_boxes)], 
                    [wbd_crs for _ in range(number_of_boxes)],
                    [ndv for _ in range(number_of_boxes)],
-                   [huc4_output_dir for _ in range(number_of_boxes)],
+                   huc4_output_dirs,
                    hucs,
                    [idx for idx in range(number_of_boxes)]
                  ]
-        
 
     def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,output_dir,huc,idx):
         
@@ -446,7 +456,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         
             # make file name
             #dem_file_name = dask.delayed(os.path.join)(output_dir,f'dem_3dep_{huc}_{i}.tif')
-            dem_file_name = os.path.join(output_dir,f'dem_3dep_{huc}_{idx}.tif')
+            dem_file_name = os.path.join(output_dir,f'dem_3dep_{huc}_{int(dem_resolution)}m_{idx}.tif')
             
             # write file
             #dem = dem.rio.to_raster(dem_file_name,windowed=True,compute=False)
@@ -457,8 +467,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
     # make list of operations to complete
     operations = [ dask.delayed(__retrieve_and_process_single_3dep_dem)(*inputs) for inputs in zip(*input_dict) ]
     
-    print(f' Tiles to retrieve and process: {len(operations)}')
-    with ProgressBar():
+    with TqdmCallback(desc=' Retrieve and process tiles'):
         dask.compute(*operations)
 
     # merge into vrt and then tiff
@@ -469,7 +478,12 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         
         huc4 = os.path.basename(huc4_dir)
 
-        opts = BuildVRTOptions(xRes=dem_resolution,yRes=dem_resolution,srcNodata='nan',resampleAlg='bilinear')
+        opts = BuildVRTOptions( xRes=dem_resolution,
+                                yRes=dem_resolution,
+                                srcNodata='nan',
+                                VRTNodata=ndv,
+                                resampleAlg='bilinear'
+                              )
         
         sourceFiles = glob(os.path.join(huc4_dir,'*'))
         destVRT = os.path.join(output_dir,f'dem_3dep_{huc4}.vrt')
@@ -479,21 +493,24 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
 
         vrt = BuildVRT(destName=destVRT, srcDSOrSrcDSTab=sourceFiles,options=opts)
         vrt = None
-
-        destTiff = os.path.join(output_dir,f'dem_3dep_{huc4}.tif')
         
-        if os.path.exists(destTiff):
-            os.remove(destTiff)
+        # for some reason gdal_merge won't work
+        merge_tiff = False
+        if merge_tiff:
+            
+            destTiff = os.path.join(output_dir,f'dem_3dep_{huc4}.tif')
+            
+            if os.path.exists(destTiff):
+                os.remove(destTiff)
 
-        # for some reason gdal_merge won't create 
-        subprocess.call( [ 'gdal_merge.py','-o',destTiff, '-ot', 'Float32',
-                           '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512',
-                           '-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','-q',
-                           'BIGTIFF=YES', '-ps', f'{dem_resolution}',f'{dem_resolution}',
-                           '-n',str(ndv), '-a_nodata',str(ndv),'-init',str(ndv),
-                           destVRT
-                         ])
-        #gdal_merge([ '','-o',destTiff, '-ot', 'Float32', '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512','-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','BIGTIFF=YES', '-ps', f'{dem_resolution}', f'{dem_resolution}',destVRT])
+            subprocess.call( [ 'gdal_merge.py','-o',destTiff, '-ot', 'Float32',
+                               '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512',
+                               '-co','TILED=YES', '-co', 'COMPRESS=LZW','-q','-co',
+                               'BIGTIFF=YES', '-ps', f'{dem_resolution}',f'{dem_resolution}',
+                               '-n',str(ndv), '-a_nodata',str(ndv),'-init',str(ndv),
+                               destVRT
+                           ])
+            #gdal_merge([ '','-o',destTiff, '-ot', 'Float32', '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512','-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','BIGTIFF=YES', '-ps', f'{dem_resolution}', f'{dem_resolution}',destVRT])
 
 
 
@@ -624,7 +641,7 @@ if __name__ == '__main__':
     dem_group = parser.add_argument_group('3DEP DEM', 'Options for 3DEP DEM Acquisition and Processing')
     #dem_group.add_argument('-d', '--dem-source', help='DEM Source',required=False,default='nhd', choices=['nhd','3dep'])
     dem_group.add_argument('-d', '--download-3dep', help='Retrieve 3DEP data',required=False,default=True,action='store_true')
-    dem_group.add_argument('-t', '--tile-size', help='Length of square tile in meters to download 3DEP data at',required=False,default=1000)
+    dem_group.add_argument('-t', '--tile-size', help='Length of square tile in meters to download 3DEP data at',required=False,default=1000, type=int)
     dem_group.add_argument('-r', '--resolution', help='Desired DEM resolution in meters',required=False,default=1,type=float)
     dem_group.add_argument('-b', '--wbd-buffer', help='Extra WBD buffer distance in meters to acquire',required=False,default=2000,type=float)
 
