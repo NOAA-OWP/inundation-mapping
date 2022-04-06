@@ -4,7 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.28.2 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
 
-Adding code to guarantee correct write action is performed in export process of `collate_catchment_attributes.py`. Tool now correctly writes intermediate files and produces correct number of output rows.
+Patch to guarantee correct write action is performed in export process of `collate_catchment_attributes.py`. Tool now correctly writes intermediate files and produces correct number of output rows.
 
 ## Changes
 
