@@ -69,12 +69,14 @@ def perform_merge(sierra_test_results,link_df,aggregate_df):
 #Perform merge
 #Given correct collection location of NLCD data, collects and merges into Hydroid data
 #########################################################################
+
 def aggregate_nlcd(pixel_dir,infile,run_type):
     ms_or_fr = str(run_type)
     new_df = pd.DataFrame()
     
     
     aggregate_df = pd.read_csv(infile)
+
     csv_data = aggregate_df
         
     for each_dir in os.listdir(pixel_dir):
@@ -136,7 +138,8 @@ if __name__ == '__main__':
     link_elev_table = args['link_elev_table']
     nlcd_pixel_count_dir = args['nlcd']
     run_type = args['run_type']
-      
+ 
+
 
 #reads in single geopackage contianing sierra test.
 sierra_test_results = assemble_sierra_test(sierra_test_input)
