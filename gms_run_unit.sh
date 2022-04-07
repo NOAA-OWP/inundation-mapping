@@ -149,12 +149,12 @@ if [ ! -d "$outputRunDataDir/unit_errors" ]; then
     mkdir -p $outputRunDataDir/unit_errors
 else
     if [ $overwrite -eq 1 ]; then
-        rm -rf $outputRunDataDir/unit_errors/*.*
-        rm -rf $outputRunDataDir/logs/unit/*.*
+        rm -rf $outputRunDataDir/unit_errors/
+        rm -rf $outputRunDataDir/logs/unit/
 
         # remove branch logs as well
-        rm -rf $outputRunDataDir/branch_errors/*.*
-        rm -rf $outputRunDataDir/logs/branch/*.*
+        rm -rf $outputRunDataDir/branch_errors/
+        rm -rf $outputRunDataDir/logs/branch/
     fi
 fi
 
