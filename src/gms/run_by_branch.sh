@@ -181,7 +181,7 @@ Tcount
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg
+$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg -ds $dropLowStreamOrders
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##

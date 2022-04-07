@@ -24,9 +24,20 @@ from collections import OrderedDict
 import build_stream_traversal
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
+from utils.fim_enums import FIM_system_exit_codes
 
 @mem_profile
-def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_filename, split_flows_filename, split_points_filename, wbd8_clp_filename, lakes_filename):
+def split_flows(max_length, 
+                slope_min, 
+                lakes_buffer_input, 
+                flows_filename,
+                dem_filename, 
+                split_flows_filename, 
+                split_points_filename, 
+                wbd8_clp_filename, 
+                lakes_filename,
+                drop_stream_orders=False):
+
     wbd = gpd.read_file(wbd8_clp_filename)
 
     toMetersConversion = 1e-3
@@ -34,9 +45,14 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
     print('Loading data ...')
     flows = gpd.read_file(flows_filename)
 
-    if not len(flows) > 0:
-        print ("No relevant streams within HUC boundaries.")
-        sys.exit(0)
+    if (len(flows) == 0):
+        if (drop_stream_orders):
+            # this is not an exception, but a custom exit code that can be trapped
+            print("No relevant streams within HUC boundaries.")
+            sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+        else:
+            # if we are not dropping stream orders, then something is wrong
+            raise Exception("No flowlines exist.")
 
     wbd8 = gpd.read_file(wbd8_clp_filename)
     dem = rasterio.open(dem_filename,'r')
@@ -199,10 +215,21 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
 
     if isfile(split_flows_filename):
         remove(split_flows_filename)
-    split_flows_gdf.to_file(split_flows_filename,driver=getDriver(split_flows_filename),index=False)
-
     if isfile(split_points_filename):
         remove(split_points_filename)
+
+    if (len(split_flows_gdf) == 0):
+        if (drop_stream_orders):
+            # this is not an exception, but a custom exit code that can be trapped
+            print("There are no flowlines after stream order filtering.")
+            sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+        else:
+            # if we are not dropping stream orders, then something is wrong
+            raise Exception("No flowlines exist.")
+    split_flows_gdf.to_file(split_flows_filename,driver=getDriver(split_flows_filename),index=False)
+
+    if len(split_points_gdf) == 0:
+        raise Exception("No points exist.")
     split_points_gdf.to_file(split_points_filename,driver=getDriver(split_points_filename),index=False)
 
 
@@ -219,6 +246,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename',required=True)
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename',required=True)
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename',required=True)
+    parser.add_argument('-ds', '--drop-stream-orders', help='Drop stream orders 1 and 2', type=int, required=False, default=False)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
