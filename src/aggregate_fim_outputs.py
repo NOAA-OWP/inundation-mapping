@@ -45,8 +45,16 @@ def aggregate_fim_outputs(args):
 
         if len(huc)> 6:
 
-            # Open hydrotable
-            hydrotable = pd.read_csv(hydrotable_filename, usecols=['HydroID','feature_id','order_','HUC','LakeID','barc_on','vmann_on','adjust_src_on','stage','discharge_cms'])
+            hydrotable_read = pd.read_csv(hydrotable_filename)
+
+            # Filter hydrotable to subset list of variables
+            filtered_vars = ['HydroID','feature_id','order_','HUC','LakeID','barc_on','vmann_on','adjust_src_on','stage','discharge_cms']
+            for var in filtered_vars:
+                if var not in hydrotable_read.columns:
+                    hydrotable_read[var] = pd.NA
+            hydrotable = hydrotable_read[filtered_vars]
+            if hydrotable.isnull().all().all():
+                print('WARNING!! hydroTable does not contain any valid values - please check HUC --> ' + str(huc))
 
             # Write/append aggregate hydrotable
             if aggregate_hydrotable.exists():
