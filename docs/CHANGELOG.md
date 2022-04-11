@@ -6,22 +6,21 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 During large scale testing of the new `filtering out stream orders 1 and 2` feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in an unmanaged and unclear exception. An exception will still be raised in this fix for logging purposes, but it is now very clear what happened.
 
+The pull request is also related to [Issue 579](https://github.com/NOAA-OWP/inundation-mapping/issues/579). 
+
 ## Changes
 
-- `gms_run_unit.sh` : Minor adjustments to how the non zero exit code logs were created. Testing revealed that grep can run into command length issues.
+A total of 23 files were changed which can be viewed via the pull request [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557). Extensive details are logged in that pull request.
 
-- `gms_run_branch.sh` : Minor adjustments to how the non zero exit code logs were created. Testing revealed that grep can run into command length issues.
+In response to fixing the initial bug relating to dropping stream orders 1 and 2 uncovered a bigger issue. In light of over 55,000 files being processed in gms when being filtered, errors were being hidden and easily lost. In full non-filtered gms runs, which can take up to 18 days and included 100's of thousands of files, it was near impossible to find issues.  There was a previous solution called the `non-zero-exit-code` system which would scan all log files at the end of the full processing run, reading each file and look for a text pattern looking for exit codes that did not equal zero. This sytem was prone to being a bit unstable depending on what errors had occurred during processing. Further, it would create a single file at the end of the full process which has no details of the errors. Each actual log would need to be opened and reviewed. During one full BED test run, this created over 160 files and took a great deal fo time to find and read.
 
-- `src/`
-   - `gms/`
-      - `derive_level_paths.py` :  Check if the remaining stream_network reach count is 0. If so, the code will raise UserWarning exception with the message of "Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering."
-- `unit_tests/`
-   - `gms/`
-      - `derive_level_paths_unittests.py` :  Added a new unit test specifically testing this type of condition with a known HUC that triggered this error. 
-      - `derive_level_paths_params.json`:
-           - Added a new node with a HUC number known to fail.
-           - Changed pathing for unit test data pathing from `/data/outputs/gms_example_unit_tests` to `/data/outputs/fim_unit_test_data_do_not_remove`. The new folder is intended to be a more permanent folder for unit test data.
+During investigatation of the over 160 errors that did occur, they were all related to one basic type of error generated only when filtering stream orders, in this case, removing stream orders 1 and 2. This resulted in HUCS (GMS units) and branches that had no remaining streams, or no remaining inflow or outflow streams. This  results in an event which is neither a true success (system exit code 0) or a failure (system exit code 1). A solution was needed to trap these types of errors, stop futher processing of that single HUC or branch, log it and yet not specifically say it was an error. 
 
+A new python enum system was added to support custom system exit codes. The addition of an enum system to an architectural solution is very common as is using custom system exit codes and was a fix for our issues. With the creation of the fim_enums.py -> Fim_system_exit_codes class, it allows for a number to be assigned and drop the risk of a number code being used in other places for different reasons.  
+
+Futher, by trapping system exit codes of 1 or higher after processing set (for a HUC, gms unit, or gms branch), it could make copies of the actual individual output log file and put them in a special folder during run time. This allows for errors to be easily seen and read as they occur during very large processing runs. Some which can take days or weeks to complete. 
+
+The addition of specific and isolated folders for unit or branch errors assists in finding and reading errors as they occur.
 
 <br/><br/>
 
