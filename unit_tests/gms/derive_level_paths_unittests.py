@@ -17,6 +17,7 @@ import unit_tests_utils as helpers
 sys.path.append('/foss_fim/src/gms/')
 import derive_level_paths
 import stream_branches
+from utils.fim_enums import FIM_system_exit_codes as fsec
 
 
 # NOTE: This goes directly to the function.
@@ -145,8 +146,7 @@ class test_Derive_level_paths(unittest.TestCase):
         
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        
-        
-        
+                
 
     def test_Derive_level_paths_success_drop_low_stream_orders_is_true(self):
     
@@ -212,27 +212,22 @@ class test_Derive_level_paths(unittest.TestCase):
         
         params = self.params["dropped_stream_orders_no_branches_remaining"].copy()
 
-        try:
-            actual_df = derive_level_paths.Derive_level_paths(in_stream_network = params["in_stream_network"],
-                                                           out_stream_network = params["out_stream_network"],
-                                                           branch_id_attribute = params["branch_id_attribute"],
-                                                           out_stream_network_dissolved = params["out_stream_network_dissolved"],
-                                                           headwaters_outfile = params["headwaters_outfile"],
-                                                           catchments = params["catchments"],
-                                                           catchments_outfile = params["catchments_outfile"],
-                                                           branch_inlets_outfile = params["branch_inlets_outfile"],
-                                                           reach_id_attribute = params["reach_id_attribute"],
-                                                           verbose = params["verbose"],
-                                                           drop_low_stream_orders=params["drop_low_stream_orders"])
+        with self.assertRaises(SystemExit) as se:
+            derive_level_paths.Derive_level_paths(in_stream_network = params["in_stream_network"],
+                                                out_stream_network = params["out_stream_network"],
+                                                branch_id_attribute = params["branch_id_attribute"],
+                                                out_stream_network_dissolved = params["out_stream_network_dissolved"],
+                                                headwaters_outfile = params["headwaters_outfile"],
+                                                catchments = params["catchments"],
+                                                catchments_outfile = params["catchments_outfile"],
+                                                branch_inlets_outfile = params["branch_inlets_outfile"],
+                                                reach_id_attribute = params["reach_id_attribute"],
+                                                verbose = params["verbose"],
+                                                drop_low_stream_orders=params["drop_low_stream_orders"])
+        self.assertEqual(se.exception.code, fsec.GMS_UNIT_NO_BRANCHES.value)
 
-            raise AssertionError("Fail = excepted a thrown exception but did not get it but was received. Unit Test has 'failed'")
-            
-        except UserWarning as e:
-            print()
-            print(f"Test Success (failed as expected): {inspect.currentframe().f_code.co_name}")
-            
-        finally:
-            print("*************************************************************")             
+        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
+        print("*************************************************************")        
 
     
     # Invalid Input stream for demo purposes. Normally, you would not have this basic of a test (input validation).

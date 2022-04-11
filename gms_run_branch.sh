@@ -154,7 +154,7 @@ fi
 # -------------------
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
-find $outputRunDataDir/logs/branch/ -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log"
+find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log"
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 # TODO: How do we skip aggregation if there is a branch error

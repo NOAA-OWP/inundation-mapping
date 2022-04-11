@@ -4,7 +4,6 @@ import argparse
 import geopandas as gpd
 import sys
 
-
 from stream_branches import StreamNetwork
 from utils.shared_functions import get_fossid_from_huc8
 from utils.fim_enums import FIM_system_exit_codes
