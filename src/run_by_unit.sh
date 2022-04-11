@@ -23,7 +23,7 @@ echo -e "default_max_jobs=$default_max_jobs"
 echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
-hucNumber="$1000"
+hucNumber="$1"
 # Test for standard errors
 outputHucDataDir=$outputRunDataDir/$hucNumber
 mkdir $outputHucDataDir
