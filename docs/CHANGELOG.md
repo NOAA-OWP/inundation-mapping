@@ -2,25 +2,101 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.3.2 - 2022-03-11 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
+## v4.0.3.2 - 2022-04-12 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
 
-During large scale testing of the new `filtering out stream orders 1 and 2` feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in a a number of unmanaged and unclear exceptions. An exception will still be raised in this fix for logging purposes, but it is now very clear what happened.
+During large scale testing of the new **filtering out stream orders 1 and 2** feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in a number of unmanaged and unclear exceptions. An exception may be still raised will still be raised in this fix for logging purposes, but it is now very clear what happened. Other types of events are logged with clear codes to identify what happened.
 
 The pull request is also related to [Issue 579](https://github.com/NOAA-OWP/inundation-mapping/issues/579). 
 
+Fixes were put in place for a couple of new logging behaviours.
+
+1. Recognize that for system exit codes, there are times when an event is neither a success (code 0) nor a failure (code 1). During processing where stream orders are dropped, some HUCs had no remaining reaches, others had mismatched reaches and others as had missing flowlines (reaches) relating to dissolved level paths (merging individual reaches as part of GMS). When these occur, we want to abort the HUC (unit) or branch processing, identify that they were aborted for specific reasons and continue. A new custom system exit code system was adding using python enums. Logging was enhanced to recognize that some exit codes were not a 0 or a 1 and process them differently.
+
+2. Pathing and log management became an issue. It us not uncommon for tens or hundreds of thousands of branches to be processed. A new feature was to recognize what is happening with each branch or unit and have them easily found and recognizable. Futher, processing for failure (sys exit code of 1) are now copied into a unique folder as the occur to help with visualization of run time errors. Previously errors were not extracted until the end of the entire run which may be multiple days.
+
+3. A minor correction was made when dissolved level paths were created with the new merged level path not always having a valid stream order value.
+
+## File Additions
+
+- `src/`
+   - `utils/`
+      - `fim_enums.py`:
+         - A new class called `FIM_system_exit_codes` was added. This allows tracking and blocking of duplicate system exit codes when a custom system code is required.
+        
+
 ## Changes
 
-A total of 23 files were changed can be viewed via the pull request [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557). Extensive details are logged in that pull request.
+- `fim_run.sh`: 
+    - Added the gms `non-zero-exit-code` system to `fim_run` to help uncover and isolate errors during processing. Errors recorded in log files within in the logs/unit folder are now copied into a new folder called `unit_errors`.  
+    
+- `gms_run_branch.sh`:
+    -  Minor adjustments to how the `non-zero-exit code` logs were created. Testing uncovered that previous versions were not always reliable. This is now stablized and enhanced.
+    - In previous versions, only the `gms_unit.sh` was aware that **stream order filtering** was being done. Now all branch processing is also aware that filtering is in place. Processing in child files and classes can now make adjustments as/if required for stream order filtering.
+    - Small output adjustments were made to help with overall screen and log readability.  
 
-In response to fixing the initial bug relating to dropping stream orders 1 and 2, a much larger issue was uncovered. In light of over 55,000 files being processed in gms when being filtered, errors were being hidden and easily lost. In full non-filtered gms runs, which can take up to 18 days and included 100's of thousands of files, it was very challenging to find issues, bugs, or exceptions.  There was a previous solution called the `non-zero-exit-code` system which would scan all log files at the end of the full processing run. It would read each file and look for a text pattern looking for exit codes that did not equal zero. This sytem was prone to being a bit unstable depending on what errors had occurred during processing. Further, it would create a single file at the end of the full process which has no details of the errors. Each actual log would need to be opened and reviewed. During one full BED test run, this created over 160 files and took a great deal of time to find and read. The `non-zero-exit-code` system continues to exist but is significantly enhanced.
+- `gms_run_unit.sh`:
+    - Minor adjustments to how the `non-zero-exit-code` logs were created similar to `gms_run_branch.sh.`
+    - Small text corrections, formatting and output corrections were added.
+    - A feature removing all log files at the start of the entire process run were added if the `overwrite` command line argument was added.
 
-During investigatation of the over 160 errors that did occur, they were all related to one basic type of error generated only when filtering stream orders. The nature of how gms processes reaches, it is possible to have HUCS, catchments or level paths, that had no remaining streams, or no remaining inflow or outflow streams. This  results in an event which is neither a true success (system exit code 0) or a failure (system exit code 1). A solution was needed to trap these types of errors, stop futher processing of that single HUC or branch, log it and yet not specifically say it was an error. 
+- `src/`
+   - `filter_catchments_and_add_attributes.py`:
+      - Some minor formatting and readability adjustments were added.
+      - Additions were made to help this code be aware and responding accordingly if that stream order filtering has occurred. Previously recorded as bugs coming from this class, are now may recorded with the new custom exit code if applicable.
 
-A new python enum system was added to support custom system exit codes. The addition of an enum system to an architectural solution is very common as is using custom system exit codes and was a fix for our issues. With the creation of the fim_enums.py -> Fim_system_exit_codes enum class, it allows for a number to be assigned for a specific type of event. Managing those numbers through enums drop the risk of a number code being used in other places for different reasons.  
+   - `run_by_unit.sh` (supporting fim_run.sh):
+         - As a change was made to sub-process call to `filter_catchments_and_add_attributes.py` file, which is shared by gms, related to reach errors / events.
 
-Futher, by trapping system exit codes of 1 or higher after processing set (for a HUC, gms unit, or gms branch), copies of the actual individual output log file are now made and put them in a special folder during run time. This allows for errors to be easily seen and read as they occur during very large processing runs. Some which can take days or weeks to complete. 
+   - `split_flows.py`:
+      - Some minor formatting and readability adjustments were added.
+      - Additions were made to recognize the same type of errors as being described in other files related to stream order filtering issues.
+      - A correction was made to be more precise and more explicit when a gms branch error existed. This was done to ensure that we were not letting other exceptions be trapped that were NOT related to stream flow filtering.
+      
+   - `time_and_tee_run_by_unit.sh`:
+      - The new custom system exit codes was added. Note that the values of 61 (responding system code) are hardcoded instead of using the python based `Fim_system_exit_code` system. This is related to limited communication between python and bash.
 
-The addition of specific and isolated folders for unit or branch errors assists in finding and reading errors as they occur.
+   - `gms/`
+      - `derive_level_paths.py`:  
+          - Was upgraded to use the new fim_enums.Fim_system_exit_codes system. This occurs when no streams / flows remain after filtering.  Without this upgrade, standard exceptions were being issued with minimal details for the error.
+          - Minor adjustments to formatting for readability were made.
+
+      - `generate_branch_list.py` :  
+          - Minor adjustments to formatting for readability were made.
+
+      - `run_by_branch.sh`:
+         - Some minor formatting and readability adjustments were added.
+         - Additions to the subprocess call to `split_flows.py` were added so it was aware that branch filtering was being used. `split_flows.py` was one of the files that was throwing errors related to stream order filtering. A subprocess call to `filter_catchments_and_add_attributes.py` adjustment was also required for the same reason.
+
+      - `run_by_unit.sh`:
+         - Some minor formatting and readability adjustments were added.
+         - An addition was made to help trap errors that might be triggered by `derive_level_paths.py` for `stream order filtering`.
+
+      - `time_and_tee_run_by_branch.sh`:
+         - A system was added recognize if an non successful system exit code was sent back from `run_by_branch`. This includes true errors of code 1 and other new custom system exit codes. Upon detection of non-zero-exit codes, log files are immediately copied into special folders for quicker and easier visibility. Previously errors were not brought forth until the entire process was completed which ranged fro hours up to 18 days. Note: System exit codes of 60 and 61 were hardcoded instead of using the values from the new  `FIM_system_exit_codes` due to limitation of communication between python and bash.
+
+      - `time_and_tee_run_by_unit.sh`:
+         - The same upgrade as described above in `time_and_tee_run_by_branch.sh` was applied here.
+         - Minor readability and output formatting changes were made.
+
+      - `todo.md`
+         - An entry was removed from this list which talked about errors due to small level paths exactly as was fixed in this pull request set.
+
+- `unit_tests/`
+   - `gms/`
+      - `derive_level_paths_unittests.py` :  Added a new unit test specifically testing this type of condition with a known HUC that triggered the branch errors previously described..
+      - `derive_level_paths_params.json`:
+           - Added a new node with a HUC number known to fail.
+           - Changed pathing for unit test data pathing from `/data/outputs/gms_example_unit_tests` to `/data/outputs/fim_unit_test_data_do_not_remove`. The new folder is intended to be a more permanent folder for unit test data.
+           - Some additional tests were added validating the argument for dropping stream orders.
+
+
+## Unit Test File Additions:
+
+- `unit_tests/`
+   - `filter_catchments_and_add_attributes_unittests.py` and `filter_catchments_and_add_attributes_params.json`:
+
+   - `split_flows_unittests.py' and `split_flows_params.json`
+
 
 <br/><br/>
 
