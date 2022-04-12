@@ -6,8 +6,6 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 During large scale testing of the new **filtering out stream orders 1 and 2** feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in a number of unmanaged and unclear exceptions. An exception may be still raised will still be raised in this fix for logging purposes, but it is now very clear what happened. Other types of events are logged with clear codes to identify what happened.
 
-The pull request is also related to [Issue 579](https://github.com/NOAA-OWP/inundation-mapping/issues/579). 
-
 Fixes were put in place for a couple of new logging behaviours.
 
 1. Recognize that for system exit codes, there are times when an event is neither a success (code 0) nor a failure (code 1). During processing where stream orders are dropped, some HUCs had no remaining reaches, others had mismatched reaches and others as had missing flowlines (reaches) relating to dissolved level paths (merging individual reaches as part of GMS). When these occur, we want to abort the HUC (unit) or branch processing, identify that they were aborted for specific reasons and continue. A new custom system exit code system was adding using python enums. Logging was enhanced to recognize that some exit codes were not a 0 or a 1 and process them differently.
