@@ -99,6 +99,12 @@ fi
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
+if [ $SENSITIVE_ENV_PATH = "" ]
+then
+    echo 'WARNING! - .env file with sensitive paths not provided'
+else
+    source $SENSITIVE_ENV_PATH
+fi
 
 # default values
 if [ "$jobLimit" = "" ] ; then
