@@ -422,12 +422,6 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
 
     def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,output_dir,huc,idx):
         
-        #for i, g in enumerate(geometry):
-        # retrieve
-        #print(f'{huc} retrieving')
-        #print(huc)
-        #dem = dask.delayed(py3dep.get_map)( 'DEM',
-        #print(geometry)
         try:
             dem = py3dep.get_map( 'DEM',
                                   geometry=geometry,
