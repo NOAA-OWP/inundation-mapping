@@ -1,0 +1,15 @@
+{
+	"valid_data":
+	{
+		"max_length": 1500,
+		"slope_min": 0.001,
+		"lakes_buffer_input": 20,
+		"flows_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/demDerived_reaches_3246000305.shp",
+		"dem_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/dem_thalwegCond_3246000305.tif",
+	    "split_flows_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/demDerived_reaches_split_3246000305.gpkg",
+		"split_points_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/demDerived_reaches_split_points_3246000305.gpkg",
+		"wbd8_clp_filename": "/data/outputs/gms_example_unit_tests/02020005/wbd8_clp.gpkg",
+		"lakes_filename": "/data/outputs/gms_example_unit_tests/02020005/nwm_lakes_proj_subset.gpkg",
+		"drop_stream_orders": false
+	}
+}

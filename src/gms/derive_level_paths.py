@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-from stream_branches import StreamNetwork
 import argparse
-from utils.shared_functions import get_fossid_from_huc8
 import geopandas as gpd
+import sys
 
+from stream_branches import StreamNetwork
+from utils.shared_functions import get_fossid_from_huc8
+from utils.fim_enums import FIM_system_exit_codes
 
 def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribute,
                        out_stream_network_dissolved=None, huc_id=None,
@@ -31,9 +33,25 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                  branch_id_attribute="order_",
                                                  values_excluded=[1,2]
                                                  )
+                                                 
+                                                 
     else:
         stream_network = StreamNetwork.from_file(filename=in_stream_network)
-                                                 
+
+    # if there are no reaches at this point (due to filtering if applicable)
+    if (len(stream_network) == 0) and (drop_low_stream_orders):
+        # This is technically not an error but we need to have it logged so the user know what
+        # happened to it and we need the huc to not be included in future processing. 
+        # We need it to be not included in the gms_input.csv at the end of the unit processing.
+        # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
+        # Later, we can look at creating custom sys exit codes 
+        # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
+        print("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
+        sys.exit(FIM_system_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
+
+    print("inside Derive. Should we be here?")
+
+
     inlets_attribute = 'inlet_id'
     outlets_attribute = 'outlet_id'
     outlet_linestring_index = -1
@@ -119,7 +137,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         catchments.to_file(catchments_outfile,index=False,driver='GPKG')
 
     # derive headwaters
-    if headwaters_outfile is not None:
+    if (headwaters_outfile is not None):
         headwaters = stream_network.derive_headwater_points_with_inlets(
                                                         fromNode_attribute=fromNode_attribute,
                                                         inlets_attribute=inlets_attribute,

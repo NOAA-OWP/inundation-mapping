@@ -1,0 +1,12 @@
+{
+	"valid_data":
+	{
+		"input_catchments_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/gw_catchments_reaches_3246000305.gpkg",
+		"input_flows_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/demDerived_reaches_split_3246000305.gpkg",
+		"output_catchments_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/gw_catchments_reaches_filtered_addedAttributes_3246000305.gpkg",
+		"output_flows_filename": "/data/outputs/gms_example_unit_tests/02020005/branches/3246000305/demDerived_reaches_split_filtered_3246000305.gpkg",
+	    "wbd_filename": "/data/outputs/gms_example_unit_tests/02020005/wbd8_clp.gpkg",
+		"huc_code": "02020005",
+		"drop_stream_orders": false
+	}
+}

@@ -19,6 +19,9 @@ usage ()
     echo '                   (see config/deny_gms_branches_default.lst for a starting point)'
     echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
     echo '                     also accepted. HUCs must present in inputs directory.'
+	echo '  -s/--dropStreamOrders : If this flag is included, the system will leave out stream orders 1 and 2'
+	echo '                    at the initial load of the nwm_subset_streams'
+    echo
     exit
 }
 
@@ -61,6 +64,9 @@ in
         shift
         deny_gms_branches_list=$1
         ;;
+	 -s|--dropLowStreamOrders)
+		  dropLowStreamOrders=1
+		  ;;
     *) ;;
     esac
     shift
@@ -83,6 +89,10 @@ if [ -z "$retry" ]
 then
     retry=""
 fi
+if [ -z "$dropLowStreamOrders" ]
+then
+    dropLowStreamOrders=0
+fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
@@ -99,6 +109,7 @@ export deny_gms_branches_list=$deny_gms_branches_list
 logFile=$outputRunDataDir/logs/branch/summary_gms_branch.log
 export extent=GMS
 export overwrite=$overwrite
+export dropLowStreamOrders=$dropLowStreamOrders
 
 ## Check for run data directory ##
 if [ ! -d "$outputRunDataDir" ]; then 
@@ -123,17 +134,35 @@ fi
 if [ ! -d "$outputRunDataDir/logs/branch" ]; then
     mkdir -p $outputRunDataDir/logs/branch
 fi
+if [ ! -d "$outputRunDataDir/branch_errors" ]; then
+    mkdir -p "$outputRunDataDir/branch_errors"
+else
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputRunDataDir/branch_errors/
+    fi
+fi
 
 ## RUN GMS BY BRANCH ##
+echo "================================================================================"
+echo "Start of branch processing"
 if [ "$jobLimit" -eq 1 ]; then
     parallel $retry --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 else
     parallel $retry --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 fi
 
-## RUN AGGREGATE BRANCH ELEV TABLES ##
-python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
-
 # -------------------
 ## GET NON ZERO EXIT CODES ##
-grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/branch/*_branch_*.log > $outputRunDataDir/logs/branch/non_zero_exit_codes.log
+# Needed in case aggregation fails, we will need the logs
+find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log"
+
+## RUN AGGREGATE BRANCH ELEV TABLES ##
+# TODO: How do we skip aggregation if there is a branch error
+# maybe against the non_zero logs above
+echo 
+echo "Processing usgs gage aggregation"
+python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
+
+echo "================================================================================"
+echo "Branch processing is complete"
+echo

@@ -8,6 +8,7 @@ hucNumber="$1"
 outputHucDataDir=$outputRunDataDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
 
+
 ## huc data
 if [ -d "$outputHucDataDir" ]; then
     if [ $overwrite -eq 1 ]; then
@@ -33,6 +34,9 @@ input_NHD_WBHD_layer=WBDHU$hucUnitLength
 input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
+
+## START MESSAGE ##
+echo -e $startDiv"Processing HUC: $hucNumber ..."$stopDiv
 
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then
@@ -68,6 +72,11 @@ echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 date -u
 Tstart
 $srcDir/gms/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $outputHucDataDir/nwm_headwaters.gpkg -c $outputHucDataDir/nwm_catchments_proj_subset.gpkg -t $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -v -s $dropLowStreamOrders
+
+# test if we received a non-zero code back from derive_level_paths.py
+subscript_exit_code=$?
+# we have to retrow it if it is not a zero (but it will stop further execution in this script)
+if [ $subscript_exit_code -ne 0 ]; then exit $subscript_exit_code; fi
 Tcount
 
 ## STREAM BRANCH POLYGONS

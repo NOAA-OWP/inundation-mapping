@@ -17,6 +17,7 @@ import unit_tests_utils as helpers
 sys.path.append('/foss_fim/src/gms/')
 import derive_level_paths
 import stream_branches
+from utils.fim_enums import FIM_system_exit_codes as fsec
 
 
 # NOTE: This goes directly to the function.
@@ -145,8 +146,7 @@ class test_Derive_level_paths(unittest.TestCase):
         
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        
-        
-        
+                
 
     def test_Derive_level_paths_success_drop_low_stream_orders_is_true(self):
     
@@ -191,6 +191,40 @@ class test_Derive_level_paths(unittest.TestCase):
         actual_row_count = len(actual_df) 
         expected_row_count = 4
         self.assertEqual(actual_row_count, expected_row_count)
+
+        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
+        print("*************************************************************")        
+
+
+    def test_Derive_level_paths_success_drop_low_stream_orders_no_branches_left(self):
+    
+        '''
+        This test includes a huc that after stream orders 1 and 2 are dropped, no 
+        branches are remaining (the original huc only had 1 and 2 reaches.
+
+        # expecting an exception with a specific note
+        # NOTE: this only works for a few hucs, one is 02030201
+
+        '''
+        
+        # makes output readability easier and consistant with other unit tests       
+        helpers.print_unit_test_function_header()
+        
+        params = self.params["dropped_stream_orders_no_branches_remaining"].copy()
+
+        with self.assertRaises(SystemExit) as se:
+            derive_level_paths.Derive_level_paths(in_stream_network = params["in_stream_network"],
+                                                out_stream_network = params["out_stream_network"],
+                                                branch_id_attribute = params["branch_id_attribute"],
+                                                out_stream_network_dissolved = params["out_stream_network_dissolved"],
+                                                headwaters_outfile = params["headwaters_outfile"],
+                                                catchments = params["catchments"],
+                                                catchments_outfile = params["catchments_outfile"],
+                                                branch_inlets_outfile = params["branch_inlets_outfile"],
+                                                reach_id_attribute = params["reach_id_attribute"],
+                                                verbose = params["verbose"],
+                                                drop_low_stream_orders=params["drop_low_stream_orders"])
+        self.assertEqual(se.exception.code, fsec.GMS_UNIT_NO_BRANCHES.value)
 
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        

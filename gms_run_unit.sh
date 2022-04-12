@@ -4,7 +4,7 @@ usage ()
 {
     echo 'Produce GMS hydrofabric datasets for unit scale. Run after fim_run.sh but before gms_run_branch.sh'
     echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -c <config file> -n <run name> ]'
-    echo '  	 						 [OPT: -h -j <job limit>] -o -r -d <deny list file> -s ]'
+    echo '  	 				   [OPT: -h -j <job limit>] -o -r -d <deny list file> -s <drop stream orders 1 and 2>]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
@@ -20,8 +20,8 @@ usage ()
     echo '  -r/--retry      : retries failed jobs'
     echo '  -d/--denylist   : file with line delimited list of files in huc directories to remove upon completion'
     echo '                   (see config/deny_gms_unit_default.lst for a starting point)'
-	 echo '  -s/--dropStreamOrder_1_2 : If this flag is included, the system will leave out stream orders 1 and 2 at the very'
-	 echo	'                     top initial load of the nwm_subset_streams'
+	echo '  -s/--dropStreamOrder_1_2 : If this flag is included, the system will leave out stream orders 1 and 2'
+	echo '                    at the initial load of the nwm_subset_streams'
     exit
 }
 
@@ -145,6 +145,18 @@ fi
 if [ ! -d "$outputRunDataDir/logs/unit" ]; then
     mkdir -p $outputRunDataDir/logs/unit
 fi
+if [ ! -d "$outputRunDataDir/unit_errors" ]; then
+    mkdir -p $outputRunDataDir/unit_errors
+else
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputRunDataDir/unit_errors/
+        rm -rf $outputRunDataDir/logs/unit/
+
+        # remove branch logs as well
+        rm -rf $outputRunDataDir/branch_errors/
+        rm -rf $outputRunDataDir/logs/branch/
+    fi
+fi
 
 # copy over config file
 cp -a $envFile $outputRunDataDir
@@ -164,11 +176,13 @@ else
     fi
  fi
 
-
 ## AGGREGATE BRANCH LISTS INTO ONE ##
 python3 $srcDir/gms/aggregate_branch_lists.py -l $hucList
 
-
 ## GET NON ZERO EXIT CODES ##
-# get positive non-zero exit codes 
-grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/unit/*_unit.log > $outputRunDataDir/logs/unit/non_zero_exit_codes.log
+# Needed in case aggregation fails, we will need the logs
+find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log"
+
+echo "================================================================================"
+echo "Unit processing is complete"
+echo

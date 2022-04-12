@@ -24,6 +24,7 @@ echo -e "memfree=$memfree"$stopDiv
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
+# Test for standard errors
 outputHucDataDir=$outputRunDataDir/$hucNumber
 mkdir $outputHucDataDir
 
@@ -326,11 +327,14 @@ Tstart
 [ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ] && \
 python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputHucDataDir/gw_catchments_reaches.gpkg -f $outputHucDataDir/demDerived_reaches_split.gpkg -c $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -o $outputHucDataDir/demDerived_reaches_split_filtered.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber
 
-if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
-  echo "EXIT FLAG!! (exit 65): No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  rm -rf $outputHucDataDir
-  exit 0
-fi
+# Tight now, while there is a system code enum in filter_catchments_and_add_attributes.py, 
+# it shoudl not happen at this time for standard fim_run.sh versions. 
+# This has been left in and commented for example purposes if other system codes are added.
+
+# test if we received a non-zero code back from filter_catchments_and_add_attributes.py
+#subscript_exit_code=$?
+# we have to retrow it if it is not a zero (but it will stop further execution in this script)
+#if [ $subscript_exit_code -ne 0 ]; then exit $subscript_exit_code; fi
 Tcount
 
 ## GET RASTER METADATA ## *****
