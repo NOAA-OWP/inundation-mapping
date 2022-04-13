@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='performs single variable analysis on collated attributes')
     
-    parser.add_argument('-in','--input-csv',help='Csv containing collated variables.',required=True)
+    parser.add_argument('-in','--input-csv',help='csv containing collated variables.',required=True)
     parser.add_argument('-out', '--out-folder', help='folder to hold output graphs and charts',required=True)
     parser.add_argument('-var', '--variable-choice', help='choose which variable to test in huc4 histograms',required=True)
     parser.add_argument('-sep', '--seperate-y-n', help='perform separation by huc4 yes or no',required=True)
