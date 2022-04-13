@@ -8,29 +8,47 @@ import os
 import re
 import geopandas as gpd
 import argparse
+import shutil
 
 
-def get_correlation_matricies(input_csv,out_folder):
-    csv_df = pd.read_csv(input_csv,dtype = {'HUC8':str})
+
+def create_needed_folders(parent_dir):
+    path_huc4 = os.path.join(parent_dir, "huc_4_groups")
+    path_outputs = os.path.join(parent_dir, "analysis_outputs")
+
+    if os.path.exists(path_huc4):
+        shutil.rmtree(path_huc4)
+    if not os.path.exists(path_huc4):
+        os.makedirs(path_huc4)
+
+    if os.path.exists(path_outputs):
+        shutil.rmtree(path_outputs)
+    if not os.path.exists(path_outputs):
+        os.makedirs(path_outputs) 
+
+    return path_huc4, path_outputs
+    
+def read_in_and_filter_dataframe(input_csv):
+    #filter fields and define datatypes for dataframe
+    
+    #get list of dtypes of input csv
+    df = pd.read_csv(input_csv,dtype ={'HUC8':str})
+    
+    return df   
+    
+    
+    
+
+def get_correlation_matricies(input_df,path_outputs):
+    
+    csv_df = input_df
     csv_df = csv_df.dropna(axis=0)
     correlation_matrix = csv_df.corr()
-    correlation_matrix.to_csv(os.path.join(out_folder, input_csv), index=False)
-    return csv_df
+    correlation_matrix.to_csv(os.path.join(path_outputs, "correlation_matricies"), index=False)
+    
+    return correlation_matrix
 
-def get_scatter_plots(csv_df, out_folder):
-    for col in csv_df.columns:
-        col_str = str(col)
-        col_list = col_str + "_list"
-        col_list = csv_df[col_str].tolist()
 
-    for col in csv_df.columns:
-        if col != "nrmse_list":
-            fig, ax = plt.subplots()
-            ax.scatter(col_list, nrmse_list)
-            plt.title(col_str + "scatter")
-            plt.xlabel(col_str)
-            plt.ylabel("nrmse")
-            fig.savefig(out_folder + '/scatter_plots/' + col_str + '.png')
 
 def separate_into_huc4(csv_df,out_folder):
     
@@ -50,18 +68,20 @@ def separate_into_huc4(csv_df,out_folder):
     for item in huc4_list:
         df_name = item + "_" + "huc4_df"
         df_rows = pd.DataFrame(columns = col_list)
-        for index, row in ms_filter_gauges.iterrows():
+        for index, row in csv_df.iterrows():
             huc8 = row['HUC8']
             huc4 = huc8[0:4]
             
             if huc4 == item:            
                 df_rows = df_rows.append(row)
-        df_rows.to_csv(out_folder +'/huc4_folder/'+ str(df_name)+".csv", index=True)
+        pathstring = out_folder +"/" + str(df_name)+".csv"
+        print(pathstring)
+        df_rows.to_csv(pathstring, index=True)
 
-def bin_error_huc4(out_folder,variable_choice):
+def bin_error_huc4(huc_4_groups,out_folder, variable_choice):
     p_kt_list = []
     kt_list = []
-    root_dir = out_folder +'/huc4_folder'
+    root_dir = huc_4_groups
     for huc4 in os.listdir(root_dir):
         if not huc4.startswith('.'):
             
@@ -72,9 +92,9 @@ def bin_error_huc4(out_folder,variable_choice):
             
             if len(csv_data) > 3:
                 nmrse_list = csv_data['nrmse'].tolist()
-                lulc1_list = csv_data['lulc_2'].tolist()
+                var_list = csv_data[variable_choice].tolist()
 
-                corrkt = stats.kendalltau(lulc1_list, nmrse_list)
+                corrkt = stats.kendalltau(var_list, nmrse_list)
                 p_kt_list.append(corrkt[1])
                 kt_list.append(corrkt[0])
     fig = plt.figure(figsize =(10, 7))
@@ -83,14 +103,21 @@ def bin_error_huc4(out_folder,variable_choice):
     plt.title("Kendall Tau Histogram, grouped by HUC4 error vs "+variable_choice)
     
     # show plot
+    
+    path = out_folder + '/huc4_histograms/'     
+    if not os.path.exists(path):    
+        print(path)
+        os.makedirs(path)
     fig.savefig(out_folder + '/huc4_histograms/' + variable_choice + '.png')
+
 
 
 if __name__ == '__main__':
     """
-    correlation analysis.py takes output from collat tool and performs single variable analysis
+    correlation analysis.py takes output from collate tool and performs single variable analysis
+
     
-    recommended input: "/data/temp/caleb/master_data/ms_filter_gauges_nlcd.csv"
+    current recommended input: "/data/temp/caleb/master_data/ms_all_gauges_nlcd.csv"
     
     TODO
     """
@@ -98,21 +125,28 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='performs single variable analysis on collated attributes')
     
     parser.add_argument('-in','--input-csv',help='csv containing collated variables.',required=True)
-    parser.add_argument('-out', '--out-folder', help='folder to hold output graphs and charts',required=True)
-    parser.add_argument('-var', '--variable-choice', help='choose which variable to test in huc4 histograms',required=True)
+    parser.add_argument('-p', '--parent-dir', help='path to where user wants output and working directories to be created',required=True)
+    parser.add_argument('-var', '--variable-choice', help='choose which variable to test in huc4 histograms, must be spelled the same way as in csv',required=True)
     parser.add_argument('-sep', '--seperate-y-n', help='perform separation by huc4 yes or no',required=True)
 
     args = vars(parser.parse_args())
 
+    
+
     input_csv = args['input_csv']
-    out_folder = args['out_folder']
+    parent_dir = args['parent_dir']
     variable_choice = args['variable_choice']
     seperate_y_n = args['seperate_y_n']
         
 
-csv_df = get_correlation_matricies(input_csv,out_folder)
-get_scatter_plots(csv_df, out_folder)
-if seperate_y_n = "yes":
-    separate_into_huc4(csv_df,out_folder)
-    
-bin_error_huc4(out_folder,variable_choice)
+path_list = create_needed_folders(parent_dir)
+path_huc4 = path_list[0]
+path_outputs = path_list[1]
+
+input_df = read_in_and_filter_dataframe(input_csv)
+get_correlation_matricies(input_csv,path_outputs)
+
+if seperate_y_n == "yes":
+    separate_into_huc4(input_df,path_huc4)
+    bin_error_huc4(path_huc4,path_outputs, variable_choice)
+
