@@ -11,7 +11,10 @@ import argparse
 import shutil
 
 
-
+#############################################
+#Creates needed folders based off of input parent directory. 
+#Outputs contain string of paths for those output directories.
+#############################################
 def create_needed_folders(parent_dir):
     path_huc4 = os.path.join(parent_dir, "huc_4_groups")
     path_outputs = os.path.join(parent_dir, "analysis_outputs")
@@ -25,20 +28,22 @@ def create_needed_folders(parent_dir):
         shutil.rmtree(path_outputs)
     if not os.path.exists(path_outputs):
         os.makedirs(path_outputs) 
-
     return path_huc4, path_outputs
-    
+
+
+#############################################
+#Reads in the csv and returns a df.
+#Rigid format will only succeed on output from collate_catchment_attributes.py
+#############################################
 def read_in_and_filter_dataframe(input_csv):
-    #filter fields and define datatypes for dataframe
-    
-    #get list of dtypes of input csv
     df = pd.read_csv(input_csv,dtype ={'HUC8':str})
-    
     return df   
     
-    
-    
-
+        
+#############################################
+#Correlation matrix is main method for determining sigle variable correlation
+#Will output to folder designated in create_needed_folders
+#############################################
 def get_correlation_matricies(input_df,path_outputs):
     
     csv_df = input_df
@@ -49,23 +54,20 @@ def get_correlation_matricies(input_df,path_outputs):
     return correlation_matrix
 
 
-
-def separate_into_huc4(csv_df,out_folder):
-    
+#############################################
+#Takes all rows from collate output, and assembles rows with same huc4 into individual csv's
+#############################################
+def separate_into_huc4(csv_df,out_folder):    
     huc4_list = []
     col_list = csv_df.columns
-
-    #make list of all unique huc4's
-    for index, row in csv_df.iterrows():
+    
+    for index, row in csv_df.iterrows():        #make list of all unique huc4's
         huc8 = row['HUC8']
         huc4 = huc8[0:4]
         if huc4 not in huc4_list:
             huc4_list.append(huc4)
         
-        
-    #make dataframe for each unique huc4
-
-    for item in huc4_list:
+    for item in huc4_list:                      #make dataframe for each unique huc4
         df_name = item + "_" + "huc4_df"
         df_rows = pd.DataFrame(columns = col_list)
         for index, row in csv_df.iterrows():
@@ -78,15 +80,16 @@ def separate_into_huc4(csv_df,out_folder):
         print(pathstring)
         df_rows.to_csv(pathstring, index=True)
 
+
+#############################################
+#takes each csv in huc4 folder, runs correlation analysis, creates histogram of all returned correlations
+#############################################
 def bin_error_huc4(huc_4_groups,out_folder, variable_choice):
     p_kt_list = []
     kt_list = []
     root_dir = huc_4_groups
     for huc4 in os.listdir(root_dir):
         if not huc4.startswith('.'):
-            
-            #run kendall tau on each huc4, add correlation to list. 
-            
             csv_data = pd.read_csv(os.path.join(root_dir, huc4))
             csv_data.dropna(axis=0)
             
@@ -94,16 +97,14 @@ def bin_error_huc4(huc_4_groups,out_folder, variable_choice):
                 nmrse_list = csv_data['nrmse'].tolist()
                 var_list = csv_data[variable_choice].tolist()
 
-                corrkt = stats.kendalltau(var_list, nmrse_list)
+                corrkt = stats.kendalltau(var_list, nmrse_list)             #run kendall tau on each huc4, add correlation to list. 
                 p_kt_list.append(corrkt[1])
                 kt_list.append(corrkt[0])
     fig = plt.figure(figsize =(10, 7))
  
     plt.hist(kt_list, bins = [-1,-.9,-.8,-.7,-.6,-.5,-.4,-.3,-.2,-.1,0, .1, .2, .3,.4,.5,.6,.7,.8,.9,1])
     plt.title("Kendall Tau Histogram, grouped by HUC4 error vs "+variable_choice)
-    
-    # show plot
-    
+       
     path = out_folder + '/huc4_histograms/'     
     if not os.path.exists(path):    
         print(path)
@@ -115,10 +116,13 @@ def bin_error_huc4(huc_4_groups,out_folder, variable_choice):
 if __name__ == '__main__':
     """
     correlation analysis.py takes output from collate tool and performs single variable analysis
-
-    
     current recommended input: "/data/temp/caleb/master_data/ms_all_gauges_nlcd.csv"
     
+    command to run using Caleb's file directories:
+    python correlation-analysis.py -in "/data/temp/caleb" -var "lulc_2" -sep "yes"
+
+    Each time the code runs in the current format the histogram output will be deleted. Be sure to grab that file before running again. 
+
     TODO
     """
 
