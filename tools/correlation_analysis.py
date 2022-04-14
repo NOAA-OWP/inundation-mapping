@@ -20,12 +20,12 @@ def create_needed_folders(parent_dir):
     path_outputs = os.path.join(parent_dir, "analysis_outputs")
 
     if os.path.exists(path_huc4):
-        shutil.rmtree(path_huc4)
+        shutil.rmtree(path_huc4,ignore_errors=True)
     if not os.path.exists(path_huc4):
         os.makedirs(path_huc4)
 
     if os.path.exists(path_outputs):
-        shutil.rmtree(path_outputs)
+        shutil.rmtree(path_outputs,ignore_errors=True)
     if not os.path.exists(path_outputs):
         os.makedirs(path_outputs) 
     return path_huc4, path_outputs
