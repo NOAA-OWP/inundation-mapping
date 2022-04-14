@@ -31,12 +31,7 @@ def create_needed_folders(parent_dir, separate_y_n):
             os.makedirs(path_outputs) 
         return path_huc4, path_outputs
     
-    if separate_y_n == "no":
-        if os.path.exists(path_outputs):
-            shutil.rmtree(path_outputs,ignore_errors=True)
-        if not os.path.exists(path_outputs):
-            os.makedirs(path_outputs) 
-        return path_huc4, path_outputs
+    return path_huc4, path_outputs
 
 
 #############################################
