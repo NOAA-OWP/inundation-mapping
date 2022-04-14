@@ -85,7 +85,6 @@ def separate_into_huc4(csv_df,out_folder):
             if huc4 == item:            
                 df_rows = df_rows.append(row)
         pathstring = out_folder +"/" + str(df_name)+".csv"
-        print(pathstring)
         df_rows.to_csv(pathstring, index=True)
 
 
@@ -139,26 +138,26 @@ if __name__ == '__main__':
     parser.add_argument('-in','--input-csv',help='csv containing collated variables.',required=True)
     parser.add_argument('-p', '--parent-dir', help='path to where user wants output and working directories to be created',required=True)
     parser.add_argument('-var', '--variable-choice', help='choose which variable to test in huc4 histograms, must be spelled the same way as in csv',required=True)
-    parser.add_argument('-sep', '--seperate-y-n', help='perform separation by huc4 yes or no',required=True)
+    parser.add_argument('-sep', '--separate-y-n', help='perform separation by huc4 yes or no',required=True)
 
     args = vars(parser.parse_args())
 
-    print("hi there") 
+    
 
     input_csv = args['input_csv']
     parent_dir = args['parent_dir']
     variable_choice = args['variable_choice']
-    seperate_y_n = args['seperate_y_n']
+    separate_y_n = args['separate_y_n']
         
 
-path_list = create_needed_folders(parent_dir)
+path_list = create_needed_folders(parent_dir,separate_y_n)
 path_huc4 = path_list[0]
 path_outputs = path_list[1]
 
 input_df = read_in_and_filter_dataframe(input_csv)
 get_correlation_matricies(input_df,path_outputs)
 
-if seperate_y_n == "yes":
+if separate_y_n == "yes":
     separate_into_huc4(input_df,path_huc4)
 
 bin_error_huc4(path_huc4,path_outputs, variable_choice)
