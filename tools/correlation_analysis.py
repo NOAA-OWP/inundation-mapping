@@ -15,20 +15,28 @@ import shutil
 #Creates needed folders based off of input parent directory. 
 #Outputs contain string of paths for those output directories.
 #############################################
-def create_needed_folders(parent_dir):
+def create_needed_folders(parent_dir, separate_y_n):
     path_huc4 = os.path.join(parent_dir, "huc_4_groups")
     path_outputs = os.path.join(parent_dir, "analysis_outputs")
 
-    if os.path.exists(path_huc4):
-        shutil.rmtree(path_huc4,ignore_errors=True)
-    if not os.path.exists(path_huc4):
-        os.makedirs(path_huc4)
+    if separate_y_n == "yes":
+        if os.path.exists(path_huc4):
+            shutil.rmtree(path_huc4,ignore_errors=True)
+        if not os.path.exists(path_huc4):
+            os.makedirs(path_huc4)
 
-    if os.path.exists(path_outputs):
-        shutil.rmtree(path_outputs,ignore_errors=True)
-    if not os.path.exists(path_outputs):
-        os.makedirs(path_outputs) 
-    return path_huc4, path_outputs
+        if os.path.exists(path_outputs):
+            shutil.rmtree(path_outputs,ignore_errors=True)
+        if not os.path.exists(path_outputs):
+            os.makedirs(path_outputs) 
+        return path_huc4, path_outputs
+    
+    if separate_y_n == "no":
+        if os.path.exists(path_outputs):
+            shutil.rmtree(path_outputs,ignore_errors=True)
+        if not os.path.exists(path_outputs):
+            os.makedirs(path_outputs) 
+        return path_huc4, path_outputs
 
 
 #############################################
@@ -119,7 +127,7 @@ if __name__ == '__main__':
     current recommended input: "/data/temp/caleb/master_data/ms_all_gauges_nlcd.csv"
     
     command to run using Caleb's file directories:
-    python correlation_analysis.py -p "/data/temp/caleb" -in "/data/temp/caleb/master_data/ms_all_gauges_nlcd.csv" -var "lulc_2" -sep "no"
+    python correlation_analysis.py -p "/data/temp/caleb" -in "/data/temp/caleb/master_data/ms_all_gauges_nlcd.csv" -var "lulc_2" -sep "yes"
 
     Each time the code runs with separate option set to yes, the histogram output will be deleted. Be sure to grab that file before running again. 
 
