@@ -47,8 +47,7 @@ def read_in_and_filter_dataframe(input_csv):
 #Correlation matrix is main method for determining sigle variable correlation
 #Will output to folder designated in create_needed_folders
 #############################################
-def get_correlation_matricies(input_df,path_outputs):
-    
+def get_correlation_matrices(input_df,path_outputs):
     csv_df = input_df
     csv_df = csv_df.dropna(axis=0)
     correlation_matrix = csv_df.corr()
@@ -64,13 +63,13 @@ def separate_into_huc4(csv_df,out_folder):
     huc4_list = []
     col_list = csv_df.columns
     
-    for index, row in csv_df.iterrows():        #make list of all unique huc4's
+    for index, row in csv_df.iterrows():  #make list of all unique huc4's
         huc8 = row['HUC8']
         huc4 = huc8[0:4]
         if huc4 not in huc4_list:
             huc4_list.append(huc4)
         
-    for item in huc4_list:                      #make dataframe for each unique huc4
+    for item in huc4_list:  #make dataframe for each unique huc4
         df_name = item + "_" + "huc4_df"
         df_rows = pd.DataFrame(columns = col_list)
         for index, row in csv_df.iterrows():
@@ -99,7 +98,7 @@ def bin_error_huc4(huc_4_groups,out_folder, variable_choice):
                 nmrse_list = csv_data['nrmse'].tolist()
                 var_list = csv_data[variable_choice].tolist()
 
-                corrkt = stats.kendalltau(var_list, nmrse_list)             #run kendall tau on each huc4, add correlation to list. 
+                corrkt = stats.kendalltau(var_list, nmrse_list)  #run kendall tau on each huc4, add correlation to list. 
                 p_kt_list.append(corrkt[1])
                 kt_list.append(corrkt[0])
     fig = plt.figure(figsize =(10, 7))
@@ -117,7 +116,7 @@ def bin_error_huc4(huc_4_groups,out_folder, variable_choice):
 
 if __name__ == '__main__':
     """
-    correlation analysis.py takes output from collate tool and performs single variable analysis
+    correlation_analysis.py takes output from collate tool and performs single variable analysis
     current recommended input: "/data/temp/caleb/master_data/ms_all_gauges_nlcd.csv"
     
     command to run using Caleb's file directories:
@@ -150,7 +149,7 @@ path_huc4 = path_list[0]
 path_outputs = path_list[1]
 
 input_df = read_in_and_filter_dataframe(input_csv)
-get_correlation_matricies(input_df,path_outputs)
+get_correlation_matrices(input_df,path_outputs)
 
 if separate_y_n == "yes":
     separate_into_huc4(input_df,path_huc4)
