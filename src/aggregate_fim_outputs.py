@@ -45,6 +45,7 @@ def aggregate_fim_outputs(args):
 
         if len(huc)> 6:
 
+            # Open hydrotable
             hydrotable = pd.read_csv(hydrotable_filename)
             
             # Check that there are valid entries in HUC8 hydrotable
@@ -53,9 +54,11 @@ def aggregate_fim_outputs(args):
 
             # Write/append aggregate hydrotable
             if aggregate_hydrotable.exists():
-                hydrotable_concat = pd.read_csv(aggregate_hydrotable)
+                # store current huc6 aggreg htable in dataframe
+                hydrotable_concat = pd.read_csv(aggregate_hydrotable) 
                 if not set(hydrotable_concat.columns) == set(hydrotable.columns): # check if HUC8 and HUC6 htables have same set of column variables
                     print('WARNING!! HUC6: ' + str(huc6) + ' found a mismatch in column dimensions/names during concatenation...')
+                # concatenate the existing huc6 htable with the huc8 htable
                 hydrotable = pd.concat([hydrotable_concat, hydrotable], axis=0)
             hydrotable.to_csv(aggregate_hydrotable,index=False)
 
@@ -258,4 +261,4 @@ if __name__ == '__main__':
     print(f"aggregating {len(huc_list)} hucs to HUC6 scale using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         pool.map(aggregate_fim_outputs, procs_list)
-    print('Aggregation finished')
+    print('Aggregation process finished')
