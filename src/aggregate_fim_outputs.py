@@ -46,25 +46,15 @@ def aggregate_fim_outputs(args):
         if len(huc)> 6:
 
             hydrotable = pd.read_csv(hydrotable_filename)
-            '''
-            # Filter hydrotable to subset list of variables
-            filtered_vars = ['HydroID','feature_id','order_','HUC','LakeID','barc_on','vmann_on','adjust_src_on','stage','discharge_cms']
-            for var in filtered_vars:
-                if var not in hydrotable_read.columns:
-                    hydrotable_read[var] = pd.NA
-            hydrotable = hydrotable_read[filtered_vars]
-            if hydrotable.isnull().all().all():
-                print('WARNING!! hydroTable does not contain any valid values - please check HUC --> ' + str(huc))
-            '''
-            #hydrotable = hydrotable_read.reindex(sorted(hydrotable_read.columns), axis=1)
+            
+            # Check that there are valid entries in HUC8 hydrotable
             if hydrotable.isnull().all().all():
                 print('WARNING!! hydroTable does not contain any valid values - please check HUC --> ' + str(huc))
 
             # Write/append aggregate hydrotable
             if aggregate_hydrotable.exists():
-                #hydrotable.to_csv(aggregate_hydrotable,index=False, mode='a',header=False)
                 hydrotable_concat = pd.read_csv(aggregate_hydrotable)
-                if not set(hydrotable_concat.columns) == set(hydrotable.columns):
+                if not set(hydrotable_concat.columns) == set(hydrotable.columns): # check if HUC8 and HUC6 htables have same set of column variables
                     print('WARNING!! HUC6: ' + str(huc6) + ' found a mismatch in column dimensions/names during concatenation...')
                 hydrotable = pd.concat([hydrotable_concat, hydrotable], axis=0)
             hydrotable.to_csv(aggregate_hydrotable,index=False)
