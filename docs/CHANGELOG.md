@@ -1,6 +1,12 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.29.0 - 2022-04-13 - [PR #581](https://github.com/NOAA-OWP/cahaba/pull/581)
+
+Addition of `correlation_analysis.py`, a tool to perform single varible analysis bewteen Sierra Test error and various indicator variables.
+
+<br/><br/>
+
 
 ## v3.0.28.2 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
 
