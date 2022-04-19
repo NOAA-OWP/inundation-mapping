@@ -13,6 +13,13 @@ import multiprocessing
 from multiprocessing import Pool
 from src_roughness_optimization import update_rating_curve
 import psycopg2 # python package for connecting to postgres
+from dotenv import load_dotenv
+
+#import variables from .env file
+load_dotenv()
+CALIBRATION_DB_HOST = os.getenv("CALIBRATION_DB_HOST")
+CALIBRATION_DB_USER_NAME = os.getenv("CALIBRATION_DB_USER_NAME")
+CALIBRATION_DB_PASS = os.getenv("CALIBRATION_DB_PASS")
 
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 '''
@@ -40,6 +47,13 @@ Outputs
 '''
 
 def process_points(args):
+
+    '''
+    The script ingests a point database, filters the db to points within 
+
+    Processing
+    - Define CR
+    '''
 
     fim_directory = args[0]
     huc = args[1]
@@ -113,7 +127,7 @@ def process_points(args):
 def find_points_in_huc(huc_id, conn):
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT ST_X(P.geom), ST_Y(P.geom), P.submitter, P.flow
+        SELECT ST_X(P.geom), ST_Y(P.geom), P.submitter, P.flow, P.coll_time
         FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom)
         WHERE H.huc8 = %s;
     """, (huc_id,))
@@ -125,7 +139,7 @@ def find_points_in_huc(huc_id, conn):
 def find_hucs_with_points(conn):
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT H.huc8
+        SELECT DISTINCT H.huc8
         FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom);
     """)
     hucs_wpoints = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
@@ -240,10 +254,10 @@ def connect():
 
             # connect to the PostgreSQL server
             conn = psycopg2.connect(
-                host="calibration_db",
+                host=CALIBRATION_DB_HOST,
                 database="calibration",
-                user="postgres",
-                password="postgres")
+                user=CALIBRATION_DB_USER_NAME,
+                password=CALIBRATION_DB_PASS)
 
             # create a cursor
             cur = conn.cursor()
