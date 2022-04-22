@@ -1,0 +1,15 @@
+version: '3.5'
+services:
+  calibration-db:
+    image: postgis/postgis
+    container_name: calibration_db_test
+    restart: always
+    environment:
+      - POSTGRES_USER=${CALIBRATION_DB_USER_NAME}
+      - POSTGRES_PASSWORD=${CALIBRATION_DB_PASS}
+      - POSTGRES_DB=calibration
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
