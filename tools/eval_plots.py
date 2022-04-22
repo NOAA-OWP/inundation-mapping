@@ -86,7 +86,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             elif 'fim_2' in label:
                 label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
             elif 'fim_3' in label and len(label) < 20:
-                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
+                label_dict[label] = re.split('_fr|_ms|_comp', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
             else:
@@ -253,7 +253,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             elif 'fim_2' in label:
                 label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
             elif 'fim_3' in label and len(label) < 20:
-                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
+                label_dict[label] = re.split('_fr|_ms|_comp', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
             else:
