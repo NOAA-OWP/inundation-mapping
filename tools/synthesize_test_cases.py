@@ -2,6 +2,7 @@
 
 import os
 import argparse
+from datetime import datetime
 from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import json
@@ -71,6 +72,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                         'masked_perc',
                         'masked_area_km2'
                         ]
+
 
     additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
     list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config'] + ["calibrated"]]
@@ -217,7 +219,29 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
         csv_writer.writerows(list_to_write)
 
 
+
 if __name__ == '__main__':
+
+    # Sample usage:
+    
+    #python /foss_fim/tools/synthesize_test_cases.py -c DEV -e GMS -v gms_test_synth_combined -jh 2 -jb 40 -m /outputs/gms_test_synth_combined/gms_synth_metrics.csv -vg -o
+
+    # Notes:
+    #   - gms_input.csv MUST be in the folder suggested.
+    #   - the -v param is the name in the folder in the "outputs/" directory where the test hucs are at.
+    #       It also becomes the folder names inside the test_case folders when done.
+    #   - the -vg param may not be working (will be assessed better on later releases).
+    #   - Find a balance between -jh (number of jobs for hucs) versus -jb (number of jobs for branches)
+    #     on quick tests on a 96 core machine, we tried [1 @ 80], [2 @ 40], and [3 @ 25] (and others).
+    #   -jb 3 -jh 25 was noticably better. You can likely go more jb cores with better success, just
+    #     experiment.  Start times, End Times and duration are now included.
+    #   - The -m can be any path and any name.
+    
+    # To see your outputs in the test_case folder (hard coded path), you can check for outputs using
+    #     (cd .... to your test_case folder), then command becomes  find . -name gms_test_* -type d (Notice the
+    #     the -name can be a wildcard for your -v param (or the whole -v value))
+    # If you want to delete the test outputs, test the outputs as suggest immediately above, but this time your
+    #     command becomes:  find . -name gms_test_* -type d  -exec rm -rdf {} +
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
@@ -253,6 +277,14 @@ if __name__ == '__main__':
     verbose = args['verbose']
     gms_verbose = args['gms_verbose']
 
+
+    print("================================")
+    print("Start synthesize test cases")
+    start_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"started: {dt_string}")
+    print()
+    
     # check job numbers
     total_cpus_requested = job_number_huc * job_number_branch
     total_cpus_available = os.cpu_count() - 1
@@ -312,6 +344,7 @@ if __name__ == '__main__':
                 if current_benchmark_category in bench_cat:
                     # Loop through versions.
                     for version in previous_fim_list:
+                        
                         if config == 'DEV':
                             fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
                         elif config == 'PREV':
@@ -329,7 +362,6 @@ if __name__ == '__main__':
                             # If a user supplies a special_string (-s), then add it to the end of the created dirs.
                             if special_string != "":
                                 version = version + '_' + special_string
-
             
                             # Define the magnitude lists to use, depending on test_id.
                             if 'ble' == current_benchmark_category:
@@ -357,7 +389,6 @@ if __name__ == '__main__':
                                                 'verbose': False,
                                                 'gms_verbose': False
                                               }
-                            
                             procs_dict[test_id] = alpha_test_args
 
     if job_number_huc == 1:
@@ -367,7 +398,6 @@ if __name__ == '__main__':
 
         for current_huc, alpha_test_args in tqdm(procs_dict.items(),total=number_of_hucs,disable=(not verbose_by_huc)):
             alpha_test_args.update({'gms_verbose': not verbose_by_huc})
-
             try:
                 run_alpha_test(**alpha_test_args)
             except Exception as exc:
@@ -415,4 +445,18 @@ if __name__ == '__main__':
         print("Creating master metrics CSV...")
 
         # this function is not compatible with GMS
-        create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, dev_versions_to_include_list=dev_versions_to_include_list)
+        create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, 
+                                  dev_versions_to_include_list=dev_versions_to_include_list)
+    
+
+    print("================================")
+    print("End synthesize test cases")
+
+    end_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"ended: {dt_string}")
+
+    # calculate duration
+    time_duration = end_time - start_time
+    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print()

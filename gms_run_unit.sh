@@ -142,16 +142,22 @@ fi
 if [ ! -d $outputRunDataDir ]; then
     mkdir -p $outputRunDataDir
 fi
+
 if [ ! -d "$outputRunDataDir/logs/unit" ]; then
     mkdir -p $outputRunDataDir/logs/unit
+elif [ $overwrite -eq 1 ]; then
+    # clean it out if we are overwritting
+    rm -rf $outputRunDataDir/logs/unit/
+    mkdir -p $outputRunDataDir/logs/unit
 fi
+
 if [ ! -d "$outputRunDataDir/unit_errors" ]; then
     mkdir -p $outputRunDataDir/unit_errors
 else
     if [ $overwrite -eq 1 ]; then
         rm -rf $outputRunDataDir/unit_errors/
-        rm -rf $outputRunDataDir/logs/unit/
-
+        mkdir -p $outputRunDataDir/unit_errors
+        
         # remove branch logs as well
         rm -rf $outputRunDataDir/branch_errors/
         rm -rf $outputRunDataDir/logs/branch/
@@ -160,6 +166,15 @@ fi
 
 # copy over config file
 cp -a $envFile $outputRunDataDir
+
+## RUN GMS BY BRANCH ##
+echo "================================================================================"
+echo "Start of unit processing"
+echo "Started: `date -u`" 
+
+## Track total time of the overall run
+T_total_start
+Tstart
 
 ## GMS BY UNIT##
 if [ -f "$hucList" ]; then
@@ -176,13 +191,20 @@ else
     fi
  fi
 
-## AGGREGATE BRANCH LISTS INTO ONE ##
-python3 $srcDir/gms/aggregate_branch_lists.py -l $hucList
+echo "Unit (HUC) processing is complete"
+Tcount
+date -u
 
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
-find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log"
+echo "Start of non zero exit codes check"
+find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log" &
+
+## AGGREGATE BRANCH LISTS INTO ONE ##
+echo "Start branch aggregation"
+python3 $srcDir/gms/aggregate_branch_lists.py -d $outputRunDataDir -f "gms_inputs.csv" -l $hucList
 
 echo "================================================================================"
 echo "Unit processing is complete"
+echo "Ended: `date -u`" 
 echo
