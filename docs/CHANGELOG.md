@@ -2,6 +2,31 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.4.1 - 2022-05-02 - [PR #587](https://github.com/NOAA-OWP/inundation-mapping/pull/587)
+
+While testing GMS against evaluation and inundation data, we discovered some challenges for running alpha testing at full scale. Part of it was related to the very large output volume for GMS which resulted in outputs being created on multiple servers and folders. Considering the GMS volume and processing, a tool was required to extract out the ~215 HUC's that we have evaluation data for. Next, we needed isolate valid HUC output folders from original 2,188 HUC's and its 100's of thousands of branches. The first new tool allows us to point to the `test_case` data folder and create a list of all HUC's that we have validation for.
+
+Now that we have a list of relavent HUC's, we need to consolidate output folders from the previously processed full CONUS+ output data. The new `copy_test_case_folders.py` tool extracts relavent HUC (gms unit) folders, based on the list created above, into a consolidated folder. The two tools combine result in significantly reduced overall processing time for running alpha tests at scale.
+
+`gms_run_unit.sh` and `aggregated_branch_lists.py` were adjusted to make a previously hardcoded file path and file name to be run-time parameters. By adding the two new arguments, the file could be used against the new `copy_test_case_folders.py`. `copy_test_case_folders.py` and `gms_run_unit.sh` can now call `aggregated_branch_lists.py` to create a key input file called `gms_inputs.csv` which is a key file required for alpha testing.
+
+A few other small adjustments were made for readability and traceability as well as a few small fixes discovered when running at scale.
+
+## Additions
+
+- `tools/find_test_case_folders.py`: A new tool for creating a list of HUC's that we have test/evaluation data for.
+- `tools/copy_test_case_folders.py`: A new tool for using the list created above, to scan through other fully processed output folders and extract only the HUC's (gms units) and it's branches into a consolidated folder, ready for alpha test processing (or other needs).
+
+## Changes
+
+- `src/gms/aggregate_branch_lists.py`: Adjusted to allow two previously hardcoded values to now be incoming arguments. Now this file can be used by both `gms_run_unit.sh` and `copy_test_case_folders.py`.
+- `tools/synthesize_test_cases.py`: Adjustments for readability and progress status. The embedded progress bars are not working and will be addressed later.
+- `tools/run_test_case.py`: A print statement was added to help with processing progess was added.
+- `gms_run_unit.sh`: This was adjusted to match the new input parameters for `aggregate_branch_lists.py` as well as additions for progress status. It now will show the entire progress period start datetime, end datetime and duration. 
+- `gms_run_branch.sh`: Also was upgraded to show the entire progress period start datetime, end datetime and duration.
+
+<br/><br/>
+
 ## v4.0.4.0 - 2022-04-12 - [PR #557](https://github.com/NOAA-OWP/inundation-mapping/pull/557)
 
 During large scale testing of the new **filtering out stream orders 1 and 2** feature [PR #548](https://github.com/NOAA-OWP/inundation-mapping/pull/548), a bug was discovered with 14 HUCS that had no remaining streams after removing stream orders 1 and 2. This resulted in a number of unmanaged and unclear exceptions. An exception may be still raised will still be raised in this fix for logging purposes, but it is now very clear what happened. Other types of events are logged with clear codes to identify what happened.

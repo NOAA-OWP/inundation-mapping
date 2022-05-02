@@ -36,6 +36,8 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
     # make bool
     calibrated = bool( calibrated )
 
+    print(f"run_alpha_test: test_id = {test_id}")
+
     if (model == "MS") & (fr_run_dir is None):
         raise ValueError("fr_run_dir argument needs to be specified with MS model")
 

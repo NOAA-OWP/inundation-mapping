@@ -133,7 +133,12 @@ fi
 # make log dir
 if [ ! -d "$outputRunDataDir/logs/branch" ]; then
     mkdir -p $outputRunDataDir/logs/branch
+elif [ $overwrite -eq 1 ]; then
+    # need to clean it out if we are overwriting
+    rm -rf $outputRunDataDir/logs/branch
+    mkdir -p $outputRunDataDir/logs/branch
 fi
+
 if [ ! -d "$outputRunDataDir/branch_errors" ]; then
     mkdir -p "$outputRunDataDir/branch_errors"
 else
@@ -145,16 +150,21 @@ fi
 ## RUN GMS BY BRANCH ##
 echo "================================================================================"
 echo "Start of branch processing"
+echo "Started: `date -u`" 
+
+## Track total time of the overall run
+T_total_start
+Tstart
+
 if [ "$jobLimit" -eq 1 ]; then
     parallel $retry --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 else
     parallel $retry --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 fi
 
-# -------------------
-## GET NON ZERO EXIT CODES ##
-# Needed in case aggregation fails, we will need the logs
-find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log"
+echo "Branch processing is complete"
+Tcount
+date -u
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 # TODO: How do we skip aggregation if there is a branch error
@@ -163,6 +173,14 @@ echo
 echo "Processing usgs gage aggregation"
 python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
+# -------------------
+## GET NON ZERO EXIT CODES ##
+# Needed in case aggregation fails, we will need the logs
+echo
+echo "Start non-zero exit code checking"
+find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
+
 echo "================================================================================"
-echo "Branch processing is complete"
+echo "GMS_run_branch complete"
+echo "Ended: `date -u`" 
 echo
