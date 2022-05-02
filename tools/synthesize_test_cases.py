@@ -327,16 +327,7 @@ if __name__ == '__main__':
 
             
                             # Define the magnitude lists to use, depending on test_id.
-                            if 'ble' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ble']
-                            elif ('usgs' == current_benchmark_category) | ('nws' == current_benchmark_category):
-                                magnitude = ['action', 'minor', 'moderate', 'major']
-                            elif 'ifc' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ifc']
-                            elif 'ras2fim' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ras2fim']
-                            else:
-                                continue
+                            magnitude = MAGNITUDE_DICT[current_benchmark_category]
 
                             alpha_test_args = { 
                                                 'fim_run_dir': fim_run_dir, 

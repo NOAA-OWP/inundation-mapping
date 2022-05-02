@@ -10,8 +10,9 @@ FR_BENCHMARK_CATEGORIES = ['ble', 'ifc']
 BLE_MAGNITUDE_LIST = ['100yr', '500yr']
 IFC_MAGNITUDE_LIST = ['2yr', '5yr', '10yr', '25yr', '50yr', '100yr', '200yr', '500yr']
 AHPS_MAGNITUDE_LIST = ['action', 'minor', 'moderate', 'major']
+RAS2FIM_MAGNITUDE_LIST = ['2yr', '5yr', '10yr', '25yr', '50yr', '100yr']
 
-MAGNITUDE_DICT = {'ble': BLE_MAGNITUDE_LIST, 'ifc': IFC_MAGNITUDE_LIST, 'usgs': AHPS_MAGNITUDE_LIST, 'nws': AHPS_MAGNITUDE_LIST}
+MAGNITUDE_DICT = {'ble': BLE_MAGNITUDE_LIST, 'ifc': IFC_MAGNITUDE_LIST, 'usgs': AHPS_MAGNITUDE_LIST, 'nws': AHPS_MAGNITUDE_LIST, 'ras2fim': RAS2FIM_MAGNITUDE_LIST}
 PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
 GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc', 'PND']
