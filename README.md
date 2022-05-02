@@ -128,7 +128,7 @@ Please see the issue tracker on GitHub and the [Inundation Mapping Wiki](https:/
 
 ### Getting Involved
 
-NOAA's National Water Center welcomes anyone to contribute to the Inundation Mapping repository to improve flood inundation mapping capabilities. Please contact Brad Bates (bradford.bates@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
+NOAA's National Water Center welcomes anyone to contribute to the Inundation Mapping repository to improve flood inundation mapping capabilities. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) to get started.
 
 ### Open Source Licensing Info
 1. [TERMS](docs/TERMS.md)
