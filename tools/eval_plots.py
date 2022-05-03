@@ -151,7 +151,7 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
     #Set xticks and yticks and background horizontal line.
     axes.set(ylim=(0.0,1.0),yticks = np.arange(0,1.1,0.1))
     axes.set(xlim=(0.0,1.0),xticks = np.arange(0,1.1,0.1))
-    axes.grid(b=True, which='major', axis='both')
+    axes.grid(visible=True, which='major', axis='both')
 
     #Set sizes of ticks and legend.
     axes.tick_params(labelsize = 'xx-large')
