@@ -9,6 +9,7 @@ import json
 import csv
 import ast
 from tqdm import tqdm
+import re
 
 from run_test_case import run_alpha_test
 
