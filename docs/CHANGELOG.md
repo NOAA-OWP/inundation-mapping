@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.30.0 - 2022-04-19 - [PR #577](https://github.com/NOAA-OWP/cahaba/pull/577)
+
+Modifications to enforce consistent hydroTable.csv column dimensions for all HUCs (huc8 and huc6).
+
+## Changes
+- `src/add_crosswalk.py`: Modified to create the placeholder calibration variable columns (filled with nan values): `adjust_src_on`, `last_updated`, `submitter`, `adjust_ManningN`, `obs_source`, `default_discharge_cms`, and `default_ManningN`
+- `src/aggregate_fim_outputs.py`: Modified to read the HUC6 hydroTable to a pandas dataframe and use a dataframe concatenation process to add huc8 data. Also added a check to confirm incoming hydrotable (HUC8) includes the same set of columns/variables as the HUC6 aggregated hydrotable (35 variables is the current expected default).
+- `src/src_adjust_spatial_obs.py`: Modified to move print statement to write to the log file
+- `src/src_adjust_usgs_rating.py`: Modified to check for an empty `agg_crosswalk_df` without returning an assert error. The workflow now skips the USGS rating curve calibration routine when USGS rating data is not available.
+- `src/src_roughness_optimization.py`: Modified workflow to check if calibration variables contain valid data and remove/replace columns as needed prior to performing calibration routine.
+
+<br/><br/>
+
 ## v3.0.29.0 - 2022-04-13 - [PR #581](https://github.com/NOAA-OWP/cahaba/pull/581)
 
 Addition of `correlation_analysis.py`, a tool to perform single varible analysis bewteen Sierra Test error and various indicator variables.
