@@ -9,6 +9,7 @@ import json
 import csv
 import ast
 from tqdm import tqdm
+import re
 
 from run_test_case import run_alpha_test
 
@@ -50,6 +51,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                         'FAR',
                         'TPR',
                         'TNR',
+                        'PND',
                         'PPV',
                         'NPV',
                         'ACC',
@@ -84,18 +86,12 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
     else:
         iteration_list = ['official']
 
-    for benchmark_source in ['ble', 'nws', 'usgs', 'ifc']:
+    for benchmark_source in ['ble', 'nws', 'usgs', 'ifc','ras2fim']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
-        if benchmark_source in ['ble', 'ifc']:
+        test_cases_list = [d for d in os.listdir(benchmark_test_case_dir) if re.match('\d{8}_\w{3,7}', d)]
+        if benchmark_source in ['ble', 'ifc','ras2fim']:
             
-            if benchmark_source == 'ble':
-                magnitude_list = MAGNITUDE_DICT['ble']
-            if benchmark_source == 'ifc':
-                magnitude_list = MAGNITUDE_DICT['ifc']
-            try:
-                test_cases_list = os.listdir(benchmark_test_case_dir)
-            except FileNotFoundError:
-                continue
+            magnitude_list = MAGNITUDE_DICT[benchmark_source]
             
             for test_case in test_cases_list:
                 try:
@@ -114,12 +110,12 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
                         for magnitude in magnitude_list:
                             for version in versions_to_aggregate:
-                                if '_fr' in version:
-                                    extent_config = 'FR'
-                                elif '_ms' in version:
+                                if '_ms' in version:
                                     extent_config = 'MS'
-                                else:
+                                elif ('_fr' in version) or (version == 'fim_2_3_3'):
                                     extent_config = 'FR'
+                                else:
+                                    extent_config = 'COMP'
                                 if "_c" in version and version.split('_c')[1] == "":
                                     calibrated = "yes"
                                 else:
@@ -169,12 +165,12 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
-                                if '_fr' in version:
-                                    extent_config = 'FR'
-                                elif '_ms' in version:
+                                if '_ms' in version:
                                     extent_config = 'MS'
-                                else:
+                                elif ('_fr' in version) or (version == 'fim_2_3_3'):
                                     extent_config = 'FR'
+                                else:
+                                    extent_config = 'COMP'
                                 if "_c" in version and version.split('_c')[1] == "":
                                     calibrated = "yes"
                                 else:
@@ -364,14 +360,7 @@ if __name__ == '__main__':
                                 version = version + '_' + special_string
             
                             # Define the magnitude lists to use, depending on test_id.
-                            if 'ble' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ble']
-                            elif ('usgs' == current_benchmark_category) | ('nws' == current_benchmark_category):
-                                magnitude = ['action', 'minor', 'moderate', 'major']
-                            elif 'ifc' == current_benchmark_category:
-                                magnitude_list = MAGNITUDE_DICT['ifc']
-                            else:
-                                continue
+                            magnitude = MAGNITUDE_DICT[current_benchmark_category]
 
                             alpha_test_args = { 
                                                 'fim_run_dir': fim_run_dir, 
