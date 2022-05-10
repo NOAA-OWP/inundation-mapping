@@ -68,14 +68,14 @@ def variable_mannings_calc(args):
             log_text += str(huc) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
 
         ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
-        df_src['comp_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
+        df_src['vmann_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
         #print('Done calculating composite Manning n (' + channel_ratio_src_column + '): ' + str(huc))
 
         ## Check if there are any missing data in the composite ManningN column
-        check_null_comp = df_src['comp_ManningN'].isnull().sum()
+        check_null_comp = df_src['vmann_ManningN'].isnull().sum()
         if check_null_comp > 0:
-            log_text += str(huc) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
-        df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
+            log_text += str(huc) + ' --> ' + 'Missing values in the vmann_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
+        df_src['vmann_on'] = np.where(df_src['vmann_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
 
         ## Define the channel geometry variable names to use from the src
         hydr_radius = 'HydraulicRadius (m)'
@@ -83,33 +83,31 @@ def variable_mannings_calc(args):
 
         ## Calculate Q using Manning's equation
         #df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
-        df_src['Discharge (m3s-1)_varMann'] = df_src[wet_area]* \
+        df_src['vmann_discharge_cms'] = df_src[wet_area]* \
         pow(df_src[hydr_radius],2.0/3)* \
-        pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
+        pow(df_src['SLOPE'],0.5)/df_src['vmann_ManningN']
 
         ## Set Q values to 0 and -999 for specified criteria
-        df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0,0,inplace=True)
+        df_src['vmann_discharge_cms'].mask(df_src['Stage'] == 0,0,inplace=True)
         if 'Thalweg_burn_elev' in df_src:
-            df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
-            df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
+            df_src['vmann_discharge_cms'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
+            df_src['vmann_discharge_cms'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
 
         ## Use the default discharge column when vmann is not being applied
-        df_src['Discharge (m3s-1)_varMann'] = np.where(df_src['vmann_on']==False, df_src['default_Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']) # reset the discharge value back to the original if vmann=false
-        df_src['comp_ManningN'] = np.where(df_src['vmann_on']==False, df_src['default_ManningN'], df_src['comp_ManningN']) # reset the ManningN value back to the original if vmann=false
+        df_src['vmann_discharge_cms'] = np.where(df_src['vmann_on']==False, df_src['default_Discharge (m3s-1)'], df_src['vmann_discharge_cms']) # reset the discharge value back to the original if vmann=false
+        df_src['vmann_ManningN'] = np.where(df_src['vmann_on']==False, df_src['default_ManningN'], df_src['vmann_ManningN']) # reset the ManningN value back to the original if vmann=false
 
         ## Output new SRC with bankfull column
         df_src.to_csv(out_src_vmann_filename,index=False)
 
         ## Output new hydroTable with updated discharge and ManningN column
-        df_src_trim = df_src[['HydroID','Stage','vmann_on',channel_ratio_src_column,'Discharge (m3s-1)_varMann','comp_ManningN']]
-        df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_varMann': 'discharge_cms','comp_ManningN':'ManningN'})
+        df_src_trim = df_src[['HydroID','Stage','vmann_on',channel_ratio_src_column,'vmann_discharge_cms','vmann_ManningN']]
+        df_src_trim = df_src_trim.rename(columns={'Stage':'stage'})
+        df_src_trim['ManningN'] = df_src_trim[['vmann_ManningN']]
+        df_src_trim['discharge_cms'] = df_src_trim[['vmann_discharge_cms']]
         df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
-        df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
         df_htable.drop(['vmann_on'], axis=1, inplace=True) # drop the default "vmann_on" variable from add_crosswalk.py
-        if not set(['orig_discharge_cms']).issubset(df_htable.columns):
-            df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
-        else:
-            df_htable.drop(['discharge_cms'], axis=1, inplace=True) # drop the previously modified discharge column to be replaced with updated version
+        df_htable.drop(['discharge_cms','ManningN','vmann_ManningN','vmann_discharge_cms'], axis=1, inplace=True) # drop the previously modified discharge column to be replaced with updated version
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
         df_htable.to_csv(htable_filename,index=False)
 
@@ -140,7 +138,7 @@ def generate_src_plot(df_src, plt_out_dir):
         ax.set_title(str(hydroid))
         sns.despine(f, left=True, bottom=True)
         sns.scatterplot(x='Discharge (m3s-1)', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
-        sns.scatterplot(x='Discharge (m3s-1)_varMann', y='Stage', data=plot_df, label="SRC w/ vMann", ax=ax, color='orange')
+        sns.scatterplot(x='vmann_discharge_cms', y='Stage', data=plot_df, label="SRC w/ vMann", ax=ax, color='orange')
         sns.lineplot(x='Discharge (m3s-1)', y='Stage_1_5', data=plot_df, color='green', ax=ax)
         plt.fill_between(plot_df['Discharge (m3s-1)'], plot_df['Stage_1_5'],alpha=0.5)
         plt.text(plot_df['Discharge (m3s-1)'].median(), plot_df['Stage_1_5'].median(), "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()))
@@ -155,11 +153,11 @@ def generate_src_plot(df_src, plt_out_dir):
 #        f, ax = plt.subplots(figsize=(6.5, 6.5))
 #        ax.set_title(str(hydroid))
 #        sns.despine(f, left=True, bottom=True)
-#        sns.scatterplot(x='comp_ManningN', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
-#        #sns.scatterplot(x='Discharge (m3s-1)_varMann', y='Stage', data=plot_df, label="SRC w/ vMann", ax=ax, color='orange')
-#        sns.lineplot(x='comp_ManningN', y='Stage_1_5', data=plot_df, color='green', ax=ax)
-#        plt.fill_between(plot_df['comp_ManningN'], plot_df['Stage_1_5'],alpha=0.5)
-#        plt.text(plot_df['comp_ManningN'].median(), plot_df['Stage_1_5'].median(), "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()))
+#        sns.scatterplot(x='vmann_ManningN', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
+#        #sns.scatterplot(x='vmann_discharge_cms', y='Stage', data=plot_df, label="SRC w/ vMann", ax=ax, color='orange')
+#        sns.lineplot(x='vmann_ManningN', y='Stage_1_5', data=plot_df, color='green', ax=ax)
+#        plt.fill_between(plot_df['vmann_ManningN'], plot_df['Stage_1_5'],alpha=0.5)
+#        plt.text(plot_df['vmann_ManningN'].median(), plot_df['Stage_1_5'].median(), "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()))
 #        ax.legend()
 #        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png',dpi=175, bbox_inches='tight')
 #        plt.close()
