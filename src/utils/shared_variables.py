@@ -66,3 +66,11 @@ os.environ['agg_nhd_headwaters_adj_fileName'] = os.path.join(os.environ.get('nhd
 os.environ['agg_nhd_streams_adj_fileName'] = os.path.join(os.environ.get('nhdplus_aggregate_dir'),'agg_nhd_streams_adj.gpkg')
 os.environ['nwm_catchments_orig_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_catchments_original.gpkg')
 os.environ['nwm_catchments_all_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_catchments.gpkg')
+
+#### bathy SRC estimation parameters ####
+os.environ['surf_area_thalweg_ratio_flag'] = '10' # Flag: Surface area ratio value to identify possible thalweg notch "jump" (SA x+1 / SA x)
+os.environ['thalweg_stg_search_max_limit'] = '3' # Threshold: Stage value limit below which to look for the surface area ratio flag (only flag thalweg notch below this threshold)
+os.environ['bathy_xs_area_chg_flag'] = '1' # Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold
+os.environ['bankful_xs_area_ratio_flag'] = '10' # Flag: Identify bogus BARC adjusted values where the regression bankfull XS Area/SRC bankfull area is > threshold (topwidth crosswalk issues or bad bankfull regression data points??)
+os.environ['thalweg_hyd_radius_flag'] = '10' # Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0
+os.environ['ignore_streamorders'] = '[1,2,3,4,5,10]' # Ignore BARC calculations for streamorders >= this value (10 is Mississippi R)
