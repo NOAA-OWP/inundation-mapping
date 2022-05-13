@@ -73,4 +73,4 @@ os.environ['thalweg_stg_search_max_limit'] = '3' # Threshold: Stage value limit 
 os.environ['bathy_xs_area_chg_flag'] = '1' # Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold
 os.environ['bankful_xs_area_ratio_flag'] = '10' # Flag: Identify bogus BARC adjusted values where the regression bankfull XS Area/SRC bankfull area is > threshold (topwidth crosswalk issues or bad bankfull regression data points??)
 os.environ['thalweg_hyd_radius_flag'] = '10' # Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0
-os.environ['ignore_streamorders'] = '[1,2,3,4,5,10]' # Ignore BARC calculations for streamorders >= this value (10 is Mississippi R)
+os.environ['ignore_streamorders'] = '[1,2,3,10]' # Ignore BARC calculations for streamorders >= this value (10 is Mississippi R)
