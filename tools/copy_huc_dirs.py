@@ -27,7 +27,7 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Copy tool for moving huc directories from src to dst')
     parser.add_argument('-src','--src',help='Name of src directory with huc subdirectories (e.g. data/ouputs/dev_abc/src/)',required=True)
-    parser.add_argument('-dst', '--dst',help='Name of dst directory (dir must exist) to create huc subdirectories (e.g. data/ouputs/dev_abc/dst/)',required=True,default="")
+    parser.add_argument('-dst', '--dst',help='Name of dst directory (will create if DNE) to create huc subdirectories (e.g. data/ouputs/dev_abc/dst/)',required=True,default="")
     parser.add_argument('-huc', '--huc-lst',help='Location of a line delimited text file with huc ids to copy (12345678)',required=True,default="")
     parser.add_argument('-j', '--job-number',help='The number of jobs',required=False,default=1)
     
