@@ -37,11 +37,12 @@ class NoForecastFound(Exception):
     """ Raised when no forecast is available for a given Hydro-Table """
     pass
 
-def inundate(
-             rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
-             subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
-             depths=None,out_raster_profile=None,out_vector_profile=None,src_table=None,quiet=False
-            ):
+def inundate(rem, catchments, catchment_poly, hydro_table, forecast,
+             mask_type, hucs=None, hucs_layerName=None,
+             subset_hucs=None, num_workers=1, aggregate=False, 
+             inundation_raster=None, inundation_polygon=None,
+             depths=None, out_raster_profile=None, out_vector_profile=None,
+             src_table=None, quiet=False):
     """
 
     Run inundation on FIM >=3.0 outputs at job-level scale or aggregated scale
@@ -179,8 +180,11 @@ def inundate(
             create_src_subset_csv(hydro_table,catchmentStagesDict,src_table)
 
         # make windows generator
-        window_gen = __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
-                                              depths,out_raster_profile,out_vector_profile,quiet,hucs=hucs,hucSet=hucSet)
+        window_gen = __make_windows_generator(rem, catchments, catchment_poly,
+                                              mask_type, catchmentStagesDict, inundation_raster,
+                                              inundation_polygon, depths, out_raster_profile,
+                                              out_vector_profile, quiet, 
+                                              hucs = hucs, hucSet = hucSet)
 
         # start up thread pool
         executor = ThreadPoolExecutor(max_workers=num_workers)
@@ -210,8 +214,6 @@ def inundate(
     # close datasets
     rem.close()
     catchments.close()
-
-
 
     return(inundation_rasters,depth_rasters,inundation_polys)
 

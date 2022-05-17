@@ -72,7 +72,6 @@ def Mosaic_inundation(
     inundation_maps_df.reset_index(drop=True)
 
 
-
 def mosaic_by_unit(inundation_maps_list,mosaic_output,nodata=elev_raster_ndv,
                    workers=1,remove_inputs=False,mask=None,verbose=False):
 

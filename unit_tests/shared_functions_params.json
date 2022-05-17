@@ -1,0 +1,13 @@
+{
+	"append_append_id_to_file_name_single_identifier_valid":
+	{
+		"file_name": "/output/myfolder/a_raster.tif",
+		"identifier": "13090001"
+	},
+
+	"append_append_id_to_file_name_identifier_list_valid":
+	{
+		"file_name": "/output/myfolder/a_raster.tif",
+		"identifier": ["13090001", "05010204"]
+	}	
+}
