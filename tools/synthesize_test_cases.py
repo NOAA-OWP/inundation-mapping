@@ -11,8 +11,7 @@ from tqdm import tqdm
 from copy import deepcopy
 import re
 
-from run_test_case import run_alpha_test
-
+from run_test_case import test_case
 from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT
 
 
@@ -285,75 +284,90 @@ if __name__ == '__main__':
         benchmark_category_list = [benchmark_category]
 
     # Loop through benchmark categories.
-    procs_list = [] ; procs_dict = {}
+    procs_dict = {}
+    fr_proc_dict = {}
+    composite_procs_dict = {}
     for bench_cat in benchmark_category_list:
         
         # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
         bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
-        bench_cat_id_list = os.listdir(bench_cat_test_case_dir)
+        bench_cat_id_list = [bench for bench in os.listdir(bench_cat_test_case_dir) if re.match('\d{8}_', bench)]
         
-        # temp
-        #bench_cat_id_list = ['07060003_ifc']
-
-        #if job_number_huc == 1:
-            # something wrong about this lengtu
-            #pb = tqdm(total=len(bench_cat_id_list))
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
-            if 'validation' and 'other' not in test_id:
-                current_huc = test_id.split('_')[0]
-                current_benchmark_category = test_id.split('_')[1]
-                if current_benchmark_category in bench_cat:
-                    # Loop through versions.
-                    for version in previous_fim_list:
+#           ###### TEMP ###### DO NOT COMMIT #######
+#           huc = test_id[:8]
+#           if huc not in ('12030107', '08040101', '11110205', '08070201', '12090301'):
+#               continue
+#                       
+            current_huc, current_benchmark_category = test_id.split('_')
+            if current_benchmark_category in bench_cat:
+                # Loop through versions.
+                for version in previous_fim_list:
+                    if config == 'DEV':
+                        fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
+                        fim_run_dir_fr = os.path.join(OUTPUTS_DIR, version.replace('_ms', '_fr'), current_huc)
+                    elif config == 'PREV':
+                        fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
+                        fim_run_dir_fr = os.path.join(PREVIOUS_FIM_DIR, version.replace('_ms', '_fr'), current_huc)
+
+                    # For previous versions of HAND computed at HUC6 scale
+                    if not os.path.exists(fim_run_dir) and re.search('fim_[1,2]', version, re.IGNORECASE):
                         if config == 'DEV':
-                            fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
+                            fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
                         elif config == 'PREV':
-                            fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
+                            fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
+                    
+                    # If a user supplies a special_string (-s), then add it to the end of the created dirs.
+                    if special_string != "":
+                        version = version + '_' + special_string
 
-                        # For previous versions of HAND computed at HUC6 scale
-                        if not os.path.exists(fim_run_dir):
-                            if config == 'DEV':
-                                fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
-                            elif config == 'PREV':
-                                fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
-                        
-                        if os.path.exists(fim_run_dir):
+                    # Define the magnitude lists to use, depending on test_id.
+                    magnitude = MAGNITUDE_DICT[current_benchmark_category]
 
-                            # If a user supplies a special_string (-s), then add it to the end of the created dirs.
-                            if special_string != "":
-                                version = version + '_' + special_string
+                    # Create composite args
+                    composite_procs_dict[test_id] = {'test_id':test_id, 'version_1':version,  'version_2':fr_run_dir,
+                                 'archive_results':archive_results, 'calibrated':calibrated, 'overwrite':overwrite}
 
-            
-                            # Define the magnitude lists to use, depending on test_id.
-                            if 'ble' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ble']
-                            elif ('usgs' == current_benchmark_category) | ('nws' == current_benchmark_category):
-                                magnitude = ['action', 'minor', 'moderate', 'major']
-                            elif 'ifc' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ifc']
-                            elif 'ras2fim' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ras2fim']
-                            else:
-                                continue
+                    if os.path.exists(fim_run_dir):
 
-                            alpha_test_args = { 
-                                                'fim_run_dir': fim_run_dir, 
-                                                'version': version, 
-                                                'test_id': test_id, 
-                                                'magnitude': magnitude, 
-                                                'calibrated': calibrated,
-                                                'model': model,
-                                                'compare_to_previous': not archive_results, 
-                                                'archive_results': archive_results, 
-                                                'mask_type': 'huc',
-                                                'overwrite': overwrite, 
-                                                'fr_run_dir': fr_run_dir, 
-                                                'gms_workers': job_number_branch,
-                                                'verbose': False,
-                                                'gms_verbose': False
-                                              }
-                            procs_dict[test_id] = alpha_test_args
+                        alpha_test_args = { 
+                                            'fim_run_dir': fim_run_dir, 
+                                            'version': version, 
+                                            'test_id': test_id, 
+                                            'magnitude': magnitude, 
+                                            'calibrated': calibrated,
+#                                            'model': model,
+                                            'compare_to_previous': not archive_results, 
+                                            'archive_results': archive_results, 
+                                            'mask_type': 'huc',
+                                            'overwrite': overwrite, 
+#                                            'fr_run_dir': fr_run_dir, 
+#                                            'gms_workers': job_number_branch,
+#                                            'verbose': False,
+#                                            'gms_verbose': False
+                                            }
+                        procs_dict[test_id] = alpha_test_args
+
+                    if os.path.exists(fim_run_dir_fr) and fr_run_dir:
+
+                        alpha_test_args = { 
+                                            'fim_run_dir': fim_run_dir_fr, 
+                                            'version': fr_run_dir, 
+                                            'test_id': test_id, 
+                                            'magnitude': magnitude, 
+                                            'calibrated': calibrated,
+#                                            'model': 'FR',
+                                            'compare_to_previous': False, 
+                                            'archive_results': archive_results, 
+                                            'mask_type': 'huc',
+                                            'overwrite': overwrite, 
+#                                            'fr_run_dir': None, 
+#                                            'gms_workers': job_number_branch,
+#                                            'verbose': False,
+#                                            'gms_verbose': False
+                                            }
+                        fr_proc_dict[test_id] = alpha_test_args
 
     if job_number_huc == 1:
         
@@ -361,43 +375,26 @@ if __name__ == '__main__':
         verbose_by_huc = not number_of_hucs == 1
 
         for current_huc, alpha_test_args in tqdm(procs_dict.items(),total=number_of_hucs,disable=(not verbose_by_huc)):
-            alpha_test_args.update({'gms_verbose': not verbose_by_huc})
+            #alpha_test_args.update({'gms_verbose': not verbose_by_huc})
 
             try:
-                ## FR MUST be run before MS / composite runs
+                # FR MUST be run before MS / composite runs
                 if fr_run_dir:
-                    fr_alpha_test_args = deepcopy(alpha_test_args)
-                    fr_alpha_test_args['fim_run_dir'] = fr_alpha_test_args['fim_run_dir'].replace(fr_alpha_test_args['version'],fr_alpha_test_args['fr_run_dir'])
-                    fr_alpha_test_args['version'] = fr_alpha_test_args['fr_run_dir']
-                    fr_alpha_test_args['fr_run_dir'] = None
-                    fr_alpha_test_args['compare_to_previous'] = False
-                    fr_alpha_test_args['model'] = 'FR'
-                    run_alpha_test(**fr_alpha_test_args)
+                    test_case.run_alpha_test(**fr_proc_dict)
 
-                run_alpha_test(**alpha_test_args)
+                test_case.run_alpha_test(**alpha_test_args)
             except Exception as exc:
                 print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
 
     # Multiprocess alpha test runs.
     if job_number_huc > 1:
         
-        #executor = ProcessPoolExecutor(max_workers=job_number_huc)
         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
             ## FR MUST be run before MS / composite runs
             if model == 'MS' and fr_run_dir:
-                fr_proc_dict = deepcopy(procs_dict)
-                for proc in fr_proc_dict:
-                    fr_proc_dict[proc]['fim_run_dir'] = fr_proc_dict[proc]['fim_run_dir'].replace(fr_proc_dict[proc]['version'],fr_proc_dict[proc]['fr_run_dir'])
-                    fr_proc_dict[proc]['version'] = fr_proc_dict[proc]['fr_run_dir']
-                    fr_proc_dict[proc]['fr_run_dir'] = None
-                    fr_proc_dict[proc]['compare_to_previous'] = False
-                    fr_proc_dict[proc]['model'] = 'FR'
-            
-                #fr_proc_dict = {key+'_fr' : value for key, value in fr_proc_dict.items() }
                 fr_executor_generator = { 
-                                    executor.submit(run_alpha_test,**inp) : ids for ids,inp in fr_proc_dict.items()
+                                    executor.submit(test_case.run_alpha_test,**inp) : ids for ids,inp in fr_proc_dict.items()
                                     }
-                ms_executor_generator = {}
                 for future in tqdm(as_completed(fr_executor_generator),
                             total=len(fr_executor_generator),
                             disable=(not verbose),
@@ -407,30 +404,48 @@ if __name__ == '__main__':
                         future.result()
                     except Exception as exc:
                         print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
+
                 wait(fr_executor_generator.keys())
 
             ## Submit MS alpha tests to the pool
-            executor_generator = { 
-                                executor.submit(run_alpha_test,**inp) : ids for ids,inp in procs_dict.items()
+            ms_executor_generator = { 
+                                executor.submit(test_case.run_alpha_test,**inp) : ids for ids,inp in procs_dict.items()
                                 }
 
-            if model == 'GMS':
-                desc = f"Running test cases with {job_number_huc} HUC workers and {job_number_branch} Branch workers"
-            else:
-                desc = f"Running MS test cases with {job_number_huc} workers".format(job_number_huc)
-
-            for future in tqdm(as_completed(executor_generator),
-                            total=len(executor_generator),
+            for future in tqdm(as_completed(ms_executor_generator),
+                            total=len(ms_executor_generator),
                             disable=(not verbose),
-                            desc=desc,
+                            desc=f"Running MS test cases with {job_number_huc} workers",
                             ):
             
-                hucCode = executor_generator[future]
+                hucCode = ms_executor_generator[future]
 
                 try:
                     future.result()
                 except Exception as exc:
                     print('{}, {}, {}'.format(hucCode,exc.__class__.__name__,exc))
+
+            wait(ms_executor_generator.keys())
+
+            # Submit composit jobs:
+            if model == 'MS' and fr_run_dir:
+
+                comp_executor_generator = { 
+                                executor.submit(test_case.composite,**inp) : ids for ids,inp in composite_procs_dict.items()
+                                }
+                for future in tqdm(as_completed(comp_executor_generator),
+                                total=len(comp_executor_generator),
+                                disable=(not verbose),
+                                desc="Compositing test cases with {} workers".format(job_number_huc)):
+                
+                    hucCode = comp_executor_generator[future]
+
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        print('{}, {}, {}'.format(hucCode,exc.__class__.__name__,exc))
+
+
     
     if config == 'DEV':
         if dev_versions_to_compare != None:
