@@ -2,6 +2,19 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.4.2 - 2022-05-03 - [PR #594](https://github.com/NOAA-OWP/inundation-mapping/pull/594)
+
+This hotfix includes several revisions needed to fix/update the FIM4 area inundation evaluation scripts. These changes largely migrate revisions from the FIM3 evaluation code to the FIM4 evaluation code.
+
+## Changes
+
+- `tools/eval_plots.py`: Copied FIM3 code revisions to enable RAS2FIM evals and PND plots. Replaced deprecated parameter name for matplotlib grid()
+- `tools/synthesize_test_cases.py`: Copied FIM3 code revisions to assign FR, MS, COMP resolution variable and addressed magnitude list variable for IFC eval
+- `tools/tools_shared_functions.py`: Copied FIM3 code revisions to enable probability not detected (PND) metric calculation
+- `tools/tools_shared_variables.py`: Updated magnitude dictionary variables for RAS2FIM evals and PND plots
+
+<br/><br/>
+
 ## v4.0.4.1 - 2022-05-02 - [PR #587](https://github.com/NOAA-OWP/inundation-mapping/pull/587)
 
 While testing GMS against evaluation and inundation data, we discovered some challenges for running alpha testing at full scale. Part of it was related to the very large output volume for GMS which resulted in outputs being created on multiple servers and folders. Considering the GMS volume and processing, a tool was required to extract out the ~215 HUC's that we have evaluation data for. Next, we needed isolate valid HUC output folders from original 2,188 HUC's and its 100's of thousands of branches. The first new tool allows us to point to the `test_case` data folder and create a list of all HUC's that we have validation for.

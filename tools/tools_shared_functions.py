@@ -291,6 +291,11 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     except ZeroDivisionError:
         F1_score = "NA"
 
+    if TPR == 'NA':
+        PND = 'NA'
+    else:
+        PND = 1.0 - TPR  # Probability Not Detected (PND)
+
     stats_dictionary = {'true_negatives_count': int(true_negatives),
                         'false_negatives_count': int(false_negatives),
                         'true_positives_count': int(true_positives),
@@ -314,6 +319,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
                         'FAR': FAR,
                         'TPR': TPR,
                         'TNR': TNR,
+                        'PND': PND,
 
                         'PPV': PPV,
                         'NPV': NPV,
