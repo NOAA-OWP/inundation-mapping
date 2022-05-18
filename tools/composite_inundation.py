@@ -231,7 +231,7 @@ class CompositeInundation(object):
         Mosaic_inundation( inundation_map_file_df,
                            mosaic_attribute='inundation_rasters' if self.is_bin_raster else 'depths_rasters',
                            mosaic_output = self.output_name,
-                           mask = catchment_poly,
+                           mask = None,
                            unit_attribute_name = 'huc8',
                            nodata = elev_raster_ndv,
                            workers = 1,
