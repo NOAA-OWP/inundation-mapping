@@ -38,11 +38,11 @@ class NoForecastFound(Exception):
     pass
 
 def inundate(rem, catchments, catchment_poly, hydro_table, forecast,
-             mask_type, hucs=None, hucs_layerName=None,
-             subset_hucs=None, num_workers=1, aggregate=False, 
-             inundation_raster=None, inundation_polygon=None,
-             depths=None, out_raster_profile=None, out_vector_profile=None,
-             src_table=None, quiet=False):
+             mask_type, hucs = None, hucs_layerName = None,
+             subset_hucs = None, num_workers = 1, aggregate = False, 
+             inundation_raster = None, inundation_polygon = None,
+             depths = None, out_raster_profile = None, out_vector_profile = None,
+             src_table = None, quiet = False):
     """
 
     Run inundation on FIM >=3.0 outputs at job-level scale or aggregated scale
@@ -103,10 +103,6 @@ def inundate(rem, catchments, catchment_poly, hydro_table, forecast,
     -----
     - Specifying a subset of the domain in rem or catchments to inundate on is achieved by the HUCs file or the forecast file.
 
-    Examples
-    --------
-    >>> import inundation
-    >>> inundation.inundate(rem,catchments,hydro_table,forecast,inundation_raster)
     """
 
     # check for num_workers
@@ -381,8 +377,19 @@ def __go_fast_mapping(rem,catchments,catchmentStagesDict,inundation,depths):
     return(inundation,depths)
 
 
-def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
-                             depths,out_raster_profile,out_vector_profile,quiet,hucs=None,hucSet=None):
+def __make_windows_generator(rem, 
+                             catchments,
+                             catchment_poly,
+                             mask_type,
+                             catchmentStagesDict,
+                             inundation_raster,
+                             inundation_polygon,
+                             depths,
+                             out_raster_profile,
+                             out_vector_profile,
+                             quiet,
+                             hucs = None,
+                             hucSet = None):
 
     
     if hucs is not None:
@@ -441,10 +448,10 @@ def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentSt
 
             hucCode = huc['properties'][hucColName]
 
-            yield (rem_array,catchments_array,rem.crs.wkt,
-                   window_transform,rem.profile,catchments.profile,hucCode,
-                   catchmentStagesDict,depths,inundation_raster,
-                   inundation_polygon,out_raster_profile,out_vector_profile,quiet)
+            yield (rem_array, catchments_array, rem.crs.wkt,
+                   window_transform, rem.profile, catchments.profile, hucCode,
+                   catchmentStagesDict, depths, inundation_raster,
+                   inundation_polygon, out_raster_profile, out_vector_profile, quiet)
 
     else:
         hucCode = None
