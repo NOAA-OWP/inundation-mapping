@@ -2,7 +2,7 @@
 
 import os, re, shutil, json
 import pandas as pd
-from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES, FR_BENCHMARK_CATEGORIES, IFC_MAGNITUDE_LIST, BLE_MAGNITUDE_LIST, MAGNITUDE_DICT, elev_raster_ndv
+from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, elev_raster_ndv
 from inundation import inundate
 from gms_tools.mosaic_inundation import Mosaic_inundation
 from tools_shared_functions import compute_contingency_stats_from_rasters
@@ -85,7 +85,7 @@ class test_case(benchmark):
         if not overwrite:
             return
 
-        fim_huc_dir = fim_directory #os.path.join(fim_directory, self.huc)
+        fim_huc_dir = fim_directory
         self.stats_modes_list = ['total_area']
         model = 'MS' if re.search('_ms', self.version) else 'FR'
 
@@ -140,7 +140,7 @@ class test_case(benchmark):
         inundation_prefix     = lid + '_' if lid else ''
         inundation_path       = os.path.join(test_case_out_dir, f'{inundation_prefix}inundation_extent.tif')
         predicted_raster_path = inundation_path.replace('.tif', f'_{self.huc}.tif')
-        agreement_raster      = os.path.join(test_case_out_dir, f'{lid}_total_area_agreement.tif')
+        agreement_raster      = os.path.join(test_case_out_dir, (f'ahps_{lid}' if lid else '') +'total_area_agreement.tif')
         stats_json            = os.path.join(test_case_out_dir, 'stats.json')
         stats_csv             = os.path.join(test_case_out_dir, 'stats.csv')
 
@@ -148,30 +148,35 @@ class test_case(benchmark):
         if not os.path.isdir(test_case_out_dir):
             os.mkdir(test_case_out_dir)
 
-        # Benchmark files
+        # Benchmark raster and flow files
         benchmark_rast = (f'ahps_{lid}' if lid else self.benchmark_cat) + f'_huc_{self.huc}_extent_{magnitude}.tif'
         benchmark_rast = os.path.join(self.benchmark_dir, lid, magnitude, benchmark_rast)
         benchmark_flows = benchmark_rast.replace(f'_extent_{magnitude}.tif', f'_flows_{magnitude}.csv')
         mask_dict_indiv = self.mask_dict.copy()
-        if self.is_ahps:
+        if self.is_ahps: # add domain shapefile to mask for AHPS sites
             domain = os.path.join(self.benchmark_dir, lid, f'{lid}_domain.shp')
             mask_dict_indiv.update({lid:
                             {'path': domain,
                             'buffer': None,
                             'operation': 'include'}
                                 })
+        # Check to make sure all relevant files exist
+        if not os.path.isfile(benchmark_rast) or not os.path.isfile(benchmark_flows) or (self.is_ahps and not os.path.isfile(domain)):
+            return -1
 
-        # Inundate rem
+        # Inundate REM
         if not compute_only:
-            inundate(self.rem, self.catchments, self.catchment_poly, self.hydro_table, benchmark_flows,
+            inundate_result = inundate(self.rem, self.catchments, self.catchment_poly, self.hydro_table, benchmark_flows,
                 self.mask_type,hucs=self.hucs,hucs_layerName=self.hucs_layerName,
                 subset_hucs=self.huc,num_workers=1,aggregate=False,
                 inundation_raster=inundation_path,inundation_polygon=None,
                 depths=None,out_raster_profile=None,out_vector_profile=None,
                 quiet=True)
+            if inundate_result != 0:
+                return inundate_result
 
         # Create contingency rasters and stats
-        compute_contingency_stats_from_rasters(predicted_raster_path,
+        compute_contingency_stats_from_rasters( predicted_raster_path,
                                                 benchmark_rast,
                                                 agreement_raster,
                                                 stats_csv=stats_csv,
@@ -181,6 +186,7 @@ class test_case(benchmark):
                                                 test_id=self.test_id,
                                                 mask_dict=mask_dict_indiv,
                                                 )
+        return
 
 
     @classmethod
