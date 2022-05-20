@@ -1,253 +1,381 @@
 #!/usr/bin/env python3
 import os, argparse, sys
+import json
 import rasterio
 import numpy as np
 import pandas as pd
+
 from datetime import datetime
+from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 
 from inundation import inundate
 from gms_tools.mosaic_inundation import Mosaic_inundation
 from gms_tools.inundate_gms import Inundate_gms
-
 from utils.shared_functions import append_id_to_file_name
 from utils.shared_variables import elev_raster_ndv
 
-class CompositeInundation(object):
+class InundateModel_HUC(object):
 
-    def __init__(self, fim_dir_ms, fim_dir_fr, gms_dir,
-                       huc, flows_file,
-                       composite_output_dir, output_name,
-                       is_bin_raster, is_depth_raster,
-                       num_workers, do_clean_up, verbose):
+    def __init__(self, model, source_directory, huc):
 
-        """
-        Runs `inundate()` on any two of the following:
-            1) FIM 3.X mainstem (MS)
-            2) FIM 3.X full-resolution (FR)
-            3) FIM 4.x (gms)
-            All three need to have outputs and composites results. Assumes that all products 
-        necessary for `inundate()` are in each huc8 folder.
+        self.model = model
+        self.source_directory = source_directory
+        self.huc = huc        
 
-        Parameters
-        ----------
-        fim_dir_ms : str
-            Path to MS FIM directory. This should be an output directory from `fim_run.sh`.
-        fim_dir_fr : str
-            Path to FR FIM directory. This should be an output directory from `fim_run.sh`.
-        gms_dir : str
-            Path to FIM4 GMS directory. This should be an output directory from `gms_run_unit, then gms_run_branch`.
-        huc : str
-            (This will not be used for gms inundation)
-            HUC8 to run `inundate()`. This should be a folder within both `fim_dir_ms` and `fim_dir_fr`.
-            TODO: only takes one huc right now
-        flows_file : str : 
-            Can be a single file path to a forecast csv or a comma-separated list of files.
-        composite_output_dir : str
-            Folder path to write outputs. It will be created if it does not exist.
-        output_name : str, optional
-            Name for output raster. If not specified, by default the raster will be named 'inundation_composite_{flows_root}.tif'.
-        is_bin_raster : bool, optional
-            Flag to create binary raster as output. If no raster flags are passed, this is the default behavior.
-        is_bin_raster : bool, optional
-            TODO: is_depth_raster
-        num_workers : int, optional
-            defaults to 1 and means the number of processes to be used
-        do_clean_up : bool, optional
-            If True, intermediate files are deleted.
-        verbose : bool, optional
-            show extra output.
-        """
+    def inundate_huc(self, flows_file, composite_output_dir, output_name, log_file_path,
+                     num_workers_branches, no_cleanup, verbose):
+        '''
+        Processing:
+            Will inundate a single huc directory and if gms, will create an aggregate mosiac per huc
 
-        # Validates arguments and sets up some key variables needed for processing
-        self.__validate_args(fim_dir_ms, fim_dir_fr, gms_dir,
-                            huc, flows_file, composite_output_dir, output_name,
-                            is_bin_raster, is_depth_raster,
-                            num_workers, do_clean_up, verbose)
+        Returns:
+            The map file of the inundated raster.
+        '''
 
-    def run_composite(self):
+        source_huc_dir = os.path.join(self.source_directory, self.huc)
 
-        """
-        Returns
-        -------
-        None
+        # hucs do not need to exist as the list might have one huc from one
+        # source directory that is not in another. TODO: how to log this.
+        if (not os.path.exists(source_huc_dir)): 
+            print(f"HUC {self.huc} does not exist in {self.source_directory}")
+            return None 
 
-        Notes
-        -----
-        - Note: Must have exactly two of three input types (ms, fr and/or gms) but can be any two.
-        - Specifying a subset of the domain in rem or catchments to inundate on is achieved by the HUCs file or the forecast file.
-        - If using a single HUC number, and the huc does not exist in the two applicable directories,
-        an error will be issued.
+        output_huc_dir = os.path.join(composite_output_dir, self.huc)
+        # Create output directory if it does not exist
+        if not os.path.isdir(output_huc_dir):
+            os.mkdir(output_huc_dir)
 
-        Examples
-        --------
-        notice -c which means clean (removed intermediate files)
+        if self.model == "ms":
+            extent_friendly = "mainstem (MS)"
+        elif self.model == "fr":
+            extent_friendly = "full-resolution (FR)"
+        else: # gms
+            extent_friendly = "FIM4 GMS"
 
-        a) ms and fr (note arg keys)
-        python3 /foss_fim/tools/composite_inundation.py -ms /outputs/inundation_test_1_FIM3_ms -fr /outputs/inundation_test_1_FIM3_fr -u 13090001 -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv -o /outputs/inundation_test_1_comp/ -n test_inundation.tif -c
+        inundation_map_file = None
 
-        a) ms and gms (note arg keys)
-        python3 /foss_fim/tools/composite_inundation.py -ms /outputs/inundation_test_1_FIM3_ms -gms /outputs/inundation_test_1_gms -u 13090001 -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv -o /outputs/inundation_test_1_comp/ -n test_inundation.tif -c
+        output_raster_name = os.path.join(output_huc_dir, output_name)
+        output_raster_name = append_id_to_file_name(output_raster_name, [self.huc,self.model])
 
-        b) fr and gms (note arg keys)
-        python3 /foss_fim/tools/composite_inundation.py -fr /outputs/inundation_test_1_FIM3_fr -gms /outputs/inundation_test_1_gms -u 13090001 -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv -o /outputs/inundation_test_1_comp/ -n test_inundation.tif -c
+        # adjust to add model and huc number
+        log_file = None
+        inundation_list_file = None        
+        if (log_file_path != None):
+            log_file = os.path.join(log_file_path, f"{self.huc}_{self.model}_error_logs.txt") 
+            inundation_list_file = os.path.join(log_file_path, 
+                                               f"{self.huc}_{self.model}_inundation_file_list.csv") 
 
-        """
+        if (verbose):
+            print(f'... Creating an inundation map for the {extent_friendly}'\
+                    f' configuration for HUC {self.huc}...')
 
-        # TODO: Get this working for multiple hucs
+        if self.model in ["fr", "ms"]:
 
-        # Build inputs to inundate() based on the input folders and huc
-        # TODO: this could be more than one huc !!!! 
-        if self.verbose: print(f"HUC {self.huc}")
+            rem = os.path.join(source_huc_dir, 'rem_zeroed_masked.tif')
+            catchments = os.path.join(source_huc_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+            catchment_poly = os.path.join(source_huc_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+            hydro_table = os.path.join(source_huc_dir, 'hydroTable.csv')
 
-        inundation_map_file = []
+            # Ensure that all of the required files exist in the huc directory
+            for file in (rem, catchments, catchment_poly, hydro_table):
+                if not os.path.exists(file):
+                    raise Exception(f"The following file does not exist within the supplied FIM directory:\n{file}")
 
-        for model in self.models:
+            # Run inundation()
+            # Must set workers to one as we are only processing one huc.
+            map_file = inundate(rem, 
+                                catchments, 
+                                catchment_poly, 
+                                hydro_table,
+                                flows_file, 
+                                mask_type = None, 
+                                num_workers = 1,
+                                inundation_raster = output_raster_name,
+                                quiet = not verbose)
+
+            #if verbose:
+            #    print("Inundation Response:")
+            #    print(map_file)
+
+            if len(map_file) == 0:
+                raise Exception(f"Failed to inundate {extent_friendly} using the provided flows.")
+
+            mosaic_file_path = map_file[0][0]
+            inundation_map_file = [self.model, self.huc, mosaic_file_path]            
+
+        else:  # gms
+            # we are doing each huc one at a time
+            map_file = Inundate_gms( hydrofabric_dir = self.source_directory,
+                                    forecast = flows_file, 
+                                    num_workers = num_workers_branches,
+                                    hucs = self.huc,
+                                    inundation_raster = output_raster_name,
+                                    verbose = verbose,
+                                    log_file = log_file,
+                                    output_fileNames = inundation_list_file )
+            
+            mask_path_gms = os.path.join(source_huc_dir, 'wbd.gpkg')
+
+            # we are going to mosaic the gms files per huc
+            # NOTE: Leave workers as 1, it fails to composite correctly if more than one.
+            mosaic_file_path = Mosaic_inundation( map_file, 
+                                                  mosaic_attribute = 'inundation_rasters',
+                                                  mosaic_output = output_raster_name,
+                                                  mask = mask_path_gms, 
+                                                  unit_attribute_name = 'huc8',
+                                                  nodata = elev_raster_ndv,
+                                                  workers = 1,
+                                                  remove_inputs = not no_cleanup,
+                                                  subset = None,
+                                                  verbose = verbose )
+
+            inundation_map_file = [self.model, self.huc, mosaic_file_path]
+            
+            if verbose: print(f"Inundation for HUC {self.huc} is complete")
+
+        return inundation_map_file
+
+class Composite_HUC(object):
+
+    # Composites two source directories for a single huc
+    # Note: The huc does not need to exist in both source directories
+    @classmethod
+    def composite_huc(self, huc, args):
+
+        composite_model_map_files = []
+        for model in args["models"]:
 
             # setup original fim/gms processed directory
-            if model == "ms" : fim_dir = self.fim_dir_ms
-            elif model == "fr" : fim_dir = self.fim_dir_fr
-            else: fim_dir = self.gms_dir
+            if model == "ms" : source_dir = args["fim_dir_ms"]
+            elif model == "fr" : source_dir = args["fim_dir_fr"]
+            else: source_dir = args["gms_dir"]
+            
+            ci = InundateModel_HUC(model, source_dir, huc)
+            map_file = ci.inundate_huc(args["flows_file"],
+                                        args["composite_output_dir"], 
+                                        args["output_name"],
+                                        args["log_file_path"],
+                                        args["num_workers_branches"],
+                                        args["no_cleanup"],
+                                        args["verbose"])
+            if map_file is not None:
+                composite_model_map_files.append(map_file)
 
-            inundation_rast = None
-            depth_rast = None
+        # Composite the two final model outputs
+        inundation_map_file_df = pd.DataFrame(composite_model_map_files,
+                                              columns = ['model', 'huc8', 'inundation_rasters'])
 
-            if (self.is_bin_raster):
-                inundation_rast = append_id_to_file_name(self.output_name, model)
-                #inundation_rast = os.path.join(self.composite_output_dir, f'{self.huc}_inundation_{model}.tif')
-
-            if (self.is_depth_raster): # validation ensured there is not a binary and a depth raster
-                depth_rast = append_id_to_file_name(self.output_name, model)
-                #depth_rast = os.path.join(self.composite_output_dir, f'{self.huc}_depth_{model}.tif')
-
-            huc_dir = os.path.join(fim_dir, self.huc)
-
-            if model == "ms":
-                extent_friendly = "mainstem (MS)"
-            elif model == "fr":
-                extent_friendly = "full-resolution (FR)"
-            else: # gms
-                extent_friendly = "FIM4 GMS"
-            grid_type = "an inundation" if self.is_bin_raster else "a depth"
-            print(f"  Creating {grid_type} map for the {extent_friendly} configuration for HUC {self.huc}...")
-
-            if model in ["fr", "ms"]:
-
-                rem = os.path.join(huc_dir, 'rem_zeroed_masked.tif')
-                catchments = os.path.join(huc_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-                catchment_poly = os.path.join(huc_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-                hydro_table = os.path.join(huc_dir, 'hydroTable.csv')
-
-                # Ensure that all of the required files exist in the huc directory
-                for file in (rem, catchments, catchment_poly, hydro_table):
-                    if not os.path.exists(file):
-                        raise Exception(f"The following file does not exist within the supplied FIM directory:\n{file}")
-
-                # Run inundation()
-                result = inundate(rem, 
-                                  catchments, 
-                                  catchment_poly, 
-                                  hydro_table,
-                                  self.flows_file, 
-                                  mask_type = None, 
-                                  num_workers = 1,
-                                  inundation_raster = inundation_rast,
-                                  depths = depth_rast,
-                                  quiet = not self.verbose)
-
-                #if self.verbose:
-                #    print("Inundation Response:")
-                #    print(result)
-
-                if len(result) == 0:
-                    raise Exception(f"Failed to inundate {extent_friendly} using the provided flows.")
-                
-                # TODO: What if more than one items comes back in each list set
-                result_inundation_raster = None
-                result_depth_raster = None
-                if (self.is_bin_raster):
-                    result_inundation_raster = result[0][0]
-                else: # is depth raster
-                    result_depth_raster = result[1][0]
-
-                inundation_map_file.append(
-                            [model, self.huc, None, 
-                            result_inundation_raster, result_depth_raster, None] )
-
-            else:  # gms
-
-                # TODO: takes only one huc right now
-                map_file = Inundate_gms( hydrofabric_dir = fim_dir,
-                                        forecast = self.flows_file, 
-                                        num_workers = self.num_workers,
-                                        hucs = self.huc,
-                                        inundation_raster = inundation_rast,
-                                        depths_raster = depth_rast,
-                                        verbose = self.verbose,
-                                        log_file = self.log_file,
-                                        output_fileNames = self.inundation_list_file_path )
-                
-                mask_path_gms = os.path.join(huc_dir, 'wbd.gpkg')
-
-                # we are going to mosaic the gms files first
-                # NOTE: Leave workers as 1, it fails to composite correctly if more than one.
-                mosaic_file_path = Mosaic_inundation( map_file, 
-                                            mosaic_attribute = 'inundation_rasters',
-                                            mosaic_output = inundation_rast,
-                                            mask = mask_path_gms, 
-                                            unit_attribute_name = 'huc8',
-                                            nodata = elev_raster_ndv,
-                                            workers = 1,
-                                            remove_inputs = self.do_clean_up,
-                                            subset = None,
-                                            verbose = self.verbose )
-                
-                result_inundation_raster = None
-                result_depth_raster = None
-                if (self.is_bin_raster):
-                    result_inundation_raster = mosaic_file_path
-                else: # is depth raster
-                    result_depth_raster = mosaic_file_path
-
-                inundation_map_file.append(
-                            [model, self.huc, None, 
-                            result_inundation_raster, result_depth_raster, None] )
-                
-                if self.verbose: print("  ... complete")
-        
-        # Composite the models
-        
-        inundation_map_file_df = pd.DataFrame(inundation_map_file,
-                                              columns = ['model', 'huc8', 'branchID',
-                                                 'inundation_rasters', 'depths_rasters',
-                                                 'inundation_polygons'])
-
-        if self.verbose:                                                 
+        if args["verbose"]:
             print("inundation_map_file_df")
             print(inundation_map_file_df)
+
+        composite_file_output = os.path.join(args["composite_output_dir"], huc, args["output_name"])
+        composite_file_output = append_id_to_file_name(composite_file_output, huc)
 
         # NOTE: Leave workers as 1, it fails to composite correctly if more than one.
         #    - Also. by adding the is_mosaic_for_gms_branches = False, Mosaic_inudation
         #      will not auto add the HUC into the output name (its default behaviour)
-        Mosaic_inundation( inundation_map_file_df,
-                           mosaic_attribute='inundation_rasters' if self.is_bin_raster else 'depths_rasters',
-                           mosaic_output = self.output_name,
-                           mask = None,
-                           unit_attribute_name = 'huc8',
-                           nodata = elev_raster_ndv,
-                           workers = 1,
-                           remove_inputs = self.do_clean_up,
-                           subset = None,
-                           verbose = self.verbose,
-                           is_mosaic_for_gms_branches = False )
+        mosaic_file_path = Mosaic_inundation( inundation_map_file_df,
+                                            mosaic_attribute='inundation_rasters',
+                                            mosaic_output = composite_file_output,
+                                            mask = None,
+                                            unit_attribute_name = 'huc8',
+                                            nodata = elev_raster_ndv,
+                                            workers = 1,
+                                            remove_inputs = not args["no_cleanup"],
+                                            subset = None,
+                                            verbose = args["verbose"] )
 
-        # TODO
-        #if self.is_bin_raster:
-        #    hydroid_to_binary(__append_id_to_file_name(ouput_name, huc))
-        
+        if args["is_bin_raster"]:
+            if args["verbose"]: print("Converting to binary")
+            CompositeInundation.hydroid_to_binary(composite_file_output)
 
+
+class CompositeInundation(object):
+
+    @classmethod
+    def run_composite(self, args):
+
+        def __validate_args(args):
+
+            """
+            Runs `inundate()` on any two of the following:
+                1) FIM 3.X mainstem (MS)
+                2) FIM 3.X full-resolution (FR)
+                3) FIM 4.x (gms)
+                All three need to have outputs and composites results. Assumes that all products 
+            necessary for `inundate()` are in each huc8 folder.
+
+            Parameters
+            ----------
+            fim_dir_ms : str
+                Path to MS FIM directory. This should be an output directory from `fim_run.sh`.
+            fim_dir_fr : str
+                Path to FR FIM directory. This should be an output directory from `fim_run.sh`.
+            gms_dir : str
+                Path to FIM4 GMS directory. This should be an output directory from `gms_run_unit, then gms_run_branch`.
+            huc: str, optional
+                If this value comes in, it shoudl be a single huc value. If it does not exist,
+                we use all hucs in the give source directories.
+            flows_file : str : 
+                Can be a single file path to a forecast csv or a comma-separated list of files.
+            composite_output_dir : str
+                Folder path to write outputs. It will be created if it does not exist.
+            output_name : str, optional
+                Name for output raster. If not specified, by default the raster will be named 'inundation_composite_{flows_root}.tif'.
+            is_bin_raster : bool, optional
+                Flag to create binary raster as output.
+            num_workers_huc : int, optional
+                defaults to 1 and means the number of processes to be used for processing hucs
+            num_workers_branches : int, optional
+                defaults to 1 and means the number of processes to be used for processing gms branches
+            no_cleanup : bool, optional
+                If False, intermediate files are deleted.
+            verbose : bool, optional
+                show extra output.
+            """
+            
+            if (args["fim_dir_ms"]) and (args["fim_dir_ms"].lower() == "none"):
+                args["fim_dir_ms"] = None
+            if (args["fim_dir_fr"]) and (args["fim_dir_fr"].lower() == "none"):
+                args["fim_dir_fr"] = None        
+            if (args["gms_dir"]) and (args["gms_dir"].lower() == "none"):
+                args["gms_dir"] = None
+            
+            # count number of input dir types and ensure their are no duplciates.
+            dir_list_lowercase = [] # we use a forced lowercase to help ensure dups (might be mixed case)
+            dir_list_raw = []
+            missing_dir_msg = "{} directory of {} does not exist"    
+            args["models"] = []
+            if (args["fim_dir_ms"] != None):
+                args["models"].append("ms")
+                assert os.path.isdir(args["fim_dir_ms"]), missing_dir_msg.format("ms", args["fim_dir_ms"])
+                dir_list_raw.append(args["fim_dir_ms"])
+                dir_list_lowercase.append(args["fim_dir_ms"].lower())
+
+            if (args["fim_dir_fr"] != None):
+                args["models"].append("fr")
+                assert os.path.isdir(args["fim_dir_fr"]), missing_dir_msg.format("fr", args["fim_dir_fr"])
+                dir_list_raw.append(args["fim_dir_fr"])
+                dir_list_lowercase.append(args["fim_dir_fr"].lower())        
+
+            if (args["gms_dir"] != None):
+                args["models"].append("gms")
+                assert os.path.isdir(args["gms_dir"]), missing_dir_msg.format("gms", args["gms_dir"])
+                dir_list_raw.append(args["gms_dir"])
+                dir_list_lowercase.append(args["gms_dir"].lower())                
+
+            if (len(args["models"]) != 2):
+                raise ValueError("Must submit exactly two directories (ms, fr and/or gms")
+
+            # check for duplicate dir names (submitting same dir for two args)
+            if len(dir_list_lowercase) != len(set(dir_list_lowercase)):
+                raise ValueError("The two sources directories are the same path.")
+
+            if not os.path.exists(args["flows_file"]):
+                print(f'{args["flows_file"]} does not exist. Please specify a flow file.')
+
+            # check job numbers
+            assert args["num_workers_huc"] >= 1, "Number of huc workers should be 1 or greater"
+            assert args["num_workers_branches"] >= 1, "Number of branch workers should be 1 or greater"
+
+            total_cpus_requested = args["num_workers_huc"] * args["num_workers_branches"]
+            total_cpus_available = os.cpu_count()
+            if total_cpus_requested > (total_cpus_available - 1):
+                raise ValueError('The HUC job num of workers, {}, multiplied by the branch workers number, {}, '\
+                                'exceeds your machine\'s available CPU count of {} minus one. '\
+                                'Please lower the num_workers_huc or num_workers_branches'\
+                                'values accordingly.'.format(args["num_workers_huc"], 
+                                total_cpus_available, args["num_workers_branches"]) )
+            
+            # Create output directory if it does not exist
+            if not os.path.isdir(args["composite_output_dir"]):
+                os.mkdir(args["composite_output_dir"])
+
+            # If no output name supplied, create one using the flows file name 
+            # the output_name is the final composite output file.
+            # we also extract the basic file name without extension for use as the log file name
+            if not args["output_name"]:
+                flows_root = os.path.splitext(os.path.basename(args["flows_file"]))
+                root_output_file_name = f'inundation_composite_{flows_root[0]}'
+                args["output_name"] = f"{root_output_file_name}.tif"
+            else:
+                # see if the file name has a path or not, fail if it does
+                output_file_name_split = os.path.split(args["output_name"])
+                if args["output_name"] == output_file_name_split[0]:
+                    raise ValueError("""If submitting the -n (output file name), please ensure 
+                                        it has no pathing. You can also leave it blank if you like.""")
+
+                root_output_file_name = os.path.splitext(args["output_name"])[0]
+
+            # setup log file and its directory
+            # Note: Log files are only created at this time if verbose\
+            args["log_file_path"] = None
+            if (args["verbose"]):
+                args["log_file_path"] = os.path.join(args["composite_output_dir"], "mosaic_logs")
+                if not os.path.isdir(args["log_file_path"]):
+                    os.mkdir(args["log_file_path"])
+
+            # Save run parameters up to this point
+            args_file = os.path.join(args["composite_output_dir"], root_output_file_name + '_args.json')
+            with open(args_file, 'w') as json_file:
+                json.dump(args, json_file)
+                print(f"Args printed to file at {args_file}")
+
+            # make combined huc list, NOTE: not all source dirs will have the same huc folders
+            huc_list = set()
+            if (args["huc"] != None):
+                if (len(args["huc"]) != 8) or (not args["huc"].isnumeric()):
+                    raise ValueError("Single huc value (-u arg) was submitted but appears invalid")
+                else:
+                    huc_list.add(args["huc"])
+            else:
+                for dir in dir_list_raw:
+                    sub_dirs = [ item for item in os.listdir(dir) if os.path.isdir(os.path.join(dir, item)) ]
+                    # Some directories may not be hucs (log folders, etc)            
+                    huc_folders = [ item for item in sub_dirs if item.isnumeric() ]
+                    huc_set = set(huc_folders)
+                    huc_list.update(huc_set) # will ensure no dups
+
+            args["huc_list"] = huc_list
+
+            return args
+
+        args =  __validate_args(args)
+        huc_list = args["huc_list"] 
+        number_huc_workers = args["num_workers_huc"]
+        #if len(huc_list == 1): # skip iterator
+        if (number_huc_workers == 1):
+            for huc in sorted(huc_list):
+                print(f"Processing huc {huc}")
+                Composite_HUC.composite_huc(huc, args)
+        else:
+            
+            with ProcessPoolExecutor(max_workers = number_huc_workers) as executor:
+                exec_gen = {
+                    executor.submit(Composite_HUC.composite_huc(huc, args)) : huc for huc in sorted(huc_list):
+                }
+
+            for future in tqdm(as_completed(exec_gen),
+                            total=len(exec_gen),
+                            disable=(not args["verbose"]),
+                            desc=f"Processing hucs with {number_huc_workers} workers",
+                            ):
+            
+                huc = exec_gen[future]
+
+                try:
+                    future.result()
+                except Exception as exc:
+                    print('{}, {}, {}'.format(huc,exc.__class__.__name__,exc))
+
+            wait(exec_gen.keys())
+
+
+    @staticmethod
     def hydroid_to_binary(hydroid_raster_filename):
         '''Converts hydroid positive/negative grid to 1/0'''
-
         #to_bin = lambda x: np.where(x > 0, 1, np.where(x == 0, -9999, 0))
         to_bin = lambda x: np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
         hydroid_raster = rasterio.open(hydroid_raster_filename)
@@ -259,152 +387,61 @@ class CompositeInundation(object):
             out_raster.write(bin_raster.astype(hydroid_raster.profile['dtype']), 1)
         del hydroid_raster,profile,bin_raster
 
-
-    def __validate_args(self, fim_dir_ms, fim_dir_fr, gms_dir,
-                        huc, flows_file, composite_output_dir, output_name,
-                        is_bin_raster, is_depth_raster,
-                        num_workers, do_clean_up, verbose):
-
-        self.fim_dir_ms             = fim_dir_ms
-        self.fim_dir_fr             = fim_dir_fr
-        self.gms_dir                = gms_dir
-        #self.hucs                   = huc.replace(' ', '').split(',')
-        self.huc                    = huc
-        self.flows_file             = flows_file
-        self.composite_output_dir   = composite_output_dir
-        self.output_name            = output_name
-        self.is_bin_raster          = bool(is_bin_raster)
-        self.is_depth_raster        = bool(is_depth_raster)
-        self.num_workers            = num_workers
-        self.do_clean_up            = bool(do_clean_up)
-        self.verbose                = bool(verbose)
-        
-        if (self.fim_dir_ms) and (self.fim_dir_ms.lower() == "none"):
-            self.fim_dir_ms = None
-        if (self.fim_dir_fr) and (self.fim_dir_fr.lower() == "none"):
-            self.fim_dir_fr = None        
-        if (self.gms_dir) and (self.gms_dir.lower() == "none"):
-            self.gms_dir = None
-
-        # TODO: 
-        #fim_run_parent = os.path.join(os.environ['outputDataDir'], fim_run_dir)
-        #assert os.path.exists(fim_run_parent), "Cannot locate " + fim_run_parent
-
-        # TODO: Check that huc folders exist (for both applicable directories)
-
-        # count number of input dir types and ensure their are no duplciates.
-        dir_list = []        
-        missing_dir_msg = "{} directory of {} does not exist"    
-        self.models = []
-        if (self.fim_dir_ms != None):
-            self.models.append("ms")
-            assert os.path.isdir(self.fim_dir_ms), missing_dir_msg.format(version_types, self.fim_dir_ms)
-            dir_list.append(self.fim_dir_ms.lower())
-
-        if (self.fim_dir_fr != None):
-            self.models.append("fr")
-            assert os.path.isdir(self.fim_dir_fr), missing_dir_msg.format(version_types, self.fim_dir_fr)
-            dir_list.append(self.fim_dir_fr.lower())
-
-        if (self.gms_dir != None):
-            self.models.append("gms")
-            assert os.path.isdir(self.gms_dir), missing_dir_msg.format(version_types, self.gms_dir)
-            dir_list.append(self.gms_dir.lower())
-
-        if (len(self.models) != 2):
-            raise Exception("Must submit exactly two directories (ms, fr and/or gms")
-
-        # check for duplicate dir names
-        if len(dir_list) != len(set(dir_list)):
-            raise Exception("The two sources directories are the same path.")
-
-        # TODO: problem as it might be multiple 
-        assert os.path.exists(self.flows_file), f'{self.flows_file} does not exist. Please specify a flow file.'
-
-        # Could be zero. TODO: Nice to have: Check if more than system has available.
-        assert self.num_workers >= 1, "Number of workers should be 1 or greater"
-
-        # Create output directory if it does not exist
-        if not os.path.isdir(self.composite_output_dir):
-            os.mkdir(self.composite_output_dir)
-
-        # If no output name supplied, create one using the flows file name 
-        # the output_name is the final composite output file.
-        # we also extract the basic file name without extension for use as the log file name
-        if not self.output_name:
-            flows_root = os.path.splitext(os.path.basename(self.flows_file))
-            root_output_file_name = f'inundation_composite_{flows_root[0]}'
-            self.output_name = os.path.join(self.composite_output_dir, f"{root_output_file_name}.tif")
-        else:
-            # see if the file name has a path or not, fail if it does
-            output_file_name_split = os.path.split(self.output_name)
-            if self.output_name == output_file_name_split[0]:
-                raise Exception("""If submitting the -n (output file name), please ensure 
-                                   it has no pathing. You can also leave it blank if you like.""")
-
-            root_output_file_name = os.path.splitext(self.output_name)[0]
-
-        self.output_name = os.path.join(self.composite_output_dir, self.output_name)
-
-        # TODO: we have a problem with one versus multiple hucs and flow files
-        #hucs = self.huc.replace(' ', '').split(',')
-
-        # setup log file and its directory
-        # Note: Log files are only created at this time if verbose\
-        self.log_file = None
-        self.inundation_list_file_path = None
-        if (self.verbose):
-            log_file_path = os.path.join(self.composite_output_dir, "mosaic_logs")
-            if not os.path.isdir(log_file_path):
-                os.mkdir(log_file_path)
-
-            self.log_file = os.path.join(log_file_path, f"{root_output_file_name}_inundation_logfile.txt")
-
-            # Another output file is a csv showing which inundation files were successfully
-            # created. We will automatically create it and put it in the same directory folder.
-            self.inundation_list_file_path = os.path.join(log_file_path,
-                f"{root_output_file_name}_inundation_file_list.csv")
-
-        assert not (self.is_bin_raster and self.is_depth_raster), "Cannot use both -b and -d flags"
-
-        # Set inundation raster to True if no output type flags are passed
-        if not (self.is_bin_raster or self.is_depth_raster):
-            self.is_bin_raster = True
-
 if __name__ == '__main__':
     
+    '''
+        Runs inundate and compositing on any and exactly two of the following:
+            1) FIM 3.X mainstem (MS)
+            2) FIM 3.X full-resolution (FR)
+            3) FIM 4.x (gms)
+
+        Examples of usage
+        Notice: arg keys and values for some of the variants
+        --------
+        a) ms and fr (single huc)
+        python3 /foss_fim/tools/composite_inundation.py -ms /outputs/inundation_test_1_FIM3_ms -fr /outputs/inundation_test_1_FIM3_fr -u /data/inputs/huc_lists/include_huc8.lst -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv -o /outputs/inundation_test_1_comp/ -n test_inundation.tif
+
+        a) ms and gms (all hucs in each folder)
+        python3 /foss_fim/tools/composite_inundation.py -ms /outputs/inundation_test_1_FIM3_ms -gms /outputs/inundation_test_1_gms -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv -o /outputs/inundation_test_1_comp/ -c -jh 3 -jb 20
+
+        b) fr and gms (single huc)
+        python3 /foss_fim/tools/composite_inundation.py -fr /outputs/inundation_test_1_FIM3_fr -gms /outputs/inundation_test_1_gms -u 13090001 -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_25_0_cms.csv -o /outputs/inundation_test_1_comp/ -n test_inundation.tif
+    '''
+
     # parse arguments
     parser = argparse.ArgumentParser(description="""Inundate FIM 3 full resolution
                 and mainstem outputs using a flow file and composite the results.""")
     parser.add_argument('-ms','--fim-dir-ms', help='Source directory that contains MS FIM outputs.',
-                required=False, default=None)
+                        required=False, default=None)
     parser.add_argument('-fr','--fim-dir-fr', help='Source directory that contains FR FIM outputs.', 
-                required=False, default=None)
+                        required=False, default=None)
     parser.add_argument('-gms','--gms-dir', help='Source directory that contains FIM4 GMS outputs.', 
-                required=False, default=None)
+                        required=False, default=None)
     parser.add_argument('-u','--huc', 
-                help="""(optional). If a HUC is provided, only that HUC will be processed.
-                     If not submitted, all HUCs in the source directories will be used.""",
-                required=False)
+                        help="""(Optional) If a single HUC is provided, only that HUC will be processed.
+                        If not submitted, all HUCs in the source directories will be used.""",
+                        required=False, default=None)
     parser.add_argument('-f','--flows-file', 
-                help='File path of flows csv.',
-                required=True)
+                        help='File path of flows csv.',
+                        required=True)
     parser.add_argument('-o','--composite-output-dir', help='Folder to write Composite Raster output.',
-                required=True)
+                        required=True)
     parser.add_argument('-n','--output-name', help='File name for output(s).', 
-                default=None, required=False)
+                        default=None, required=False)
     parser.add_argument('-b','--is-bin-raster', 
-                help="""Output raster is a binary wet/dry grid. 
-                This is the default if no raster flags are passed.""", 
-                required=False, default=False, action='store_true')
-    parser.add_argument('-d','--is-depth-raster', help='Output raster is a depth grid.',
-                required=False, default=False, action='store_true')
-    parser.add_argument('-j','--num-workers', help='Number of concurrent processes to run.',
-                required=False, default=1, type=int)
-    parser.add_argument('-c','--do_clean_up', help='If flag used, intermediate rasters are cleaned up.',
-                required=False, default=False, action='store_true')
+                        help="If flag is included, the output raster will be changed to wet/dry.", 
+                        required=False, default=False, action='store_true')
+    parser.add_argument('-jh', '--num-workers-huc',
+                        help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',
+                        required=False, default=1, type=int)
+    parser.add_argument('-jb', '--num-workers-branches',
+                        help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',
+                        required=False, default=1, type=int)
+    parser.add_argument('-c','--no_cleanup', 
+                        help='If flag used, intermediate rasters are NOT cleaned up.',
+                        required=False, default=False, action='store_true')
     parser.add_argument('-v','--verbose', help='Show additional outputs.',
-                required=False, default=False, action='store_true')
+                        required=False, default=False, action='store_true')
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
@@ -415,8 +452,8 @@ if __name__ == '__main__':
     print(f"Start composite inundation - {dt_string}")    
     print()
 
-    ci = CompositeInundation(**args)
-    ci.run_composite()
+    ci = CompositeInundation()
+    ci.run_composite(args)
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
