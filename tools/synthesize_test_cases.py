@@ -2,13 +2,10 @@
 
 import os
 import argparse
-from multiprocessing import Pool
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import json
 import csv
-import ast
 from tqdm import tqdm
-from copy import deepcopy
 import re
 
 from run_test_case import test_case
@@ -295,11 +292,7 @@ if __name__ == '__main__':
         
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
-#           ###### TEMP ###### DO NOT COMMIT #######
-#           huc = test_id[:8]
-#           if huc not in ('12030107', '08040101', '11110205', '08070201', '12090301'):
-#               continue
-#                       
+                       
             current_huc, current_benchmark_category = test_id.split('_')
             if current_benchmark_category in bench_cat:
                 # Loop through versions.
@@ -326,7 +319,7 @@ if __name__ == '__main__':
                     magnitude = MAGNITUDE_DICT[current_benchmark_category]
 
                     # Create composite args
-                    composite_procs_dict[test_id] = {'test_id':test_id, 'version_1':version,  'version_2':fr_run_dir,
+                    composite_procs_dict[test_id] = {'test_id':test_id, 'version_ms':version,  'version_fr':fr_run_dir,
                                  'archive_results':archive_results, 'calibrated':calibrated, 'overwrite':overwrite}
 
                     if os.path.exists(fim_run_dir):
@@ -337,15 +330,11 @@ if __name__ == '__main__':
                                             'test_id': test_id, 
                                             'magnitude': magnitude, 
                                             'calibrated': calibrated,
-#                                            'model': model,
+                                            'model': model,
                                             'compare_to_previous': not archive_results, 
                                             'archive_results': archive_results, 
                                             'mask_type': 'huc',
-                                            'overwrite': overwrite, 
-#                                            'fr_run_dir': fr_run_dir, 
-#                                            'gms_workers': job_number_branch,
-#                                            'verbose': False,
-#                                            'gms_verbose': False
+                                            'overwrite': overwrite
                                             }
                         procs_dict[test_id] = alpha_test_args
 
@@ -357,15 +346,11 @@ if __name__ == '__main__':
                                             'test_id': test_id, 
                                             'magnitude': magnitude, 
                                             'calibrated': calibrated,
-#                                            'model': 'FR',
+                                            'model': 'FR',
                                             'compare_to_previous': False, 
                                             'archive_results': archive_results, 
                                             'mask_type': 'huc',
-                                            'overwrite': overwrite, 
-#                                            'fr_run_dir': None, 
-#                                            'gms_workers': job_number_branch,
-#                                            'verbose': False,
-#                                            'gms_verbose': False
+                                            'overwrite': overwrite
                                             }
                         fr_proc_dict[test_id] = alpha_test_args
 
@@ -381,8 +366,12 @@ if __name__ == '__main__':
                 # FR MUST be run before MS / composite runs
                 if fr_run_dir:
                     test_case.run_alpha_test(**fr_proc_dict)
+                    test_case.run_alpha_test(**alpha_test_args)
+                    test_case.composite(**composite_procs_dict)
 
-                test_case.run_alpha_test(**alpha_test_args)
+                else:
+                    test_case.run_alpha_test(**alpha_test_args)
+
             except Exception as exc:
                 print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
 
@@ -390,23 +379,6 @@ if __name__ == '__main__':
     if job_number_huc > 1:
         
         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-            ## FR MUST be run before MS / composite runs
-            if model == 'MS' and fr_run_dir:
-                fr_executor_generator = { 
-                                    executor.submit(test_case.run_alpha_test,**inp) : ids for ids,inp in fr_proc_dict.items()
-                                    }
-                for future in tqdm(as_completed(fr_executor_generator),
-                            total=len(fr_executor_generator),
-                            disable=(not verbose),
-                            desc="Running FR test cases with {} workers".format(job_number_huc)):
-                    test_id = fr_executor_generator[future]
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
-
-                wait(fr_executor_generator.keys())
-
             ## Submit MS alpha tests to the pool
             ms_executor_generator = { 
                                 executor.submit(test_case.run_alpha_test,**inp) : ids for ids,inp in procs_dict.items()
@@ -427,9 +399,24 @@ if __name__ == '__main__':
 
             wait(ms_executor_generator.keys())
 
-            # Submit composit jobs:
+            ## Submit FR jobs to the pool
             if model == 'MS' and fr_run_dir:
+                fr_executor_generator = { 
+                                    executor.submit(test_case.run_alpha_test,**inp) : ids for ids,inp in fr_proc_dict.items()
+                                    }
+                for future in tqdm(as_completed(fr_executor_generator),
+                            total=len(fr_executor_generator),
+                            disable=(not verbose),
+                            desc="Running FR test cases with {} workers".format(job_number_huc)):
+                    test_id = fr_executor_generator[future]
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
 
+                wait(fr_executor_generator.keys())
+
+            ## Submit composite jobs
                 comp_executor_generator = { 
                                 executor.submit(test_case.composite,**inp) : ids for ids,inp in composite_procs_dict.items()
                                 }
@@ -446,7 +433,6 @@ if __name__ == '__main__':
                         print('{}, {}, {}'.format(hucCode,exc.__class__.__name__,exc))
 
 
-    
     if config == 'DEV':
         if dev_versions_to_compare != None:
             dev_versions_to_include_list = dev_versions_to_compare + previous_fim_list
