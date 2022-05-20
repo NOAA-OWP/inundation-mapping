@@ -9,18 +9,21 @@ from pathlib import Path
 import json
 import ast
 import pandas as pd
+from rasterio.errors import RasterioIOError
 
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (TEST_CASES_DIR, INPUTS_DIR, ENDC, TRED_BOLD, WHITE_BOLD, CYAN_BOLD, AHPS_BENCHMARK_CATEGORIES, IFC_MAGNITUDE_LIST, BLE_MAGNITUDE_LIST )
 from inundation import inundate
 from gms_tools.inundate_gms import Inundate_gms
-from gms_tools.mosaic_inundation import Mosaic_inundation
+from gms_tools.mosaic_inundation import Mosaic_inundation, mosaic_by_unit
 from gms_tools.overlapping_inundation import OverlapWindowMerge
 from glob import glob
 from utils.shared_variables import elev_raster_ndv
 
 def run_alpha_test( fim_run_dir, version, test_id, magnitude, 
                 calibrated, model,
+                all_huc12s_in_current_huc=None,
+                last_huc12=None,
                 compare_to_previous=False, archive_results=False, 
                 mask_type='filter', inclusion_area='', 
                 inclusion_area_buffer=0, light_run=False, 
@@ -33,6 +36,10 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
     if model not in {None,'FR','MS','GMS'}:
         raise ValueError("Model argument needs to be \'FR\', \'MS\', or \'GMS.\'")
 
+    huc12 = False
+    if len(os.path.basename(fim_run_dir)) == 12:
+        huc12 = True
+
     # make bool
     calibrated = bool( calibrated )
 
@@ -41,6 +48,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
 
     benchmark_category = test_id.split('_')[1] # Parse benchmark_category from test_id.
     current_huc = test_id.split('_')[0]  # Break off HUC ID and assign to variable.
+    current_huc12 = os.path.basename(fim_run_dir)
 
     # Construct paths to development test results if not existent.
     if archive_results:
@@ -50,9 +58,11 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
 
     # Delete the entire directory if it already exists.
     if os.path.exists(version_test_case_dir_parent):
-        if overwrite == True:
-            shutil.rmtree(version_test_case_dir_parent)
+        if overwrite & (not huc12):
+            shutil.rmtree(version_test_case_dir_parent,ignore_errors=True)
         elif model == 'MS':
+            pass
+        elif huc12:
             pass
         else:
             print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.".format(version=version, test_id=test_id))
@@ -115,7 +125,6 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
         magnitude_list = [magnitude_list]
         
 
-
     # Get path to validation_data_{benchmark} directory and huc_dir.
     validation_data_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category)
     for magnitude in magnitude_list:
@@ -145,8 +154,13 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
             benchmark_raster_path_list = [benchmark_raster_file]
             forecast_path = os.path.join(TEST_CASES_DIR, benchmark_category + '_test_cases', 'validation_data_' + benchmark_category, current_huc, magnitude, benchmark_category + '_huc_' + current_huc + '_flows_' + magnitude + '.csv')
             forecast_list = [forecast_path]
-            inundation_raster_list = [os.path.join(version_test_case_dir, 'inundation_extent.tif')]
 
+            # make temp inundation
+            if huc12:
+                inundation_raster_list = [os.path.join(version_test_case_dir, f'inundation_extent_huc12_{current_huc12}.tif')]
+            else:
+                inundation_raster_list = [os.path.join(version_test_case_dir, 'inundation_extent.tif')]
+            
         for index in range(0, len(benchmark_raster_path_list)):
             benchmark_raster_path = benchmark_raster_path_list[index]
             forecast = forecast_list[index]
@@ -161,7 +175,6 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                      'operation': 'include'}
                         })
 
-
                 if not os.path.exists(benchmark_raster_path) or not os.path.exists(ahps_domain_file) or not os.path.exists(forecast):  # Skip loop instance if the benchmark raster doesn't exist.
                     continue
             else:  # If not in AHPS_BENCHMARK_CATEGORIES.
@@ -170,10 +183,14 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
             # Run inundate.
             __vprint("-----> Running inundate() to produce inundation extent for the " + magnitude + " magnitude...",verbose)
             # The inundate adds the huc to the name so I account for that here.
-            predicted_raster_path = os.path.join(
-                                        os.path.split(inundation_raster)[0], 
-                                        os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
-                                                )  
+            if huc12:
+                predicted_raster_path = inundation_raster
+            else:
+                predicted_raster_path = os.path.join(
+                                            os.path.split(inundation_raster)[0], 
+                                            os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
+                                                    )  
+            
             try:
                 if model == 'GMS':
                     
@@ -255,6 +272,40 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                 else:
                     agreement_raster, stats_json, stats_csv = os.path.join(version_test_case_dir, 'total_area_agreement.tif'), os.path.join(version_test_case_dir, 'stats.json'), os.path.join(version_test_case_dir, 'stats.csv')
                 
+                # aggregate predicted rasters if huc12
+                if huc12:
+                    # determine if all huc12s for current huc8 have been computed
+                    computed_huc12s = glob(os.path.join(version_test_case_dir,'inundation_extent_huc12_*'))
+                    computed_huc12s_set = set(
+                                [os.path.basename(huc12_file).split('_')[3] for huc12_file in computed_huc12s]
+                                         )
+                    
+                    all_computed_bool = [True if h12 in computed_huc12s_set else False for h12 in all_huc12s_in_current_huc ]
+                    all_computed = all(all_computed_bool)
+
+                    print(current_huc,current_huc12,last_huc12,all_computed,magnitude)
+
+                    if all_computed & (last_huc12 == current_huc12):
+                        
+                        predicted_raster_path = os.path.join(
+                                                             os.path.split(inundation_raster)[0], 
+                                                             'inundation_extent_'+current_huc+'.tif'
+                                                            )
+                        # try to mosaic until no errors (all jobs finish)
+                        while True:
+                            try:
+                                mosaic_by_unit(
+                                               computed_huc12s,
+                                               predicted_raster_path,nodata=elev_raster_ndv,
+                                               workers=1,remove_inputs=False,mask=None,verbose=False
+                                              )
+                                break
+                            except RasterioIOError:
+                                continue
+
+                    else:
+                        continue
+
                 compute_contingency_stats_from_rasters(predicted_raster_path,
                                                        benchmark_raster_path,
                                                        agreement_raster,

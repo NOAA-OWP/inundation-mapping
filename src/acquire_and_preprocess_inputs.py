@@ -10,12 +10,13 @@ from multiprocessing import Pool
 import geopandas as gpd
 from urllib.error import HTTPError
 from tqdm import tqdm
-import xarray
+import xarray as xr
 import py3dep
 import fiona
 from fiona.crs import to_string
 from shapely.geometry import shape,box,Polygon, MultiPolygon
 from rasterio.enums import Resampling
+from rasterio.errors import RasterioIOError
 import dask
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from gdal import BuildVRT, BuildVRTOptions
@@ -26,6 +27,7 @@ from usr.bin.gdal_merge import main as gdal_merge
 from glob import glob
 import subprocess
 from tqdm.dask import TqdmCallback
+from requests.exceptions import ReadTimeout, HTTPError
 
 
 from utils.shared_variables import (NHD_URL_PARENT,
@@ -372,7 +374,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         # get hucs
         huc = row['properties'][huc_attribute]
         current_huc4 = huc[0:4]
-
+        
         # skip if not in huc4 set
         if current_huc4 not in huc4s:
             continue
@@ -384,7 +386,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         huc4_output_dir = os.path.join(output_dir,f'{current_huc4}_{int(dem_resolution)}m')
         
         # remove
-        #shutil.rmtree(huc4_output_dir,ignore_errors=True)
+        shutil.rmtree(huc4_output_dir,ignore_errors=True)
         
         # re-create
         os.makedirs(huc4_output_dir,exist_ok=True)
@@ -420,17 +422,71 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
                    [idx for idx in range(number_of_boxes)]
                  ]
 
-    def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,output_dir,huc,idx):
+
+    def __get_tile_from_nhd(geometry,huc):
+
+        # open
+        huc4 = huc[:4]
+        nhd_dem_fp = os.path.join('data','inputs','nhdplus_rasters',f'HRNHDPlusRasters{huc4}','elev_m.tif')
+        nhd_dem = xr.open_rasterio(nhd_dem_fp)
+        
+        # clipping
+        geometry = gpd.GeoSeries([geometry]).to_json()
         
         try:
-            dem = py3dep.get_map( 'DEM',
-                                  geometry=geometry,
-                                  resolution=dem_resolution,
-                                  geo_crs=wbd_crs
-                                ) 
-        except:
-           return
+            nhd_dem = nhd_dem.rio.clip(geometry)
+        except ValueError:
+            print('No tiles for NHD')
+            return None
 
+        return(nhd_dem)
+
+
+    def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,output_dir,huc,idx):
+
+        max_retries = 5
+        retries = 0
+        while True:
+            try:
+                dem = py3dep.get_map( 'DEM',
+                                      geometry=geometry,
+                                      resolution=dem_resolution,
+                                      geo_crs=wbd_crs
+                                    ) 
+                break
+            
+            except (ReadTimeout,HTTPError,RasterioIOError) as e:
+                
+                print(f'{e} - idx: {idx} | retries: {retries}')
+                retries += 1
+                
+                if retries < max_retries:
+                    continue
+                else:
+                    print(f'{e} - idx: {idx} | retries: {retries} - Using NHD')
+                    dem = __get_tile_from_nhd(geometry,huc)
+                    break
+            
+            """
+            except RasterioIOError:
+
+                print(f'RasterIOError - idx: {idx} | retries: {retries}')
+                retries += 1
+                
+                if retries < max_retries:
+                    continue
+                else:
+                    print(f'RasterIOError - idx: {idx} | retries: {retries} - Using NHD')
+                    dem = __get_tile_from_nhd(geometry,huc)
+                    break
+        dem = py3dep.get_map( 'DEM',
+                              geometry=geometry,
+                              resolution=dem_resolution,
+                              geo_crs=wbd_crs
+                            ) 
+        """
+        if dem is None:
+            return
         # reproject and resample
         #print(f'{huc} reprojecting ')
         #dem = dask.delayed(dem.rio.reproject)( wbd_crs,
@@ -465,7 +521,10 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         dask.compute(*operations)
 
     # merge into vrt and then tiff
-    for huc4_dir in tqdm(glob(os.path.join(output_dir,'*')),desc=' Merging tiles'):
+    huc4_directories = [os.path.basename(f) for f in input_dict[4] ]
+    huc4_directories = list(set(huc4_directories))
+    
+    for huc4_dir in tqdm(huc4_directories,desc=' Merging tiles'):
         
         if not os.path.isdir(huc4_dir):
             continue
@@ -479,7 +538,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
                                 resampleAlg='bilinear'
                               )
         
-        sourceFiles = glob(os.path.join(huc4_dir,'*'))
+        sourceFiles = glob(os.path.join(huc4_dir,'*.tif'))
         destVRT = os.path.join(output_dir,f'dem_3dep_{huc4}.vrt')
         
         if os.path.exists(destVRT):
@@ -516,7 +575,7 @@ def manage_preprocessing( hucs_of_interest,
                           download_3dep=False,
                           tile_size=1000,
                           resolution=1,
-                          wbd_buffer=2000
+                          wbd_buffer=3000
                         ):
     """
     This functions manages the downloading and preprocessing of gridded and vector data for FIM production.
@@ -637,7 +696,7 @@ if __name__ == '__main__':
     dem_group.add_argument('-d', '--download-3dep', help='Retrieve 3DEP data',required=False,default=True,action='store_true')
     dem_group.add_argument('-t', '--tile-size', help='Length of square tile in meters to download 3DEP data at',required=False,default=1000, type=int)
     dem_group.add_argument('-r', '--resolution', help='Desired DEM resolution in meters',required=False,default=1,type=float)
-    dem_group.add_argument('-b', '--wbd-buffer', help='Extra WBD buffer distance in meters to acquire',required=False,default=2000,type=float)
+    dem_group.add_argument('-b', '--wbd-buffer', help='Extra WBD buffer distance in meters to acquire',required=False,default=3000,type=float)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

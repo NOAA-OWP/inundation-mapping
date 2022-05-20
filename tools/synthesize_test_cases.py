@@ -8,6 +8,9 @@ import json
 import csv
 import ast
 from tqdm import tqdm
+from glob import glob
+from collections import OrderedDict
+import shutil
 
 from run_test_case import run_alpha_test
 
@@ -290,7 +293,7 @@ if __name__ == '__main__':
         benchmark_category_list = [benchmark_category]
 
     # Loop through benchmark categories.
-    procs_list = [] ; procs_dict = {}
+    procs_list = [] ; procs_dict = OrderedDict()
     for bench_cat in benchmark_category_list:
         
         # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
@@ -311,34 +314,86 @@ if __name__ == '__main__':
                 if current_benchmark_category in bench_cat:
                     # Loop through versions.
                     for version in previous_fim_list:
+                        
+                        version = os.path.basename(version)
+                        
                         if config == 'DEV':
+                            #glob(os.path.join(OUTPUTS_DIR,version))
                             fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
                         elif config == 'PREV':
                             fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
-
+                        
                         # For previous versions of HAND computed at HUC6 scale
                         if not os.path.exists(fim_run_dir):
                             if config == 'DEV':
-                                fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
+                                if os.path.exists(os.path.join(OUTPUTS_DIR, version, current_huc[:6])):
+                                    fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
                             elif config == 'PREV':
-                                fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
+                                if os.path.exists(os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])):
+                                    fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
                         
-                        if os.path.exists(fim_run_dir):
+                        # For current versions of HAND computed at HUC12 scale
+                        if not os.path.exists(fim_run_dir):
+                            if config == 'DEV':
+                                fim_run_dir = glob(os.path.join(OUTPUTS_DIR, version, current_huc+'*'))
+                            elif config == 'PREV':
+                                fim_run_dir = glob(os.path.join(PREVIOUS_FIM_DIR, version, current_huc+'*'))
+                        
+                        try:
+                            if os.path.exists(fim_run_dir):
+                                # If a user supplies a special_string (-s), then add it to the end of the created dirs.
+                                if special_string != "":
+                                    version = version + '_' + special_string
+                        except TypeError:
+                            ver = version
+                            version = [ver + '_' + special_string for _ in fim_run_dir]
 
-                            # If a user supplies a special_string (-s), then add it to the end of the created dirs.
-                            if special_string != "":
-                                version = version + '_' + special_string
+                        # Define the magnitude lists to use, depending on test_id.
+                        if 'ble' == current_benchmark_category:
+                            magnitude = MAGNITUDE_DICT['ble']
+                        elif ('usgs' == current_benchmark_category) | ('nws' == current_benchmark_category):
+                            magnitude = ['action', 'minor', 'moderate', 'major']
+                        elif 'ifc' == current_benchmark_category:
+                            magnitude_list = MAGNITUDE_DICT['ifc']
+                        else:
+                            continue
 
-            
-                            # Define the magnitude lists to use, depending on test_id.
-                            if 'ble' == current_benchmark_category:
-                                magnitude = MAGNITUDE_DICT['ble']
-                            elif ('usgs' == current_benchmark_category) | ('nws' == current_benchmark_category):
-                                magnitude = ['action', 'minor', 'moderate', 'major']
-                            elif 'ifc' == current_benchmark_category:
-                                magnitude_list = MAGNITUDE_DICT['ifc']
-                            else:
-                                continue
+                        # handle HUC12's
+                        if isinstance(fim_run_dir,list):
+                           
+                           if len(fim_run_dir) == 0:
+                               continue
+
+                           # get unique huc12s in huc8
+                           all_huc12s_in_current_huc = [ os.path.basename(frd) for frd in fim_run_dir ]
+                           
+                           last_huc12 = all_huc12s_in_current_huc[-1]
+                           first_huc12 = all_huc12s_in_current_huc[0]
+
+                           for frd,ver in zip(fim_run_dir,version):
+                               
+                               alpha_test_args = { 
+                                                    'fim_run_dir': frd, 
+                                                    'version': ver, 
+                                                    'test_id': test_id, 
+                                                    'magnitude': magnitude, 
+                                                    'calibrated': calibrated,
+                                                    'model': model,
+                                                    'compare_to_previous': not archive_results, 
+                                                    'archive_results': archive_results, 
+                                                    'mask_type': 'huc',
+                                                    'overwrite': overwrite,
+                                                    'all_huc12s_in_current_huc' : all_huc12s_in_current_huc,
+                                                    'last_huc12': last_huc12,
+                                                    'fr_run_dir': fr_run_dir, 
+                                                    'gms_workers': job_number_branch,
+                                                    'verbose': False,
+                                                    'gms_verbose': False
+                                                  }
+                               
+                               procs_dict[os.path.basename(frd)] = alpha_test_args
+
+                        else:
 
                             alpha_test_args = { 
                                                 'fim_run_dir': fim_run_dir, 
@@ -356,9 +411,24 @@ if __name__ == '__main__':
                                                 'verbose': False,
                                                 'gms_verbose': False
                                               }
-                            
+                        
                             procs_dict[current_huc] = alpha_test_args
 
+                        #print(procs_dict)
+                        #exit()
+    # delete version dirs with HUC12
+    if overwrite:
+        for ch,ata in procs_dict.items():
+            if ata['all_huc12s_in_current_huc'] is not None:
+                path_to_remove = os.path.join( TEST_CASES_DIR,
+                                               ata['test_id'].split('_')[1]+'_test_cases',
+                                               ata['test_id'],
+                                               'testing_versions',ata['version']
+                                              )
+                shutil.rmtree( path_to_remove,
+                              ignore_errors=True
+                             )
+    
     if job_number_huc == 1:
         
         number_of_hucs = len(procs_dict)
@@ -377,7 +447,7 @@ if __name__ == '__main__':
         
         #print(procs_dict)
         executor = ProcessPoolExecutor(max_workers=job_number_huc)
-
+        
         executor_generator = { 
                               executor.submit(run_alpha_test,**inp) : ids for ids,inp in procs_dict.items()
                              }

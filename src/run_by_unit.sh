@@ -336,7 +336,7 @@ python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $o
 
 if [[ ! -f $outputHucDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg ]] ; then
   echo "EXIT FLAG!! (exit 65): No relevant streams within HUC $hucNumber boundaries. Aborting run_by_unit.sh"
-  rm -rf $outputHucDataDir
+  #rm -rf $outputHucDataDir
   exit 0
 fi
 Tcount

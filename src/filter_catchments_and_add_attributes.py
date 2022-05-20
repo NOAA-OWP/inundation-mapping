@@ -10,11 +10,17 @@ from utils.shared_functions import mem_profile
 
 @mem_profile
 def filter_catchments_and_add_attributes(input_catchments_filename, input_flows_filename, output_catchments_filename, output_flows_filename, wbd_filename, huc_code):
+    
     input_catchments = gpd.read_file(input_catchments_filename)
     wbd = gpd.read_file(wbd_filename)
     input_flows = gpd.read_file(input_flows_filename)
 
     # filter segments within huc boundary
+    
+    # temp until huc8 changed to 12
+    if len(huc_code) > 8:
+        huc_code = huc_code[:8]
+    
     select_flows = tuple(map(str,map(int,wbd[wbd.HUC8.str.contains(huc_code)][FIM_ID])))
 
     if input_flows.HydroID.dtype != 'str': input_flows.HydroID = input_flows.HydroID.astype(str)

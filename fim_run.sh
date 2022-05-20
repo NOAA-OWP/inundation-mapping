@@ -125,8 +125,9 @@ export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
 export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
 export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
 export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
+
 ## Input handling ##
-$srcDir/check_huc_inputs.py -u "$hucList"
+#$srcDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
 if [ -d "$outputRunDataDir" ] && [  "$overwrite" -eq 1 ]; then
@@ -151,6 +152,7 @@ else
         parallel --eta -j $jobLimit --joblog $logFile -- $srcDir/time_and_tee_run_by_unit.sh ::: $hucList
     fi
 fi
+
 
 # identify missing HUCs
 # time python3 /foss_fim/tools/fim_completion_check.py -i $hucList -o $outputRunDataDir
