@@ -99,6 +99,9 @@ def Mosaic_inundation( map_file,
     return ag_mosaic_output
 
 
+# Note: This uses threading and not processes. If the number of workers is more than 
+# the number of possible threads, no results will be returned. But it is usually
+# pretty fast anyways. This needs to be fixed.
 def mosaic_by_unit(inundation_maps_list,
                    mosaic_output,
                    nodata = elev_raster_ndv,

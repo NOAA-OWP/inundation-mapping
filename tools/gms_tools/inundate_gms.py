@@ -88,8 +88,8 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     idx = 0
     for future in tqdm(as_completed(executor_generator),
                        total=len(executor_generator),
-                       desc="Inundating branches with {} workers".format(num_workers)
-                      ):
+                       desc="Inundating branches with {} workers".format(num_workers),
+                       disable=(not verbose) ):
         
         hucCode, branch_id = executor_generator[future]
 

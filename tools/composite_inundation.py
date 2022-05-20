@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, argparse, sys
+import os, argparse, copy, sys
 import json
 import rasterio
 import numpy as np
@@ -7,7 +7,9 @@ import pandas as pd
 
 from datetime import datetime
 from multiprocessing import Pool
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
+#from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
+import concurrent.futures as cf
+from tqdm import tqdm
 
 from inundation import inundate
 from gms_tools.mosaic_inundation import Mosaic_inundation
@@ -141,8 +143,10 @@ class Composite_HUC(object):
     # Composites two source directories for a single huc
     # Note: The huc does not need to exist in both source directories
     @classmethod
-    def composite_huc(self, huc, args):
+    def composite_huc(self, args):
 
+        huc = args["current_huc"]
+        print(f"Processing huc {huc}")        
         composite_model_map_files = []
         for model in args["models"]:
 
@@ -343,39 +347,44 @@ class CompositeInundation(object):
             return args
 
         args =  __validate_args(args)
+
         huc_list = args["huc_list"] 
         number_huc_workers = args["num_workers_huc"]
         #if len(huc_list == 1): # skip iterator
         if (number_huc_workers == 1):
             for huc in sorted(huc_list):
-                print(f"Processing huc {huc}")
                 Composite_HUC.composite_huc(huc, args)
         else:
-            
-            with ProcessPoolExecutor(max_workers = number_huc_workers) as executor:
-                exec_gen = {
-                    executor.submit(Composite_HUC.composite_huc(huc, args)) : huc for huc in sorted(huc_list):
-                }
 
-            for future in tqdm(as_completed(exec_gen),
-                            total=len(exec_gen),
-                            disable=(not args["verbose"]),
-                            desc=f"Processing hucs with {number_huc_workers} workers",
-                            ):
-            
-                huc = exec_gen[future]
+            print(f"Processing {len(huc_list)} hucs")
+            args_list = []
+            #sorted_hucs = sorted(huc_list)
+            #params_items = [(args, huc) for huc in huc_list]
+            for huc in sorted(huc_list):
+                huc_args = copy.deepcopy(args)
+                huc_args["current_huc"] = huc
+                args_list.append(huc_args)
+
+            with cf.ProcessPoolExecutor(max_workers = number_huc_workers) as executor:
+                executor_gen = { executor.submit(Composite_HUC.composite_huc, params): params for params in args_list }
+
+                for future in tqdm(cf.as_completed(executor_gen),
+                                total = len(executor_gen),
+                                desc = f"Running composite inundation with {number_huc_workers} workers" ):
+
+                    executor_gen[future]
 
                 try:
                     future.result()
                 except Exception as exc:
-                    print('{}, {}, {}'.format(huc,exc.__class__.__name__,exc))
+                    print('{}, {}, {}'.format(hucCode,exc.__class__.__name__,exc))
 
-            wait(exec_gen.keys())
 
+            print("All hucs have been processed")            
 
     @staticmethod
     def hydroid_to_binary(hydroid_raster_filename):
-        '''Converts hydroid positive/negative grid to 1/0'''
+        #Converts hydroid positive/negative grid to 1/0
         #to_bin = lambda x: np.where(x > 0, 1, np.where(x == 0, -9999, 0))
         to_bin = lambda x: np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
         hydroid_raster = rasterio.open(hydroid_raster_filename)
@@ -386,6 +395,8 @@ class CompositeInundation(object):
         with rasterio.open(hydroid_raster_filename, "w", **profile) as out_raster:
             out_raster.write(bin_raster.astype(hydroid_raster.profile['dtype']), 1)
         del hydroid_raster,profile,bin_raster
+    
+
 
 if __name__ == '__main__':
     
