@@ -14,6 +14,8 @@ from multiprocessing import Pool
 from src_roughness_optimization import update_rating_curve
 import psycopg2 # python package for connecting to postgres
 from dotenv import load_dotenv
+import time
+from shapely import wkt
 
 #import variables from .env file
 load_dotenv()
@@ -65,13 +67,13 @@ def process_points(args):
     htable_path = args[7]
     optional_outputs = args[8]
 
-'''
+    '''
     ## Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
     catch_poly = gpd.read_file(catchments_poly_path)
     catch_poly_crs = catch_poly.crs
     water_edge_df.to_crs(catch_poly_crs, inplace=True) 
     water_edge_df = gpd.clip(water_edge_df,catch_poly)
-'''
+    '''
     ## Subset database to huc points
 
 
@@ -81,6 +83,7 @@ def process_points(args):
     ## Use point geometry to determine HAND raster pixel values.
     hand_src = rasterio.open(hand_path)
     hand_crs = hand_src.crs
+    print(type(water_edge_df))
     water_edge_df.to_crs(hand_crs)  # Reproject geodataframe to match hand_src. Should be the same, but this is a double check.
     water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
     hand_src.close()
@@ -93,7 +96,15 @@ def process_points(args):
     water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
     catchments_src.close()
     del catchments_src, catchments_crs
-    #water_edge_df.to_file(fim_directory + 'export_water_edge_df.gpkg', driver="GPKG",index=False)
+
+    #water_edge_df = water_edge_df[water_edge_df['hydroid'].notnull()]
+    print('Point dataframe df head:')
+    print(water_edge_df.head)
+    print(f"{len(water_edge_df)} points found in " + str(huc))
+    print('Point dataframe columns types:')
+    print(water_edge_df.dtypes)
+    print('Point data type:')
+    print(type(water_edge_df))
 
     ## Check that there are valid obs in the water_edge_df (not empty)
     if not water_edge_df.empty:
@@ -105,6 +116,7 @@ def process_points(args):
         water_edge_median_ds.to_csv(pt_n_values_csv)
         ## Convert pandas series to dataframe to pass to update_rating_curve
         water_edge_median_df = water_edge_median_ds.reset_index()
+        water_edge_median_df['coll_time'] = water_edge_median_df.coll_time.astype(str)
         del water_edge_median_ds
 
         ## Additional arguments for src_roughness_optimization
@@ -113,12 +125,14 @@ def process_points(args):
 
         ## Call update_rating_curve() to perform the rating curve calibration.
         ## Still testing, so I'm having the code print out any exceptions.
-        #log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs,merge_prev_adj,DOWNSTREAM_THRESHOLD)
+        log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
+        '''
         try:
             log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
         except Exception as e:
             print(e)
             log_text = 'ERROR!!!: HUC ' + str(huc) + ' --> ' + str(e)
+        '''
     else:
         log_text = 'WARNING: ' + str(huc) + ': no valid observation points found within the huc catchments (skipping)'
     return(log_text)
@@ -127,13 +141,22 @@ def process_points(args):
 def find_points_in_huc(huc_id, conn):
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT ST_X(P.geom), ST_Y(P.geom), P.submitter, P.flow, P.coll_time
+        SELECT ST_X(P.geom), ST_Y(P.geom), P.submitter, P.flow, P.coll_time, P.flow_unit, P.layer, P.geom
         FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom)
         WHERE H.huc8 = %s;
     """, (huc_id,))
-    points = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
+    huc_pt_query = """SELECT ST_X(P.geom), ST_Y(P.geom), P.submitter, P.flow, P.coll_time, P.flow_unit, P.layer, P.geom 
+    FROM points P 
+    JOIN hucs H ON ST_Contains(H.geom, P.geom)
+    WHERE H.huc8 = %s """
+    #print(huc_pt_query)
+    #gdf = pd.read_sql_query(huc_pt_query, con=conn, params=[huc_id])
+    water_edge_df = gpd.GeoDataFrame.from_postgis(huc_pt_query, con=conn, params=[huc_id], crs="EPSG:5070", parse_dates=['coll_time'])
+    #water_edge_df = water_edge_df.drop(columns=['st_x','st_y'])
+    #points = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
+    #gdf = pd.DataFrame(points, columns=[desc[0] for desc in cursor.description])
     cursor.close()
-    return points
+    return water_edge_df
 
 
 def find_hucs_with_points(conn):
@@ -142,11 +165,14 @@ def find_hucs_with_points(conn):
         SELECT DISTINCT H.huc8
         FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom);
     """)
-    hucs_wpoints = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
+    hucs_fetch = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
+    hucs_wpoints = []
+    for huc in hucs_fetch:
+        hucs_wpoints.append(huc[0])
     cursor.close()
     return hucs_wpoints
 
-def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number, debug_outputs_option):
+def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
 
     '''
     ## Define CRS to use for initial geoprocessing.
@@ -174,18 +200,13 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
     '''
     
     conn = connect() # move this to happen once before looping hucs
-    print("Initial test, find points in huc from spatial query")
-    points = find_points_in_huc(huc, conn)
-    print(f"{len(points)} points found in " + str(huc))
-    disconnect(conn) # move this to happen at the end of the huc looping
-    
-    ## Convert to GeoDataFrame and add two columns for X and Y.
-    #gdf = gpd.GeoDataFrame(water_edge_df)
-    gdf['X'] = gdf['geometry'].x
-    gdf['Y'] = gdf['geometry'].y
+    print("Finding all hucs that contain calibration points...")
+    #huc_list = find_hucs_with_points(conn)
+    huc_list = ['10240011']
+    print(huc_list)
 
+    '''
     ## Extract information into dictionary.
-    huc_list = []
     for index, row in gdf.iterrows():
         huc = row[scale]
 
@@ -199,11 +220,37 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
             huc_list.append(huc)
             log_file.write(str(huc) + '\n')
     del gdf
+    '''
 
     procs_list = []  # Initialize list for mulitprocessing.
 
     ## Define paths to relevant HUC HAND data.
     for huc in huc_list:
+        water_edge_df = find_points_in_huc(huc, conn).reset_index()
+
+        print('Point data type:')
+        print(type(water_edge_df))
+        print('Point dataframe columns:')
+        print(water_edge_df.columns)
+        print('Point dataframe columns types:')
+        print(water_edge_df.dtypes)
+        print('Point dataframe df head:')
+        print(water_edge_df.head)
+        print(f"{len(water_edge_df)} points found in " + str(huc))
+
+        ## Convert to GeoDataFrame and add two columns for X and Y.
+        #points['geometry'] = points['geometry'].apply(wkt.loads)
+        #water_edge_df = gpd.GeoDataFrame.from_postgis(points)
+        #water_edge_df.rename(columns={'geom': 'geometry'}, inplace=True)
+        water_edge_df['X'] = water_edge_df['geom'].x
+        water_edge_df['Y'] = water_edge_df['geom'].y
+
+        ## Temp output for debugging
+        debug_out = os.path.join(fim_directory, huc, 'debug_test_' + huc + '.csv')
+        water_edge_df.to_csv(debug_out)
+        debug_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df' + huc + '.gpkg')
+        water_edge_df.to_file(debug_out_gpkg, driver='GPKG', index=False)
+
         ## Check to make sure the HUC directory exists in the current fim_directory
         if not os.path.exists(os.path.join(fim_directory, huc)):
             print("FIM Directory for huc: " + str(huc) + " does not exist --> skipping SRC adjustments for this HUC")
@@ -243,6 +290,8 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
                 log_output = pool.map(process_points, procs_list)
                 log_file.writelines(["%s\n" % item  for item in log_output])
 
+    disconnect(conn) # move this to happen at the end of the huc looping
+
 def connect():
     """ Connect to the PostgreSQL database server """
 
@@ -263,12 +312,12 @@ def connect():
             cur = conn.cursor()
 
             # execute a statement
-            # print('PostgreSQL database version:')
+            print('PostgreSQL database version:')
             cur.execute('SELECT version()')
 
             # display the PostgreSQL database server version
             db_version = cur.fetchone()
-            # print(db_version)
+            print(db_version)
 
                # close the communication with the PostgreSQL
             cur.close()
@@ -293,9 +342,9 @@ if __name__ == '__main__':
 
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts rating curve given a shapefile containing points of known water boundary.')
-    parser.add_argument('-db','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
+    #parser.add_argument('-db','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
     parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
-    parser.add_argument('-wbd','--wbd-path',help='Path to national huc layer.',required=True)
+    #parser.add_argument('-wbd','--wbd-path',help='Path to national huc layer.',required=True)
     parser.add_argument('-debug','--extra-outputs',help='Optional: "True" or "False" --> Include intermediate output files for debugging/testing',default='False',required=False)
     parser.add_argument('-scale','--scale',help='Optional: HUC6 or HUC8 -- default is HUC8', default='HUC8',required=False)
     parser.add_argument('-dthresh','--downstream-thresh',help='Optional Override: distance in km to propogate modified roughness values downstream', default=DOWNSTREAM_THRESHOLD,required=False)
@@ -303,18 +352,15 @@ if __name__ == '__main__':
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
-    points_layer = args['points_layer']
+    #points_layer = args['points_layer']
     fim_directory = args['fim_directory']
-    wbd_path = args['wbd_path']
+    #wbd_path = args['wbd_path']
     debug_outputs_option = args['extra_outputs']
     scale = args['scale']
     ds_thresh_override = args['downstream_thresh']
     job_number = int(args['job_number'])
 
     assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(fim_directory)
-
-    if job_number > 2:
-        print('WARNING!! - Using more than 2 jobs may result in memory allocation errors when working with very large obs pt database (>2Gb)')
 
     if scale not in ['HUC6', 'HUC8']:
         print("scale (-s) must be HUC6s or HUC8")
@@ -345,7 +391,7 @@ if __name__ == '__main__':
     log_file.write('#########################################################\n\n')
     log_file.write('START TIME: ' + str(begin_time) + '\n')
 
-    ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number, debug_outputs_option)
+    ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()

@@ -63,7 +63,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
-    df_nvalues = df_nvalues[df_nvalues.hydroid.notnull()] # remove null entries that do not have a valid hydroid
+    df_nvalues = df_nvalues[ (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0) ] # remove null entries that do not have a valid hydroid
 
     ## Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object})
