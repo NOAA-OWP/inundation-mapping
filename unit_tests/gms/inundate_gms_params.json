@@ -1,16 +1,16 @@
 {
 	"valid_data_inudation_raster_single_huc":
 	{
-		"hydrofabric_dir": "/outputs/rob_mosaic_test_1_gms/",
-		"forecast": "/data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv",
+		"hydrofabric_dir": "/outputs/fim_unit_test_data_do_not_remove/",
+		"forecast": "data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_25_0_cms.csv",
 		"num_workers": 1,
-		"hucs": "13090001",
-	    "inundation_raster": "/outputs/rob_mosaic_test_1_gms/inundation_rob1_gms.tif",
+		"hucs": "05030104",
+	    "inundation_raster": "/outputs/fim_unit_test_data_do_not_remove/inundation_unittest_1_gms.tif",
 		"inundation_polygon": null,
 		"depths_raster": null,
 		"verbose": true,
-		"log_file": "/outputs/rob_mosaic_test_1_gms/logs/inundation_logfile.txt",
-		"output_fileNames": "/outputs/rob_mosaic_test_1_gms/logs/inundation_file_list.csv"
+		"log_file": "/outputs/fim_unit_test_data_do_not_remove/logs/inundation_logfile.txt",
+		"output_fileNames": "/outputs/fim_unit_test_data_do_not_remove/logs/inundation_file_list.csv"
 	}
 
 }
