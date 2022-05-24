@@ -250,8 +250,8 @@ class test_case(benchmark):
 
         composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', version_ms, count=1)
         composite_test_case = cls(test_id, composite_version_name, archive_results)
-        input_test_case_1 = cls(test_id, version_ms, archive_results)
-        input_test_case_2 = cls(test_id, version_fr, archive_results)
+        input_test_case_ms = cls(test_id, version_ms, archive_results)
+        input_test_case_fr = cls(test_id, version_fr, archive_results)
         composite_test_case.stats_modes_list = ['total_area']
 
         # Delete the directory if it exists
@@ -263,15 +263,15 @@ class test_case(benchmark):
             for instance in validation_data[magnitude]:      # instance will be the lid for AHPS sites and '' for other sites (ble/ifc/ras2fim)
                 inundation_prefix = instance + '_' if instance else ''
 
-                input_inundation_1 = os.path.join(input_test_case_1.dir, magnitude, f'{inundation_prefix}inundation_extent_{input_test_case_1.huc}.tif')
-                input_inundation_2 = os.path.join(input_test_case_2.dir, magnitude, f'{inundation_prefix}inundation_extent_{input_test_case_2.huc}.tif')
+                input_inundation_ms = os.path.join(input_test_case_ms.dir, magnitude, f'{inundation_prefix}inundation_extent_{input_test_case_ms.huc}.tif')
+                input_inundation_fr = os.path.join(input_test_case_fr.dir, magnitude, f'{inundation_prefix}inundation_extent_{input_test_case_fr.huc}.tif')
                 output_inundation = os.path.join(composite_test_case.dir, magnitude, f'{inundation_prefix}inundation_extent.tif')
 
-                if os.path.isfile(input_inundation_1) and os.path.isfile(input_inundation_2):
+                if os.path.isfile(input_inundation_ms) and os.path.isfile(input_inundation_fr):
                     inundation_map_file = pd.DataFrame({ 
                                             'huc8' : [composite_test_case.huc] * 2,
                                             'branchID' : [None] * 2,
-                                            'inundation_rasters' : [input_inundation_1,input_inundation_2],
+                                            'inundation_rasters' : [input_inundation_ms,input_inundation_fr],
                                             'depths_rasters' : [None] * 2,
                                             'inundation_polygons' : [None] * 2
                                         })
@@ -282,6 +282,17 @@ class test_case(benchmark):
                                             nodata=elev_raster_ndv, workers=1, remove_inputs=False, subset=None, verbose=False
                                             )
                     composite_test_case._inundate_and_compute(magnitude, instance, compute_only=True)
+
+                elif os.path.isfile(input_inundation_ms) or os.path.isfile(input_inundation_fr): 
+                    # If only one model (MS or FR) has inundation, simply copy over all files as the composite
+                    single_test_case = input_test_case_ms if os.path.isfile(input_inundation_ms) else input_test_case_fr
+                    shutil.copytree(single_test_case.dir, re.sub(r'(.*)(_ms|_fr)', r'\1_comp', single_test_case.dir, count=1))
+                    composite_test_case.write_metadata(calibrated, 'COMP')
+                    return
+
+            # Clean up 'total_area' outputs from AHPS sites
+            if composite_test_case.is_ahps:
+                composite_test_case.clean_ahps_outputs(os.path.join(composite_test_case.dir, magnitude))
 
         composite_test_case.write_metadata(calibrated, 'COMP')
 

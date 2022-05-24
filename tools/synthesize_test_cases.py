@@ -215,8 +215,7 @@ if __name__ == '__main__':
     parser.add_argument('-l','--calibrated',help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir',required=False, default=False,action='store_true')
     parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.',required=True)
     parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
-    parser.add_argument('-jh','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
-    parser.add_argument('-jb','--job-number-branch',help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
+    parser.add_argument('-j','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
     parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
@@ -224,7 +223,6 @@ if __name__ == '__main__':
     parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=False,default=None)
     parser.add_argument('-d','--fr-run-dir',help='Name of test case directory containing FIM for FR model',required=False,default=None)
     parser.add_argument('-vr','--verbose',help='Verbose',required=False,default=None,action='store_true')
-    parser.add_argument('-vg','--gms-verbose',help='GMS Verbose Progress Bar',required=False,default=None,action='store_true')
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -241,7 +239,6 @@ if __name__ == '__main__':
     calibrated = args['calibrated']
     model = args['model']
     verbose = args['verbose']
-    gms_verbose = args['gms_verbose']
 
     # check job numbers
     total_cpus_requested = job_number_huc * job_number_branch
@@ -292,7 +289,7 @@ if __name__ == '__main__':
         
         # Loop through test_ids in bench_cat_id_list.
         for test_id in bench_cat_id_list:
-                       
+            
             current_huc, current_benchmark_category = test_id.split('_')
             if current_benchmark_category in bench_cat:
                 # Loop through versions.
