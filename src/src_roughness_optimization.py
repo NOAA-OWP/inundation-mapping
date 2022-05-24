@@ -126,7 +126,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     df_nvalues_mag = df_nvalues.pivot_table(index='HydroID', columns='magnitude', values=['hydroid_ManningN'], aggfunc='mean') # if there are multiple entries per hydroid and magnitude - aggregate using mean
     
     ## Optional: Export csv with the newly calculated Manning's N values
-    if debug_outputs_option == 'True':
+    if debug_outputs_option:
         output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
         df_nvalues.to_csv(output_calc_n_csv,index=False)
 
@@ -160,7 +160,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
         log_text += '----------------------------------------\n\n'
 
         ## Optional: Output csv with SRC calc stats
-        if debug_outputs_option == 'True':
+        if debug_outputs_option:
             output_stats_n_csv = os.path.join(fim_directory, huc, 'stats_src_n_vals_' + huc + '.csv')
             df_nrange.to_csv(output_stats_n_csv,index=True)
 
@@ -218,7 +218,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
                 output_catchments.to_file(catchments_poly_path,driver="GPKG",index=False) # overwrite the previous layer
                 df_nmerge.drop(['src_calibrated'], axis=1, inplace=True)
             ## Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
-            if debug_outputs_option == 'True':
+            if debug_outputs_option:
                 output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
                 df_nmerge.to_csv(output_merge_n_csv,index=False)
                 ## output new catchments polygon layer with several new attributes appended
