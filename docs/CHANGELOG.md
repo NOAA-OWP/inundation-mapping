@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.31.0 - 2022-05-24 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/597)
+
+Modifications to enable bathymetry adjusted rating curves (BARC) to be implemented to FR flow lines to better match the MS inundation where FR & MS overlap. This PR uses an input env parameter to control which stream orders BARC is applied to for both FR & MS (currently set to orders 4-9). 
+
+## Additions
+
+- `tools/copy_huc_dirs.py`: New utility script to copy a list of HUC fim output files from src directory to dst directory by feeding the script a list of HUC ids. This streamlines the development process when testing code modifications and performing the subsequent FIM evaluations.
+
+## Changes
+
+- `config/params_template.env`: Changed `ignore_streamorders` parameter to use a list of stream orders that will be ignored within BARC routine
+- `src/bathy_src_adjust_topwidth.py`: Revised to read a list of stream orders and then mask the BARC calculations for select stream orders
+- `src/utils/shared_variables.py`: Included a copy of the BARC input parameters to allow user to run BARC as a stand alone script (outside `fim_run.sh`) 
+
+<br/><br/>
+
 ## v3.0.30.0 - 2022-04-19 - [PR #577](https://github.com/NOAA-OWP/cahaba/pull/577)
 
 Modifications to enforce consistent hydroTable.csv column dimensions for all HUCs (huc8 and huc6).

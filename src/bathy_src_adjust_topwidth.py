@@ -12,6 +12,7 @@ from os.path import isfile, join, dirname, isdir
 import datetime as dt
 import sys
 from os import environ
+import json
 sns.set_theme(style="whitegrid")
 # from utils.shared_functions import mem_profile
 
@@ -29,19 +30,23 @@ sns.set_theme(style="whitegrid")
     src_plot_option : str
         Optional (True or False): use this flag to crate src plots for all hydroids
 """
+'''
+sa_ratio_flag = 10
+thal_stg_limit = 3
+bankful_xs_ratio_flag = 10
+bathy_xsarea_flag = 1
+thal_hyd_radius_flag = 10
+ignore_streamorder = [1,2,10]
+'''
 
-# sa_ratio_flag = 10
-# thal_stg_limit = 3
-# bankful_xs_ratio_flag = 10
-# bathy_xsarea_flag = 1
-# thal_hyd_radius_flag = 10
-# ignore_streamorder = 10
+# import utils.shared_variables # <-- use the shared variables stored here if running this as a stand alone script (outside fim_run.sh)
 sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag']) #10x --> Flag: Surface area ratio value to identify possible thalweg notch "jump" (SA x+1 / SA x)
 thal_stg_limit = float(environ['thalweg_stg_search_max_limit']) #3m --> Threshold: Stage value limit below which to look for the surface area ratio flag (only flag thalweg notch below this threshold)
 bankful_xs_ratio_flag = float(environ['bankful_xs_area_ratio_flag']) #10x --> Flag: Identify bogus BARC adjusted values where the regression bankfull XS Area/SRC bankfull area is > threshold (topwidth crosswalk issues or bad bankfull regression data points??)
 bathy_xsarea_flag = float(environ['bathy_xs_area_chg_flag']) #1x --> Flag: Cross section area limit to cap the amount of bathy XS area added to the SRC. Limits the bathy_calc_xs_area/ BANKFULL_XSEC_AREA to the specified threshold
 thal_hyd_radius_flag = float(environ['thalweg_hyd_radius_flag']) #10x --> Flag: Idenitify possible erroneous BARC-adjusted hydraulic radius values. BARC discharge values greater than the specified threshold and within the thal_stg_limit are set to 0
-ignore_streamorder = int(environ['ignore_streamorders']) #10 --> Do not perform BARC for streamorders >= provided value
+ignore_streamorder = json.loads(environ['ignore_streamorders']) #10 --> Do not perform BARC for streamorders >= provided value
+print('BARC will not be applied to these stream orders: ' + str(ignore_streamorder))
 
 def bathy_rc_lookup(args):
     input_src_fileName                  = args[0]
@@ -168,8 +173,9 @@ def bathy_rc_lookup(args):
         ## Merge bathy_calc_xs_area to the modified_src_base
         modified_src_base = modified_src_base.merge(xs_area_hydroid_lookup.loc[:,['HydroID','bathy_calc_xs_area','barc_on']],how='left',on='HydroID')
 
-        ## Mask/null the bathy calculated area for streamorders that the user wants to ignore (set bathy_cals_xs_area = 0 for streamorder = 10)
-        modified_src_base['bathy_calc_xs_area'].mask(modified_src_base['order_'] >= ignore_streamorder,0.0,inplace=True)
+        ## Mask/null the bathy calculated area for streamorders that the user wants to ignore (set bathy_cals_xs_area = 0 for streamorder = X)
+        modified_src_base['bathy_calc_xs_area'].mask(modified_src_base['order_'].isin(ignore_streamorder),0.0,inplace=True)
+        modified_src_base['barc_on'] = np.where(modified_src_base['bathy_calc_xs_area'] <= 0, False, True) # field to identify where vmann is on/off
 
         ## Calculate new bathy adjusted channel geometry variables
         modified_src_base = modified_src_base.rename(columns={'Discharge (m3s-1)':'raw_Discharge (m3s-1)','XS Area (m2)':'raw_XS Area (m2)','Volume (m3)':'raw_Volume (m3)','WetArea (m2)':'raw_WetArea (m2)','HydraulicRadius (m)':'raw_HydraulicRadius (m)'})
