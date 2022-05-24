@@ -193,7 +193,7 @@ echo "Loading HUC Data"
 time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/temp/water_edge_rc_adjust/WBD_National_copy.gpkg WBDHU8
 
 echo "Loading Point Data"
-time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/temp/water_edge_rc_adjust/known_water_edge_nws_usgs_magnitude.gpkg points
+time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg usgs_nws_benchmark_points -nln points
 
 echo -e $startDiv"Performing SRC adjustments using obs FIM/flow point database"$stopDiv
 if [ "$src_adjust_spatial" = "True" ]; then
