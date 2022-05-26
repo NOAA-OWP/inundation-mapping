@@ -2,6 +2,29 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.4.3 - 2022-05-26 - [PR #605](https://github.com/NOAA-OWP/inundation-mapping/pull/605)
+
+We needed a tool that could composite / mosaic inundation maps for FIM3 FR and FIM4 / GMS with stream orders 3 and higher. A tool previously existed named composite_fr_ms_inundation.py and it was renamed to composite_inundation.py and upgraded to handle any combination of 2 of 3 items (FIM3 FR, FIM3 MS and/or FIM4 GMS).
+
+## Additions
+
+- `tools/composite_inundation.py`: Technically it is a renamed from composite_ms_fr_inundation.py, and is based on that functionality, but has been heavily modified. It has a number of options, but primarily is designed to take two sets of output directories, inundate the files, then composite them into a single mosiac'd raster per huc. The primary usage is expected to be compositing FIM3 FR with FIM4 / GMS with stream orders 3 and higher. 
+
+- `unit_tests/gms/inundate_gms_unittests.py and inundate_gms_params.json`: for running unit tests against `tools/gms_tools/inunundate_gms.py`.
+- `unit_tests/shared_functions_unittests.py and shared_functions_params.json`: A new function named `append_id_to_file_name_single_identifier` was added to `src/utils/shared_functions.py` and some unit tests for that function was created.
+
+## Removed
+
+- `tools/composite_ms_fr_inundation.py`: replaced with upgraded version named `composite_inundation.py`.
+
+## Changes
+
+- `tools/gms_tools/inundate_gms.py`: some style, readabilty cleanup plus move a function up to `shared_functions.py`.
+- `tools/gms_tools/mosaic_inundation.py`: some style, readabilty cleanup plus move a function up to `shared_functions.py`.
+- `tools/inundation.py`: some style, readabilty cleanup.
+- `tools/synthesize_test_cases.py`: was updated primarily for sample usage notes. 
+<br/><br/>
+
 ## v4.0.4.2 - 2022-05-03 - [PR #594](https://github.com/NOAA-OWP/inundation-mapping/pull/594)
 
 This hotfix includes several revisions needed to fix/update the FIM4 area inundation evaluation scripts. These changes largely migrate revisions from the FIM3 evaluation code to the FIM4 evaluation code.
