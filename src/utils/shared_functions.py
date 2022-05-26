@@ -246,3 +246,42 @@ def mem_profile(func):
         else:
             func(*args, **kwargs)
     return wrapper
+
+def append_id_to_file_name(file_name, identifier):
+    '''
+    Processing:
+        Takes an incoming file name and inserts an identifier into the name
+        just ahead of the extension, with an underscore added.
+        ie) filename = "/output/myfolder/a_raster.tif"
+            indentifer = "13090001"
+            Becomes: "/output/myfolder/a_raster_13090001.tif"
+        Note: 
+            - Can handle a single identifier or a list of identifier
+              ie) identifier = ["13090001", "123000001"]
+              Becomes: "/output/myfolder/a_raster_13090001_123000001.tif"
+            - This allows for file name to not be submitted and will return None
+    Inputs:
+        file_name: a single file name
+        identifier: a value or list of values to be inserted with an underscore 
+            added ahead of the extention
+    Output:
+        out_file_name: A single name with each identifer added at the end before
+            the extension, each with an underscore in front of the identifier.
+    '''
+
+    if file_name is not None:
+
+        root,extension = os.path.splitext(file_name)
+
+        if isinstance(identifier, list):
+
+            out_file_name = root
+            for i in identifier:
+                out_file_name += "_{}".format(i)
+            out_file_name += extension
+        else:
+            out_file_name = root + "_{}".format(identifier) + extension
+    else:
+        out_file_name = None
+
+    return(out_file_name)
