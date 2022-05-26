@@ -157,9 +157,8 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path, scale, job_number
     for huc in huc_list:
         ## Check to make sure the HUC directory exists in the current fim_directory
         if not os.path.exists(os.path.join(fim_directory, huc)):
-            print("FIM Directory for huc: " + str(huc) + " does not exist --> skipping SRC adjustments for this HUC")
+            log_file.write("FIM Directory for huc: " + str(huc) + " does not exist --> skipping SRC adjustments for this HUC (obs points found)\n")
             continue
-        print(huc)
         ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
         if scale == 'HUC8':
             hand_path = os.path.join(fim_directory, huc, 'rem_zeroed_masked.tif')

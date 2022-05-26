@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import re
 import geopandas as gpd
+from time import sleep
 
 
 #########################################################################
@@ -13,6 +14,7 @@ import geopandas as gpd
 def aggregate_hydro_tables(root_dir):
 
     aggregate_df = pd.DataFrame()
+    aggregate_df["huc"] = ""
     dtype_dict_py ={'HydroID': int,'feature_id':int, 'SLOPE':float, 'AREASQKM':float, 'order_':int,'LENGTHKM':float,'LakeID':int, 'orig_ManningN':float}
     for huc_dir in os.listdir(root_dir):    
         if not re.search("^\d{6,8}$",huc_dir):        
@@ -20,7 +22,9 @@ def aggregate_hydro_tables(root_dir):
     
         hydroTable = pd.read_csv(os.path.join(root_dir, huc_dir, "hydroTable.csv"),dtype = dtype_dict_py)
         hydroTable = hydroTable.filter(['HydroID',"feature_id", 'SLOPE', 'AREASQKM','LENGTHKM','LakeID', 'order_', 'orig_ManningN', 'sinuosity'])
-        aggregate_df = aggregate_df.append(hydroTable)        
+        aggregate_df = aggregate_df.append(hydroTable)
+        aggregate_df["huc"] = huc_dir
+        aggregate_df = aggregate_df.drop_duplicates(subset=['HydroID'], keep='first')
     aggregate_df = aggregate_df.drop_duplicates(subset=['HydroID'], keep='first')
     return aggregate_df
 
@@ -65,9 +69,14 @@ def perform_merge(sierra_test_results,link_df,aggregate_df):
 #Perform merge
 #Given correct collection location of NLCD data, collects and merges into Hydroid data
 #########################################################################
-def aggregate_nlcd(pixel_dir,aggregate_df,run_type):
+
+def aggregate_nlcd(pixel_dir,infile,run_type):
     ms_or_fr = str(run_type)
     new_df = pd.DataFrame()
+    
+    
+    aggregate_df = pd.read_csv(infile)
+
     csv_data = aggregate_df
         
     for each_dir in os.listdir(pixel_dir):
@@ -129,7 +138,8 @@ if __name__ == '__main__':
     link_elev_table = args['link_elev_table']
     nlcd_pixel_count_dir = args['nlcd']
     run_type = args['run_type']
-    
+ 
+
 
 #reads in single geopackage contianing sierra test.
 sierra_test_results = assemble_sierra_test(sierra_test_input)
@@ -143,11 +153,14 @@ aggregate_df = aggregate_hydro_tables(fim_directory)
 #merges the hydrotable df with the sierra test df via the link table.
 aggregate_df_merged = perform_merge(sierra_test_results,link_df,aggregate_df)  
 
-#merges in the nlcd data. This requires looping through many entries. 
-aggregate_df_merged_with_nlcd = aggregate_nlcd(nlcd_pixel_count_dir,aggregate_df_merged,run_type) 
-
 #determines the output sans nlcd location and writes to csv.
 out_file_dest(aggregate_df_merged, output_csv_destination)
+
+#sleeps the script to make sure the file above gets written correctly
+sleep(60)
+
+#merges in the nlcd data. This requires looping through many entries. 
+aggregate_df_merged_with_nlcd = aggregate_nlcd(nlcd_pixel_count_dir,output_csv_destination,run_type) 
 
 #determines the output with nlcd location and writes to csv
 out_file_dest(aggregate_df_merged_with_nlcd, output_with_nlcd)
