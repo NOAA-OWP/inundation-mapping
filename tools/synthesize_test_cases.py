@@ -206,6 +206,17 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
         csv_writer = csv.writer(csvfile)
         csv_writer.writerows(list_to_write)
 
+def progress_bar_handler(executor_dict, verbose, desc):
+
+    for future in tqdm(as_completed(executor_dict),
+                    total=len(executor_dict),
+                    disable=(not verbose),
+                    desc=desc,
+                    ):
+        try:
+            future.result()
+        except Exception as exc:
+            print('{}, {}, {}'.format(executor_dict[future],exc.__class__.__name__,exc))
 
 if __name__ == '__main__':
 
@@ -229,7 +240,6 @@ if __name__ == '__main__':
     config = args['config']
     fim_version = args['fim_version']
     job_number_huc = args['job_number_huc']
-    job_number_branch = args['job_number_branch']
     special_string = args['special_string']
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
@@ -241,13 +251,12 @@ if __name__ == '__main__':
     verbose = args['verbose']
 
     # check job numbers
-    total_cpus_requested = job_number_huc * job_number_branch
     total_cpus_available = os.cpu_count() - 1
-    if total_cpus_requested > total_cpus_available:
+    if job_number_huc > total_cpus_available:
         raise ValueError('The HUC job number, {}, multiplied by the branch job number, {}, '\
                           'exceeds your machine\'s available CPU count minus one. '\
                           'Please lower the job_number_huc or job_number_branch'\
-                          'values accordingly.'.format(job_number_huc,job_number_branch)
+                          'values accordingly.'.format(job_number_huc,job_number_huc)
                         )
 
     # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
@@ -267,168 +276,63 @@ if __name__ == '__main__':
     else:
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
 
-    # List all available benchmark categories and test_cases.
-    test_cases_dir_list = os.listdir(TEST_CASES_DIR)
-    benchmark_category_list = []
-    if benchmark_category == "all":
-        for d in test_cases_dir_list:
-            if ('test_cases') in d:
-                benchmark_category_list.append(d.replace('_test_cases', ''))
-    else:
-        benchmark_category_list = [benchmark_category]
+    # Create a list of all test_cases for which we have validation data
+    all_test_cases = test_case.list_all_test_cases(version=fim_version, archive=archive_results, 
+            benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
+    
+    # Set up multiprocessor
+    with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
 
-    # Loop through benchmark categories.
-    procs_dict = {}
-    fr_proc_dict = {}
-    composite_procs_dict = {}
-    for bench_cat in benchmark_category_list:
-        
-        # Map path to appropriate test_cases folder and list test_ids into bench_cat_id_list.
-        bench_cat_test_case_dir = os.path.join(TEST_CASES_DIR, bench_cat + '_test_cases')
-        bench_cat_id_list = [bench for bench in os.listdir(bench_cat_test_case_dir) if re.match('\d{8}_', bench)]
-        
-        # Loop through test_ids in bench_cat_id_list.
-        for test_id in bench_cat_id_list:
+        ## Loop through all test cases, build the alpha test arguments, and submit them to the process pool
+        executor_dict = {}
+        for test_case_class in all_test_cases:
             
-            current_huc, current_benchmark_category = test_id.split('_')
-            if current_benchmark_category in bench_cat:
-                # Loop through versions.
-                for version in previous_fim_list:
-                    if config == 'DEV':
-                        fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
-                        fim_run_dir_fr = os.path.join(OUTPUTS_DIR, version.replace('_ms', '_fr'), current_huc)
-                    elif config == 'PREV':
-                        fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
-                        fim_run_dir_fr = os.path.join(PREVIOUS_FIM_DIR, version.replace('_ms', '_fr'), current_huc)
+            if not os.path.exists(test_case_class.fim_dir):
+                continue
 
-                    # For previous versions of HAND computed at HUC6 scale
-                    if not os.path.exists(fim_run_dir) and re.search('fim_[1,2]', version, re.IGNORECASE):
-                        if config == 'DEV':
-                            fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc[:6])
-                        elif config == 'PREV':
-                            fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
-                    
-                    # If a user supplies a special_string (-s), then add it to the end of the created dirs.
-                    if special_string != "":
-                        version = version + '_' + special_string
-
-                    # Define the magnitude lists to use, depending on test_id.
-                    magnitude = MAGNITUDE_DICT[current_benchmark_category]
-
-                    # Create composite args
-                    composite_procs_dict[test_id] = {'test_id':test_id, 'version_ms':version,  'version_fr':fr_run_dir,
-                                 'archive_results':archive_results, 'calibrated':calibrated, 'overwrite':overwrite}
-
-                    if os.path.exists(fim_run_dir):
-
-                        alpha_test_args = { 
-                                            'fim_run_dir': fim_run_dir, 
-                                            'version': version, 
-                                            'test_id': test_id, 
-                                            'magnitude': magnitude, 
-                                            'calibrated': calibrated,
-                                            'model': model,
-                                            'compare_to_previous': not archive_results, 
-                                            'archive_results': archive_results, 
-                                            'mask_type': 'huc',
-                                            'overwrite': overwrite
-                                            }
-                        procs_dict[test_id] = alpha_test_args
-
-                    if os.path.exists(fim_run_dir_fr) and fr_run_dir:
-
-                        alpha_test_args = { 
-                                            'fim_run_dir': fim_run_dir_fr, 
-                                            'version': fr_run_dir, 
-                                            'test_id': test_id, 
-                                            'magnitude': magnitude, 
-                                            'calibrated': calibrated,
-                                            'model': 'FR',
-                                            'compare_to_previous': False, 
-                                            'archive_results': archive_results, 
-                                            'mask_type': 'huc',
-                                            'overwrite': overwrite
-                                            }
-                        fr_proc_dict[test_id] = alpha_test_args
-
-    if job_number_huc == 1:
-        
-        number_of_hucs = len(procs_dict)
-        verbose_by_huc = not number_of_hucs == 1
-
-        for current_huc, alpha_test_args in tqdm(procs_dict.items(),total=number_of_hucs,disable=(not verbose_by_huc)):
-            #alpha_test_args.update({'gms_verbose': not verbose_by_huc})
-
-            try:
-                # FR MUST be run before MS / composite runs
-                if fr_run_dir:
-                    test_case.run_alpha_test(**fr_proc_dict)
-                    test_case.run_alpha_test(**alpha_test_args)
-                    test_case.composite(**composite_procs_dict)
-
-                else:
-                    test_case.run_alpha_test(**alpha_test_args)
-
-            except Exception as exc:
-                print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
-
-    # Multiprocess alpha test runs.
-    if job_number_huc > 1:
-        
-        with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-            ## Submit MS alpha tests to the pool
-            ms_executor_generator = { 
-                                executor.submit(test_case.run_alpha_test,**inp) : ids for ids,inp in procs_dict.items()
+            alpha_test_args = { 
+                                'calibrated': calibrated,
+                                'model': model,
+                                'mask_type': 'huc',
+                                'overwrite': overwrite
                                 }
+            executor_dict[executor.submit(test_case_class.alpha_test, **alpha_test_args)] = test_case_class.test_id
+        # Send the executor to the progress bar and wait for all MS tasks to finish
+        progress_bar_handler(executor_dict, verbose, f"Running MS test cases with {job_number_huc} workers")
+        wait(executor_dict.keys())
 
-            for future in tqdm(as_completed(ms_executor_generator),
-                            total=len(ms_executor_generator),
-                            disable=(not verbose),
-                            desc=f"Running MS test cases with {job_number_huc} workers",
-                            ):
-            
-                hucCode = ms_executor_generator[future]
+        ## Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
+        if model == 'MS' and fr_run_dir:
 
-                try:
-                    future.result()
-                except Exception as exc:
-                    print('{}, {}, {}'.format(hucCode,exc.__class__.__name__,exc))
-
-            wait(ms_executor_generator.keys())
-
-            ## Submit FR jobs to the pool
-            if model == 'MS' and fr_run_dir:
-                fr_executor_generator = { 
-                                    executor.submit(test_case.run_alpha_test,**inp) : ids for ids,inp in fr_proc_dict.items()
+            ## Rebuild all test cases list with the FR version, loop through them and apply the alpha test
+            all_test_cases = test_case.list_all_test_cases(version=fr_run_dir, archive=archive_results, 
+                    benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
+            executor_dict = {}
+            for test_case_class in all_test_cases:
+                if not os.path.exists(test_case_class.fim_dir):
+                    continue
+                alpha_test_args = { 
+                                    'calibrated': calibrated,
+                                    'model': model,
+                                    'mask_type': 'huc',
+                                    'overwrite': overwrite
                                     }
-                for future in tqdm(as_completed(fr_executor_generator),
-                            total=len(fr_executor_generator),
-                            disable=(not verbose),
-                            desc="Running FR test cases with {} workers".format(job_number_huc)):
-                    test_id = fr_executor_generator[future]
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        print('{}, {}, {}'.format(test_id,exc.__class__.__name__,exc))
+                executor_dict[executor.submit(test_case_class.alpha_test, **alpha_test_args)] = test_case_class.test_id
+            # Send the executor to the progress bar and wait for all FR tasks to finish
+            progress_bar_handler(executor_dict, verbose, f"Running FR test cases with {job_number_huc} workers")
+            wait(executor_dict.keys())
 
-                wait(fr_executor_generator.keys())
-
-            ## Submit composite jobs
-                comp_executor_generator = { 
-                                executor.submit(test_case.composite,**inp) : ids for ids,inp in composite_procs_dict.items()
-                                }
-                for future in tqdm(as_completed(comp_executor_generator),
-                                total=len(comp_executor_generator),
-                                disable=(not verbose),
-                                desc="Compositing test cases with {} workers".format(job_number_huc)):
-                
-                    hucCode = comp_executor_generator[future]
-
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        print('{}, {}, {}'.format(hucCode,exc.__class__.__name__,exc))
-
+            ## Loop through FR test cases, build composite arguments, and submit the composite method to the process pool
+            executor_dict = {}
+            for test_case_class in all_test_cases:
+                composite_args = { 
+                                    'version_2': fim_version, # this is the MS version name since `all_test_cases` are FR
+                                    'calibrated': calibrated,
+                                    'overwrite': overwrite
+                                    }
+                executor_dict[executor.submit(test_case_class.composite, **composite_args)] = test_case_class.test_id
+            # Send the executor to the progress bar
+            progress_bar_handler(executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers")
 
     if config == 'DEV':
         if dev_versions_to_compare != None:
