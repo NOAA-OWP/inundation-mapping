@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
+
+This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
+`run_test_case.py` has also been refactored to use a `test_case` python class. This workflow has shown decreased memory usage as compared to the previous version of `run_test_case.py`.
+
+## Changes
+
+- `tools/`
+    - `synthesize_test_cases.py`: Merged in `dev` branch (FIM 4) changes and re-factored to run FR, MS, and COMP `run_alpha_test` in that order (with multiprocessing).
+    - `run_test_case.py`: Merged in `dev` branch (FIM 4) changes and re-factored to run COMP tests after both FR and MS inundations/test cases are performed.
+    - `eval_plots.py`: Ensure that the new `_comp` folder produced in `synthesize_test_cases.py` is included in the plots.
+ - `src/`
+    - `inundation.py`: Included new data types to prevent memory usage warnings.
+
+<br/><br/>
+
 ## v3.0.31.0 - 2022-05-24 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/597)
 
 Modifications to enable bathymetry adjusted rating curves (BARC) to be implemented to FR flow lines to better match the MS inundation where FR & MS overlap. This PR uses an input env parameter to control which stream orders BARC is applied to for both FR & MS (currently set to orders 4-9). 

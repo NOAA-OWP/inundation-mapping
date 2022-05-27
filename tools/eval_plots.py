@@ -86,7 +86,7 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             elif 'fim_2' in label:
                 label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
             elif 'fim_3' in label and len(label) < 20:
-                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
+                label_dict[label] = re.split('_fr|_ms|_comp', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
             else:
@@ -253,7 +253,7 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
             elif 'fim_2' in label:
                 label_dict[label] = 'FIM 2' + ' ' + fim_configuration.lower()
             elif 'fim_3' in label and len(label) < 20:
-                label_dict[label] = re.split('_fr|_ms', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
+                label_dict[label] = re.split('_fr|_ms|_comp', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
             else:
@@ -600,13 +600,18 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         ###############################################################
         #This section will join ahps metrics to a spatial point layer
         ###############################################################
-        if all_datasets.get(('nws','MS')) and all_datasets.get(('usgs','MS')):
+        if (all_datasets.get(('nws','MS')) and all_datasets.get(('usgs','MS'))) or \
+            (all_datasets.get(('nws','COMP')) and all_datasets.get(('usgs','COMP'))): # export composite metrics to shp
             #Get point data for ahps sites
             #Get metrics for usgs and nws benchmark sources
-            usgs_dataset,sites = all_datasets.get(('usgs','MS'))
-            nws_dataset, sites = all_datasets.get(('nws','MS'))
+            try:
+                usgs_dataset,sites = all_datasets.get(('usgs','MS'))
+                nws_dataset, sites = all_datasets.get(('nws','MS'))
+            except TypeError: # Composite metrics
+                usgs_dataset,sites = all_datasets.get(('usgs','COMP'))
+                nws_dataset, sites = all_datasets.get(('nws','COMP'))
             #Append usgs/nws dataframes and filter unnecessary columns and rename remaining.
-            all_ahps_datasets = usgs_dataset.append(nws_dataset)
+            all_ahps_datasets = pd.concat([usgs_dataset, nws_dataset])
             all_ahps_datasets = all_ahps_datasets.filter(['huc','nws_lid','version','magnitude','TP_area_km2','FP_area_km2','TN_area_km2','FN_area_km2','CSI','FAR','TPR','PND','benchmark_source'])
             all_ahps_datasets.rename(columns = {'benchmark_source':'source'}, inplace = True)
 
@@ -634,13 +639,19 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         ################################################################
         #This section joins ble (FR) metrics to a spatial layer of HUCs.
         ################################################################
-        if all_datasets.get(('ble','FR')) and all_datasets.get(('ifc','FR')) and all_datasets.get(('ras2fim','FR')):
+        if (all_datasets.get(('ble','FR')) and all_datasets.get(('ifc','FR')) and all_datasets.get(('ras2fim','FR'))) or \
+            (all_datasets.get(('ble','COMP')) and all_datasets.get(('ifc','COMP')) and all_datasets.get(('ras2fim','COMP'))):
             #Select BLE, FR dataset.
-            ble_dataset, sites = all_datasets.get(('ble','FR'))
-            ifc_dataset, sites = all_datasets.get(('ifc','FR'))
-            ras2fim_dataset, sites = all_datasets.get(('ras2fim','FR'))
-            huc_datasets = ble_dataset.append(ifc_dataset)
-            huc_datasets = huc_datasets.append(ras2fim_dataset)
+            try:
+                ble_dataset, sites = all_datasets.get(('ble','FR'))
+                ifc_dataset, sites = all_datasets.get(('ifc','FR'))
+                ras2fim_dataset, sites = all_datasets.get(('ras2fim','FR'))
+            except TypeError:
+                ble_dataset, sites = all_datasets.get(('ble','COMP'))
+                ifc_dataset, sites = all_datasets.get(('ifc','COMP'))
+                ras2fim_dataset, sites = all_datasets.get(('ras2fim','COMP'))
+
+            huc_datasets = pd.concat([ble_dataset, ifc_dataset, ras2fim_dataset])
             #Read in HUC spatial layer
             wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer = 'WBDHU8')
             #Join metrics to HUC spatial layer
