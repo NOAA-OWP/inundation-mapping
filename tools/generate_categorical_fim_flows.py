@@ -21,7 +21,7 @@ def get_env_paths():
     return API_BASE_URL, WBD_LAYER
 
 
-def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
+def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, fim_dir):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -50,7 +50,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     None.
 
     '''
-    
+        
     all_start = time.time()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
@@ -73,6 +73,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     
     #Append the dataframes and lists
     all_lists = conus_list + islands_list
+    all_lists = all_lists[:4]  #TODO Remove, only used for testing
     
     print('Determining HUC using WBD layer...')
     #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
@@ -83,8 +84,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
-    print(EVALUATED_SITES_CSV)
-    print(os.path.exists(EVALUATED_SITES_CSV))
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
     #The entire routine to get mainstems is hardcoded in this function.
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
@@ -126,24 +125,45 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
                 message = f'{lid}:missing nwm segments'
                 all_messages.append(message)
                 continue
+            
             #For each flood category
             for category in flood_categories:
-                #Get the flow
-                flow = flows[category]
-                #If there is a valid flow value, write a flow file.
-                if flow:
-                    #round flow to nearest hundredth
-                    flow = round(flow,2)
-                    #Create the guts of the flow file.
-                    flow_info = flow_data(segments,flow)
-                    #Define destination path and create folders
-                    output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
-                    output_file.parent.mkdir(parents = True, exist_ok = True)
-                    #Write flow file to file
-                    flow_info.to_csv(output_file, index = False)
+                
+                # If running in the alternative CatFIM mode, then determine flows using the
+                # HAND synthetic rating curves, looking up the corresponding flows for datum-offset
+                # AHPS stage values.
+                if alt_catfim:
+                    stage = stages[category]
+                    print(stage)
+                    
+                    # Determine datum-offset stage.
+                    
+                    
+                    # Get path to relevant synthetic rating curve.
+                    src = os.path.join(fim_dir, huc, 'hydroTable.csv')
+                    
+                    # Interpolate flow value for offset stage.
+                    
+                    
+                    pass
                 else:
-                    message = f'{lid}:{category} is missing calculated flow'
-                    all_messages.append(message)
+                
+                    #Get the flow
+                    flow = flows[category]
+                    #If there is a valid flow value, write a flow file.
+                    if flow:
+                        #round flow to nearest hundredth
+                        flow = round(flow,2)
+                        #Create the guts of the flow file.
+                        flow_info = flow_data(segments,flow)
+                        #Define destination path and create folders
+                        output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
+                        output_file.parent.mkdir(parents = True, exist_ok = True)
+                        #Write flow file to file
+                        flow_info.to_csv(output_file, index = False)
+                    else:
+                        message = f'{lid}:{category} is missing calculated flow'
+                        all_messages.append(message)
 
             #Get various attributes of the site.
             lat = float(metadata['usgs_preferred']['latitude'])
@@ -233,6 +253,8 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
+    parser.add_argument('-a', '--alt-catfim', help = 'Run alternative CatFIM that bypasses synthetic rating curves?', required=False, default=False, action='store_true')
+    parser.add_argument('-d', '--fim-dir', help='Path to FIM outputs directory. Only use this option if you are running in alt-catfim mode.',required=False,default="")
     args = vars(parser.parse_args())
 
     #Run get_env_paths and static_flow_lids
