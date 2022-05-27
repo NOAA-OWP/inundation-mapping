@@ -68,6 +68,14 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     ## Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object, 'obs_source':object})
     df_prev_adj = pd.DataFrame() # initialize empty df for populating/checking later
+    if 'default_discharge_cms' not in df_htable.columns: # need this column to exist before continuing
+        df_htable['adjust_src_on'] = False
+        df_htable['last_updated'] = pd.NA
+        df_htable['submitter'] = pd.NA
+        df_htable['adjust_ManningN'] = pd.NA
+        df_htable['obs_source'] = pd.NA
+        df_htable['default_discharge_cms'] = pd.NA
+        df_htable['default_ManningN'] = pd.NA
     if df_htable['default_discharge_cms'].isnull().values.any(): # check if there are not valid values in the column (True = no previous calibration outputs)
         df_htable['default_discharge_cms'] = df_htable['discharge_cms'].values
         df_htable['default_ManningN'] = df_htable['ManningN'].values
@@ -90,6 +98,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
         find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
         ## copy the corresponding htable values for the matching stage->HAND lookup
         df_nvalues.loc[index,'feature_id'] = find_src_stage.feature_id
+        df_nvalues.loc[index,'LakeID'] = find_src_stage.LakeID
         df_nvalues.loc[index,'NextDownID'] = find_src_stage.NextDownID
         df_nvalues.loc[index,'LENGTHKM'] = find_src_stage.LENGTHKM
         df_nvalues.loc[index,'src_stage'] = find_src_stage.stage

@@ -74,7 +74,6 @@ def process_points(args):
     ## Use point geometry to determine HAND raster pixel values.
     hand_src = rasterio.open(hand_path)
     hand_crs = hand_src.crs
-    print(type(water_edge_df))
     water_edge_df.to_crs(hand_crs)  # Reproject geodataframe to match hand_src. Should be the same, but this is a double check.
     water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
     hand_src.close()
@@ -197,10 +196,16 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
     '''
     conn = connect() # Connect to the PostgreSQL db once before looping hucs
     print("Finding all hucs that contain calibration points...")
+    ## Record run time and close log file
+    run_time_start = dt.datetime.now()
+    log_file.write('Finding all hucs that contain calibration points...' + '\n')
     #huc_list_db = find_hucs_with_points(conn)
-    huc_list_db = ['10240011']
+    huc_list_db = ['07080206']
+    run_time_end = dt.datetime.now()
+    task_run_time = run_time_end - run_time_start
+    log_file.write('HUC SEARCH TASK RUN TIME: ' + str(task_run_time) + '\n')
     print(f"{len(huc_list_db)} hucs found in point database" + '\n')
-    log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n')
+    log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n\n')
 
     ## Ensure HUC id is either HUC8 or HUC6
     huc_list = []
@@ -230,7 +235,7 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
         if debug_outputs_option:
             huc_debug_pts_out = os.path.join(fim_directory, huc, 'debug_test_' + huc + '.csv')
             water_edge_df.to_csv(huc_debug_pts_out)
-            huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df' + huc + '.gpkg')
+            huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
 
         ## Check to make sure the HUC directory exists in the current fim_directory
