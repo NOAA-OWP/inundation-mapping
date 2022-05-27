@@ -65,6 +65,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
 
     print('Retrieving metadata...')
     #Get metadata for 'CONUS'
+    print(metadata_url)
     conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
 
     #Get metadata for Islands
