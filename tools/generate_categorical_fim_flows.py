@@ -228,8 +228,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             hand_flow_array = subset_hydroTable[["discharge_cms"]].to_numpy()
             hand_stage_array = hand_stage_array[:, 0]
             hand_flow_array = hand_flow_array[:, 0]
-            print(hand_stage_array)
-            print(hand_flow_array)
 
             #if no segments, write message and exit out
             if not segments:
@@ -237,7 +235,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 message = f'{lid}:missing nwm segments'
                 all_messages.append(message)
                 continue
-            
+            print(lid)
             #For each flood category
             for category in flood_categories:
                 
@@ -270,10 +268,23 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                     print("Interpolated flow")
                     print(interpolated_hand_flow)
                     print()
+                    
+                    #round flow to nearest hundredth
+                    flow = round(interpolated_hand_flow,2)
+                    print("flow")
+                    print(flow)
+                    #Create the guts of the flow file.
+                    flow_info = flow_data(segments,flow,convert_to_cms=False)
+                    print("flow_info")
+                    print(flow_info)
+                    #Define destination path and create folders
+                    output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
+                    output_file.parent.mkdir(parents = True, exist_ok = True)
+                    #Write flow file to file
+                    flow_info.to_csv(output_file, index = False)
 
                     
                 else:  # If running in default mode
-                
                     #Get the flow
                     flow = flows[category]
                     #If there is a valid flow value, write a flow file.
