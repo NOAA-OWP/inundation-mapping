@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import pandas as pd
+import numpy as np
 import time
 from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
 import argparse
@@ -220,6 +221,15 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             site_ms_segs = set(segments).intersection(ms_segs)
             segments = list(site_ms_segs)    
             nwm_feature_id = metadata['identifiers']['nwm_feature_id']
+            
+            # TODO Currently using feature_id, but need to identify the HydroID instead and group by that.
+            subset_hydroTable = hydroTable.loc[hydroTable['feature_id'] == nwm_feature_id]
+            hand_stage_array = subset_hydroTable[["stage"]].to_numpy()
+            hand_flow_array = subset_hydroTable[["discharge_cms"]].to_numpy()
+            hand_stage_array = hand_stage_array[:, 0]
+            hand_flow_array = hand_flow_array[:, 0]
+            print(hand_stage_array)
+            print(hand_flow_array)
 
             #if no segments, write message and exit out
             if not segments:
@@ -246,18 +256,22 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                     print(stage)
                     print("New stage")
                     print(datum_adj_stage)
-                    print()
                     
                     # Need feature_id for lid
-                    print("primary feature_id")
-                    print(nwm_feature_id)
-                    print("other segments")
-                    print(segments)
+#                    print("primary feature_id")
+#                    print(nwm_feature_id)
+#                    print("other segments")
+#                    print(segments)
+                    
+                    datum_adj_stage_m = datum_adj_stage*0.3048  # Convert ft to m
                     
                     # Interpolate flow value for offset stage.
+                    interpolated_hand_flow = np.interp(datum_adj_stage_m, hand_stage_array, hand_flow_array)
+                    print("Interpolated flow")
+                    print(interpolated_hand_flow)
+                    print()
+
                     
-                    
-                    pass
                 else:  # If running in default mode
                 
                     #Get the flow
