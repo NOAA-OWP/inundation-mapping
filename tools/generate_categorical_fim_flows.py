@@ -135,6 +135,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                                  'discharge_cms':float,'LakeID' : int, 
                                  'last_updated':object,'submitter':object,'adjust_ManningN':object,'obs_source':object}
                         )
+            catchments_path = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
 
         print(f'Iterating through {huc}')
         #Get list of nws_lids
@@ -158,8 +159,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
 
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
-            
-            
+            from pprint import pprint
+#            pprint(metadata)
+       
             ### --- Do Datum Offset --- ###
             #determine source of interpolated threshold flows, this will be the rating curve that will be used.
             rating_curve_source = flows.get('source')
@@ -222,8 +224,25 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             segments = list(site_ms_segs)    
             nwm_feature_id = metadata['identifiers']['nwm_feature_id']
             
-            # TODO Currently using feature_id, but need to identify the HydroID instead and group by that.
-            subset_hydroTable = hydroTable.loc[hydroTable['feature_id'] == nwm_feature_id]
+            longitude = metadata['usgs_data']['longitude']
+            latitude = metadata['usgs_data']['latitude']
+            
+            import geopandas as gpd
+            catchments_poly = gpd.read_file(catchments_path)
+            df = pd.DataFrame(
+                            {'feature_id': [nwm_feature_id],
+                             'Latitude': [latitude],
+                             'Longitude': [longitude]})
+            point_gdf = gpd.GeoDataFrame(df, crs=4269, geometry=gpd.points_from_xy(df.Longitude, df.Latitude))
+            point_gdf = point_gdf.to_crs(catchments_poly.crs)
+#            point_gdf.to_crs(catchments_poly.crs)
+
+            closest_catchment = gpd.sjoin(point_gdf, catchments_poly, how='left', op='within').reset_index(drop=True)
+            hydroid = closest_catchment.iloc[0]['HydroID']
+            hydroid = str(hydroid)
+        
+            # Subset by Hydroid
+            subset_hydroTable = hydroTable.loc[hydroTable['HydroID'] == hydroid]
             hand_stage_array = subset_hydroTable[["stage"]].to_numpy()
             hand_flow_array = subset_hydroTable[["discharge_cms"]].to_numpy()
             hand_stage_array = hand_stage_array[:, 0]
@@ -235,54 +254,35 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 message = f'{lid}:missing nwm segments'
                 all_messages.append(message)
                 continue
-            print(lid)
             #For each flood category
             for category in flood_categories:
                 
                 # If running in the alternative CatFIM mode, then determine flows using the
                 # HAND synthetic rating curves, looking up the corresponding flows for datum-offset
                 # AHPS stage values.
-                print(category)
                 if alt_catfim:
                     stage = stages[category]
-                    
-                    # Determine datum-offset stage (from above).
-                    datum_adj_stage = stage + datum_adj_ft
-                    print("datum_adj_ft")
-                    print(datum_adj_ft)
-                    print("Old stage")
-                    print(stage)
-                    print("New stage")
-                    print(datum_adj_stage)
-                    
-                    # Need feature_id for lid
-#                    print("primary feature_id")
-#                    print(nwm_feature_id)
-#                    print("other segments")
-#                    print(segments)
-                    
-                    datum_adj_stage_m = datum_adj_stage*0.3048  # Convert ft to m
-                    
-                    # Interpolate flow value for offset stage.
-                    interpolated_hand_flow = np.interp(datum_adj_stage_m, hand_stage_array, hand_flow_array)
-                    print("Interpolated flow")
-                    print(interpolated_hand_flow)
-                    print()
-                    
-                    #round flow to nearest hundredth
-                    flow = round(interpolated_hand_flow,2)
-                    print("flow")
-                    print(flow)
-                    #Create the guts of the flow file.
-                    flow_info = flow_data(segments,flow,convert_to_cms=False)
-                    print("flow_info")
-                    print(flow_info)
-                    #Define destination path and create folders
-                    output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
-                    output_file.parent.mkdir(parents = True, exist_ok = True)
-                    #Write flow file to file
-                    flow_info.to_csv(output_file, index = False)
+                    if len(hand_stage_array) > 0:
+                        # Determine datum-offset stage (from above).
+                        datum_adj_stage = stage + datum_adj_ft
+                        datum_adj_stage_m = datum_adj_stage*0.3048  # Convert ft to m
+                        
+                        # Interpolate flow value for offset stage.
+                        interpolated_hand_flow = np.interp(datum_adj_stage_m, hand_stage_array, hand_flow_array)
+                        stage = stages[category]
 
+                        #round flow to nearest hundredth
+                        flow = round(interpolated_hand_flow,2)
+                        #Create the guts of the flow file.
+                        flow_info = flow_data(segments,flow,convert_to_cms=False)
+                        #Define destination path and create folders
+                        output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
+                        output_file.parent.mkdir(parents = True, exist_ok = True)
+                        #Write flow file to file
+                        flow_info.to_csv(output_file, index = False)
+                    else:
+                        message = f'{lid}:{category} no stage information available'
+                        all_messages.append(message)
                     
                 else:  # If running in default mode
                     #Get the flow
