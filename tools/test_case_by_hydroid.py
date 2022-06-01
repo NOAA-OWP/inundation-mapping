@@ -1,12 +1,12 @@
 from run_test_case import test_case
-
+test_case.prepare()
 
 # Create a list of all test_cases for which we have validation data
 all_test_cases = test_case.list_all_test_cases(version=fim_version, archive=archive_results, 
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
 
 for test_case_class in all_test_cases:
-    agreement_dict = test_case_class.get_current_agreement()
+    agreement_dict = test_case_class.get_current_agreements()
     for mag in agreement_dict:
         for agree in agreement_dict[mag]:
 
