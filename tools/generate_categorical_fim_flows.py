@@ -2,6 +2,7 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import geopandas as gpd
 import time
 from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
 import argparse
@@ -128,6 +129,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
         if alt_catfim:  # Only need to read in hydroTable if running in alt mode.
             # Get path to relevant synthetic rating curve.
             hydroTable_path = os.path.join(fim_dir, huc, 'hydroTable.csv')
+            if not os.path.exists(hydroTable_path):
+                continue
             hydroTable = pd.read_csv(
                          hydroTable_path,
                          dtype={'HUC':str,'feature_id':str,
@@ -135,7 +138,11 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                                  'discharge_cms':float,'LakeID' : int, 
                                  'last_updated':object,'submitter':object,'adjust_ManningN':object,'obs_source':object}
                         )
+
             catchments_path = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+            if not os.path.exists(catchments_path):
+                continue
+            catchments_poly = gpd.read_file(catchments_path)
 
         print(f'Iterating through {huc}')
         #Get list of nws_lids
@@ -211,7 +218,11 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             datum_adj_ft = 0.0
             if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
                 #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
-                datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
+                try:
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
+                except Exception as e:
+                    all_messages.append(e)
+                    
 #                datum88 = round(datum + datum_adj_ft, 2)
 #            else:
 #                datum88 = datum
@@ -227,13 +238,11 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             longitude = metadata['usgs_data']['longitude']
             latitude = metadata['usgs_data']['latitude']
             
-            import geopandas as gpd
-            catchments_poly = gpd.read_file(catchments_path)
             df = pd.DataFrame(
                             {'feature_id': [nwm_feature_id],
                              'Latitude': [latitude],
                              'Longitude': [longitude]})
-            point_gdf = gpd.GeoDataFrame(df, crs=4269, geometry=gpd.points_from_xy(df.Longitude, df.Latitude))
+            point_gdf = gpd.GeoDataFrame(df, crs=4269, geometry=gpd.points_from_xy(df.Longitude, df.Latitude))  # TODO dynamic CRS determination
             point_gdf = point_gdf.to_crs(catchments_poly.crs)
 #            point_gdf.to_crs(catchments_poly.crs)
 
@@ -262,7 +271,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 # AHPS stage values.
                 if alt_catfim:
                     stage = stages[category]
-                    if len(hand_stage_array) > 0:
+                    if len(hand_stage_array) > 0 and stage != None and datum_adj_ft != None:
                         # Determine datum-offset stage (from above).
                         datum_adj_stage = stage + datum_adj_ft
                         datum_adj_stage_m = datum_adj_stage*0.3048  # Convert ft to m
