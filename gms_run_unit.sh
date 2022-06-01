@@ -129,6 +129,7 @@ export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_strea
 export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
 export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 export deny_gms_unit_list=$deny_gms_unit_list
+export extent=GMS
 
 ## Input handling ##
 $srcDir/check_huc_inputs.py -u "$hucList"

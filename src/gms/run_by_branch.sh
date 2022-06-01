@@ -39,19 +39,6 @@ mkdir -p $outputCurrentBranchDataDir
 ## START MESSAGE ##
 echo -e $startDiv"Processing branch_id: $current_branch_id in HUC: $hucNumber ..."$stopDiv
 
-## CLIP RASTERS
-echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-$srcDir/gms/clip_rasters_to_branches.py -d $current_branch_id -b $outputHucDataDir/branch_polygons.gpkg -i $branch_id_attribute -r $input_DEM -c $outputCurrentBranchDataDir/dem_meters.tif -v 
-Tcount
-
-## GET RASTER METADATA
-echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
-
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"$stopDiv
 date -u
@@ -66,14 +53,32 @@ ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentB
 #ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_headwaters_$current_branch_id.gpkg $outputHucDataDir/nwm_headwaters.gpkg
 Tcount
 
-## RASTERIZE NLD MULTILINES ##
-echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $current_branch_id"$stopDiv
+
+#############################################################################################################################
+
+## CLIP RASTERS
+echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-# REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-gdal_rasterize -l nld_subset_levees -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputCurrentBranchDataDir/nld_rasterized_elev_$current_branch_id.tif
+$srcDir/gms/clip_rasters_to_branches.py -d $current_branch_id -b $outputHucDataDir/branch_polygons.gpkg -i $branch_id_attribute \
+-r $outputBranchDataDir/$zero_branch_id/dem_meters.tif\
+ $outputBranchDataDir/$zero_branch_id/dem_thalwegCond.tif\
+ $outputBranchDataDir/$zero_branch_id/flowdir_d8_burned_filled.tif\
+ $outputBranchDataDir/$zero_branch_id/slopes_d8_dem_meters.tif \
+-c $outputCurrentBranchDataDir/dem_meters.tif\
+ $outputCurrentBranchDataDir/dem_thalwegCond.tif\
+ $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif\
+ $outputCurrentBranchDataDir/slopes_d8_dem_meters.tif \
+-v
 Tcount
+
+## GET RASTER METADATA
+echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"$stopDiv
+date -u
+Tstart
+read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
+
+#############################################################################################################################
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"$stopDiv
@@ -89,43 +94,11 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg $outputCurrentBranchDataDir/headwaters_$current_branch_id.tif
 Tcount
 
-## BURN LEVEES INTO DEM ##
-echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwrite dem_meters.tif output) $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-# REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f $outputCurrentBranchDataDir/nld_rasterized_elev_$current_branch_id.tif ] && \
-python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $outputCurrentBranchDataDir/nld_rasterized_elev_$current_branch_id.tif -out $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif
-Tcount
-
-## DEM Reconditioning ##
-# Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
-# This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/agreedem.py -r $outputCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif -d $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -w $outputCurrentBranchDataDir -g $outputCurrentBranchDataDir/temp_work -o $outputCurrentBranchDataDir/dem_burned_$current_branch_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
-Tcount
-
-## PIT REMOVE BURNED DEM ##
-echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-rd_depression_filling $outputCurrentBranchDataDir/dem_burned_$current_branch_id.tif $outputCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
-Tcount
-
-## D8 FLOW DIR ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
-Tcount
-
 ## D8 FLOW ACCUMULATIONS ##
 echo -e $startDiv"D8 Flow Accumulations $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$taudemDir/aread8 -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif -ad8  $outputCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif -wg  $outputCurrentBranchDataDir/headwaters_$current_branch_id.tif -nc
+$taudemDir/aread8 -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif -ad8  $outputCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif -wg $outputCurrentBranchDataDir/headwaters_$current_branch_id.tif -nc
 Tcount
 
 # THRESHOLD ACCUMULATIONS ##
