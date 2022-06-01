@@ -151,7 +151,8 @@ def find_points_in_huc(huc_id, conn):
     return water_edge_df
 
 
-def find_hucs_with_points(conn):
+def find_hucs_with_points(conn,fim_out_huc_list):
+    print(fim_out_huc_list)
     '''
     The function queries the PostgreSQL database and returns a list of all the HUCs that contain calb point data.
 
@@ -166,10 +167,13 @@ def find_hucs_with_points(conn):
     '''
 
     cursor = conn.cursor()
+    '''
     cursor.execute("""
         SELECT DISTINCT H.huc8
         FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom);
     """)
+    '''
+    cursor.execute("SELECT DISTINCT H.huc8 FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom) WHERE H.huc8 = ANY(%s);", (fim_out_huc_list,))
     hucs_fetch = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
     hucs_wpoints = []
     for huc in hucs_fetch:
@@ -195,11 +199,13 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
     - procs_list:           passes multiprocessing list of input args for process_points function input
     '''
     conn = connect() # Connect to the PostgreSQL db once before looping hucs
-    print("Finding all hucs that contain calibration points...")
+    print("Finding all fim_output hucs that contain calibration points...")
+    fim_out_huc_list  = [ item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item)) ]
+    fim_out_huc_list.remove('logs')
     ## Record run time and close log file
     run_time_start = dt.datetime.now()
     log_file.write('Finding all hucs that contain calibration points...' + '\n')
-    huc_list_db = find_hucs_with_points(conn)
+    huc_list_db = find_hucs_with_points(conn,fim_out_huc_list)
     #huc_list_db = ['07080206']
     run_time_end = dt.datetime.now()
     task_run_time = run_time_end - run_time_start
