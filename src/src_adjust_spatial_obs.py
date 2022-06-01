@@ -143,7 +143,7 @@ def find_points_in_huc(huc_id, conn):
     JOIN hucs H ON ST_Contains(H.geom, P.geom)
     WHERE H.huc8 = %s """
     
-    # Need to hard code the CRS to use EPSG:5070 instead of the default ESRI:102039 (gdal pyproj throws an error with 102039)
+    # Need to hard code the CRS to use EPSG:5070 instead of the default ESRI:102039 (gdal pyproj throws an error with crs 102039)
     # Appears that EPSG:5070 is functionally equivalent to ESRI:102039: https://gis.stackexchange.com/questions/329123/crs-interpretation-in-qgis
     water_edge_df = gpd.GeoDataFrame.from_postgis(huc_pt_query, con=conn, params=[huc_id], crs="EPSG:5070", parse_dates=['coll_time'])
     water_edge_df = water_edge_df.drop(columns=['st_x','st_y'])
@@ -199,8 +199,8 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
     ## Record run time and close log file
     run_time_start = dt.datetime.now()
     log_file.write('Finding all hucs that contain calibration points...' + '\n')
-    #huc_list_db = find_hucs_with_points(conn)
-    huc_list_db = ['07080206']
+    huc_list_db = find_hucs_with_points(conn)
+    #huc_list_db = ['07080206']
     run_time_end = dt.datetime.now()
     task_run_time = run_time_end - run_time_start
     log_file.write('HUC SEARCH TASK RUN TIME: ' + str(task_run_time) + '\n')
