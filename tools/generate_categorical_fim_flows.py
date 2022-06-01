@@ -94,15 +94,15 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
     #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
     #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     #of all sites used later in script.
-#    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
+    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
 
     import json
 #    print("Writing huc dictionary")
 #    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json', "w") as outfile:
 #        json.dump(huc_dictionary, outfile)
 
-    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json') as json_file:
-        huc_dictionary = json.load(json_file)
+#    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json') as json_file:
+#        huc_dictionary = json.load(json_file)
 
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
