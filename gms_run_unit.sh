@@ -65,9 +65,9 @@ in
         shift
         deny_gms_unit_list=$1
         ;;
-	 -s|--dropLowStreamOrders)
-		  dropLowStreamOrders=1
-		  ;;
+    -s|--dropLowStreamOrders)
+        dropLowStreamOrders=1
+        ;;
     *) ;;
     esac
     shift

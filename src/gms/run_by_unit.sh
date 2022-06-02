@@ -7,7 +7,7 @@ T_total_start
 hucNumber="$1"
 outputHucDataDir=$outputRunDataDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
-
+current_branch_id=$zero_branch_id
 
 ## huc data
 if [ -d "$outputHucDataDir" ]; then
@@ -186,168 +186,21 @@ Tstart
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputCurrentBranchDataDir/dem_burned_filled.tif -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif
 Tcount
 
-## D8 FLOW ACCUMULATIONS ##
-echo -e $startDiv"D8 Flow Accumulations $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$taudemDir/aread8 -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -ad8  $outputCurrentBranchDataDir/flowaccum_d8_burned_filled.tif -wg  $outputCurrentBranchDataDir/headwaters.tif -nc
-Tcount
-
-# THRESHOLD ACCUMULATIONS ##
-echo -e $startDiv"Threshold Accumulations $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$taudemDir/threshold -ssa $outputCurrentBranchDataDir/flowaccum_d8_burned_filled.tif -src $outputCurrentBranchDataDir/demDerived_streamPixels.tif -thresh 1
-Tcount
-
-## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
-echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/unique_pixel_and_allocation.py -s $outputCurrentBranchDataDir/demDerived_streamPixels.tif -o $outputCurrentBranchDataDir/demDerived_streamPixels_ids.tif -g $outputCurrentBranchDataDir/temp_grass
-Tcount
-
-## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
-echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/adjust_thalweg_lateral.py -e $outputCurrentBranchDataDir/dem_meters.tif -s $outputCurrentBranchDataDir/demDerived_streamPixels.tif -a $outputCurrentBranchDataDir/demDerived_streamPixels_ids_allo.tif -d $outputCurrentBranchDataDir/demDerived_streamPixels_ids_dist.tif -t 50 -o $outputCurrentBranchDataDir/dem_lateral_thalweg_adj.tif -th $thalweg_lateral_elev_threshold
-Tcount
-
-## MASK BURNED DEM FOR STREAMS ONLY ###
-echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -B $outputCurrentBranchDataDir/demDerived_streamPixels.tif --calc="A/B" --outfile="$outputCurrentBranchDataDir/flowdir_d8_burned_filled_flows.tif" --NoDataValue=0
-Tcount
-
-## FLOW CONDITION STREAMS ##
-echo -e $startDiv"Flow Condition Thalweg $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$taudemDir/flowdircond -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled_flows.tif -z $outputCurrentBranchDataDir/dem_lateral_thalweg_adj.tif -zfdc $outputCurrentBranchDataDir/dem_thalwegCond.tif
-Tcount
-
-## D8 SLOPES ##
-echo -e $startDiv"D8 Slopes from DEM $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputCurrentBranchDataDir/dem_lateral_thalweg_adj.tif -sd8 $outputCurrentBranchDataDir/slopes_d8_dem_meters.tif
-Tcount
-
-# STREAMNET FOR REACHES ##
-echo -e $startDiv"Stream Net for Reaches $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$taudemDir/streamnet -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -fel $outputCurrentBranchDataDir/dem_thalwegCond.tif -ad8 $outputCurrentBranchDataDir/flowaccum_d8_burned_filled.tif -src $outputCurrentBranchDataDir/demDerived_streamPixels.tif -ord $outputCurrentBranchDataDir/streamOrder.tif -tree $outputCurrentBranchDataDir/treeFile.txt -coord $outputCurrentBranchDataDir/coordFile.txt -w $outputCurrentBranchDataDir/sn_catchments_reaches.tif -net $outputCurrentBranchDataDir/demDerived_reaches.shp
-Tcount
-
-## SPLIT DERIVED REACHES ##
-echo -e $startDiv"Split Derived Reaches $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches.shp -d $outputCurrentBranchDataDir/dem_thalwegCond.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg -ds $dropLowStreamOrders
-Tcount
-
-## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -gw $outputCurrentBranchDataDir/gw_catchments_reaches.tif -o $outputCurrentBranchDataDir/demDerived_reaches_split_points.gpkg -id $outputCurrentBranchDataDir/idFile.txt
-Tcount
-
-## VECTORIZE FEATURE ID CENTROIDS ##
-echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$srcDir/reachID_grid_to_vector_points.py -r $outputCurrentBranchDataDir/demDerived_streamPixels.tif -i featureID -p $outputCurrentBranchDataDir/flows_points_pixels.gpkg
-Tcount
-
-## GAGE WATERSHED FOR PIXELS ##
-echo -e $startDiv"Gage Watershed for Pixels $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-mpiexec -n $ncores_gw $taudemDir/gagewatershed -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -gw $outputCurrentBranchDataDir/gw_catchments_pixels.tif -o $outputCurrentBranchDataDir/flows_points_pixels.gpkg -id $outputCurrentBranchDataDir/idFile.txt
-Tcount
-
-# D8 REM ##
-echo -e $startDiv"D8 REM $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$srcDir/gms/rem.py -d $outputCurrentBranchDataDir/dem_thalwegCond.tif -w $outputCurrentBranchDataDir/gw_catchments_pixels.tif -o $outputCurrentBranchDataDir/rem.tif -t $outputCurrentBranchDataDir/demDerived_streamPixels.tif
-Tcount
-
-## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
-echo -e $startDiv"Bring negative values in REM to zero and mask to catchments $hucNumber $zero_branch_id"$stopDiv
-date -u
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem.tif -B $outputCurrentBranchDataDir/gw_catchments_reaches.tif --calc="(A*(A>=0)*(B>0))" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked.tif"
-Tcount
-
-## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
-if [ -f $outputHucDataDir/LandSea_subset.gpkg ]; then
-    echo -e $startDiv"Rasterize filtered/dissolved ocean/lake polygon $hucNumber $zero_branch_id"$stopDiv
-    date -u
-    Tstart
-
-    gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LandSea_subset.gpkg $outputCurrentBranchDataDir/LandSea_subset.tif
-    Tcount
+## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
+export hucNumber=$hucNumber
+export current_branch_id=$current_branch_id
+export outputCurrentBranchDataDir=$outputCurrentBranchDataDir
+export outputHucDataDir=$outputHucDataDir
+export ndv=$ndv
+export xmin=$xmin
+export ymin=$ymin
+export xmax=$xmax
+export ymax=$ymax
+export ncols=$ncols
+export nrows=$nrows
+if [ $dropLowStreamOrders != 0 ]; then # only produce branch zero HAND if low stream orders are dropped
+    $srcDir/gms/delineate_hydros_and_produce_HAND.sh "unit"
 fi
-
-## POLYGONIZE REACH WATERSHEDS ##
-echo -e $startDiv"Polygonize Reach Watersheds $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-gdal_polygonize.py -8 -f GPKG $outputCurrentBranchDataDir/gw_catchments_reaches.tif $outputCurrentBranchDataDir/gw_catchments_reaches.gpkg catchments HydroID
-Tcount
-
-## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
-echo -e $startDiv"Process catchments and model streams $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber -s $dropLowStreamOrders
-
-
-## RASTERIZE NEW CATCHMENTS AGAIN ##
-echo -e $startDiv"Rasterize filtered catchments $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-gdal_rasterize -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes.tif
-Tcount
-
-## MASK SLOPE TO CATCHMENTS ##
-echo -e $startDiv"Mask to slopes to catchments $hucNumber $zero_branch_id"$stopDiv
-date -u
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/slopes_d8_dem_meters.tif -B $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes.tif --calc="A*(B>0)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/slopes_d8_dem_meters_masked.tif
-Tcount
-
-## MAKE CATCHMENT AND STAGE FILES ##
-echo -e $startDiv"Generate Catchment List and Stage List Files $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$srcDir/make_stages_and_catchlist.py -f $outputCurrentBranchDataDir/demDerived_reaches_split_filtered.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -s $outputCurrentBranchDataDir/stage.txt -a $outputCurrentBranchDataDir/catch_list.txt -m $stage_min_meters -i $stage_interval_meters -t $stage_max_meters
-Tcount
-
-## MASK REM RASTER TO REMOVE OCEAN AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove ocean/lake areas $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-[ -f $outputCurrentBranchDataDir/LandSea_subset.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem_zeroed_masked.tif -B $outputCurrentBranchDataDir/LandSea_subset_$current_node_id.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked.tif"
-Tcount
-
-## HYDRAULIC PROPERTIES ##
-echo -e $startDiv"Sample reach averaged parameters $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-$taudemDir/catchhydrogeo -hand $outputCurrentBranchDataDir/rem_zeroed_masked.tif -catch $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes.tif -catchlist $outputCurrentBranchDataDir/catch_list.txt -slp $outputCurrentBranchDataDir/slopes_d8_dem_meters_masked.tif -h $outputCurrentBranchDataDir/stage.txt -table $outputCurrentBranchDataDir/src_base.csv
-Tcount
-
-## FINALIZE CATCHMENTS AND MODEL STREAMS ##
-echo -e $startDiv"Finalize catchments and model streams $hucNumber $zero_branch_id"$stopDiv
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/add_crosswalk.py -d $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes.gpkg -a $outputCurrentBranchDataDir/demDerived_reaches_split_filtered.gpkg -s $outputCurrentBranchDataDir/src_base.csv -l $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked.gpkg -r $outputCurrentBranchDataDir/src_full_crosswalked.csv -j $outputCurrentBranchDataDir/src.json -x $outputCurrentBranchDataDir/crosswalk_table.csv -t $outputCurrentBranchDataDir/hydroTable.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -y $outputCurrentBranchDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -p $extent -k $outputCurrentBranchDataDir/small_segments.csv
-Tcount
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs in zero branch $hucNumber"$stopDiv
