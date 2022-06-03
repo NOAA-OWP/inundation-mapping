@@ -1,3 +1,6 @@
+
+## DEPRECATED - May 27, 2022
+
 version: '3.5'
 services:
   fim_frontend_gui:
