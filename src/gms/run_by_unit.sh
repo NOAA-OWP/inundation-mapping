@@ -7,7 +7,7 @@ T_total_start
 hucNumber="$1"
 outputHucDataDir=$outputRunDataDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
-current_branch_id=$zero_branch_id
+current_branch_id=$branch_zero_id
 
 ## huc data
 if [ -d "$outputHucDataDir" ]; then
@@ -90,26 +90,24 @@ Tcount
 echo -e $startDiv"Create file of branch ids for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/generate_branch_list.py -o $outputHucDataDir/branch_id.lst -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -b $branch_id_attribute
+if [ $dropLowStreamOrders != 0 ]; then # only add branch zero to branch list if low stream orders are dropped
+    $srcDir/gms/generate_branch_list.py -o $outputHucDataDir/branch_id.lst -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -b $branch_id_attribute -z $branch_zero_id
+else
+    $srcDir/gms/generate_branch_list.py -o $outputHucDataDir/branch_id.lst -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -b $branch_id_attribute
+fi
+
 Tcount
 
 ## CREATE BRANCH ZERO ##
 echo -e $startDiv"Creating branch zero for $hucNumber"$stopDiv
-outputBranchDataDir=$outputHucDataDir/branches
-outputCurrentBranchDataDir=$outputBranchDataDir/$zero_branch_id
-
-# set input files
-input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
-input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
-input_bathy_bankfull=$inputDataDir/$bankfull_input_table
-input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
+outputCurrentBranchDataDir=$outputBranchDataDir/$branch_zero_id
 
 ## OVERWRITE
 if [ -d "$outputCurrentBranchDataDir" ];then
     if [ $overwrite -eq 1 ]; then
         rm -rf $outputCurrentBranchDataDir
     else
-        echo "GMS branch data directories for $hucNumber - $zero_branch_id already exist. Use -o/--overwrite to continue"
+        echo "GMS branch data directories for $hucNumber - $branch_zero_id already exist. Use -o/--overwrite to continue"
         exit 1
     fi
 fi
@@ -118,72 +116,72 @@ fi
 mkdir -p $outputCurrentBranchDataDir
 
 ## CLIP RASTERS
-echo -e $startDiv"Clipping rasters to branches $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
 [ ! -f $outputCurrentBranchDataDir/dem_meters.tif ] && \
-gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputCurrentBranchDataDir/dem_meters.tif
+gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
 Tcount
 
 ## GET RASTER METADATA
-echo -e $startDiv"Get DEM Metadata $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputCurrentBranchDataDir/dem_meters.tif)
+read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif)
 
 ## RASTERIZE NLD MULTILINES ##
-echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-gdal_rasterize -l nld_subset_levees -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputCurrentBranchDataDir/nld_subset_levees.tif
+gdal_rasterize -l nld_subset_levees -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputCurrentBranchDataDir/nld_subset_levees_$branch_zero_id.tif
 Tcount
 
 ## BURN LEVEES INTO DEM ##
-echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwrite dem_meters.tif output) $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $outputCurrentBranchDataDir/nld_subset_levees.tif ] && \
-python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputCurrentBranchDataDir/dem_meters.tif -nld $outputCurrentBranchDataDir/nld_subset_levees.tif -out $outputCurrentBranchDataDir/dem_meters.tif
+python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif -nld $outputCurrentBranchDataDir/nld_subset_levees_$branch_zero_id.tif -out $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
-echo -e $startDiv"Rasterize Reach Boolean $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_subset_streams.gpkg $outputCurrentBranchDataDir/flows_grid_boolean.tif
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_subset_streams.gpkg $outputCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
 Tcount
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
-echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nhd_headwater_points_subset.gpkg $outputCurrentBranchDataDir/headwaters.tif
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nhd_headwater_points_subset.gpkg $outputCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
 
 ## DEM Reconditioning ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/agreedem.py -r $outputCurrentBranchDataDir/flows_grid_boolean.tif -d $outputCurrentBranchDataDir/dem_meters.tif -w $outputCurrentBranchDataDir -g $outputCurrentBranchDataDir/temp_work -o $outputCurrentBranchDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+python3 -m memory_profiler $srcDir/agreedem.py -r $outputCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif -d $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif -w $outputCurrentBranchDataDir -g $outputCurrentBranchDataDir/temp_work -o $outputCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
-echo -e $startDiv"Pit remove Burned DEM $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-rd_depression_filling $outputCurrentBranchDataDir/dem_burned.tif $outputCurrentBranchDataDir/dem_burned_filled.tif
+rd_depression_filling $outputCurrentBranchDataDir/dem_burned_$branch_zero_id.tif $outputCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 Tcount
 
 ## D8 FLOW DIR ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $zero_branch_id"$stopDiv
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputCurrentBranchDataDir/dem_burned_filled.tif -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 Tcount
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
@@ -200,13 +198,15 @@ export ncols=$ncols
 export nrows=$nrows
 if [ $dropLowStreamOrders != 0 ]; then # only produce branch zero HAND if low stream orders are dropped
     $srcDir/gms/delineate_hydros_and_produce_HAND.sh "unit"
+else
+    echo -e $startDiv"Skipping branch zero processing because there are no stream orders being dropped $hucNumber"$stopDiv
 fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
-echo -e $startDiv"Cleaning up outputs in zero branch $hucNumber"$stopDiv
+echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/output_cleanup.py $hucNumber $outputCurrentBranchDataDir -v -w dem_meters.tif slopes_d8_dem_meters.tif 
+python3 -m memory_profiler $srcDir/output_cleanup.py $hucNumber $outputCurrentBranchDataDir -v -w dem_meters_$branch_zero_id.tif dem_thalwegCond_$branch_zero_id.tif slopes_d8_dem_meters_$branch_zero_id.tif flowdir_d8_burned_filled_$branch_zero_id.tif rem_zeroed_masked_$branch_zero_id.tif gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg demDerived_reaches_split_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg gw_catchments_reaches_filtered_addedAttributes_$branch_zero_id.tif hydroTable_$branch_zero_id.csv src_$branch_zero_id.json small_segments_$branch_zero_id.csv src_full_crosswalked_$branch_zero_id.csv demDerived_reaches_split_points_$branch_zero_id.gpkg
 Tcount
 
 ## CREATE USGS GAGES FILE
