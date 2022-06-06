@@ -64,7 +64,8 @@ def assemble_hydro_alpha_for_single_huc(stats):
 if __name__ == "__main__":
     
 
-    parser = argparse.ArgumentParser(description='Computes pixel counts for raster classes within a vector area.')
+    parser = argparse.ArgumentParser(description='Produces alpha metrics by hyrdoid per a huc.')
+
     parser.add_argument('-g', '--huc_gpkg',
                         help='Path to hydroid geopackage',
                         required=True)
@@ -74,6 +75,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--csv',
                         help='Path to folder to hold exported csv files per huc.',
                         required=True)
+    
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     huc_gpkg = args['huc_gpkg']
@@ -82,5 +84,6 @@ if __name__ == "__main__":
     
 #execution code
 
-
-
+stats = perform_zonal_stats(huc_gpkg,agree_rast)
+in_mem_df = assemble_hydro_alpha_for_single_huc(stats)
+in_mem_df.to_csv(csv)

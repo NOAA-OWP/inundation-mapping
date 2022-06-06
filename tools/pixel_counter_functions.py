@@ -92,3 +92,19 @@ def get_levee_counts(feat, masked):
 
 def get_bridge_counts(feat_masked):
     pass
+
+
+def get_mask_value_counts(feat, masked):
+    # Acquires information for table on each raster attribute per poly feature
+    feature_stats = {
+        'FID': int(feat.GetFID()),
+        'HydroID': feat.GetField('HydroID'),
+        'TotalPixels': int(masked.count()),
+        'tn': np.count_nonzero((masked == [0])),
+        'fn': np.count_nonzero((masked == [1])),
+        'fp': np.count_nonzero((masked == [2])),
+        'tp': np.count_nonzero((masked == [3])),
+        'mp': np.count_nonzero((masked == [4]))
+        }
+    
+    return feature_stats

@@ -32,7 +32,7 @@ import copy
 import pathlib
 import tempfile
 
-from pixel_counter_functions import (get_nlcd_counts, get_levee_counts, get_bridge_counts, get_nlcd_counts_inside_flood)
+from pixel_counter_functions import (get_nlcd_counts, get_levee_counts, get_bridge_counts, get_nlcd_counts_inside_flood,get_mask_value_counts)
 
 
 # Set up error handler
@@ -128,6 +128,7 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
 
         # Opens raster file and sets path
         rds = gdal.Open(raster_path, GA_ReadOnly)
+        
         assert rds
         rb = rds.GetRasterBand(1)
         rgt = rds.GetGeoTransform()
@@ -213,6 +214,8 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
             # Call different counter functions depending on the raster's source.
             if layer == "nlcd":
                 feature_stats = get_nlcd_counts(feat, masked)
+            if layer == "agreement_raster":
+                feature_stats = get_mask_value_counts(feat, masked)
             if layer == "levees":
                 feature_stats = get_levee_counts(feat, masked)
             if layer == "bridges":
