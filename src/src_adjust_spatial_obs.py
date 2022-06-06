@@ -152,7 +152,6 @@ def find_points_in_huc(huc_id, conn):
 
 
 def find_hucs_with_points(conn,fim_out_huc_list):
-    print(fim_out_huc_list)
     '''
     The function queries the PostgreSQL database and returns a list of all the HUCs that contain calb point data.
 
@@ -211,7 +210,8 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
     task_run_time = run_time_end - run_time_start
     log_file.write('HUC SEARCH TASK RUN TIME: ' + str(task_run_time) + '\n')
     print(f"{len(huc_list_db)} hucs found in point database" + '\n')
-    log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n\n')
+    log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n')
+    log_file.write('#########################################################\n')
 
     ## Ensure HUC id is either HUC8 or HUC6
     huc_list = []
@@ -304,6 +304,7 @@ def connect():
             cur = conn.cursor()
 
             # execute a statement
+            print('Host name: ' + CALIBRATION_DB_HOST)
             print('PostgreSQL database version:')
             cur.execute('SELECT version()')
 
@@ -315,6 +316,7 @@ def connect():
             cur.close()
             not_connected = False
             print("Connected to database\n\n")
+            log_file.write('Connected to database via host: ' + str(CALIBRATION_DB_HOST) + '\n')
         except (Exception, psycopg2.DatabaseError) as error:
             print("Waiting for database to come online")
             time.sleep(5)

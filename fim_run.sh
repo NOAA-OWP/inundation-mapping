@@ -190,7 +190,7 @@ if [ "$src_adjust_usgs" = "True" ]; then
 fi
 
 echo "Loading HUC Data"
-time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/temp/water_edge_rc_adjust/WBD_National_copy.gpkg WBDHU8
+time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $input_WBD_gdb WBDHU8
 
 echo "Loading Point Data"
 time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg usgs_nws_benchmark_points -nln points
