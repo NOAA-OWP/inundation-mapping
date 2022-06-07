@@ -236,7 +236,7 @@ gdal_polygonize.py -8 -f GPKG $outputCurrentBranchDataDir/gw_catchments_reaches_
 Tcount
 
 ## TRIM WATERSHEDS ##
-# Addresses https://github.com/NOAA-OWP/inundation-mapping/issues/560
+# Addressing https://github.com/NOAA-OWP/inundation-mapping/issues/560
 echo -e $startDiv"Trimming catchments to levelpath $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
@@ -258,11 +258,6 @@ echo -e "<OGRVRTDataSource>
 
 # Spatial intersect (overwrites $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg)
 ogr2ogr -f GPKG $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -nln catchments -overwrite $outputCurrentBranchDataDir/trim_catch.vrt -dialect sqlite -sql "SELECT A.* FROM catchments A, nwm_subset_streams_levelPaths B WHERE ST_Intersects(B.geom,A.geom)" -ds_transaction
-# ogr2ogr -f GPKG $outputCurrentBranchDataDir/gw_catchments_reaches_tmp_$current_branch_id.gpkg -nln catchments -overwrite $outputCurrentBranchDataDir/trim_catch.vrt -dialect sqlite -sql "SELECT A.* FROM catchments A, nwm_subset_streams_levelPaths B WHERE ST_Intersects(B.geom,A.geom)"
-
-# rm $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg
-# mv $outputCurrentBranchDataDir/gw_catchments_reaches_tmp_$current_branch_id.gpkg $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg
-#ogr2ogr -f GPKG $outputCurrentBranchDataDir/testover.gpkg -nln catchments -overwrite $outputCurrentBranchDataDir/trim_catch.vrt -dialect sqlite -sql "SELECT A.* FROM catchments A, nwm_subset_streams_levelPaths B WHERE ST_Intersects(B.geom,A.geom)"
 Tcount
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
