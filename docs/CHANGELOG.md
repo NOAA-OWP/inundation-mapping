@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.32.1 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
+
+This PR updates `tools` with `test_case_by_hydroid.py`, `pixel_counter.py`, `pixel_counter_functions.py`, `pixel_counter_wrapper.py`. `test_case_by_hydroid.py` assembles alpha stats on the catchment scale. Uses the class `test_case` from the file `run_test_case.py`. Outputs a csv to a specified location. 
+
+## Changes
+
+- `tools/`
+    - `test_case_by_hydroid.py`: New file created
+    - `pixel_counter_functions.py`: Added function `get_mask_value_counts`  to line 97
+    - `pixel_counter.py`:-Added additional option `agreement_raster`  to line 217
+
+<br/><br/>
+
+
 ## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
