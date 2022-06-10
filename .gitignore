@@ -5,6 +5,7 @@
 .nfs*
 __pycache__/
 config/**
+!config/deny*.lst
 !config/*template*
 !config/*default*
 !config/symbology/
