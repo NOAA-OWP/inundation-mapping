@@ -206,7 +206,7 @@ fi
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $projectDir/config/deny_gms_branch_zero.lst -v
+$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $srcDir/../config/deny_gms_branch_zero.lst -v
 Tcount
 
 ## CREATE USGS GAGES FILE
