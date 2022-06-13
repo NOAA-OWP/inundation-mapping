@@ -71,9 +71,10 @@ def vrt_raster_mosaic(output_bool_dir, ouput_dir, fim_version,fim_res):
         if rasfile.endswith('.tif') and "depth" not in rasfile and fim_res in rasfile and rasfile.startswith('bool_'):
             p = output_bool_dir + os.sep + rasfile
             raster_to_mosaic.append(p)
+    assert len(raster_to_mosaic) >= 1, "Did not find any boolean rasters to mosaic (check files exist or create them with -bool)"
 
     print("Creating virtual raster...")
-    vrt = gdal.BuildVRT(ouput_dir + os.sep + "merged.vrt", raster_to_mosaic)
+    vrt = gdal.BuildVRT(ouput_dir + os.sep + fim_version + "_merged.vrt", raster_to_mosaic)
 
     print("Building raster mosaic: " + str(output_dir + os.sep + fim_version + "_mosaic.tif"))
     gdal.Translate(output_dir + os.sep + fim_version + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
@@ -86,9 +87,9 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Converts huc inundation extent rasters to boolean rasters and then creates a mosaic of all input rasters')
     parser.add_argument('-in_dir','--inund-rast-dir',help='Parent directory of FIM inundation rasters',required=True)
-    parser.add_argument('-out_dir','--out-mosaic-dir',help='Directory to output raster mosaic (if blank - use default location)',required=False,default="")
-    parser.add_argument('-res','--resolution',help='Optional: string or comma sep list to use for inundation file lookup/naming (options: fr, ms, composite)',required=False,default="")
-    parser.add_argument('-bool','--bool-fim',help='Optional: use this flag to create boolean inundation outputs',required=False,default=False,action='store_true')
+    parser.add_argument('-out_dir','--out-mosaic-dir',help='Directory to output raster mosaic (if blank - use default location)',required=False,default=None)
+    parser.add_argument('-res','--resolution',help='Optional: string or comma sep list to use for inundation file lookup/naming (options: fr, ms, composite)',required=True,)
+    parser.add_argument('-bool','--bool-fim',help='Optional: use this flag to create boolean inundation outputs (default=False)',required=False,default=False,action='store_true')
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=2)
 
     args = vars(parser.parse_args())
@@ -102,21 +103,27 @@ if __name__ == '__main__':
     assert os.path.isdir(input_raster_extent_dir), 'ERROR: could not find the input raster directory location: ' + str(input_raster_extent_dir)
     print("Input Raster Directory: " + str(input_raster_extent_dir))
 
+    fim_res_options = ['ms','fr','composite']
     for fim_res in fim_res_list:
         fim_version = os.path.basename(os.path.normpath(input_raster_extent_dir))
         print("fim_version: " + fim_version)
-        if not fim_res == "":
+        if fim_res not in fim_res_options:
             print("fim resolution: " + fim_res)
             fim_res = "_" + fim_res
             fim_version = fim_version + fim_res
 
-        if output_dir == "":
+        if output_dir == None:
             output_dir = DEFAULT_OUTPUT_DIR
         if not os.path.exists(output_dir):
             print('Creating new output directory: ' + str(output_dir))
             os.mkdir(output_dir)
 
-        if bool_fim:
+        if not bool_fim:
+            print("Skipping boolean raster step (input flag not provided)")
+            # Perform VRT creation and final mosaic using boolean rasters that were already created
+            print("Generating mosaic raster...")
+            vrt_raster_mosaic(input_raster_extent_dir,output_dir,fim_version,fim_res)
+        else:
             output_bool_dir = os.path.join(OUTPUT_BOOL_PARENT_DIR, fim_version)
             if not os.path.exists(output_bool_dir):
                 print('Creating new output directory for boolean temporary outputs: ' + str(output_bool_dir))
@@ -144,8 +151,6 @@ if __name__ == '__main__':
                 print('Did not find any valid FIM extent rasters: ' + input_raster_extent_dir)
 
             # Perform VRT creation and final mosaic using boolean rasters
-            vrt_raster_mosaic(output_bool_dir,output_dir,fim_version,fim_res)
-        else:
-            # Perform VRT creation and final mosaic using boolean rasters that were already created
-            vrt_raster_mosaic(input_raster_extent_dir,output_dir,fim_version,fim_res)
+            print("Generating mosaic raster...")
+            vrt_raster_mosaic(output_bool_dir,output_dir,fim_version,fim_res)            
             
