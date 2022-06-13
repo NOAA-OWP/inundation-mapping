@@ -201,7 +201,7 @@ if [ "$src_adjust_spatial" = "True" ]; then
     time python3 foss_fim/src/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
 fi
 
-echo "$viz"
+echo -e $startDiv"$viz"
 if [[ "$viz" -eq 1 ]]; then
     # aggregate outputs
     time python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 6
