@@ -17,6 +17,7 @@ displaying the pixel count of each raster attribute class in the polygon
 '''
 
 # Import raster and vector function libraries
+#from types import NoneType
 from osgeo import gdal, ogr
 from osgeo.gdalconst import *
 # Import numerical data library
@@ -203,6 +204,9 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
             # Mask the source data array with our current feature and get statistics (pixel count) of masked areas
             # we take the logical_not to flip 0<->1 to get the correct mask effect
             # we also mask out nodata values explictly
+            if src_array is None:
+                feat = vlyr.GetNextFeature()
+                continue
             masked = np.ma.MaskedArray(
                 src_array,
                 mask=np.logical_or(

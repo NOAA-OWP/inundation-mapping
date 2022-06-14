@@ -1,27 +1,13 @@
-#contains logic for create csv of alpha stats by hydroid per huc
-import sys
-from osgeo import gdal, ogr
-from osgeo.gdalconst import *
-# Import numerical data library
-import numpy as np
+#!/usr/bin/env python3
+
 # Import file management library
-import sys
 import os
 # Import data analysis library
 import pandas as pd
 import argparse
-from pandas import DataFrame
-import copy
-import pathlib
-import tempfile
-import geopandas as gpd
-
-
 from pixel_counter import zonal_stats
-
 from tools_shared_functions import compute_stats_from_contingency_table
 from run_test_case import test_case
-
 
 #####################################################
 # Perform zonal stats is a funtion stored in pixel_counter.py.
@@ -30,9 +16,8 @@ from run_test_case import test_case
 # This function is called automatically. Returns stats dict of pixel counts.
 #####################################################
 def perform_zonal_stats(huc_gpkg,agree_rast):
-    stats = zonal_stats(huc_gpkg,{"agreement_raster":agree_rast})
+    stats = zonal_stats(huc_gpkg,{"agreement_raster":agree_rast}, nodata_value=10)
     return stats
-
 
 #####################################################
 # Creates a pandas df containing Alpha stats by hydroid.
@@ -45,7 +30,6 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
 
     in_mem_df = pd.DataFrame(columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
     
-
     for dicts in stats:
         stats_dictionary = compute_stats_from_contingency_table(dicts['tn'], dicts['fn'], dicts['fp'], dicts['tp'], cell_area=100, masked_count= dicts['mp'])
         # Calls compute_stats_from_contingency_table from run_test_case.py
@@ -53,14 +37,12 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         hydroid = dicts['HydroID']
         stats_dictionary['HydroID'] = hydroid
         
-        
         csi = stats_dictionary['CSI']
         far = stats_dictionary['FAR']
         tpr = stats_dictionary['TPR']
         tnr = stats_dictionary['TNR']
         pnd = stats_dictionary['PND']
         
-    
         dict_with_list_values = {'HydroID':[hydroid],'CSI':[csi],'FAR':[far], 'TPR':[tpr],'TNR':[tnr],'PND':[pnd],'HUC8':[huc8],'MAG':[mag],'BENCH':[bench]}
         
         dict_to_df = pd.DataFrame(dict_with_list_values,columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
@@ -69,13 +51,10 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
 
         in_mem_df = pd.concat(concat_list, sort=False)
         
-    
     return in_mem_df
-
 
 if __name__ == "__main__":
     
-
     parser = argparse.ArgumentParser(description='Produces alpha metrics by hyrdoid.')
 
     parser.add_argument('-b', '--benchmark_category',
@@ -94,59 +73,35 @@ if __name__ == "__main__":
     version = args['version']
     csv = args['csv']
     
+    # Execution code
+    csv_output = pd.DataFrame(columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
+    # This funtion, relies on the test_case class defined in run_test_case.py to list all available test cases
+    all_test_cases = test_case.list_all_test_cases(version=version, archive=True, benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
 
-#execution code
-csv_output = pd.DataFrame(columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
-all_test_cases = test_case.list_all_test_cases(version=version, archive='dev', benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
-#This funtion, test_case_by_hydroid.py, relies on the test_case class defined in run_test_case.py.
+    error_list =[]
+    error_count=0
+    success_count=0
 
-error_list =[]
-error_count=0
-success_count=0  
+    for test_case_class in all_test_cases:
 
+        if not os.path.exists(test_case_class.fim_dir):
+            print(f'{test_case_class.fim_dir} does not exist')
+            continue
+        else:
+            print(test_case_class.test_id, end='\r')
 
-for test_case_class in all_test_cases:
+        # Define the catchment geopackage that contains the hydroid and geometry of each catchment. 
+        huc_gpkg = os.path.join(test_case_class.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
 
-    if not os.path.exists(test_case_class.fim_dir):
-        print('not')
-        continue
-
-    huc_gpkg = os.path.join(test_case_class.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-    #Define the huc geopackage that contains the hydroid and geometry of each huc. 
-
-
-    huc_tuple=test_case_class.fim_dir.rsplit('/',1)
-    huc = huc_tuple[1]
-    #define the huc8 string to be added to the record for each hydroid.
-
-
-    agreement_dict = test_case_class.get_current_agreements()
-    for mag in agreement_dict:
-        for agree in agreement_dict[mag]:
-            
-
-            mag_string = agree.split(version)
-            mag_str = mag_string[1].split('/')
-            magnitude_str = mag_str[1]
-            agree_rast = agree
-            bench_string = mag_string[0].split('test_cases/')
-            bench = bench_string[1]
-            benchmark_str = bench.split('_')[0]
-            #Perform string manupulation to define the magnitude and benchmark of each record as iteration progreses.
-
-
-            try:
+        agreement_dict = test_case_class.get_current_agreements()
+        for mag in agreement_dict:
+            for agree_rast in agreement_dict[mag]:
+                
                 stats = perform_zonal_stats(huc_gpkg,agree_rast)
-                in_mem_df = assemble_hydro_alpha_for_single_huc(stats,huc,magnitude_str,benchmark_str)
+                in_mem_df = assemble_hydro_alpha_for_single_huc(stats, test_case_class.huc, mag, test_case_class.benchmark_cat)
                 
                 concat_df_list = [in_mem_df, csv_output]
 
-                try:
-                    csv_output = pd.concat(concat_df_list, sort=False)
-                except:
-                    print('An error has occured merging dataframes')
-            except:
-                print('An error has occured performing zonal stats')
-                
-
-csv_output.to_csv(csv, index=False, chunksize=1000)
+                csv_output = pd.concat(concat_df_list, sort=False)
+                    
+    csv_output.to_csv(csv, index=False, chunksize=1000)
