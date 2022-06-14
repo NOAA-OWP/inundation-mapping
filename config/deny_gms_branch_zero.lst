@@ -26,7 +26,7 @@ dem_burned_{}.tif
 dem_burned_filled_{}.tif
 dem_lateral_thalweg_adj_{}.tif
 #dem_meters_{}.tif
-#dem_thalwegCond_{}.tif
+dem_thalwegCond_{}.tif
 flowaccum_d8_burned_filled_{}.tif
 #flowdir_d8_burned_filled_{}.tif
 flowdir_d8_burned_filled_flows_{}.tif
@@ -47,7 +47,7 @@ nwm_subset_streams_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_dissolved_headwaters_{}.gpkg
 rem_{}.tif
 #rem_zeroed_masked_{}.tif
-#slopes_d8_dem_meters_{}.tif
+slopes_d8_dem_meters_{}.tif
 slopes_d8_dem_meters_masked_{}.tif
 sn_catchments_reaches_{}.tif
 src_{}.json

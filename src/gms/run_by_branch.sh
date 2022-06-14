@@ -62,16 +62,7 @@ Tcount
 echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$srcDir/gms/clip_rasters_to_branches.py -d $current_branch_id -b $outputHucDataDir/branch_polygons.gpkg -i $branch_id_attribute \
--r $outputBranchDataDir/$branch_zero_id/dem_meters_$branch_zero_id.tif\
- $outputBranchDataDir/$branch_zero_id/dem_thalwegCond_$branch_zero_id.tif\
- $outputBranchDataDir/$branch_zero_id/flowdir_d8_burned_filled_$branch_zero_id.tif\
- $outputBranchDataDir/$branch_zero_id/slopes_d8_dem_meters_$branch_zero_id.tif \
--c $outputCurrentBranchDataDir/dem_meters.tif\
- $outputCurrentBranchDataDir/dem_thalwegCond.tif\
- $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif\
- $outputCurrentBranchDataDir/slopes_d8_dem_meters.tif \
--v
+$srcDir/gms/clip_rasters_to_branches.py -d $current_branch_id -b $outputHucDataDir/branch_polygons.gpkg -i $branch_id_attribute -r $outputBranchDataDir/$branch_zero_id/dem_meters_$branch_zero_id.tif $outputBranchDataDir/$branch_zero_id/flowdir_d8_burned_filled_$branch_zero_id.tif -c $outputCurrentBranchDataDir/dem_meters.tif $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -v
 Tcount
 
 ## GET RASTER METADATA
