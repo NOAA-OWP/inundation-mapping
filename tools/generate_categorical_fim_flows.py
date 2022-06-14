@@ -270,6 +270,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 # HAND synthetic rating curves, looking up the corresponding flows for datum-offset
                 # AHPS stage values.
                 if alt_catfim:
+                    if datum_adj_ft == None:
+                        datum_adj_ft = 0.0
                     stage = stages[category]
                     if len(hand_stage_array) > 0 and stage != None and datum_adj_ft != None:
                         # Determine datum-offset stage (from above).
@@ -290,7 +292,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                         #Write flow file to file
                         flow_info.to_csv(output_file, index = False)
                     else:
-                        message = f'{lid}:{category} no stage information available'
+                        hand_stage_array_len = len(hand_stage_array)
+                        message = f'{lid}:{category}, {hydroid}, array_len:{hand_stage_array_len}, stage:{stage}, datum_adj_ft:{datum_adj_ft}'
                         all_messages.append(message)
                     
                 else:  # If running in default mode
@@ -312,8 +315,10 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                         all_messages.append(message)
 
             #Get various attributes of the site.
-            lat = float(metadata['usgs_preferred']['latitude'])
-            lon = float(metadata['usgs_preferred']['longitude'])
+#            lat = float(metadata['usgs_preferred']['latitude'])
+#            lon = float(metadata['usgs_preferred']['longitude'])
+            lat = float(metadata['nws_preferred']['latitude'])
+            lon = float(metadata['nws_preferred']['longitude'])
             wfo = metadata['nws_data']['wfo']
             rfc = metadata['nws_data']['rfc']
             state = metadata['nws_data']['state']
@@ -343,8 +348,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             else:
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
-        print()
-        print()
     print('wrapping up...')
     #Recursively find all *_attributes csv files and append
     csv_files = list(workspace.rglob('*_attributes.csv'))
