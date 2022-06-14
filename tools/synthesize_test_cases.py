@@ -298,8 +298,8 @@ if __name__ == '__main__':
     fr_run_dir = args['fr_run_dir']
     calibrated = args['calibrated']
     model = args['model']
-    verbose = args['verbose']
-    gms_verbose = args['gms_verbose']
+    verbose = bool(args['verbose'])
+    gms_verbose = bool(args['gms_verbose'])
 
 
     print("================================")
@@ -355,12 +355,12 @@ if __name__ == '__main__':
                                 'model': model,
                                 'mask_type': 'huc',
                                 'overwrite': overwrite,
-                                'verbose':verbose,
+                                'verbose':gms_verbose if model == 'GMS' else verbose,
                                 'gms_workers': job_number_branch
                                 }
             executor_dict[executor.submit(test_case_class.alpha_test, **alpha_test_args)] = test_case_class.test_id
         # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, verbose, f"Running MS test cases with {job_number_huc} workers")
+        progress_bar_handler(executor_dict, verbose, f"Running {model} test cases with {job_number_huc} workers")
         wait(executor_dict.keys())
 
         ## Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
@@ -377,6 +377,7 @@ if __name__ == '__main__':
                                     'calibrated': calibrated,
                                     'model': model,
                                     'mask_type': 'huc',
+                                    'verbose':verbose,
                                     'overwrite': overwrite
                                     }
                 executor_dict[executor.submit(test_case_class.alpha_test, **alpha_test_args)] = test_case_class.test_id

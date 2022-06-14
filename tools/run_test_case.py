@@ -262,26 +262,26 @@ class test_case(benchmark):
         if not compute_only:             # composite alpha tests don't need to be inundated
             if model == 'GMS':
                 map_file = Inundate_gms(
-                                            hydrofabric_dir=os.path.dirname(self.fim_dir), 
-                                            forecast=benchmark_flows, 
-                                            num_workers=gms_workers,
-                                            hucs=self.huc,
-                                            inundation_raster=predicted_raster_path,
-                                            inundation_polygon=None, depths_raster=None,
-                                            verbose=verbose,
-                                            log_file=None,
-                                            output_fileNames=None
-                                        )
-                
+                                    hydrofabric_dir=os.path.dirname(self.fim_dir), 
+                                    forecast=benchmark_flows, 
+                                    num_workers=gms_workers,
+                                    hucs=self.huc,
+                                    inundation_raster=predicted_raster_path,
+                                    inundation_polygon=None, depths_raster=None,
+                                    verbose=verbose,
+                                    log_file=None,
+                                    output_fileNames=None
+                                    )
                 Mosaic_inundation(
                                     map_file,mosaic_attribute='inundation_rasters',
                                     mosaic_output=predicted_raster_path,
-                                    mask=self.hucs,unit_attribute_name='huc8',
+                                    mask=os.path.join(self.fim_dir,'wbd.gpkg'),
+                                    unit_attribute_name='huc8',
                                     nodata=elev_raster_ndv,workers=1,
                                     remove_inputs=True,
                                     subset=None,verbose=verbose
                                     )
-
+            # FIM v3 and before
             else:
                 inundate_result = inundate(self.rem, self.catchments, self.catchment_poly, self.hydro_table, benchmark_flows,
                     self.mask_type,hucs=self.hucs,hucs_layerName=self.hucs_layerName,
