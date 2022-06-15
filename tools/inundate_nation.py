@@ -47,6 +47,7 @@ def run_inundation(args):
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
 
     # Run inundate() once for depth and once for extent.
+    log_text = ''
     if not os.path.exists(depth_raster) and depth_option:
         print("Running the NWM recurrence intervals for HUC inundation (depth): " + huc + ", " + magnitude + "...\n")
         inundate(
@@ -56,17 +57,22 @@ def run_inundation(args):
                 )
         
     if not os.path.isfile(inundation_raster[:-4] + '_' + str(huc) + '.tif'):
-        print("Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude + "...")
+        print("Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude)
+        log_text += "Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude + '\n'
         try:
             inundate(
                  rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
                  subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
                  depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
                     )
+            print('Completed inundation: ' + str(huc))
         except:
             print("An exception occurred with inundate function --> HUC: " + str(huc))
     else:
         print("Inundation raster already exists for huc (skipping): " + str(huc) + " - use overwrite flag to reproduce raster")
+        log_text += "Inundation raster already exists for huc (skipping): " + str(huc) + " - use overwrite flag to reproduce raster\n"
+
+    return(log_text)
 
 def create_bool_rasters(args):
     in_raster_dir = args[0]
@@ -139,7 +145,7 @@ if __name__ == '__main__':
     huc_list = os.listdir(fim_run_dir)
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     print("Using fim version: " + str(fim_version))
-    exit
+    
     for magnitude in magnitude_list:
         print("Preparing to generate inundation outputs for magnitude: " + str(magnitude))
         nwm_recurr_file = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'nwm21_17C_recurr_' + magnitude + '_cms.csv')
@@ -158,24 +164,29 @@ if __name__ == '__main__':
         if not os.path.exists(output_dir):
             print('Creating new output directory: ' + str(output_dir))
             os.mkdir(output_dir)
-            
-        procs_list = []
         
+        magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
+        if not os.path.exists(magnitude_output_dir):
+            os.mkdir(magnitude_output_dir)
+            print(magnitude_output_dir)
+
+        log_file = open(os.path.join(magnitude_output_dir,'log_' + magnitude + '_' + config  + '_' + fim_version + '.log'),"w")
+        log_file.write('#########################################################\n')
+
+        procs_list = []
         for huc in huc_list:
             if huc != 'logs' and huc != 'aggregate_fim_outputs':
-                for magnitude in magnitude_list:
-                    magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
-                    if not os.path.exists(magnitude_output_dir):
-                        os.mkdir(magnitude_output_dir)
-                        print(magnitude_output_dir)
-                    procs_list.append([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option])
-                
+                procs_list.append([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option])
+                run_inundation([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option])
+        '''
         # Multiprocess.
         with Pool(processes=job_number) as pool:
-            pool.map(run_inundation, procs_list)
+            log_output = pool.map(run_inundation, procs_list, chunksize=20)
+            log_file.writelines(["%s\n" % item  for item in log_output])
             pool.close()
             pool.join()
-
+        '''
+        print('All inundation completed...')
         # Perform mosaic operation
         if mosaic_option:
             print("Performing mosaic process...")
@@ -210,3 +221,4 @@ if __name__ == '__main__':
 
             # Perform VRT creation and final mosaic using boolean rasters
             vrt_raster_mosaic(output_bool_dir,output_mos_dir,fim_version_tag)
+        log_file.close()
