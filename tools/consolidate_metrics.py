@@ -9,7 +9,7 @@ from glob import glob
 from tqdm import tqdm
 import argparse
 from collections import defaultdict
-from shared_variables import TEST_CASES_DIR,\
+from tools_shared_variables import TEST_CASES_DIR,\
                              PREVIOUS_FIM_DIR,\
                              OUTPUTS_DIR,\
                              INPUTS_DIR,\

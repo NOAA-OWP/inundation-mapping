@@ -171,8 +171,8 @@ if [ "$level" = "branch" ]; then
     z_arg=$outputCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg
 elif [ "$level" = "unit" ]; then
     # Branch zero has a different source for -b and -z arguments
-    b_arg=$outputHucDataDir/nwm_subset_streams_levelPaths.gpkg
-    z_arg=$outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg
+    b_arg=$outputHucDataDir/nwm_subset_streams.gpkg
+    z_arg=$outputHucDataDir/nwm_catchments_proj_subset.gpkg
 fi
 python3 -m memory_profiler $srcDir/add_crosswalk.py -d $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -a $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -s $outputCurrentBranchDataDir/src_base_$current_branch_id.csv -l $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -r $outputCurrentBranchDataDir/src_full_crosswalked_$current_branch_id.csv -j $outputCurrentBranchDataDir/src_$current_branch_id.json -x $outputCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv -t $outputCurrentBranchDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $b_arg -y $outputCurrentBranchDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $z_arg -p $extent -k $outputCurrentBranchDataDir/small_segments_$current_branch_id.csv
 Tcount
