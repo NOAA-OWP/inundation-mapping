@@ -1,6 +1,39 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.5.0 - 2022-06-16 - [PR #611](https://github.com/NOAA-OWP/inundation-mapping/pull/611)
+
+'Branch zero' is a new branch that runs the HUCs full stream network to make up for stream orders 1 & 2 being skipped by the GMS solution and is similar to the FR extent in FIM v3. This new branch is created during `run_by_unit.sh` and the processed DEM is used by the other GMS branches during `run_by_branch.sh` to improve efficiency.
+
+## Additions
+
+- `src/gms/delineate_hydros_and_produce_HAND.sh`: Runs all of the modules associated with delineating stream lines and catchments and building the HAND relative elevation model. This file is called once during `gms_run_unit` to produce the branch zero files and is also run for every GMS branch in `gms_run_branch`.
+- `config/deny_gms_branch_zero.lst`: A list specifically for branch zero that helps with cleanup (removing unneeded files after processing).
+
+## Changes
+
+- `src/`
+    - `output_cleanup.py`: Fixed bug for viz flag.
+    - `gms/`
+        - `run_by_unit.sh`: Added creation of "branch zero", DEM pre-processing, and now calls.
+        -  `delineate_hydros_and_produce_HAND.sh` to produce HAND outputs for the entire stream network.
+        - `run_by_branch.sh`: Removed DEM processing steps (now done in `run_by_unit.sh`), moved stream network delineation and HAND generation to `delineate_hydros_and_produce_HAND.sh`.
+        - `generate_branch_list.py`: Added argument and parameter to sure that the branch zero entry was added to the branch list.
+- `config/`
+     - `params_template.env`: Added `zero_branch_id` variable.
+- `tools`
+     - `run_test_case.py`: Some styling / readability upgrades plus some enhanced outputs.  Also changed the _verbose_ flag to _gms_verbose_ being passed into Mosaic_inundation function.
+     - `synthesize_test_cases.py`: arguments being passed into the _alpha_test_args_ from being hardcoded from flags to verbose (effectively turning on verbose outputs when applicable. Note: Progress bar was not affected.
+     - `tools_shared_functions.py`: Some styling / readability upgrades.
+- `gms_run_unit.sh`: Added export of extent variable.
+- `gms_run_branch.sh`: Fixed bug when using overwrite flag saying branch errors folder already exists.
+
+## Removals
+
+- `tests/`: Redundant
+- `tools/shared_variables`: Redundant
+
+<br/><br/>
 
 ## v4.0.4.3 - 2022-05-26 - [PR #605](https://github.com/NOAA-OWP/inundation-mapping/pull/605)
 
