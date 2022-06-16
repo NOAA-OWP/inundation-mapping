@@ -141,10 +141,9 @@ fi
 
 if [ ! -d "$outputRunDataDir/branch_errors" ]; then
     mkdir -p "$outputRunDataDir/branch_errors"
-else
-    if [ $overwrite -eq 1 ]; then
-        rm -rf $outputRunDataDir/branch_errors/
-    fi
+elif [ $overwrite -eq 1 ]; then
+    rm -rf $outputRunDataDir/branch_errors
+    mkdir -p $outputRunDataDir/branch_errors
 fi
 
 ## RUN GMS BY BRANCH ##

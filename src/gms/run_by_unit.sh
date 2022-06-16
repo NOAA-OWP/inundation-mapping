@@ -206,7 +206,7 @@ fi
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/output_cleanup.py $hucNumber $outputCurrentBranchDataDir -v -w dem_meters_$branch_zero_id.tif dem_thalwegCond_$branch_zero_id.tif slopes_d8_dem_meters_$branch_zero_id.tif flowdir_d8_burned_filled_$branch_zero_id.tif rem_zeroed_masked_$branch_zero_id.tif gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg demDerived_reaches_split_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg gw_catchments_reaches_filtered_addedAttributes_$branch_zero_id.tif hydroTable_$branch_zero_id.csv src_$branch_zero_id.json small_segments_$branch_zero_id.csv src_full_crosswalked_$branch_zero_id.csv demDerived_reaches_split_points_$branch_zero_id.gpkg
+$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $srcDir/../config/deny_gms_branch_zero.lst -v -b
 Tcount
 
 ## CREATE USGS GAGES FILE

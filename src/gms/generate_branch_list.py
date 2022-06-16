@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('-d','--stream-network-dissolved', help='Dissolved stream network', required=True)
     parser.add_argument('-b','--branch-id-attribute', help='Branch ID attribute to use in dissolved stream network', required=True)
     parser.add_argument('-o','--output-branch-list', help='Output branch list', required=True)
-    parser.add_argument('-z','--branch-zero', help='Branch Zero ID', required=False)
+    parser.add_argument('-z','--branch-zero', help='Optional Branch Zero ID (str) to be added to the branch list. Usually this will be "0".', required=False)
     
     args = vars(parser.parse_args())
 
