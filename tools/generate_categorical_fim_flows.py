@@ -94,15 +94,15 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
     #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
     #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     #of all sites used later in script.
-    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
+#    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
 
     import json
 #    print("Writing huc dictionary")
 #    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json', "w") as outfile:
 #        json.dump(huc_dictionary, outfile)
 
-#    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json') as json_file:
-#        huc_dictionary = json.load(json_file)
+    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json') as json_file:
+        huc_dictionary = json.load(json_file)
 
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
@@ -120,6 +120,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
     with open('/data/temp/brad/alternate_catfim_temp_files/ms_segs.txt','r') as f:
        ms_segs = ast.literal_eval(f.read())
       
+    if alt_catfim:
+        alt_catfim_att_dict = {}
     
     #Loop through each huc unit, first define message variable and flood categories.
     all_messages = []
@@ -163,6 +165,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 continue
+            if alt_catfim:
+                alt_catfim_att_dict.update({lid:{}})
 
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
@@ -278,12 +282,25 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                         datum_adj_stage = stage + datum_adj_ft
                         datum_adj_stage_m = datum_adj_stage*0.3048  # Convert ft to m
                         
+                        if lid in ['cbst2', 'CBST2']:
+                            print("datum_adj_stage for cbst2")
+                            print("*******************")
+                            print(datum_adj_stage)
+                            print(datum_adj_stage_m)
+                            print("*******************")
+                        
                         # Interpolate flow value for offset stage.
-                        interpolated_hand_flow = np.interp(datum_adj_stage_m, hand_stage_array, hand_flow_array)
+                        interpolated_hand_flow_cms = np.interp(datum_adj_stage_m, hand_stage_array, hand_flow_array)
                         stage = stages[category]
 
                         #round flow to nearest hundredth
-                        flow = round(interpolated_hand_flow,2)
+                        flow = round(interpolated_hand_flow_cms,2)
+                        # Extra metadata for alternative CatFIM technique.
+                        alt_catfim_att_dict[lid].update({category: {'datum_adj_stage_ft': datum_adj_stage,
+                                                                     'datum_adj_stage_m': datum_adj_stage_m,
+                                                                     'interpolated_hand_flow_cms': interpolated_hand_flow_cms,
+                                                                     'datum_adj_ft': datum_adj_ft}})
+                        
                         #Create the guts of the flow file.
                         flow_info = flow_data(segments,flow,convert_to_cms=False)
                         #Define destination path and create folders
@@ -313,7 +330,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                     else:
                         message = f'{lid}:{category} is missing calculated flow'
                         all_messages.append(message)
-
+            pprint(alt_catfim_att_dict)
             #Get various attributes of the site.
 #            lat = float(metadata['usgs_preferred']['latitude'])
 #            lon = float(metadata['usgs_preferred']['longitude'])
@@ -331,12 +348,29 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             wrds_timestamp = stages['wrds_timestamp']
             nrldb_timestamp = metadata['nrldb_timestamp']
             nwis_timestamp = metadata['nwis_timestamp']
-            
+                        
             #Create a csv with same information as shapefile but with each threshold as new record.
             csv_df = pd.DataFrame()
             for threshold in flood_categories:
-                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
-                csv_df = csv_df.append(line_df)
+                if alt_catfim:
+                    try:
+                        datum_adj_ft = alt_catfim_att_dict[lid][threshold]['datum_adj_ft']
+                        datum_adj_stage = alt_catfim_att_dict[lid][threshold]['datum_adj_stage_ft']
+                        datum_adj_stage_m = alt_catfim_att_dict[lid][threshold]['datum_adj_stage_m']
+                        interpolated_hand_flow_cms = alt_catfim_att_dict[lid][threshold]['interpolated_hand_flow_cms']
+
+                        line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon],
+                                            'dtm_adj_ft': datum_adj_ft,
+                                            'dadj_s_ft': datum_adj_stage,
+                                            'dadj_s_m': datum_adj_stage_m,
+                                            'i_han_q_cms': interpolated_hand_flow_cms})
+                        csv_df = csv_df.append(line_df)
+                        
+                    except KeyError:
+                        pass
+                else:
+                    line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
+                    csv_df = csv_df.append(line_df)
             #Round flow and stage columns to 2 decimal places.
             csv_df = csv_df.round({'q':2,'stage':2})
 
