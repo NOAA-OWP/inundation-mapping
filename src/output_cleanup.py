@@ -5,7 +5,7 @@ from utils.shared_functions import mem_profile
 
 
 @mem_profile
-def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, viz_post_processing):
+def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, is_viz_post_processing):
     '''
     Processes all the final output files to cleanup and add post-processing
 
@@ -70,7 +70,7 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
 def whitelist_directory(directory_path, whitelist, additional_whitelist):
     # Add any additional files to the whitelist that the user wanted to keep
     if additional_whitelist:
-        whitelist = whitelist + [filename for filename in additional_whitelist.split(',')]
+        whitelist = whitelist + additional_whitelist
 
     # Delete any non-whitelisted files
     directory = os.fsencode(directory_path)
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Cleanup output files')
     parser.add_argument('huc_number', type=str, help='The HUC')
     parser.add_argument('output_folder_path', type=str, help='Path to the outputs for the specific huc')
-    parser.add_argument('-w', '--additional_whitelist', type=str, help='List of additional files to keep in a production run')
+    parser.add_argument('-w', '--additional_whitelist', type=str, help='List of additional files to keep in a production run',default=None,nargs="+")
     parser.add_argument('-p', '--is_production', help='Keep only white-listed files for production runs', action='store_true')
     parser.add_argument('-v', '--is_viz_post_processing', help='Formats output files to be useful for Viz', action='store_true')
 
