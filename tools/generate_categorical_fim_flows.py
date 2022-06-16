@@ -94,15 +94,15 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
     #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
     #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     #of all sites used later in script.
-#    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
+    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
 
-    import json
+#    import json
 #    print("Writing huc dictionary")
 #    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json', "w") as outfile:
 #        json.dump(huc_dictionary, outfile)
 
-    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json') as json_file:
-        huc_dictionary = json.load(json_file)
+#    with open(r'/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json') as json_file:
+#        huc_dictionary = json.load(json_file)
 
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
@@ -127,11 +127,13 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
     all_messages = []
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
     for huc in huc_dictionary:
-        
+#        if huc != '12090301':
+#            continue
         if alt_catfim:  # Only need to read in hydroTable if running in alt mode.
             # Get path to relevant synthetic rating curve.
             hydroTable_path = os.path.join(fim_dir, huc, 'hydroTable.csv')
             if not os.path.exists(hydroTable_path):
+                print("No")
                 continue
             hydroTable = pd.read_csv(
                          hydroTable_path,
@@ -143,7 +145,14 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
 
             catchments_path = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
             if not os.path.exists(catchments_path):
+                print("Nope")
                 continue
+            usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
+            print(usgs_elev_table)
+            print(os.path.exists(usgs_elev_table))
+            if not os.path.exists(usgs_elev_table):
+                continue
+            usgs_elev_df = pd.read_csv(usgs_elev_table)
             catchments_poly = gpd.read_file(catchments_path)
 
         print(f'Iterating through {huc}')
@@ -151,6 +160,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in list to create flow file
         for lid in nws_lids:
+            
             #Convert lid to lower case
             lid = lid.lower()
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
@@ -166,12 +176,18 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 all_messages.append(message)
                 continue
             if alt_catfim:
+                try:
+                    lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
+                except IndexError:  # Occurs when LID is missing from table
+                    continue
                 alt_catfim_att_dict.update({lid:{}})
+                
 
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
             from pprint import pprint
 #            pprint(metadata)
+            lid_altitude = metadata['usgs_data']['altitude']
        
             ### --- Do Datum Offset --- ###
             #determine source of interpolated threshold flows, this will be the rating curve that will be used.
@@ -277,27 +293,22 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                     if datum_adj_ft == None:
                         datum_adj_ft = 0.0
                     stage = stages[category]
+                    
                     if len(hand_stage_array) > 0 and stage != None and datum_adj_ft != None:
-                        # Determine datum-offset stage (from above).
-                        datum_adj_stage = stage + datum_adj_ft
-                        datum_adj_stage_m = datum_adj_stage*0.3048  # Convert ft to m
-                        
-                        if lid in ['cbst2', 'CBST2']:
-                            print("datum_adj_stage for cbst2")
-                            print("*******************")
-                            print(datum_adj_stage)
-                            print(datum_adj_stage_m)
-                            print("*******************")
+                        # Determine datum-offset water surface elevation (from above).
+                        datum_adj_wse = stage + datum_adj_ft + lid_altitude
+                        datum_adj_wse_m = datum_adj_wse*0.3048  # Convert ft to m
                         
                         # Interpolate flow value for offset stage.
-                        interpolated_hand_flow_cms = np.interp(datum_adj_stage_m, hand_stage_array, hand_flow_array)
+                        wse_hand_array = hand_stage_array + lid_usgs_elev  # Add the HAND-derived elevation to the HAND-derived stages
+                        interpolated_hand_flow_cms = np.interp(datum_adj_wse_m, wse_hand_array, hand_flow_array)
                         stage = stages[category]
 
                         #round flow to nearest hundredth
                         flow = round(interpolated_hand_flow_cms,2)
                         # Extra metadata for alternative CatFIM technique.
-                        alt_catfim_att_dict[lid].update({category: {'datum_adj_stage_ft': datum_adj_stage,
-                                                                     'datum_adj_stage_m': datum_adj_stage_m,
+                        alt_catfim_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
+                                                                     'datum_adj_wse_m': datum_adj_wse_m,
                                                                      'interpolated_hand_flow_cms': interpolated_hand_flow_cms,
                                                                      'datum_adj_ft': datum_adj_ft}})
                         
@@ -330,7 +341,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                     else:
                         message = f'{lid}:{category} is missing calculated flow'
                         all_messages.append(message)
-            pprint(alt_catfim_att_dict)
+#            pprint(alt_catfim_att_dict)
             #Get various attributes of the site.
 #            lat = float(metadata['usgs_preferred']['latitude'])
 #            lon = float(metadata['usgs_preferred']['longitude'])
@@ -355,14 +366,14 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 if alt_catfim:
                     try:
                         datum_adj_ft = alt_catfim_att_dict[lid][threshold]['datum_adj_ft']
-                        datum_adj_stage = alt_catfim_att_dict[lid][threshold]['datum_adj_stage_ft']
-                        datum_adj_stage_m = alt_catfim_att_dict[lid][threshold]['datum_adj_stage_m']
+                        datum_adj_wse_ft = alt_catfim_att_dict[lid][threshold]['datum_adj_wse_ft']
+                        datum_adj_wse_m = alt_catfim_att_dict[lid][threshold]['datum_adj_wse_m']
                         interpolated_hand_flow_cms = alt_catfim_att_dict[lid][threshold]['interpolated_hand_flow_cms']
 
                         line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon],
                                             'dtm_adj_ft': datum_adj_ft,
-                                            'dadj_s_ft': datum_adj_stage,
-                                            'dadj_s_m': datum_adj_stage_m,
+                                            'dadj_w_ft': datum_adj_wse_ft,
+                                            'dadj_w_m': datum_adj_wse_m,
                                             'i_han_q_cms': interpolated_hand_flow_cms})
                         csv_df = csv_df.append(line_df)
                         
