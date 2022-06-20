@@ -72,7 +72,19 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     print("Subsetting NHD Headwater Points for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nhd_headwaters = gpd.read_file(nhd_headwaters_filename, mask = wbd_buffer)
     if extent == 'MS':
-        nhd_headwaters = nhd_headwaters.loc[nhd_headwaters.mainstem==1]
+        # special case: missing MS headwater points
+        nhd_headwaters_manual = []
+        if str(hucCode) == '07060001':
+            nhd_headwaters_manual = ['22000400022137']
+        if str(hucCode) == '02030101':
+            nhd_headwaters_manual = ['10000100072414']
+            nhd_headwaters_manual_remove = ['10000100072414']
+        if nhd_headwaters_manual:
+            print('!!Manually adding additional MS headwater point (address missing MS bug)')
+            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) | (nhd_headwaters.site_id.isin(nhd_headwaters_manual))]
+        else:
+            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1)]
+        #print(nhd_headwaters[['pt_type','mainstem']])
 
     if len(nhd_headwaters) > 0:
         nhd_headwaters.to_file(subset_nhd_headwaters_filename,driver=getDriver(subset_nhd_headwaters_filename),index=False)
