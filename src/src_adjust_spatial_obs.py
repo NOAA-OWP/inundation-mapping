@@ -87,10 +87,13 @@ def process_points(args):
     catchments_src.close()
     del catchments_src, catchments_crs
 
-    water_edge_df = water_edge_df[water_edge_df['hydroid'].notnull() & water_edge_df['hand'] > 0]
+    water_edge_df = water_edge_df[(water_edge_df['hydroid'].notnull()) & (water_edge_df['hand'] > 0)]
 
     ## Check that there are valid obs in the water_edge_df (not empty)
-    if not water_edge_df.empty:
+    if water_edge_df.empty:
+        print('WARNING: skipping ' + str(huc) + ': no valid observation points found within the huc catchments (PLEASE REVIEW for potential issue)')
+        log_text = 'WARNING: skipping ' + str(huc) + ': no valid observation points found within the huc catchments (PLEASE REVIEW for potential issue)'
+    else:
         ## Get median HAND value for appropriate groups.
         water_edge_median_ds = water_edge_df.groupby(["hydroid", "flow", "submitter", "coll_time", "flow_unit","layer"])['hand'].median()
 
@@ -107,17 +110,16 @@ def process_points(args):
         merge_prev_adj = True # merge in previous SRC adjustment calculations
 
         ## Call update_rating_curve() to perform the rating curve calibration.
-        ## Still testing, so I'm having the code print out any exceptions.
+        
         log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path,optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
+        ## Still testing: use code below to print out any exceptions.
         '''
         try:
             log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path, optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
         except Exception as e:
-            print(e)
+            print(str(huc) + ' --> ' + str(e))
             log_text = 'ERROR!!!: HUC ' + str(huc) + ' --> ' + str(e)
         '''
-    else:
-        log_text = 'WARNING: ' + str(huc) + ': no valid observation points found within the huc catchments (skipping)'
     return(log_text)
 
 

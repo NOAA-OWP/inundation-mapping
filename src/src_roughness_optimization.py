@@ -58,7 +58,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     - output_src_json:      src.json file with new SRC discharge values
 
     '''
-    print("Processing huc --> " + str(huc))
+    #print("Processing huc --> " + str(huc))
     log_text = "\nProcessing huc --> " + str(huc) + '\n'
     log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
