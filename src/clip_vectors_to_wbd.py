@@ -2,6 +2,7 @@
 
 import sys
 import geopandas as gpd
+import pandas as pd
 import argparse
 from shapely.geometry import MultiPolygon,Polygon
 from utils.shared_functions import getDriver, mem_profile
@@ -76,15 +77,22 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         nhd_headwaters_manual = []
         if str(hucCode) == '07060001':
             nhd_headwaters_manual = ['22000400022137']
-        if str(hucCode) == '02030101':
-            nhd_headwaters_manual = ['10000100072414']
-            nhd_headwaters_manual_remove = ['10000100072414']
         if nhd_headwaters_manual:
             print('!!Manually adding additional MS headwater point (address missing MS bug)')
             nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) | (nhd_headwaters.site_id.isin(nhd_headwaters_manual))]
         else:
             nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1)]
-        #print(nhd_headwaters[['pt_type','mainstem']])
+        print(nhd_headwaters[['site_id','pt_type','mainstem']])
+        if str(hucCode) == '02030101':
+            df_manual = pd.DataFrame({'site_id': ['10000100072414'],'pt_type': ['manual_add'],'mainstem': [True],'Latitude': [41.03883494],'Longitude': [-73.88758945]}) #'Latitude': [41.31992213],'Longitude': [-73.98238202]
+            gdf_manual = gpd.GeoDataFrame(df_manual, geometry=gpd.points_from_xy(df_manual.Longitude, df_manual.Latitude, crs="EPSG:4326"))
+            nhd_headwaters_crs = nhd_headwaters.crs
+            gdf_manual.to_crs(nhd_headwaters_crs, inplace=True) 
+            #nhd_headwaters = nhd_headwaters.loc[~((nhd_headwaters.site_id=='10000100072414')),:]
+            #nhd_headwaters = nhd_headwaters.loc[~((nhd_headwaters.site_id=='PMTN6')),:]
+            nhd_headwaters = nhd_headwaters.append(gdf_manual)
+        print('\n')
+        print(nhd_headwaters[['site_id','pt_type','mainstem','geometry']])
 
     if len(nhd_headwaters) > 0:
         nhd_headwaters.to_file(subset_nhd_headwaters_filename,driver=getDriver(subset_nhd_headwaters_filename),index=False)
