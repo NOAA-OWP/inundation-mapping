@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
-import os
-import argparse
+import os, argparse, json, csv, ast, re, sys, traceback, signal
 from datetime import datetime
 from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-import json
-import csv
-import ast
 from tqdm import tqdm
-import re
 
+from utils.shared_functions import FIM_Helpers as fh
 from run_test_case import test_case
 from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT
 
@@ -301,14 +297,13 @@ if __name__ == '__main__':
     verbose = bool(args['verbose'])
     gms_verbose = bool(args['gms_verbose'])
 
-
     print("================================")
     print("Start synthesize test cases")
     start_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     print (f"started: {dt_string}")
     print()
-    
+
     # check job numbers
     total_cpus_requested = job_number_huc * job_number_branch
     total_cpus_available = os.cpu_count() - 1
@@ -336,8 +331,8 @@ if __name__ == '__main__':
     else:
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
 
-        # Create a list of all test_cases for which we have validation data
-    all_test_cases = test_case.list_all_test_cases(version=fim_version, archive=archive_results, 
+    # Create a list of all test_cases for which we have validation data
+    all_test_cases = test_case.list_all_test_cases(version = fim_version, archive = archive_results,
             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
     
     # Set up multiprocessor
@@ -350,6 +345,8 @@ if __name__ == '__main__':
             if not os.path.exists(test_case_class.fim_dir):
                 continue
 
+            print(f"test_case_class.test_id is {test_case_class.test_id}")
+
             alpha_test_args = { 
                                 'calibrated': calibrated,
                                 'model': model,
@@ -358,17 +355,34 @@ if __name__ == '__main__':
                                 'verbose':gms_verbose if model == 'GMS' else verbose,
                                 'gms_workers': job_number_branch
                                 }
-            executor_dict[executor.submit(test_case_class.alpha_test, **alpha_test_args)] = test_case_class.test_id
+
+            try:
+                future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+                # If there is an error, attempting to write to the result object
+                # will throw an exception which we can use to terminate the app.
+                # Without it, all processes must complete before honoring the exception
+                # and with multiple processes, it could be goign for a while.
+                # Even keyboard interrupt will not work.
+                result = future.result()
+
+                executor_dict[future] = test_case_class.test_id
+            except Exception as ex:
+                print(f"*** {ex}")
+                traceback.print_exc()
+                sys.exit(1)
+
         # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, verbose, f"Running {model} test cases with {job_number_huc} workers")
-        wait(executor_dict.keys())
+        progress_bar_handler(executor_dict, True, f"Running {model} test cases with {job_number_huc} workers")
+        #wait(executor_dict.keys())
 
-        ## Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
-        if model == 'MS' and fr_run_dir:
+    ## Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
+    if model == 'MS' and fr_run_dir:
 
-            ## Rebuild all test cases list with the FR version, loop through them and apply the alpha test
-            all_test_cases = test_case.list_all_test_cases(version=fr_run_dir, archive=archive_results, 
-                    benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
+        ## Rebuild all test cases list with the FR version, loop through them and apply the alpha test
+        all_test_cases = test_case.list_all_test_cases(version = fr_run_dir, archive = archive_results,
+                benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
+
+        with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
             executor_dict = {}
             for test_case_class in all_test_cases:
                 if not os.path.exists(test_case_class.fim_dir):
@@ -380,20 +394,49 @@ if __name__ == '__main__':
                                     'verbose':verbose,
                                     'overwrite': overwrite
                                     }
-                executor_dict[executor.submit(test_case_class.alpha_test, **alpha_test_args)] = test_case_class.test_id
-            # Send the executor to the progress bar and wait for all FR tasks to finish
-            progress_bar_handler(executor_dict, verbose, f"Running FR test cases with {job_number_huc} workers")
-            wait(executor_dict.keys())
+                try:
+                    future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+                    # If there is an error, attempting to write to the result object
+                    # will throw an exception which we can use to terminate the app.
+                    # Without it, all processes must complete before honoring the exception
+                    # and with multiple processes, it could be goign for a while.
+                    # Even keyboard interrupt will not work.
+                    result = future.result()
+                    executor_dict[future] = test_case_class.test_id
+                except Exception as ex:
+                    print(f"*** {ex}")
+                    traceback.print_exc()
+                    sys.exit(1)
 
-            ## Loop through FR test cases, build composite arguments, and submit the composite method to the process pool
+            # Send the executor to the progress bar and wait for all FR tasks to finish
+            progress_bar_handler(executor_dict, True, f"Running FR test cases with {job_number_huc} workers")
+            #wait(executor_dict.keys())
+
+        # Loop through FR test cases, build composite arguments, and submit the composite method to the process pool
+        with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
             executor_dict = {}
             for test_case_class in all_test_cases:
                 composite_args = { 
                                     'version_2': fim_version, # this is the MS version name since `all_test_cases` are FR
                                     'calibrated': calibrated,
-                                    'overwrite': overwrite
+                                    'overwrite': overwrite,
+                                    'verbose': verbose
                                     }
-                executor_dict[executor.submit(test_case_class.composite, **composite_args)] = test_case_class.test_id
+
+                try:
+                    future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+                    # If there is an error, attempting to write to the result object
+                    # will throw an exception which we can use to terminate the app.
+                    # Without it, all processes must complete before honoring the exception
+                    # and with multiple processes, it could be goign for a while.
+                    # Even keyboard interrupt will not work.
+                    result = future.result()
+                    executor_dict[future] = test_case_class.test_id
+                except Exception as ex:
+                    print(f"*** {ex}")
+                    traceback.print_exc()
+                    sys.exit(1)
+
             # Send the executor to the progress bar
             progress_bar_handler(executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers")
 
@@ -410,10 +453,9 @@ if __name__ == '__main__':
         print("Creating master metrics CSV...")
 
         # this function is not compatible with GMS
-        create_master_metrics_csv(master_metrics_csv_output=master_metrics_csv, 
-                                  dev_versions_to_include_list=dev_versions_to_include_list)
+        create_master_metrics_csv(master_metrics_csv_output = master_metrics_csv, 
+                                  dev_versions_to_include_list = dev_versions_to_include_list)
     
-
     print("================================")
     print("End synthesize test cases")
 

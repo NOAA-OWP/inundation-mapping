@@ -12,8 +12,9 @@ import unittest
 import unit_tests_utils as helpers
 
 # importing python folders in other directories
-sys.path.append('/foss_fim/src/utils') 
-import shared_functions as src
+#sys.path.append('/foss_fim/src/utils') 
+#import utils.shared_functions as src
+from utils.shared_functions import FIM_Helpers as src
 
 # NOTE: This goes directly to the function.
 # Ultimately, it should emulate going through command line (not import -> direct function call)
@@ -40,7 +41,7 @@ class test_shared_functions(unittest.TestCase):
         '''
 
         #global params_file
-        helpers.print_unit_test_function_header()
+        #helpers.print_unit_test_function_header()
         
         params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy()        
         
@@ -63,7 +64,7 @@ class test_shared_functions(unittest.TestCase):
         '''
 
         #global params_file
-        helpers.print_unit_test_function_header()
+        #helpers.print_unit_test_function_header()
         
         params = self.params["append_append_id_to_file_name_identifier_list_valid"].copy()        
         
@@ -86,7 +87,7 @@ class test_shared_functions(unittest.TestCase):
         '''
 
         #global params_file
-        helpers.print_unit_test_function_header()
+        #helpers.print_unit_test_function_header()
         
         params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy()        
         

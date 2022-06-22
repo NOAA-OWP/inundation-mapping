@@ -2,11 +2,13 @@
 
 import os, re, shutil, json
 import pandas as pd
+
 from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, elev_raster_ndv
 from inundation import inundate
 from gms_tools.mosaic_inundation import Mosaic_inundation
 from gms_tools.inundate_gms import Inundate_gms
 from tools_shared_functions import compute_contingency_stats_from_rasters
+from utils.shared_functions import FIM_Helpers as fh
 
 class benchmark(object):
 
@@ -88,12 +90,13 @@ class test_case(benchmark):
         self.archive = archive
         # FIM run directory path - uses HUC 6 for FIM 1 & 2
         self.fim_dir = os.path.join(PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR, 
-            self.version, 
-            self.huc if not re.search('^fim_[1,2]', version, re.IGNORECASE) else self.huc[:6])
+                                    self.version, 
+                                    self.huc if not re.search('^fim_[1,2]', version, re.IGNORECASE) else self.huc[:6])
         # Test case directory path
-        self.dir = os.path.join(TEST_CASES_DIR, f'{self.benchmark_cat}_test_cases', test_id,
-            'official_versions' if archive else 'testing_versions',
-            version)
+        self.dir = os.path.join(TEST_CASES_DIR, f'{self.benchmark_cat}_test_cases', 
+                                test_id,
+                                'official_versions' if archive else 'testing_versions',
+                                version)
         # Benchmark data path
         self.benchmark_dir = os.path.join(self.validation_data, self.huc)
 
@@ -146,8 +149,6 @@ class test_case(benchmark):
         
             Parameters
             ----------
-            fim_directory : str
-                Full path to input FIM directory including the HUC.
             calibrated : bool
                 Whether or not this FIM version is calibrated.
             model : str
@@ -162,61 +163,81 @@ class test_case(benchmark):
                 If True, overwites pre-existing test cases within the test_cases directory.
             verbose : bool
                 If True, prints out all pertinent data.
+            gms_workers : int
+                Number of worker processes assigned to GMS processing.
         '''
-        if not overwrite and os.path.isdir(self.dir):
-            print("Metrics for ({version}: {test_id}) already exist. Use overwrite flag (-o) to overwrite metrics.")
-            return
-
-        self.stats_modes_list = ['total_area']
-
-        # Create paths to fim_run outputs for use in inundate()
-        if model != 'GMS':
-            self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
-            if not os.path.exists(self.rem):
-                self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
-            self.catchments = os.path.join(self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-            if not os.path.exists(self.catchments):
-                self.catchments = os.path.join(self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif')
-            self.mask_type = mask_type
-            if mask_type == 'huc':
-                self.catchment_poly = ''
-            else:
-                self.catchment_poly = os.path.join(self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-            self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
-
-        # Map necessary inputs for inundate().
-        self.hucs, self.hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
-
-        if inclusion_area != '':
-            inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
-            self.mask_dict.update({inclusion_area_name: {'path': inclusion_area,
-                                                    'buffer': int(inclusion_area_buffer),
-                                                    'operation': 'include'}})
-            # Append the concatenated inclusion_area_name and buffer.
-            if inclusion_area_buffer == None:
-                inclusion_area_buffer = 0
-            self.stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm')
-
-        # Delete the directory if it exists
-        if os.path.exists(self.dir):
-            shutil.rmtree(self.dir)
-        os.mkdir(self.dir)
-
-        # Get the magnitudes and lids for the current huc and loop through them
-        validation_data = self.data(self.huc)
-        for magnitude in validation_data:
-            for instance in validation_data[magnitude]:      # instance will be the lid for AHPS sites and '' for other sites
-                # For each site, inundate the REM and compute aggreement raster with stats
-                self._inundate_and_compute(magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers)
-
-            # Clean up 'total_area' outputs from AHPS sites
-            if self.is_ahps:
-                self.clean_ahps_outputs(os.path.join(self.dir, magnitude))
-
-        # Write out evaluation meta-data
-        self.write_metadata(calibrated, model)
         
-    def _inundate_and_compute(self, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1):
+        try:
+            if not overwrite and os.path.isdir(self.dir):
+                print(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
+                return
+
+            #fh.vprint(f"Starting alpha test for {self.dir}", verbose)
+            print(f"Starting alpha test for {self.dir}")
+            
+            self.stats_modes_list = ['total_area']
+
+            # Create paths to fim_run outputs for use in inundate()
+            if model != 'GMS':
+                self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
+                if not os.path.exists(self.rem):
+                    self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
+                self.catchments = os.path.join(self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+                if not os.path.exists(self.catchments):
+                    self.catchments = os.path.join(self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif')
+                self.mask_type = mask_type
+                if mask_type == 'huc':
+                    self.catchment_poly = ''
+                else:
+                    self.catchment_poly = os.path.join(self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+                self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
+
+            # Map necessary inputs for inundate().
+            self.hucs, self.hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
+
+            if inclusion_area != '':
+                inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
+                self.mask_dict.update({inclusion_area_name: {'path': inclusion_area,
+                                                        'buffer': int(inclusion_area_buffer),
+                                                        'operation': 'include'}})
+                # Append the concatenated inclusion_area_name and buffer.
+                if inclusion_area_buffer == None:
+                    inclusion_area_buffer = 0
+                self.stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm')
+
+            # Delete the directory if it exists
+            if os.path.exists(self.dir):
+                shutil.rmtree(self.dir)
+            os.mkdir(self.dir)
+
+            # Get the magnitudes and lids for the current huc and loop through them
+            validation_data = self.data(self.huc)
+            for magnitude in validation_data:
+                for instance in validation_data[magnitude]:      # instance will be the lid for AHPS sites and '' for other sites
+                    # For each site, inundate the REM and compute aggreement raster with stats
+                    self._inundate_and_compute(magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers)
+
+                # Clean up 'total_area' outputs from AHPS sites
+                if self.is_ahps:
+                    self.clean_ahps_outputs(os.path.join(self.dir, magnitude))
+
+            # Write out evaluation meta-data
+            self.write_metadata(calibrated, model)
+
+        # We will only catch keyboard interrupt, which we can use to stop multi processing.
+        # Anything else, we want it to go higher. There are some exceptions that we don't
+        # want it to abort the entire run.
+        except KeyboardInterrupt:
+            print("Program aborted via keyboard interrupt")
+            sys.exit(1)
+        
+    def _inundate_and_compute(self, 
+                              magnitude, 
+                              lid, 
+                              compute_only = False, 
+                              model = '',
+                              verbose = False,
+                              gms_workers = 1):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
            Used by both the alpha_test() and composite() methods.
 
@@ -230,6 +251,8 @@ class test_case(benchmark):
                 If true, skips inundation and only computes contingency stats.
         '''
         # Output files
+        fh.vprint("Creating output files", verbose)
+
         test_case_out_dir     = os.path.join(self.dir, magnitude)
         inundation_prefix     = lid + '_' if lid else ''
         inundation_path       = os.path.join(test_case_out_dir, f'{inundation_prefix}inundation_extent.tif')
@@ -261,28 +284,32 @@ class test_case(benchmark):
         # Inundate REM
         if not compute_only:             # composite alpha tests don't need to be inundated
             if model == 'GMS':
-                map_file = Inundate_gms(
-                                    hydrofabric_dir=os.path.dirname(self.fim_dir), 
-                                    forecast=benchmark_flows, 
-                                    num_workers=gms_workers,
-                                    hucs=self.huc,
-                                    inundation_raster=predicted_raster_path,
-                                    inundation_polygon=None, depths_raster=None,
-                                    verbose=verbose,
-                                    log_file=None,
-                                    output_fileNames=None
-                                    )
-                Mosaic_inundation(
-                                    map_file,mosaic_attribute='inundation_rasters',
-                                    mosaic_output=predicted_raster_path,
-                                    mask=os.path.join(self.fim_dir,'wbd.gpkg'),
-                                    unit_attribute_name='huc8',
-                                    nodata=elev_raster_ndv,workers=1,
-                                    remove_inputs=True,
-                                    subset=None,verbose=verbose
-                                    )
+                fh.vprint("Begin GMS Inundation", verbose)
+                map_file = Inundate_gms( hydrofabric_dir = os.path.dirname(self.fim_dir), 
+                                         forecast = benchmark_flows, 
+                                         num_workers = gms_workers,
+                                         hucs = self.huc,
+                                         inundation_raster = predicted_raster_path,
+                                         inundation_polygon = None,
+                                         depths_raster = None,
+                                         verbose = verbose,
+                                         log_file = None,
+                                         output_fileNames = None )
+                #if (len(map_file) > 0):
+                fh.vprint("Begin GMS Mosaic", verbose)
+                Mosaic_inundation( map_file,
+                                    mosaic_attribute = 'inundation_rasters',
+                                    mosaic_output = predicted_raster_path,
+                                    mask = os.path.join(self.fim_dir,'wbd.gpkg'),
+                                    unit_attribute_name = 'huc8',
+                                    nodata = elev_raster_ndv,
+                                    workers = 1,
+                                    remove_inputs = False,
+                                    subset = None,
+                                    verbose = verbose )
             # FIM v3 and before
             else:
+                fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
                 inundate_result = inundate(self.rem, self.catchments, self.catchment_poly, self.hydro_table, benchmark_flows,
                     self.mask_type,hucs=self.hucs,hucs_layerName=self.hucs_layerName,
                     subset_hucs=self.huc,num_workers=1,aggregate=False,
@@ -293,16 +320,17 @@ class test_case(benchmark):
                     return inundate_result
 
         # Create contingency rasters and stats
-        compute_contingency_stats_from_rasters( predicted_raster_path,
-                                                benchmark_rast,
-                                                agreement_raster,
-                                                stats_csv=stats_csv,
-                                                stats_json=stats_json,
-                                                mask_values=[],
-                                                stats_modes_list=self.stats_modes_list,
-                                                test_id=self.test_id,
-                                                mask_dict=mask_dict_indiv,
-                                                )
+        fh.vprint("Begin creating contingency rasters and stats", verbose)
+        if os.path.isfile(predicted_raster_path):
+            compute_contingency_stats_from_rasters( predicted_raster_path,
+                                                    benchmark_rast,
+                                                    agreement_raster,
+                                                    stats_csv=stats_csv,
+                                                    stats_json=stats_json,
+                                                    mask_values=[],
+                                                    stats_modes_list=self.stats_modes_list,
+                                                    test_id=self.test_id,
+                                                    mask_dict=mask_dict_indiv )
         return
 
 
@@ -315,7 +343,7 @@ class test_case(benchmark):
         alpha_class.alpha_test(calibrated, model, mask_type, inclusion_area,
                 inclusion_area_buffer, overwrite, verbose, gms_workers)
 
-    def composite(self, version_2, calibrated=False, overwrite=True):
+    def composite(self, version_2, calibrated = False, overwrite = True, verbose = False):
         '''Class method for compositing MS and FR inundation and creating an agreement raster with stats
 
             Parameters
@@ -332,6 +360,8 @@ class test_case(benchmark):
             composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', self.version, count=1)
         else:
             composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', version_2, count=1)
+
+        fh.vprint(f"Begin composite for version : {composite_version_name}", verbose)
 
         composite_test_case = test_case(self.test_id, composite_version_name, self.archive)
         input_test_case_2 = test_case(self.test_id, version_2, self.archive)
@@ -363,6 +393,7 @@ class test_case(benchmark):
                                         })
                     os.makedirs(os.path.dirname(output_inundation), exist_ok=True)
 
+                    fh.vprint(f"Begin mosaic inundation for version : {composite_version_name}", verbose)
                     Mosaic_inundation(inundation_map_file,mosaic_attribute='inundation_rasters',
                                             mosaic_output=output_inundation, mask=None, unit_attribute_name='huc8',
                                             nodata=elev_raster_ndv, workers=1, remove_inputs=False, subset=None, verbose=False

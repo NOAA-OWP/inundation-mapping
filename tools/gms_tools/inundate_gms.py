@@ -13,7 +13,7 @@ from tqdm import tqdm
 from inundation import inundate
 from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor,as_completed
 from inundation import hydroTableHasOnlyLakes, NoForecastFound
-from utils.shared_functions import append_id_to_file_name
+from utils.shared_functions import FIM_Helpers as fh
 
 def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
                   hucs = None,
@@ -39,7 +39,7 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     if log_file is not None:
         if os.path.exists(log_file):
             os.remove(log_file)
-        
+
         if verbose :
             print('HUC8,BranchID,Exception',file=open(log_file,'w'))
     #if log_file:
@@ -95,9 +95,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
 
         try:
             future.result()
-
-            #print("future")
-            #print(future.result())
         
         except NoForecastFound as exc:
             if log_file is not None:
@@ -152,9 +149,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
                                           'depths_rasters' : depths_raster_fileNames,
                                           'inundation_polygons' : inundation_polygon_fileNames } )
 
-    #print("output_fileNames_df")
-    #print(output_fileNames_df)
-
     if output_fileNames is not None:
         output_fileNames_df.to_csv(output_fileNames,index=False)
 
@@ -192,22 +186,24 @@ def __inundate_gms_generator( hucs_branches,
         # branch output
         # Some other functions that call in here already added a huc, so only add it if not yet there
         if (inundation_raster is not None) and (huc not in inundation_raster):
-            inundation_branch_raster = append_id_to_file_name(inundation_raster,[huc,branch_id])
+            inundation_branch_raster = fh.append_id_to_file_name(inundation_raster,[huc,branch_id])
         else:
-            inundation_branch_raster = append_id_to_file_name(inundation_raster,branch_id)
+            inundation_branch_raster = fh.append_id_to_file_name(inundation_raster,branch_id)
 
         if (inundation_polygon is not None) and (huc not in inundation_polygon):
-            inundation_branch_polygon = append_id_to_file_name(inundation_polygon,[huc,branch_id])
+            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon,[huc,branch_id])
         else:
-            inundation_branch_polygon = append_id_to_file_name(inundation_polygon,branch_id)
+            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon,branch_id)
 
         if (depths_raster is not None) and (huc not in depths_raster):
-            depths_branch_raster = append_id_to_file_name(depths_raster,[huc,branch_id])
+            depths_branch_raster = fh.append_id_to_file_name(depths_raster,[huc,branch_id])
         else:
-            depths_branch_raster = append_id_to_file_name(depths_raster,branch_id)
+            depths_branch_raster = fh.append_id_to_file_name(depths_raster,branch_id)
 
         # identifiers
         identifiers = (huc,branch_id)
+
+        #print(f"inundation_branch_raster is {inundation_branch_raster}")
 
         # inundate input
         inundate_input = {  'rem' : rem_branch, 
@@ -229,12 +225,6 @@ def __inundate_gms_generator( hucs_branches,
                             'quiet' : not verbose }
         
         yield (inundate_input, identifiers)
-
-
-def __vprint(message,verbose):
-    if verbose:
-        print(message)
-
 
 if __name__ == '__main__':
 
