@@ -139,6 +139,7 @@ if __name__ == '__main__':
                     if fim_res != "":
                         if fim_res in rasfile:
                             #p = input_raster_extent_dir + rasfile
+                            print(input_raster_extent_dir)
                             procs_list.append([input_raster_extent_dir,rasfile,output_bool_dir])
                     else:
                         procs_list.append([input_raster_extent_dir,rasfile,output_bool_dir])

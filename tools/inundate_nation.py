@@ -15,7 +15,9 @@ INPUTS_DIR = r'/data/inputs'
 OUTPUT_BOOL_PARENT_DIR = '/data/inundation_review/inundate_nation/bool_temp/'
 DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 PREP_PROJECTION = 'PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.2572221010042,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4269"]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",29.5],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_center",23],PARAMETER["longitude_of_center",-96],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
-
+SKIP_HUCS = ['04010201']
+# Reasons for huc skipping
+# 04010201: error causing very large hydrotable.csv (200+ gb)
 
 def run_inundation(args):
     """
@@ -33,6 +35,7 @@ def run_inundation(args):
     config = args[4]
     forecast = args[5]
     depth_option = args[6]
+    overwrite_flag = args[7]
     
     # Define file paths for use in inundate().
     fim_run_parent = os.path.join(fim_run_dir, huc)
@@ -56,7 +59,7 @@ def run_inundation(args):
                  depths=depth_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
                 )
         
-    if not os.path.isfile(inundation_raster[:-4] + '_' + str(huc) + '.tif'):
+    if not os.path.isfile(inundation_raster[:-4] + '_' + str(huc) + '.tif') or overwrite_flag:
         print("Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude)
         log_text += "Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude + '\n'
         try:
@@ -130,6 +133,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--depth',help='Optional flag to produce inundation depth rasters (extent raster created by default)', action='store_true')
     parser.add_argument('-s', '--mosaic',help='Optional flag to produce mosaic of FIM extent rasters', action='store_true')
     parser.add_argument('-j', '--job-number',help='The number of jobs',required=False,default=1)
+    parser.add_argument('-x', '--overwrite',help='Optional flag to overwrite existing FIM extent rasters (default=False)',default=False,action='store_true')
         
     args = vars(parser.parse_args())
 
@@ -139,6 +143,7 @@ if __name__ == '__main__':
     magnitude_list = args['magnitude_list']
     mosaic_option = args['mosaic']
     job_number = int(args['job_number'])
+    overwrite_flag  = args['overwrite']
 
     assert os.path.isdir(fim_run_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_run_dir)
     print("Input FIM Directory: " + str(fim_run_dir))
@@ -176,16 +181,20 @@ if __name__ == '__main__':
         procs_list = []
         for huc in huc_list:
             if huc != 'logs' and huc != 'aggregate_fim_outputs':
-                procs_list.append([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option])
-                run_inundation([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option])
-        '''
+                if huc in SKIP_HUCS:
+                    print('!!SKIPPING huc: ' + str(huc) + ' --> flagged as erroneous HUC')
+                    log_file.write('!!SKIPPING huc: ' + str(huc) + ' --> flagged as erroneous HUC\n')
+                else:
+                    procs_list.append([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option, overwrite_flag])
+                    #run_inundation([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option, overwrite_flag])
+        
         # Multiprocess.
         with Pool(processes=job_number) as pool:
             log_output = pool.map(run_inundation, procs_list, chunksize=20)
             log_file.writelines(["%s\n" % item  for item in log_output])
             pool.close()
             pool.join()
-        '''
+        
         print('All inundation completed...')
         # Perform mosaic operation
         if mosaic_option:
