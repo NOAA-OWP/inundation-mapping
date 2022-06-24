@@ -110,7 +110,6 @@ def process_points(args):
         merge_prev_adj = True # merge in previous SRC adjustment calculations
 
         ## Call update_rating_curve() to perform the rating curve calibration.
-        
         log_text = update_rating_curve(fim_directory, water_edge_median_df, htable_path, output_src_json_file, huc, catchments_poly_path,optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
         ## Still testing: use code below to print out any exceptions.
         '''
