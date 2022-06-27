@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, re, shutil, json
+import os, re, shutil, json, sys
 import pandas as pd
 
 from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, elev_raster_ndv
@@ -172,8 +172,7 @@ class test_case(benchmark):
                 print(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
                 return
 
-            #fh.vprint(f"Starting alpha test for {self.dir}", verbose)
-            print(f"Starting alpha test for {self.dir}")
+            fh.vprint(f"Starting alpha test for {self.dir}", verbose)
             
             self.stats_modes_list = ['total_area']
 
@@ -224,11 +223,11 @@ class test_case(benchmark):
             # Write out evaluation meta-data
             self.write_metadata(calibrated, model)
 
-        # We will only catch keyboard interrupt, which we can use to stop multi processing.
-        # Anything else, we want it to go higher. There are some exceptions that we don't
-        # want it to abort the entire run.
         except KeyboardInterrupt:
             print("Program aborted via keyboard interrupt")
+            sys.exit(1)
+        except Exception as ex:
+            print(ex)
             sys.exit(1)
         
     def _inundate_and_compute(self, 

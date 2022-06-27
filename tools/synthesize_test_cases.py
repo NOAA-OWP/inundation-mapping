@@ -345,7 +345,7 @@ if __name__ == '__main__':
             if not os.path.exists(test_case_class.fim_dir):
                 continue
 
-            print(f"test_case_class.test_id is {test_case_class.test_id}")
+            fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
 
             alpha_test_args = { 
                                 'calibrated': calibrated,
@@ -358,13 +358,6 @@ if __name__ == '__main__':
 
             try:
                 future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                # If there is an error, attempting to write to the result object
-                # will throw an exception which we can use to terminate the app.
-                # Without it, all processes must complete before honoring the exception
-                # and with multiple processes, it could be goign for a while.
-                # Even keyboard interrupt will not work.
-                result = future.result()
-
                 executor_dict[future] = test_case_class.test_id
             except Exception as ex:
                 print(f"*** {ex}")
@@ -372,7 +365,7 @@ if __name__ == '__main__':
                 sys.exit(1)
 
         # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, True, f"Running {model} test cases with {job_number_huc} workers")
+        progress_bar_handler(executor_dict, True, f"Running {model} alpha test cases with {job_number_huc} workers")
         #wait(executor_dict.keys())
 
     ## Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
@@ -396,12 +389,6 @@ if __name__ == '__main__':
                                     }
                 try:
                     future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                    # If there is an error, attempting to write to the result object
-                    # will throw an exception which we can use to terminate the app.
-                    # Without it, all processes must complete before honoring the exception
-                    # and with multiple processes, it could be goign for a while.
-                    # Even keyboard interrupt will not work.
-                    result = future.result()
                     executor_dict[future] = test_case_class.test_id
                 except Exception as ex:
                     print(f"*** {ex}")
@@ -425,12 +412,6 @@ if __name__ == '__main__':
 
                 try:
                     future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                    # If there is an error, attempting to write to the result object
-                    # will throw an exception which we can use to terminate the app.
-                    # Without it, all processes must complete before honoring the exception
-                    # and with multiple processes, it could be goign for a while.
-                    # Even keyboard interrupt will not work.
-                    result = future.result()
                     executor_dict[future] = test_case_class.test_id
                 except Exception as ex:
                     print(f"*** {ex}")
