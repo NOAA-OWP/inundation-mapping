@@ -1,6 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
+
+`Alpha Test Refactor` An upgrade was made a few weeks back to the dev-fim3 branch that improved performance, usability and readability of running alpha tests. Some cleanup in other files for readability, debugging verbosity and styling were done as well. A newer, cleaner system for printing lines when the verbose flag is enabled was added.
+
+## Changes
+
+- `gms_run_branch.sh`:  Updated help instructions to about using multiple HUCs as command arguments.
+- `gms_run_unit.sh`:  Updated help instructions to about using multiple HUCs as command arguments.
+- `src/utils`
+    - `shared_functions.py`: 
+       - Added a new function called `vprint` which creates a simpler way (and better readability) for other python files when wanting to include a print line when the verbose flag is on.
+       - Added a new class named `FIM_Helpers` as a wrapper for the new `vprint` method. 
+       - With the new `FIM_Helpers` class, a previously existing method named `append_id_to_file_name` was moved into this class making it easier and quicker for usage in other classes.
+       
+- `tools`
+    - `composite_inundation.py`: Updated its usage of the `append_id_to_file_name` function to now call the`FIM_Helpers` method version of it.
+    - `gms_tools`
+       - `inundate_gms.py`: Updated for its adjusted usage of the `append_id_to_file_name` method, also removed its own `def __vprint` function in favour of the `FIM_Helpers.vprint` method. 
+       - `mosaic_inundation.py`: 
+          - Added adjustments for use of `append_id_to_file_name` and adjustments for `fh.vprint`.
+          - Fixed a bug for the variable `ag_mosaic_output` which was not pre-declared and would fail as using an undefined variable in certain conditions.
+    - `run_test_case.py`: Ported `test_case` class from FIM 3 and tweaked slightly to allow for GMS FIM. Also added more prints against the new fh.vprint method. Also added a default print line for progress / traceability for all alpha test regardless if the verbose flag is set.
+    - `synthesize_test_cases.py`: Ported `test_case` class from FIM 3.
+- `unit_tests`
+   - `shared_functions_unittests.py`: Update to match moving the `append_id_to_file_name` into the `FIM_Helpers` class. Also removed all "header print lines" for each unit test method (for output readability).
+
+<br/><br/>
+
 ## v4.0.5.0 - 2022-06-16 - [PR #611](https://github.com/NOAA-OWP/inundation-mapping/pull/611)
 
 'Branch zero' is a new branch that runs the HUCs full stream network to make up for stream orders 1 & 2 being skipped by the GMS solution and is similar to the FR extent in FIM v3. This new branch is created during `run_by_unit.sh` and the processed DEM is used by the other GMS branches during `run_by_branch.sh` to improve efficiency.
