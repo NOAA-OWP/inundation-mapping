@@ -14,7 +14,7 @@ from tqdm import tqdm
 from inundation import inundate
 from gms_tools.mosaic_inundation import Mosaic_inundation
 from gms_tools.inundate_gms import Inundate_gms
-from utils.shared_functions import append_id_to_file_name
+from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 
 class InundateModel_HUC(object):
@@ -58,7 +58,7 @@ class InundateModel_HUC(object):
         inundation_map_file = None
 
         output_raster_name = os.path.join(output_huc_dir, output_name)
-        output_raster_name = append_id_to_file_name(output_raster_name, [self.huc,self.model])
+        output_raster_name = fh.append_id_to_file_name(output_raster_name, [self.huc,self.model])
 
         # adjust to add model and huc number
         log_file = None
@@ -175,7 +175,7 @@ class Composite_HUC(object):
             print(inundation_map_file_df)
 
         composite_file_output = os.path.join(args["composite_output_dir"], huc, args["output_name"])
-        composite_file_output = append_id_to_file_name(composite_file_output, huc)
+        composite_file_output = fh.append_id_to_file_name(composite_file_output, huc)
 
         # NOTE: Leave workers as 1, it fails to composite correctly if more than one.
         #    - Also. by adding the is_mosaic_for_gms_branches = False, Mosaic_inudation

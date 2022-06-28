@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os
+import os, inspect
 from os.path import splitext
 import fiona
 import rasterio
@@ -247,41 +247,77 @@ def mem_profile(func):
             func(*args, **kwargs)
     return wrapper
 
-def append_id_to_file_name(file_name, identifier):
-    '''
-    Processing:
-        Takes an incoming file name and inserts an identifier into the name
-        just ahead of the extension, with an underscore added.
-        ie) filename = "/output/myfolder/a_raster.tif"
-            indentifer = "13090001"
-            Becomes: "/output/myfolder/a_raster_13090001.tif"
-        Note: 
-            - Can handle a single identifier or a list of identifier
-              ie) identifier = ["13090001", "123000001"]
-              Becomes: "/output/myfolder/a_raster_13090001_123000001.tif"
-            - This allows for file name to not be submitted and will return None
-    Inputs:
-        file_name: a single file name
-        identifier: a value or list of values to be inserted with an underscore 
-            added ahead of the extention
-    Output:
-        out_file_name: A single name with each identifer added at the end before
-            the extension, each with an underscore in front of the identifier.
-    '''
 
-    if file_name is not None:
+class FIM_Helpers:
 
-        root,extension = os.path.splitext(file_name)
+    @staticmethod    
+    def append_id_to_file_name(file_name, identifier):
+        '''
+        Processing:
+            Takes an incoming file name and inserts an identifier into the name
+            just ahead of the extension, with an underscore added.
+            ie) filename = "/output/myfolder/a_raster.tif"
+                indentifer = "13090001"
+                Becomes: "/output/myfolder/a_raster_13090001.tif"
+            Note: 
+                - Can handle a single identifier or a list of identifier
+                ie) identifier = ["13090001", "123000001"]
+                Becomes: "/output/myfolder/a_raster_13090001_123000001.tif"
+                - This allows for file name to not be submitted and will return None
+        Inputs:
+            file_name: a single file name
+            identifier: a value or list of values to be inserted with an underscore 
+                added ahead of the extention
+        Output:
+            out_file_name: A single name with each identifer added at the end before
+                the extension, each with an underscore in front of the identifier.
+        '''
 
-        if isinstance(identifier, list):
+        if file_name is not None:
 
-            out_file_name = root
-            for i in identifier:
-                out_file_name += "_{}".format(i)
-            out_file_name += extension
+            root,extension = os.path.splitext(file_name)
+
+            if isinstance(identifier, list):
+
+                out_file_name = root
+                for i in identifier:
+                    out_file_name += "_{}".format(i)
+                out_file_name += extension
+            else:
+                out_file_name = root + "_{}".format(identifier) + extension
         else:
-            out_file_name = root + "_{}".format(identifier) + extension
-    else:
-        out_file_name = None
+            out_file_name = None
 
-    return(out_file_name)
+        return(out_file_name)
+
+    @staticmethod
+    def vprint (message, is_verbose, show_caller = False):
+        '''
+        Processing: Will print a standard output message only when the 
+            verbose flag is set to True
+        Parameters:
+            message : str
+                The message for output
+                Note: this method puts a '...' in front of the message
+            is_verbose : bool
+                This exists so the call to vprint always exists and does not 
+                need a "if verbose: test for inline code
+                If this value is False, this method will simply return
+            show_caller : bool
+                Sometimes, it is desired to see the calling function, method or class
+        Returns:
+            str : the message starting with "... " and optionallly ending with
+                the calling function, method or class name
+        '''
+        if not is_verbose:
+            return
+
+        msg = f"... {message}"
+        if (show_caller):
+            caller_name = inspect.stack()[1][3]
+            if (caller_name == "<module"):
+                caller_name = inspect.stack()[1][1]
+            msg += f"  [from : {caller_name}]"
+        print (msg)
+
+

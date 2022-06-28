@@ -10,7 +10,7 @@ from glob import glob
 from gms_tools.overlapping_inundation import OverlapWindowMerge
 from tqdm import tqdm
 from utils.shared_variables import elev_raster_ndv
-from utils.shared_functions import append_id_to_file_name
+from utils.shared_functions import FIM_Helpers as fh
 
 def Mosaic_inundation( map_file,
                        mosaic_attribute = 'inundation_rasters',
@@ -63,6 +63,8 @@ def Mosaic_inundation( map_file,
     else:
         tqdm_disable = True
 
+    ag_mosaic_output = ""
+
     for ag in tqdm(aggregation_units, disable = tqdm_disable, desc = 'Mosaicing FIMs'):
 
         try:
@@ -75,12 +77,11 @@ def Mosaic_inundation( map_file,
         # Only add the huc into the name if branches are being processed, as 
         # sometimes the mosiac is not for gms branches but maybe mosaic of an
         # fr set with a gms composite map.
+
         ag_mosaic_output = mosaic_output
         if (is_mosaic_for_gms_branches) and (ag not in mosaic_output):
-            ag_mosaic_output = append_id_to_file_name(mosaic_output, ag) # change it
+            ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag) # change it
 
-        #print(f"ag_mosaic_output is {ag_mosaic_output}")
-        #try:
         mosaic_by_unit(inundation_maps_list, 
                       ag_mosaic_output,
                       nodata,
@@ -88,14 +89,13 @@ def Mosaic_inundation( map_file,
                       remove_inputs = remove_inputs,
                       mask = mask,
                       verbose = verbose)
-        #except Exception as exc:
-        #    print(ag,exc)
-    
+
 
     # inundation maps
     inundation_maps_df.reset_index(drop=True)
 
-    # return file name and path of the final mosaic output file.
+    # Return file name and path of the final mosaic output file.
+    # Might be empty.
     return ag_mosaic_output
 
 
@@ -122,13 +122,11 @@ def mosaic_by_unit(inundation_maps_list,
         overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
         if mask:
-            if verbose:
-                print("Masking ...")
+            fh.vprint("Masking ...", verbose)                
             overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output)
     
     if remove_inputs:
-        if verbose:
-            print("Removing inputs ...")
+        fh.vprint("Removing inputs ...", verbose)
 
         for inun_map in inundation_maps_list:
             if inun_map is not None:
