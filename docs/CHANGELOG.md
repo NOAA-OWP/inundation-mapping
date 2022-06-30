@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.33.0 - 2022-06-30 - [PR #619](https://github.com/NOAA-OWP/cahaba/pull/619)
+
+This PR adds a new option to the `/tools/generate_categorical_fim.py` script `-a` that allows for an alternate method (CatFIM B) for producing inundation maps at the official AHPS flood categories. Similar to the original CatFIM method (CatFIM A), CatFIM B produces inundation maps at the official AHPS categories, but instead of creating maps from the official AHPS discharges, maps are produced using the official stage values, which are converted to water surface elevation.
+
+## Changes
+
+- `generate_categorical_fim_flows.py` : Added options `-a` and `-f`. `-a` is interpreted as a bool and if provided by a user will run the CatFIM B method. If `-a` is passed, then the `-f` flag (fim version full path) is required so that necessary input layers can be accessed.
+- `generate_categorical_fim.py`: Added `-a` option to run the alternate CatFIM method.
+
+<br/><br/>
+
 ## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
