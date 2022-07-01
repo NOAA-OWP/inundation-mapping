@@ -1,0 +1,107 @@
+% LaTeX rebuttal letter example. 
+% 
+% Copyright 2019 Friedemann Zenke, fzenke.net
+%
+% Based on examples by Dirk Eddelbuettel, Fran and others from 
+% https://tex.stackexchange.com/questions/2317/latex-style-or-macro-for-detailed-response-to-referee-report
+% 
+% Licensed under cc by-sa 3.0 with attribution required.
+% See https://creativecommons.org/licenses/by-sa/3.0/
+% and https://stackoverflow.blog/2009/06/25/attribution-required/
+
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{lipsum} % to generate some filler text
+\usepackage{fullpage}
+
+% import Eq and Section references from the main manuscript where needed
+% \usepackage{xr}
+% \externaldocument{manuscript}
+
+% package needed for optional arguments
+\usepackage{xifthen}
+% define counters for reviewers and their points
+\newcounter{reviewer}
+\setcounter{reviewer}{0}
+\newcounter{point}[reviewer]
+\setcounter{point}{0}
+
+% This refines the format of how the reviewer/point reference will appear.
+\renewcommand{\thepoint}{P\,\thereviewer.\arabic{point}} 
+
+% command declarations for reviewer points and our responses
+\newcommand{\reviewersection}{\stepcounter{reviewer} \bigskip \hrule
+                  \section*{Reviewer \thereviewer}}
+
+\newenvironment{point}
+   {\refstepcounter{point} \bigskip \noindent {\textbf{Reviewer~Point~\thepoint} } ---\ }
+   {\par }
+
+\newcommand{\shortpoint}[1]{\refstepcounter{point}  \bigskip \noindent 
+	{\textbf{Reviewer~Point~\thepoint} } ---~#1\par }
+
+\newenvironment{reply}
+   {\medskip \noindent \begin{sf}\textbf{Reply}:\  }
+   {\medskip \end{sf}}
+
+\newcommand{\shortreply}[2][]{\medskip \noindent \begin{sf}\textbf{Reply}:\  #2
+	\ifthenelse{\equal{#1}{}}{}{ \hfill \footnotesize (#1)}%
+	\medskip \end{sf}}
+
+
+
+\begin{document}
+
+\section*{Response to the reviewers}
+% General intro text goes here
+We thank the reviewers for their critical assessment of our work. 
+In the following we address their concerns point by point. 
+
+% Let's start point-by-point with Reviewer 1
+\reviewersection
+
+% Point one description 
+\begin{point}
+	\lipsum[1]
+	\label{pt:foo}
+\end{point}
+
+% Our reply
+\begin{reply}
+	We agree with the reviewer on this important point. This is what we did to
+	fix it. 
+	\lipsum[2]
+\end{reply}
+
+\begin{point}
+	Reviewer \thereviewer's second point.
+	\label{pt:bar}
+\end{point}
+
+\begin{reply}
+	And our reply to it.
+\end{reply}
+
+\subsection*{Minor}
+
+% Use the short-hand macros for one-liners.
+\shortpoint{ Typo in line xy. }
+\shortreply{ Fixed.}
+
+% Begin a new reviewer section
+\reviewersection
+
+\begin{point}
+	This is the first point of Reviewer \thereviewer. With some more words foo
+	bar foo bar ...
+\end{point}
+
+\begin{reply}
+	Our reply to it with reference to one of our points above using the \LaTeX's 
+	label/ref system (see also \ref{pt:foo}).
+\end{reply}
+
+
+\end{document}
+
+
