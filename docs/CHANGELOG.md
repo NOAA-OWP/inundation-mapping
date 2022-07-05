@@ -21,7 +21,7 @@ These changes introduce a PostgreSQL database solution for storing, processing, 
 
 <br/><br/>
 
-## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
+## v3.0.32.0 - 2022-05-26 - [PR #588](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
 `run_test_case.py` has also been refactored to use a `test_case` python class. This workflow has shown decreased memory usage as compared to the previous version of `run_test_case.py`.
