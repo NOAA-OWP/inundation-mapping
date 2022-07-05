@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.33.0 - 2022-06-24 - [PR #618](https://github.com/NOAA-OWP/cahaba/pull/618)
+
+These changes introduce a PostgreSQL database solution for storing, processing, and accessing the point-based calibration data previously stored in a gpkg. The PostgreSQL enables faster processing and a flexible solution for continuously increasing the number of calibration points.
+
+## Additions
+
+- `tools/calibration/README.md`: documentation and tips for working with the PostgreSQL DB
+- `tools/calibration/start_db.sh`: bash shell script for creating the docker container for the database (only needs to be executed if the container is closed or disconnected - see instructions in README)
+
+## Changes
+
+- `config/params_template.env`: added a variable with the filepath location for the sensitive variables
+- `fim_run.sh`: added two ogr2ogr commands to populate the PostgreSQL database with the point and huc boundary spatial data
+- `src/src_adjust_spatial_obs.py`: revised to ingest the PostgreSQL database, perform a spatial query to create a list of all HUCs containing calb points, query points to each huc, and pass a dataframe to the `src_roughness_optimization.py` workflow
+- `src/src_adjust_usgs_rating.py`: simplified the `-debug` flag (action='store_true')
+- `src/src_roughness_optimization.py`: added placeholder variable creation (this is only needed to run the script for older FIM versions as they are now created by default in `add_crosswalk.py`)
+- *additional miscellaneous files updated to facilitate the PostgreSQL DB configuration on the production machine 
+
+<br/><br/>
+
 ## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
