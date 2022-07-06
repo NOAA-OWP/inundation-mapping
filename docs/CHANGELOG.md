@@ -6,6 +6,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 All unit tests have been updated to match the current dev code branch. All unit test pathing have been updated to work against the outputs/fim_unit_test_data_do_not_remove/ folder. Some new unit tests added as well as a new deny list (config/deny_gms_branch_unittests.lst)
 
+<br/><br/>
 
 ## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
 
