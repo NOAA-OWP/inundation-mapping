@@ -127,19 +127,13 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
     # replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
-        if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-            print("HEy")
         if output_flows["areasqkm"][stream_index] < min_catchment_area and output_flows["LengthKm"][stream_index] < min_stream_length and output_flows["LakeID"][stream_index] < 0:
-            if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-                print("Found ya")
             short_id = output_flows['HydroID'][stream_index]
             to_node = output_flows['To_Node'][stream_index]
             from_node = output_flows['From_Node'][stream_index]
 
             # multiple upstream segments
             if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
-                if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-                    print("Yo")
                 try:
                     max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_']) # drainage area would be better than stream order but we would need to calculate
                 except:
@@ -153,14 +147,10 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
             # single upstream segments
             elif len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) == 1:
-                if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-                    print("Howdy")
                 update_id = output_flows.loc[output_flows.To_Node==from_node]['HydroID'].item()
 
             # no upstream segments; multiple downstream segments
             elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID']) > 1:
-                if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-                    print("Aloha")
                 try:
                     max_order = max(output_flows.loc[output_flows.From_Node==to_node]['HydroID']['order_']) # drainage area would be better than stream order but we would need to calculate
                 except:
@@ -174,17 +164,11 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
             # no upstream segments; single downstream segment
             elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID']) == 1:
-                if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-                    print("Hola Amigo")
                     update_id = output_flows.loc[output_flows.From_Node==to_node]['HydroID'].item()
-
+            
             else:
-                if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-                    print("Huevos Rancheros")
                 update_id = output_flows.loc[output_flows.HydroID==short_id]['HydroID'].item()
 
-            if stream_index in [2168, 2169, 2167, 2166, 2165, 2164, 2163, 1281]:
-                print("Here my are")
             str_order = output_flows.loc[output_flows.HydroID==short_id]['order_'].item()
             sml_segs = sml_segs.append({'short_id':short_id, 'update_id':update_id, 'str_order':str_order}, ignore_index=True)
 
@@ -274,6 +258,11 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
+    print("Dropping duplicates")
+    # One of the pandas merges seems to create duplicates, so they are removed here.
+    output_hydro_table = output_hydro_table.drop_duplicates()
+    output_flows = output_flows.drop_duplicates()
+    
     # write out based on mode
     if calibration_mode == True:
         output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
