@@ -53,43 +53,553 @@
 \begin{document}
 
 \section*{Response to the reviewers}
-% General intro text goes here
-We thank the reviewers for their critical assessment of our work. 
-In the following we address their concerns point by point. 
+
+\subsection*{Editor Response}
+
+Associate Editor Evaluations: \\
+Recommendation (Required): Return to author for major revisions \\
+Accurate Key Points: Yes \\
+\noindent
+Associate Editor (Remarks to Author): 
+
+Dear authors,
+
+We have received three very detailed reviews for your manuscript, which suggest that major revisions are needed before your manuscript can be reconsidered for publication in WRR.
+All reviewers agree that the manuscript's structure has to be improved and that the method description needs clarification.
+Reviewers 1 and 2 highlight the need to better work out the novel contribution of this study, which is hidden behind the report-like structure of this manuscript.
+I agree with the reviewers that the manuscript needs a clearer problem statement, more focus on the major contribution, results and discussion.
+Some clarification regarding methodology seems to be needed in Section 2.5.
+In addition, Reviewer 3 points out that substantial editing is needed before re-submission.
+I am looking forward to reading a substantially revised and edited version of this manuscript.\\
+
+Best regards
+
+\begin{reply}
+We thank the reviewers for carefully reading the manuscript and for providing valuable feedback.
+We have gone through the reviews and made every effort to address the concerns while staying within the scope of the paper.
+We feel like we have addressed the concerns around not highlighting the primary contribution of the paper while strengthening the explaination of the contribution's methods in Section 2.5.
+\end{reply}
 
 % Let's start point-by-point with Reviewer 1
 \reviewersection
 
+\subsection*{Introductory Comment}
+
 % Point one description 
 \begin{point}
-	\lipsum[1]
-	\label{pt:foo}
+    This work improved the accuracy of the height above nearest drainage (HAND) based flood inundation mapping.
+    This study first compared the original HAND-based flood inundation mapping approach with HEC-RAS 1D results and showed that HAND suffers from a limitation caused by independent neighboring catchments that cannot cross catchment boundaries.
+    Then, the study proposed a series of terrain analysis steps to resolve this issue.
+    The most crucial new method compared to other steps that had already been used in previous studies was to reduce the Horton-Strahler stream order of a HAND processing unit down to one.
+    Overall, I support this work and find it a valuable research area.
+    The paper was well written, and the work is original in its effort to resolve some issues associated with the HAND-based flood mapping method.
+    However, I sometimes found it more like a technical report than a research paper.
+    I appreciate the effort authors took to explain every step of the methodology in detail; however, I hoped to see more results and discussion than learning every detail mentioned in the methodology section.
+    Also, the main part of the methodology section (section 2.5) requires modification as it does not clearly present the proposed method (please see my major comments below).
+    I have some major, minor, and editorial points that I hope authors find helpful in revising this manuscript.
+    \label{pt:foo}
 \end{point}
 
 % Our reply
 \begin{reply}
-	We agree with the reviewer on this important point. This is what we did to
-	fix it. 
-	\lipsum[2]
+Thank you for providing an overall assessment of the paper.
+We have carefully reviewed your comments and made every effort to clarify or correct any issues you've brought up.
+Any references to line numbers, paragraphs, sections, figures, or tables in the proceeding responses to your comments will refer to those in the original PDF document unless otherwise noted.
 \end{reply}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection*{Major Comments}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \begin{point}
-	Reviewer \thereviewer's second point.
-	\label{pt:bar}
+My first comment is regarding comparing results with the HEC-RAS model results.
+In this comparison, you evaluated the flood inundation extent and not depth.
+My question is, how the proposed method affects the estimated flood stage (depth)?
+Figure 9a shows that the proposed method resulted in a smaller estimated stage value.
+This should then result in getting a smaller HAND-based inundation extent.
+But you showed a larger inundated extent in Figure 10.
+How do you separate these two effects?
+This needs to be at least discussed in your discussion section.
+    \label{pt:bar}
 \end{point}
 
 \begin{reply}
-	And our reply to it.
+We thank you very much for making this important point as one of the main purposes of the paper is to introduce how exactly drainage reduction techniques change HAND derived inundation performance.
+After reading your comment and our initial discussion section submission, we did notice a missing portion that properly explains how drainage order reduction increases catchment boundary extents and how that drives increased inundation extents and Probability of Detection (POD).
+We noted that a fair portion of the discussion (second paragraph in Discussion) was dedicated to how reducing drainage order promotes stage reduction and an associated marginal reduction in False Alarm Rate (FAR).
+This, as you correctly noted, is a competing effect to the increased catchment size and associated increase in inundation area and POD.
+
+These competing effects are very difficult to detangle since catchment definitions are used to derive synthetic rating curves (SRCs).
+When viewed from the perspective of change in the total inundation area, these two effects can correctly be described as competing since one tends to increase inundation area while the other generally decreases it.
+However, when viewed in the paradigm of overall FIM performance, we believe they are complimentary in nature as hinted by the concurrent increase in POD and slight decrease in FAR.
+
+Motivated by this comment, we have inserted a paragraph that better describes the increase POD as driven by catchment size enlargement especially around the critical areas described in the paper.
+Additionally due to your comment on the competing effects, we have inserted another paragraph that gives the audience a better conceptual idea as to how these effects both compete in inundation area but complement each other in terms of performance.
+
+Limited catchment boundaries drive pools of water that are artificially built up without room for the water to naturall spread. 
+This can be conceptually visualized as a column of water that extends beyond its containers top edge.
+This inherent limitation in HAND skews the stage-discharge relationship in addition to limiting the inunduation extents.
+Thanks to your comment we have contributed a significant addition that better highlights some of the points made in this reply.
+
+Thank you for this important question as one of the main discussion points proposed in the paper was introducing how this demonstrated drainage order reduction technique for HAND computation affects FIM skill.
+In this study, we noted that FIM skill was enhanced with the increased use of drainage order reduction via two interconnected avenues: catchment boundary modifications and river stage reduction.
+For inundation mapping purporses, HAND works on the principle of independent catchments that translate reach-level stream flow values to stages with the use of reach-level synthetic rating curves.
+This relationship between stage and discharge was derived using geometric values sampled from the HAND and catchment rasters that are inputted into the reach-averaged Manning' N equation (Equation 2).
+
+The critical argument here is conveying that a given's reach stage value can only be propogated as far as the given's reach catchment boundary. 
+The term "nearest" in HAND is a limiting factor as higher order stream networks have locations with multiple contributing reaches that are not being considered.
+When delineating HAND with unit-order streams, catchments are extended to their more natural extents thus making them more expansive.
+These catchments can overlap considerably allowing for multi-source flooding effects.
+
+The phenomena of larger catchments is illustrated in Figure 10 where catchments delineated at full stream resolution in Figure 10a are shown in white.
+When compared to the catchments also symbolized in white in Figure 10b for the unit-stream order network, one observes a sizeable increase in the catchment size for the horizontally oriented mainstem illustrated in the image.
+By expanding the catchment sizes by unconstraing catchment lines to only their nearest drainage line, catchments begin to include more expansive drainage areas that would potentially include those of upstream tributaries.
+This size increase enables the inundation depth to increase considerably.
+
+As an opposing effect, larger catchments influence the geometric properties that are used in the reach-averaged Manning's equation including bed area and volume.
+Figure 9 attempts to illustrate these changes where we show how the more dependency on lower resolution stream networks the lower the rating curve biases.
+These changes are influenced by the shape of catchments by making more volume and bed area for water to settle into.
+While volume and bed area denote competing forces on discharge, Figure 9d illustrates how the net affect increases discharge with respect to a given stage value. 
+
+So in summary, yes stage does decrease with increased reliance of unit drainage order networks which is due to the larger, overlapping catchments that are created.
+This reduction in stage, itself, likely would create a reduction in total inundation area if it weren't for the fact that these new larger catchments 
 \end{reply}
 
-\subsection*{Minor}
+\begin{point}
+My second question is that it seems the proposed method reduces the false alarm rate.
+This means the underestimation of the original HAND-based flood mapping compared to the FEMA maps is resolved.
+However, we know there are uncertainties associated with the FEMA flood extent.
+How would you say this reduction of false negatives is really in a right direction when you did not compare results with ground truth data?
+    \label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+My second major comment is that the methodology section tends to be very long, particularly sections 2.1-2.4.
+The main contribution of this paper is section 2.5, but it took me as a reader a long time to get to this point and figure out what the paper presents.
+Also, section 2.5 is somehow confusing and could be revised and simplified.
+For example, in L531, you mentioned you present two successive methods.
+Is the first one sub-setting MS?
+The NWM main-stem part (2.5.1) seems (at least to me) like an introduction, not something that you did.
+Please clarify and revise this part such that a reader can follow the story that connects 2.5.1 and 2.5.2 with the main paragraph in Section 2.5.
+Again, this is the most important part of you work. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+The limitation that the authors attempted to resolve is introduced as a known limitation in the abstract.
+Is that really a known limitation?
+If yes, did you cite it properly in your literature review?
+I believe this was not introduced well as a limitation.
+You only pointed out to this in your results (Figure 10).
+This is somehow explained in L203-210.
+But not very well explained.
+This is an important part and the gap your research is trying to resolve so be generous and explain more.
+Could you also clarify whether this limitation always results in more overestimation or underestimation? 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+Links to all datasets introduced in section 2.2 should be included in your manuscript either in the suggested table or within the "Open Research" section at the end of your manuscript. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+Line 331-332: what were the values for buffer distance, smooth drop, and sharp drop you used?
+Were they fixed numbers or differ?
+How did you choose these values? 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+I believe a diagram showing all the steps and methods you took to prepare your data and method could be helpful.
+Your material and data section has about 14 sub-sections collectively.
+It is sometimes hard to follow along. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+LINE 462-464. Could you explain more about why this is required?
+Is it to improve flat areas?
+Can't we see any results associated with this error improvement?
+Any other studies that observed this that you could cite?
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+Fig 4. You need to explain this figure in the content more thoroughly.
+What are the numbers?
+How does one dominate the other?
+You mention that the level path method starts from an outlet, so it is probably better to show an outlet in Figure 4.
+Please clarify what you mean by "arbolate sum"? I cannot understand what this summation is.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+\begin{point}
+In equations 5 and 6, When you apply the mosaic method, what is the reason to choose the max?
+Is that because you always see the original HAND approach, as shown in Figure 3, underestimating the flood extent?
+This may not be true everywhere, or it might be.
+Please provide your thoughts on this and add it to the manuscript. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+And our reply to it.
+\end{reply}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection*{Minor Comments}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Use the short-hand macros for one-liners.
-\shortpoint{ Typo in line xy. }
-\shortreply{ Fixed.}
+\begin{point}
+In the third key point, what do you mean by higher skill inundation?
+Please be more specific.
+Do you mean more accurate inundation depth or inundation extent?
+Same for L39.
+Mapping skill itself is not clear.
+Does that refer to flood depth or flood extent?
+\label{pt:bar}
+\end{point}
 
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+The last line of your plain language summary: Philosophically speaking, if you compared the HAND to a more realistic model and found improvements, what is the point you offer using HAND instead of a more realistic model?
+If HAND is not a realistic model, the logic is that we should not use an unrealistic model.
+Please revise this.
+I agree HAND is a simplified model, but that does not make it unrealistic.
+It is realistic because it is based on some terrain physics.
+You may want to revise this sentence and use "physically-based" rather than "realistic".
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+L121. There is a gap between the geofabric concept you introduced and the Muskingam-Cunge routing method.
+You might want to start this sentence like this: The NWM provides stream forecasts at these geofabric segments using the Muskingham-Cunge method. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Page 29: It could be better to change the title of subsection 3.1 to "Flood mapping performance". 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+L671. Please add "(Table 2)" at the end of the sentence.
+This guides the reader to know what you are referring to immediately. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Line 315-318: Please clarify what NHD is?
+Does that refer to the NHDPlusHR or NHDPlus medium resolution as used in the NWM v2.1?
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Line 344-345: This statement requires citation(s).
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+I would suggest removing lines 534-535. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+I believe section 2.3.1 is not a DEM hydro conditioning step.
+It is more like creating an input (as seed points) that you need when delineating the stream network.
+The hydro conditioning of the DEM section should start with levee enforcement (section 2.3.2).
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Line 570. What is the logic behind using a 7 km buffer?
+Did you first come with this number or after some test?
+What is your recommendation or suggestion?
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Maybe reporting the percentage of improvements in Table 2 would help better understanding the contribution of your work.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Figure 8 contains a lot of information, and readers may require a substantial explanation to understand what these graphs and numbers all shown in a figure mean.
+You introduced the figure in the first paragraph of the result section (L672-677).
+I suggest you take one example from this figure and walk the reader through the numbers.
+For example, what does it mean when the KDE of CSI for the GMS model has the most left-skewed graph compared to the other models?
+Is it considered good or bad?
+Is it something you had expected?
+Another question that arises here is why using a higher Manning's N shifts the KDE graphs up and whether this means results get better or worse.
+You discuss this figure on Line 686-690, but I think it could be better to bring this part further up where you first mention Figure 8.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection*{FIGURES}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{point}
+Fig 1. The NWM FR streams line is hardly visible in the legend. Please revise. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Fig 3. Please define MS in the figure caption (Is it mainstem?).
+Also, TN, FN, FP, and TP should be described here.
+You introduced these terms later in the evaluation section.
+A reader has no idea what these mean unless they first read your evaluation section (section 2.7).
+Please add flow direction to this map using arrows.
+It can help a reader quickly understand the flow numbers on the figure as you talk about in the content.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Line 575. This should be Figure 5d not 5c.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Fig 5. How many different color codes (level paths) are there?
+Is fig 5a one HUC 8?
+Please mention the HUC8 identifier.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Fig 6. It seems that the blue areas are inundated areas for the 0.2\% recurrence flow.
+How about the inundated areas for the 0.1\% recurrence flow?
+I am asking this because the caption mentions 0.2\% and 0.1\%.
+Please clarify and revise the figure and caption accordingly. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Fig 7. It could be good to add some labels on the figure indicating where this location is within your study area.
+What is the mainstem's name?
+Would it be possible to add NWM v2.1 catchments to the map?
+I understand this might make the figure busy, but I would like to know how many cross sections falls within a NWM catchment?
+Is this the FR or MR NWM v2.1 stream or the one you created (GSM)?
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Fig 10. Which recurrence event was used to create this inundation map?
+Please add this to the caption and mention it in the content where you explain results in Figure 10.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection*{EDITORIAL COMMENTS}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{point}
+L66. Remove the period before the parenthesis, followed by the citations.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+L101. NWM is already defined. Just use the abbreviation here. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Title of section 1.5: It could be better to use the Operational Water Prediction (OWP) Flood Inundation Maps (FIM)
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+L160. HPC is already defined. 
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+L167. MR is already defined.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+L178. USGS is not yet defined.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Line 347: NLD has already been introduced on page 11.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Line 524: MS should be first defined here not on line 537.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+\begin{point}
+Throughout the manuscript, please be consistent with the terms you use.
+Use either Manning's n or Manning's N everywhere.
+\label{pt:bar}
+\end{point}
+
+\begin{reply}
+
+\end{reply}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Begin a new reviewer section
 \reviewersection
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{point}
 	This is the first point of Reviewer \thereviewer. With some more words foo
