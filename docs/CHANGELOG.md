@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.34.0 - 2022-06-30 - [PR #619](https://github.com/NOAA-OWP/cahaba/pull/619)
+
+This PR adds a new option to the `/tools/generate_categorical_fim.py` script `-a` that allows for an alternate method (CatFIM B) for producing inundation maps at the official AHPS flood categories. Similar to the original CatFIM method (CatFIM A), CatFIM B produces inundation maps at the official AHPS categories, but instead of creating maps from the official AHPS discharges, maps are produced using the official stage values, which are converted to water surface elevation.
+
+## Changes
+
+- `generate_categorical_fim_flows.py` : Added options `-a` and `-f`. `-a` is interpreted as a bool and if provided by a user will run the CatFIM B method. If `-a` is passed, then the `-f` flag (fim version full path) is required so that necessary input layers can be accessed.
+- `generate_categorical_fim.py`: Added `-a` option to run the alternate CatFIM method.
+
+<br/><br/>
+
+
 ## v3.0.33.0 - 2022-06-24 - [PR #618](https://github.com/NOAA-OWP/cahaba/pull/618)
 
 These changes introduce a PostgreSQL database solution for storing, processing, and accessing the point-based calibration data previously stored in a gpkg. The PostgreSQL enables faster processing and a flexible solution for continuously increasing the number of calibration points.
