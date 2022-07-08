@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import pandas as pd
+import numpy as np
+import geopandas as gpd
 import time
-from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs
+from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
 import argparse
 from dotenv import load_dotenv
 import os
@@ -21,7 +23,7 @@ def get_env_paths():
     return API_BASE_URL, WBD_LAYER
 
 
-def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
+def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, fim_dir):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -50,7 +52,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     None.
 
     '''
-    
+        
     all_start = time.time()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
@@ -65,11 +67,12 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
 
     print('Retrieving metadata...')
     #Get metadata for 'CONUS'
+    print(metadata_url)
     conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
 
     #Get metadata for Islands
     islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
-    
+
     #Append the dataframes and lists
     all_lists = conus_list + islands_list
     
@@ -82,21 +85,57 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
     #Import list of evaluated sites
-    print(EVALUATED_SITES_CSV)
-    print(os.path.exists(EVALUATED_SITES_CSV))
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
     #The entire routine to get mainstems is hardcoded in this function.
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
-    
+        
+    import ast
+    with open('/data/temp/brad/alternate_catfim_temp_files/ms_segs.txt','r') as f:
+       ms_segs = ast.literal_eval(f.read())
+      
+    if alt_catfim:
+        alt_catfim_att_dict = {}
+        with open(os.path.join(workspace, "missing_files.txt"), "w") as f:
+            f.write("missing_file\n")
+        f.close()
+    missing_huc_files = []
     #Loop through each huc unit, first define message variable and flood categories.
     all_messages = []
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
+    
     for huc in huc_dictionary:
+        if alt_catfim:  # Only need to read in hydroTable if running in alt mode.
+            
+            # Get path to relevant synthetic rating curve.
+            hydroTable_path = os.path.join(fim_dir, huc, 'hydroTable.csv')
+            if not os.path.exists(hydroTable_path):
+                continue
+            hydroTable = pd.read_csv(
+                         hydroTable_path,
+                         dtype={'HUC':str,'feature_id':str,
+                                 'HydroID':str,'stage':float,
+                                 'discharge_cms':float,'LakeID' : int, 
+                                 'last_updated':object,'submitter':object,'adjust_ManningN':object,'obs_source':object}
+                        )
+
+            catchments_path = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+            if not os.path.exists(catchments_path):
+                continue
+            usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
+            if not os.path.exists(usgs_elev_table):
+                if huc not in missing_huc_files:
+                    missing_huc_files.append(huc)
+                with open(os.path.join(workspace, "missing_files.txt"),"a") as f:
+                    f.write(usgs_elev_table + "\n")
+                continue
+            usgs_elev_df = pd.read_csv(usgs_elev_table)
+
         print(f'Iterating through {huc}')
         #Get list of nws_lids
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in list to create flow file
         for lid in nws_lids:
+            
             #Convert lid to lower case
             lid = lid.lower()
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
@@ -111,14 +150,87 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
                 message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 continue
-
+            if alt_catfim:
+                try:
+                    lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]  # Assuming DEM datums are consistent across all DEMs
+                    hydroid = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'HydroID'].values[0]
+                except IndexError:  # Occurs when LID is missing from table
+                    continue
+                alt_catfim_att_dict.update({lid:{}})
+                
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
-        
+            lid_altitude = metadata['usgs_data']['altitude']
+       
+            ### --- Do Datum Offset --- ###
+            #determine source of interpolated threshold flows, this will be the rating curve that will be used.
+            rating_curve_source = flows.get('source')
+            if rating_curve_source is None:
+                continue
+                        
+            #Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
+            if lid == 'bmbp1':
+                rating_curve_source = 'NRLDB'
+            
+            #Get the datum and adjust to NAVD if necessary.
+            nws, usgs = get_datum(metadata)
+            datum_data = {}
+            if rating_curve_source == 'USGS Rating Depot':
+                datum_data = usgs
+            elif rating_curve_source == 'NRLDB':
+                datum_data = nws
+                        
+            #If datum not supplied, skip to new site
+            datum = datum_data.get('datum', None)
+            if datum is None:
+#                f.write(f'{lid} : skipping because site is missing datum\n')
+                continue      
+            
+            #Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
+            # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7 
+            # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
+            if lid in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
+                datum_data.update(crs = 'NAD83')
+            
+            #Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
+            if lid == 'bmbp1':
+                datum_data.update(crs = 'NAD27')
+            
+            #Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. If NGVD29 it is converted to NAVD88.
+            #bgwn7, eagi1 vertical datum unknown, assume navd88
+            #fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
+            #wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
+            if lid in ['bgwn7','eagi1','fatw3']:
+                datum_data.update(vcs = 'NAVD88')
+            elif lid == 'wlln7':
+                datum_data.update(vcs = 'NGVD29')
+            
+            #Adjust datum to NAVD88 if needed
+            # Default datum_adj_ft to 0.0
+            datum_adj_ft = 0.0
+            if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
+                #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
+                try:
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
+                except Exception as e:
+                    all_messages.append(e)
+            
+            ### -- Concluded Datum Offset --- ###
+            
             #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             segments = get_nwm_segs(metadata)        
             site_ms_segs = set(segments).intersection(ms_segs)
-            segments = list(site_ms_segs)       
+            segments = list(site_ms_segs)    
+        
+            # Subset by Hydroid
+            hydroid = str(hydroid)
+            subset_hydroTable = hydroTable.loc[hydroTable['HydroID'] == hydroid]
+
+            hand_stage_array = subset_hydroTable[["stage"]].to_numpy()
+            hand_flow_array = subset_hydroTable[["discharge_cms"]].to_numpy()
+            hand_stage_array = hand_stage_array[:, 0]
+            hand_flow_array = hand_flow_array[:, 0]
+
             #if no segments, write message and exit out
             if not segments:
                 print(f'{lid} no segments')
@@ -127,26 +239,74 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
                 continue
             #For each flood category
             for category in flood_categories:
-                #Get the flow
-                flow = flows[category]
-                #If there is a valid flow value, write a flow file.
-                if flow:
-                    #round flow to nearest hundredth
-                    flow = round(flow,2)
-                    #Create the guts of the flow file.
-                    flow_info = flow_data(segments,flow)
-                    #Define destination path and create folders
-                    output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
-                    output_file.parent.mkdir(parents = True, exist_ok = True)
-                    #Write flow file to file
-                    flow_info.to_csv(output_file, index = False)
-                else:
-                    message = f'{lid}:{category} is missing calculated flow'
-                    all_messages.append(message)
+                
+                # If running in the alternative CatFIM mode, then determine flows using the
+                # HAND synthetic rating curves, looking up the corresponding flows for datum-offset
+                # AHPS stage values.
+                if alt_catfim:
+                    if datum_adj_ft == None:
+                        datum_adj_ft = 0.0
+                    stage = stages[category]
+                    
+                    if len(hand_stage_array) > 0 and stage != None and datum_adj_ft != None and lid_altitude != None:
+                        # Determine datum-offset water surface elevation (from above).
+                        datum_adj_wse = stage + datum_adj_ft + lid_altitude
+                        datum_adj_wse_m = datum_adj_wse*0.3048  # Convert ft to m
+                        
+                        # Interpolate flow value for offset stage.
+                        wse_hand_array = hand_stage_array + lid_usgs_elev  # Add the HAND-derived elevation to the HAND-derived stages
+                        interpolated_hand_flow_cms = np.interp(datum_adj_wse_m, wse_hand_array, hand_flow_array)
+                        stage = stages[category]
 
+                        #round flow to nearest hundredth
+                        flow = round(interpolated_hand_flow_cms,2)
+                        # Extra metadata for alternative CatFIM technique.
+                        alt_catfim_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
+                                                                     'datum_adj_wse_m': datum_adj_wse_m,
+                                                                     'interpolated_hand_flow_cms': interpolated_hand_flow_cms,
+                                                                     'datum_adj_ft': datum_adj_ft,
+                                                                     'lid_alt_ft': lid_altitude,
+                                                                     'lid_alt_m': lid_altitude*0.3048}})
+                        
+                        #Create the guts of the flow file.
+                        flow_info = flow_data(segments,flow,convert_to_cms=False)
+                        #Define destination path and create folders
+                        output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
+                        output_file.parent.mkdir(parents = True, exist_ok = True)
+                        #Write flow file to file
+                        flow_info.to_csv(output_file, index = False)
+                    else:
+                        hand_stage_array_len = len(hand_stage_array)
+                        message = f'{lid}:{category}, {hydroid}, array_len:{hand_stage_array_len}, stage:{stage}, datum_adj_ft:{datum_adj_ft}, altitude:{lid_altitude}'
+                        all_messages.append(message)
+                        
+                    # If missing HUC file data, write message
+                    if huc in missing_huc_files:
+                        all_messages.append("Missing some HUC data")
+                    
+                else:  # If running in default mode
+                    #Get the flow
+                    flow = flows[category]
+                    #If there is a valid flow value, write a flow file.
+                    if flow:
+                        #round flow to nearest hundredth
+                        flow = round(flow,2)
+                        #Create the guts of the flow file.
+                        flow_info = flow_data(segments,flow)
+                        #Define destination path and create folders
+                        output_file = workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv') 
+                        output_file.parent.mkdir(parents = True, exist_ok = True)
+                        #Write flow file to file
+                        flow_info.to_csv(output_file, index = False)
+                    else:
+                        message = f'{lid}:{category} is missing calculated flow'
+                        all_messages.append(message)
+#            pprint(alt_catfim_att_dict)
             #Get various attributes of the site.
-            lat = float(metadata['usgs_preferred']['latitude'])
-            lon = float(metadata['usgs_preferred']['longitude'])
+#            lat = float(metadata['usgs_preferred']['latitude'])
+#            lon = float(metadata['usgs_preferred']['longitude'])
+            lat = float(metadata['nws_preferred']['latitude'])
+            lon = float(metadata['nws_preferred']['longitude'])
             wfo = metadata['nws_data']['wfo']
             rfc = metadata['nws_data']['rfc']
             state = metadata['nws_data']['state']
@@ -159,12 +319,33 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
             wrds_timestamp = stages['wrds_timestamp']
             nrldb_timestamp = metadata['nrldb_timestamp']
             nwis_timestamp = metadata['nwis_timestamp']
-            
+                        
             #Create a csv with same information as shapefile but with each threshold as new record.
             csv_df = pd.DataFrame()
             for threshold in flood_categories:
-                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
-                csv_df = csv_df.append(line_df)
+                if alt_catfim:
+                    try:
+                        datum_adj_ft = alt_catfim_att_dict[lid][threshold]['datum_adj_ft']
+                        datum_adj_wse_ft = alt_catfim_att_dict[lid][threshold]['datum_adj_wse_ft']
+                        datum_adj_wse_m = alt_catfim_att_dict[lid][threshold]['datum_adj_wse_m']
+                        interpolated_hand_flow_cms = alt_catfim_att_dict[lid][threshold]['interpolated_hand_flow_cms']
+                        lid_alt_ft = alt_catfim_att_dict[lid][threshold]['lid_alt_ft']
+                        lid_alt_m = alt_catfim_att_dict[lid][threshold]['lid_alt_m']
+
+                        line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon],
+                                            'dtm_adj_ft': datum_adj_ft,
+                                            'dadj_w_ft': datum_adj_wse_ft,
+                                            'dadj_w_m': datum_adj_wse_m,
+                                            'han_q_cms': interpolated_hand_flow_cms,
+                                            'lid_alt_ft': lid_alt_ft,
+                                            'lid_alt_m': lid_alt_m})
+                        csv_df = csv_df.append(line_df)
+                        
+                    except KeyError:
+                        pass
+                else:
+                    line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
+                    csv_df = csv_df.append(line_df)
             #Round flow and stage columns to 2 decimal places.
             csv_df = csv_df.round({'q':2,'stage':2})
 
@@ -176,13 +357,13 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search):
             else:
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
-        
     print('wrapping up...')
     #Recursively find all *_attributes csv files and append
     csv_files = list(workspace.rglob('*_attributes.csv'))
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
         #Huc has to be read in as string to preserve leading zeros.
+        print(csv)
         temp_df = pd.read_csv(csv, dtype={'huc':str})
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write to file
@@ -232,7 +413,10 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
+    parser.add_argument('-a', '--alt-catfim', help = 'Run alternative CatFIM that bypasses synthetic rating curves?', required=False, default=False, action='store_true')
+    parser.add_argument('-f', '--fim-dir', help='Path to FIM outputs directory. Only use this option if you are running in alt-catfim mode.',required=False,default="")
     args = vars(parser.parse_args())
+
 
     #Run get_env_paths and static_flow_lids
     API_BASE_URL, WBD_LAYER = get_env_paths()
