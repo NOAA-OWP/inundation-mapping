@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.34.1 - 2022-06-30 - [PR #628](https://github.com/NOAA-OWP/cahaba/pull/628)
+## v3.0.34.1 - 2022-07-11 - [PR #628](https://github.com/NOAA-OWP/cahaba/pull/628)
 
 This merge adds two lines to `add_crosswalk.py` to drop duplicates from pandas dataframes. In prior versions, the duplicate features were causing the `hydroTable.csv` to blow up in size.
 
