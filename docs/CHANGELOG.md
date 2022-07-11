@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.34.1 - 2022-06-30 - [PR #628](https://github.com/NOAA-OWP/cahaba/pull/628)
+
+This merge adds two lines to `add_crosswalk.py` to drop duplicates from pandas dataframes. In prior versions, the duplicate features were causing the `hydroTable.csv` to blow up in size.
+
+## Changes
+- `add_crosswalk.py`: Added pandas `drop_duplicates` to the `output_hydro_table` and `output_flows` dataframes to remove duplicates. This seems to have addressed the bug.
+
+<br/><br/>
+
 ## v3.0.34.0 - 2022-06-30 - [PR #619](https://github.com/NOAA-OWP/cahaba/pull/619)
 
 This PR adds a new option to the `/tools/generate_categorical_fim.py` script `-a` that allows for an alternate method (CatFIM B) for producing inundation maps at the official AHPS flood categories. Similar to the original CatFIM method (CatFIM A), CatFIM B produces inundation maps at the official AHPS categories, but instead of creating maps from the official AHPS discharges, maps are produced using the official stage values, which are converted to water surface elevation.
