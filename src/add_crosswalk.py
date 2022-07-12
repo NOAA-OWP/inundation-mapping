@@ -21,10 +21,8 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     input_flows = gpd.read_file(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName)
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
-#    min_catchment_area = float(os.environ['min_catchment_area']) #0.25#
-#    min_stream_length = float(os.environ['min_stream_length']) #0.5#
-    min_catchment_area = 0.25 #0.25#
-    min_stream_length = 0.5 #0.5#
+    min_catchment_area = float(os.environ['min_catchment_area']) #0.25#
+    min_stream_length = float(os.environ['min_stream_length']) #0.5#
 
     if extent == 'FR':
         ## crosswalk using majority catchment method
@@ -217,6 +215,9 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     elif extent == 'MS':
         output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
 
+    # Drop duplicates in output_src.
+    output_src = output_src.drop_duplicates()
+
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
@@ -262,7 +263,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     # One of the pandas merges seems to create duplicates, so they are removed here.
     output_hydro_table = output_hydro_table.drop_duplicates()
     output_flows = output_flows.drop_duplicates()
-    
+        
     # write out based on mode
     if calibration_mode == True:
         output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
