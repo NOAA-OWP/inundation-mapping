@@ -9,11 +9,12 @@ import json
 import warnings
 import unittest
 
-import unit_tests_utils as helpers
+sys.path.append('/foss_fim/unit_tests/')
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # importing python folders in other direcories
 sys.path.append('/foss_fim/src/')
-import clip_vectors_to_wbd
+import clip_vectors_to_wbd as src
 
 # NOTE: This goes directly to the function.
 # Ultimately, it should emulate going through command line (not import -> direct function call)
@@ -26,9 +27,13 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
     def setUpClass(self):
 
         warnings.simplefilter('ignore')
+        try:        
+            params_file_path = ut_helpers.get_params_filename(__file__)
+            print(params_file_path)
+        except FileNotFoundError as ex:
+            print(f"params file not found. ({ex}). Check pathing and file name convention.")
+            sys.exit(1)
 
-        params_file_path = '/foss_fim/unit_tests/clip_vectors_to_wbd_params.json'
-    
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
@@ -44,39 +49,35 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
         For now, we are adding the very basic "happy path" test.
         '''
 
-        #global params_file
-        helpers.print_unit_test_function_header()
-        
         params = self.params["valid_data"].copy()
-        
        
         # There is no default return value.
         # Later we need to check in this function that files were being created on the file system
         
         # for now we are happy if no exceptions are thrown.
-        clip_vectors_to_wbd.subset_vector_layers(hucCode = params["hucCode"],
-                                                nwm_streams_filename = params["nwm_streams"],
-                                                nhd_streams_filename = params["nhd_streams"],
-                                                nwm_lakes_filename = params["nwm_lakes"],
-                                                nld_lines_filename = params["nld_lines"],
-                                                nwm_catchments_filename = params["nwm_catchments"],
-                                                nhd_headwaters_filename = params["nhd_headwaters"],
-                                                landsea_filename = params["landsea"],
-                                                wbd_filename = params["wbd"],
-                                                wbd_buffer_filename = params["wbd_buffer"],
-                                                subset_nhd_streams_filename = params["subset_nhd_streams"],
-                                                subset_nld_lines_filename = params["subset_nld_lines"],
-                                                subset_nwm_lakes_filename = params["subset_lakes"],
-                                                subset_nwm_catchments_filename = params["subset_catchments"],
-                                                subset_nhd_headwaters_filename = params["subset_nhd_headwaters"],
-                                                subset_nwm_streams_filename = params["subset_nwm_streams"],
-                                                subset_landsea_filename = params["subset_landsea"],
-                                                extent = params["extent"],
-                                                great_lakes_filename = params["great_lakes_filename"],
-                                                wbd_buffer_distance = params["wbd_buffer_distance"],
-                                                lake_buffer_distance = params["lake_buffer_distance"])
+        src.subset_vector_layers(hucCode = params["hucCode"],
+                                nwm_streams_filename = params["nwm_streams"],
+                                nhd_streams_filename = params["nhd_streams"],
+                                nwm_lakes_filename = params["nwm_lakes"],
+                                nld_lines_filename = params["nld_lines"],
+                                nwm_catchments_filename = params["nwm_catchments"],
+                                nhd_headwaters_filename = params["nhd_headwaters"],
+                                landsea_filename = params["landsea"],
+                                wbd_filename = params["wbd"],
+                                wbd_buffer_filename = params["wbd_buffer"],
+                                subset_nhd_streams_filename = params["subset_nhd_streams"],
+                                subset_nld_lines_filename = params["subset_nld_lines"],
+                                subset_nwm_lakes_filename = params["subset_lakes"],
+                                subset_nwm_catchments_filename = params["subset_catchments"],
+                                subset_nhd_headwaters_filename = params["subset_nhd_headwaters"],
+                                subset_nwm_streams_filename = params["subset_nwm_streams"],
+                                subset_landsea_filename = params["subset_landsea"],
+                                extent = params["extent"],
+                                great_lakes_filename = params["great_lakes_filename"],
+                                wbd_buffer_distance = params["wbd_buffer_distance"],
+                                lake_buffer_distance = params["lake_buffer_distance"])
        
-       
+
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")
 
