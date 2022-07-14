@@ -17,7 +17,7 @@ import unit_tests_utils as helpers
 sys.path.append('/foss_fim/src/gms/')
 import derive_level_paths
 import stream_branches
-from utils.fim_enums import FIM_system_exit_codes as fsec
+from utils.fim_enums import FIM_exit_codes as fec
 
 
 # NOTE: This goes directly to the function.
@@ -224,7 +224,7 @@ class test_Derive_level_paths(unittest.TestCase):
                                                 reach_id_attribute = params["reach_id_attribute"],
                                                 verbose = params["verbose"],
                                                 drop_low_stream_orders=params["drop_low_stream_orders"])
-        self.assertEqual(se.exception.code, fsec.GMS_UNIT_NO_BRANCHES.value)
+        self.assertEqual(se.exception.code, fec.GMS_UNIT_NO_BRANCHES.value)
 
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        

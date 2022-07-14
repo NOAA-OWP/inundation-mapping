@@ -6,7 +6,7 @@ import sys
 
 from stream_branches import StreamNetwork
 from utils.shared_functions import get_fossid_from_huc8
-from utils.fim_enums import FIM_system_exit_codes
+from utils.fim_enums import FIM_exit_codes
 
 def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribute,
                        out_stream_network_dissolved=None, huc_id=None,
@@ -47,7 +47,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         # Later, we can look at creating custom sys exit codes 
         # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
         print("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
-        sys.exit(FIM_system_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
+        sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     print("inside Derive. Should we be here?")
 

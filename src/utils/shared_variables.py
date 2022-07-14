@@ -30,6 +30,9 @@ nhd_vector_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydro
 # --- Values ---- #
 elev_raster_ndv = -9999.0
 
+UNIT_ERRORS_MIN_NUMBER_THRESHOLD = 10
+UNIT_ERRORS_MIN_PERCENT_THRESHOLD = 10  # as in 10% (should be a whole number)
+
 # -- Field Names -- #
 FIM_ID = 'fimid'
 
