@@ -74,7 +74,8 @@ def vrt_raster_mosaic(output_bool_dir, ouput_dir, fim_version,fim_res):
     assert len(raster_to_mosaic) >= 1, "Did not find any boolean rasters to mosaic (check files exist or create them with -bool)"
 
     print("Creating virtual raster...")
-    vrt = gdal.BuildVRT(ouput_dir + os.sep + fim_version + "_merged.vrt", raster_to_mosaic)
+    #vrt_options = gdal.BuildVRTOptions(resampleAlg='average')
+    vrt = gdal.BuildVRT(ouput_dir + os.sep + fim_version + "_merged.vrt", raster_to_mosaic) #options=vrt_options
 
     print("Building raster mosaic: " + str(output_dir + os.sep + fim_version + "_mosaic.tif"))
     gdal.Translate(output_dir + os.sep + fim_version + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
