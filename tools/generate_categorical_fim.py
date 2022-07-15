@@ -73,6 +73,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
     parser.add_argument('-f','--fim_version',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-j','--number_of_jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
+    parser.add_argument('-a', '--alt-catfim', help = 'Run alternative CatFIM that bypasses synthetic rating curves?', required=False, default=False, action='store_true')
     args = vars(parser.parse_args())
 
     # Get arguments
@@ -92,7 +93,11 @@ if __name__ == '__main__':
     # Generate CatFIM flow files
     print('Creating flow files')
     start = time.time()
-    subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
+    if args['alt_catfim']:
+        fim_dir = args['fim_version']
+        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search, '-a', '-f', fim_version])
+    else:
+        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
     end = time.time()
     elapsed_time = (end-start)/60
     print(f'Finished creating flow files in {elapsed_time} minutes')

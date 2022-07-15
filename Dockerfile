@@ -87,7 +87,7 @@ ENV PATH="$projectDir:${PATH}"
 ## install python 3 modules ##
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
+RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /

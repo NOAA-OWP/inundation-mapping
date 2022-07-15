@@ -58,16 +58,24 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     - output_src_json:      src.json file with new SRC discharge values
 
     '''
-    print("Processing huc --> " + str(huc))
+    #print("Processing huc --> " + str(huc))
     log_text = "\nProcessing huc --> " + str(huc) + '\n'
     log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
-    df_nvalues = df_nvalues[df_nvalues.hydroid.notnull()] # remove null entries that do not have a valid hydroid
+    df_nvalues = df_nvalues[ (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0) ] # remove null entries that do not have a valid hydroid
 
     ## Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object, 'obs_source':object})
     df_prev_adj = pd.DataFrame() # initialize empty df for populating/checking later
+    if 'default_discharge_cms' not in df_htable.columns: # need this column to exist before continuing
+        df_htable['adjust_src_on'] = False
+        df_htable['last_updated'] = pd.NA
+        df_htable['submitter'] = pd.NA
+        df_htable['adjust_ManningN'] = pd.NA
+        df_htable['obs_source'] = pd.NA
+        df_htable['default_discharge_cms'] = pd.NA
+        df_htable['default_ManningN'] = pd.NA
     if df_htable['default_discharge_cms'].isnull().values.any(): # check if there are not valid values in the column (True = no previous calibration outputs)
         df_htable['default_discharge_cms'] = df_htable['discharge_cms'].values
         df_htable['default_ManningN'] = df_htable['ManningN'].values
@@ -90,6 +98,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
         find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
         ## copy the corresponding htable values for the matching stage->HAND lookup
         df_nvalues.loc[index,'feature_id'] = find_src_stage.feature_id
+        df_nvalues.loc[index,'LakeID'] = find_src_stage.LakeID
         df_nvalues.loc[index,'NextDownID'] = find_src_stage.NextDownID
         df_nvalues.loc[index,'LENGTHKM'] = find_src_stage.LENGTHKM
         df_nvalues.loc[index,'src_stage'] = find_src_stage.stage
@@ -129,7 +138,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
     df_nvalues_mag = df_nvalues.pivot_table(index='HydroID', columns='magnitude', values=['hydroid_ManningN'], aggfunc='mean') # if there are multiple entries per hydroid and magnitude - aggregate using mean
     
     ## Optional: Export csv with the newly calculated Manning's N values
-    if debug_outputs_option == 'True':
+    if debug_outputs_option:
         output_calc_n_csv = os.path.join(fim_directory, huc, 'calc_src_n_vals_' + huc + '.csv')
         df_nvalues.to_csv(output_calc_n_csv,index=False)
 
@@ -163,7 +172,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
         log_text += '----------------------------------------\n\n'
 
         ## Optional: Output csv with SRC calc stats
-        if debug_outputs_option == 'True':
+        if debug_outputs_option:
             output_stats_n_csv = os.path.join(fim_directory, huc, 'stats_src_n_vals_' + huc + '.csv')
             df_nrange.to_csv(output_stats_n_csv,index=True)
 
@@ -221,7 +230,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, output
                 output_catchments.to_file(catchments_poly_path,driver="GPKG",index=False) # overwrite the previous layer
                 df_nmerge.drop(['src_calibrated'], axis=1, inplace=True)
             ## Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
-            if debug_outputs_option == 'True':
+            if debug_outputs_option:
                 output_merge_n_csv = os.path.join(fim_directory, huc, 'merge_src_n_vals_' + huc + '.csv')
                 df_nmerge.to_csv(output_merge_n_csv,index=False)
                 ## output new catchments polygon layer with several new attributes appended
