@@ -73,26 +73,35 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     print("Subsetting NHD Headwater Points for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
     nhd_headwaters = gpd.read_file(nhd_headwaters_filename, mask = wbd_buffer)
     if extent == 'MS':
-        # special case: missing MS headwater points
-        nhd_headwaters_manual = []
-        if str(hucCode) == '07060001':
-            nhd_headwaters_manual = ['22000400022137']
-        if nhd_headwaters_manual:
-            print('!!Manually adding additional MS headwater point (address missing MS bug)')
-            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) | (nhd_headwaters.site_id.isin(nhd_headwaters_manual))]
+        # special cases: missing MS headwater points
+        nhd_headwaters_manual_include_all = {'07060001':['22000400022137']}
+        nhd_headwaters_manual_exclude_all = {} #{'05120108':['24001301276670','24001301372152']}
+        if hucCode in nhd_headwaters_manual_include_all:
+            nhd_headwaters_manual_include = nhd_headwaters_manual_include_all[hucCode]
+            print('!!Manually including MS headwater point (address missing MS bug)')
+            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) | (nhd_headwaters.site_id.isin(nhd_headwaters_manual_include))]
+        elif hucCode in nhd_headwaters_manual_exclude_all:
+            nhd_headwaters_manual_exclude = nhd_headwaters_manual_exclude_all[hucCode]
+            print('!!Manually removing MS headwater point (address missing MS bug)')
+            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) & (~nhd_headwaters.site_id.isin(nhd_headwaters_manual_exclude))]
         else:
             nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1)]
-        print(nhd_headwaters[['site_id','pt_type','mainstem']])
-        if str(hucCode) == '02030101':
-            df_manual = pd.DataFrame({'site_id': ['10000100072414'],'pt_type': ['manual_add'],'mainstem': [True],'Latitude': [41.03883494],'Longitude': [-73.88758945]}) #'Latitude': [41.31992213],'Longitude': [-73.98238202]
-            gdf_manual = gpd.GeoDataFrame(df_manual, geometry=gpd.points_from_xy(df_manual.Longitude, df_manual.Latitude, crs="EPSG:4326"))
+        # dataframe below contains nhd_headwater points to add to the huc subset
+        df_manual_add = pd.DataFrame({
+            'huc':['08040207','05120108','05120108','07060003','07060003','02030101','02030101'],
+            'site_id': ['20000800111111','11111111111112','11111111111113','11111111111114','11111111111115','11111111111116','11111111111116'],
+            'pt_type': ['manual_add','manual_add','manual_add','manual_add','manual_add','manual_add','manual_add'],
+            'mainstem': [True,True,True,True,True,True,True],
+            'Latitude': [32.568401,40.451615,40.451776,42.786042,42.785914,41.196772,41.196883],
+            'Longitude': [-92.144639,-86.894058,-86.894025,-91.092300,-91.092294,-73.928789,-73.928848]})
+        if str(hucCode) in df_manual_add.huc.values:
+            print('!!Manually adding additional MS headwater point (address missing MS bug)')
+            df_manual_add = df_manual_add.loc[df_manual_add.huc==str(hucCode)]
+            df_manual_add.drop(['huc'], axis=1, inplace=True)
+            gdf_manual = gpd.GeoDataFrame(df_manual_add, geometry=gpd.points_from_xy(df_manual_add.Longitude, df_manual_add.Latitude, crs="EPSG:4326"))
             nhd_headwaters_crs = nhd_headwaters.crs
             gdf_manual.to_crs(nhd_headwaters_crs, inplace=True) 
-            #nhd_headwaters = nhd_headwaters.loc[~((nhd_headwaters.site_id=='10000100072414')),:]
-            #nhd_headwaters = nhd_headwaters.loc[~((nhd_headwaters.site_id=='PMTN6')),:]
             nhd_headwaters = nhd_headwaters.append(gdf_manual)
-        print('\n')
-        print(nhd_headwaters[['site_id','pt_type','mainstem','geometry']])
 
     if len(nhd_headwaters) > 0:
         nhd_headwaters.to_file(subset_nhd_headwaters_filename,driver=getDriver(subset_nhd_headwaters_filename),index=False)
