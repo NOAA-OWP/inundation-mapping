@@ -135,8 +135,8 @@ def update_loop():
                     viz_run = current_jobs[job_name]['viz_run']
 
                     # Clone github repo, with specific branch, to a temp folder
-                    print(f'cd /data/temp && git clone -b {branch} {GITHUB_REPO} {job_name} && chmod -R 777 {job_name} && cp .env {job_name}/tools/.env')
-                    subprocess.call(f'cd /data/temp && git clone -b {branch} {GITHUB_REPO} {job_name} && chmod -R 777 {job_name} && cp .env {job_name}/tools/.env', shell=True)
+                    print(f'cd /data/temp && git clone -b {branch} {GITHUB_REPO} {job_name} && chmod -R 777 {job_name} && cp .env {job_name}/tools/.env && cp params.env {job_name}/config/params.env')
+                    subprocess.call(f'cd /data/temp && git clone -b {branch} {GITHUB_REPO} {job_name} && chmod -R 777 {job_name} && cp .env {job_name}/tools/.env && cp params.env {job_name}/config/params.env', shell=True)
 
                     # Kick off the new job as a docker container with the new cloned repo as the volume
                     print(f"docker run -d --name {job_name} -v {DATA_PATH}:/data/ -v {DATA_PATH}temp/{job_name}/:/foss_fim {DOCKER_IMAGE_PATH} fim_run.sh -u \"{hucs}\" -e {extent} -c {config_path} -n {nice_name} -o {'' if dev_run else '-p'} {'-v' if viz_run else ''} -j {parallel_jobs}")

@@ -1,7 +1,48 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
+## v3.0.34.1 - 2022-07-11 - [PR #628](https://github.com/NOAA-OWP/cahaba/pull/628)
+
+This fixes `add_crosswalk.py` by dropping duplicates from pandas dataframes. In prior versions, the duplicate features were causing the `hydroTable.csv` to blow up in size.
+
+## Changes
+- `add_crosswalk.py`: Added pandas `drop_duplicates` to the `output_hydro_table` and `output_flows` and `output_src` dataframes to remove duplicates.
+
+<br/><br/>
+
+## v3.0.34.0 - 2022-06-30 - [PR #619](https://github.com/NOAA-OWP/cahaba/pull/619)
+
+This PR adds a new option to the `/tools/generate_categorical_fim.py` script `-a` that allows for an alternate method (CatFIM B) for producing inundation maps at the official AHPS flood categories. Similar to the original CatFIM method (CatFIM A), CatFIM B produces inundation maps at the official AHPS categories, but instead of creating maps from the official AHPS discharges, maps are produced using the official stage values, which are converted to water surface elevation.
+
+## Changes
+
+- `generate_categorical_fim_flows.py` : Added options `-a` and `-f`. `-a` is interpreted as a bool and if provided by a user will run the CatFIM B method. If `-a` is passed, then the `-f` flag (fim version full path) is required so that necessary input layers can be accessed.
+- `generate_categorical_fim.py`: Added `-a` option to run the alternate CatFIM method.
+
+<br/><br/>
+
+
+## v3.0.33.0 - 2022-06-24 - [PR #618](https://github.com/NOAA-OWP/cahaba/pull/618)
+
+These changes introduce a PostgreSQL database solution for storing, processing, and accessing the point-based calibration data previously stored in a gpkg. The PostgreSQL enables faster processing and a flexible solution for continuously increasing the number of calibration points.
+
+## Additions
+
+- `tools/calibration/README.md`: documentation and tips for working with the PostgreSQL DB
+- `tools/calibration/start_db.sh`: bash shell script for creating the docker container for the database (only needs to be executed if the container is closed or disconnected - see instructions in README)
+
+## Changes
+
+- `config/params_template.env`: added a variable with the filepath location for the sensitive variables
+- `fim_run.sh`: added two ogr2ogr commands to populate the PostgreSQL database with the point and huc boundary spatial data
+- `src/src_adjust_spatial_obs.py`: revised to ingest the PostgreSQL database, perform a spatial query to create a list of all HUCs containing calb points, query points to each huc, and pass a dataframe to the `src_roughness_optimization.py` workflow
+- `src/src_adjust_usgs_rating.py`: simplified the `-debug` flag (action='store_true')
+- `src/src_roughness_optimization.py`: added placeholder variable creation (this is only needed to run the script for older FIM versions as they are now created by default in `add_crosswalk.py`)
+- *additional miscellaneous files updated to facilitate the PostgreSQL DB configuration on the production machine 
+
+<br/><br/>
+
+## v3.0.32.0 - 2022-05-26 - [PR #588](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
 `run_test_case.py` has also been refactored to use a `test_case` python class. This workflow has shown decreased memory usage as compared to the previous version of `run_test_case.py`.

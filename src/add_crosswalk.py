@@ -126,7 +126,6 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     # replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
         if output_flows["areasqkm"][stream_index] < min_catchment_area and output_flows["LengthKm"][stream_index] < min_stream_length and output_flows["LakeID"][stream_index] < 0:
-
             short_id = output_flows['HydroID'][stream_index]
             to_node = output_flows['To_Node'][stream_index]
             from_node = output_flows['From_Node'][stream_index]
@@ -164,7 +163,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
             # no upstream segments; single downstream segment
             elif len(output_flows.loc[output_flows.From_Node==to_node]['HydroID']) == 1:
                     update_id = output_flows.loc[output_flows.From_Node==to_node]['HydroID'].item()
-
+            
             else:
                 update_id = output_flows.loc[output_flows.HydroID==short_id]['HydroID'].item()
 
@@ -216,6 +215,9 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     elif extent == 'MS':
         output_src = output_src.merge(crosswalk[['HydroID','feature_id']],on='HydroID')
 
+    # Drop duplicates in output_src.
+    output_src = output_src.drop_duplicates()
+
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
@@ -257,6 +259,11 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
+    print("Dropping duplicates")
+    # One of the pandas merges seems to create duplicates, so they are removed here.
+    output_hydro_table = output_hydro_table.drop_duplicates()
+    output_flows = output_flows.drop_duplicates()
+        
     # write out based on mode
     if calibration_mode == True:
         output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
