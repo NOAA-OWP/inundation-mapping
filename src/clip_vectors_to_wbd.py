@@ -74,6 +74,12 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     nhd_headwaters = gpd.read_file(nhd_headwaters_filename, mask = wbd_buffer)
     if extent == 'MS':
         # special cases: missing MS headwater points
+        # 02030101 (Hudson River) → Resolved (added 2 headwaters on DEM divide)
+        # 07060001 (Mississippi River) → Resolved (force the non-mainstem NHD headwater point to be included)
+        # 07060003 (Mississippi River) → Resolved  (added 2 headwaters on DEM divide)
+        # 08040207 (Ouachita River) → Resolved (added missing NHD headwater at HUC8 boundary)
+        # 05120108 (Wabash River) → Resolved  (added 2 headwaters on DEM divide)
+
         nhd_headwaters_manual_include_all = {'07060001':['22000400022137']}
         nhd_headwaters_manual_exclude_all = {} #{'05120108':['24001301276670','24001301372152']}
         if hucCode in nhd_headwaters_manual_include_all:
@@ -86,7 +92,8 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
             nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) & (~nhd_headwaters.site_id.isin(nhd_headwaters_manual_exclude))]
         else:
             nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1)]
-        # dataframe below contains nhd_headwater points to add to the huc subset
+            
+        # dataframe below contains new nhd_headwater points to add to the huc subset
         df_manual_add = pd.DataFrame({
             'huc':['08040207','05120108','05120108','07060003','07060003','02030101','02030101'],
             'site_id': ['20000800111111','11111111111112','11111111111113','11111111111114','11111111111115','11111111111116','11111111111116'],
