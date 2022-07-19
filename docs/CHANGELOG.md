@@ -9,9 +9,10 @@ We have identified five HUC8s that were not producing FIM outputs for large port
 
 - `fim_run.sh`: minor change to move the postgreSQL database ogr2ogr commands inside the if statement that checks if SRC spatial calibration is to be run `src_adjust_spatial="True"`
 - `src/clip_vectors_to_wbd.py`: created HUC specific checks to add/remove/change NHD headwater points when performing the HUC subset process. See screenshots below for explanations for point revisions applied to each HUC
-## v3.0.34.1 - 2022-07-11 - [PR #628](https://github.com/NOAA-OWP/cahaba/pull/628)
 
 <br/><br/>
+
+## v3.0.34.1 - 2022-07-11 - [PR #628](https://github.com/NOAA-OWP/cahaba/pull/628)
 
 This fixes `add_crosswalk.py` by dropping duplicates from pandas dataframes. In prior versions, the duplicate features were causing the `hydroTable.csv` to blow up in size.
 
