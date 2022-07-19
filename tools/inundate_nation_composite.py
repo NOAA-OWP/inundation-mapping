@@ -95,13 +95,17 @@ def run_inundation(args):
     fim_run_parent = os.path.join(fim_run_dir, huc)
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-    mask_type = 'huc'
-    catchment_poly = ''
+    mask_type = 'filter'
     hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')
     catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + '_' + config + '_inund_extent.tif')
     depth_raster = os.path.join(magnitude_output_dir, magnitude + '_' + config + '_inund_depth.tif')
     hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
+
+    # Check that hydroTable file size is reasonable
+    fsize = os.path.getsize(hydro_table) * 0.000001
+    if fsize > 400:
+        print('WARNING: ' + str(huc) + ' hydroTable.csv file size is greater than 400mb - expect slow run time!')
 
     print('Trying: ' + str(huc) + ' ' + config)
     # Run inundate() once for depth and once for extent.
