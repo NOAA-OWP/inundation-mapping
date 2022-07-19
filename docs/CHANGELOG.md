@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v3.0.34.2 - 2022-07-19 - [PR #632](https://github.com/NOAA-OWP/cahaba/pull/632)
 
-We have identified five HUC8s that were not producing FIM outputs for large portions of the expected domain. The cause of this issue varies slightly between the HUCs but the NHD headwater points were used to address the issue for all five scenarios. Address #573 
+We have identified five HUC8s that were not producing FIM outputs for large portions of the expected domain. The cause of this issue varies slightly between the HUCs but the NHD headwater points were used to address the issue for all five scenarios.  
 
 ## Changes
 
