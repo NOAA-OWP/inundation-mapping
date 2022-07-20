@@ -2,11 +2,12 @@
 :
 usage ()
 {
+    echo
     echo 'Produce GMS hydrofabric datasets for unit and branch scale.'
     echo 'Usage : gms_pipeline.sh [REQ: -u <hucs> - -n <run name> ]'
-    echo '  	 				  [OPT: -h c <config file> -j <job limit>] -o -r'
-    echo '  	 				    -ud <unit deny list file> -bd <branch deny list file>'
-    echo '                          -s <drop stream orders 1 and 2> ]'
+    echo '                        [OPT: -h -c <config file> -j <job limit>] -o -r'
+    echo '                         -ud <unit deny list file> -bd <branch deny list file>'
+    echo '                         -so <drop stream orders 1 and 2> ]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
@@ -25,10 +26,12 @@ usage ()
     echo '                    upon completion (see config/deny_gms_unit_default.lst for a starting point)'
     echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_default.lst'
     echo '  -bd/--branchDenylist : A file with line delimited list of files in branches directories to remove' 
-    echo '                    upon completion (see config/deny_gms_branch_zero.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branch_zero.lst'    
-	echo '  -s/--dropStreamOrders : If this flag is included, the system will leave out stream orders 1 and 2'
-	echo '                    at the initial load of the nwm_subset_streams'
+    echo '                    upon completion (see config/deny_gms_branches_min.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_min.lst'    
+	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
+	echo '                    at the initial load of the nwm_subset_streams.'
+	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
+    echo
     exit
 }
 
@@ -73,10 +76,10 @@ in
         ;;
     -bd|--branchDenylist)
         shift
-        deny_gms_branch_list=$1
+        deny_gms_branches_list=$1
         ;;
-    -s|--dropLowStreamOrders)
-        dropLowStreamOrders=1
+    -a|--useAllStreamOrders)
+        useAllStreamOrders=1
         ;;
     *) ;;
     esac
@@ -100,9 +103,9 @@ if [ "$deny_gms_unit_list" = "" ]
 then
    deny_gms_unit_list=/foss_fim/config/deny_gms_unit_default.lst
 fi
-if [ "$deny_gms_branch_list" = "" ]
+if [ "$deny_gms_branches_list" = "" ]
 then
-   deny_gms_branch_list=/foss_fim/config/deny_gms_branch_zero.lst
+   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_min.lst
 fi
 if [ -z "$overwrite" ]
 then
@@ -112,10 +115,6 @@ fi
 if [ -z "$retry" ]
 then
     retry=""
-fi
-if [ -z "$dropLowStreamOrders" ]
-then
-    dropLowStreamOrders=0
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
@@ -132,11 +131,31 @@ export outputRunDataDir=$outputDataDir/$runName
 # make dirs
 if [ ! -d $outputRunDataDir ]; then
     mkdir -p $outputRunDataDir
+else
+    if [ $overwrite -eq 0 ]; then
+        echo
+        echo "ERROR: Output dir $outputRunDataDir exists. Use overwrite -o to run."
+        echo        
+        usage
+    fi
 fi
 
 ## Set misc global variables
 export overwrite=$overwrite
-export dropLowStreamOrders=$dropLowStreamOrders
+
+# invert useAllStreamOrders boolean (to make it historically compatiable
+# with other files like gms/run_unit.sh and gms/run_branch.sh).
+# Yet help user understand that the inclusion of the -a flag means
+# to include the stream order (and not get mixed up with older versions
+# where -s mean drop stream orders)
+# This will encourage leaving stream orders 1 and 2 out.
+if [ "$useAllStreamOrders" == "1" ]; then
+    export dropLowStreamOrders=0
+else
+    export dropLowStreamOrders=1
+fi
+
+export deny_gms_branches_list=$deny_gms_branches_list
 
 ## Define inputs
 export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
@@ -150,7 +169,13 @@ export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 export extent=GMS
 
 ## Input handling ##
-$srcDir/check_huc_inputs.py -u "$hucList"
+# The very first "print" statement results in the .py file
+# become standard out here. And the very first standard out value
+# gets auto mapped to a new variable here called num_hucs
+
+check_huc_cmd="python3 $srcDir/check_huc_inputs.py"
+check_huc_cmd+=" -u $hucList"
+IFS=, read num_hucs <<< $($check_huc_cmd)
 
 ## Make output and data directories ##
 if [ "$retry" = "--retry-failed" ]; then
@@ -186,6 +211,7 @@ cp -a $envFile $outputRunDataDir
 echo "================================================================================"
 echo "Start of unit processing"
 echo "Started: `date -u`" 
+echo "$num_hucs to be processed"
 
 ## Track total time of the overall run
 T_total_start
@@ -205,17 +231,17 @@ else
     fi
  fi
 
-echo "Unit (HUC) processing is complete"
+echo "Units (HUC's) processing is complete"
 Tcount
 date -u
 
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
-echo "Start of non zero exit codes check"
+echo "Start of unit non zero exit codes check"
 find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log" &
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
-echo "Start branch aggregation"
+echo "Start unit branch aggregation"
 python3 $srcDir/gms/aggregate_branch_lists.py -d $outputRunDataDir -f "gms_inputs.csv" -l $hucList
 
 echo "================================================================================"
@@ -223,23 +249,21 @@ echo "Unit processing is complete"
 Tcount
 date -u
 
-
 ## CHECK IF OK TO CONTINUE ON TO BRANCH STEPS
 # Count the number of files in the $outputRunDataDir/unit_errors
 # If no errors, there will be only one file, non_zero_exit_codes.log.
 # Calculate the number of error files as a percent of the number of hucs 
 # originally submitted. If the percent error is over "x" threshold stop processing
 # Note: This applys only if there are a min number of hucs. Aka.. if min threshold
-# is set to 10, then only stop if there is at least 10 errors
+# is set to 10, then only return a sys.exit of > 1, if there is at least 10 errors
 
-unit_errors_min_threshhold=10  # meaning min 10 hucs (units have failed)
-unit_errors_percent_threshold=10 # meaning 10 percent
-
-
-
+# if this has too many errors, it will return a sys.exit code (like 62 as per fim_enums)
+# and we will stop the rest of the process. We have to catch stnerr as well.
+python3 $srcDir/check_unit_errors.py -f $outputRunDataDir -n $num_hucs
 
 
 ## RUN GMS BY BRANCH ##
+echo
 echo "================================================================================"
 echo "Start of branch processing"
 

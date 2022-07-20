@@ -43,34 +43,36 @@ def check_unit_errors(fim_dir, number_of_input_hucs):
         raise Exception("The unit errors directory inside the fim output"\
                           f" directory of {fim_dir} does not exist")
 
-    file_count = 0    
+    error_file_count = 0    
     for path in os.listdir(unit_errors_dir):
-        print(path)
-        if ( os.path.isfile(os.path.join(dir, path)) and
+        if ( os.path.isfile(os.path.join(unit_errors_dir, path)) and
             ("non_zero_exit_codes.log" not in path)):
-            file_count += 1
+            error_file_count += 1
 
     # We will only error out if it is more than the min number of error files.
     # This is done because sometimes during dev, you are expecting a bunch of errors
     # and sometimes, the number of errors is too small to worry about.
-    if (file_count > UNIT_ERRORS_MIN_NUMBER_THRESHOLD):
-        
-        # we want to round down
-        percentage_of_errors = math.trunc( file_count / number_of_input_hucs) * 100
+   
+    if (error_file_count > UNIT_ERRORS_MIN_NUMBER_THRESHOLD):
+
+        percentage_of_errors =  error_file_count / number_of_input_hucs * 100
         
         if (percentage_of_errors >= UNIT_ERRORS_MIN_PERCENT_THRESHOLD):
-            sys.exit(FIM_exit_codes.EXCESS_UNIT_ERRORS.value)  # will send a 62 back
+            
+            errMsg = "Too many unit errors exist to continue,"\
+                f" code:{FIM_exit_codes.EXCESS_UNIT_ERRORS.value}"
+            raise Exception(errMsg)
   
     return return_code
 
 if __name__ == '__main__':
 
     # parse arguments
-    parser = argparse.ArgumentParser(description = 'Check number of unit errors to determine if continue')
-    parser.add_argument('-f', '--output_dir',help = 'root output folder for the process (output + name)',
-                            required = True)
-    parser.add_argument('-n', '--num_hucs', help = 'Original number of hucs to process',
-                            required = True, type = int )
+    parser = argparse.ArgumentParser(description='Check number of unit errors to determine if continue')
+    parser.add_argument('-f', '--fim_dir',help='root output folder for the process (output + name)',
+                            required=True)
+    parser.add_argument('-n', '--number_of_input_hucs', help = 'Original number of hucs to process',
+                            type=int, required=True)
 
     # extract to dictionary
     args = vars(parser.parse_args())
