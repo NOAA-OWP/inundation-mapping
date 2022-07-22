@@ -2,12 +2,6 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.5.2 - 2022-07-05 - [PR #622](https://github.com/NOAA-OWP/inundation-mapping/pull/622)
-
-All unit tests have been updated to match the current dev code branch. All unit test pathing have been updated to work against the outputs/fim_unit_test_data_do_not_remove/ folder. Some new unit tests added as well as a new deny list (config/deny_gms_branch_unittests.lst)
-
-<br/><br/>
-
 ## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
 
 `Alpha Test Refactor` An upgrade was made a few weeks back to the dev-fim3 branch that improved performance, usability and readability of running alpha tests. Some cleanup in other files for readability, debugging verbosity and styling were done as well. A newer, cleaner system for printing lines when the verbose flag is enabled was added.

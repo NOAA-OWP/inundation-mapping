@@ -2,9 +2,9 @@
 :
 usage ()
 {
-    echo 'Produce GMS hydrofabric datasets for unit scale. Run after gms_run.sh but before gms_run_branch.sh'
+    echo 'Produce GMS hydrofabric datasets for unit scale. Run after fim_run.sh but before gms_run_branch.sh'
     echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -c <config file> -n <run name> ]'
-    echo '  	 				  [OPT: -h -j <job limit>] -o -r -d <deny list file> -s <drop stream orders 1 and 2>]'
+    echo '  	 				   [OPT: -h -j <job limit>] -o -r -d <deny list file> -s <drop stream orders 1 and 2>]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
@@ -18,7 +18,7 @@ usage ()
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -r/--retry      : retries failed jobs'
-    echo '  -d/--denylist : file with line delimited list of files in huc directories to remove upon completion'
+    echo '  -d/--denylist   : file with line delimited list of files in huc directories to remove upon completion'
     echo '                   (see config/deny_gms_unit_default.lst for a starting point)'
 	echo '  -s/--dropStreamOrder_1_2 : If this flag is included, the system will leave out stream orders 1 and 2'
 	echo '                    at the initial load of the nwm_subset_streams'
@@ -144,16 +144,26 @@ if [ ! -d $outputRunDataDir ]; then
     mkdir -p $outputRunDataDir
 fi
 
-# we need to clean out the all log files overwrite or not
-rm -rf $outputRunDataDir/logs/unit/
-mkdir -p $outputRunDataDir/logs/unit
+if [ ! -d "$outputRunDataDir/logs/unit" ]; then
+    mkdir -p $outputRunDataDir/logs/unit
+elif [ $overwrite -eq 1 ]; then
+    # clean it out if we are overwritting
+    rm -rf $outputRunDataDir/logs/unit/
+    mkdir -p $outputRunDataDir/logs/unit
+fi
 
-rm -rf $outputRunDataDir/unit_errors/
-mkdir -p $outputRunDataDir/unit_errors
+if [ ! -d "$outputRunDataDir/unit_errors" ]; then
+    mkdir -p $outputRunDataDir/unit_errors
+else
+    if [ $overwrite -eq 1 ]; then
+        rm -rf $outputRunDataDir/unit_errors/
+        mkdir -p $outputRunDataDir/unit_errors
         
-# if it exists, but don't make a new one yet, let gms_run_branch do that.        
-rm -rf $outputRunDataDir/logs/branch
-rm -rf $outputRunDataDir/branch_errors
+        # remove branch logs as well
+        rm -rf $outputRunDataDir/branch_errors/
+        rm -rf $outputRunDataDir/logs/branch/
+    fi
+fi
 
 # copy over config file
 cp -a $envFile $outputRunDataDir
@@ -197,6 +207,5 @@ python3 $srcDir/gms/aggregate_branch_lists.py -d $outputRunDataDir -f "gms_input
 
 echo "================================================================================"
 echo "Unit processing is complete"
-Tcount
-date -u
-
+echo "Ended: `date -u`" 
+echo

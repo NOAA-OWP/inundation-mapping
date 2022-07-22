@@ -11,13 +11,13 @@ import unittest
 
 # importing python folders in other direcories
 sys.path.append('/foss_fim/unit_tests/')
-from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+import unit_tests_utils as helpers
 
 # importing python folders in other direcories
 sys.path.append('/foss_fim/src/gms/')
 import derive_level_paths
 import stream_branches
-from utils.fim_enums import FIM_exit_codes as fec
+from utils.fim_enums import FIM_system_exit_codes as fsec
 
 
 # NOTE: This goes directly to the function.
@@ -31,22 +31,23 @@ class test_Derive_level_paths(unittest.TestCase):
     def setUpClass(self):
     
         warnings.simplefilter('ignore')
-        try:        
-            params_file_path = ut_helpers.get_params_filename(__file__)
-            #print(params_file_path)
-        except FileNotFoundError as ex:
-            print(f"params file not found. ({ex}). Check pathing and file name convention.")
-            sys.exit(1)
-
+        
+        params_file_path = '/foss_fim/unit_tests/gms/derive_level_paths_params.json'    
+    
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
+
+
 
     def test_Derive_level_paths_success_all_params(self):
     
         '''
         This test includes all params with many optional parms being set to the default value of the function
         '''
-      
+       
+        # makes output readability easier and consistant with other unit tests       
+        helpers.print_unit_test_function_header()
+        
         params = self.params["valid_data"].copy()
 
         # Function Notes:
@@ -110,7 +111,10 @@ class test_Derive_level_paths(unittest.TestCase):
         Note: Most path tests done in test_Derive_level_paths_success_all_params 
         and are not repeated here.
         '''
-       
+        
+        # makes output readability easier and consistant with other unit tests       
+        helpers.print_unit_test_function_header()
+        
         params = self.params["valid_data"].copy()
 
         # Function Notes:
@@ -152,6 +156,9 @@ class test_Derive_level_paths(unittest.TestCase):
         Note: Most path tests done in test_Derive_level_paths_success_all_params 
         and are not repeated here.
         '''
+        
+        # makes output readability easier and consistant with other unit tests       
+        helpers.print_unit_test_function_header()
         
         params = self.params["valid_data"].copy()
 
@@ -200,6 +207,9 @@ class test_Derive_level_paths(unittest.TestCase):
 
         '''
         
+        # makes output readability easier and consistant with other unit tests       
+        helpers.print_unit_test_function_header()
+        
         params = self.params["dropped_stream_orders_no_branches_remaining"].copy()
 
         with self.assertRaises(SystemExit) as se:
@@ -214,7 +224,7 @@ class test_Derive_level_paths(unittest.TestCase):
                                                 reach_id_attribute = params["reach_id_attribute"],
                                                 verbose = params["verbose"],
                                                 drop_low_stream_orders=params["drop_low_stream_orders"])
-        self.assertEqual(se.exception.code, fec.GMS_UNIT_NO_BRANCHES.value)
+        self.assertEqual(se.exception.code, fsec.GMS_UNIT_NO_BRANCHES.value)
 
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        
@@ -223,6 +233,9 @@ class test_Derive_level_paths(unittest.TestCase):
     # Invalid Input stream for demo purposes. Normally, you would not have this basic of a test (input validation).
     def test_Derive_level_paths_invalid_input_stream_network(self):
 
+        # makes output readability easier and consistant with other unit tests 
+        helpers.print_unit_test_function_header()
+        
         # NOTE: As we are expecting an exception, this MUST have a try catch.
         #   for "success" tests (as above functions), they CAN NOT have a try/catch
         try:

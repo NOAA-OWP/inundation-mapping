@@ -9,8 +9,7 @@ import json
 import warnings
 import unittest
 
-sys.path.append('/foss_fim/unit_tests/')
-from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+import unit_tests_utils as helpers
 
 # importing python folders in other directories
 sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
@@ -18,12 +17,6 @@ import filter_catchments_and_add_attributes as src
 
 # NOTE: This goes directly to the function.
 # Ultimately, it should emulate going through command line (not import -> direct function call)
-
-
-# *************
-# Important: For this to work, when you run gms_run_branch.sh, you have to 
-# use deny_gms_branches_default.lst or one that does not exist. Key files need to exist
-# for this unit test to work.
 class test_filter_catchments_and_add_attributes(unittest.TestCase):
 
     '''
@@ -33,13 +26,9 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
     def setUpClass(self):
 
         warnings.simplefilter('ignore')
-        try:
-            params_file_path = ut_helpers.get_params_filename(__file__)
-            #print(params_file_path)
-        except FileNotFoundError as ex:
-            print(f"params file not found. ({ex}). Check pathing and file name convention.")
-            sys.exit(1)
 
+        params_file_path = '/foss_fim/unit_tests/filter_catchments_and_add_attributes_params.json'
+    
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
@@ -54,6 +43,8 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
         If the test is successful, these file will be created.
         '''
 
+        #global params_file
+        helpers.print_unit_test_function_header()
         params = self.params["valid_data"].copy() 
 
         # to setup the test, lets start by deleted the two expected output files to ensure

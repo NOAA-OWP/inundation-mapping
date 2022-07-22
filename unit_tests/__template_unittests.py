@@ -4,12 +4,12 @@ import inspect
 import os
 import sys
 
+import argparse
 import json
 import warnings
 import unittest
 
-sys.path.append('/foss_fim/unit_tests/')
-from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+import unit_tests_utils as helpers
 
 # importing python folders in other directories
 sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
@@ -27,13 +27,8 @@ class test_<Your original source python file name>(unittest.TestCase):
 
         warnings.simplefilter('ignore')
 
-        try:        
-            params_file_path = ut_helpers.get_params_filename(__file__)
-            #print(params_file_path)
-        except FileNotFoundError as ex:
-            print(f"params file not found. ({ex}). Check pathing and file name convention.")
-            sys.exit(1)
-
+        params_file_path = '/foss_fim/unit_tests/<Your original source python file name>_params.json'
+    
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
@@ -54,6 +49,7 @@ class test_<Your original source python file name>(unittest.TestCase):
         '''
 
         #global params_file
+        helpers.print_unit_test_function_header()
         
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
         
