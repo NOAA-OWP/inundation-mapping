@@ -4,12 +4,12 @@ import inspect
 import os
 import sys
 
-import argparse
 import json
 import warnings
 import unittest
 
-import unit_tests_utils as helpers
+sys.path.append('/foss_fim/unit_tests/')
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # importing python folders in other directories
 sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
@@ -26,9 +26,13 @@ class test_split_flows(unittest.TestCase):
     def setUpClass(self):
 
         warnings.simplefilter('ignore')
+        try:
+            params_file_path = ut_helpers.get_params_filename(__file__)
+            #print(params_file_path)
+        except FileNotFoundError as ex:
+            print(f"params file not found. ({ex}). Check pathing and file name convention.")
+            sys.exit(1)
 
-        params_file_path = '/foss_fim/unit_tests/split_flows_params.json'
-    
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
@@ -43,8 +47,6 @@ class test_split_flows(unittest.TestCase):
         If the test is successful, these file will be created.
         '''
 
-        #global params_file
-        helpers.print_unit_test_function_header()
         params = self.params["valid_data"].copy() 
 
         # to setup the test, lets start by deleted the two expected output files to ensure
