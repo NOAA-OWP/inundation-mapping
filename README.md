@@ -74,10 +74,6 @@ gms_pipeline.sh -u <huc8> -n <name_your_run>
     - `-n` is a name of your run (only alphanumeric)
 - Outputs can be found under ```/data/outputs/<name_your_run>```
 
-Processing of HUC's in FIM4 (GMS) comes in two pieces: gms_run_unit and gms_run_branch. `gms_pipeline.sh` above takes care of both steps however, you can run each part seperately for faster development if you like.
-
-If you choose to do the slower two step hydrofabric creation, then run `gms_run_unit.sh`, then `gms_run_branch.sh`. See each of those files for details on arguments.
-
 ### Testing in Other HUCs
 To test in HUCs other than the provided HUCs, the following processes can be followed to acquire and preprocess additional NHDPlus rasters and vectors. After these steps are run, the "Produce HAND Hydrofabric" step can be run for the new HUCs.
 
