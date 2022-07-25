@@ -28,8 +28,6 @@ def perform_zonal_stats(huc_gpkg,agree_rast):
 #####################################################
 def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
 
-    in_mem_df = pd.DataFrame(columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
-    
     for dicts in stats:
         stats_dictionary = compute_stats_from_contingency_table(dicts['tn'], dicts['fn'], dicts['fp'], dicts['tp'], cell_area=100, masked_count= dicts['mp'])
         # Calls compute_stats_from_contingency_table from run_test_case.py
@@ -46,12 +44,11 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         dict_with_list_values = {'HydroID':[hydroid],'CSI':[csi],'FAR':[far], 'TPR':[tpr],'TNR':[tnr],'PND':[pnd],'HUC8':[huc8],'MAG':[mag],'BENCH':[bench]}
         
         dict_to_df = pd.DataFrame(dict_with_list_values,columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
-        
-        concat_list = [in_mem_df, dict_to_df]
 
-        in_mem_df = pd.concat(concat_list, sort=False)
-        
-    return in_mem_df
+        # Filter out hydroids that have no performance scores
+        dict_to_df = dict_to_df.loc[dict_to_df[['CSI','FAR','TPR','TNR','PND']].any(axis=1)]
+                
+    return dict_to_df
 
 if __name__ == "__main__":
     
