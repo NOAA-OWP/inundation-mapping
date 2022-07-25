@@ -111,7 +111,7 @@ fi
 if [ "$src_adjust_usgs" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    time python3 $srcDir/gms/src_adjust_usgs_rating.py -fim_dir $outputCurrentBranchDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file
+    time python3 $srcDir/gms/src_adjust_usgs_rating.py -branch_dir $outputCurrentBranchDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -run_dir $outputRunDataDir
 fi
 
 ## REMOVE FILES FROM DENY LIST ##
