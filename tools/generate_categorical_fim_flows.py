@@ -222,14 +222,16 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             site_ms_segs = set(segments).intersection(ms_segs)
             segments = list(site_ms_segs)    
         
-            # Subset by Hydroid
-            hydroid = str(hydroid)
-            subset_hydroTable = hydroTable.loc[hydroTable['HydroID'] == hydroid]
-
-            hand_stage_array = subset_hydroTable[["stage"]].to_numpy()
-            hand_flow_array = subset_hydroTable[["discharge_cms"]].to_numpy()
-            hand_stage_array = hand_stage_array[:, 0]
-            hand_flow_array = hand_flow_array[:, 0]
+            if alt_catfim:
+                # Subset by Hydroid
+                hydroid = str(hydroid)
+                subset_hydroTable = hydroTable.loc[hydroTable['HydroID'] == hydroid]
+    
+                hand_stage_array = subset_hydroTable[["stage"]].to_numpy()
+                hand_flow_array = subset_hydroTable[["discharge_cms"]].to_numpy()
+                hand_stage_array = hand_stage_array[:, 0]
+                hand_flow_array = hand_flow_array[:, 0]
+                
 
             #if no segments, write message and exit out
             if not segments:
