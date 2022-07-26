@@ -9,22 +9,26 @@ Description:
     5) create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
 '''
 
-import sys
-import geopandas as gpd
-import pandas as pd
-from shapely.geometry import Point, LineString, MultiPoint
-import rasterio
-import numpy as np
 import argparse
-from tqdm import tqdm
-import time
-from os.path import isfile
-from os import remove,environ
-from collections import OrderedDict
 import build_stream_traversal
+import geopandas as gpd
+import numpy as np
+import os
+import pandas as pd
+import rasterio
+import sys
+import time
+
+from collections import OrderedDict
+from os import remove,environ,path
+from os.path import isfile,split,dirname
+from shapely import ops, wkt
+from shapely.geometry import Point, LineString, MultiPoint
+from shapely.ops import split as shapely_ops_split
+from tqdm import tqdm
+from utils.fim_enums import FIM_system_exit_codes
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
-from utils.fim_enums import FIM_system_exit_codes
 
 @mem_profile
 def split_flows(max_length, 
@@ -72,6 +76,63 @@ def split_flows(max_length,
     split_flows = []
     slopes = []
     hydro_id = 'HydroID'
+
+    # If loop addressing: https://github.com/NOAA-OWP/inundation-mapping/issues/560
+    # if we are processing branch 0, skip this step
+    if (os.path.split(os.path.dirname(nwm_streams_filename))[1] != '0'):
+        print ('trimming DEM stream to NWM branch terminus')
+        # read in nwm lines, explode to ensure linestrings are the only geometry
+        levelpath_lines = gpd.read_file(nwm_streams_filename).explode()
+
+        # exception check for empty (nwm) streams
+        if (len(levelpath_lines) == 0):
+            if (drop_stream_orders):
+                # this is not an exception, but a custom exit code that can be trapped
+                print("No relevant streams within HUC boundaries.")
+                sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+            else:
+                # if we are not dropping stream orders, then something is wrong
+                raise Exception("No flowlines exist.")
+
+        # Dissolve the linestring (how much faith should I hold that these are digitized with flow?)
+        linestring_geo = levelpath_lines.iloc[0]['geometry']
+        if (len(levelpath_lines) > 1):
+            linestring_geo = ops.linemerge(levelpath_lines.dissolve(by='levpa_id').iloc[0]['geometry'])
+
+        # Identify the end vertex (most downstream, should be last), transform into geodataframe
+        terminal_nwm_point = []
+        first, last = linestring_geo.boundary
+        terminal_nwm_point.append({'ID':'teminal','geometry':last})
+        snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(levelpath_lines.crs)
+
+        ## Edge case handling: make sure we snap to the closest point in the terminal points huc
+        # Find the watershed the levelpath ends in
+        target_terminal_watershed = wbd8.loc[wbd8.contains(terminal_nwm_point.loc[0, 'geometry'])]
+
+        # Find the snaplines centroids
+        snaplines = gpd.overlay(flows, wbd8, how='union').explode().reset_index(drop=True)
+        d = {'col1': [*range(len(snaplines.centroid))], 'geometry': snaplines.centroid}  # Pyhton note: the * in front of range convers the range into a list
+        terminal_flowline_centroid = gpd.GeoDataFrame(d).set_crs(flows.crs)
+
+        # Find the snaplines whose centroid intersects the watershed
+        target_snapline = snaplines.loc[terminal_flowline_centroid.intersects(target_terminal_watershed.iloc[0]['geometry'])]
+
+        # Snap to the target line
+        snapped_point = terminal_nwm_point.copy()
+        snapped_point['geometry'] = snapped_point.apply(lambda row: target_snapline.interpolate(target_snapline.project( row.geometry)), axis=1)
+
+        # Trim flows to snapped point
+        # buffer here because python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
+        trimmed_line = shapely_ops_split(flows.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1))
+        # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
+        # Note to dear reader: last here is really the most upstream segmennt (see crevats above).  When we split we should get 3 segments, the most downstream one
+        # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.  We want that last one which is why we trimmed_line[len(trimmed_line)-1]
+        last_line_segment = pd.DataFrame({'id':['first'],'geometry':[trimmed_line[len(trimmed_line)-1].wkt]})
+        last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads) # can be last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment) when we update geopandas verisons
+        last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flows.crs)
+
+        # replace geometry in merged flowine
+        flows['geometry'] = last_line_segment_geodataframe.iloc[0]['geometry']
 
     # split at HUC8 boundaries
     print ('splitting stream segments at HUC8 boundaries')
