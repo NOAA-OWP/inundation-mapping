@@ -120,30 +120,6 @@ Tstart
 gdal_polygonize.py -8 -f GPKG $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
 Tcount
 
-## TRIM WATERSHEDS ##
-echo -e $startDiv"Trimming catchments to levelpath $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-
-# Make a copy of catchments
-cp $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg $outputCurrentBranchDataDir/gw_catchments_reaches_untrimmed_$current_branch_id.gpkg
-
-# Write out toy vrt file for ST_Intersects, >| create or overwrite file
-echo -e "<OGRVRTDataSource>
-    <OGRVRTLayer name=\"nwm_subset_streams_levelPaths\">
-        <SrcDataSource>$outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg</SrcDataSource>
-        <SrcLayer>nwm_subset_streams_levelPaths</SrcLayer>
-    </OGRVRTLayer>
-    <OGRVRTLayer name=\"catchments\">
-        <SrcDataSource>$outputCurrentBranchDataDir/gw_catchments_reaches_untrimmed_$current_branch_id.gpkg</SrcDataSource>
-        <SrcLayer>catchments</SrcLayer>
-    </OGRVRTLayer>
-</OGRVRTDataSource>" >| $outputCurrentBranchDataDir/trim_catch.vrt 
-
-# Spatial intersect (overwrites $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg)
-ogr2ogr -f GPKG $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -nln catchments -overwrite $outputCurrentBranchDataDir/trim_catch.vrt -dialect sqlite -sql "SELECT A.* FROM catchments A, nwm_subset_streams_levelPaths B WHERE ST_Intersects(B.geom,A.geom)" -ds_transaction
-Tcount
-
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
 echo -e $startDiv"Process catchments and model streams $hucNumber $current_branch_id"$stopDiv
 date -u
