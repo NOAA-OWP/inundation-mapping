@@ -23,7 +23,7 @@ def get_env_paths():
     return API_BASE_URL, WBD_LAYER
 
 
-def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, fim_dir):
+def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, fim_dir):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -93,8 +93,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
     with open('/data/temp/brad/alternate_catfim_temp_files/ms_segs.txt','r') as f:
        ms_segs = ast.literal_eval(f.read())
       
-    if alt_catfim:
-        alt_catfim_att_dict = {}
+    if stage_based:
+        stage_based_att_dict = {}
         with open(os.path.join(workspace, "missing_files.txt"), "w") as f:
             f.write("missing_file\n")
         f.close()
@@ -104,7 +104,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
     
     for huc in huc_dictionary:
-        if alt_catfim:  # Only need to read in hydroTable if running in alt mode.
+        if stage_based:  # Only need to read in hydroTable if running in alt mode.
             
             # Get path to relevant synthetic rating curve.
             hydroTable_path = os.path.join(fim_dir, huc, 'hydroTable.csv')
@@ -150,13 +150,13 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 continue
-            if alt_catfim:
+            if stage_based:
                 try:
                     lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]  # Assuming DEM datums are consistent across all DEMs
                     hydroid = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'HydroID'].values[0]
                 except IndexError:  # Occurs when LID is missing from table
                     continue
-                alt_catfim_att_dict.update({lid:{}})
+                stage_based_att_dict.update({lid:{}})
                 
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
@@ -222,7 +222,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             site_ms_segs = set(segments).intersection(ms_segs)
             segments = list(site_ms_segs)    
         
-            if alt_catfim:
+            if stage_based:
                 # Subset by Hydroid
                 hydroid = str(hydroid)
                 subset_hydroTable = hydroTable.loc[hydroTable['HydroID'] == hydroid]
@@ -245,7 +245,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                 # If running in the alternative CatFIM mode, then determine flows using the
                 # HAND synthetic rating curves, looking up the corresponding flows for datum-offset
                 # AHPS stage values.
-                if alt_catfim:
+                if stage_based:
                     if datum_adj_ft == None:
                         datum_adj_ft = 0.0
                     stage = stages[category]
@@ -263,7 +263,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                         #round flow to nearest hundredth
                         flow = round(interpolated_hand_flow_cms,2)
                         # Extra metadata for alternative CatFIM technique.
-                        alt_catfim_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
+                        stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
                                                                      'datum_adj_wse_m': datum_adj_wse_m,
                                                                      'interpolated_hand_flow_cms': interpolated_hand_flow_cms,
                                                                      'datum_adj_ft': datum_adj_ft,
@@ -303,7 +303,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
                     else:
                         message = f'{lid}:{category} is missing calculated flow'
                         all_messages.append(message)
-#            pprint(alt_catfim_att_dict)
+#            pprint(stage_based_att_dict)
             #Get various attributes of the site.
 #            lat = float(metadata['usgs_preferred']['latitude'])
 #            lon = float(metadata['usgs_preferred']['longitude'])
@@ -325,14 +325,14 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, alt_catfim, f
             #Create a csv with same information as shapefile but with each threshold as new record.
             csv_df = pd.DataFrame()
             for threshold in flood_categories:
-                if alt_catfim:
+                if stage_based:
                     try:
-                        datum_adj_ft = alt_catfim_att_dict[lid][threshold]['datum_adj_ft']
-                        datum_adj_wse_ft = alt_catfim_att_dict[lid][threshold]['datum_adj_wse_ft']
-                        datum_adj_wse_m = alt_catfim_att_dict[lid][threshold]['datum_adj_wse_m']
-                        interpolated_hand_flow_cms = alt_catfim_att_dict[lid][threshold]['interpolated_hand_flow_cms']
-                        lid_alt_ft = alt_catfim_att_dict[lid][threshold]['lid_alt_ft']
-                        lid_alt_m = alt_catfim_att_dict[lid][threshold]['lid_alt_m']
+                        datum_adj_ft = stage_based_att_dict[lid][threshold]['datum_adj_ft']
+                        datum_adj_wse_ft = stage_based_att_dict[lid][threshold]['datum_adj_wse_ft']
+                        datum_adj_wse_m = stage_based_att_dict[lid][threshold]['datum_adj_wse_m']
+                        interpolated_hand_flow_cms = stage_based_att_dict[lid][threshold]['interpolated_hand_flow_cms']
+                        lid_alt_ft = stage_based_att_dict[lid][threshold]['lid_alt_ft']
+                        lid_alt_m = stage_based_att_dict[lid][threshold]['lid_alt_m']
 
                         line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon],
                                             'dtm_adj_ft': datum_adj_ft,
@@ -415,7 +415,7 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--workspace', help = 'Workspace where all data will be stored.', required = True)
     parser.add_argument('-u', '--nwm_us_search',  help = 'Walk upstream on NWM network this many miles', required = True)
     parser.add_argument('-d', '--nwm_ds_search', help = 'Walk downstream on NWM network this many miles', required = True)
-    parser.add_argument('-a', '--alt-catfim', help = 'Run alternative CatFIM that bypasses synthetic rating curves?', required=False, default=False, action='store_true')
+    parser.add_argument('-a', '--stage_based', help = 'Run stage-based CatFIM instead of flow-based? NOTE: flow-based CatFIM is the default.', required=False, default=False, action='store_true')
     parser.add_argument('-f', '--fim-dir', help='Path to FIM outputs directory. Only use this option if you are running in alt-catfim mode.',required=False,default="")
     args = vars(parser.parse_args())
 
