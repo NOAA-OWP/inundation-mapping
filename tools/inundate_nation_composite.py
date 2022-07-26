@@ -1,12 +1,11 @@
 import argparse
 import os
 import rasterio
-from rasterio.merge import merge
-from osgeo import gdal, ogr
+from osgeo import gdal
 import pandas as pd
 from inundation import inundate
 import multiprocessing
-from multiprocessing import Pool, get_context
+from multiprocessing import Pool
 from gms_tools.mosaic_inundation import Mosaic_inundation
 import shutil
 import time
@@ -18,7 +17,7 @@ OUTPUT_BOOL_PARENT_DIR = '/data/inundation_review/inundate_nation/bool_temp/'
 DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 PREP_PROJECTION = 'PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.2572221010042,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4269"]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",29.5],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_center",23],PARAMETER["longitude_of_center",-96],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
 
-def magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,depth_option,mosaic_option,overwrite_flag,fim_version,job_number):    
+def magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,depth_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,fim_version,job_number):    
     procs_list = []
     for huc in hucs_list:
         if os.path.isdir(fr_fim_run_dir + os.sep + huc):
@@ -32,11 +31,12 @@ def magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,
         else:
             print('MS FIM outputs do not exists for huc: ' + ms_fim_run_dir + os.sep + huc)
             
-    ## Pass huc procs_list to multiprocessing function
+    ## 1) Pass huc procs_list to multiprocessing function to produce MS & FR inundation rasters
     multi_process_inundation(run_inundation, procs_list)
     print('Completed FIM generation...')
 
-    print("Performing boolean raster process...")
+    ## 2) Create boolean rasters for all inundation rasters
+    print("\n\nPerforming boolean raster process...")
     output_bool_dir = magnitude_output_dir
     procs_list_bool = []
     for rasfile in os.listdir(magnitude_output_dir):
@@ -44,34 +44,34 @@ def magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,
             #p = magnitude_output_dir + rasfile
             procs_list_bool.append([magnitude_output_dir,rasfile,output_bool_dir])
     # Multiprocess --> create boolean inundation rasters for all hucs
-    if len(procs_list_bool) > 0:
-        multi_process_boolean(create_bool_rasters, procs_list_bool)
-    else:
-        print('Did not find any valid FIM extent rasters: ' + magnitude_output_dir)
+    assert len(procs_list_bool) > 0, 'ERROR: Did not find any valid FIM extent rasters: ' + magnitude_output_dir
+    multi_process_boolean(create_bool_rasters, procs_list_bool)
 
-    # Perform composite operation
-    if composite_option:
-        print("Performing composite process...")
-        procs_list =[]
+    ## 3) Perform MS + FR mosaic operation
+    if mosaic_ms_fr_option:
+        print("\n\nPerforming MS + FR composite process...")
+        procs_list_ms_fr =[]
         for huc in hucs_list:
             fr_bool_file = magnitude_output_dir + os.sep + 'bool_' + magnitude + '_fr_inund_extent_' + huc + '.tif'
             ms_bool_file = magnitude_output_dir + os.sep + 'bool_' + magnitude + '_ms_inund_extent_' + huc + '.tif'
             if os.path.isfile(fr_bool_file) and os.path.isfile(ms_bool_file): # if fr and ms bool rasters exist for huc then create a composite
-                procs_list.append([magnitude_output_dir, magnitude, fr_fim_run_dir, huc])
+                procs_list_ms_fr.append([magnitude_output_dir, magnitude, fr_fim_run_dir, huc])
             elif os.path.isfile(fr_bool_file):
                 shutil.copy(fr_bool_file,magnitude_output_dir + os.sep + 'bool_' + magnitude + '_composite_inund_extent_' + huc + '.tif') #copy the fr bool raster and name it with composite
-        if len(procs_list_bool) > 0:
-            multi_process_composite(composite_fim, procs_list)
+            elif os.path.isfile(ms_bool_file):
+                print('WEIRD!!!!: found a MS file but not a FR for HUC: ' + str(huc))
+        if len(procs_list_ms_fr) > 0:
+            multi_process_composite(mosaic_ms_fr_fim, procs_list_ms_fr)
 
-    # Perform mosaic operation
-    if mosaic_option:
-        print("Performing mosaic process...")
+    ## 4) Perform mosaic multiple hucs operation (virtual raster)
+    if mosaic_nations_option:
+        print("\n\nPerforming mosaic process to combine all nation hucs inundation...")
         # Perform VRT creation and final mosaic using boolean rasters
         output_mos_dir = DEFAULT_OUTPUT_DIR
         if not os.path.exists(output_mos_dir):
             print('Creating new output directory: ' + str(output_mos_dir))
             os.mkdir(output_mos_dir)
-        vrt_raster_mosaic(output_bool_dir,output_mos_dir,fim_version)
+        vrt_raster_mosaic_nation(output_bool_dir,output_mos_dir,fim_version,nation_out_ms_fr)
 
 def run_inundation(args):
     """
@@ -107,7 +107,7 @@ def run_inundation(args):
     if fsize > 400:
         print('WARNING: ' + str(huc) + ' hydroTable.csv file size is greater than 400mb - expect slow run time!')
 
-    print('Trying: ' + str(huc) + ' ' + config)
+    print('Inundating: ' + str(huc) + ' ' + config)
     # Run inundate() once for depth and once for extent.
 
     if depth_option:
@@ -157,7 +157,7 @@ def create_bool_rasters(args):
     with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, 'w', **profile) as dst:
         dst.write(array.astype(rasterio.int8))
 
-def composite_fim(args):
+def mosaic_ms_fr_fim(args):
     magnitude_output_dir = args[0]
     magnitude            = args[1]
     fr_fim_run_dir       = args[2]
@@ -185,23 +185,28 @@ def composite_fim(args):
                     remove_inputs=False,
                     subset=None,verbose=not False
                     )
+    return(output_name)
     print('Completed composite for huc: ' + str(huc))
 
-def vrt_raster_mosaic(output_bool_dir, output_mos_dir, fim_version):
-    #raster_to_mosaic = ['data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090301.tif','data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090302.tif']
-    raster_to_mosaic = []
-    for rasfile in os.listdir(output_bool_dir):
-        if rasfile.endswith('.tif') and "extent" in rasfile:
-            p = output_bool_dir + os.sep + rasfile
-            print("Processing: " + p)
-            raster_to_mosaic.append(p)
+def vrt_raster_mosaic_nation(output_bool_dir, output_mos_dir, fim_version, nation_out_ms_fr):
+    if nation_out_ms_fr:
+        res_queue = ['_ms_','_fr_','_composite_']
+    else:
+        res_queue = ['_composite_']
+    for res in res_queue:
+        raster_to_mosaic = []
+        for rasfile in os.listdir(output_bool_dir):
+            if rasfile.endswith('.tif') and "bool_" in rasfile and res in rasfile:
+                p = output_bool_dir + os.sep + rasfile
+                print("Processing: " + p)
+                raster_to_mosaic.append(p)
 
-    print("Creating virtual raster...")
-    vrt = gdal.BuildVRT(output_mos_dir + "merged.vrt", raster_to_mosaic)
+        print("Creating virtual raster...")
+        vrt = gdal.BuildVRT(output_mos_dir + "merged.vrt", raster_to_mosaic)
 
-    print("Building raster mosaic: " + str(output_mos_dir + fim_version + "_mosaic.tif"))
-    gdal.Translate(output_mos_dir + fim_version + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
-    vrt = None
+        print("Building raster mosaic: " + str(output_mos_dir + fim_version + res + "mosaic.tif"))
+        gdal.Translate(output_mos_dir + fim_version + res + "mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
+        vrt = None
 
 def multi_process_inundation(run_inundation, procs_list):
     print(f"Performing inundation for {len(procs_list)} hucs using {job_number} jobs")
@@ -212,17 +217,17 @@ def multi_process_inundation(run_inundation, procs_list):
         pool.join()   
 
 def multi_process_boolean(create_bool_rasters, procs_list_bool):
-    print(f"Calculating boolean inundation rasters for {len(procs_list_bool)} hucs using {job_number} jobs")
+    print(f"Calculating boolean inundation rasters for {len(procs_list_bool)} files using {job_number} jobs")
     with Pool(processes=job_number) as pool:
         pool.map(create_bool_rasters, procs_list_bool)
         pool.close()
         pool.join()
         pool.terminate()
 
-def multi_process_composite(composite_fim, procs_list):
-    print(f"Calculating composite inundation rasters for {len(procs_list)} hucs using {job_number} jobs")
+def multi_process_composite(mosaic_ms_fr_fim, procs_list):
+    print(f"Calculating composite inundation rasters for {len(procs_list)} files using {job_number} jobs")
     with Pool(processes=job_number) as pool:
-        pool.apply_async(composite_fim, procs_list)
+        pool.map(mosaic_ms_fr_fim, procs_list)
         pool.close()
         pool.join()
         pool.terminate()  
@@ -234,13 +239,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Inundation outputs are stored in the /inundation_review/inundation_nwm_recurr/ directory.')
     parser.add_argument('-fr','--fr-fim-run-dir',help='Name of directory containing outputs of FR fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_fr)',required=True)
     parser.add_argument('-ms','--ms-fim-run-dir',help='Name of directory containing outputs of MS fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_ms)',required=True)
-    parser.add_argument('-u','--huc',help='Optional: HUC within FIM directories to inunundate. Can be a comma-separated list. (will look for HUCs in the FR FIM outputs directory if None provided)',required=False,default=None)
-    parser.add_argument('-o', '--output-dir',help='Optional: The path to a directory to write the outputs. If not used, the inundation_nation directory is used by default -> type=str',required=False, default=None)
+    parser.add_argument('-u','--huc',help='OPTIONAL: HUC within FIM directories to inunundate. Can be a comma-separated list. (will look for HUCs in the FR FIM outputs directory if None provided)',required=False,default=None)
+    parser.add_argument('-o', '--output-dir',help='OPTIONAL: The path to a directory to write the outputs. If not used, the inundation_nation directory is used by default -> type=str',required=False, default=None)
     parser.add_argument('-m', '--magnitude-list', help = 'List of NWM recurr flow intervals to process (Default: 100_0) (Other options: 2_0 5_0 10_0 25_0 50_0 100_0)', nargs = '+', default = ['100_0'], required = False)
-    parser.add_argument('-d', '--depth',help='Optional flag to produce inundation depth rasters (extent raster created by default)', action='store_true')
-    parser.add_argument('-c', '--composite',help='Optional flag to produce composite (MS + FR) FIM extent rasters', default=False, action='store_true')
-    parser.add_argument('-s', '--mosaic',help='Optional flag to produce mosaic of FIM extent rasters', default=False, action='store_true')
-    parser.add_argument('-x', '--overwrite',help='Optional flag to overwrite existing FIM extent rasters (default=False)',default=False,action='store_true')
+    parser.add_argument('-d', '--depth',help='OPTIONAL: use flag to produce inundation depth rasters (default=False)',default=False, action='store_true')
+    parser.add_argument('-c', '--mosaic-fr-ms',help='OPTIONAL: use flag to NOT produce mosaic (MS + FR) FIM extent rasters for each huc (default=True)', default=True, action='store_false')
+    parser.add_argument('-s', '--mosaic-nation',help='OPTIONAL: use flag to NOT produce nation mosaic of FIM boolean rasters (default=True)', default=True, action='store_false')
+    parser.add_argument('-smf', '--fr-ms-nation-outputs',help='OPTIONAL flag to output a national mosaic tiff for MS & FR in addition to default composite (Warning: long runtime) Default=False', default=False, action='store_true')
+    parser.add_argument('-x', '--overwrite',help='OPTIONAL: use flag to overwrite existing FIM inundation extent rasters (default=False)',default=False,action='store_true')
     parser.add_argument('-j', '--job-number',help='The number of jobs',required=False,default=2)
         
     args = vars(parser.parse_args())
@@ -251,15 +257,16 @@ if __name__ == '__main__':
     output_dir      = args['output_dir']
     depth_option    = args['depth']
     magnitude_list  = args['magnitude_list']
-    composite_option   = args['composite']
-    mosaic_option   = args['mosaic']
+    mosaic_ms_fr_option   = args['mosaic_fr_ms']
+    mosaic_nations_option   = args['mosaic_nation']
+    nation_out_ms_fr   = args['fr_ms_nation_outputs']
     overwrite_flag  = args['overwrite']
     job_number      = int(args['job_number'])
 
     assert os.path.isdir(fr_fim_run_dir), 'ERROR: could not find the input FR fim_dir location: ' + str(fr_fim_run_dir)
     print("Input FR FIM Directory: " + str(fr_fim_run_dir))
     assert os.path.isdir(ms_fim_run_dir), 'ERROR: could not find the input MS fim_dir location: ' + str(ms_fim_run_dir)
-    print("Input FR FIM Directory: " + str(ms_fim_run_dir))
+    print("Input MS FIM Directory: " + str(ms_fim_run_dir))
     
     if hucs_input == None:
         print("Creating huc list from the FR fim_dir...")
@@ -272,6 +279,7 @@ if __name__ == '__main__':
         print("Found " + str(len(hucs)) + " hucs to inundate...")
     else:
         hucs_list = hucs_input.replace(' ', '').split(',')
+    assert len(hucs_list)>0, 'ERROR: could not produce a list of hucs to inundate'
 
     if job_number > available_cores:
         job_number = available_cores - 1
@@ -281,7 +289,7 @@ if __name__ == '__main__':
     print("Using fim version: " + str(fim_version))
 
     for magnitude in magnitude_list:
-        print("Preparing to generate inundation outputs for magnitude: " + str(magnitude))
+        print("Preparing to generate inundation outputs for NWM flow recurr magnitude: " + str(magnitude))
         nwm_recurr_file = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'nwm21_17C_recurr_' + magnitude + '_cms.csv')
         assert os.path.isfile(nwm_recurr_file), 'ERROR: could not find the input NWM recurr flow file: ' + str(nwm_recurr_file)
         print("Input flow file: " + str(nwm_recurr_file))
@@ -296,4 +304,4 @@ if __name__ == '__main__':
         if not os.path.exists(magnitude_output_dir):
             os.mkdir(magnitude_output_dir)
             print(magnitude_output_dir)
-        magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,depth_option,mosaic_option,overwrite_flag,fim_version,job_number)
+        magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,depth_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,fim_version,job_number)
