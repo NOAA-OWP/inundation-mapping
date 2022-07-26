@@ -28,7 +28,7 @@ def create_csvs(output_mapping_dir):
     # Convert any shapefile in the root level of output_mapping_dir to CSV.
     shapefile_list = glob.glob(os.path.join(output_mapping_dir, '*.shp'))
     for shapefile in shapefile_list:
-        gdf = gpd.read(shapefile)
+        gdf = gpd.read_file(shapefile)
         csv_output_path = shapefile.replace('.shp', '.csv')
         gdf.to_csv(csv_output_path)
 
