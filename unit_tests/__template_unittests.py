@@ -26,14 +26,7 @@ class test_<Your original source python file name>(unittest.TestCase):
     def setUpClass(self):
 
         warnings.simplefilter('ignore')
-
-        try:        
-            params_file_path = ut_helpers.get_params_filename(__file__)
-            #print(params_file_path)
-        except FileNotFoundError as ex:
-            print(f"params file not found. ({ex}). Check pathing and file name convention.")
-            sys.exit(1)
-
+        params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 

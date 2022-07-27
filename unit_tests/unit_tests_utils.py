@@ -14,8 +14,7 @@ class FIM_unit_test_helpers(object):
         params_file_path = os.path.join(os.path.dirname(unit_test_file_name), params_file_name)
         
         if (not os.path.exists(params_file_path)):
-            raise FileNotFoundError(
-                errno.ENOENT, os.strerror(errno.ENOENT), params_file_path)
+            raise FileNotFoundError(f"{params_file_path} does not exist")
         
         return params_file_path
     
