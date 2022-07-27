@@ -8,9 +8,9 @@ services:
       - POSTGRES_USER=${CALIBRATION_DB_USER_NAME}
       - POSTGRES_PASSWORD=${CALIBRATION_DB_PASS}
       - POSTGRES_DB=calibration
-      - PGDATA=/var/lib/postgresql/data/
+      - PGDATA=/var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:
-      - ./pgdata:/var/lib/postgresql/data/
+      - ./pgdata:/var/lib/postgresql/data
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
