@@ -100,7 +100,7 @@ def magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,
         if not os.path.exists(output_mos_dir):
             logging.warning('Creating new output directory: ' + str(output_mos_dir))
             os.mkdir(output_mos_dir)
-        vrt_raster_mosaic_nation(output_bool_dir,output_mos_dir,fim_version,nation_out_ms_fr)
+        vrt_raster_mosaic_nation(magnitude,output_bool_dir,output_mos_dir,fim_version,nation_out_ms_fr)
 
 def run_inundation(args):
     """
@@ -137,8 +137,8 @@ def run_inundation(args):
         logging.warning('WARNING: ' + str(huc) + ' hydroTable.csv file size is greater than 400mb - expect slow run time!')
 
     logging.warning('Inundating: ' + str(huc) + ' ' + config)
-    # Run inundate() once for depth and once for extent.
-
+    
+    # Run inundate once for depth (turned off by default) and once for extent.
     if depth_option:
         if not os.path.isfile(depth_raster[:-4] + '_' + str(huc) + '.tif') or overwrite_flag:
             logging.warning("Running the NWM recurrence intervals for HUC inundation (depth): " + huc + ", " + magnitude + "...\n")
@@ -217,7 +217,7 @@ def mosaic_ms_fr_fim(args):
     return(output_name)
     logging.warning('Completed composite for huc: ' + str(huc))
 
-def vrt_raster_mosaic_nation(output_bool_dir, output_mos_dir, fim_version, nation_out_ms_fr):
+def vrt_raster_mosaic_nation(magnitude, output_bool_dir, output_mos_dir, fim_version, nation_out_ms_fr):
     if nation_out_ms_fr:
         res_queue = ['_ms_','_fr_','_composite_']
     else:
@@ -231,10 +231,10 @@ def vrt_raster_mosaic_nation(output_bool_dir, output_mos_dir, fim_version, natio
                 raster_to_mosaic.append(p)
 
         logging.warning("Creating virtual raster...")
-        vrt = gdal.BuildVRT(output_mos_dir + "merged.vrt", raster_to_mosaic)
+        vrt = gdal.BuildVRT(output_mos_dir + "merged_" + magnitude + ".vrt", raster_to_mosaic)
 
         logging.warning("Building raster mosaic: " + str(output_mos_dir + fim_version + res + "mosaic.tif"))
-        gdal.Translate(output_mos_dir + fim_version + res + "mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
+        gdal.Translate(output_mos_dir + fim_version + res + "mosaic_" + magnitude + ".tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
         vrt = None
 
 def multi_process_inundation(run_inundation, procs_list):
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Inundation outputs are stored in the /inundation_review/inundation_nwm_recurr/ directory.')
     parser.add_argument('-fr','--fr-fim-run-dir',help='Name of directory containing outputs of FR fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_fr)',required=True)
     parser.add_argument('-ms','--ms-fim-run-dir',help='Name of directory containing outputs of MS fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_ms)',required=True)
-    parser.add_argument('-u','--huc',help='OPTIONAL: HUC within FIM directories to inunundate. Can be a comma-separated list. (will look for HUCs in the FR FIM outputs directory if None provided)',required=False,default=None)
+    parser.add_argument('-u','--huc',help='OPTIONAL: HUC(s) within FIM directories to inunundate. Can be a comma-separated list. (will look for HUCs in the FR FIM outputs directory if None provided)',required=False,default=None)
     parser.add_argument('-o', '--output-dir',help='OPTIONAL: The path to a directory to write the outputs. If not used, the inundation_nation directory is used by default -> type=str',required=False, default=None)
     parser.add_argument('-m', '--magnitude-list', help = 'OPTIONAL: List of NWM recurr flow intervals to process (Default: 100_0) (Other options: 2_0 5_0 10_0 25_0 50_0 100_0)', nargs = '+', default = ['100_0'], required = False)
     parser.add_argument('-d', '--depth',help='OPTIONAL: use flag to produce inundation depth rasters (default=False)',default=False, action='store_true')
