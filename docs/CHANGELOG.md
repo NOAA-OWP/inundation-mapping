@@ -2,6 +2,43 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4 (number pending) - 2022-07-27 - [PR #630](https://github.com/NOAA-OWP/inundation-mapping/issues/630)
+
+A file called gms_pipeline.sh already existed but was unusable. This has been updated and now can be used as a "one-command" execution of the fim4/gms run. While you still can run gms_run_unit.sh and gms_run_branch.sh as you did before, you no longer need to. Input arguments were simplified to allow for more default and this simplification was added to `gms_run_unit.sh` and `gms_run_branch.sh` as well. 
+
+A new feature was added that is being used for `gms_pipeline.sh` which tests the percent and number of errors after hucs are processed before continuing onto branch processing.
+
+New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output name> -u <HUC(s) or HUC list path>`
+	
+Note: `gms_pipeline.sh` defaults to drop stream  orders 1 and 2, but `gms_run_unit.sh` and `gms_run_branch.sh` continue to assume NOT to drop stream orders 1 and 2 (for backwards compatibility reasons).
+
+## Additions
+
+- `src`
+    - `check_unit_errors.py`: as described above.
+- `unit_tests`
+    - `check_unit_errors_unittests.py` and `check_unit_errors_params.json`: to match new file.    
+
+## Changes
+
+- `README.md`:  Updated text for FIM4, gms_pipeline, S3 input updates, information about updating dependencies, misc link updates and misc text verbage.
+- `gms_pipeline.sh`: as described above.
+- `gms_run_unit.sh`: as described above. Also small updates to clean up folders and files in case of an overwrite.
+- `gms_run_branch.sh`: as described above.
+- `src`
+     - `utils`
+         - `fim_enums.py`:  FIM_system_exit_codes renamed to FIM_exit_codes.
+         - `shared_variables.py`: added configurable values for minimum number and percentage of unit errors.
+    - `bash_functions.env`:   Update to make the cumulative time screen outputs in mins/secs instead of just seconds.
+    - `check_huc_inputs.py`:  Now returns the number of HUCs being processed, needed by `gms_pipeline.sh` (Note: to get the value back to a bash file, it has to send it back via a "print" line and not a "return" value.  Improved input validation, 
+- `unit_tests`
+   - `README.md`: Misc text and link updates.
+
+## Removals
+
+- `config\params_template_calibrated.env`: No longer needed. Has been removed already from dev-fim3 and confirmed that it is not needed.
+<br><br>
+
 ## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
 
 `Alpha Test Refactor` An upgrade was made a few weeks back to the dev-fim3 branch that improved performance, usability and readability of running alpha tests. Some cleanup in other files for readability, debugging verbosity and styling were done as well. A newer, cleaner system for printing lines when the verbose flag is enabled was added.
