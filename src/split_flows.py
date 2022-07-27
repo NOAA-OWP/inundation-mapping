@@ -40,6 +40,7 @@ def split_flows(max_length,
                 split_points_filename, 
                 wbd8_clp_filename, 
                 lakes_filename,
+                nwm_streams_filename,
                 drop_stream_orders=False):
 
     wbd = gpd.read_file(wbd8_clp_filename)
@@ -84,16 +85,6 @@ def split_flows(max_length,
         # read in nwm lines, explode to ensure linestrings are the only geometry
         levelpath_lines = gpd.read_file(nwm_streams_filename).explode()
 
-        # exception check for empty (nwm) streams
-        if (len(levelpath_lines) == 0):
-            if (drop_stream_orders):
-                # this is not an exception, but a custom exit code that can be trapped
-                print("No relevant streams within HUC boundaries.")
-                sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
-            else:
-                # if we are not dropping stream orders, then something is wrong
-                raise Exception("No flowlines exist.")
-
         # Dissolve the linestring (how much faith should I hold that these are digitized with flow?)
         linestring_geo = levelpath_lines.iloc[0]['geometry']
         if (len(levelpath_lines) > 1):
@@ -107,7 +98,7 @@ def split_flows(max_length,
 
         ## Edge case handling: make sure we snap to the closest point in the terminal points huc
         # Find the watershed the levelpath ends in
-        target_terminal_watershed = wbd8.loc[wbd8.contains(terminal_nwm_point.loc[0, 'geometry'])]
+        target_terminal_watershed = wbd8.loc[wbd8.contains(snapped_point.loc[0, 'geometry'])]
 
         # Find the snaplines centroids
         snaplines = gpd.overlay(flows, wbd8, how='union').explode().reset_index(drop=True)
@@ -118,7 +109,6 @@ def split_flows(max_length,
         target_snapline = snaplines.loc[terminal_flowline_centroid.intersects(target_terminal_watershed.iloc[0]['geometry'])]
 
         # Snap to the target line
-        snapped_point = terminal_nwm_point.copy()
         snapped_point['geometry'] = snapped_point.apply(lambda row: target_snapline.interpolate(target_snapline.project( row.geometry)), axis=1)
 
         # Trim flows to snapped point
@@ -307,6 +297,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename',required=True)
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename',required=True)
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename',required=True)
+    parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename',required=True)
     parser.add_argument('-ds', '--drop-stream-orders', help='Drop stream orders 1 and 2', type=int, required=False, default=False)
 
     # Extract to dictionary and assign to variables.
