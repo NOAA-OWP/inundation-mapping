@@ -46,7 +46,7 @@ Outputs
 - national-mosaic:    boolean inundation raster containing all available inundated HUCs
 '''
 
-def magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,depth_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,fim_version,job_number):    
+def magnitude_loop(magnitude,hucs_list,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,nwm_recurr_file,depth_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,fim_version,job_number):    
     procs_list = []
     for huc in hucs_list:
         if os.path.isdir(fr_fim_run_dir + os.sep + huc):
@@ -261,37 +261,7 @@ def multi_process_composite(mosaic_ms_fr_fim, procs_list):
         pool.join()
         pool.terminate()  
 
-if __name__ == '__main__':
-    available_cores = multiprocessing.cpu_count()
-
-    # Parse arguments.
-    parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Inundation outputs are stored in the /inundation_review/inundation_nwm_recurr/ directory.')
-    parser.add_argument('-fr','--fr-fim-run-dir',help='Name of directory containing outputs of FR fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_fr)',required=True)
-    parser.add_argument('-ms','--ms-fim-run-dir',help='Name of directory containing outputs of MS fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_ms)',required=True)
-    parser.add_argument('-u','--huc',help='OPTIONAL: HUC(s) within FIM directories to inunundate. Can be a comma-separated list. (will look for HUCs in the FR FIM outputs directory if None provided)',required=False,default=None)
-    parser.add_argument('-o', '--output-dir',help='OPTIONAL: The path to a directory to write the outputs. If not used, the inundation_nation directory is used by default -> type=str',required=False, default=None)
-    parser.add_argument('-m', '--magnitude-list', help = 'OPTIONAL: List of NWM recurr flow intervals to process (Default: 100_0) (Other options: 2_0 5_0 10_0 25_0 50_0 100_0)', nargs = '+', default = ['100_0'], required = False)
-    parser.add_argument('-d', '--depth',help='OPTIONAL: use flag to produce inundation depth rasters (default=False)',default=False, action='store_true')
-    parser.add_argument('-c', '--mosaic-fr-ms',help='OPTIONAL: use flag to NOT produce mosaic (MS + FR) FIM extent rasters for each huc (default=True)', default=True, action='store_false')
-    parser.add_argument('-s', '--mosaic-nation',help='OPTIONAL: use flag to NOT produce nation mosaic of FIM boolean rasters (default=True)', default=True, action='store_false')
-    parser.add_argument('-smf', '--fr-ms-nation-outputs',help='OPTIONAL: use flag to output a national mosaic tiff for MS & FR in addition to default composite (Warning: long runtime) Default=False', default=False, action='store_true')
-    parser.add_argument('-x', '--overwrite',help='OPTIONAL: use flag to overwrite existing FIM inundation extent rasters (default=False)',default=False,action='store_true')
-    parser.add_argument('-j', '--job-number',help='OPTIONAL: The number of multiprocessing jobs (default=2)',required=False,default=2)
-        
-    args = vars(parser.parse_args())
-
-    fr_fim_run_dir  = args['fr_fim_run_dir']
-    ms_fim_run_dir  = args['ms_fim_run_dir']
-    hucs_input      = args['huc']
-    output_dir      = args['output_dir']
-    depth_option    = args['depth']
-    magnitude_list  = args['magnitude_list']
-    mosaic_ms_fr_option   = args['mosaic_fr_ms']
-    mosaic_nations_option   = args['mosaic_nation']
-    nation_out_ms_fr   = args['fr_ms_nation_outputs']
-    overwrite_flag  = args['overwrite']
-    job_number      = int(args['job_number'])
-
+def prep_run(fr_fim_run_dir,ms_fim_run_dir,hucs_input,output_dir,depth_option,magnitude_list,mosaic_ms_fr_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,job_number):
     assert os.path.isdir(fr_fim_run_dir), 'ERROR: could not find the input FR fim_dir location: ' + str(fr_fim_run_dir)
     print("Input FR FIM Directory: " + str(fr_fim_run_dir))
     assert os.path.isdir(ms_fim_run_dir), 'ERROR: could not find the input MS fim_dir location: ' + str(ms_fim_run_dir)
@@ -341,4 +311,39 @@ if __name__ == '__main__':
         logging.warning("Using NWM v2.1 17C recurrence flow data")
         logging.warning("Input flow file: " + str(nwm_recurr_file))
         
-        magnitude_loop(magnitude,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,depth_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,fim_version,job_number)
+        magnitude_loop(magnitude,hucs_list,magnitude_list,magnitude_output_dir,fr_fim_run_dir,ms_fim_run_dir,nwm_recurr_file,depth_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,fim_version,job_number)
+
+if __name__ == '__main__':
+    available_cores = multiprocessing.cpu_count()
+
+    # Parse arguments.
+    parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Inundation outputs are stored in the /inundation_review/inundation_nwm_recurr/ directory.')
+    parser.add_argument('-fr','--fr-fim-run-dir',help='Name of directory containing outputs of FR fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_fr)',required=True)
+    parser.add_argument('-ms','--ms-fim-run-dir',help='Name of directory containing outputs of MS fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test_ms)',required=True)
+    parser.add_argument('-u','--huc',help='OPTIONAL: HUC(s) within FIM directories to inunundate. Can be a comma-separated list. (will look for HUCs in the FR FIM outputs directory if None provided)',required=False,default=None)
+    parser.add_argument('-o', '--output-dir',help='OPTIONAL: The path to a directory to write the outputs. If not used, the inundation_nation directory is used by default -> type=str',required=False, default=None)
+    parser.add_argument('-m', '--magnitude-list', help = 'OPTIONAL: List of NWM recurr flow intervals to process (Default: 100_0) (Other options: 2_0 5_0 10_0 25_0 50_0 100_0)', nargs = '+', default = ['100_0'], required = False)
+    parser.add_argument('-d', '--depth',help='OPTIONAL: use flag to produce inundation depth rasters (default=False)',default=False, action='store_true')
+    parser.add_argument('-c', '--mosaic-fr-ms',help='OPTIONAL: use flag to NOT produce mosaic (MS + FR) FIM extent rasters for each huc (default=True)', default=True, action='store_false')
+    parser.add_argument('-s', '--mosaic-nation',help='OPTIONAL: use flag to NOT produce nation mosaic of FIM boolean rasters (default=True)', default=True, action='store_false')
+    parser.add_argument('-smf', '--fr-ms-nation-outputs',help='OPTIONAL: use flag to output a national mosaic tiff for MS & FR in addition to default composite (Warning: long runtime) Default=False', default=False, action='store_true')
+    parser.add_argument('-x', '--overwrite',help='OPTIONAL: use flag to overwrite existing FIM inundation extent rasters (default=False)',default=False,action='store_true')
+    parser.add_argument('-j', '--job-number',help='OPTIONAL: The number of multiprocessing jobs (default=2)',required=False,default=2)
+        
+    args = vars(parser.parse_args())
+
+    fr_fim_run_dir  = args['fr_fim_run_dir']
+    ms_fim_run_dir  = args['ms_fim_run_dir']
+    hucs_input      = args['huc']
+    output_dir      = args['output_dir']
+    depth_option    = args['depth']
+    magnitude_list  = args['magnitude_list']
+    mosaic_ms_fr_option   = args['mosaic_fr_ms']
+    mosaic_nations_option   = args['mosaic_nation']
+    nation_out_ms_fr   = args['fr_ms_nation_outputs']
+    overwrite_flag  = args['overwrite']
+    job_number      = int(args['job_number'])
+
+    prep_run(fr_fim_run_dir,ms_fim_run_dir,hucs_input,output_dir,depth_option,magnitude_list,mosaic_ms_fr_option,mosaic_nations_option,nation_out_ms_fr,overwrite_flag,job_number)
+
+    
