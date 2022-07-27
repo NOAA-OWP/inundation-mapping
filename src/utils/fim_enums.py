@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-class FIM_system_exit_codes(Enum):
+class FIM_exit_codes(Enum):
     '''
     This particular enum class allows for special system exit codes to be issued to tell different
     code layers about what has happened. Currently, most of our code uses just sys.exit(0) and 
@@ -18,11 +18,12 @@ class FIM_system_exit_codes(Enum):
         - More advanced combinations of codes can be used and we will keep it simple for now.
     - Sample usage:
         import utils/fim_enums
-        print(FIM_system_exit_codes.GMS_UNIT_NO_BRANCHES.value) -> 60   [this is used in gms/derive_level_paths.py]
+        print(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value) -> 60   [this is used in gms/derive_level_paths.py]
 
     - For more information : https://docs.python.org/3.11/howto/enum.html and https://docs.python.org/3/library/enum.html
     '''
 
     GMS_UNIT_NO_BRANCHES = 60
     NO_FLOWLINES_EXIST = 61
+    EXCESS_UNIT_ERRORS = 62    
             

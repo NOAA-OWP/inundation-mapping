@@ -1,8 +1,8 @@
-## Cahaba: Flood Inundation Mapping for U.S. National Water Model
+## Inundation Mapping: Flood Inundation Mapping for U.S. National Water Model
 
 Flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
 
-#### For more information, see the [Cahaba Wiki](https://github.com/NOAA-OWP/cahaba/wiki).
+#### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/inundation-mapping/wiki).
 
 ### This folder and files are for unit testing python files
 
@@ -30,7 +30,7 @@ One way is to use the incoming arg parser. Most py files, they include the code 
 ## Running unit tests
 
 Start a docker container as you normally would for any development. ie) docker run --rm -it --name <a docker container name> -v /home/<your name>/projects/<folder path>/:/foss_fim {your docker image name}
-	- ie) docker run --rm -it --name Rob_GMS -v /home/rob_abcd/projects/dev/innudation-mapping/:/foss_fim -v /abcd_share/foss_fim/outputs/:/outputs -v /abcs_share/foss_fim/:/data fim_4:dev_20220208_8eba0ee
+	- ie) docker run --rm -it --name mytest -v /home/abcd/projects/dev/innudation-mapping/:/foss_fim -v /abcd_share/foss_fim/outputs/:/outputs -v /abcs_share/foss_fim/:/data fim_4:dev_20220208_8eba0ee
 
 At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level_paths_unittests.py  or python ./foss_fim/unit_tests/clip_vectors_to_wbd_unittests.py
 (replace with your own script and path name)
