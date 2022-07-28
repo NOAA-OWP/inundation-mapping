@@ -31,7 +31,6 @@ Inputs
 - usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
-- scale:                HUC6 or HUC8
 - job_number:           number of multi-processing jobs to use
 
 Outputs
@@ -51,7 +50,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     
     # read in the aggregate USGS elev table csv
     start_time = dt.datetime.now()
-    cross_df = usgs_elev_df[["location_id", "HydroID", "feature_id", "HUC8", "dem_adj_elevation"]].copy()
+    cross_df = usgs_elev_df[["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation"]].copy()
     cross_df.rename(columns={'dem_adj_elevation':'hand_datum', 'HydroID':'hydroid', 'HUC8':'huc'}, inplace=True)
     
     # filter null location_id rows from cross_df (removes ahps lide entries that aren't associated with USGS gage)
@@ -67,7 +66,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     
     # calculate hand elevation
     usgs_rc_df['hand'] = usgs_rc_df['elevation_navd88_m'] - usgs_rc_df['hand_datum']
-    usgs_rc_df = usgs_rc_df[['location_id','feature_id','hydroid','huc','hand','discharge_cms']]
+    usgs_rc_df = usgs_rc_df[['location_id','feature_id','hydroid','levpa_id','huc','hand','discharge_cms']]
     usgs_rc_df['feature_id'] = usgs_rc_df['feature_id'].astype(int)
     
     # read in the NWM recurr csv file
@@ -107,7 +106,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         calc_df['layer'] = '_usgs-gage____' + interval+"-year"
         calc_df.rename(columns={interval+"_0_year":'nwm_recur_flow_cms'}, inplace=True)
         # Subset calc_df for final output
-        calc_df = calc_df[['location_id','hydroid','feature_id','huc','hand','discharge_cms','check_variance','nwm_recur_flow_cms','nwm_recur','layer']]
+        calc_df = calc_df[['location_id','hydroid','feature_id','levpa_id','huc','hand','discharge_cms','check_variance','nwm_recur_flow_cms','nwm_recur','layer']]
         final_df = final_df.append(calc_df, ignore_index=True)
         # Log any negative HAND elev values and remove from database
         log_text += ('Warning: Negative HAND stage values -->\n')
@@ -138,64 +137,65 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     log_usgs_db.close()
     return(final_df)
 
-def branch_proc_list(usgs_df,branch_id,branch_dir,huc,debug_outputs_option,log_file):
-    # Define paths to branch HAND data.
-    # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-    if scale == 'HUC8':
+def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
+    branch_list = usgs_df['levpa_id'].tolist()
+    branch_list = list(set(branch_list))
+    procs_list = []  # Initialize list for mulitprocessing.
+
+    branch_huc_dict = pd.Series(usgs_df.huc.values,index=usgs_df.levpa_id).to_dict()
+    for branch_id in branch_huc_dict:
+        huc = branch_huc_dict[branch_id]
+
+        # Define paths to branch HAND data.
+        # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
+        # Assumes outputs are for HUC8 (not HUC6)
+        branch_dir = os.path.join(run_dir,huc,'branches',branch_id)
+        print(branch_dir)
         hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
         catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
         catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
-        water_edge_median_ds = usgs_df[usgs_df['huc']==huc]
-    else:
-        hand_path = os.path.join(branch_dir, 'hand_grid_' + huc + '.tif')
-        catchments_path = os.path.join(branch_dir, 'catchments_' + huc + '.tif')
-        catchments_poly_path = ''
-        water_edge_median_ds = usgs_df[usgs_df['huc']==huc]
+        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+        water_edge_median_ds = usgs_df[(usgs_df['huc']==huc) & (usgs_df['levpa_id']==branch_id)]
 
-    # Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
-    if not os.path.exists(hand_path):
-        print("HAND grid does not exist.")
-    if not os.path.exists(catchments_path):
-        print("Catchments grid does not exist.")
+        # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+        if not os.path.exists(hand_path):
+            print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+        elif not os.path.exists(catchments_path):
+            print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
+        elif not os.path.exists(htable_path):
+            print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+        else:
+            ## Additional arguments for src_roughness_optimization
+            source_tag = 'usgs_rating' # tag to use in source attribute field
+            merge_prev_adj = False # merge in previous SRC adjustment calculations
 
-    # Define path to hydroTable.csv.
-    htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-    if not os.path.exists(htable_path):
-        print("hydroTable does not exist.")
+            print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
+            #log_output = update_rating_curve(branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj)
+            #log_file.writelines(log_output + "\n\n")
+            procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
 
-    ## Additional arguments for src_roughness_optimization
-    source_tag = 'usgs_rating' # tag to use in source attribute field
-    merge_prev_adj = False # merge in previous SRC adjustment calculations
+    # multiprocess all available branches
+    print(f"Calculating new SRCs for {len(procs_list)} branches using {job_number} jobs...")
+    with Pool(processes=job_number) as pool:
+        log_output = pool.starmap(update_rating_curve, procs_list)
+        log_file.writelines(["%s\n" % item  for item in log_output])
 
-    print('Performing SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-    log_output = update_rating_curve(branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj)
-    log_file.writelines(log_output + "\n\n")
-
-    # procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
-    # print(f"Calculating new SRCs for {len(procs_list)} hucs using {job_number} jobs...")
-    # with Pool(processes=job_number) as pool:
-    #     log_output = pool.starmap(update_rating_curve, procs_list)
-    #     log_file.writelines(["%s\n" % item  for item in log_output])
-
-def run_prep(branch_dir,run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,scale,job_number):
+def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,job_number):
     ## Check input args are valid
-    assert scale in ['HUC6', 'HUC8'], "scale (-s) must be 'HUC6' or 'HUC8'"
-    assert os.path.isdir(branch_dir), 'ERROR: could not find the input fim_dir location: ' + str(branch_dir)
-
-    ## Get huc id and branch id from directory path
-    huc = str(Path(branch_dir).parts[-3])
-    branch_id = str(Path(branch_dir).parts[-1])
+    assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
     ## Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
     print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
-    usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
-    usgs_elev_df = pd.read_csv(usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int})
-    # csv_name = 'usgs_elev_table.csv'
-    # usgs_elev_df = concat_huc_csv(branch_dir,csv_name)
+    #usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
+    #usgs_elev_df = pd.read_csv(usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int})
+    csv_name = 'usgs_elev_table.csv'
+    usgs_elev_df = concat_huc_csv(run_dir,csv_name)
     if usgs_elev_df is None:
         print('WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in fim_dir!')
     elif usgs_elev_df.empty:
         print('WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in fim_dir!')
+    
+    print(usgs_elev_df.head)
     
     if job_number > available_cores:
         job_number = available_cores - 1
@@ -219,7 +219,7 @@ def run_prep(branch_dir,run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outpu
     log_file.write('#########################################################\n\n')
 
     ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-    branch_proc_list(usgs_df,branch_id,branch_dir,huc,debug_outputs_option,log_file)
+    branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file)
 
     ## Record run time and close log file
     log_file.write('#########################################################\n\n')
@@ -236,24 +236,20 @@ if __name__ == '__main__':
 
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).')
-    parser.add_argument('-branch_dir','--fim-branch-dir',help='Parent directory of HUC dir with branches.',required=True)
     parser.add_argument('-run_dir','--run-dir',help='Parent directory of FIM run.',required=True)
     parser.add_argument('-usgs_rc','--usgs-ratings',help='Path to USGS rating curve csv file',required=True)
     parser.add_argument('-nwm_recur','--nwm_recur',help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',required=True)
     parser.add_argument('-debug','--extra-outputs',help='Optional flag: Use this to keep intermediate output files for debugging/testing',default=False,required=False, action='store_true')
-    parser.add_argument('-scale','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=1)
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
-    branch_dir = args['fim_branch_dir']
     run_dir = args['run_dir']
     usgs_rc_filepath = args['usgs_ratings']
     nwm_recurr_filepath = args['nwm_recur']
     debug_outputs_option = args['extra_outputs']
-    scale = args['scale']
     job_number = int(args['job_number'])
 
-    ## Prepare/check inputs, create log file, and run workflow
-    run_prep(branch_dir,run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,scale,job_number)
+    ## Prepare/check inputs, create log file, and spin up the proc list
+    run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,job_number)
     

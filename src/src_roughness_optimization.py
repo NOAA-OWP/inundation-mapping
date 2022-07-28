@@ -269,8 +269,8 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
         print('ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate')
         log_text += 'ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate\n'
 
-    log_text += 'Completed: ' + str(huc)
-    print("Completed huc --> " + str(huc))
+    log_text += 'Completed: ' + str(huc) + ' --> branch: ' + str(branch_id)
+    print("Completed huc: " + str(huc) + ' --> branch: ' + str(branch_id))
     return(log_text)
 
 def branch_network(df_input_htable):

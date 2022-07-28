@@ -9,6 +9,7 @@ import numpy as np
 from pathlib import Path
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 from pyproj.crs import CRS
+import pandas as pd
 
 def getDriver(fileName):
 
@@ -357,9 +358,9 @@ def concat_huc_csv(fim_dir,csv_name):
             csv_file = os.path.join(fim_dir,huc,str(csv_name))
             if Path(csv_file).is_file():
                 # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
-                read_csv = pd.read_csv(csv_file, dtype={'huc': object, 'location_id': object, 'feature_id': int})
+                read_csv = pd.read_csv(csv_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object})
                 # Add huc field to dataframe
-                read_csv['huc'] = huc 
+                read_csv['HUC8'] = huc 
                 merged_csv.append(read_csv)
 
     # Create and return a concatenated pd dataframe
