@@ -33,7 +33,7 @@ def create_csvs(output_mapping_dir, reformatted_catfim_method):
         gdf = gpd.read_file(shapefile)
         parent_directory = os.path.split(shapefile)[0]
         if 'catfim_library' in shapefile:
-            file_name = reformatted_catfim_method + '_catfim_polys.csv'
+            file_name = reformatted_catfim_method + '_catfim.csv'
         if 'nws_lid_sites' in shapefile:
             file_name = reformatted_catfim_method + '_catfim_sites.csv'
         
