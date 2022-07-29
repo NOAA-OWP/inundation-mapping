@@ -5,11 +5,11 @@ import os
 import sys
 import warnings
 
-import argparse
 import json
 import unittest
 
-import unit_tests_utils as helpers
+sys.path.append('/foss_fim/unit_tests/')
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # importing python folders in other directories
 sys.path.append('/foss_fim/tools/')   # *** update your folder path here if required ***
@@ -25,9 +25,8 @@ class test_rating_curve_comparison(unittest.TestCase):
     @classmethod
     def setUpClass(self):
 
-        params_file_path = '/foss_fim/unit_tests/rating_curve_comparison_params.json'
         warnings.simplefilter('ignore')
-    
+        params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
@@ -41,9 +40,6 @@ class test_rating_curve_comparison(unittest.TestCase):
           If there is no return value from the method, please say so.>
         '''
 
-        #global params_file
-        helpers.print_unit_test_function_header()
-        
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
                 
         generate_rating_curve_metrics(params["01010004"])
@@ -58,9 +54,6 @@ class test_rating_curve_comparison(unittest.TestCase):
         < UPDATE THESE NOTES: to say what you are testing and what you are expecting.
           If there is no return value from the method, please say so.>
         '''
-
-        #global params_file
-        helpers.print_unit_test_function_header()
         
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
                 
@@ -76,9 +69,6 @@ class test_rating_curve_comparison(unittest.TestCase):
         < UPDATE THESE NOTES: to say what you are testing and what you are expecting.
           If there is no return value from the method, please say so.>
         '''
-
-        #global params_file
-        helpers.print_unit_test_function_header()
         
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
                 

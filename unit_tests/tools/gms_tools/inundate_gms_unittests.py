@@ -4,17 +4,14 @@ import inspect
 import os
 import sys
 
-import argparse
 import json
-import pandas as pd
 import warnings
 import unittest
 
 sys.path.append('/foss_fim/unit_tests/')
-import unit_tests_utils as helpers
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
-# importing python folders in other directories
-sys.path.append('/foss_fim/tools/gms_tools/') 
+sys.path.append('/foss_fim/tools/gms_tools')
 import inundate_gms as src
 
 # NOTE: This goes directly to the function.
@@ -28,9 +25,7 @@ class test_inundate_gms(unittest.TestCase):
     def setUpClass(self):
 
         warnings.simplefilter('ignore')
-
-        params_file_path = '/foss_fim/unit_tests/gms/inundate_gms_params.json'
-    
+        params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
@@ -44,9 +39,6 @@ class test_inundate_gms(unittest.TestCase):
         within a gms output folder.
         '''
 
-        #global params_file
-        helpers.print_unit_test_function_header()
-        
         params = self.params["valid_data_inudation_raster_single_huc"].copy()         
         
         output_fileNames_df = src.Inundate_gms(hydrofabric_dir = params["hydrofabric_dir"],
