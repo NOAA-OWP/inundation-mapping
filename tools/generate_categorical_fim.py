@@ -10,7 +10,7 @@ import pandas as pd
 import glob
 
 
-def create_csvs(output_mapping_dir):
+def create_csvs(output_mapping_dir, reformatted_catfim_method):
     '''
     Produces CSV versions of any shapefile in the output_mapping_dir.
 
@@ -18,6 +18,8 @@ def create_csvs(output_mapping_dir):
     ----------
     output_mapping_dir : STR
         Path to the output directory of all inundation maps.
+    reformatted_catfim_method : STR
+        Text to append to CSV to communicate the type of CatFIM.
 
     Returns
     -------
@@ -25,11 +27,17 @@ def create_csvs(output_mapping_dir):
 
     '''
     
-    # Convert any shapefile in the root level of output_mapping_dir to CSV.
+    # Convert any shapefile in the root level of output_mapping_dir to CSV and rename.
     shapefile_list = glob.glob(os.path.join(output_mapping_dir, '*.shp'))
     for shapefile in shapefile_list:
         gdf = gpd.read_file(shapefile)
-        csv_output_path = shapefile.replace('.shp', '.csv')
+        parent_directory = os.path.split(shapefile)[0]
+        if 'catfim_library' in shapefile:
+            file_name = reformatted_catfim_method + '_catfim_polys.csv'
+        if 'nws_lid_sites' in shapefile:
+            file_name = reformatted_catfim_method + '_catfim_sites.csv'
+        
+        csv_output_path = os.path.join(parent_directory, file_name)
         gdf.to_csv(csv_output_path)
 
 
@@ -95,7 +103,7 @@ if __name__ == '__main__':
 
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
-    parser.add_argument('-f','--fim_version',help='Name of directory containing outputs of fim_run.sh',required=True)
+    parser.add_argument('-f','--fim_version',help='Path to directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-j','--number_of_jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
     parser.add_argument('-a', '--stage_based', help = 'Run stage-based CatFIM instead of flow-based? NOTE: flow-based CatFIM is the default.', required=False, default=False, action='store_true')
     args = vars(parser.parse_args())
@@ -149,4 +157,5 @@ if __name__ == '__main__':
     
     # Create CSV versions of the final shapefiles.
     print('Creating CSVs')
-    create_csvs(output_mapping_dir)
+    reformatted_catfim_method = catfim_method.lower().replace('-', '_')
+    create_csvs(output_mapping_dir, reformatted_catfim_method)

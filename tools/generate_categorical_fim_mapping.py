@@ -153,6 +153,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
     gpkg_dir = os.path.join(output_cat_fim_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
+    print(fim_version)
 
     # Find the FIM version
     merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.shp')
@@ -323,5 +324,5 @@ if __name__ == '__main__':
 
     print("Aggregating Categorical FIM")
     # Get fim_version.
-    fim_version = os.path.basename(os.path.normpath(fim_run_dir))
+    fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_','').replace('_ms_c', '').replace('_', '.')
     post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file, fim_version)
