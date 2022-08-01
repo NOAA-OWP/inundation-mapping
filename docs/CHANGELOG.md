@@ -1,6 +1,10 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.5.2 - 2022-07-25 - [PR #622](https://github.com/NOAA-OWP/inundation-mapping/pull/622)
+
+Updates to unit tests including a minor update for outputs and loading in .json parameter files.
+<br><br>
 
 ## v4 (number pending) - 2022-07-27 - [PR #630](https://github.com/NOAA-OWP/inundation-mapping/issues/630)
 
