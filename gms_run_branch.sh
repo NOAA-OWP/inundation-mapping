@@ -98,6 +98,26 @@ fi
 source $envFile
 source $srcDir/bash_functions.env
 
+## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
+if [ $CALB_DB_KEYS_FILE = "" ]; then
+    echo 'WARNING! - .env file with calibration db keys not provided. Will NOT perform the spatial SRC calibration'
+else
+    if [ "$src_adjust_spatial" = "True" ]; then
+        if [ ! -f $CALB_DB_KEYS_FILE ]; then
+            echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+            exit 1
+        else
+            source $CALB_DB_KEYS_FILE
+            echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
+            echo "Loading HUC Data"
+            time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $input_WBD_gdb WBDHU8
+
+            echo "Loading Point Data"
+            time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg usgs_nws_benchmark_points -nln points
+        fi
+    fi
+fi
+
 # default values
 if [ "$jobLimit" = "" ] ; then
     jobLimit=$default_max_jobs
@@ -172,11 +192,17 @@ echo
 echo "Processing usgs gage aggregation"
 python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
-
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    time python3 $srcDir/gms/src_adjust_usgs_rating.py -branch_dir $outputCurrentBranchDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -run_dir $outputRunDataDir
+    time python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -run_dir $outputRunDataDir -j $jobLimit
+fi
+
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
+if [ "$src_adjust_spatial" = "False" ]; then
+    echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
+    time python3 foss_fim/src/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
 fi
 
 # -------------------

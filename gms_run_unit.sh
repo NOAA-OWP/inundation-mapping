@@ -106,11 +106,6 @@ fi
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
-if [ $CALB_DB_ENV_PATH = "" ]; then
-    echo 'WARNING! - .env file with calibration db keys not provided. Will skip the SRC calibration'
-else
-    source $CALB_DB_ENV_PATH
-fi
 
 # default values
 if [ "$jobLimit" = "" ] ; then
