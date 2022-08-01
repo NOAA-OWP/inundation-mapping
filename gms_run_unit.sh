@@ -4,8 +4,8 @@ usage ()
 {
     echo 'Produce GMS hydrofabric datasets for unit scale.'
     echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -n <run name> ]'
-    echo '  	 				  [OPT: -h -j <job limit>]  -c <config file>'
-    echo '                         -o -r -d <deny list file> -s <drop stream orders 1 and 2>]'
+    echo '                        [OPT: -h -j <job limit>]  -c <config file>'
+    echo '                         -o -r -d <deny list file> -a <use all stream orders>]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
@@ -22,15 +22,12 @@ usage ()
     echo '  -r/--retry      : retries failed jobs'
     echo '  -d/--denylist   : file with line delimited list of files in huc directories to remove upon completion'
     echo '                   (see config/deny_gms_unit_default.lst for a starting point)'
-    echo '  -s/--dropStreamOrder_1_2 : If this flag is included, the system will leave out stream orders 1 and 2'
-    echo '                    at the initial load of the nwm_subset_streams'
+	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
+	echo '                    at the initial load of the nwm_subset_streams.'
+	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
+    echo
     exit
 }
-
-if [ "$#" -lt 6 ]
-then
-  usage
-fi
 
 while [ "$1" != "" ]; do
 case $1
@@ -66,8 +63,8 @@ in
         shift
         deny_gms_unit_list=$1
         ;;
-    -s|--dropLowStreamOrders)
-        dropLowStreamOrders=1
+    -a|--useAllStreamOrders)
+        useAllStreamOrders=1
         ;;
     *) ;;
     esac
@@ -103,9 +100,17 @@ if [ -z "$retry" ]
 then
     retry=""
 fi
-if [ -z "$dropLowStreamOrders" ]
-then
-    dropLowStreamOrders=0
+
+# invert useAllStreamOrders boolean (to make it historically compatiable
+# with other files like gms/run_unit.sh and gms/run_branch.sh).
+# Yet help user understand that the inclusion of the -a flag means
+# to include the stream order (and not get mixed up with older versions
+# where -s mean drop stream orders)
+# This will encourage leaving stream orders 1 and 2 out.
+if [ "$useAllStreamOrders" == "1" ]; then
+    export dropLowStreamOrders=0
+else
+    export dropLowStreamOrders=1
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##

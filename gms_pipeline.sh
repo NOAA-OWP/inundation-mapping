@@ -35,14 +35,7 @@ usage ()
     exit
 }
 
-
-if [ "$#" -lt 4 ]
-then
-  usage
-fi
-
 set -e
-argInputs=$1
 
 while [ "$1" != "" ]; do
 case $1
@@ -124,17 +117,6 @@ then
     retry=""
 fi
 
-## SOURCE ENV FILE AND FUNCTIONS ##
-source $envFile
-source $srcDir/bash_functions.env
-
-# default values
-if [ "$jobLimit" = "" ] ; then
-    jobLimit=$default_max_jobs
-fi
-
-export outputRunDataDir=$outputDataDir/$runName
-
 # invert useAllStreamOrders boolean (to make it historically compatiable
 # with other files like gms/run_unit.sh and gms/run_branch.sh).
 # Yet help user understand that the inclusion of the -a flag means
@@ -146,6 +128,17 @@ if [ "$useAllStreamOrders" == "1" ]; then
 else
     export dropLowStreamOrders=1
 fi
+
+## SOURCE ENV FILE AND FUNCTIONS ##
+source $envFile
+source $srcDir/bash_functions.env
+
+# default values
+if [ "$jobLimit" = "" ] ; then
+    jobLimit=$default_max_jobs
+fi
+
+export outputRunDataDir=$outputDataDir/$runName
 
 if [ -d $outputRunDataDir ] && [ $overwrite -eq 0 ]; then
     echo
