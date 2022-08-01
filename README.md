@@ -8,7 +8,7 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 
 ---
 
-# FIM Version 3 
+# FIM Version 4 
 
 ## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
@@ -36,8 +36,10 @@ aws s3 ls s3://noaa-nws-owp-fim/ --request-payer requester
 
 Download a directory of outputs for a HUC8:
 ```
-aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_21_0/outputs/fr/12090301 12090301 --request-payer requester
+aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_34_1/outputs/fr/12090301 12090301 --request-payer requester
 ```
+**Note**: There may be newer editions than fim_3_0_34_1, and it is recommended to adjust the command above for the latest version.
+
 
 ## Running the Code
 ### Input Data
@@ -48,7 +50,7 @@ Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP 
 
 ### Installation
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
-2. Build Docker Image : `docker build -f Dockerfile.dev -t <image_name>:<tag> <path/to/repository>`
+2. Build Docker Image : `docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>`
 3. Create FIM group on host machine:
     - Linux: `groupadd -g 1370800178 fim`
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
@@ -60,16 +62,21 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 - `params_template.env`
 - `mannings_default.json`
     - must change filepath in `params_template.env` in `manning_n` variable name
-- `params_calibrated.env`
-    - runs calibrated mannings parameters from `mannings_calibrated.json`
 
 ### Produce HAND Hydrofabric
 ```
-fim_run.sh -u <huc8> -c /foss_fim/config/<your_params_file.env> -n <name_your_run>
+gms_pipeline.sh -u <huc8> -n <name_your_run>
 ```
-- `-u` can be a single huc, a series passed in quotes, or a line-delimited file
-    i. To run entire domain of available data use one of the ```/data/inputs/included_huc[4,6,8].lst``` files
+- There are a wide number of options and defaulted values, for details run ```gms_pipeline.sh -h```
+- Manditory arguments:
+    - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited file
+    i. To run entire domain of available data use one of the ```/data/inputs/included_huc[4,6,8].lst``` files or a huc list file of your choice.
+    - `-n` is a name of your run (only alphanumeric)
 - Outputs can be found under ```/data/outputs/<name_your_run>```
+
+Processing of HUC's in FIM4 (GMS) comes in two pieces: gms_run_unit and gms_run_branch. `gms_pipeline.sh` above takes care of both steps however, you can run each part seperately for faster development if you like.
+
+If you choose to do the two step hydrofabric creation, then run `gms_run_unit.sh`, then `gms_run_branch.sh`. See each of those files for details on arguments.
 
 ### Testing in Other HUCs
 To test in HUCs other than the provided HUCs, the following processes can be followed to acquire and preprocess additional NHDPlus rasters and vectors. After these steps are run, the "Produce HAND Hydrofabric" step can be run for the new HUCs.
@@ -88,11 +95,11 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 
 ----
 ### Evaluating Inundation Map Performance
-After `fim_run.sh` completes, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
+After `gms_pipeline.sh` completes, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
 
 To evaluate model skill, run the following:
 ```
-python /foss_fim/tools/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs]
+python /foss_fim/tools/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs (cores and/or procs)]
 ```
 
 More information can be found by running:
@@ -103,27 +110,30 @@ python /foss_fim/tools/synthesize_test_cases.py --help
 ----
 ### Managing Dependencies
 
-Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/). To add new dependencies, from the projects's top-level directory:
+Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/). 
 
-```bash
-pipenv install ipython --dev
-```
+When you execute `docker build` from the `Installation` section above, all of the dependencies you need are included. This includes dependencies for you to work in JupyterLab for testing purposes. 
 
-The `--dev` flag adds development dependencies, omit it if you want to add a production dependency. If the environment looks goods after adding dependencies, lock it with:
+While very rare, you may want to add more dependencies. You can follow the following steps:
 
-```bash
-pipenv lock
-```
+- From inside your docker container, run the following command:
+    ```bash
+    pipenv install <your package name> --dev
+    ```
+    The `--dev` flag adds development dependencies, omit it if you want to add a production dependency.
+    
+    This will automatically update the Pipfile in the root of your docker container directory. If the environment looks goods after adding dependencies, lock it with:
 
-and include both `Pipfile` and `Pipfile.lock` in your commits. The docker image installs the environment from the lock file.
+    ```bash
+    pipenv lock
+    ```
+
+    This will update the `Pipfile.lock`. Copy the new updated `Pipfile` and `Pipfile.lock` in the source directory and include both in your git commits. The docker image installs the environment from the lock file. 
+    
+**Make sure you test it heavily including create new docker images and that it continues to work with the code.**
 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
 
-
----
-# FIM Version 4
-
-Details to come.
 
 ----
 ## Citing This Work
@@ -133,7 +143,7 @@ Please cite this work in your research and projects according to the CITATION.cf
 ----
 ### Known Issues & Getting Help
 
-Please see the issue tracker on GitHub and the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/cahaba/wiki/Cahaba-Wiki-Home) for known issues and getting help.
+Please see the issue tracker on GitHub and the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/inundation-mapping/wiki/Known-Shortcomings-and-Opportunities-for-Improvement) for known issues and getting help.
 
 ### Getting Involved
 
