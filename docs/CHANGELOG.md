@@ -2,6 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.5.4 - 2022-08-01 - [PR #642](https://github.com/NOAA-OWP/inundation-mapping/pull/642)
+
+Fixes bug that causes [Errno2] No such file or directory error when running synthesize_test_cases.py if testing_versions folder doesn't exist (for example, after downloading test_cases from ESIP S3).
+
+## Additions
+
+- `run_test_case.py`: Checks for testing_versions folder in test_cases and adds it if it doesn't exist.
+
+<br/><br/>
+
+=======
 ## v4.0.5.3 - 2022-07-27 - [PR #630](https://github.com/NOAA-OWP/inundation-mapping/issues/630)
 
 A file called gms_pipeline.sh already existed but was unusable. This has been updated and now can be used as a "one-command" execution of the fim4/gms run. While you still can run gms_run_unit.sh and gms_run_branch.sh as you did before, you no longer need to. Input arguments were simplified to allow for more default and this simplification was added to `gms_run_unit.sh` and `gms_run_branch.sh` as well. 
