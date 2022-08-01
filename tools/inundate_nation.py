@@ -37,7 +37,7 @@ def run_inundation(args):
     fim_run_parent = os.path.join(fim_run_dir, huc)
     rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
     catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-    mask_type = 'huc'
+    mask_type = 'filter'
     catchment_poly = ''
     hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')
     catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
