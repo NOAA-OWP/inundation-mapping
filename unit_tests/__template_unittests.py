@@ -4,16 +4,16 @@ import inspect
 import os
 import sys
 
-import argparse
 import json
 import warnings
 import unittest
 
-import unit_tests_utils as helpers
+sys.path.append('/foss_fim/unit_tests/')
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # importing python folders in other directories
 sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
-import <Your original source python file name>   
+import <Your original source python file name> as src
 
 # NOTE: This goes directly to the function.
 # Ultimately, it should emulate going through command line (not import -> direct function call)
@@ -26,9 +26,7 @@ class test_<Your original source python file name>(unittest.TestCase):
     def setUpClass(self):
 
         warnings.simplefilter('ignore')
-
-        params_file_path = '/foss_fim/unit_tests/<Your original source python file name>_params.json'
-    
+        params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
@@ -49,7 +47,6 @@ class test_<Your original source python file name>(unittest.TestCase):
         '''
 
         #global params_file
-        helpers.print_unit_test_function_header()
         
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
         
@@ -63,10 +60,10 @@ class test_<Your original source python file name>(unittest.TestCase):
         # Remember, if the method accepts **params, then you can sent that in here as well.
         #   ie: my_py_class.my_method(** params)
         
-        clip_vectors_to_wbd.subset_vector_layers(hucCode = params["hucCode"],
-                                                nwm_streams_filename = params["nwm_streams"],
-                                                nhd_streams_filename = params["nhd_streams"],
-                                                etc, etc for each param)
+        src.subset_vector_layers(hucCode = params["hucCode"],
+                                    nwm_streams_filename = params["nwm_streams"],
+                                    nhd_streams_filename = params["nhd_streams"],
+                                    etc, etc for each param)
        
        
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")

@@ -1,6 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
 ## v4 (number pending) - 2022-07-27 - [PR #642](https://github.com/NOAA-OWP/inundation-mapping/pull/642)
 
 Fixes bug that causes [Errno2] No such file or directory error when running synthesize_test_cases.py if testing_versions folder doesn't exist (for example, after downloading test_cases from ESIP S3).
@@ -10,6 +11,8 @@ Fixes bug that causes [Errno2] No such file or directory error when running synt
 - `run_test_case.py`: Checks for testing_versions folder in test_cases and adds it if it doesn't exist.
 
 <br/><br/>
+
+=======
 
 ## v4.0.5.2 - 2022-07-25 - [PR #622](https://github.com/NOAA-OWP/inundation-mapping/pull/622)
 
