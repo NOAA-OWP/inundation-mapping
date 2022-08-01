@@ -14,7 +14,7 @@ A new feature was added that is being used for `gms_pipeline.sh` which tests the
 
 New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output name> -u <HUC(s) or HUC list path>`
 	
-Note: `gms_pipeline.sh` defaults to drop stream  orders 1 and 2, but `gms_run_unit.sh` and `gms_run_branch.sh` continue to assume NOT to drop stream orders 1 and 2 (for backwards compatibility reasons).
+`gms_run_branch.sh` and `gms_run_branch.sh` have also been changed to add the new -a flag and default to dropping stream orders 1 and 2.
 
 ## Additions
 
@@ -95,8 +95,8 @@ Note: `gms_pipeline.sh` defaults to drop stream  orders 1 and 2, but `gms_run_un
      - `run_test_case.py`: Some styling / readability upgrades plus some enhanced outputs.  Also changed the _verbose_ flag to _gms_verbose_ being passed into Mosaic_inundation function.
      - `synthesize_test_cases.py`: arguments being passed into the _alpha_test_args_ from being hardcoded from flags to verbose (effectively turning on verbose outputs when applicable. Note: Progress bar was not affected.
      - `tools_shared_functions.py`: Some styling / readability upgrades.
-- `gms_run_unit.sh`: Added export of extent variable.
-- `gms_run_branch.sh`: Fixed bug when using overwrite flag saying branch errors folder already exists.
+- `gms_run_unit.sh`: Added export of extent variable, dropped the -s flag and added the -a flag so it now defaults to dropping stream orders 1 and 2.
+- `gms_run_branch.sh`: Fixed bug when using overwrite flag saying branch errors folder already exists, dropped the -s flag and added the -a flag so it now defaults to dropping stream orders 1 and 2.
 
 ## Removals
 
