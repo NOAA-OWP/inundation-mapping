@@ -150,7 +150,6 @@ def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
         # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
         # Assumes outputs are for HUC8 (not HUC6)
         branch_dir = os.path.join(run_dir,huc,'branches',branch_id)
-        print(branch_dir)
         hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
         catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
         catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
@@ -197,6 +196,7 @@ def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,j
     
     print(usgs_elev_df.head)
     
+    available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
         job_number = available_cores - 1
         print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
@@ -231,9 +231,6 @@ def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,j
     log_file.close()
 
 if __name__ == '__main__':
-
-    available_cores = multiprocessing.cpu_count()
-
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).')
     parser.add_argument('-run_dir','--run-dir',help='Parent directory of FIM run.',required=True)

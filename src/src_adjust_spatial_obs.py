@@ -38,7 +38,6 @@ Inputs
 - points_layer:         .gpkg layer containing observed/truth FIM extent points and associated flow value 
 - fim_directory:        fim directory containing individual HUC output dirs
 - wbd_path:             path the watershed boundary dataset layer (HUC polygon boundaries)
-- scale:                HUC6 or HUC8
 - job_number:           number of multi-processing jobs to use
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 
@@ -151,7 +150,6 @@ def find_points_in_huc(huc_id, conn):
     
     return water_edge_df
 
-
 def find_hucs_with_points(conn,fim_out_huc_list):
     '''
     The function queries the PostgreSQL database and returns a list of all the HUCs that contain calb point data.
@@ -181,7 +179,7 @@ def find_hucs_with_points(conn,fim_out_huc_list):
     cursor.close()
     return hucs_wpoints
 
-def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
+def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_file):
     '''
     The function obtains all points within a given huc, locates the corresponding FIM output files for each huc (confirms all necessary files exist), and then passes a proc list of huc organized data to process_points function.
 
@@ -191,14 +189,13 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
 
     Inputs
     - fim_directory:        parent directory of fim ouputs (contains HUC directories)
-    - scale:                HUC8 or HUC6 processing scale
     - job_number:           number of multiprocessing jobs to use for processing hucs
     - debug_outputs_option: optional flag to output intermediate files
 
     Outputs
     - procs_list:           passes multiprocessing list of input args for process_points function input
     '''
-    conn = connect() # Connect to the PostgreSQL db once before looping hucs
+    conn = connect() # Connect to the PostgreSQL db once
     print("Finding all fim_output hucs that contain calibration points...")
     fim_out_huc_list  = [ item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item)) ]
     fim_out_huc_list.remove('logs')
@@ -214,14 +211,12 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
     log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n')
     log_file.write('#########################################################\n')
 
-    ## Ensure HUC id is either HUC8 or HUC6
+    ## Ensure HUC id is either HUC8
     huc_list = []
     for huc in huc_list_db:
         ## zfill to the appropriate scale to ensure leading zeros are present, if necessary.
-        if scale == 'HUC8':
+        if len(huc) == 7:
             huc = huc.zfill(8)
-        else:
-            huc = huc.zfill(6)
         if huc not in huc_list:
             huc_list.append(huc)
             log_file.write(str(huc) + '\n')
@@ -248,36 +243,31 @@ def ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option):
         ## Check to make sure the HUC directory exists in the current fim_directory
         if not os.path.exists(os.path.join(fim_directory, huc)):
             log_file.write("FIM Directory for huc: " + str(huc) + " does not exist --> skipping SRC adjustments for this HUC (obs points found)\n")
-            continue
-        ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-        if scale == 'HUC8':
+        
+        huc_branches_dir = os.path.join(fim_directory, huc,'branches')
+        for branch_id in os.listdir(huc_branches_dir):
+            
+            ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
             hand_path = os.path.join(fim_directory, huc, 'rem_zeroed_masked.tif')
             catchments_path = os.path.join(fim_directory, huc, 'gw_catchments_reaches_filtered_addedAttributes.tif')
             output_src_json_file = os.path.join(fim_directory, huc, 'src.json')
             catchments_poly_path = os.path.join(fim_directory, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-        else:
-            hand_path = os.path.join(fim_directory, huc, 'hand_grid_' + huc + '.tif')
-            catchments_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.tif')
-            output_src_json_file = os.path.join(fim_directory, huc, 'rating_curves_' + huc + '.json')
-            catchments_poly_path = os.path.join(fim_directory, huc, 'catchments_' + huc + '.gpkg')
 
-        ## Check to make sure the previously defined files exist. Continue to next iteration if not and warn user.
-        if not os.path.exists(hand_path):
-            print("HAND grid for HUC " + huc + " not found (" + str(hand_path) + ") --> skipping this HUC")
-            continue
-        if not os.path.exists(catchments_path):
-            print("Catchments grid for HUC " + huc + " not found (" + str(catchments_path) + ") --> skipping this HUC")
-            continue
-        if not os.path.isfile(output_src_json_file):
-            print("ALERT: Rating Curve JSON file for " + huc + " does not exist. --> Will create a new file.")
+            branch_dir = os.path.join(huc_branches_dir,branch_id)
+            hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
+            catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
+            catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
+            htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
 
-        ## Define path to hydroTable.csv.
-        htable_path = os.path.join(fim_directory, huc, 'hydroTable.csv')
-        if not os.path.exists(htable_path):
-            print("hydroTable for " + huc + " does not exist.")
-            continue
-
-        procs_list.append([fim_directory, huc, hand_path, catchments_path, catchments_poly_path, water_edge_df, output_src_json_file, htable_path, debug_outputs_option])
+            # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+            if not os.path.exists(hand_path):
+                print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+            elif not os.path.exists(catchments_path):
+                print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
+            elif not os.path.exists(htable_path):
+                print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+            else:
+                procs_list.append([fim_directory, huc, hand_path, catchments_path, catchments_poly_path, water_edge_df, output_src_json_file, htable_path, debug_outputs_option])
 
     with Pool(processes=job_number) as pool:
                 log_output = pool.map(process_points, procs_list)
@@ -331,36 +321,10 @@ def disconnect(conn):
         conn.close()
         print('Database connection closed.')
 
-if __name__ == '__main__':
-
-    available_cores = multiprocessing.cpu_count()
-
-    ## Parse arguments.
-    parser = argparse.ArgumentParser(description='Adjusts rating curve given a shapefile containing points of known water boundary.')
-    #parser.add_argument('-db','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
-    parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
-    parser.add_argument('-debug','--extra-outputs',help='Optional flag: Use this to keep intermediate output files for debugging/testing',default=False,required=False, action='store_true')
-    parser.add_argument('-scale','--scale',help='Optional: HUC6 or HUC8 -- default is HUC8', default='HUC8',required=False)
-    parser.add_argument('-dthresh','--downstream-thresh',help='Optional Override: distance in km to propogate modified roughness values downstream', default=DOWNSTREAM_THRESHOLD,required=False)
-    parser.add_argument('-j','--job-number',help='Optional: Number of jobs to use',required=False,default=2)
-
-    ## Assign variables from arguments.
-    args = vars(parser.parse_args())
-    #points_layer = args['points_layer']
-    fim_directory = args['fim_directory']
-    debug_outputs_option = args['extra_outputs']
-    scale = args['scale']
-    ds_thresh_override = args['downstream_thresh']
-    job_number = int(args['job_number'])
-
-    print(debug_outputs_option)
-
+def run_prep(fim_directory,debug_outputs_option,ds_thresh_override,DOWNSTREAM_THRESHOLD,job_number):
     assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(fim_directory)
 
-    if scale not in ['HUC6', 'HUC8']:
-        print("scale (-s) must be HUC6s or HUC8")
-        quit()
-
+    available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
         job_number = available_cores - 1
         print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
@@ -386,7 +350,7 @@ if __name__ == '__main__':
     log_file.write('#########################################################\n\n')
     log_file.write('START TIME: ' + str(begin_time) + '\n')
 
-    ingest_points_layer(fim_directory, scale, job_number, debug_outputs_option)
+    ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_file)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
@@ -395,3 +359,24 @@ if __name__ == '__main__':
     log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
     sys.stdout = sys.__stdout__
     log_file.close()
+
+if __name__ == '__main__':
+    ## Parse arguments.
+    parser = argparse.ArgumentParser(description='Adjusts rating curve given a shapefile containing points of known water boundary.')
+    #parser.add_argument('-db','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
+    parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
+    parser.add_argument('-debug','--extra-outputs',help='OPTIONAL flag: Use this to keep intermediate output files for debugging/testing',default=False,required=False, action='store_true')
+    parser.add_argument('-dthresh','--downstream-thresh',help='OPTIONAL Override: distance in km to propogate modified roughness values downstream', default=DOWNSTREAM_THRESHOLD,required=False)
+    parser.add_argument('-j','--job-number',help='OPTIONAL: Number of jobs to use',required=False,default=2)
+
+    ## Assign variables from arguments.
+    args = vars(parser.parse_args())
+    #points_layer = args['points_layer']
+    fim_directory = args['fim_directory']
+    debug_outputs_option = args['extra_outputs']
+    ds_thresh_override = args['downstream_thresh']
+    job_number = int(args['job_number'])
+
+    print(DOWNSTREAM_THRESHOLD)
+
+    run_prep(fim_directory,debug_outputs_option,ds_thresh_override,DOWNSTREAM_THRESHOLD,job_number)

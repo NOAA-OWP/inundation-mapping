@@ -99,22 +99,17 @@ source $envFile
 source $srcDir/bash_functions.env
 
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
-if [ $CALB_DB_KEYS_FILE = "" ]; then
-    echo 'WARNING! - .env file with calibration db keys not provided. Will NOT perform the spatial SRC calibration'
-else
-    if [ "$src_adjust_spatial" = "True" ]; then
-        if [ ! -f $CALB_DB_KEYS_FILE ]; then
-            echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
-            exit 1
-        else
-            source $CALB_DB_KEYS_FILE
-            echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
-            echo "Loading HUC Data"
-            time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $input_WBD_gdb WBDHU8
-
-            echo "Loading Point Data"
-            time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg usgs_nws_benchmark_points -nln points
-        fi
+if [ "$src_adjust_spatial" = "True" ]; then
+    if [ ! -f $CALB_DB_KEYS_FILE ]; then
+        echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+        exit 1
+    else
+        source $CALB_DB_KEYS_FILE
+        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
+        echo "Loading HUC Data"
+        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $input_WBD_gdb WBDHU8
+        echo "Loading Point Data"
+        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
     fi
 fi
 
