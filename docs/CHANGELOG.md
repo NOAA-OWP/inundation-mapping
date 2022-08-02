@@ -12,7 +12,6 @@ Fixes bug that causes [Errno2] No such file or directory error when running synt
 
 <br/><br/>
 
-=======
 ## v4.0.5.3 - 2022-07-27 - [PR #630](https://github.com/NOAA-OWP/inundation-mapping/issues/630)
 
 A file called gms_pipeline.sh already existed but was unusable. This has been updated and now can be used as a "one-command" execution of the fim4/gms run. While you still can run gms_run_unit.sh and gms_run_branch.sh as you did before, you no longer need to. Input arguments were simplified to allow for more default and this simplification was added to `gms_run_unit.sh` and `gms_run_branch.sh` as well. 
