@@ -96,20 +96,8 @@ def split_flows(max_length,
         terminal_nwm_point.append({'ID':'teminal','geometry':last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(levelpath_lines.crs)
 
-        ## Edge case handling: make sure we snap to the closest point in the terminal points huc
-        # Find the watershed the levelpath ends in
-        target_terminal_watershed = wbd8.loc[wbd8.contains(snapped_point.loc[0, 'geometry'])]
-
-        # Find the snaplines centroids
-        snaplines = gpd.overlay(flows, wbd8, how='union').explode().reset_index(drop=True)
-        d = {'col1': [*range(len(snaplines.centroid))], 'geometry': snaplines.centroid}  # Pyhton note: the * in front of range convers the range into a list
-        terminal_flowline_centroid = gpd.GeoDataFrame(d).set_crs(flows.crs)
-
-        # Find the snaplines whose centroid intersects the watershed
-        target_snapline = snaplines.loc[terminal_flowline_centroid.intersects(target_terminal_watershed.iloc[0]['geometry'])]
-
-        # Snap to the target line
-        snapped_point['geometry'] = snapped_point.apply(lambda row: target_snapline.interpolate(target_snapline.project( row.geometry)), axis=1)
+        # Snap to DEM flows
+        snapped_point['geometry'] = snapped_point.apply(lambda row: flows.interpolate(flows.project( row.geometry)), axis=1)
 
         # Trim flows to snapped point
         # buffer here because python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
