@@ -207,6 +207,7 @@ if __name__ == '__main__':
         print(huc_list)
         print('###########huclist')
         for huc in huc_list:
+            print('huc$$$$$$$$$$$$$$$$$$$$$$$$$$$')
             if huc != 'logs' and huc != 'aggregate_fim_outputs':
                 for magnitude in magnitude_list:
                     magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
