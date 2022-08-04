@@ -7,6 +7,10 @@ from osgeo import gdal, ogr
 from inundation import inundate
 import multiprocessing
 from multiprocessing import Pool
+from gms_tools.mosaic_inundation import Mosaic_inundation
+from gms_tools.inundate_gms import Inundate_gms
+from tools_shared_variables import elev_raster_ndv
+
 
 INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
 INUN_OUTPUT_DIR = r'/data/inundation_review/inundate_nation/'
@@ -25,7 +29,7 @@ def run_inundation(args):
     
     """
     
-    fim_run_dir = args[0]
+    fim_run_dir = args[0]  #outputs/caleb_gms_small_batch
     huc = args[1]
     magnitude = args[2]
     magnitude_output_dir = args[3]
@@ -48,19 +52,65 @@ def run_inundation(args):
     # Run inundate() once for depth and once for extent.
     if not os.path.exists(depth_raster) and depth_option:
         print("Running the NWM recurrence intervals for HUC inundation (depth): " + huc + ", " + magnitude + "...\n")
-        inundate(
-                 rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                 subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
-                 depths=depth_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
-                )
+
+
+        #here is the new code
+        map_file = Inundate_gms( hydrofabric_dir = fim_run_parent, 
+                                         forecast = forecast, 
+                                         num_workers = 1,
+                                         hucs = hucs,
+                                         inundation_raster = None,
+                                         inundation_polygon = None,
+                                         depths_raster = depth_raster,
+                                         verbose = False,
+                                         log_file = None,
+                                         output_fileNames = None )
+        
+        Mosaic_inundation( map_file,
+                                    mosaic_attribute = 'inundation_rasters',
+                                    mosaic_output = None,
+                                    mask = os.path.join(fim_run_parent,'wbd.gpkg'),
+                                    unit_attribute_name = 'huc8',
+                                    nodata = elev_raster_ndv,
+                                    workers = 1,
+                                    remove_inputs = False,
+                                    subset = None,
+                                    verbose = False )
+
+        #inundate(
+        #         rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+        #         subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
+        #         depths=depth_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
+        #        )
         
     if not os.path.exists(inundation_raster):
         print("Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude + "...")
-        inundate(
-                 rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                 subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
-                 depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
-                )
+        #inundate(
+                 #rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
+                 #subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
+                 #depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
+                #)
+        map_file = Inundate_gms( hydrofabric_dir = fim_run_parent, 
+                                    forecast = forecast, 
+                                    num_workers = 1,
+                                    hucs = hucs,
+                                    inundation_raster = inundation_raster,
+                                    inundation_polygon = None,
+                                    depths_raster = None,
+                                    verbose = False,
+                                    log_file = None,
+                                    output_fileNames = None )
+
+        Mosaic_inundation( map_file,
+                                    mosaic_attribute = 'inundation_rasters',
+                                    mosaic_output = inundation_raster,
+                                    mask = os.path.join(fim_run_parent,'wbd.gpkg'),
+                                    unit_attribute_name = 'huc8',
+                                    nodata = elev_raster_ndv,
+                                    workers = 1,
+                                    remove_inputs = False,
+                                    subset = None,
+                                    verbose = False )
 
 def create_bool_rasters(args):
     in_raster_dir = args[0]
