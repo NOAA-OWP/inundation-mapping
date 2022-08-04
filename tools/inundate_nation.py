@@ -204,22 +204,24 @@ if __name__ == '__main__':
             os.mkdir(output_dir)
             
         procs_list = []
-        print(huc_list)
-        print('###########huclist')
+        
         for huc in huc_list:
             print('huc$$$$$$$$$$$$$$$$$$$$$$$$$$$')
             if huc != 'logs' and huc != 'aggregate_fim_outputs':
                 for magnitude in magnitude_list:
+                    
                     magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
+                    print(magnitude_output_dir)
                     if not os.path.exists(magnitude_output_dir):
                         os.mkdir(magnitude_output_dir)
-                        print(magnitude_output_dir)
+                        
                     procs_list.append([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option])
-                
+                    print(procs_list)
         # Multiprocess.
-        if job_number > 1:
+        if job_number > 0:
             with Pool(processes=job_number) as pool:
                 pool.map(run_inundation, procs_list)
+                print('ran_run_inundation')
 
         # Perform mosaic operation
         if mosaic_option:
