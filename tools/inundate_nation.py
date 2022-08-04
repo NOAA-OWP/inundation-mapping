@@ -204,7 +204,8 @@ if __name__ == '__main__':
             os.mkdir(output_dir)
             
         procs_list = []
-        
+        print(huc_list)
+        print('###########huclist')
         for huc in huc_list:
             if huc != 'logs' and huc != 'aggregate_fim_outputs':
                 for magnitude in magnitude_list:
