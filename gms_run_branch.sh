@@ -210,7 +210,7 @@ if [ "$src_adjust_usgs" = "True" ]; then
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
-if [ "$src_adjust_spatial" = "False" ]; then
+if [ "$src_adjust_spatial" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
     time python3 foss_fim/src/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
 fi
