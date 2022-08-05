@@ -59,7 +59,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
 
     '''
     #print("Processing huc --> " + str(huc))
-    log_text = "\nProcessing huc --> " + str(huc) + '\n'
+    log_text = "\nProcessing huc --> " + str(huc) + '  branch id: ' + str(branch_id) + '\n'
     log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
@@ -87,7 +87,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
         df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
         # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
         df_prev_adj = df_prev_adj_htable[df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating", na=False)] 
-        log_text += str(huc) + ': found previous hydroTable calibration attributes --> retaining previous calb attributes for blending...\n'
+        log_text += 'HUC: ' + str(huc) + '  Branch: ' + str(branch_id) + ': found previous hydroTable calibration attributes --> retaining previous calb attributes for blending...\n'
     # Delete previous adj columns to prevent duplicate variable issues (if src_roughness_optimization.py was previously applied)
     df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN','adjust_src_on','obs_source'], axis=1, inplace=True) 
     df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
@@ -109,6 +109,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
         df_nvalues.loc[index,'discharge_cms'] = find_src_stage.discharge_cms
 
     ## mask src values that crosswalk to the SRC zero point (src_stage ~ 0 or discharge <= 0)
+    print(str(huc) + '  branch id: ' + str(branch_id))
     df_nvalues[['HydraulicRadius_m','WetArea_m2']] = df_nvalues[['HydraulicRadius_m','WetArea_m2']].mask((df_nvalues['src_stage'] <= 0.1) | (df_nvalues['discharge_cms'] <= 0.0), np.nan)
 
     ## Calculate roughness using Manning's equation
@@ -236,7 +237,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
                 ## output new catchments polygon layer with several new attributes appended
                 if os.path.isfile(catchments_poly_path):
                     input_catchments = gpd.read_file(catchments_poly_path)
-                    output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(huc) + ".gpkg")
+                    output_catchments_fileName = os.path.join(os.path.split(catchments_poly_path)[0],"gw_catchments_src_adjust_" + str(branch_id) + ".gpkg")
                     output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
                     output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
 
@@ -258,16 +259,16 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
             df_htable['discharge_cms'].mask(df_htable['default_discharge_cms']==-999,-999,inplace=True)
 
             ## Export a new hydroTable.csv and overwrite the previous version
-            out_htable = os.path.join(fim_directory, 'hydroTable_test_' + branch_id + '.csv')
+            out_htable = os.path.join(fim_directory, 'hydroTable_' + branch_id + '.csv')
             df_htable.to_csv(out_htable,index=False)
 
         else:
-            print('ALERT: ' + str(huc) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration')
-            log_text += 'ALERT: ' + str(huc) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration\n'
+            print('ALERT!! HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration')
+            log_text += 'ALERT!! HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration\n'
 
     else:
-        print('ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate')
-        log_text += 'ALERT: ' + str(huc) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate\n'
+        print('ALERT!! HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate')
+        log_text += 'ALERT!! HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> no valid roughness calculations - please check point data and src calculations to evaluate\n'
 
     log_text += 'Completed: ' + str(huc) + ' --> branch: ' + str(branch_id)
     print("Completed huc: " + str(huc) + ' --> branch: ' + str(branch_id))
