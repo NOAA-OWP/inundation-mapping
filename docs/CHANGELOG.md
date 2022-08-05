@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.34.3 - 2022-07-29 - [PR #646](https://github.com/NOAA-OWP/cahaba/pull/646)
+
+Patches and improvements for Flow-Based CatFIM and Stage-Based CatFIM scripts.
+
+## Changes
+
+- `/tools/generate_categorical_fim.py`:
+    - Changed "Alternate Method" to "Stage-Based Method" parameter.
+    - Added function and call to produce CSV versions of final output.
+- `/tools_generate_categorical_fim_flows.py`:
+    - Changed "Alternate Method" to "Stage-Based Method" parameter and relevant variables.
+    - Fixed a bug where Flow-Based CatFIM could not run because of a variable being assigned outside of a Stage-Based conditional.
+- `/tools_generate_categorical_fim_mapping.py`:
+    - Fixed bug where `version` variable was being misassigned to `mapping` instead of the actual FIM version.
+
 ## v3.0.34.2 - 2022-07-19 - [PR #632](https://github.com/NOAA-OWP/cahaba/pull/632)
 
 We have identified five HUC8s that were not producing FIM outputs for large portions of the expected domain. The cause of this issue varies slightly between the HUCs but the NHD headwater points were used to address the issue for all five scenarios.  
