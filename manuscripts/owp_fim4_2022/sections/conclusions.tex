@@ -14,9 +14,13 @@ HAND coupled with the use of reach averaged synthetic rating curves (SRC) provid
 Scalable, open-source software was developed to produce HAND and associated datasets (catchments, SRCs, and cross-walking data) for the NWM forecasting area including Hawaii and Puerto Rico \cite{inundationMapping2022}.
 HAND is produced using the latest hydro-conditioning techniques to enforce monotonically decreasing elevations including stream burning, levee enforcement, pit-filling, stream channel excavation, thalweg breaching, headwater seeding, stream reach resampling, and more. 
 Finally, we use this implementation to investigate the skill of the FIMs by varying the scale of the processing units used to derive HAND.
+FIM skill was evaluated over large spatial scales by comparison to HEC-RAS 1D models.
 We illustrate that reducing the Horton-Strahler stream order of a HAND processing unit down to one enhances skill by significantly reducing false negatives at junctions of major streams.
 This also affects the parameters used to compute stage-discharge relationships biasing discharge higher at given stages which reduced the rate of false positives.
-FIM skill was evaluated over large spatial scales by comparison to HEC-RAS 1D models.
+
+Dissecting the stream network into regions of level-paths with unit stream order is necessary because HAND has a ``nearest drainage'' limitation meaning it only accounts for riverine inundation sourced from the nearest drainage line.
+While this is all that is required in many, lower flow instances, typically larger flow scenerios can call for multi-source riverine flooding to occur especially at the junction of major rivers with their smaller tributaries.
+Computing HAND independently for each level-path removes the boundary of neighboring catchments thus allowing for 
 Further investment in the SRC's is warranted by accounting for bathymetric errors inherited by the DEM and better accounting for localized friction values at varying flow magnitudes.
 Utilizing the highest resolution Lidar and bathymetric data should also improve the vertical accuracy of HAND and better account for fine grain features that greatly affect inundation extents.
 Due to inherent limitations with HAND, scalable, physics-based methods are necessary to consider to provide a better representation of flood extent dynamics in steady and unsteady conditions. 

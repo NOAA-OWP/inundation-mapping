@@ -14,7 +14,7 @@ pdflatex "$fullFile"
 
 # expands all tex files into one file
 echo 'Lat-Expand to Create One Tex File ...'
-/usr/bin/latexpand/latexpand --keep-comments --biber bibliography/owp_fim4_2021.bib /foss_fim/manuscripts/owp_fim4_2022/owp_fim4.tex -o owp_fim4_expanded.tex
+/usr/bin/latexpand/latexpand --keep-comments --biber bibliography/owp_fim4_2021.bib owp_fim4.tex -o owp_fim4_expanded.tex
 
 
 

@@ -715,11 +715,12 @@ month={Apr}
   publisher={Wiley Online Library}
 }
 
-@article{engineers2016national,
+@dataset{engineers2016national,
   title={National Levee Database},
   author={ENGINEERS, US ARMY CORPS OF},
-  journal={Accessed March},
-  year={2016}
+  year={2021},
+  month={Mar},
+  url={https://levees.sec.usace.army.mil/#/}
 }
 
 @inproceedings{survila2016scalable,
@@ -1058,7 +1059,7 @@ month={Apr}
 }
 
 @misc{fema2021estimated, 
-  title={Estimated Base Flood Elevation (estBFE) Viewer},
+  title={estBFE Viewer},
   url={https://webapps.usgs.gov/infrm/estBFE/},
   journal={Estimated Base Flood Eleavtion (estBFE) Viewer},
   publisher={Interagency Flood Risk Management Consortium, US Federal Emergency Management Agency},
@@ -1135,27 +1136,21 @@ month={Apr}
   institution={US Geological Survey}
 }
 
-@misc{OpenStreetMap,
-  author = {{OpenStreetMap contributors}},
-  title = {{Planet dump retrieved from https://planet.osm.org }},
-  howpublished = "\url{ https://www.openstreetmap.org }",
-  year = {2017},
-}
-
-@misc{GreatLakesHydrographyDataset,
-  author = {{Great Lakes Aquatic Habitat Framework contributors}},
-  title = {{Great Lakes Hydrography Dataset (GLHD)}},
+@dataset{GreatLakesHydrographyDataset,
+  publisher = {{Great Lakes Aquatic Habitat Framework contributors}},
+  title = {{GLHD}},
   howpublished = "\url{ https://www.glahf.org/download/159/ }",
   year = {2020},
 }
 
-@misc{inundationMapping2022,
+@software{inundationMapping2022,
   author = {Aristizabal, Fernando and Bates, Bradford and Avant, Brian and Chadwick, Nick and Grout, Trevor and Spies, Ryan and Luck, Matt and Salas, Fernando and Pruitt, Carson and Hanna, Robert and Cocks, Greg},
-  title = {NOAA-OWP/inundation-mapping},
+  title = {NOAA-OWP/inundation-mapping (V4.0.0.0)},
   year = {2022},
+  month = {Feb},
   publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/NOAA-OWP/inundation-mapping}}
+  type = {Software},
+  url = {https://github.com/NOAA-OWP/inundation-mapping}
 }
 
 @misc{esipData2022,
@@ -1163,5 +1158,134 @@ month={Apr}
   title = {noaa-nws-owp-fim},
   year = {2022},
   publisher = {Earth Science Information Partners (ESIP)},
-  howpublished = {\url{s3://noaa-nws-owp-fim/}}
+  url = {s3://noaa-nws-owp-fim/}
+}
+
+@article{cook2009effect,
+  title={Effect of topographic data, geometric configuration and modeling approach on flood inundation mapping},
+  author={Cook, Aaron and Merwade, Venkatesh},
+  journal={Journal of hydrology},
+  volume={377},
+  number={1-2},
+  pages={131--142},
+  year={2009},
+  publisher={Elsevier}
+}
+
+@inproceedings{rajib2016large,
+  title={Large scale high resolution flood inundation mapping in near real-time},
+  author={Rajib, Adnan and Merwade, Venkatesh and Liu, Zhu},
+  booktitle={Proceedings of the 40th Anniversary of the Association of State Flood Plain Managers National Conference, Gran Rapids, MI, USA},
+  pages={19--24},
+  year={2016}
+}
+
+@article{follum2017autorapid,
+  title={AutoRAPID: a model for prompt streamflow estimation and flood inundation mapping over regional to continental extents},
+  author={Follum, Michael L and Tavakoly, Ahmad A and Niemann, Jeffrey D and Snow, Alan D},
+  journal={JAWRA Journal of the American Water Resources Association},
+  volume={53},
+  number={2},
+  pages={280--299},
+  year={2017},
+  publisher={Wiley Online Library}
+}
+
+@article{criss2022stage,
+  title={Stage-based flood inundation mapping},
+  author={Criss, Robert E and Nelson, David L},
+  journal={Natural Hazards},
+  pages={1--17},
+  year={2022},
+  publisher={Springer}
+}
+
+@article{wing2017validation,
+  title={Validation of a 30 m resolution flood hazard model of the conterminous U nited S tates},
+  author={Wing, Oliver EJ and Bates, Paul D and Sampson, Christopher C and Smith, Andrew M and Johnson, Kris A and Erickson, Tyler A},
+  journal={Water Resources Research},
+  volume={53},
+  number={9},
+  pages={7968--7986},
+  year={2017},
+  publisher={Wiley Online Library}
+}
+
+@phdthesis{dobbs2010evaluation,
+  title={Evaluation of the Usgs National Elevation Dataset and the Kansas Biological Survey's FLDPLN (" Floodplain") Model for Inundation Extent Estimation},
+  author={Dobbs, Kevin Edward},
+  year={2010},
+  school={University of Kansas}
+}
+
+@article{wang2005comparison,
+  title={Comparison of light detection and ranging and national elevation dataset digital elevation model on floodplains of North Carolina},
+  author={Wang, Yong and Zheng, Tao},
+  journal={Natural Hazards Review},
+  volume={6},
+  number={1},
+  pages={34--40},
+  year={2005},
+  publisher={American Society of Civil Engineers}
+}
+
+@article{sanders2007evaluation,
+  title={Evaluation of on-line DEMs for flood inundation modeling},
+  author={Sanders, Brett F},
+  journal={Advances in water resources},
+  volume={30},
+  number={8},
+  pages={1831--1843},
+  year={2007},
+  publisher={Elsevier}
+}
+
+@article{arundel2018assimilation,
+  title={Assimilation of the National Elevation Dataset and launch of the 3D elevation program through the USGS spatial data infrastructure},
+  author={Arundel, ST and Bulen, AN and Adkins, KF and Brown, RE and Lowe, AJ and Mantey, KS and Phillips, LA},
+  journal={International Journal of Cartography},
+  volume={4},
+  number={2},
+  pages={129--150},
+  year={2018},
+  publisher={Taylor \& Francis}
+}
+
+@dataset{nhdplus2022dems,
+    title={NHDPlusHR DEM},
+    year={2021},
+    month={June},
+    publisher={United States Geological Survey (USGS)},
+    url={https://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/}
+}
+
+@dataset{nhdplus2022vectors,
+    title={NHDPlusHR GDB},
+    year={2021},
+    month={June},
+    publisher={United States Geological Survey (USGS)},
+    url={https://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/}
+}
+
+@dataset{nhdplus2022wbd,
+    title={NHDPlusHR WBD},
+    year={2021},
+    month={June},
+    publisher={United States Geological Survey (USGS)},
+    url={https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/WBD/National/GDB/WBD_National_GDB.zip}
+}
+
+@dataset{nwm2022hydrofabric,
+    title={NWM Hydrofabric V2.1},
+    year={2021},
+    month={Dec},
+    publisher={Office of Water Prediction (OWP) and Earth Science Information Partners (ESIP)},
+    url={s3://noaa-nws-owp-fim/hand_fim/fim_3_0_34_1/inputs/nwm_hydrofabric/}
+}
+
+@dataset{osm2021landsea,
+  title = {Water polygons},
+  year = {2021},
+  publisher = {Open Street Map (OSM)},
+  url = {https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip}
 }
