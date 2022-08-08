@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.34.3 - 2022-07-29 - [PR #646](https://github.com/NOAA-OWP/cahaba/pull/646)
+## v3.0.35.1 - 2022-07-29 - [PR #646](https://github.com/NOAA-OWP/cahaba/pull/646)
 
 Patches and improvements for Flow-Based CatFIM and Stage-Based CatFIM scripts.
 
@@ -15,6 +15,29 @@ Patches and improvements for Flow-Based CatFIM and Stage-Based CatFIM scripts.
     - Fixed a bug where Flow-Based CatFIM could not run because of a variable being assigned outside of a Stage-Based conditional.
 - `/tools_generate_categorical_fim_mapping.py`:
     - Fixed bug where `version` variable was being misassigned to `mapping` instead of the actual FIM version.
+
+<br/><br/>
+
+## v3.0.35.0 - 2022-07-27 - [PR #640](https://github.com/NOAA-OWP/cahaba/pull/640)
+
+These code changes introduce a new script (`tools/inundate_nation_composite.py`) for performing the inundate nation workflow to produce MS, FR, and Composite (MS+FR) inundation, boolean rasters, and national mosaics inside one script. Also included changes to the `inundation.py` calls to use `mask_type='filter'` to resolve undesirable inundation clipping at HUC boundaries. 
+
+## Additions
+
+- `tools/inundate_nation_composite.py`: new script to perform the entire inundation nation workflow. Generalized steps:
+       1) Pass huc list to multiprocessing function to produce MS & FR inundation rasters
+       2) Create boolean rasters for all inundation rasters
+       3) Perform MS + FR mosaic operation
+       4) Perform national mosaic operation for all avialable HUCs by resolution (using virtual raster)
+
+## Removals
+
+- `tools/inundate_nation.py`: removed this script - it is superseded by `inundate_nation_composite.py`
+
+## Changes
+
+- `tools/inundation_mosaic_vrt.py`: updated `inundation.py` calls to use `mask_type='filter'` to resolve undesirable inundation clipping at HUC boundaries
+- `tools/inundation_wrapper_nwm_flows.py`: `inundation.py` calls to use `mask_type='filter'` to resolve undesirable inundation clipping at HUC boundaries; some slight modifications to output directory structure
 
 <br/><br/>
 
