@@ -1,7 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v3.0.34.3 - 2022-07-27 - [PR #640](https://github.com/NOAA-OWP/cahaba/pull/640)
+## v3.0.35.1 - 2022-07-29 - [PR #646](https://github.com/NOAA-OWP/cahaba/pull/646)
+
+Patches and improvements for Flow-Based CatFIM and Stage-Based CatFIM scripts.
+
+## Changes
+
+- `/tools/generate_categorical_fim.py`:
+    - Changed "Alternate Method" to "Stage-Based Method" parameter.
+    - Added function and call to produce CSV versions of final output.
+- `/tools_generate_categorical_fim_flows.py`:
+    - Changed "Alternate Method" to "Stage-Based Method" parameter and relevant variables.
+    - Fixed a bug where Flow-Based CatFIM could not run because of a variable being assigned outside of a Stage-Based conditional.
+- `/tools_generate_categorical_fim_mapping.py`:
+    - Fixed bug where `version` variable was being misassigned to `mapping` instead of the actual FIM version.
+
+<br/><br/>
+
+## v3.0.35.0 - 2022-07-27 - [PR #640](https://github.com/NOAA-OWP/cahaba/pull/640)
 
 These code changes introduce a new script (`tools/inundate_nation_composite.py`) for performing the inundate nation workflow to produce MS, FR, and Composite (MS+FR) inundation, boolean rasters, and national mosaics inside one script. Also included changes to the `inundation.py` calls to use `mask_type='filter'` to resolve undesirable inundation clipping at HUC boundaries. 
 
