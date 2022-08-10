@@ -26,31 +26,17 @@ def run_inundation(args):
     This script is a wrapper for the inundate function and is designed for multiprocessing.
     
     Args:
-        args (list): [fim_run_dir (str), huc (str), magnitude (str), magnitude_output_dir (str), config (str), forecast (str), depth_option (str)]
+        args (list): [fim_run_dir (str), huc_list (list), magnitude (str), magnitude_output_dir (str), config (str), forecast (str), depth_option (str)]
     
     """
     
     fim_run_dir = args[0]  
-    print(fim_run_dir)
-    print('aa')
     huc_list = args[1]
-    print('bb')
-    print(huc_list)
     magnitude = args[2]
-    print('cc')
-    print(magnitude)
     magnitude_output_dir = args[3]
-    print('dd')
-    print(magnitude_output_dir)
     config = args[4]
-    print('ee')
-    print(config)
     forecast = args[5]
-    print('ff')
-    print(forecast)
     depth_option = args[6]
-    print('gg')
-    print(depth_option)
     job_number = args[7]
 
     
@@ -58,20 +44,10 @@ def run_inundation(args):
  
 
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + '_' + config + '_inund_extent.tif')
-    print('ii')
-    print(inundation_raster)
-
-        
+    
     if not os.path.exists(inundation_raster):
         print("Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude + "...")
-    print(huc_list)
-    print('HCHICHUCHCUHCUHCUHCUHCUHCUHC')
-        #inundate(
-                 #rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                 #subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
-                 #depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
-                #)
-  
+
     map_file = Inundate_gms( hydrofabric_dir = fim_run_dir, 
                                     forecast = forecast, 
                                     num_workers = job_number,
@@ -87,7 +63,6 @@ def run_inundation(args):
         mapfile_huc8 = map_file[map_file["huc8"] == huc8]
 
 
-
         Mosaic_inundation( mapfile_huc8,
                                         mosaic_attribute = 'inundation_rasters',
                                         mosaic_output = inundation_raster,
@@ -98,8 +73,6 @@ def run_inundation(args):
                                         remove_inputs = True,
                                         subset = None,
                                         verbose = True )
-    print('b')
-
 
 def create_bool_rasters(args):
     in_raster_dir = args[0]
@@ -159,43 +132,26 @@ if __name__ == '__main__':
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test)',required=True)
     parser.add_argument('-o', '--output-dir',help='Optional: The path to a directory to write the outputs. If not used, the inundation_nation directory is used by default -> type=str',required=False, default="")
     parser.add_argument('-m', '--magnitude-list', help = 'List of NWM recurr flow intervals to process (Default: 100_0) (Other options: 2_0 5_0 10_0 25_0 50_0 100_0)', nargs = '+', default = ['100_0'], required = False)
-    parser.add_argument('-d', '--depth',help='Optional flag to produce inundation depth rasters (extent raster created by default)', action='store_true')
+    parser.add_argument('-d', '--depth',help='not functional. Optional flag to produce inundation depth rasters (extent raster created by default)', action='store_true')
     parser.add_argument('-s', '--mosaic',help='Optional flag to produce mosaic of FIM extent rasters', action='store_true')
     parser.add_argument('-j', '--job-number',help='The number of jobs',required=False,default=1)
         
     args = vars(parser.parse_args())
 
     fim_run_dir = args['fim_run_dir']
-    print('1')
-    print(fim_run_dir)
     output_dir = args['output_dir']
-    print(output_dir)
-    print('2')
     depth_option = args['depth']
-    print(depth_option)
-    print('3')
     magnitude_list = args['magnitude_list']
-    print(magnitude_list)
-    print('4')
     mosaic_option = args['mosaic']
-    print(mosaic_option)
-    print('5')
     job_number = int(args['job_number'])
-    print(job_number)
-    print('6')
 
     assert os.path.isdir(fim_run_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_run_dir)
     print("Input FIM Directory: " + str(fim_run_dir))
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     print("Using fim version: " + str(fim_version))
-    print('7')
-    #exit
     for magnitude in magnitude_list:
         print("Preparing to generate inundation outputs for magnitude: " + str(magnitude))
-        print('8')
         nwm_recurr_file = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'nwm21_17C_recurr_' + magnitude + '_cms.csv')
-        print(nwm_recurr_file)
-        print('9')
         assert os.path.isfile(nwm_recurr_file), 'ERROR: could not find the input NWM recurr flow file: ' + str(nwm_recurr_file)
         print("Input flow file: " + str(nwm_recurr_file))
         
@@ -214,18 +170,14 @@ if __name__ == '__main__':
             #if huc != 'logs' and huc != 'branch_errors'and huc != 'unit_errors' and os.path.isdir(os.path.join(fim_run_dir, huc)):
             if re.match('\d{8}', huc):    
                 huc_list.append(huc)
-        print('10')
-        print(huc_list)
+
         for magnitude in magnitude_list:
             
             magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
-            print('11')
-            print(magnitude_output_dir)
+
             if not os.path.exists(magnitude_output_dir):
                 os.mkdir(magnitude_output_dir)
-             
-            
-            print(fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option)
+                
             run_inundation([fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option,job_number])
                    
 
