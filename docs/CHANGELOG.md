@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
+
+Addressing #560, this fix in run_by_branch trims the DEM derived streamline if it extends past the end of the branch streamline. It does this by finding the terminal point of the branch stream, snapping to the nearest point on the DEM derived stream, and cutting off the remaining downstream portion of the DEM derived stream.
+
+## Changes
+
+- `/src/split_flows.py`: Trims the DEM derived streamline if it flows past the terminus of the branch (or level path) streamline.
+- `/src/gms/delineate_hydros_and_produce_HAND.sh`: Added branch streamlines as an input to `split_flows.py`.
+
+<br/><br/>
 
 ## v4.0.5.4 - 2022-08-01 - [PR #642](https://github.com/NOAA-OWP/inundation-mapping/pull/642)
 
