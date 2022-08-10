@@ -26,7 +26,6 @@ from shapely import ops, wkt
 from shapely.geometry import Point, LineString, MultiPoint
 from shapely.ops import split as shapely_ops_split
 from tqdm import tqdm
-from utils.fim_enums import FIM_system_exit_codes
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 from utils.fim_enums import FIM_exit_codes
