@@ -2,34 +2,32 @@
 :
 usage ()
 {
-    echo 'Produce GMS hydrofabric datasets for unit scale. Run after fim_run.sh but before gms_run_branch.sh'
-    echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -c <config file> -n <run name> ]'
-    echo '  	 				   [OPT: -h -j <job limit>] -o -r -d <deny list file> -s <drop stream orders 1 and 2>]'
+    echo 'Produce GMS hydrofabric datasets for unit scale.'
+    echo 'Usage : gms_run_unit.sh [REQ: -u <hucs> -n <run name> ]'
+    echo '                        [OPT: -h -j <job limit>]  -c <config file>'
+    echo '                         -o -r -d <deny list file> -a <use all stream orders>]'
     echo ''
     echo 'REQUIRED:'
-    echo '  -u/--hucList    : HUC 4,6,or 8 to run or multiple passed in quotes. Line delimited file'
-    echo '                     also accepted. HUCs must present in inputs directory.'
-    echo '  -c/--config     : configuration file with bash environment variables to export'
+    echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
+    echo '                    A line delimited file is also acceptable. HUCs must present in inputs directory.'
     echo '  -n/--runName    : a name to tag the output directories and log files as. could be a version tag.'
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : help file'
+    echo '  -c/--config     : configuration file with bash environment variables to export'
+    echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'        
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time.'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -r/--retry      : retries failed jobs'
     echo '  -d/--denylist   : file with line delimited list of files in huc directories to remove upon completion'
     echo '                   (see config/deny_gms_unit_default.lst for a starting point)'
-	echo '  -s/--dropStreamOrder_1_2 : If this flag is included, the system will leave out stream orders 1 and 2'
-	echo '                    at the initial load of the nwm_subset_streams'
+	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
+	echo '                    at the initial load of the nwm_subset_streams.'
+	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
+    echo
     exit
 }
-
-if [ "$#" -lt 6 ]
-then
-  usage
-fi
-
 
 while [ "$1" != "" ]; do
 case $1
@@ -65,8 +63,8 @@ in
         shift
         deny_gms_unit_list=$1
         ;;
-    -s|--dropLowStreamOrders)
-        dropLowStreamOrders=1
+    -a|--useAllStreamOrders)
+        useAllStreamOrders=1
         ;;
     *) ;;
     esac
@@ -76,20 +74,24 @@ done
 # print usage if arguments empty
 if [ "$hucList" = "" ]
 then
-    usage
-fi
-if [ "$envFile" = "" ]
-then
+    echo "ERROR: Missing -u Huclist argument"
     usage
 fi
 if [ "$runName" = "" ]
 then
+    echo "ERROR: Missing -n run time name argument"
     usage
+fi
+
+if [ "$envFile" = "" ]
+then
+    envFile=/foss_fim/config/params_template.env
 fi
 if [ "$deny_gms_unit_list" = "" ]
 then
-    usage
+   deny_gms_unit_list=/foss_fim/config/deny_gms_unit_default.lst
 fi
+
 if [ -z "$overwrite" ]
 then
     overwrite=0
@@ -98,9 +100,17 @@ if [ -z "$retry" ]
 then
     retry=""
 fi
-if [ -z "$dropLowStreamOrders" ]
-then
-    dropLowStreamOrders=0
+
+# invert useAllStreamOrders boolean (to make it historically compatiable
+# with other files like gms/run_unit.sh and gms/run_branch.sh).
+# Yet help user understand that the inclusion of the -a flag means
+# to include the stream order (and not get mixed up with older versions
+# where -s mean drop stream orders)
+# This will encourage leaving stream orders 1 and 2 out.
+if [ "$useAllStreamOrders" == "1" ]; then
+    export dropLowStreamOrders=0
+else
+    export dropLowStreamOrders=1
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
@@ -115,6 +125,13 @@ fi
 ## Define Outputs Data Dir & Log File##
 export outputRunDataDir=$outputDataDir/$runName
 logFile=$outputRunDataDir/logs/unit/summary_gms_unit.log
+
+if [ -d $outputRunDataDir ] && [ $overwrite -eq 0 ]; then
+    echo
+    echo "ERROR: Output dir $outputRunDataDir exists. Use overwrite -o to run."
+    echo        
+    usage
+fi
 
 ## Set misc global variables
 export overwrite=$overwrite
@@ -131,8 +148,8 @@ export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 export deny_gms_unit_list=$deny_gms_unit_list
 export extent=GMS
 
-## Input handling ##
-$srcDir/check_huc_inputs.py -u "$hucList"
+# we are not using the variable output at this time, but keep it anways
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList)
 
 ## Make output and data directories ##
 if [ "$retry" = "--retry-failed" ]; then
@@ -144,32 +161,22 @@ if [ ! -d $outputRunDataDir ]; then
     mkdir -p $outputRunDataDir
 fi
 
-if [ ! -d "$outputRunDataDir/logs/unit" ]; then
-    mkdir -p $outputRunDataDir/logs/unit
-elif [ $overwrite -eq 1 ]; then
-    # clean it out if we are overwritting
-    rm -rf $outputRunDataDir/logs/unit/
-    mkdir -p $outputRunDataDir/logs/unit
-fi
+# we need to clean out the all log files overwrite or not
+rm -rf $outputRunDataDir/logs/unit/
+mkdir -p $outputRunDataDir/logs/unit
 
-if [ ! -d "$outputRunDataDir/unit_errors" ]; then
-    mkdir -p $outputRunDataDir/unit_errors
-else
-    if [ $overwrite -eq 1 ]; then
-        rm -rf $outputRunDataDir/unit_errors/
-        mkdir -p $outputRunDataDir/unit_errors
-        
-        # remove branch logs as well
-        rm -rf $outputRunDataDir/branch_errors/
-        rm -rf $outputRunDataDir/logs/branch/
-    fi
-fi
+rm -rf $outputRunDataDir/unit_errors/
+mkdir -p $outputRunDataDir/unit_errors
+
+# if it exists, but don't make a new one yet, let gms_run_branch do that.        
+rm -rf $outputRunDataDir/logs/branch
+rm -rf $outputRunDataDir/branch_errors
 
 # copy over config file
 cp -a $envFile $outputRunDataDir
 
 ## RUN GMS BY BRANCH ##
-echo "================================================================================"
+echo "=========================================================================="
 echo "Start of unit processing"
 echo "Started: `date -u`" 
 
@@ -205,7 +212,8 @@ find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit st
 echo "Start branch aggregation"
 python3 $srcDir/gms/aggregate_branch_lists.py -d $outputRunDataDir -f "gms_inputs.csv" -l $hucList
 
-echo "================================================================================"
-echo "Unit processing is complete"
-echo "Ended: `date -u`" 
+echo "=========================================================================="
+echo "gms_run_unit processing is complete"
+Tcount
+date -u
 echo

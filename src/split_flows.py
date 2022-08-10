@@ -29,6 +29,7 @@ from tqdm import tqdm
 from utils.fim_enums import FIM_system_exit_codes
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
+from utils.fim_enums import FIM_exit_codes
 
 @mem_profile
 def split_flows(max_length, 
@@ -54,7 +55,7 @@ def split_flows(max_length,
         if (drop_stream_orders):
             # this is not an exception, but a custom exit code that can be trapped
             print("No relevant streams within HUC boundaries.")
-            sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+            sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
         else:
             # if we are not dropping stream orders, then something is wrong
             raise Exception("No flowlines exist.")
@@ -261,7 +262,7 @@ def split_flows(max_length,
         if (drop_stream_orders):
             # this is not an exception, but a custom exit code that can be trapped
             print("There are no flowlines after stream order filtering.")
-            sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+            sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
         else:
             # if we are not dropping stream orders, then something is wrong
             raise Exception("No flowlines exist.")
