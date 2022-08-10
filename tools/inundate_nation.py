@@ -10,6 +10,7 @@ from multiprocessing import Pool
 from gms_tools.mosaic_inundation import Mosaic_inundation
 from gms_tools.inundate_gms import Inundate_gms
 from tools_shared_variables import elev_raster_ndv
+import re
 
 
 INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
@@ -29,88 +30,76 @@ def run_inundation(args):
     
     """
     
-    fim_run_dir = args[0]  #outputs/caleb_gms_small_batch
-    huc = args[1]
+    fim_run_dir = args[0]  
+    print(fim_run_dir)
+    print('aa')
+    huc_list = args[1]
+    print('bb')
+    print(huc_list)
     magnitude = args[2]
+    print('cc')
+    print(magnitude)
     magnitude_output_dir = args[3]
+    print('dd')
+    print(magnitude_output_dir)
     config = args[4]
+    print('ee')
+    print(config)
     forecast = args[5]
+    print('ff')
+    print(forecast)
     depth_option = args[6]
+    print('gg')
+    print(depth_option)
+    job_number = args[7]
+
     
     # Define file paths for use in inundate().
-    fim_run_parent = os.path.join(fim_run_dir, huc)
-    rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
-    catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-    mask_type = 'filter'
-    catchment_poly = ''
-    hydro_table = os.path.join(fim_run_parent, 'hydroTable.csv')
-    catchment_poly = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+ 
+
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + '_' + config + '_inund_extent.tif')
-    depth_raster = os.path.join(magnitude_output_dir, magnitude + '_' + config + '_inund_depth.tif')
-    hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
+    print('ii')
+    print(inundation_raster)
 
-    # Run inundate() once for depth and once for extent.
-    if not os.path.exists(depth_raster) and depth_option:
-        print("Running the NWM recurrence intervals for HUC inundation (depth): " + huc + ", " + magnitude + "...\n")
-
-
-        #here is the new code
-        map_file = Inundate_gms( hydrofabric_dir = fim_run_parent, 
-                                         forecast = forecast, 
-                                         num_workers = 1,
-                                         hucs = hucs,
-                                         inundation_raster = None,
-                                         inundation_polygon = None,
-                                         depths_raster = depth_raster,
-                                         verbose = False,
-                                         log_file = None,
-                                         output_fileNames = None )
-        
-        Mosaic_inundation( map_file,
-                                    mosaic_attribute = 'inundation_rasters',
-                                    mosaic_output = None,
-                                    mask = os.path.join(fim_run_parent,'wbd.gpkg'),
-                                    unit_attribute_name = 'huc8',
-                                    nodata = elev_raster_ndv,
-                                    workers = 1,
-                                    remove_inputs = False,
-                                    subset = None,
-                                    verbose = False )
-
-        #inundate(
-        #         rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-        #         subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
-        #         depths=depth_raster,out_raster_profile=None,out_vector_profile=None,quiet=True
-        #        )
         
     if not os.path.exists(inundation_raster):
         print("Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude + "...")
+    print(huc_list)
+    print('HCHICHUCHCUHCUHCUHCUHCUHCUHC')
         #inundate(
                  #rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
                  #subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=inundation_raster,inundation_polygon=None,
                  #depths=None,out_raster_profile=None,out_vector_profile=None,quiet=True
                 #)
-        map_file = Inundate_gms( hydrofabric_dir = fim_run_parent, 
+  
+    map_file = Inundate_gms( hydrofabric_dir = fim_run_dir, 
                                     forecast = forecast, 
-                                    num_workers = 1,
-                                    hucs = hucs,
+                                    num_workers = job_number,
+                                    hucs = huc_list,
                                     inundation_raster = inundation_raster,
                                     inundation_polygon = None,
                                     depths_raster = None,
-                                    verbose = False,
+                                    verbose = True,
                                     log_file = None,
                                     output_fileNames = None )
+    
+    for huc8 in huc_list:
+        mapfile_huc8 = map_file[map_file["huc8"] == huc8]
 
-        Mosaic_inundation( map_file,
-                                    mosaic_attribute = 'inundation_rasters',
-                                    mosaic_output = inundation_raster,
-                                    mask = os.path.join(fim_run_parent,'wbd.gpkg'),
-                                    unit_attribute_name = 'huc8',
-                                    nodata = elev_raster_ndv,
-                                    workers = 1,
-                                    remove_inputs = False,
-                                    subset = None,
-                                    verbose = False )
+
+
+        Mosaic_inundation( mapfile_huc8,
+                                        mosaic_attribute = 'inundation_rasters',
+                                        mosaic_output = inundation_raster,
+                                        mask = os.path.join(fim_run_dir,huc8,'wbd.gpkg'),
+                                        unit_attribute_name = 'huc8',
+                                        nodata = elev_raster_ndv,
+                                        workers = job_number,
+                                        remove_inputs = True,
+                                        subset = None,
+                                        verbose = True )
+    print('b')
+
 
 def create_bool_rasters(args):
     in_raster_dir = args[0]
@@ -142,6 +131,7 @@ def create_bool_rasters(args):
 
 
 def vrt_raster_mosaic(output_bool_dir, output_mos_dir, fim_version_tag):
+    
     #raster_to_mosaic = ['data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090301.tif','data/temp/ryan/inundate_nation/25_0_ms/25_0_ms_inund_extent_12090302.tif']
     raster_to_mosaic = []
     for rasfile in os.listdir(output_bool_dir):
@@ -156,6 +146,10 @@ def vrt_raster_mosaic(output_bool_dir, output_mos_dir, fim_version_tag):
     print("Building raster mosaic: " + str(output_mos_dir + fim_version_tag + "_mosaic.tif"))
     gdal.Translate(output_mos_dir + fim_version_tag + "_mosaic.tif", vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
     vrt = None        
+
+
+
+
 
 if __name__ == '__main__':
     available_cores = multiprocessing.cpu_count()
@@ -172,30 +166,40 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     fim_run_dir = args['fim_run_dir']
+    print('1')
+    print(fim_run_dir)
     output_dir = args['output_dir']
+    print(output_dir)
+    print('2')
     depth_option = args['depth']
+    print(depth_option)
+    print('3')
     magnitude_list = args['magnitude_list']
+    print(magnitude_list)
+    print('4')
     mosaic_option = args['mosaic']
+    print(mosaic_option)
+    print('5')
     job_number = int(args['job_number'])
+    print(job_number)
+    print('6')
 
     assert os.path.isdir(fim_run_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_run_dir)
     print("Input FIM Directory: " + str(fim_run_dir))
-    huc_list = os.listdir(fim_run_dir)
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     print("Using fim version: " + str(fim_version))
-    exit
+    print('7')
+    #exit
     for magnitude in magnitude_list:
         print("Preparing to generate inundation outputs for magnitude: " + str(magnitude))
+        print('8')
         nwm_recurr_file = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'nwm21_17C_recurr_' + magnitude + '_cms.csv')
+        print(nwm_recurr_file)
+        print('9')
         assert os.path.isfile(nwm_recurr_file), 'ERROR: could not find the input NWM recurr flow file: ' + str(nwm_recurr_file)
         print("Input flow file: " + str(nwm_recurr_file))
         
-        if 'ms' in fim_version:
-            config = 'ms'
-        elif 'fr' in fim_version:
-            config = 'fr'
-        else:
-            config = '-'
+        config = 'gms'
 
         if output_dir == "":
             output_dir = INUN_OUTPUT_DIR
@@ -203,25 +207,28 @@ if __name__ == '__main__':
             print('Creating new output directory: ' + str(output_dir))
             os.mkdir(output_dir)
             
-        procs_list = []
+        huc_list = []
         
-        for huc in huc_list:
-            print('huc$$$$$$$$$$$$$$$$$$$$$$$$$$$')
-            if huc != 'logs' and huc != 'aggregate_fim_outputs':
-                for magnitude in magnitude_list:
-                    
-                    magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
-                    print(magnitude_output_dir)
-                    if not os.path.exists(magnitude_output_dir):
-                        os.mkdir(magnitude_output_dir)
-                        
-                    procs_list.append([fim_run_dir, huc, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option])
-                    print(procs_list)
-        # Multiprocess.
-        if job_number > 0:
-            with Pool(processes=job_number) as pool:
-                pool.map(run_inundation, procs_list)
-                print('ran_run_inundation')
+        for huc in os.listdir(fim_run_dir):
+            
+            #if huc != 'logs' and huc != 'branch_errors'and huc != 'unit_errors' and os.path.isdir(os.path.join(fim_run_dir, huc)):
+            if re.match('\d{8}', huc):    
+                huc_list.append(huc)
+        print('10')
+        print(huc_list)
+        for magnitude in magnitude_list:
+            
+            magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
+            print('11')
+            print(magnitude_output_dir)
+            if not os.path.exists(magnitude_output_dir):
+                os.mkdir(magnitude_output_dir)
+             
+            
+            print(fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option)
+            run_inundation([fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option,job_number])
+                   
+
 
         # Perform mosaic operation
         if mosaic_option:
