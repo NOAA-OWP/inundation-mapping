@@ -98,7 +98,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
             log_text += 'HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"... \n'
         
         # Create dataframe with crosswalked USGS flow and NWM recurr flow
-        calc_df = merge_df.loc[merge_df.groupby('location_id')['Q_find'].idxmin()].reset_index(drop=True) # find the index of the Q_1_5_find (closest matching flow)
+        calc_df = merge_df.loc[merge_df.groupby(['location_id','levpa_id'])['Q_find'].idxmin()].reset_index(drop=True) # find the index of the Q_1_5_find (closest matching flow)
         # Calculate flow difference (variance) to check for large discrepancies btw NWM flow and USGS closest flow
         calc_df['check_variance'] = ((calc_df['discharge_cms'] - calc_df[interval+"_0_year"])/calc_df['discharge_cms']).abs()
         # Assign new metadata attributes
@@ -138,75 +138,86 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     return(final_df)
 
 def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
-    branch_list = usgs_df['levpa_id'].tolist()
-    branch_list = list(set(branch_list))
     huc_list = usgs_df['huc'].tolist()
     huc_list = list(set(huc_list))
     procs_list = []  # Initialize list for mulitprocessing.
 
     # loop through all unique level paths that have a USGS gage
-    branch_huc_dict = pd.Series(usgs_df.huc.values,index=usgs_df.levpa_id).to_dict()
-    for branch_id in branch_huc_dict: 
-        huc = branch_huc_dict[branch_id]
+    #branch_huc_dict = pd.Series(usgs_df.levpa_id.values,index=usgs_df.huc).to_dict('list')
+    #branch_huc_dict = usgs_df.set_index('huc').T.to_dict('list')
+    huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
+    print(huc_branch_dict)
+    #branch_huc_dict = {'5760000001': '11130203', '5760000002': '11130203'}
+    for huc in huc_branch_dict:
+        branch_set = huc_branch_dict[huc]
+        for branch_id in branch_set: 
+            # Define paths to branch HAND data.
+            # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
+            # Assumes outputs are for HUC8 (not HUC6)
+            branch_dir = os.path.join(run_dir,huc,'branches',branch_id)
+            hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
+            catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
+            catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
+            htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+            water_edge_median_ds = usgs_df[(usgs_df['huc']==huc) & (usgs_df['levpa_id']==branch_id)]
 
-        # Define paths to branch HAND data.
-        # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-        # Assumes outputs are for HUC8 (not HUC6)
-        branch_dir = os.path.join(run_dir,huc,'branches',branch_id)
-        hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
-        catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
-        catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
-        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-        water_edge_median_ds = usgs_df[(usgs_df['huc']==huc) & (usgs_df['levpa_id']==branch_id)]
+            # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+            if not os.path.exists(hand_path):
+                print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+            elif not os.path.exists(catchments_path):
+                print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
+            elif not os.path.exists(htable_path):
+                print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+            else:
+                ## Additional arguments for src_roughness_optimization
+                source_tag = 'usgs_rating' # tag to use in source attribute field
+                merge_prev_adj = False # merge in previous SRC adjustment calculations
 
-        # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-        if not os.path.exists(hand_path):
-            print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
-        elif not os.path.exists(catchments_path):
-            print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
-        elif not os.path.exists(htable_path):
-            print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
-        else:
-            ## Additional arguments for src_roughness_optimization
-            source_tag = 'usgs_rating' # tag to use in source attribute field
-            merge_prev_adj = False # merge in previous SRC adjustment calculations
-
-            print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-            procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
+                print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
+                procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
 
     # loop through all hucs that have a USGS gage (run routine for branch 0s)
-    branch_id = '0'
-    for huc in huc_list: 
-        # Define paths to branch HAND data.
-        # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-        # Assumes outputs are for HUC8 (not HUC6)
-        branch_dir = os.path.join(run_dir,huc,'branches',branch_id)
-        hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
-        catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
-        catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
-        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-        water_edge_median_ds = usgs_df[(usgs_df['huc']==huc)] # do not filter by branch when processing branch 0 
+    # branch_id = '0'
+    # # huc_list = ['11130203']
+    # for huc in huc_list: 
+    #     # Define paths to branch HAND data.
+    #     # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
+    #     # Assumes outputs are for HUC8 (not HUC6)
+    #     branch_dir = os.path.join(run_dir,huc,'branches',branch_id)
+    #     hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
+    #     catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
+    #     catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
+    #     htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+    #     water_edge_median_ds = usgs_df[(usgs_df['huc']==huc)] # do not filter by branch when processing branch 0 
 
-        # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-        if not os.path.exists(hand_path):
-            print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
-        elif not os.path.exists(catchments_path):
-            print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
-        elif not os.path.exists(htable_path):
-            print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
-        else:
-            ## Additional arguments for src_roughness_optimization
-            source_tag = 'usgs_rating' # tag to use in source attribute field
-            merge_prev_adj = False # merge in previous SRC adjustment calculations
+    #     # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+    #     if not os.path.exists(hand_path):
+    #         print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+    #     elif not os.path.exists(catchments_path):
+    #         print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
+    #     elif not os.path.exists(htable_path):
+    #         print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+    #     else:
+    #         ## Additional arguments for src_roughness_optimization
+    #         source_tag = 'usgs_rating' # tag to use in source attribute field
+    #         merge_prev_adj = False # merge in previous SRC adjustment calculations
 
-            print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-            procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
+    #         print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
+    #         procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
 
     # multiprocess all available branches
     print(f"Calculating new SRCs for {len(procs_list)} branches using {job_number} jobs...")
     with Pool(processes=job_number) as pool:
-        log_output = pool.starmap(update_rating_curve, procs_list)
-        log_file.writelines(["%s\n" % item  for item in log_output])
+            log_output = pool.starmap(update_rating_curve, procs_list)
+            log_file.writelines(["%s\n" % item  for item in log_output])
+    # try statement for debugging 
+    # try:
+    #     with Pool(processes=job_number) as pool:
+    #         log_output = pool.starmap(update_rating_curve, procs_list)
+    #         log_file.writelines(["%s\n" % item  for item in log_output])
+    # except Exception as e:
+    #     print(str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e))
+    #     log_file.write('ERROR!!!: HUC ' + str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e) + '\n')
 
 def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,job_number):
     ## Check input args are valid
@@ -223,8 +234,6 @@ def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,j
     elif usgs_elev_df.empty:
         print('WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in fim_dir!')
     
-    print(usgs_elev_df.head)
-    
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
         job_number = available_cores - 1
@@ -232,17 +241,16 @@ def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,j
 
     ## Create output dir for log and usgs rc database
     log_dir = os.path.join(run_dir,"logs","src_optimization")
+    print("Log file output here: " + str(log_dir))
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 
-    # Create log file for processing records
     print('This may take a few minutes...')
-
     usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
-    print("Log file output here: " + str(log_dir))
 
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
+    # Create log file for processing records
     log_file = open(os.path.join(log_dir,'log_usgs_rc_src_adjust.log'),"w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')

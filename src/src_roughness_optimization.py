@@ -95,6 +95,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
     ## loop through the user provided point data --> stage/flow dataframe row by row
     for index, row in df_nvalues.iterrows():
         df_htable_hydroid = df_htable[df_htable.HydroID == row.hydroid] # filter htable for entries with matching hydroid
+        assert not df_htable_hydroid.empty, 'ERROR: df_htable_hydroid is empty: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid)
         find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
         ## copy the corresponding htable values for the matching stage->HAND lookup
         df_nvalues.loc[index,'feature_id'] = find_src_stage.feature_id
