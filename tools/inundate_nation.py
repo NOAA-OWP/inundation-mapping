@@ -26,7 +26,7 @@ def run_inundation(args):
     This script is a wrapper for the inundate function and is designed for multiprocessing.
     
     Args:
-        args (list): [fim_run_dir (str), huc_list (list), magnitude (str), magnitude_output_dir (str), config (str), forecast (str), depth_option (str)]
+        args (list): [fim_run_dir (str), huc_list (list), magnitude (str), magnitude_output_dir (str), config (str), forecast (str), job_number (int)]
     
     """
     
@@ -36,8 +36,7 @@ def run_inundation(args):
     magnitude_output_dir = args[3]
     config = args[4]
     forecast = args[5]
-    depth_option = args[6]
-    job_number = args[7]
+    job_number = args[6]
 
     
     # Define file paths for use in inundate().
@@ -177,8 +176,9 @@ if __name__ == '__main__':
 
             if not os.path.exists(magnitude_output_dir):
                 os.mkdir(magnitude_output_dir)
-                
-            run_inundation([fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, depth_option,job_number])
+
+            print(magnitude_output_dir)
+            run_inundation([fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, job_number])
                    
 
 
@@ -192,7 +192,12 @@ if __name__ == '__main__':
                 print('Creating new output directory for boolean temporary outputs: ' + str(output_bool_dir))
                 os.mkdir(output_bool_dir)
 
-            output_mos_dir = DEFAULT_OUTPUT_DIR
+
+            output_mos_dir = output_dir
+            if output_dir == "":
+                output_mos_dir = DEFAULT_OUTPUT_DIR
+            
+            
             if not os.path.exists(output_mos_dir):
                 print('Creating new output directory: ' + str(output_mos_dir))
                 os.mkdir(output_mos_dir)
@@ -215,5 +220,6 @@ if __name__ == '__main__':
                 print('Did not find any valid FIM extent rasters: ' + magnitude_output_dir)
 
             # Perform VRT creation and final mosaic using boolean rasters
+            
             vrt_raster_mosaic(output_bool_dir,output_mos_dir,fim_version_tag)
 
