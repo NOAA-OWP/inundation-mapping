@@ -206,13 +206,13 @@ python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 if [ "$src_adjust_usgs" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    time python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -run_dir $outputRunDataDir -j $jobLimit
+    time python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
-    time python3 foss_fim/src/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
+    time python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
 fi
 
 # -------------------
