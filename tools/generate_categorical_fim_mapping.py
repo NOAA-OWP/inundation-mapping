@@ -12,10 +12,11 @@ import shutil
 from rasterio.features import shapes
 from shapely.geometry.polygon import Polygon
 from shapely.geometry.multipolygon import MultiPolygon
-from inundation import inundate
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 from utils.shared_functions import getDriver
+from gms_tools.mosaic_inundation import Mosaic_inundation
+from gms_tools.inundate_gms import Inundate_gms
 
 INPUTS_DIR = r'/data/inputs'
 magnitude_list = ['action', 'minor', 'moderate','major', 'record']
@@ -104,8 +105,9 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
                                 output_depth_grid = None
 
                             # Append necessary variables to list for multiprocessing.
-                            procs_list.append([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file])
-
+#                            procs_list.append([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
+                            run_inundation([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
+                        
     # Initiate multiprocessing
     print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
@@ -124,14 +126,36 @@ def run_inundation(args):
     ahps_site = args[7]
     magnitude = args[8]
     log_file = args[9]
+    fim_run_dir = args[10]
+
+    print(fim_run_dir)
+    huc_dir = os.path.join(fim_run_dir, huc)
 
     try:
-        inundate(rem,catchments,catchment_poly,hydroTable,magnitude_flows_csv,mask_type,hucs=hucs,hucs_layerName=hucs_layerName,
-                 subset_hucs=huc,num_workers=1,aggregate=False,inundation_raster=output_extent_grid,inundation_polygon=None,
-                 depths=output_depth_grid,out_raster_profile=None,out_vector_profile=None,quiet=True
-                )
+        print("Running Inundate_gms for " + huc)
+        map_file = Inundate_gms(  hydrofabric_dir = fim_run_dir, 
+                                         forecast = magnitude_flows_csv, 
+                                         num_workers = 8,
+                                         hucs = huc,
+                                         inundation_raster = output_extent_grid,
+                                         inundation_polygon = None,
+                                         depths_raster = None,
+                                         verbose = True,
+                                         log_file = None,
+                                         output_fileNames = None )
+        
+        Mosaic_inundation( map_file,
+                            mosaic_attribute = 'inundation_rasters',
+                            mosaic_output = output_extent_grid,
+                            mask = os.path.join(huc_dir,'wbd.gpkg'),
+                            unit_attribute_name = 'huc8',
+                            nodata = -9999,
+                            workers = 1,
+                            remove_inputs = False,
+                            subset = None,
+                            verbose = True )
 
-    except:
+    except Exception as e:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
         f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
@@ -179,14 +203,14 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
                     for ahps_lid in ahps_dir_list:
                         ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
 
-                        extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent_' + huc + '.tif')
-
+                        extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent' + '.tif')
                         if os.path.exists(extent_grid):
                             procs_list.append([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
 
                         else:
                             try:
                                 f = open(log_file, 'a+')
+                                print("Nope")
                                 f.write(f"Missing layers: {extent_gpkg}\n")
                                 f.close()
                             except:
@@ -320,7 +344,7 @@ if __name__ == '__main__':
     nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
 
     print("Generating Categorical FIM")
-    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
+#    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
     # Get fim_version.
