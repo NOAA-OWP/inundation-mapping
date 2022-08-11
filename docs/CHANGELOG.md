@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.0.5.2 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
+## v4.0.6.1 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
 
 `inundate_nation.py` A change to switch the inundate nation function away from refrences to `inundate.py`, and rather use `inundate_gms.py` and `mosaic_inundation.py`
 ## Changes
@@ -10,6 +10,70 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 <br/><br/>
 
+=======
+## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
+
+Addressing #560, this fix in run_by_branch trims the DEM derived streamline if it extends past the end of the branch streamline. It does this by finding the terminal point of the branch stream, snapping to the nearest point on the DEM derived stream, and cutting off the remaining downstream portion of the DEM derived stream.
+
+## Changes
+
+- `/src/split_flows.py`: Trims the DEM derived streamline if it flows past the terminus of the branch (or level path) streamline.
+- `/src/gms/delineate_hydros_and_produce_HAND.sh`: Added branch streamlines as an input to `split_flows.py`.
+
+<br/><br/>
+
+## v4.0.5.4 - 2022-08-01 - [PR #642](https://github.com/NOAA-OWP/inundation-mapping/pull/642)
+
+Fixes bug that causes [Errno2] No such file or directory error when running synthesize_test_cases.py if testing_versions folder doesn't exist (for example, after downloading test_cases from ESIP S3).
+
+## Additions
+
+- `run_test_case.py`: Checks for testing_versions folder in test_cases and adds it if it doesn't exist.
+
+<br/><br/>
+
+## v4.0.5.3 - 2022-07-27 - [PR #630](https://github.com/NOAA-OWP/inundation-mapping/issues/630)
+
+A file called gms_pipeline.sh already existed but was unusable. This has been updated and now can be used as a "one-command" execution of the fim4/gms run. While you still can run gms_run_unit.sh and gms_run_branch.sh as you did before, you no longer need to. Input arguments were simplified to allow for more default and this simplification was added to `gms_run_unit.sh` and `gms_run_branch.sh` as well. 
+
+A new feature was added that is being used for `gms_pipeline.sh` which tests the percent and number of errors after hucs are processed before continuing onto branch processing.
+
+New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output name> -u <HUC(s) or HUC list path>`
+	
+`gms_run_branch.sh` and `gms_run_branch.sh` have also been changed to add the new -a flag and default to dropping stream orders 1 and 2.
+
+## Additions
+
+- `src`
+    - `check_unit_errors.py`: as described above.
+- `unit_tests`
+    - `check_unit_errors_unittests.py` and `check_unit_errors_params.json`: to match new file.    
+
+## Changes
+
+- `README.md`:  Updated text for FIM4, gms_pipeline, S3 input updates, information about updating dependencies, misc link updates and misc text verbage.
+- `gms_pipeline.sh`: as described above.
+- `gms_run_unit.sh`: as described above. Also small updates to clean up folders and files in case of an overwrite.
+- `gms_run_branch.sh`: as described above.
+- `src`
+     - `utils`
+         - `fim_enums.py`:  FIM_system_exit_codes renamed to FIM_exit_codes.
+         - `shared_variables.py`: added configurable values for minimum number and percentage of unit errors.
+    - `bash_functions.env`:   Update to make the cumulative time screen outputs in mins/secs instead of just seconds.
+    - `check_huc_inputs.py`:  Now returns the number of HUCs being processed, needed by `gms_pipeline.sh` (Note: to get the value back to a bash file, it has to send it back via a "print" line and not a "return" value.  Improved input validation, 
+- `unit_tests`
+   - `README.md`: Misc text and link updates.
+
+## Removals
+
+- `config\params_template_calibrated.env`: No longer needed. Has been removed already from dev-fim3 and confirmed that it is not needed.
+<br><br>
+
+## v4.0.5.2 - 2022-07-25 - [PR #622](https://github.com/NOAA-OWP/inundation-mapping/pull/622)
+
+Updates to unit tests including a minor update for outputs and loading in .json parameter files.
+<br><br>
+>>>>>>> dev
 
 ## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
 
@@ -63,8 +127,8 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
      - `run_test_case.py`: Some styling / readability upgrades plus some enhanced outputs.  Also changed the _verbose_ flag to _gms_verbose_ being passed into Mosaic_inundation function.
      - `synthesize_test_cases.py`: arguments being passed into the _alpha_test_args_ from being hardcoded from flags to verbose (effectively turning on verbose outputs when applicable. Note: Progress bar was not affected.
      - `tools_shared_functions.py`: Some styling / readability upgrades.
-- `gms_run_unit.sh`: Added export of extent variable.
-- `gms_run_branch.sh`: Fixed bug when using overwrite flag saying branch errors folder already exists.
+- `gms_run_unit.sh`: Added export of extent variable, dropped the -s flag and added the -a flag so it now defaults to dropping stream orders 1 and 2.
+- `gms_run_branch.sh`: Fixed bug when using overwrite flag saying branch errors folder already exists, dropped the -s flag and added the -a flag so it now defaults to dropping stream orders 1 and 2.
 
 ## Removals
 

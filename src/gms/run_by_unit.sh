@@ -5,6 +5,18 @@ T_total_start
 
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
+
+# Even though check_input_hucs at gms_run_unit validate that all values
+# are numbers, sometimes the huc list can come in as windows incoded and not
+# unix encoded. It can get missed but tee and time can parse it wrong.
+# so, we will strip a slash of the end if it exists, the re-validat that the
+# value is a number.  (Note: doesn't seem to work all of the time for encoding
+# issues (??))
+re='^[0-9]+$'
+if ! [[ $hucNumber =~ $re ]] ; then
+   echo "Error: hucNumber is not a number" >&2; exit 1
+fi
+
 outputHucDataDir=$outputRunDataDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
 current_branch_id=$branch_zero_id

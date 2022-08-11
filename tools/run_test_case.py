@@ -97,6 +97,8 @@ class test_case(benchmark):
                                 test_id,
                                 'official_versions' if archive else 'testing_versions',
                                 version)
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
         # Benchmark data path
         self.benchmark_dir = os.path.join(self.validation_data, self.huc)
 
