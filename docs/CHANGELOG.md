@@ -73,7 +73,7 @@ New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output n
 
 Updates to unit tests including a minor update for outputs and loading in .json parameter files.
 <br><br>
->>>>>>> dev
+
 
 ## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
 
