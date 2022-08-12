@@ -8,9 +8,8 @@ import argparse
 import pandas as pd
 import shutil
 
-def remove_error_branches(logfile, gms_inputs, huc_level=8):
+def remove_error_branches(logfile, gms_inputs):
     if os.path.isfile(logfile):
-
         errors_df = pd.read_csv(logfile, sep=':', header=None)
         gms_inputs_df = pd.read_csv(gms_inputs, header=None)
 
@@ -41,10 +40,12 @@ def remove_error_branches(logfile, gms_inputs, huc_level=8):
 
                 huc = split[0]
                 branch = split[3]
+                huc_level = len(huc)
 
                 if huc not in first_occurrence:
                     # Ignore previous removals for this HUC
-                    error_branches = error_branches[error_branches[0] != huc]
+                    if error_branches is not None:
+                        error_branches = error_branches[error_branches[0] != huc]
 
                     first_occurrence.append(huc)
 
@@ -81,9 +82,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Remove branches with Exit status: 61')
     parser.add_argument('-f','--logfile', help='Location of non_zero_exit_codes.log', required=True)
     parser.add_argument('-g','--gms-inputs', help='Location of gms_inputs.csv', required=True)
-    parser.add_argument('-l','--huc-level', help='Level of HUC (e.g., 8 for HUC8)', type=int, required=False, default=8)
 
     # extract to dictionary
     args = vars(parser.parse_args())
 
-    remove_error_branches(args['logfile'], args['gms_inputs'], args['huc_level'])
+    remove_error_branches(args['logfile'], args['gms_inputs'])
