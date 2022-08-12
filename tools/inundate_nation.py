@@ -193,7 +193,7 @@ if __name__ == '__main__':
                 os.mkdir(output_bool_dir)
 
 
-            output_mos_dir = output_dir
+            #output_mos_dir = output_dir
             if output_dir == "":
                 output_mos_dir = DEFAULT_OUTPUT_DIR
             
