@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## [Version to be assigned] - 2022-08-12 - [PR #655](https://github.com/NOAA-OWP/inundation-mapping/pull/655)
+
+Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_branch.sh` after running `split_flows.py`
+
+## Additions
+- Adds `remove_error_branches.py` (called from `gms_run_branch.sh`)
+- Adds `gms_inputs_removed.csv` to log branches that have been removed across all HUCs
+
+## Removals
+- Deletes branch folders that fail
+- Deletes branch from `gms_inputs.csv`
+
+<br/><br/>
+
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 
 Addressing #560, this fix in run_by_branch trims the DEM derived streamline if it extends past the end of the branch streamline. It does this by finding the terminal point of the branch stream, snapping to the nearest point on the DEM derived stream, and cutting off the remaining downstream portion of the DEM derived stream.
