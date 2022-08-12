@@ -10,7 +10,6 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 <br/><br/>
 
-=======
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 
 Addressing #560, this fix in run_by_branch trims the DEM derived streamline if it extends past the end of the branch streamline. It does this by finding the terminal point of the branch stream, snapping to the nearest point on the DEM derived stream, and cutting off the remaining downstream portion of the DEM derived stream.
