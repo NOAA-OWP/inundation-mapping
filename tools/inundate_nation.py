@@ -65,10 +65,11 @@ def run_inundation(args):
         Mosaic_inundation( mapfile_huc8,
                                         mosaic_attribute = 'inundation_rasters',
                                         mosaic_output = inundation_raster,
-                                        mask = os.path.join(fim_run_dir,huc8,'wbd.gpkg'),
+                                        #mask = os.path.join(fim_run_dir,huc8,'wbd.gpkg'),
+                                        mask = None,
                                         unit_attribute_name = 'huc8',
                                         nodata = elev_raster_ndv,
-                                        workers = job_number,
+                                        workers = 1,
                                         remove_inputs = True,
                                         subset = None,
                                         verbose = True )
@@ -193,7 +194,7 @@ if __name__ == '__main__':
                 os.mkdir(output_bool_dir)
 
 
-            #output_mos_dir = output_dir
+            output_mos_dir = output_dir
             if output_dir == "":
                 output_mos_dir = DEFAULT_OUTPUT_DIR
             
