@@ -58,21 +58,17 @@ def run_inundation(args):
                                     log_file = None,
                                     output_fileNames = None )
     
-    for huc8 in huc_list:
-        mapfile_huc8 = map_file[map_file["huc8"] == huc8]
-
-
-        Mosaic_inundation( mapfile_huc8,
-                                        mosaic_attribute = 'inundation_rasters',
-                                        mosaic_output = inundation_raster,
-                                        #mask = os.path.join(fim_run_dir,huc8,'wbd.gpkg'),
-                                        mask = None,
-                                        unit_attribute_name = 'huc8',
-                                        nodata = elev_raster_ndv,
-                                        workers = 1,
-                                        remove_inputs = True,
-                                        subset = None,
-                                        verbose = True )
+    Mosaic_inundation( map_file,
+                                    mosaic_attribute = 'inundation_rasters',
+                                    mosaic_output = inundation_raster,
+                                    #mask = os.path.join(fim_run_dir,huc8,'wbd.gpkg'),
+                                    mask = None,
+                                    unit_attribute_name = 'huc8',
+                                    nodata = elev_raster_ndv,
+                                    workers = 1,
+                                    remove_inputs = True,
+                                    subset = None,
+                                    verbose = True )
 
 def create_bool_rasters(args):
     in_raster_dir = args[0]
