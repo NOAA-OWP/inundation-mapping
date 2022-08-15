@@ -94,20 +94,27 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
 
     ## loop through the user provided point data --> stage/flow dataframe row by row
     for index, row in df_nvalues.iterrows():
-        df_htable_hydroid = df_htable[df_htable.HydroID == row.hydroid] # filter htable for entries with matching hydroid
-        assert not df_htable_hydroid.empty, 'ERROR: df_htable_hydroid is empty: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid)
-        find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
-        ## copy the corresponding htable values for the matching stage->HAND lookup
-        df_nvalues.loc[index,'feature_id'] = find_src_stage.feature_id
-        df_nvalues.loc[index,'LakeID'] = find_src_stage.LakeID
-        df_nvalues.loc[index,'NextDownID'] = find_src_stage.NextDownID
-        df_nvalues.loc[index,'LENGTHKM'] = find_src_stage.LENGTHKM
-        df_nvalues.loc[index,'src_stage'] = find_src_stage.stage
-        df_nvalues.loc[index,'ManningN'] = find_src_stage.ManningN
-        df_nvalues.loc[index,'SLOPE'] = find_src_stage.SLOPE
-        df_nvalues.loc[index,'HydraulicRadius_m'] = find_src_stage['HydraulicRadius (m)']
-        df_nvalues.loc[index,'WetArea_m2'] = find_src_stage['WetArea (m2)']
-        df_nvalues.loc[index,'discharge_cms'] = find_src_stage.discharge_cms
+        if row.hydroid not in df_htable['HydroID'].values:
+            print('ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid))
+            log_text += 'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid)
+        else:
+            df_htable_hydroid = df_htable[df_htable.HydroID == row.hydroid] # filter htable for entries with matching hydroid
+            if df_htable_hydroid.empty:
+                print('ERROR: df_htable_hydroid is empty but expected data: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid))
+                log_text += 'ERROR: df_htable_hydroid is empty but expected data: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid)
+                
+            find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
+            ## copy the corresponding htable values for the matching stage->HAND lookup
+            df_nvalues.loc[index,'feature_id'] = find_src_stage.feature_id
+            df_nvalues.loc[index,'LakeID'] = find_src_stage.LakeID
+            df_nvalues.loc[index,'NextDownID'] = find_src_stage.NextDownID
+            df_nvalues.loc[index,'LENGTHKM'] = find_src_stage.LENGTHKM
+            df_nvalues.loc[index,'src_stage'] = find_src_stage.stage
+            df_nvalues.loc[index,'ManningN'] = find_src_stage.ManningN
+            df_nvalues.loc[index,'SLOPE'] = find_src_stage.SLOPE
+            df_nvalues.loc[index,'HydraulicRadius_m'] = find_src_stage['HydraulicRadius (m)']
+            df_nvalues.loc[index,'WetArea_m2'] = find_src_stage['WetArea (m2)']
+            df_nvalues.loc[index,'discharge_cms'] = find_src_stage.discharge_cms
 
     ## mask src values that crosswalk to the SRC zero point (src_stage ~ 0 or discharge <= 0)
     print(str(huc) + '  branch id: ' + str(branch_id))
