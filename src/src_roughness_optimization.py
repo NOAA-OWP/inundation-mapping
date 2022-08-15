@@ -96,12 +96,12 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
     for index, row in df_nvalues.iterrows():
         if row.hydroid not in df_htable['HydroID'].values:
             print('ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid))
-            log_text += 'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid)
+            log_text += 'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid) + '\n'
         else:
             df_htable_hydroid = df_htable[df_htable.HydroID == row.hydroid] # filter htable for entries with matching hydroid
             if df_htable_hydroid.empty:
                 print('ERROR: df_htable_hydroid is empty but expected data: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid))
-                log_text += 'ERROR: df_htable_hydroid is empty but expected data: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid)
+                log_text += 'ERROR: df_htable_hydroid is empty but expected data: ' + str(huc) + '  branch id: ' + str(branch_id) + ' hydroid: ' + str(row.hydroid) + '\n'
                 
             find_src_stage = df_htable_hydroid.loc[df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()] # find closest matching stage to the user provided HAND value
             ## copy the corresponding htable values for the matching stage->HAND lookup
