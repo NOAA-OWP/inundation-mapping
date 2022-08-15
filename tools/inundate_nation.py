@@ -44,8 +44,7 @@ def run_inundation(args):
 
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + '_' + config + '_inund_extent.tif')
     
-    if not os.path.exists(inundation_raster):
-        print("Running the NWM recurrence intervals for HUC inundation (extent): " + huc + ", " + magnitude + "...")
+    print("Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: " + str(magnitude))
 
     map_file = Inundate_gms( hydrofabric_dir = fim_run_dir, 
                                     forecast = forecast, 
@@ -161,22 +160,18 @@ if __name__ == '__main__':
             os.mkdir(output_dir)
             
         huc_list = []
-        
         for huc in os.listdir(fim_run_dir):
             
             #if huc != 'logs' and huc != 'branch_errors'and huc != 'unit_errors' and os.path.isdir(os.path.join(fim_run_dir, huc)):
             if re.match('\d{8}', huc):    
                 huc_list.append(huc)
-
-        for magnitude in magnitude_list:
             
-            magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
+        magnitude_output_dir = os.path.join(output_dir, magnitude + '_' + config  + '_' + fim_version)
+        if not os.path.exists(magnitude_output_dir):
+            os.mkdir(magnitude_output_dir)
 
-            if not os.path.exists(magnitude_output_dir):
-                os.mkdir(magnitude_output_dir)
-
-            print(magnitude_output_dir)
-            run_inundation([fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, job_number])
+        print('Inundation outputs here: ' + str(magnitude_output_dir))
+        run_inundation([fim_run_dir, huc_list, magnitude, magnitude_output_dir, config, nwm_recurr_file, job_number])
                    
 
 
