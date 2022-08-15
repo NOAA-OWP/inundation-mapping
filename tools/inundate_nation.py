@@ -68,7 +68,8 @@ def run_inundation(args):
                                     workers = 1,
                                     remove_inputs = True,
                                     subset = None,
-                                    verbose = True )
+                                    verbose = True,
+                                    is_mosaic_for_gms_branches = True )
 
 def create_bool_rasters(args):
     in_raster_dir = args[0]
