@@ -10,7 +10,12 @@ import shutil
 
 def remove_error_branches(logfile, gms_inputs):
     if os.path.isfile(logfile):
-        errors_df = pd.read_csv(logfile, sep=':', header=None)
+        try:
+            errors_df = pd.read_csv(logfile, sep=':', header=None)
+        except pd.errors.EmptyDataError:
+            print('\nLog file is empty. Skipping this HUC.\n')
+            return
+
         gms_inputs_df = pd.read_csv(gms_inputs, header=None)
 
         # Make copy of gms_inputs.csv
@@ -23,7 +28,6 @@ def remove_error_branches(logfile, gms_inputs):
             error_branches = None
         else:
             error_branches = pd.read_csv(gms_inputs_removed, header=None, dtype=str)
-
 
         first_occurrence = []
         for i, row in errors_df.iterrows():
@@ -70,10 +74,10 @@ def remove_error_branches(logfile, gms_inputs):
         # Overwrite gms_inputs.csv with error branches removed
         gms_inputs_df.to_csv(gms_inputs, header=False, index=False)
 
-        print('Done removing error branches')
+        print('\nDone removing error branches\n')
 
     else:
-        print('No log file found')
+        print('\nNo log file found\n')
 
 
 if __name__ == '__main__':
