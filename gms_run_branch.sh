@@ -3,32 +3,32 @@
 usage ()
 {
     echo 'Produce GMS hydrofabric at levelpath/branch scale. Execute gms_run_unit.sh prior to.'
-    echo 'Usage : gms_run_branch.sh [REQ: -c <config file> -n <run name> ] [OPT: -h -j <job limit>]'
+    echo 'Usage : gms_run_branch.sh [REQ: -n <run name> ]'
+    echo '  	 				    [OPT: -h -j <job limit> -o -r -d <deny list file>'
+    echo '                                -u <hucs> -a <use all stream orders>]'    
     echo ''
     echo 'REQUIRED:'
-    echo '  -c/--config     : configuration file with bash environment variables to export'
-    echo '  -n/--runName    : a name to tag the output directories and log files as. could be a version tag.'
+    echo '  -n/--runName    : A name to tag the output directories and log files as. could be a version tag.'
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : help file'
+    echo '  -c/--config     : configuration file with bash environment variables to export'    
+    echo '                    default (if arg not added) : /foss_fim/config/params_template.env'            
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -r/--retry      : retries failed jobs'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
-    echo '  -d/--denylist   : file with line delimited list of files in branches directories to remove '
-    echo '                    upon completion. ie) config/deny_gms_branches_default.lst'
+    echo '  -d/--denylist    : A file with line delimited list of files in branches directories to remove' 
+    echo '                    upon completion (see config/deny_gms_branches_min.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_min.lst'    
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited).'
     echo '                    A line delimited file also acceptable. HUCs must present in inputs directory.'
-	echo '  -s/--dropStreamOrders : If this flag is included, the system will leave out stream orders 1 and 2'
-	echo '                    at the initial load of the nwm_subset_streams'
+	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
+	echo '                    at the initial load of the nwm_subset_streams.'
+	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
     echo
     exit
 }
-
-if [ "$#" -lt 4 ]
-then
-  usage
-fi
 
 while [ "$1" != "" ]; do
 case $1
@@ -64,23 +64,30 @@ in
         shift
         deny_gms_branches_list=$1
         ;;
-	 -s|--dropLowStreamOrders)
-		  dropLowStreamOrders=1
-		  ;;
+    -a|--useAllStreamOrders)
+        useAllStreamOrders=1
+        ;;
     *) ;;
     esac
     shift
 done
 
 # print usage if arguments empty
-if [ "$envFile" = "" ]
-then
-    usage
-fi
 if [ "$runName" = "" ]
 then
+    echo "ERROR: Missing -n run time name argument"
     usage
 fi
+
+if [ "$envFile" = "" ]
+then
+    envFile=/foss_fim/config/params_template.env
+fi
+if [ "$deny_gms_branches_list" = "" ]
+then
+   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_min.lst
+fi
+
 if [ "$overwrite" = "" ]
 then
     overwrite=0
@@ -89,9 +96,17 @@ if [ -z "$retry" ]
 then
     retry=""
 fi
-if [ -z "$dropLowStreamOrders" ]
-then
-    dropLowStreamOrders=0
+
+# invert useAllStreamOrders boolean (to make it historically compatiable
+# with other files like gms/run_unit.sh and gms/run_branch.sh).
+# Yet help user understand that the inclusion of the -a flag means
+# to include the stream order (and not get mixed up with older versions
+# where -s mean drop stream orders)
+# This will encourage leaving stream orders 1 and 2 out.
+if [ "$useAllStreamOrders" == "1" ]; then
+    export dropLowStreamOrders=0
+else
+    export dropLowStreamOrders=1
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
@@ -109,7 +124,7 @@ export deny_gms_branches_list=$deny_gms_branches_list
 logFile=$outputRunDataDir/logs/branch/summary_gms_branch.log
 export extent=GMS
 export overwrite=$overwrite
-export dropLowStreamOrders=$dropLowStreamOrders
+
 
 ## Check for run data directory ##
 if [ ! -d "$outputRunDataDir" ]; then 
@@ -147,7 +162,7 @@ elif [ $overwrite -eq 1 ]; then
 fi
 
 ## RUN GMS BY BRANCH ##
-echo "================================================================================"
+echo "=========================================================================="
 echo "Start of branch processing"
 echo "Started: `date -u`" 
 
@@ -179,7 +194,15 @@ echo
 echo "Start non-zero exit code checking"
 find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
 
-echo "================================================================================"
+# -------------------
+## REMOVE FAILED BRANCHES ##
+# Needed in case aggregation fails, we will need the logs
+echo
+echo "Removing branches that failed with Exit status: 61"
+python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $outputRunDataDir/gms_inputs.csv
+
+echo "=========================================================================="
 echo "GMS_run_branch complete"
+Tcount
 echo "Ended: `date -u`" 
 echo

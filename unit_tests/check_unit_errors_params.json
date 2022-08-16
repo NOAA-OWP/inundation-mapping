@@ -1,0 +1,11 @@
+{
+	"valid_data":
+	{
+		"fim_dir": "/outputs/gms_example_unit_tests"
+	},
+
+	"invalid_path":
+	{
+		"fim_dir": "/outputs/gms_example_unit_tests_not_not_valid"
+	}	
+}

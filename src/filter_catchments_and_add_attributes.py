@@ -7,7 +7,7 @@ import sys
 
 from utils.shared_variables import FIM_ID
 from utils.shared_functions import mem_profile
-from utils.fim_enums import FIM_system_exit_codes
+from utils.fim_enums import FIM_exit_codes
 
 @mem_profile
 def filter_catchments_and_add_attributes(input_catchments_filename,
@@ -59,7 +59,7 @@ def filter_catchments_and_add_attributes(input_catchments_filename,
             if (drop_stream_orders):
                 # this is not an exception, but a custom exit code that can be trapped
                 print("There are no flowlines in the HUC after stream order filtering.")
-                sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+                sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
             else:
                 # if we are not dropping stream orders, then something is wrong
                 raise Exception("There are no flowlines in the HUC.")
@@ -67,7 +67,7 @@ def filter_catchments_and_add_attributes(input_catchments_filename,
         if (drop_stream_orders):
             # this is not an exception, but a custom exit code that can be trapped
             print("There are no flowlines in the HUC after stream order filtering.")
-            sys.exit(FIM_system_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+            sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
         else:
             # if we are not dropping stream orders, then something is wrong
             raise Exception("There are no flowlines in the HUC.")
