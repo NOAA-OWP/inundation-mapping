@@ -261,18 +261,21 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
-                print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+                print("WARNING: HAND grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id))
+                log_file.write("WARNING: HAND grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id) + '\n')
             elif not os.path.exists(catchments_path):
-                print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
+                print("WARNING: Catchments grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id))
+                log_file.write("WARNING: Catchments grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id) + '\n')        
             elif not os.path.exists(htable_path):
-                print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+                print("WARNING: hydroTable does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id))
+                log_file.write("WARNING: hydroTable does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id) + '\n')
             else:
                 procs_list.append([branch_dir, huc, branch_id, hand_path, catchments_path, catchments_poly_path, water_edge_df, htable_path, debug_outputs_option])
 
     with Pool(processes=job_number) as pool:
                 log_output = pool.map(process_points, procs_list)
                 log_file.writelines(["%s\n" % item  for item in log_output])
-
+    log_file.write('#########################################################\n')
     disconnect(conn) # move this to happen at the end of the huc looping
 
 def connect():
@@ -343,7 +346,7 @@ def run_prep(fim_directory,debug_outputs_option,ds_thresh_override,DOWNSTREAM_TH
     ## Create log file for processing records
     print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
-    log_file = open(os.path.join(output_dir,'log_rating_curve_adjust.log'),"w")
+    log_file = open(os.path.join(output_dir,'log_spatial_src_adjust.log'),"w")
     log_file.write('#########################################################\n')
     log_file.write('Parameter Values:\n' + 'DOWNSTREAM_THRESHOLD= ' + str(DOWNSTREAM_THRESHOLD) + '\n' + 'ROUGHNESS_MIN_THRESH= ' + str( ROUGHNESS_MIN_THRESH) + '\n' + 'ROUGHNESS_MAX_THRESH=' + str(ROUGHNESS_MAX_THRESH) + '\n')
     log_file.write('#########################################################\n\n')

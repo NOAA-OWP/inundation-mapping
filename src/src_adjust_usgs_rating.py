@@ -146,8 +146,7 @@ def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
     #branch_huc_dict = pd.Series(usgs_df.levpa_id.values,index=usgs_df.huc).to_dict('list')
     #branch_huc_dict = usgs_df.set_index('huc').T.to_dict('list')
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
-    print(huc_branch_dict)
-    #branch_huc_dict = {'5760000001': '11130203', '5760000002': '11130203'}
+
     for huc in huc_branch_dict:
         branch_set = huc_branch_dict[huc]
         for branch_id in branch_set: 
@@ -163,11 +162,14 @@ def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
-                print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+                print("WARNING: HAND grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id))
+                log_file.write("WARNING: HAND grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id) + '\n')
             elif not os.path.exists(catchments_path):
-                print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
+                print("WARNING: Catchments grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id))
+                log_file.write("WARNING: Catchments grid does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id) + '\n')        
             elif not os.path.exists(htable_path):
-                print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
+                print("WARNING: hydroTable does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id))
+                log_file.write("WARNING: hydroTable does not exist (skipping): " + str(huc) + ' - branch-id: ' + str(branch_id) + '\n')
             else:
                 ## Additional arguments for src_roughness_optimization
                 source_tag = 'usgs_rating' # tag to use in source attribute field
@@ -175,35 +177,6 @@ def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
 
                 print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
                 procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
-
-    # loop through all hucs that have a USGS gage (run routine for branch 0s)
-    # branch_id = '0'
-    # # huc_list = ['11130203']
-    # for huc in huc_list: 
-    #     # Define paths to branch HAND data.
-    #     # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-    #     # Assumes outputs are for HUC8 (not HUC6)
-    #     branch_dir = os.path.join(run_dir,huc,'branches',branch_id)
-    #     hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
-    #     catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
-    #     catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
-    #     htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-    #     water_edge_median_ds = usgs_df[(usgs_df['huc']==huc)] # do not filter by branch when processing branch 0 
-
-    #     # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-    #     if not os.path.exists(hand_path):
-    #         print("HAND grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
-    #     elif not os.path.exists(catchments_path):
-    #         print("Catchments grid does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))        
-    #     elif not os.path.exists(htable_path):
-    #         print("hydroTable does not exist." + str(huc) + ' - branch-id: ' + str(branch_id))
-    #     else:
-    #         ## Additional arguments for src_roughness_optimization
-    #         source_tag = 'usgs_rating' # tag to use in source attribute field
-    #         merge_prev_adj = False # merge in previous SRC adjustment calculations
-
-    #         print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-    #         procs_list.append([branch_dir, water_edge_median_ds, htable_path, huc, branch_id, catchments_poly_path, debug_outputs_option, source_tag, merge_prev_adj])
 
     # multiprocess all available branches
     print(f"Calculating new SRCs for {len(procs_list)} branches using {job_number} jobs...")
