@@ -61,10 +61,11 @@ def remove_error_branches(logfile, gms_inputs):
                 if branch in gms_inputs_df.loc[:,1].values:
                     gms_inputs_df = gms_inputs_df.drop(index=gms_inputs_df[gms_inputs_df.loc[:,1]==branch].index[0])
 
+                tmp_df = pd.DataFrame([huc, branch]).T
                 if error_branches is None:
-                    error_branches = gms_inputs_df
+                    error_branches = tmp_df
                 else:
-                    error_branches = pd.concat([error_branches, gms_inputs_df])
+                    error_branches = pd.concat([error_branches, tmp_df])
 
         # Save list of removed branches
         pd.DataFrame(error_branches).to_csv(gms_inputs_removed, header=False, index=False)
