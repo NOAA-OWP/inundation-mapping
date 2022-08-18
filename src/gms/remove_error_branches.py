@@ -16,7 +16,7 @@ def remove_error_branches(logfile, gms_inputs):
             print('\nLog file is empty. Skipping this HUC.\n')
             return
 
-        gms_inputs_df = pd.read_csv(gms_inputs, header=None)
+        gms_inputs_df = pd.read_csv(gms_inputs, header=None, dtype={0:str,1:str})
 
         # Make copy of gms_inputs.csv
         gms_inputs_copy = os.path.splitext(gms_inputs)[0] + '_original.csv'
@@ -44,7 +44,6 @@ def remove_error_branches(logfile, gms_inputs):
 
                 huc = split[0]
                 branch = split[3]
-                huc_level = len(huc)
 
                 if huc not in first_occurrence:
                     # Ignore previous removals for this HUC
@@ -59,14 +58,13 @@ def remove_error_branches(logfile, gms_inputs):
                     shutil.rmtree(branch_dir)
 
                 # Remove bad branch from DataFrame
-                if int(branch) in gms_inputs_df.loc[:,1].values:
-                    gms_inputs_df = gms_inputs_df.drop(index=gms_inputs_df[gms_inputs_df.loc[:,1]==int(branch)].index[0])
+                if branch in gms_inputs_df.loc[:,1].values:
+                    gms_inputs_df = gms_inputs_df.drop(index=gms_inputs_df[gms_inputs_df.loc[:,1]==branch].index[0])
 
-                tmp_df = pd.DataFrame([huc.zfill(huc_level), branch]).T
                 if error_branches is None:
-                    error_branches = tmp_df
+                    error_branches = gms_inputs_df
                 else:
-                    error_branches = pd.concat([error_branches, tmp_df])
+                    error_branches = pd.concat([error_branches, gms_inputs_df])
 
         # Save list of removed branches
         pd.DataFrame(error_branches).to_csv(gms_inputs_removed, header=False, index=False)
