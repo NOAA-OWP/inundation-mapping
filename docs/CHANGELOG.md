@@ -8,6 +8,43 @@ Updated `Dockerfile`, `Pipfile` and `Pipfile.lock` to add the new psycopg2 pytho
 <br/><br/>
 
 
+## v4.0.7.0 - 2022-08-17 - [PR #657](https://github.com/NOAA-OWP/inundation-mapping/pull/657)
+
+Introduces synthetic rating curve calibration workflow. The calibration computes new Manning's coefficients for the HAND SRCs using input data: USGS gage locations, USGS rating curve csv, and a benchmark FIM extent point database stored in PostgreSQL database. This addresses [#535].
+
+## Additions
+
+- `src/src_adjust_spatial_obs.py`: new synthetic rating curve calibration routine that prepares all of the spatial (point data) benchmark data for ingest to the Manning's coefficient calculations performed in `src_roughness_optimization.py`
+- `src/src_adjust_usgs_rating.py`: new synthetic rating curve calibration routine that prepares all of the USGS gage location and observed rating curve data for ingest to the Manning's coefficient calculations performed in `src_roughness_optimization.py`
+- `src/src_roughness_optimization.py`: new SRC post-processing script that ingests observed data and HUC/branch FIM output data to compute optimized Manning's coefficient values and update the discharge values in the SRCs. Outputs a new hydroTable.csv.
+
+## Changes
+
+- `config/deny_gms_branch_zero.lst`: added `gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg` to list of files to keep (used in calibration workflow)
+- `config/deny_gms_branches_min.lst`: added `gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg` to list of files to keep (used in calibration workflow)
+- `config/deny_gms_unit_default.lst`: added `usgs_elev_table.csv` to list of files to keep (used in calibration workflow)
+- `config/params_template.env`: added new variables for user to control calibration
+  - `src_adjust_usgs`: Toggle to run src adjustment routine (True=on; False=off)
+  - `nwm_recur_file`: input file location with nwm feature_id and recurrence flow values
+  - `src_adjust_spatial`: Toggle to run src adjustment routine (True=on; False=off)
+  - `fim_obs_pnt_data`: input file location with benchmark point data used to populate the postgresql database
+  - `CALB_DB_KEYS_FILE`: path to env file with sensitive paths for accessing postgres database
+- `gms_run_branch.sh`: includes new steps in the workflow to connect to the calibration PostgreSQL database, run SRC calibration w/ USGS gage rating curves, run SRC calibration w/ benchmark point database
+- `src/add_crosswalk.py`: added step to create placeholder variables to be replaced in post-processing (as needed). Created here to ensure consistent column variables in the final hydrotable.csv
+- `src/gms/run_by_unit.sh`: added new steps to workflow to create the `usgs_subset_gages.gpkg` file for branch zero and then perform crosswalk and create `usgs_elev_table.csv` for branch zero
+- `src/make_stages_and_catchlist.py`: Reconcile flows and catchments hydroids
+- `src/usgs_gage_aggregate.py`: changed streamorder data type from integer to string to better handle missing values in `usgs_gage_unit_setup.py`
+- `src/usgs_gage_unit_setup.py`: added new inputs and function to populate `usgs_elev_table.csv` for branch zero using all available gages within the huc (not filtering to a specific branch)
+- `src/utils/shared_functions.py`: added two new functions for calibration workflow
+  - `check_file_age`: check the age of a file (use for flagging potentially outdated input)
+  - `concat_huc_csv`: concatenate huc csv files to a single dataframe/csv
+- `src/utils/shared_variables.py`: defined new SRC calibration threshold variables
+  - `DOWNSTREAM_THRESHOLD`: distance in km to propogate new roughness values downstream
+  - `ROUGHNESS_MAX_THRESH`: max allowable adjusted roughness value (void values larger than this)
+  - `ROUGHNESS_MIN_THRESH`: min allowable adjusted roughness value (void values smaller than this)
+
+<br/><br/>
+
 ## v4.0.6.2 - 2022-08-16 - [PR #639](https://github.com/NOAA-OWP/inundation-mapping/pull/639)
 
 This file converts USFIMR remote sensed inundation shapefiles into a raster that can be used to compare to the FIM data. It has to be run separately for each shapefile. This addresses [#629].

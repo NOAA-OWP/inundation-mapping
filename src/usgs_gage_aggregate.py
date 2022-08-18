@@ -21,7 +21,7 @@ class HucDirectory(object):
                             'levpa_id':str,
                             'dem_elevation':float,
                             'dem_adj_elevation':float,
-                            'order_':int,
+                            'order_':str,
                             'LakeID':object,
                             'HUC8':str,
                             'snap_distance':float}
