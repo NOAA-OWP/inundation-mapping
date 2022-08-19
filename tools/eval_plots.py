@@ -89,6 +89,8 @@ def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
                 label_dict[label] = re.split('_fr|_ms|_comp', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
+            elif 'fim_4' in label and len(label) < 20:
+                label_dict[label] = label.replace('_','.').replace('fim.','FIM ')
             else:
                 label_dict[label] = label
         #Define simplified labels as a list.
@@ -256,6 +258,8 @@ def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_
                 label_dict[label] = re.split('_fr|_ms|_comp', label)[0].replace('_','.').replace('fim.','FIM ') + ' ' + fim_configuration.lower()
                 if label.endswith('_c'):
                     label_dict[label] = label_dict[label] + ' c'
+            elif 'fim_4' in label and len(label) < 20:
+                label_dict[label] = label.replace('_','.').replace('fim.','FIM ')
             else:
                 label_dict[label] = label
         #Define simplified labels as a list.
