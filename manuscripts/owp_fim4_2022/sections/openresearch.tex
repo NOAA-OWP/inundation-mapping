@@ -1,0 +1,13 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\openresearch
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+National Water Model (NWM) data used in this study includes the hydrofabric related datasets \cite{nwm2022hydrofabric} including catchments, streamlines, and reservoirs are furnished by the National Oceanic and Atmospheric Administration (NOAA) Office of Water Prediction (OWP) via an Earth Science Information Partners (ESIP) Amazon Web Services (AWS) S3 Bucket \cite{esipData2022}.
+OWP Flood Inundation Mapping (FIM) capabilities rely extensively on the use of the National Hydrography Plus High Resolution (NHDPlusHR) datasets including BurnLineEvents \cite{nhdplus2022vectors}, value-added attributes (VAA) \cite{nhdplus2022vectors}, water boundaries (WBD) or hydrologic unit code (HUC) geometries \cite{nhdplus2022wbd}, and digital elevation maps (DEM) \cite{nhdplus2022dems}.
+Some additional datasets for processing include the National Levee Database (NLD) furnished by the United States Army Core of Engineers (USACE) \cite{engineers2016national}, Land-sea border from the Great Lakes Hydrography Dataset (GLHD) furnished by the Great Lakes Aquatic Habitat Framework (GLAHF) \cite{GreatLakesHydrographyDataset}, and a Land-sea border provided by OpenStreetMap (OSM) \cite{osm2021landsea}.
+Evaluation data was furnished by Interagency Flood Risk Management (InFRM) consortium including cross-sections and flood depths \cite{fema2021base,fema2021estimated}.
+Additionally, some FIM hydrofabric data including HAND grids, catchments, streamlines, synthetic rating curves, and cross-walk tables are available on the ESIP bucket \cite{esipData2022}.
+
+Software used in preprocessing data, producing FIM hydrofrabic, generating FIM, computing metrics, and conducting analysis is available from a publicly available Github repository called ``inundation-mapping'' from the ``NOAA-OWP'' organization \cite{inundationMapping2022}.

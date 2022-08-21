@@ -279,7 +279,6 @@
     publisher={Elsevier}
 }
 
-
 @article{gerapetritis2004behavior,
     title={On the behavior of the critical success index},
     author={Gerapetritis, Harry and Pelissier, Joseph M},
@@ -299,9 +298,9 @@
 @misc{us_department_of_commerce_2020, 
     title={NWS Preliminary US Flood Fatality Statistics}, 
     url={https://www.weather.gov/arx/usflood}, 
-    journal={{National Weather Service}}, 
+    journal={National Weather Service}, 
     publisher={NOAA's National Weather Service}, 
-    author={{National Weather Service}}, 
+    author={National Weather Service}, 
     year={2020}, 
     month={Nov}
 }
@@ -311,7 +310,7 @@
     url={https://www.weather.gov/media/hazstat/sum19.pdf}, 
     journal={Weather.gov}, 
     publisher={NOAA}, 
-    author={{National Weather Service}}, 
+    author={National Weather Service}, 
     year={2020}, 
     month={Jun}
 }
@@ -635,11 +634,12 @@ month={Apr}
     year={2019}
 }
 
-@article{hellweger1997agree,
+@misc{hellweger1997agree,
     title={AGREE-DEM surface reconditioning system},
     author={Hellweger, Ferdi and Maidment, D},
-    journal={University of Texas, Austin},
-    year={1997}
+    publisher={University of Texas, Austin},
+    year={1997},
+    url={https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html}
 }
 
 @article{aristizabal2020high,
@@ -715,7 +715,7 @@ month={Apr}
   publisher={Wiley Online Library}
 }
 
-@dataset{engineers2016national,
+@misc{engineers2016national,
   title={National Levee Database},
   author={ENGINEERS, US ARMY CORPS OF},
   year={2021},
@@ -777,19 +777,27 @@ month={Apr}
   title={Preparation of DEMs for use in environmental modeling analysis},
   author={Saunders, William},
   booktitle={ESRI User Conference},
-  pages={24--30},
+  pages={24-30},
   year={1999}
 }
 
 @techreport{saunders1996gis,
-  title={A GIS assessment of nonpoint source pollution in the San Antonio-Nueces coastal basin},
+  title={A GIS Assessment of Non-point Source Pollution in the San Antonio-Nueces Coastal Basin},
   author={Saunders, William Kelley and Maidment, David R},
   year={1996},
   institution={Center for Research in Water Resources, University of Texas at Austin}
 }
 
+@article{quenzer1998gis,
+  title={A GIS Assessment of The Total Loads and Water Quality in the Corpus Christi Bay System},
+  author={Quenzer, Ann Marie},
+  year={1998},
+  month={May},
+  institution={Center for Research in Water Resources, University of Texas at Austin}
+}
+
 @article{saunders1995grid,
-  title={Grid-based watershed and stream network delineation for the San Antonio-Nueces Coastal Basin},
+  title={Grid-based Watershed and Stream Network Delineation for The San Antonio-Nueces Coastal Basin},
   author={Saunders, WK and Maidment, DR},
   journal={Proceedings of Texas Water},
   volume={95},
@@ -801,13 +809,6 @@ month={Apr}
   title={Modeling agrichemical transport in midwest rivers using geographic information systems},
   author={Mizgalewicz, Pawel Jerzy and Maidment, David R},
   year={1996},
-  school={Center for Research in Water Resources, University of Texas at Austin}
-}
-
-@phdthesis{quenzer1998gis,
-  title={A GIS assessment of the total loads and water quality in the Corpus Christi bay system},
-  author={Quenzer, Ann Marie and Maidment, David R},
-  year={1998},
   school={Center for Research in Water Resources, University of Texas at Austin}
 }
 
@@ -911,17 +912,17 @@ month={Apr}
 }
 
 @manual{python382,
-  title={{Python: A dynamic, open source programming language}},
-  author={{Python Core Team}},
-  organization={{Python Software Foundation}},
+  title={Python: A dynamic, open source programming language},
+  author={Python Core Team},
+  organization={Python Software Foundation},
   year={2019},
   url={https://www.python.org/},
   note={Python version 3.8.2}
 }
 
 @manual{gdal2020,
-  title = {{GDAL/OGR} Geospatial Data Abstraction software Library},
-  author = {{GDAL/OGR contributors}},
+  title = {GDAL/OGR Geospatial Data Abstraction software Library},
+  author = {GDAL/OGR contributors},
   organization = {Open Source Geospatial Foundation},
   year = {2020},
   url = {https://gdal.org},
@@ -930,7 +931,7 @@ month={Apr}
 
 @manual{grass2020,
   title = {Geographic Resources Analysis Support System (GRASS GIS) Software},
-  author = {{GRASS Development Team}},
+  author = {GRASS Development Team},
   organization = {Open Source Geospatial Foundation},
   address = {USA},
   year = {2020},
@@ -1136,14 +1137,14 @@ month={Apr}
   institution={US Geological Survey}
 }
 
-@dataset{GreatLakesHydrographyDataset,
-  publisher = {{Great Lakes Aquatic Habitat Framework contributors}},
-  title = {{GLHD}},
-  howpublished = "\url{ https://www.glahf.org/download/159/ }",
+@misc{GreatLakesHydrographyDataset,
+  publisher = {Great Lakes Aquatic Habitat Framework contributors},
+  title = {GLHD},
+  url = {https://www.glahf.org/download/159/},
   year = {2020},
 }
 
-@software{inundationMapping2022,
+@misc{inundationMapping2022,
   author = {Aristizabal, Fernando and Bates, Bradford and Avant, Brian and Chadwick, Nick and Grout, Trevor and Spies, Ryan and Luck, Matt and Salas, Fernando and Pruitt, Carson and Hanna, Robert and Cocks, Greg},
   title = {NOAA-OWP/inundation-mapping (V4.0.0.0)},
   year = {2022},
@@ -1251,7 +1252,7 @@ month={Apr}
   publisher={Taylor \& Francis}
 }
 
-@dataset{nhdplus2022dems,
+@misc{nhdplus2022dems,
     title={NHDPlusHR DEM},
     year={2021},
     month={June},
@@ -1259,7 +1260,7 @@ month={Apr}
     url={https://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/}
 }
 
-@dataset{nhdplus2022vectors,
+@misc{nhdplus2022vectors,
     title={NHDPlusHR GDB},
     year={2021},
     month={June},
@@ -1267,7 +1268,7 @@ month={Apr}
     url={https://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/}
 }
 
-@dataset{nhdplus2022wbd,
+@misc{nhdplus2022wbd,
     title={NHDPlusHR WBD},
     year={2021},
     month={June},
@@ -1275,7 +1276,7 @@ month={Apr}
     url={https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/WBD/National/GDB/WBD_National_GDB.zip}
 }
 
-@dataset{nwm2022hydrofabric,
+@misc{nwm2022hydrofabric,
     title={NWM Hydrofabric V2.1},
     year={2021},
     month={Dec},
@@ -1283,9 +1284,17 @@ month={Apr}
     url={s3://noaa-nws-owp-fim/hand_fim/fim_3_0_34_1/inputs/nwm_hydrofabric/}
 }
 
-@dataset{osm2021landsea,
+@misc{osm2021landsea,
   title = {Water polygons},
   year = {2021},
   publisher = {Open Street Map (OSM)},
   url = {https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip}
 }
+
+@misc{us2022hydrologic,
+  title={Hydrologic engineering centers river analysis system (HEC-RAS)},
+  author={USACE},
+  year={2022},
+  url={https://www.hec.usace.army.mil/software/hec-ras/}
+}
+

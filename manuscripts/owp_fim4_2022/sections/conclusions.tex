@@ -7,21 +7,33 @@
 %
 Floods present a significant, under-served, and expanding risk to life, property, and resources.
 Previous flood forecasting systems lacked the coverage to adequately inform society of these risks.
-The National Water Model (NWM) developed by the National Oceanic and Atmospheric Administration's Office of Water Prediction, along with partners, provides increased spatial coverage and resolution as well as additional forecast time horizons on mostly hourly intervals.
-Additional processing is required to convert streamflows from the NWM to river stages and finally to flood inundation maps (FIM).
+The National Water Model (NWM), developed by the National Oceanic and Atmospheric Administration's (NOAA) Office of Water Prediction (OWP) and the National Center for Atmospheric Research (NCAR), provides increased spatial coverage and resolution as well as additional forecast time horizons on mostly hourly intervals.
+Additional modeling is required to convert streamflows from the NWM to river stages and finally to flood inundation maps (FIM).
 Height Above Nearest Drainage (HAND) is a means of detrending digital elevations maps (DEM) by normalizing elevation to the nearest relevant drainage point.
 HAND coupled with the use of reach averaged synthetic rating curves (SRC) provide such a means of creating continental scale FIM capabilities at high resolutions (1/3 arc-second, 10 m) and high temporal frequencies (up to 1 hr).
-Scalable, open-source software was developed to produce HAND and associated datasets (catchments, SRCs, and cross-walking data) for the NWM forecasting area including Hawaii and Puerto Rico \cite{inundationMapping2022}.
+Scalable, open-source software, known as OWP FIM, was developed to produce HAND and associated datasets (catchments, SRCs, and cross-walking data) for the NWM forecasting area including Hawaii and Puerto Rico \cite{inundationMapping2022}.
 HAND is produced using the latest hydro-conditioning techniques to enforce monotonically decreasing elevations including stream burning, levee enforcement, pit-filling, stream channel excavation, thalweg breaching, headwater seeding, stream reach resampling, and more. 
-Finally, we use this implementation to investigate the skill of the FIMs by varying the scale of the processing units used to derive HAND.
+Finally, we used this implementation to investigate the skill of the FIMs by varying the scale of the processing units used to derive HAND.
 FIM skill was evaluated over large spatial scales by comparison to HEC-RAS 1D models.
-We illustrate that reducing the Horton-Strahler stream order of a HAND processing unit down to one enhances skill by significantly reducing false negatives at junctions of major streams.
-This also affects the parameters used to compute stage-discharge relationships biasing discharge higher at given stages which reduced the rate of false positives.
 
-Dissecting the stream network into regions of level-paths with unit stream order is necessary because HAND has a ``nearest drainage'' limitation meaning it only accounts for riverine inundation sourced from the nearest drainage line.
-While this is all that is required in many, lower flow instances, typically larger flow scenerios can call for multi-source riverine flooding to occur especially at the junction of major rivers with their smaller tributaries.
-Computing HAND independently for each level-path removes the boundary of neighboring catchments thus allowing for 
-Further investment in the SRC's is warranted by accounting for bathymetric errors inherited by the DEM and better accounting for localized friction values at varying flow magnitudes.
+The main contribution and conclusion of this work centers around a fundamental limitation in HAND based FIM which is a failure to account for multiple possible sources of fluvial inundation since HAND only considers inundation from the nearest drainage line.
+We illustrate that reducing the Horton-Strahler stream order of a HAND processing unit down to one enhances skill by significantly reducing false negatives at junctions of major streams.
+In order to reduce stream order of the NWM stream network for HAND computation, we dissected the NWM network into two simpler units of singular Horton-Strahler stream order and mosaiced the resulting FIMs derived from each.
+The NWM Mainstems (MS) stream network, which covers roughly 4-5\% of the NWM Full Resolution (FR) network, spans all established forecasting points in the Advanced Hydrologic Prediction System (AHPS) and downstream reaches.
+The inundation from MS derived HAND is mosaiced together with the inundation of FR derived HAND.
+Extending order reduction to the entire network, the Generalized Mainstem (GMS) technique discretizes the NWM FR network into level paths (LP) of unit stream order for HAND computation.
+All LP based FIM derived from LP based HAND datasets are mosaiced together to form one seamless FIM.
+Dissecting the stream network into regions of LPs with unit stream order is necessary because HAND has a ``nearest drainage'' limitation meaning it only accounts for riverine inundation sourced from the nearest drainage line.
+In our evaluation of this technique, we observe that HAND based FIM improves in skill as we extend from nearest drainage inundation in FR to multiple drainage support in MS for only 4-5\% of the FR network.
+Extending multiple drainage support to the entire FR network with GMS based HAND improves upon skill at around the same magnitude that MS improved upon FR.
+Thus we conclude that deriving HAND with independent stream networks of unit Horton-Strahler stream order enhances the skill of FIM but offers diminishing returns as we extend from 4-5\% of the network with MS to 100\% of the network with GMS since deriving HAND and FIMs at these localized scale does add computational expense.
+
+This primary contribution also affects the parameters used to compute stage-discharge relationships shifting discharge higher at given stages which reduced the rate of false positives.
+This shift in SRC behavior is driven by larger catchments that influence reach averaged geometric parameters in the Manning's equation.
+Related to SRCs, we noted better results and more sensitivity to unit stream order networks with the higher Manning's n value of 0.12 when compared to 0.06 for high magnitude events at 1\% (100 year or yr) and 0.2\% (500 year or yr) recurrence intervals.
+Additionally, we noted better performance for more intense 500 yr events which we attribute to a stronger influence of poor quality bathymetric data in 100 yr magnitude inundation extents.
+While the AGREE DEM procedure is meant to add some bathymetry primarily motivated to enhance catchment and stream line delineation, it does introduce three parameters that have major implications in the quality of SRCs and the resulting FIMs.
 Utilizing the highest resolution Lidar and bathymetric data should also improve the vertical accuracy of HAND and better account for fine grain features that greatly affect inundation extents.
-Due to inherent limitations with HAND, scalable, physics-based methods are necessary to consider to provide a better representation of flood extent dynamics in steady and unsteady conditions. 
-%
+We leave questions related to Manning's n localization as well as bathymetry integration, estimation, and/or calibration open for future research to answer.
+Two other issues left open for improvement include the integration of higher resolution Lidar-based digital elevation maps (DEM) as well as the use of physics-based models for continental scale, high resolution forecasting applications.
+Due to inherent limitations with HAND, scalable, physics-based methods are necessary to consider to provide a better representation of flood extent dynamics in steady and unsteady conditions.

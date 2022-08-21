@@ -80,12 +80,18 @@ I am looking forward to reading a substantially revised and edited version of th
 Best regards
 
 \begin{reply}
-We thank the reviewers for carefully reading the manuscript and for providing valuable feedback.
+We thank you, the editor, as well as the reviewers for carefully reading the manuscript and for providing valuable feedback to improve its quality.
 We have gone through the reviews and made every effort to address the concerns while staying within the scope of the paper.
-We feel like we have addressed the concerns around not highlighting the primary contribution of the paper while strengthening the explaination of the contribution's methods in Section 2.5.
+Substantial revision has led to the removal of superfluous report like information while ensuring adequate background not published in other sources is provided in the manuscript.
+This has left some room for better highlighting and explaining the novel contribution of the paper which is countering the ``nearest drainage'' limitation within Height Above Nearest Drainage for flood inundation mapping applications.
+We have added several key clarifications in response to reviewer points and several new or updated figures that better explain our methods and results.
+There are few concerns that we had to leave out of this manuscript as this submission already covers a very substantial amount of work.
+The questions left open concern issues surrounding the synthetic rating curves including localizing Manning's n as well as bathymetry inclusion, estimation, and/or calibration.
+We hope this greatly enhanced submission meets the expectations set by WRR and the concerns of our three reviewers adequately.
 \end{reply}
 
 % Let's start point-by-point with Reviewer 1
+\clearpage
 \reviewersection
 
 \subsection*{Introductory Comment}
@@ -131,7 +137,7 @@ This needs to be at least discussed in your discussion section.
 \begin{reply}
 We thank you very much for making this important point as one of the main purposes of the paper was to introduce how exactly drainage reduction techniques change HAND derived inundation performance.
 After reading your comment and our initial discussion section submission, we did notice a missing portion that properly explains how drainage order reduction increases catchment boundary extents and how that drives increased inundation extents and Probability of Detection (POD).
-This, as you correctly noted, is a competing effect to the increased catchment size and associated increase in inundation area and POD.
+This, as you correctly noted, is a competing effect to the increased catchment size and associated decrease in inundation area due to a downward shift in the synthetic rating curve (SRC).
 
 These competing effects are very difficult to detangle since catchment definitions are used to derive synthetic rating curves (SRCs).
 When viewed from the perspective of change in the total inundation area, these two effects can correctly be described as competing since one tends to increase inundation area while the other generally decreases it.
@@ -139,10 +145,10 @@ However, when viewed in the paradigm of overall FIM performance, we believe they
 
 Motivated by this comment, we have completely restructured the Discussion section to make sure your comment is properly highlighted in the paper.
 We have inserted some paragraphs that better describe the increase in inundation extents and POD as driven by catchment size enlargement especially around the critical areas described in the paper.
-These larger, overlapping catchments better handle riverine inundation from multiple sources as opposed to the traditional single source "nearest drainage" that HAND is limited to.
-Limited catchment boundaries drive pools of water that are artificially built up without room for the water to naturally spread. 
-This can be conceptually visualized as a column of water that extends beyond its containers top edge.
-This inherent limitation in HAND skews the stage-discharge relationship in addition to limiting the inunduation extents.
+These larger, overlapping catchments better handle riverine inundation from multiple sources as opposed to the traditional single source ``nearest drainage'' that HAND is limited to.
+Limited catchment boundaries drive pools of water that are artificially built up without room for the water to naturally spread.
+This can be conceptually visualized as a column of water that extends beyond its container's top edge.
+This inherent limitation in HAND skews the stage-discharge relationship in addition to limiting the inundation extents.
 
 Overall, accounting for multiple sources of inundation by delineating catchments from independent level paths of unit stream order better accounts for multi-source inundation thus increasing inundation extent (and POD) while also lowering river stage values thus reducing FAR in other areas.
 We believe the updated Discussion section better reflects this critical finding of the paper.
@@ -153,7 +159,6 @@ My second question is that it seems the proposed method reduces the false alarm 
 This means the underestimation of the original HAND-based flood mapping compared to the FEMA maps is resolved.
 However, we know there are uncertainties associated with the FEMA flood extent.
 How would you say this reduction of false negatives is really in a right direction when you did not compare results with ground truth data?
-    \label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -162,15 +167,15 @@ It can be expressed confidently that the use of BLE maps for evaluation does not
 However, the BLE does offer many advantages that are useful when evaluating a large-domain flood inundation map derived from HAND. 
 
 Despite being an engineering scale model, the BLE is available over a very large domain (49 HUC8s and 9 states) at high spatial resolutions which allows for a broader evaluation of HAND which is being applied to continental scale flood forecasting for our purposes.
-Additionally, the BLE offers the availability of tightly spaced cross-sections that provide the stream flows used in making the flood extents.
-This high resolution dataset of stream flows and inundation extents provides the opportunity to remove the meterological, hydrological, and some of the hydraulic assumptions, errors, and limitations from the comparison.
-Stream gages and in-situ observations, while clearly higher fidelity in nature, don't offer the spatial coverage that the BLE offers both in terms of flood extents and their associated stream flows that can be used to detangle confounding factors that introduce errors into the evaluation.
+Additionally, the BLE offers the availability of tightly spaced cross-sections that provide the streamflows used in making the flood extents.
+This high resolution dataset of streamflows and inundation extents provides the opportunity to remove the meteorological, hydrological, and some of the hydraulic assumptions, errors, and limitations from the comparison.
+Stream gages and in-situ observations, while clearly higher fidelity in nature, don't offer the spatial coverage that the BLE offers both in terms of flood extents and their associated streamflows that can be used to detangle confounding factors that introduce errors into the evaluation.
 Nevertheless, FEMA maps have a storied use in the literature as an evaluation dataset due to some of the advantages and trade-offs listed above \cite{cook2009effect,rajib2016large,zheng2018geoflood,afshari2018comparison,wing2017validation,criss2022stage,follum2017autorapid}.
 Additionally, it is important to note that almost any other source of FIM is subject to errors and limitations including crowd-sourced data, remote sensing observation, and modeled extents.
-Unfortunatley, flood inundation mapping is an imprecise science that depends on compromises to be made in the search for objective benchmarking.
+Unfortunately, flood inundation mapping is an imprecise science that depends on compromises to be made in the search for objective benchmarking.
 
-To address your concern within the paper, we have added some verbage in the evaluation section of the draft that better recognizes and discusses the limitations of the BLE HEC-RAS based FIMs.
-While we can't assure that the BLE maps are perfect, they are considered more sophisticated than our simplified continental technique and have been established well in the literature as a common benchmarking model.
+To address your concern within the paper, we have added some wording in the evaluation section of the draft that better recognizes and discusses the limitations of the BLE HEC-RAS based FIMs.
+While we can't assure that the BLE maps are perfect, they are considered more sophisticated than our simplified, zero-physics, continental-scale technique and have been established well in the literature as a common benchmarking model.
 Hopefully this properly addresses your concern with the use of the BLE HEC-RAS 1D models for evaluation.
 \end{reply}
 
@@ -183,7 +188,6 @@ Is the first one sub-setting MS?
 The NWM main-stem part (2.5.1) seems (at least to me) like an introduction, not something that you did.
 Please clarify and revise this part such that a reader can follow the story that connects 2.5.1 and 2.5.2 with the main paragraph in Section 2.5.
 Again, this is the most important part of you work. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -191,12 +195,13 @@ We respect your opinion that the methodology may seem to take away from the nove
 While the major and foremost scientific contribution of the paper is a proposed method to cure the nearest drainage limitation within HAND, we note that a significant amount of work was devised in developing the methods for computing HAND at any scale.
 These hydro-conditioning and geospatial techniques can have a significant impact on performance and on the quality of the final operational product.
 We found it important to make sure these methods were properly documented within scientific literature for the benefit of the academic and forecasting communities.
-Based on your recommendation, we did go through sections 2.1-4 and tried to remove any information that maybe superflous to the goals and scope of the paper.
+Based on your recommendation, we did go through sections 2.1-4 and tried to remove any information that maybe superfluous to the goals and scope of the paper.
 This includes much of the stream thalweg breaching technique in Section 2.3.4 that was more than adequately described in the citation it was developed in.
 
 Additionally, we initiated a substantial revamp of Section 2.5 to ensure the main contribution of the paper is properly explained and defended.
-The Section NWM MS (2.5.1) does represent methods conducted by us therefore we have elected to keep it in the paper to adequately describe a stream reduction technique that covers 4\% of the country that is of primary concern to river forecasters.
-Also, we added an extra Figure (Figure \#6 in the revised document) that expands upon the explaination in Figure 5. 
+The Section NWM MS (2.5.1) does represent methods conducted by us in that we computed HAND for that specific stream network.
+Therefore we have elected to keep it in the paper to adequately describe a stream reduction technique that covers 4\% of the country that is of primary concern to river forecasters.
+Also, we added an extra figure (Figure 7 in the revised document) that expands upon the explanation in Figure 5. 
 This provides the reader with a more in-depth look at how drainage order reduction down to the level path scale expands catchment and inundation extents.
 This allows for multiple sources of fluvial inundation to be accounted for in regions where it is applicable.
 We believe that this better conveys the main contribution of the paper to the audience.
@@ -212,41 +217,38 @@ This is somehow explained in L203-210.
 But not very well explained.
 This is an important part and the gap your research is trying to resolve so be generous and explain more.
 Could you also clarify whether this limitation always results in more overestimation or underestimation? 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
-Thank you for pointing out an opportunity to better explain the limitation we are trying to resolve within HAND for FIM applications.
-To better explain this limitation, we included an additional Sub-section (1.4 HAND's Assumptions and Limitations) that better introduces all of the fundametal assumptions HAND employs and their resulting limitations.
+To better explain this limitation, we included an additional Sub-section (1.4 HAND's Assumptions and Limitations) that better introduces all of the fundamental assumptions HAND employs and their resulting limitations.
 Much effort is expelled here to ensure the reader better understands HAND's limitation to only model fluvial inundation from one nearest drainage source thus ignoring other possible fluvial sources of inundation.
-We would also like to point out the reference to Figure 3 and the new Figure 6 which also illustrate this problem and proposed solution.
+We would also like to point out the reference to Figure 3 and the new Figure 7 which also illustrate this problem and proposed solution.
 Please reference the explanation in the Methodology Section 2.5.2 on more discussion on the issue and proposed solution.
 And lastly, yes, the citations for this known limitation were provided on L241-242 but also included in the new sub-section to ensure the reader is aware of prior literature acknowledging this issue.
 
 With respect to your question about always producing overestimation (False positives) or underestimation (False negatives), we note in the results and discussion sections that you can't say that this problem always leads to FPs or FNs.
-It can only lead to FN's if a given catchment boundary is restricting water inundating a neighboring catchment.
+It can only lead to FNs if a given catchment boundary is restricting water inundating a neighboring catchment.
 This is commonly seen in areas where junctions are present where a reach's drainage area is restricted by the nearest drainage area of neighboring tributaries.
 However, as the wall of a catchment boundary begins to fill artificially with water, the lack of spread could cause FPs in other regions.
-By reducing the effect of the neigboring boundaries, we see a general reduction in the rating curve thus leading to lower stage values at given discharges.
-We believe that the new version of the Discussion section adequetely details these competing forces as per your prior recommention (\ref{pt:discussion}).
+By reducing the effect of the neighboring boundaries, we see a general reduction in the rating curve thus leading to lower stage values at given discharges.
+We believe that the new version of the Discussion section adequately details these competing forces as per your prior recommendation (\ref{pt:discussion}).
 \end{reply}
 
 \begin{point}
-Links to all datasets introduced in section 2.2 should be included in your manuscript either in the suggested table or within the "Open Research" section at the end of your manuscript. 
-\label{pt:bar}
+Links to all datasets introduced in section 2.2 should be included in your manuscript either in the suggested table or within the ``Open Research'' section at the end of your manuscript. 
 \end{point}
 
 \begin{reply}
 Based on your suggestion we have reviewed the citations to all datasets and software used to ensure they follow the journal's requirements.
-In addition, to citing the datasets and software properly in their respective sections, 2.1 and 2.2, we have added another column in the datasets table to ensure they are properly cited there as well.
-The URL's to all the software and datasets are included as part of the reference as indicated by the journal.
+In addition to citing the datasets and software properly in their respective sections, 2.1 and 2.2, we have added another column in the datasets table to ensure they are properly cited there as well.
+The URLs to all the software and datasets are included as part of the references as indicated by the journal.
+We have also added all this information to an Open Research section at the end of the manuscript.
 \end{reply}
 
 \begin{point}
 Line 331-332: what were the values for buffer distance, smooth drop, and sharp drop you used?
 Were they fixed numbers or differ?
 How did you choose these values? 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -260,11 +262,11 @@ Based on your comment, we have added the important information within this reply
 I believe a diagram showing all the steps and methods you took to prepare your data and method could be helpful.
 Your material and data section has about 14 sub-sections collectively.
 It is sometimes hard to follow along. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
-And our reply to it.
+A new Figure 2 was added to the beginning of the Materials and Methods section that gives the reader a high-level overview of the methods employed.
+A brief paragraph was added to help explain this new figure as well at the beginning of the methodology.
 \end{reply}
 
 \begin{point}
@@ -272,13 +274,15 @@ LINE 462-464. Could you explain more about why this is required?
 Is it to improve flat areas?
 Can't we see any results associated with this error improvement?
 Any other studies that observed this that you could cite?
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
 We use the native elevations from the NHD DEM in the areas not corresponding to the thalweg or the areas excavated with the AGREE DEM method.
 Doing so allows the HAND value within non-pit filled regions to be computed based on its original value and not its hydro-conditioned value.
+HAND requires a long series of hydro-conditioning operations that can greatly manipulate elevations to ensure drainage.
+We thought it appropriate to use native elevations for this one step to minimize the error associated with those assumptions.
 We inherited this technique from Djokic, 2019 which we now cite on that line in the paper.
+The explaination as to why we elected to use the native elevations was expanded upon in this section as well.
 \end{reply}
 
 \begin{point}
@@ -286,12 +290,11 @@ Fig 4. You need to explain this figure in the content more thoroughly.
 What are the numbers?
 How does one dominate the other?
 You mention that the level path method starts from an outlet, so it is probably better to show an outlet in Figure 4.
-Please clarify what you mean by "arbolate sum"? I cannot understand what this summation is.
-\label{pt:bar}
+Please clarify what you mean by ``arbolate sum''? I cannot understand what this summation is.
 \end{point}
 
 \begin{reply}
-The full explanation for this figure is provided by its in-text reference but based on your recommendation we have expanded this caption to properly describe the Figure in place.
+The full explanation for this figure is provided by its in-text reference but based on your recommendation we have expanded this caption to properly describe the figure in place.
 \end{reply}
 
 \begin{point}
@@ -299,7 +302,6 @@ In equations 5 and 6, When you apply the mosaic method, what is the reason to ch
 Is that because you always see the original HAND approach, as shown in Figure 3, underestimating the flood extent?
 This may not be true everywhere, or it might be.
 Please provide your thoughts on this and add it to the manuscript. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -323,7 +325,6 @@ Do you mean more accurate inundation depth or inundation extent?
 Same for L39.
 Mapping skill itself is not clear.
 Does that refer to flood depth or flood extent?
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -337,7 +338,6 @@ Please revise this.
 I agree HAND is a simplified model, but that does not make it unrealistic.
 It is realistic because it is based on some terrain physics.
 You may want to revise this sentence and use ``physically-based'' rather than ``realistic''.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -347,7 +347,6 @@ The term ``realistic'' was changed for ``physically-based'' per your suggestion.
 \begin{point}
 L121. There is a gap between the geofabric concept you introduced and the Muskingam-Cunge routing method.
 You might want to start this sentence like this: The NWM provides stream forecasts at these geofabric segments using the Muskingham-Cunge method. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -355,8 +354,7 @@ This suggestion was incorporated but the term ``hydrofabric'' was recycled in fa
 \end{reply}
 
 \begin{point}
-Page 29: It could be better to change the title of subsection 3.1 to "Flood mapping performance". 
-\label{pt:bar}
+Page 29: It could be better to change the title of subsection 3.1 to ``Flood mapping performance''. 
 \end{point}
 
 \begin{reply}
@@ -364,19 +362,17 @@ Changed.
 \end{reply}
 
 \begin{point}
-L671. Please add "(Table 2)" at the end of the sentence.
+L671. Please add ``(Table 2)'' at the end of the sentence.
 This guides the reader to know what you are referring to immediately. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
-Due to restructuring of the Results section, this reference was changed to refer to the Figure with violin plots instead in the following sentence.
+Due to restructuring of the Results section, this reference was changed to refer to the figure with violin plots instead in the following sentence.
 \end{reply}
 
 \begin{point}
 Line 315-318: Please clarify what NHD is?
 Does that refer to the NHDPlusHR or NHDPlus medium resolution as used in the NWM v2.1?
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -385,7 +381,6 @@ Specified to NHDPlusHR.
 
 \begin{point}
 Line 344-345: This statement requires citation(s).
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -394,7 +389,6 @@ Citations added.
 
 \begin{point}
 I would suggest removing lines 534-535. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -405,13 +399,13 @@ Removed.
 I believe section 2.3.1 is not a DEM hydro conditioning step.
 It is more like creating an input (as seed points) that you need when delineating the stream network.
 The hydro conditioning of the DEM section should start with levee enforcement (section 2.3.2).
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
 Section 2.3.1 is about enforcing the general location and density of the stream network used for HAND.
-Additionally, an excavation procedure is detailed that is used to counter flat bathymetric regions in the DEM that can severly distort synthetic rating curves (SRC) and catchment delineations.
+Additionally, an excavation procedure is detailed that is used to counter flat bathymetric regions in the DEM that can severely distort synthetic rating curves (SRC) and catchment delineations.
 We use the term ``hydro-conditioning'', as stated in Section 2.3, as the series of steps required to generate monotonically decreasing elevations, flow directions that fully drain processing regions, and monotonically draining stream network thalweg lines.
+Additionally, we enforce the general locations of hydrography-based stream lines as well as levee elvations which we also consider hydro-conditioning.
 These are fundamental assumptions and inputs required for HAND, catchment, and SRC calculation.
 We believe that these steps should fall under the term hydro-conditioning as we defined it in the paper. 
 \end{reply}
@@ -420,7 +414,6 @@ We believe that these steps should fall under the term hydro-conditioning as we 
 Line 570. What is the logic behind using a 7 km buffer?
 Did you first come with this number or after some test?
 What is your recommendation or suggestion?
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -433,7 +426,6 @@ We have added this discussion to the paper.
 
 \begin{point}
 Maybe reporting the percentage of improvements in Table 2 would help better understanding the contribution of your work.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -449,16 +441,15 @@ Is it considered good or bad?
 Is it something you had expected?
 Another question that arises here is why using a higher Manning's n shifts the KDE graphs up and whether this means results get better or worse.
 You discuss this figure on Line 686-690, but I think it could be better to bring this part further up where you first mention Figure 8.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
 Based on your suggestions, we have significantly improved to the Results section.
 The first paragraph briefly introduces the results while the second paragraph gives the reader and in-depth description of the previously numbered Figure 8.
-We have made sure all elements of the Figure are properly described and that a specific sub-figured is dived into more detail to ensure the reader has a proper understanding of the many elements at play here.
+We have made sure all elements of the figure are properly described and that a specific sub-figured is dived into more detail to ensure the reader has a proper understanding of the many elements at play here.
 In addition to this enhanced description, we have added a significant amount of information in the third paragraph of the results section that begins to dissect the results and the trends observed in the study.
-In a related point and in response to your critique of the Discussion section, we have made significant enhancements to the Discussion section that better elaborate on the material and trends presented in this Figure.
-We hope that these changes fully address your questions and support this Figure that is central to the paper's findings.
+In a related point and in response to your critique of the Discussion section, we have made significant enhancements to the Discussion section that better elaborate on the material and trends presented in this figure.
+We hope that these changes fully address your questions and support this figure that is central to the paper's findings.
 \end{reply}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -469,7 +460,6 @@ We hope that these changes fully address your questions and support this Figure 
 
 \begin{point}
 Fig 1. The NWM FR streams line is hardly visible in the legend. Please revise. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -495,7 +485,6 @@ Here main stem was used to refer to the higher stream order segment in the middl
 
 \begin{point}
 Line 575. This should be Figure 5d not 5c.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -535,8 +524,8 @@ Is this the FR or MR NWM v2.1 stream or the one you created (GSM)?
 \end{point}
 
 \begin{reply}
-These names of the rivers are not present in the NWM V2.1 but instead I had to look at their equivalents in the NHDPlusHR stream line data.
-While the figure is quite busy, I agree that showing the NWM catchments does provide the reader some sense as to how many BLE cross sections might be associated with a given NWM forecast identifier.
+These names of the rivers are not present in the NWM V2.1 but instead we had to look at their equivalents in the NHDPlusHR stream line data.
+While the figure is quite busy, we agree that showing the NWM catchments does provide the reader some sense as to how many BLE cross sections might be associated with a given NWM forecast identifier.
 We have updated the caption to include this new layer and provide some more spatial context.
 \end{reply}
 
@@ -546,7 +535,7 @@ Please add this to the caption and mention it in the content where you explain r
 \end{point}
 
 \begin{reply}
-We used the 500yr magnitude and added this to both the caption and in-text content as well.
+We used the 500 yr magnitude and added this to both the caption and in-text content as well.
 \end{reply}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -557,7 +546,6 @@ We used the 500yr magnitude and added this to both the caption and in-text conte
 
 \begin{point}
 L66. Remove the period before the parenthesis, followed by the citations.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -566,7 +554,6 @@ Done.
 
 \begin{point}
 L101. NWM is already defined. Just use the abbreviation here. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -575,7 +562,6 @@ Done.
 
 \begin{point}
 Title of section 1.5: It could be better to use the Operational Water Prediction (OWP) Flood Inundation Maps (FIM)
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -584,7 +570,6 @@ Done.
 
 \begin{point}
 L160. HPC is already defined. 
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -593,7 +578,6 @@ Addressed.
 
 \begin{point}
 L167. MR is already defined.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -603,7 +587,6 @@ It is possible prior uses were removed during edits.
 
 \begin{point}
 L178. USGS is not yet defined.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -612,7 +595,6 @@ Done.
 
 \begin{point}
 Line 347: NLD has already been introduced on page 11.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -621,7 +603,6 @@ Done.
 
 \begin{point}
 Line 524: MS should be first defined here not on line 537.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -631,7 +612,6 @@ We opted for the use of main segment here to avoid confusion with the Mainstems 
 \begin{point}
 Throughout the manuscript, please be consistent with the terms you use.
 Use either Manning's n or Manning's N everywhere.
-\label{pt:bar}
 \end{point}
 
 \begin{reply}
@@ -644,6 +624,7 @@ We have opted for the use of the lower case, Manning's n.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Begin a new reviewer section
+\clearpage
 \reviewersection
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -663,6 +644,7 @@ Based on the reasons above, a major revision is recommended for the editors' con
 \end{point}
 
 \begin{reply}
+Thank you for taking the time to read our paper and providing ample feedback for improving its content.
 We understand your concern and have made every effort to highlight the novel contributions of the manuscript which is an operational, continental scale version of HAND that applies the latest datasets and hydro-conditioning methods while considering multiple sources of fluvial inundation instead of just that of the nearest drainage line.
 We hope that the revisions completed based on your suggestions and the suggestions of the other two reviewers better highlight the studies' novel findings in a more science-driven format.
 \end{reply}
@@ -672,6 +654,8 @@ Line 82-84 Introducing these two NWM networks in section 1.2 makes more sense.
 \end{point}
 
 \begin{reply}
+To your point, we have added an additional, high-level explaination of the two stream networks for the NWM in this section to provide the reader with a general idea of what these two illustrated networks mean. 
+We did leave some additional detail to be discussed in the NWM section since it is more relevant to that section.
 \end{reply}
 
 \begin{point}
@@ -687,21 +671,28 @@ Line 128-129 Here, a statement may be added to explain that running a continenta
 \end{point}
 
 \begin{reply}
+Added a sentence specifically mentioning that a continental scale hydrodynamic model is computationally prohibitive.
 \end{reply}
 
 \begin{point}
 Line 212-230 ``In addition to developed tooling, we introduce research'' I don't like how the authors present the study's purpose. This is not a draft submitted to Environmental Modelling \& Software.
 Presenting some research that is a byproduct of tool development won't interest the potential readers of this journal.
+\label{pt:science_oriented_purpose}
 \end{point}
 
 \begin{reply}
+Based on your suggestion, we have rewritten this section to better highlight OWP FIM as a research study and a scientific enhancement.
 \end{reply}
 
 \begin{point}
-Although very comprehensive, the introduction section seems a little bit long. This is not a HAND-study review paper, so you don't have to go through all the studies. The authors may consider removing a few sentences to make it more focused.
+Although very comprehensive, the introduction section seems a little bit long.
+This is not a HAND-study review paper, so you don't have to go through all the studies.
+The authors may consider removing a few sentences to make it more focused.
 \end{point}
 
 \begin{reply}
+Several sentences in the introduction of AHPS and NWM were removed to only include the most relevant information to this study.
+The section introducing OWP FIM was completely revised to address \ref{pt:science_oriented_purpose} and an entire paragraph on some of the superflous HAND-related studies that are mentioned in the Methods later on was also removed.
 \end{reply}
 
 \begin{point}
@@ -709,13 +700,18 @@ Figure 2 How are the pruned headwaters derived? Why are they moved away from the
 \end{point}
 
 \begin{reply}
+The first paragraph in original section 2.3.1 was meant to describe the pruning of the NHDPlusHR to better match the resolution of the NWM stream network which was originally derived from the NHDPlus network.
+In response to your questions, we have revamped this paragraph to offer the reader a better explanation.
+Additionally, we have added more information to the caption of original Figure 2 to provide a better explaination in context.
+We hope this level of detail adequately answers your questions.
 \end{reply}
 
 \begin{point}
-Line 513 I don't think "work for many instances fine" is formal enough as a sentence in a scientific journal article.
+Line 513 I don't think ``work for many instances fine'' is formal enough as a sentence in a scientific journal article.
 \end{point}
 
 \begin{reply}
+This informal phrase was removed and the sentence was merged with the following sentence.
 \end{reply}
 
 \begin{point}
@@ -724,14 +720,26 @@ I appreciate the comprehensiveness, but this is a journal article, not a technic
 \end{point}
 
 \begin{reply}
+Yes we do understand that the methods are quite long but these methods are very much central to the study.
+We believe that all methods involved in developing the conclusion of the study should be properly explained or cited.
+The methods in the four sub-sections you referenced involve a listing of the primary software dependencies used, description of the datasets used, explanation of the hydro-conditioning processes employed, and a detailing of the derivation of the FIM hydrofabric.
+All of these methods are central to the conclusions of the study and must be properly explained here since they have not been published previously.
+We argue that keeping these sub-sections intact are required to ensure reproducible, transparent, and open research.
 \end{reply}
 
 \begin{point}
-Line 544 "only find an MS stream network of stream order 1 (i.e., headwater)" From Figure 1, we can tell that most AHPS sites are located on big rivers, which means their stream orders are pretty low.
+Line 544 ``only find an MS stream network of stream order 1 (i.e., headwater)'' From Figure 1, we can tell that most AHPS sites are located on big rivers, which means their stream orders are pretty low.
 Then why do you say they are headwater links?
 \end{point}
 
 \begin{reply}
+We agree this sentence is fairly ambigous so we have clarified this to be more clear.
+Yes, typically MS river segments are large rivers with higher Horton-Strahler stream order.
+Horton-Strahler stream order starts at order 1 for headwaters and compounds downstream until the outlet point.
+However, HAND is computed at the HUC8 spatial resolution for the MS version.
+When a mainstem river is clipped to a HUC8 segment, it typically will have an effective stream order of 1 within this particular area.
+This is relevant to the computation of HAND as in it removes tributaries that may limit catchment boundary sizes and resulting inundation extents.
+We have changed the phrasing to reflect ``uniform stream order'' instead which we believe better describes the circumstances.
 \end{reply}
 
 \begin{point}
@@ -743,6 +751,11 @@ How come two numbers there?
 \end{point}
 
 \begin{reply}
+Based on your appropriate feedback, we have elected to show the same figure but in the context of a HUC12.
+Illustrating a HUC12 shows the dendritic structure relevant to the explaination of arbolate sums and level paths (LP).
+To be clear, the arbolate sums and LPs were derived at the HUC8 scale but for the figure we only show a HUC12 to show fine grain features more clearly.
+The numbers in the figure represent arbolate sums which are cumulative drainage distances of all inclusive upstream reaches.
+The arbolate sums are now much more clearly labeled at the whole km value for each reach defined as a junction to junction stream segment.
 \end{reply}
 
 \begin{point}
@@ -752,6 +765,17 @@ Otherwise, the significance of this study does not look very convincing.
 \end{point}
 
 \begin{reply}
+We understand that a few metric points may seem like a marginal increase.
+In order to better highlight the value of the proposed work, we have changed Table 2 to report the percentage improvement for the proposed models, MS and GMS, when compared to the baseline model, FR.
+Each percentage improvement corresponds to a specific metric (CSI, POD, and FAR), magnitude (100 and 500 yr), and Manning's n values (0.06 and 0.12).
+These percentage improvements for CSI range from just over 2\% for MS to almost 5\% improvement for GMS which we deem convincing.
+Additionally, we argue and highlight that these metrics are for evaluations at the HUC8 scale.
+HUC8s are very large regions that aggregate away fine grain results and impacts.
+This up to 5\% improvement assessed at a much local scale can seem like a significant improvement.
+While the OWP is not currently using an impact based data source such as building footprints or land cover/use maps, viewing the enhancements qualitatively and computing the results at this scale could provide an argument that these results can be significant at the impact scale.
+We provided original Figure 10 to highlight the enhancement of this improvement at this scale.
+To respond to this point, we have inserted some verbage in the Discussion that acknowledges the limitations of large, HUC8, scale evaluations and hints towards future usage of impact datasets and finer grain evaluations to counter this limitation.
+For now, we note an absolute improvement in FIM skill by account for multiple fluvial inundation sources by reducing the scale of HAND computation to utilize stream networks of unit Horton-Strahler stream order.
 \end{reply}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -759,6 +783,7 @@ Otherwise, the significance of this study does not look very convincing.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Begin a new reviewer section
+\clearpage
 \reviewersection
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -772,34 +797,82 @@ The relevance of this work to society is not to be understated; a forecast of fl
 The originality of this work lies in the scale of the problem being addressed and the relevance of operational forecasting to mitigating risk to life and property.
 
 This manuscript adds to the growing body of literature using HAND as a method for determining potential flood inundation in the absence of a full-physics (hydraulic) model.
-Ultimately, the process of producing inundation estimates for >2.7M stream segments at high spatial resolution (~10m) is one which required much iteration.
+Ultimately, the process of producing inundation estimates for $>$2.7M stream segments at high spatial resolution ($\sim$10m) is one which required much iteration.
 In the end, the authors found that generalizing the stream networks, and using smaller basin areas (HUC8) combined with aggregating individual level-paths yielded better estimates of flood inundation when compared to results from HEC-RAS BLE maps.
 Novel methods and computational algorithms were employed along the way, resulting in potentially useful workflows and repositories that readers may follow to produce similar FIMs over the same regions (CONUS).
 
 Although there is a growing body of literature surrounding the use of relative elevation maps such as HAND for flood inundation mapping, this study scales the process to the continental scale and addresses many of the limitations encountered along the way.
 Some of the most novel findings in the paper come from the methodological choices employed, such as identifying the appropriate thalweg elevation in the presence of competing channels (DEM-based thalweg vs. hydrography-based thalweg).
 Another innovation is in the mosaicking of the FIMs in the presence of tributaries and lower-order streams.
-Another very useful innovation lies in 'burning' levee elevations onto the DEMs to enforce flood control measures on to the HAND surface.
+Another very useful innovation lies in ``burning'' levee elevations onto the DEMs to enforce flood control measures on to the HAND surface.
 The approach detailed in this manuscript can be seen as a guide for mitigating the 'catchment boundary problem', the importance of which should be emphasized more extensively in this paper.
+\label{pt:intro_pt_reviewer_3}
+\end{point}
 
+\begin{reply}
+We thank you for your overall assessment of the paper and for noting the important contributions this work represents.
+While the central scientific contribution of the paper was allowing for multiple fluvial source inundation within HAND based FIMs, we are pleased to hear that the many of the supporting contributions including continental scaling, levee enforcement, open-source software availability, forecasting applications, and thalweg delineation methods were properly conveyed and appreciated.
+We hope that the following points in your review are properly addressed to ensure that the main contribution of the paper is properly communicated in a clear and scientific manner to add to the body of literature in this sub-field of hydrology.
+\end{reply}
+
+\begin{point}
 As a reader, I find the manuscript title and some of the conclusions to be somewhat misdirected.
 The idea that Horton-Strahler stream order has a direct impact on the resulting HAND inundation product is misleading.
-The stream order of a given reach is determined by the drainage density, and as such is a product of 'upstream' decisions made during the derivation of the flow network.
+The stream order of a given reach is determined by the drainage density, and as such is a product of ``upstream'' decisions made during the derivation of the flow network.
 Stream order is not an input into the HAND model, nor is it very meaningful when comparing networks that are derived from different headwater locations (such as a pruned version of an existing network such as NHDPlusHR).
 Thus, simply reducing stream order should not have any impact on HAND.
 There are references in the paper to the impact of drainage density on maximum stream order, but the Conclusions indicate that Horton-Strahler reduction is the reason for improved FIM results, when that reduction is simply an associated result of reduced stream network density.
-For example, the authors indicate "We present two successive methods implemented that reduce drainage densities by reducing Horton-Strahler stream orders of the networks employed...".
+For example, the authors indicate ``We present two successive methods implemented that reduce drainage densities by reducing Horton-Strahler stream orders of the networks employed...''.
 In reality, the reduction Horton-Strahler stream order is the result of, and not the cause for, a reduction in drainage density.
 It may be useful to emphasize that the discretization of the network into coherent regions based on level-path or the regionalization methods (such as using HUC8 boundaries), as well as the priority queue calculation (Equation 6) during the HAND raster mosaic process has a bigger impact on the result than the Horton-Strahler number of the network employed.
+\end{point}
 
-Further revision could include a more thorough description of how using level-paths eliminates the catchment boundary problem, when each level path may have many tributaries (and thus multiple catchment boundaries).
-There is a bit of missing information in Section 2.5.2 that is necessary for understanding how the catchment boundary problem is mitigated.
-It seems that the way around the catchment boundary problem is to calculate HAND for a given level-path while leaving tributaries out of the analysis, and allowing the mosaic process to result in a HAND/FIM result with more extensive coverage over catchment boundary areas.
+\begin{reply}
+We acknowledge that the original messaging in the paper maybe confusing.
+We note in this reply that as described in the methodology surrounding datasets and stream network enforcement as well as your mention \ref{pt:intro_pt_reviewer_3}, stream network is indeed used as an input in our process to compute HAND.
+We differ from previous studies mentioned in the paper that utilize accumulated drainage pixels across the entire processing area then threshold those accumulations to produce a stream thalweg network.
+In our methods, we consider a forecast network, that of the NWM, and a network that better agrees with the DEM employed, NHDPlusHR Burnlines, to help enforce drainage in the processing unit which is one of the fundamental assumptions and requirements of HAND.
+We then use select headwater points to seed a new stream thalweg network that is heavily influenced by the burning and conditioning operations inspired by the input networks, NWM and NHDPlusHR.
+The thalweg datum used to detrend or normalize elevations away from mean sea level to that of nearest drainage is thus a product of input stream networks.
 
+Where we believe our explaination lacked, and with respect to your point, is we failed to properly communicate that discretizing the Full Resolution NWM stream network into either Mainstems (MS) network or independent level paths doesn't change the maximum Horton-Strahler stream order or the drainage density.
+It does, however, change the effective maximum stream order used in each independent computation of HAND.
+This distinction is not properly conveyed in the paper and could lead readers to be confused as to what is actually happening.
+In response to this ambigiouty, we have added language in the Stream Order Reduction sub-section of the Methods to ensure this distincition is more clear.
+
+Most notably, we propose a title change to the paper to ensure that the primary objective of considering multi-source fluvial inundation is properly highlighted.
+The new proposed title ``Extending Height Above Nearest Drainage to Model Multiple Fluvial Sources in Flood Inundation Mapping Applications for the U.S. National Water Model'' better accounts for the primary purpose of the paper while not allowing an ambigouty to settle in without proper explanation to occur first.
+We hope these changes better account for the fundamental contributions of the paper and convey them in a much more clear manner.
+\end{reply}
+
+\begin{point}
 Another limitation in the methodology lies in using synthetic rating curves (SRCs) that result from reach-averaged geometry parameter derived from the AGREE-DEM (a hydro-conditioning process).
 This results in an artificially impacted cross-section and bathymetry structure.
 The parameters used to constrain the AGREE method will have a profound impact on the SRCs derived from that DEM due to the excavation process in the AGREE method.
+\end{point}
 
+\begin{reply}
+We agree with you that the AGREE DEM proceduce does introduce a significant amount of bathymetric manipulation that affects SRC and FIM extent quality.
+To your point, we have noted this limitation in multiple sections throughout the paper including the methods, discussion, and conclusions to ensure that the reader is fully aware of this limitation and its effects.
+We do motivate future work in this realm as SRC quality is of primary importance to FIM skill.
+We invite future researchers to investigate factors that contribute to SRC quality including Manning's n localization as well as bathymetry assimiliation, estimation, and calibration.
+Unfortunately, the scope of this article is already too extensive to go much further.
+\end{reply}
+
+\begin{point}
+Further revision could include a more thorough description of how using level-paths eliminates the catchment boundary problem, when each level path may have many tributaries (and thus multiple catchment boundaries).
+There is a bit of missing information in Section 2.5.2 that is necessary for understanding how the catchment boundary problem is mitigated.
+It seems that the way around the catchment boundary problem is to calculate HAND for a given level-path while leaving tributaries out of the analysis, and allowing the mosaic process to result in a HAND/FIM result with more extensive coverage over catchment boundary areas.
+\end{point}
+
+\begin{reply}
+We agree that the original submission lacked sufficient detail as to how the catchment boundary problem is mitigated by level path disaggregation for HAND computation.
+We have completely revamped this section to ensure the core contribution of this paper is properly explained.
+Additionally, we have introduced a new Figure 7 that better describes how the catchments are delineated at the level path scale as well as the associated inundation.
+We hope these considerable changes better communicate this critical section of the paper.
+\end{reply}
+
+\begin{point}
 The manuscript is, in places, difficult to understand due in part to the large number of acronyms and persistent jargon that pervades it.
 There are also many grammatical and syntactical errors that should be edited before re-submission.
 The attached annotated manuscript contains many suggestions for resolving these issues along with other comments and feedback, which the authors may find helpful.
@@ -807,130 +880,90 @@ For this reason and those outlined above, I suggest to return the manuscript to 
 \end{point}
 
 \begin{reply}
-
+We have gone through your attached annotated manuscript and have made every effort to address every concern listed.
+For any annotations that require an additional response, we provide those below referencing the original line numbers those annotations occur. 
 \end{reply}
 
 \begin{point}
-
+L98 - Does the AHPS have a coarser resolution than NWM?
 \end{point}
 
 \begin{reply}
-
+AHPS only has two forecast horizons while NWM has three forecast horizons and one analysis product (lookback).  
+These are now accounted for in the new manuscript.
 \end{reply}
 
 \begin{point}
-
+L368 - 375:
+Why does this need to be done?
+Is there often a conflict after running AGREE between the DEM thalweg and the AGREE-DEM thalweg?
+Depending on the smooth-drop parameter used in AGREE, I wouldn't think there would be any parallel channels in the resulting DEM.
 \end{point}
 
 \begin{reply}
-
+The citations in the manuscript refer to the parallel streams problem that arises by using AGREE DEM.
+The AGREE DEM enforces a hydrography based streamline and associated notch while not considering some semblemce of the thalweg that might be occuring natively in the DEM.
+This creates the notion of a parallel stream when comparing two different DEMs, the AGREE one and the native, unconditioned one.
+Additionally, this step provides native elevations to be fed into the thalweg breaching algorithm as opposed to the vastly artificial values in the sharp drop portion of AGREE.
+To your point, we have attempted to better explain this in the manuscript.
 \end{reply}
 
 \begin{point}
-
+L454: Couldn't you just use the value from the flow accumulation grid at each thalweg pixel rather than derive catchments at each thalweg pixel?
 \end{point}
 
 \begin{reply}
-
+The term ``contributing area'' is ambigious here.
+We seek to clarify that we are not computing the contributing area in some square km value.
+We are just trying the derive catchments or unique drainage polygons for two separate circumstances.
+We have changed the language here to bring about more clarity.
 \end{reply}
 
 \begin{point}
-
+L478: perimeter?
 \end{point}
 
 \begin{reply}
-
+In the reach averaged version of the Manning's Equation, wetted perimeter in the traditional Manning's Equation is translated to bed area given the consideration to the reach length, L, in the formula as well.
 \end{reply}
 
 \begin{point}
-
+L491: 0.05 does not appear to be used later. How did the authors decide to use 0.06 and 0.12?
 \end{point}
 
 \begin{reply}
-
+In our evaluations, we have noted better general performance with higher Manning's n values thus selected the value of 0.06 from the Djokic work as our baseline.
 \end{reply}
 
 \begin{point}
-
+L498: NWM channel parameters, for consistency with the source model? These parameters exhibit variability and have been evaluated during mdoel testing.
 \end{point}
 
 \begin{reply}
-
+We tried those parameters and unfortunately they do not yield better results in terms of FIM.
+It's possible that those regionalized values are not optimal for FIM purposes as they are tuned more for 1D hydralic routing purposes.
+It's likely that lack of accurate bathymetric information interacts heavily with the optimal Manning's n value which is only supposed to account for roughness.
+We are keen on working more with the combined effects of bathymetry and roughness parameters to optimize the SRCs for better FIM performance.
+In the meantime, we focused on the core contributions of this paper already presented.
 \end{reply}
 
 \begin{point}
-
+L684:  This is a key finding of this research and could be emphasized more perhaps in the abstract or conclusions.
 \end{point}
 
 \begin{reply}
-
+This key finding has now been further elaborated on in the conclusions and abstract sections.
 \end{reply}
 
 \begin{point}
-
+L765-767: I thought lower stream order produced better FIM maps?
 \end{point}
 
 \begin{reply}
-
+This sentence is referring to an issue associated with conflation or cross-walking of the FR version of HAND.
+This has now been specified so the reader understands that it is likely improved with the new GMS version that ignores neighboring tributaries thus less susceptible to cross-walking errors.
 \end{reply}
-
-\begin{point}
-
-\end{point}
-
-\begin{reply}
-
-\end{reply}
-
-\begin{point}
-
-\end{point}
-
-\begin{reply}
-
-\end{reply}
-
-\begin{point}
-
-\end{point}
-
-\begin{reply}
-
-\end{reply}
-
-\begin{point}
-
-\end{point}
-
-\begin{reply}
-
-\end{reply}
-
-\begin{point}
-
-\end{point}
-
-\begin{reply}
-
-\end{reply}
-
-\begin{point}
-
-\end{point}
-
-\begin{reply}
-
-\end{reply}
-
-\begin{point}
-
-\end{point}
-
-\begin{reply}
-
-\end{reply}
-
-
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1286,6 +1286,15 @@ width0pt\relax}\\*\noindent\ignorespaces}
 {\large\bf\noindent Supporting  Information for\vskip-6pt\noindent``#1''}
 \vskip12pt}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 15) Open Research
+\def\openresearch{\vskip12pt\noindent{\bf
+Open Research\vrule depth 6pt
+width0pt\relax}\\*\noindent\ignorespaces}
+%\def\openresearch#1{
+%{\large\bf\noindent Open Research\vskip-6pt\noindent}
+%}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Start page numbering, formatting
 

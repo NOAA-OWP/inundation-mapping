@@ -42,6 +42,10 @@ RUN 7z x -sdel -o$binDir $tmpDir/texcount.zip
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
 
+## ALIASES ##
+RUN alias manuscript_make='(cd /foss_fim/dev-manuscript/manuscripts/owp_fim4_2022 && ./Makefile.sh)'
+RUN alias rebuttal_make='(cd /foss_fim/dev-manuscript/manuscripts/owp_fim4_2022/reviews/first_review && ./makefile_rebuttal.sh)'
+
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /
