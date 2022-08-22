@@ -87,7 +87,7 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 COPY Pipfile .
 COPY Pipfile.lock .
 RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
-RUN pip3 install shapely
+## RUN pip3 install shapely
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /

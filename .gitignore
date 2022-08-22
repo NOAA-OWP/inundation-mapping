@@ -6,6 +6,7 @@
 __pycache__/
 config/**
 !config/deny*.lst
+!config/aws*.lst
 !config/*template*
 !config/*default*
 !config/symbology/
