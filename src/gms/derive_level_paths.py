@@ -9,7 +9,7 @@ from utils.fim_enums import FIM_exit_codes
 
 def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribute,
                        out_stream_network_dissolved=None, huc_id=None,
-                       headwaters_outfile=None, catchments=None,
+                       headwaters_outfile=None, catchments=None, waterbodies=None,
                        catchments_outfile=None,
                        branch_inlets_outfile=None,
                        toNode_attribute='To_Node', fromNode_attribute='From_Node',
@@ -154,6 +154,15 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                            out_vector_files=out_stream_network_dissolved,
                                                            verbose=verbose)
 
+        # filter out streams in waterbodies
+        if waterbodies is not None:
+            waterbodies = gpd.read_file(waterbodies)
+
+            stream_network = stream_network.remove_branches_in_waterbodies(waterbodies,
+                                                                out_vector_files=out_stream_network_dissolved,
+                                                                verbose=verbose
+                                                                              )
+
         branch_inlets = stream_network.derive_inlet_points_by_feature( feature_attribute=branch_id_attribute,
                                                                        outlet_linestring_index=outlet_linestring_index
                                                                      )
@@ -174,6 +183,7 @@ if __name__ == '__main__':
     parser.add_argument('-r','--reach-id-attribute', help='Reach ID attribute to use in source file', required=False, default='HydroID')
     parser.add_argument('-c','--catchments', help='NWM catchments to append level path data to', required=False, default=None)
     parser.add_argument('-t','--catchments-outfile', help='NWM catchments outfile with appended level path data', required=False, default=None)
+    parser.add_argument('-w','--waterbodies', help='NWM waterbodies to eliminate branches from', required=False, default=None)
     parser.add_argument('-n','--branch_inlets_outfile', help='Output level paths inlets', required=False, default=None)
     parser.add_argument('-o','--out-stream-network', help='Output stream network', required=False, default=None)
     parser.add_argument('-e','--headwaters-outfile', help='Output stream network headwater points', required=False, default=None)

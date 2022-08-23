@@ -160,11 +160,11 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def to_df(self,*args,**kwargs):
+    def to_gdf(self,*args,**kwargs):
 
         """ Converts back to dataframe """
         
-        self = pd.DataFrame(self,*args,**kwargs)
+        self = gpd.GeoDataFrame(self,*args,**kwargs)
 
         return(self)
 
@@ -442,6 +442,70 @@ class StreamNetwork(gpd.GeoDataFrame):
             self.reset_index(drop=True,inplace=True)
         else:
             self.set_index(current_index_name,drop=True,inplace=True)
+
+        return(self)
+
+
+    def remove_branches_in_waterbodies(self,
+                                       waterbodies,
+                                       out_vector_files,
+                                       verbose=False
+                                       ):
+
+        if verbose:
+            print("Removing stream branches in waterbodies ...")
+
+        # load waterbodies
+        if isinstance(waterbodies,gpd.GeoDataFrame):
+            pass
+        elif isinstance(waterbodies,str):
+            waterbodies = gpd.read_file(waterbodies)
+        else:
+            raise TypeError("Waterbodies needs to be GeoDataFame or path to vector file")
+        
+        # unique_stream_branches = self.loc[:,branch_id_attribute].unique()
+        # unique_waterbodies = set(waterbodies.loc[:,reach_id_attribute_in_waterbodies].unique())
+
+        # current_index_name = self.index.name
+        # self.set_index(branch_id_attribute,drop=False,inplace=True)
+
+        # Find branches in waterbodies
+        sjoined = gpd.sjoin(self, waterbodies, op='within')
+
+        # for usb in unique_stream_branches:
+
+        #     try:
+        #         reach_ids_in_branch = set(self.loc[usb,reach_id_attribute].unique())
+        #     except AttributeError:
+        #         reach_ids_in_branch = set( [ self.loc[usb,reach_id_attribute] ] )
+
+        #     if len( reach_ids_in_branch & unique_waterbodies) == 0:
+        #         #print(f'Dropping {usb}')
+        #         self.drop(usb,inplace=True)
+
+        # if current_index_name is None:
+        #     self.reset_index(drop=True,inplace=True)
+        # else:
+        #     self.set_index(current_index_name,drop=True,inplace=True)
+
+        self.drop(sjoined.index, inplace=True)
+        # self = StreamNetwork(self.loc[~sjoined.index])
+
+        if out_vector_files is not None:
+            
+            # base_file_path,extension = splitext(out_vector_files)
+            
+            if verbose:
+                print("Writing dissolved branches not in waterbodies...")
+            
+            #for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
+                #out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
+                
+                #bid_indices = self.loc[:,branch_id_attribute] == bid
+                #current_stream_network = StreamNetwork(self.loc[bid_indices,:])
+
+                #current_stream_network.write(out_vector_file,index=False)
+            self.write(out_vector_files,index=False)
 
         return(self)
 
