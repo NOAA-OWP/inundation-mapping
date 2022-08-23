@@ -37,7 +37,7 @@ class AWS_Base(object):
         '''
         
         if (not os.path.exists(path_to_cred_env_file)):
-            raise FileNotFoundError
+            raise FileNotFoundError("AWS credentials file not found")
             
         load_dotenv(path_to_cred_env_file)
         
