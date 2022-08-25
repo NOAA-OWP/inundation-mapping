@@ -446,14 +446,32 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def remove_branches_in_waterbodies(self,
+    def trim_branches_in_waterbodies(self,
                                        waterbodies,
-                                       out_vector_files,
+                                       branch_id_attribute,
                                        verbose=False
                                        ):
 
+        def find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs=[]):
+            downstream_ID = int(tmp_self.ID[tmp_self.to==downstream_ID])
+
+            # Stop if lowest reach is not in a lake
+            if int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
+                return tmp_IDs
+            else:
+                tmp_IDs.append(downstream_ID)
+
+                # Find next lowest downstream reach
+                if downstream_ID in tmp_self.to.values:
+                    # downstream_ID = int(tmp_self.ID[tmp_self.to==downstream_ID])
+
+                    return find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs)
+
+                else:
+                    return tmp_IDs
+
         if verbose:
-            print("Removing stream branches in waterbodies ...")
+            print("Trimming stream branches in waterbodies ...")
 
         # load waterbodies
         if isinstance(waterbodies,gpd.GeoDataFrame):
@@ -462,50 +480,19 @@ class StreamNetwork(gpd.GeoDataFrame):
             waterbodies = gpd.read_file(waterbodies)
         else:
             raise TypeError("Waterbodies needs to be GeoDataFame or path to vector file")
-        
-        # unique_stream_branches = self.loc[:,branch_id_attribute].unique()
-        # unique_waterbodies = set(waterbodies.loc[:,reach_id_attribute_in_waterbodies].unique())
 
-        # current_index_name = self.index.name
-        # self.set_index(branch_id_attribute,drop=False,inplace=True)
+        for branch in self[branch_id_attribute].unique():
 
-        # Find branches in waterbodies
-        sjoined = gpd.sjoin(self, waterbodies, op='within')
+            tmp_self = self[self[branch_id_attribute]==branch]
 
-        # for usb in unique_stream_branches:
+            # Find bottom up
+            upstream_ID = int(tmp_self.ID[~tmp_self.ID.isin(tmp_self.to)])
+            downstream_ID = int(tmp_self.ID[~tmp_self.to.isin(tmp_self.ID)]) # ID of most downstream reach
 
-        #     try:
-        #         reach_ids_in_branch = set(self.loc[usb,reach_id_attribute].unique())
-        #     except AttributeError:
-        #         reach_ids_in_branch = set( [ self.loc[usb,reach_id_attribute] ] )
+            if not int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
+                tmp_IDs = find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, [downstream_ID])
 
-        #     if len( reach_ids_in_branch & unique_waterbodies) == 0:
-        #         #print(f'Dropping {usb}')
-        #         self.drop(usb,inplace=True)
-
-        # if current_index_name is None:
-        #     self.reset_index(drop=True,inplace=True)
-        # else:
-        #     self.set_index(current_index_name,drop=True,inplace=True)
-
-        self.drop(sjoined.index, inplace=True)
-        # self = StreamNetwork(self.loc[~sjoined.index])
-
-        if out_vector_files is not None:
-            
-            # base_file_path,extension = splitext(out_vector_files)
-            
-            if verbose:
-                print("Writing dissolved branches not in waterbodies...")
-            
-            #for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
-                #out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
-                
-                #bid_indices = self.loc[:,branch_id_attribute] == bid
-                #current_stream_network = StreamNetwork(self.loc[bid_indices,:])
-
-                #current_stream_network.write(out_vector_file,index=False)
-            self.write(out_vector_files,index=False)
+                self.drop(tmp_self[tmp_self.ID.isin(tmp_IDs)].index, inplace=True)
 
         return(self)
 
