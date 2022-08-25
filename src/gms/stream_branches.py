@@ -451,6 +451,10 @@ class StreamNetwork(gpd.GeoDataFrame):
                                        branch_id_attribute,
                                        verbose=False
                                        ):
+        """
+        Recursively trims the reaches from the ends of the branches if they are in a 
+        waterbody (determined by the Lake attribute).
+        """
 
         def find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs=[]):
             downstream_ID = int(tmp_self.ID[tmp_self.to==downstream_ID])
@@ -463,10 +467,22 @@ class StreamNetwork(gpd.GeoDataFrame):
 
                 # Find next lowest downstream reach
                 if downstream_ID in tmp_self.to.values:
-                    # downstream_ID = int(tmp_self.ID[tmp_self.to==downstream_ID])
-
                     return find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs)
+                else:
+                    return tmp_IDs
 
+        def find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs=[]):
+            upstream_ID = int(tmp_self.to[tmp_self.ID==upstream_ID])
+
+            # Stop if uppermost reach is not in a lake
+            if int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999:
+                return tmp_IDs
+            else:
+                tmp_IDs.append(upstream_ID)
+
+                # Find next highest upstream reach
+                if upstream_ID in tmp_self.ID.values:
+                    return find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs)
                 else:
                     return tmp_IDs
 
@@ -482,16 +498,27 @@ class StreamNetwork(gpd.GeoDataFrame):
             raise TypeError("Waterbodies needs to be GeoDataFame or path to vector file")
 
         for branch in self[branch_id_attribute].unique():
-
             tmp_self = self[self[branch_id_attribute]==branch]
 
-            # Find bottom up
-            upstream_ID = int(tmp_self.ID[~tmp_self.ID.isin(tmp_self.to)])
-            downstream_ID = int(tmp_self.ID[~tmp_self.to.isin(tmp_self.ID)]) # ID of most downstream reach
+            # If entire branch is in waterbody
+            if all(tmp_self.Lake.values != -9999):
+                tmp_IDs = tmp_self.ID
+                
+            else:
+                # Find bottom up
+                downstream_ID = int(tmp_self.ID[~tmp_self.to.isin(tmp_self.ID)]) # ID of most downstream reach
+                if not int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
+                    tmp_IDs = find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, [downstream_ID])
+                else:
+                    tmp_IDs = []
 
-            if not int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
-                tmp_IDs = find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, [downstream_ID])
+                # Find top down
+                upstream_ID = int(tmp_self.ID[~tmp_self.ID.isin(tmp_self.to)])
+                if (len(tmp_IDs) != len(tmp_self)) and not (int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999):
+                    tmp_IDs.append(upstream_ID)
+                    tmp_IDs.append(find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs))
 
+            if len(tmp_IDs) > 0:
                 self.drop(tmp_self[tmp_self.ID.isin(tmp_IDs)].index, inplace=True)
 
         return(self)
