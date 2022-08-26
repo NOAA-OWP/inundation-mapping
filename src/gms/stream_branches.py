@@ -160,11 +160,11 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def to_gdf(self,*args,**kwargs):
+    def to_df(self,*args,**kwargs):
 
         """ Converts back to dataframe """
         
-        self = gpd.GeoDataFrame(self,*args,**kwargs)
+        self = pd.DataFrame(self,*args,**kwargs)
 
         return(self)
 

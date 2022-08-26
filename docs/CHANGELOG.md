@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## [version to be assigned] - 2022-08-26 - [PR #671](https://github.com/NOAA-OWP/inundation-mapping/pull/671)
+
+Trims ends of branches that are in waterbodies; also removes branches if they are entirely in a waterbody.
+
+## Changes
+
+- `src/gms/stream_branches.py`: adds `trim_branches_in_waterbodies()` to prune branches in waterbodies.
+
+<br/><br/>
+
 ## v4.0.6.3 - 2022-08-04 - [PR #652](https://github.com/NOAA-OWP/inundation-mapping/pull/652)
 
 Updated `Dockerfile`, `Pipfile` and `Pipfile.lock` to add the new psycopg2 python package required for a WIP code fix for the new FIM4 calibration db.
