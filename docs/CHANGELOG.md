@@ -7,7 +7,7 @@ Trims ends of branches that are in waterbodies; also removes branches if they ar
 
 ## Changes
 
-- `src/gms/stream_branches.py`: adds `trim_branches_in_waterbodies()` to prune branches in waterbodies.
+- `src/gms/stream_branches.py`: adds functionality to trim and prune branches in waterbodies.
 
 <br/><br/>
 

@@ -103,7 +103,6 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     
     # filter out streams without catchments
     if (catchments is not None) & (catchments_outfile is not None):
-
         catchments = gpd.read_file(catchments)
 
         stream_network = stream_network.remove_branches_without_catchments( 
@@ -145,9 +144,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         stream_network.write(out_stream_network, index=True)
     
     if out_stream_network_dissolved is not None:
-    
-        stream_network = stream_network.trim_branches_in_waterbodies(waterbodies,
-                                                    branch_id_attribute=branch_id_attribute,
+        stream_network = stream_network.trim_branches_in_waterbodies(branch_id_attribute=branch_id_attribute,
                                                     verbose=verbose
                                                                     )
 
@@ -158,10 +155,10 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                            out_vector_files=out_stream_network_dissolved,
                                                            verbose=verbose)
 
-        # filter out streams in waterbodies
-        if waterbodies is not None:
-            waterbodies = gpd.read_file(waterbodies)
-
+        stream_network = stream_network.remove_branches_in_waterbodies(waterbodies=waterbodies,
+                                                                       verbose=False
+                                                                      )
+                                       
         branch_inlets = stream_network.derive_inlet_points_by_feature(feature_attribute=branch_id_attribute,
                                                                       outlet_linestring_index=outlet_linestring_index
                                                                      )

@@ -447,7 +447,6 @@ class StreamNetwork(gpd.GeoDataFrame):
 
 
     def trim_branches_in_waterbodies(self,
-                                       waterbodies,
                                        branch_id_attribute,
                                        verbose=False
                                        ):
@@ -489,14 +488,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Trimming stream branches in waterbodies ...")
 
-        # load waterbodies
-        if isinstance(waterbodies,gpd.GeoDataFrame):
-            pass
-        elif isinstance(waterbodies,str):
-            waterbodies = gpd.read_file(waterbodies)
-        else:
-            raise TypeError("Waterbodies needs to be GeoDataFame or path to vector file")
-
         for branch in self[branch_id_attribute].unique():
             tmp_self = self[self[branch_id_attribute]==branch]
 
@@ -520,6 +511,32 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             if len(tmp_IDs) > 0:
                 self.drop(tmp_self[tmp_self.ID.isin(tmp_IDs)].index, inplace=True)
+
+        return(self)
+
+
+    def remove_branches_in_waterbodies(self,
+                                       waterbodies,
+                                       verbose=False
+                                       ):
+        """
+        Removes branches completely in waterbodies
+        """
+
+        if verbose:
+            print('Removing branches in waterbodies')
+
+        # load waterbodies
+        if isinstance(waterbodies,gpd.GeoDataFrame):
+            pass
+        elif isinstance(waterbodies,str):
+            waterbodies = gpd.read_file(waterbodies)
+        else:
+            raise TypeError("Waterbodies needs to be GeoDataFame or path to vector file")
+
+        # Find branches in waterbodies
+        sjoined = gpd.sjoin(self, waterbodies, op='within')
+        self.drop(sjoined.index, inplace=True)
 
         return(self)
 
