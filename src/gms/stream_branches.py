@@ -291,7 +291,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         self.loc[:,fromNode_attribute] = fromNodes
         self.loc[:,toNode_attribute] = toNodes
         
-        
         return(self)
 
 
@@ -386,7 +385,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Removing stream segments without catchments ...")
 
-        # load cathments
+        # load catchments
         if isinstance(catchments,gpd.GeoDataFrame):
             pass
         elif isinstance(catchments,str):
@@ -413,8 +412,8 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Removing stream branches without catchments ...")
 
-        # load cathments
-        if isinstance(catchments,gpd.GeoDataFrame):
+        # load catchments
+        if isinstance(catchments, gpd.GeoDataFrame):
             pass
         elif isinstance(catchments,str):
             catchments = gpd.read_file(catchments)
@@ -425,7 +424,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         unique_catchments = set(catchments.loc[:,reach_id_attribute_in_catchments].unique())
 
         current_index_name = self.index.name
-        self.set_index(branch_id_attribute,drop=False,inplace=True)
+        self.set_index(branch_id_attribute, drop=False, inplace=True)
 
         for usb in unique_stream_branches:
 
@@ -439,9 +438,9 @@ class StreamNetwork(gpd.GeoDataFrame):
                 self.drop(usb,inplace=True)
 
         if current_index_name is None:
-            self.reset_index(drop=True,inplace=True)
+            self.reset_index(drop=True, inplace=True)
         else:
-            self.set_index(current_index_name,drop=True,inplace=True)
+            self.set_index(current_index_name, drop=True, inplace=True)
 
         return(self)
 
@@ -517,6 +516,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
     def remove_branches_in_waterbodies(self,
                                        waterbodies,
+                                       out_vector_files=None,
                                        verbose=False
                                        ):
         """
@@ -537,6 +537,13 @@ class StreamNetwork(gpd.GeoDataFrame):
         # Find branches in waterbodies
         sjoined = gpd.sjoin(self, waterbodies, op='within')
         self.drop(sjoined.index, inplace=True)
+
+        if out_vector_files is not None:
+            
+            if verbose:
+                print("Writing pruned branches ...")
+            
+            self.write(out_vector_files, index=False)
 
         return(self)
 
@@ -742,8 +749,8 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def dissolve_by_branch(self,branch_id_attribute='LevelPathI',attribute_excluded='StreamOrde',
-                           values_excluded=[1,2],out_vector_files=None, verbose=False):
+    def dissolve_by_branch(self, branch_id_attribute='LevelPathI', attribute_excluded='StreamOrde',
+                           values_excluded=[1,2], out_vector_files=None, verbose=False):
         
         if verbose:
             print("Dissolving by branch ...")
@@ -795,7 +802,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 #current_stream_network = StreamNetwork(self.loc[bid_indices,:])
 
                 #current_stream_network.write(out_vector_file,index=False)
-            self.write(out_vector_files,index=False)
+            self.write(out_vector_files, index=False)
 
         return(self)
 

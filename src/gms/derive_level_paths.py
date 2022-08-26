@@ -156,6 +156,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                            verbose=verbose)
 
         stream_network = stream_network.remove_branches_in_waterbodies(waterbodies=waterbodies,
+                                                                       out_vector_files=out_stream_network_dissolved,
                                                                        verbose=False
                                                                       )
                                        
