@@ -96,7 +96,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                             upstreams=upstreams,
                                                             branch_id_attribute=branch_id_attribute,
                                                             reach_id_attribute=reach_id_attribute,
-                                                            comparison_attributes='arbolate_sum',
+                                                            comparison_attributes=['arbolate_sum', 'order_'],
                                                             comparison_function=max,
                                                             verbose=verbose
                                                            )

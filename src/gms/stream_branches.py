@@ -507,7 +507,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             progress.update(1)
 
             # get current reach stream order and branch id
-            current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
+            #current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
             current_reach_branch_id = self.at[current_reach_id,branch_id_attribute]
 
             # get upstream ids
@@ -534,16 +534,34 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # find 
                     upstream_reaches_compare_values = self.loc[not_visited_upstream_ids,comparison_attributes]
                     matching_value = comparison_function(upstream_reaches_compare_values)
-                    
-                    matches = 0 # if upstream matches are more than 1, limits to only one match
-                    for usrcv,nvus in zip(upstream_reaches_compare_values,not_visited_upstream_ids):
-                        if (usrcv == matching_value) & (matches == 0):
-                            self.at[nvus,branch_id_attribute] = current_reach_branch_id
-                            matches += 1
-                        else:
-                            branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
-                            self.at[nvus,branch_id_attribute] = branch_id
-                            bid += 1
+
+                    #==================================================================================
+                    # If the two stream orders aren't the same, then follow the highest order, otherwise use arbolate sum
+                    if upstream_reaches_compare_values.idxmax()['order_'] == upstream_reaches_compare_values.idxmin()['order_']:
+                        decision_attribute = 'arbolate_sum'
+                    else:
+                        decision_attribute = 'order_'
+                    # Continue the current branch up the larger stream
+                    continue_id = upstream_reaches_compare_values.idxmax()[decision_attribute]
+                    self.loc[continue_id,branch_id_attribute] = current_reach_branch_id
+                    # Create a new level path for the smaller tributary
+                    if len(not_visited_upstream_ids) == 1: continue # only create a new branch if there are 2 upstreams
+                    new_id = upstream_reaches_compare_values.idxmin()[decision_attribute]
+                    branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
+                    self.loc[new_id,branch_id_attribute] = branch_id
+                    bid += 1
+                    #==================================================================================
+                    ''' NOTE: The above logic uses stream order to override arbolate sum. Use the commented section
+                     below if this turns out to be a bad idea!'''
+                    #matches = 0 # if upstream matches are more than 1, limits to only one match
+                    #for usrcv,nvus in zip(upstream_reaches_compare_values,not_visited_upstream_ids):
+                    #    if (usrcv == matching_value) & (matches == 0):
+                    #        self.at[nvus,branch_id_attribute] = current_reach_branch_id
+                    #        matches += 1
+                    #    else:
+                    #        branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
+                    #        self.at[nvus,branch_id_attribute] = branch_id
+                    #        bid += 1
         
         progress.close()
 
