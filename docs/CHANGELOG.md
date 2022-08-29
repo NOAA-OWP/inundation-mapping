@@ -91,15 +91,6 @@ Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_br
 
 <br/><br/>
 
-## v4.0.7.2 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
-
-`inundate_nation.py` A change to switch the inundate nation function away from refrences to `inundate.py`, and rather use `inundate_gms.py` and `mosaic_inundation.py`
-
-## Changes
-
-- `inundate_gms`:  Changed `mask_type = 'filter'`
-
-<br/><br/>
 
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 
