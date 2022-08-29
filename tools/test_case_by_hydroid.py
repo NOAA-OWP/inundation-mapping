@@ -116,9 +116,8 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         concat_list = [in_mem_df, dict_to_df]
         in_mem_df = pd.concat(concat_list, sort=False)
 
-        # Filter out hydroids that have no performance scores
-        in_mem_df = in_mem_df.loc[in_mem_df[['CSI','FAR','TPR','TNR','PND']].any(axis=1)]
 
+       
     return in_mem_df
 
 if __name__ == "__main__":
@@ -177,5 +176,8 @@ if __name__ == "__main__":
                 concat_df_list = [in_mem_df, csv_output]
 
                 csv_output = pd.concat(concat_df_list, sort=False)
-                    
+                
+               
+
+    csv_output = csv_output[csv_output['CSI'].notna()]
     csv_output.to_csv(csv, index=False, chunksize=1000)
