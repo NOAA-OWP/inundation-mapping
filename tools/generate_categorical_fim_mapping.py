@@ -108,10 +108,10 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
 #                            procs_list.append([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
                             run_inundation([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
                         
-    # Initiate multiprocessing
-    print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
-    with Pool(processes=number_of_jobs) as pool:
-        pool.map(run_inundation, procs_list)
+#    # Initiate multiprocessing
+#    print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
+#    with Pool(processes=number_of_jobs) as pool:
+#        pool.map(run_inundation, procs_list)
 
 
 def run_inundation(args):
@@ -211,7 +211,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
                             try:
                                 f = open(log_file, 'a+')
                                 print("Nope")
-                                f.write(f"Missing layers: {extent_gpkg}\n")
+                                f.write(f"Missing layers: {extent_grid}\n")
                                 f.close()
                             except:
                                 pass
@@ -344,7 +344,7 @@ if __name__ == '__main__':
     nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
 
     print("Generating Categorical FIM")
-#    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
+    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
     # Get fim_version.
