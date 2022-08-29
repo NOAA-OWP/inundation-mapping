@@ -134,4 +134,4 @@ fi
 
 # -------------------
 ## GET NON ZERO EXIT CODES ##
-grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/branch/*_branch_*.log > $outputRunDataDir/logs/branch/non_zero_exit_codes.log
+# grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/branch/*_branch_*.log > $outputRunDataDir/logs/branch/non_zero_exit_codes.log

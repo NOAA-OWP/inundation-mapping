@@ -35,6 +35,9 @@ RUN cd taudem_accelerated_flowDirections/taudem \
 RUN mkdir -p $taudemDir
 RUN mkdir -p $taudemDir2
 
+# Make symlink for libgdal
+#RUN ln -s /usr/lib/libgdal.so.3.1.2 /usr/lib/libgdal.so.31
+
 ## Move needed binaries to the next stage of the image
 RUN cd taudem/bin && mv -t $taudemDir flowdircond aread8 threshold streamnet gagewatershed catchhydrogeo dinfdistdown
 RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
@@ -87,6 +90,8 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 COPY Pipfile .
 COPY Pipfile.lock .
 RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
+RUN pip install -U py3dep==0.13.3 tqdm==4.64.0 ## issues installing this in command below so installing here
+RUN pip install dask pygeohydro==0.13.3 statsmodels==0.13.2 awscli==1.25.60 ## issues installing this in command below so installing here
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /

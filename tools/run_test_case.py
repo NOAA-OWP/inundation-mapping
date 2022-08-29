@@ -29,6 +29,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                 inclusion_area_buffer=0, light_run=False, 
                 overwrite=True, fr_run_dir=None, 
                 gms_workers=1,verbose=False,
+                keep_gms=False,
                 gms_verbose=False
               ):
 
@@ -191,6 +192,12 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                             os.path.split(inundation_raster)[1].replace('.tif', '_'+current_huc+'.tif')
                                                     )  
             
+            # assign current huc variable for inundation mapping
+            if huc12:
+                ch = current_huc12
+            else:
+                ch = current_huc
+                    
             try:
                 if model == 'GMS':
                     
@@ -198,7 +205,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                              hydrofabric_dir=hydrofabric_dir, 
                                              forecast=forecast, 
                                              num_workers=gms_workers,
-                                             hucs=current_huc,
+                                             hucs=ch,
                                              inundation_raster=inundation_raster,
                                              inundation_polygon=None, depths_raster=None,
                                              verbose=gms_verbose,
@@ -213,7 +220,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                         mosaic_output=inundation_raster,
                                         mask=mask_path_gms,unit_attribute_name='huc8',
                                         nodata=elev_raster_ndv,workers=1,
-                                        remove_inputs=True,
+                                        remove_inputs=(not keep_gms),
                                         subset=None,verbose=verbose
                                       )
                 
@@ -283,7 +290,8 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                     all_computed_bool = [True if h12 in computed_huc12s_set else False for h12 in all_huc12s_in_current_huc ]
                     all_computed = all(all_computed_bool)
 
-                    print(current_huc,current_huc12,last_huc12,all_computed,magnitude)
+                    if all_computed:
+                        print(current_huc,current_huc12,last_huc12,all_computed,magnitude)
 
                     if all_computed & (last_huc12 == current_huc12):
                         
@@ -367,9 +375,10 @@ if __name__ == '__main__':
     parser.add_argument('-ib','--inclusion-area-buffer', help='Buffer to use when masking contingency metrics with inclusion area.', required=False, default="0")
     parser.add_argument('-l', '--light-run', help='Using the light_run option will result in only stat files being written, and NOT grid files.', required=False, action='store_true')
     parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, default=False, action='store_true')
+    parser.add_argument('-kg','--keep-gms',help='Keeps branch level inundation',required=False, default=False, action='store_true')
     parser.add_argument('-w','--gms-workers', help='Number of workers to use for GMS Branch Inundation', required=False, default=1)
     parser.add_argument('-d','--fr-run-dir',help='Name of test case directory containing inundation for FR configuration',required=False,default=None)
-    parser.add_argument('-v', '--verbose', help='Verbose operation', required=False, action='store_true', default=False)
+    parser.add_argument('-vr', '--verbose', help='Verbose operation', required=False, action='store_true', default=False)
     parser.add_argument('-vg', '--gms-verbose', help='Prints progress bar for GMS', required=False, action='store_true', default=False)
 
     # Extract to dictionary and assign to variables.

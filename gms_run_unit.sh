@@ -118,7 +118,7 @@ export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
 export deny_gms_unit_list=$deny_gms_unit_list
 
 ## Input handling ##
-$srcDir/check_huc_inputs.py -u "$hucList"
+#$srcDir/check_huc_inputs.py -u "$hucList"
 
 ## Make output and data directories ##
 if [ "$retry" = "--retry-failed" ]; then
@@ -158,4 +158,4 @@ python3 $srcDir/gms/aggregate_branch_lists.py -l $hucList
 
 ## GET NON ZERO EXIT CODES ##
 # get positive non-zero exit codes 
-grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/unit/*_unit.log > $outputRunDataDir/logs/unit/non_zero_exit_codes.log
+# grep -ER 'Exit status: [1-9]' $outputRunDataDir/logs/unit/*_unit.log > $outputRunDataDir/logs/unit/non_zero_exit_codes.log

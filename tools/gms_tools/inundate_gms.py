@@ -21,7 +21,7 @@ def Inundate_gms(
                   log_file=None,
                   output_fileNames=None
                  ):
-
+    
     # input handling
     if hucs is not None:
         try:
@@ -39,7 +39,7 @@ def Inundate_gms(
         if os.path.exists(log_file):
             os.remove(log_file)
         
-        print('HUC8,BranchID,Exception',file=open(log_file,'w'))
+        print('HUC,BranchID,Exception',file=open(log_file,'w'))
     #if log_file:
         #logging.basicConfig(filename=log_file, level=logging.INFO)
         #logging.info('HUC8,BranchID,Exception')
@@ -80,7 +80,7 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
        
-
+    
     executor_generator = { 
                 executor.submit(inundate,**inp) : ids for inp,ids in inundate_input_generator 
                 }
@@ -168,7 +168,7 @@ def __inundate_gms_generator(
                               depths_raster,
                               forecast,verbose=False
                             ):
-
+    
     # iterate over branches
     for idx,row in hucs_branches.iterrows():
         

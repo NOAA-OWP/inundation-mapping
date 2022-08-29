@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import re
 import json
+import csv
 import numpy as np
 from glob import glob
 from tqdm import tqdm
@@ -22,8 +23,10 @@ pd.set_option('display.max_columns', None)
 
 def Consolidate_metrics( benchmarks=['all'],versions=['all'],
                          zones=['total_area'],matching_hucs_only=True,
+                         hucs_of_interest=None,
                          metrics_output_csv=None,
-                         impute_missing_ms=False
+                         impute_missing_ms=False,
+                         quiet=False
                        ):
 
     """ Consolidates metrics into single dataframe """
@@ -49,6 +52,24 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
     else:
         zones = list(zones)
     
+    # Parse HUCs from hucs_of_interest.
+    if isinstance(hucs_of_interest,list):
+        if len(hucs_of_interest) == 1:
+            try:
+                with open(hucs_of_interest[0]) as csv_file:  # Does not have to be CSV format.
+                    huc_list = [i[0] for i in csv.reader(csv_file)]
+            except FileNotFoundError:
+                huc_list = hucs_of_interest
+        else:
+                huc_list = hucs_of_interest
+    elif isinstance(hucs_of_interest,str):
+        try:
+            with open(hucs_of_interest) as csv_file:  # Does not have to be CSV format.
+                huc_list = [i[0] for i in csv.reader(csv_file)]
+        except FileNotFoundError:
+            huc_list = list(hucs_of_interest)
+    elif hucs_of_interest is None:
+        pass
 
     # loop through benchmarks
     consolidated_metrics_df = [ f for f in return_dataframe_for_benchmark_source(benchmarks,zones) ]
@@ -58,6 +79,9 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
 
     # find matching rows
     consolidated_metrics_df = find_matching_rows_by_attribute_value(consolidated_metrics_df,'version',versions)
+
+    if hucs_of_interest is not None:
+        consolidated_metrics_df = find_matching_rows_by_attribute_value(consolidated_metrics_df,'huc',huc_list)
 
     if impute_missing_ms:
         consolidated_metrics_df = impute_missing_MS_with_FR(consolidated_metrics_df)
@@ -75,9 +99,13 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
                                                 aggfunc=np.sum
                                                )
     print(consolidated_metrics_pivot);exit()"""
-
+    
+    consolidated_metrics_df.reset_index(drop=True,inplace=True)
+    
     consolidated_secondary_metrics = pivot_metrics(consolidated_metrics_df)
-    print(consolidated_secondary_metrics)
+    
+    if not quiet:
+        print(consolidated_secondary_metrics)
 
     return(consolidated_metrics_df,consolidated_secondary_metrics)
 
@@ -133,7 +161,6 @@ def pivot_metrics(consolidated_metrics_df):
                                                 aggfunc=sum
                                                )
 
-    
     return( apply_metrics_to_pivot_table(consolidated_metrics_pivot) )
 
 
@@ -312,10 +339,12 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument('-b','--benchmarks',help='Allowed benchmarks', required=False, default='all', nargs="+")
+    parser.add_argument('-u','--hucs-of-interest',help='HUC8s of interest', required=False, default='None', nargs="+")
     parser.add_argument('-v','--versions',help='Allowed versions', required=False, default='all', nargs="+")
     parser.add_argument('-z','--zones',help='Allowed zones', required=False, default='total_area', nargs="+")
     parser.add_argument('-o','--metrics-output-csv',help='File path to outputs csv', required=False, default=None)
     parser.add_argument('-i','--impute-missing_ms',help='Imputes FR metrics in HUCS with no MS. Only supports one version per extent config', required=False, action='store_true',default=False)
+    parser.add_argument('-q','--quiet',help='Quiet print output', required=False, action='store_true',default=False)
 
     args = vars(parser.parse_args())
 

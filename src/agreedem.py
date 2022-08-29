@@ -54,6 +54,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     smo_profile = dem_profile.copy()
     smo_profile.update(nodata = 0)
     smo_profile.update(dtype = 'float32')
+    smo_profile.update(BIGTIFF='yes')
     smo_output = os.path.join(workspace, 'agree_smogrid.tif')
 
     # Windowed reading/calculating/writing
@@ -95,7 +96,15 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # Compute allocation and proximity grid using GRASS gis
     # r.grow.distance tool. Output distance grid in meters. Set datatype
     # for output allocation and proximity grids to float32.
+    ####################
+    #### OPEN ISSUE ####
+    ## Both of these grids below are written out as geotiff. Documentation on Grass GIS doesn't  seem
+    ## to accomodate other raster drivers or even the bigtiff option.
+    ## Not having this ability creates a reading error lower.
+    ## Please run HUC12 120200020502 for more information.
+    ####################
     vectdist_grid, vectallo_grid = r_grow_distance(smo_output, grass_workspace, 'Float32', 'Float32')
+
 
     #------------------------------------------------------------------
     # 4. From Hellweger documentation: Compute the buffer grid
@@ -118,7 +127,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
         with rasterio.open(buf_output, 'w', **buf_profile) as raster:
             for ji, window in elev.block_windows(1):
                 # read distance, allocation, and elevation datasets
-                vectdist_data_window = vectdist.read(1, window = window)
+                vectdist_data_window = vectdist.read(1, window = window) # READ ERROR FOR LARGE TIFFs HERE
                 vectallo_data_window = vectallo.read(1, window = window)
                 elev_data_window = elev.read(1, window = window)
 
@@ -162,6 +171,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     agree_output = output_raster
     agree_profile = dem_profile.copy()
     agree_profile.update(dtype = 'float32')
+    agree_profile.update(BIGTIFF='YES')
 
     # Windowed reading/calculating/writing
     with rasterio.Env():
@@ -221,6 +231,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     vectallo.close()
     rivers.close()
     elev.close()
+
     # If the '-t' flag is called, intermediate data is removed.
     if delete_intermediate_data:
         os.remove(smo_output)

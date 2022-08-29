@@ -25,6 +25,7 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
     # load file
     if verbose:
         print("Loading stream network ...")
+
     stream_network = StreamNetwork.from_file(in_stream_network)
 
     inlets_attribute = 'inlet_id'
@@ -32,6 +33,7 @@ def Derive_level_paths(in_stream_network, out_stream_network,branch_id_attribute
     outlet_linestring_index = -1
 
     # converts multi-linestrings to linestrings
+    #print(stream_network.crs);exit(0)
     stream_network = stream_network.multilinestrings_to_linestrings()
 
     # derive nodes

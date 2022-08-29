@@ -135,7 +135,7 @@ if __name__ == '__main__':
     parser.add_argument('-s','--subset', help='Subset units', required=False,default=None,type=str,nargs='+')
     parser.add_argument('-n','--nodata', help='Inundation Maps', required=False,default=elev_raster_ndv)
     parser.add_argument('-w','--workers', help='Number of Workers', required=False,default=4,type=int)
-    parser.add_argument('-t','--mosaic-attribute', help='Mosaiced inundation Maps', required=False,default=None)
+    parser.add_argument('-t','--mosaic-attribute', help='Mosaiced inundation Maps', required=False,default='inundation_rasters')
     parser.add_argument('-m','--mosaic-output', help='Mosaiced inundation Maps', required=False,default=None)
     parser.add_argument('-r','--remove-inputs', help='Remove original input inundation Maps', required=False,default=False,action='store_true')
     parser.add_argument('-v','--verbose', help='Remove original input inundation Maps', required=False,default=False,action='store_true')

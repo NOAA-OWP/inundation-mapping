@@ -7,16 +7,17 @@ verify_ssl = true
 ipython = "*"
 
 [packages]
+simplejson = "==3.16.0"
 fiona = "==1.8.17"
-geopandas = "==0.8.1"
+geopandas = "==0.10.2"
 numba = "==0.50.1"
 pandas = "==1.0.5"
-pygeos = "==0.7.1"
+pygeos = "==0.12.0"
 rasterio = "==1.2.10"
-rasterstats = "==0.15.0"
+rasterstats = "==0.16.0"
 richdem = "==0.3.4"
-tqdm = "==4.48.0"
-Shapely = "==1.7.0"
+tqdm = "==4.64.0"
+Shapely = "==1.8.2"
 grass-session = "==0.5"
 seaborn = "==0.11.0"
 python-dotenv = "*"
@@ -27,8 +28,11 @@ netcdf4 = "==1.5.7"
 tables = "==3.6.1"
 h5py = "==3.4.0"
 pyproj = "==3.1.0"
-py3dep = "==0.12.0"
+py3dep = "==0.13.0"
 dask = "==2022.01.0"
+pygeohydro = '==0.13.2'
+statsmodels = '==0.13.2'
+awscli = '==1.25.19'
 
 [requires]
 python_version = "3.8"

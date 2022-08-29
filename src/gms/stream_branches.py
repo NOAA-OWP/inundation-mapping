@@ -24,7 +24,7 @@ class StreamNetwork(gpd.GeoDataFrame):
     values_excluded = None
     attribute_excluded = None
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
         
         if kwargs:
             branch_id_attribute = kwargs.pop("branch_id_attribute",None)
@@ -32,7 +32,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             attribute_excluded = kwargs.pop("attribute_excluded",None)
         
         super().__init__(*args,**kwargs)
-        
+
         self.branch_id_attribute = branch_id_attribute
         self.values_excluded = values_excluded
         self.attribute_excluded = attribute_excluded
@@ -57,7 +57,12 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose: 
             print('Loading file')
         
-        return(cls(gpd.read_file(filename,*args,**kwargs),**inputs))
+        gdf = gpd.read_file(filename)
+        inputs['crs'] = gdf.crs
+
+        f = cls(gdf,**inputs)
+
+        return(f)
 
 
     def write(self,fileName,layer=None,index=True,verbose=False):

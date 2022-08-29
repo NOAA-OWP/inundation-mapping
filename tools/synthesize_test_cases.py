@@ -419,15 +419,18 @@ if __name__ == '__main__':
     # delete version dirs with HUC12
     if overwrite:
         for ch,ata in procs_dict.items():
-            if ata['all_huc12s_in_current_huc'] is not None:
-                path_to_remove = os.path.join( TEST_CASES_DIR,
-                                               ata['test_id'].split('_')[1]+'_test_cases',
-                                               ata['test_id'],
-                                               'testing_versions',ata['version']
-                                              )
-                shutil.rmtree( path_to_remove,
-                              ignore_errors=True
-                             )
+            try:
+                if ata['all_huc12s_in_current_huc'] is not None:
+                    path_to_remove = os.path.join( TEST_CASES_DIR,
+                                                   ata['test_id'].split('_')[1]+'_test_cases',
+                                                   ata['test_id'],
+                                                   'testing_versions',ata['version']
+                                                  )
+                    shutil.rmtree( path_to_remove,
+                                  ignore_errors=True
+                                 )
+            except KeyError:
+                pass
     
     if job_number_huc == 1:
         
@@ -445,7 +448,7 @@ if __name__ == '__main__':
     # Multiprocess alpha test runs.
     if job_number_huc > 1:
         
-        #print(procs_dict)
+        #print(procs_dict);exit()
         executor = ProcessPoolExecutor(max_workers=job_number_huc)
         
         executor_generator = { 

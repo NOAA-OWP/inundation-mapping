@@ -1,0 +1,250 @@
+%% 
+%% Copyright 2007-2020 Elsevier Ltd
+%% 
+%% This file is part of the 'Elsarticle Bundle'.
+%% ---------------------------------------------
+%% 
+%% It may be distributed under the conditions of the LaTeX Project Public
+%% License, either version 1.2 of this license or (at your option) any
+%% later version.  The latest version of this license is in
+%%    http://www.latex-project.org/lppl.txt
+%% and version 1.2 or later is part of all distributions of LaTeX
+%% version 1999/12/01 or later.
+%% 
+%% The list of all files belonging to the 'Elsarticle Bundle' is
+%% given in the file `manifest.txt'.
+%% 
+%% Template article for Elsevier's document class `elsarticle'
+%% with harvard style bibliographic references
+
+\documentclass[preprint,12pt]{dependencies/elsarticle}
+
+%% Use the option review to obtain double line spacing
+%% \documentclass[preprint,review,12pt]{elsarticle}
+
+%% Use the options 1p,twocolumn; 3p; 3p,twocolumn; 5p; or 5p,twocolumn
+%% for a journal layout:
+%% \documentclass[final,1p,times]{elsarticle}
+%% \documentclass[final,1p,times,twocolumn]{elsarticle}
+%% \documentclass[final,3p,times]{elsarticle}
+%% \documentclass[final,3p,times,twocolumn]{elsarticle}
+%% \documentclass[final,5p,times]{elsarticle}
+%% \documentclass[final,5p,times,twocolumn]{elsarticle}
+
+%% For including figures, graphicx.sty has been loaded in
+%% elsarticle.cls. If you prefer to use the old commands
+%% please give \usepackage{epsfig}
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
+%% The amsthm package provides extended theorem environments
+%% \usepackage{amsthm}
+
+%% The lineno packages adds line numbers. Start line numbering with
+%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
+%% for the whole article with \linenumbers.
+\usepackage{lineno}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Additional packages
+\usepackage{acronym}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\journal{Advances in Water Resources}
+
+\begin{document}
+
+\begin{frontmatter}
+
+%% Title, authors and addresses
+
+%% use the tnoteref command within \title for footnotes;
+%% use the tnotetext command for theassociated footnote;
+%% use the fnref command within \author or \address for footnotes;
+%% use the fntext command for theassociated footnote;
+%% use the corref command within \author for corresponding author footnotes;
+%% use the cortext command for theassociated footnote;
+%% use the ead command for the email address,
+%% and the form \ead[url] for the home page:
+%% \title{Title\tnoteref{label1}}
+%% \tnotetext[label1]{}
+%% \author{Name\corref{cor1}\fnref{label2}}
+%% \ead{email address}
+%% \ead[url]{home page}
+%% \fntext[label2]{}
+%% \cortext[cor1]{}
+%% \affiliation{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+%% \fntext[label3]{}
+
+\title{Varying the Spatial Resolution of LiDAR Derived Elevations to Balance Skill and Computational Costs for Flood Inundation Mapping Applications}
+
+%% use optional labels to link authors explicitly to addresses:
+%% \author[label1,label2]{}
+%% \affiliation[label1]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+%%
+%% \affiliation[label2]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+
+\author[lynk,nwc,uf]{Fernando Aristizabal}
+\author[nwc]{Fernando Salas}
+\author[uh]{Taher Chegini}
+\author[usgs]{Gregory Petrochenkov}
+\author[uf]{Jasmeet Judge}
+
+\affiliation[lynk]{
+             organization={Lynker}, %Department and Organization
+             addressline={338 E Market St}, 
+             city={Leesburg},
+             postcode={20176}, 
+             state={VA},
+             country={USA}
+            }
+
+\affiliation[nwc]{
+             organization={National Water Center, Office of Water Prediction, National Oceanic and Atmospheric Administration}, %Department and Organization
+             addressline={205 Hackberry Ln}, 
+             city={Tuscaloosa},
+             postcode={35401}, 
+             state={VA},
+             country={USA}
+            }
+
+\affiliation[uf]{
+             organization={Center for Remote Sensing, Agricultural and Biological Engineering, University of Florida}, %Department and Organization
+             addressline={1741 Museum Rd}, 
+             city={Gainesville},
+             postcode={32603}, 
+             state={FL},
+             country={USA}
+            }
+
+\affiliation[uh]{
+             organization={Civil and Environmental Engineering, University of Houston},
+             addressline={4226 Martin Luther King Boulevard}, 
+             city={Houston},
+             postcode={77204}, 
+             state={TX},
+             country={USA}
+            }
+
+\affiliation[usgs]{
+             organization={Hydrologic Applied Innovations Lab, New York Water Science Center, United States Geological Survey},
+             addressline={425 Jordan Rd}, 
+             city={Troy},
+             postcode={12180}, 
+             state={NY},
+             country={USA}
+            }
+
+
+\begin{abstract}
+%% Text of abstract
+
+\end{abstract}
+
+%%Graphical abstract
+%\begin{graphicalabstract}
+%\includegraphics{grabs}
+%\end{graphicalabstract}
+
+%%Research highlights
+\begin{highlights}
+\item Continental-scale flood inundation mapping requires simplifying assumptions
+\item Utilizing LiDAR derived data from the USGS 3DEP program enhances the skill on flood inundation maps produced from HAND.
+\item Varying the spatial resolution provides no skill enhancement when evaluated at large scales across three study sites and benchmark datasets.
+\end{highlights}
+
+\begin{keyword}
+%% keywords here, in the form: keyword \sep keyword
+
+%% PACS codes here, in the form: \PACS code \sep code
+
+%% MSC codes here, in the form: \MSC code \sep code
+%% or \MSC[2008] code \sep code (2000 is the default)
+
+\end{keyword}
+
+\end{frontmatter}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Acronyms
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{acronym}
+
+\acro{OWP}[OWP]{Office of Water Prediction}
+
+\end{acronym}
+
+\linenumbers
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% main text
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\label{sec:introduction}
+%
+Floods are among the most frequent, damaging, and deadly of natural disasters \citet{doocy2013human,stromberg2007natural,kahn2005death}. 
+What's worse, trends in flood events have been increasing in frequency and intensity driven by climate change, anthropogenic development, \citet{berz2000flood,mallakpour2015changing,downton2005reanalysis,kunkel1999temporal,pielke2000precipitation,corringham2019effect} with more hydrologic extremes expected in the future \citet{kahn2005death,tabari2020climate,milly2002increasing,wing2018estimates}.
+Floods impact mortality and morbidity through drowning, trauma, or increased risk of infectious disease \citet{jonkman2005global,beinin2012medical,alajo2006cholera,french1983mortality}.
+Flooding impacts population inequitably \citet{kahn2005death,smiley2021social,stromberg2007natural,jonkman2005global,tellman2020using,tellman2021satellite}.
+Early-warning systems can help \citet{stromberg2007natural}
+The \ac{OWP}.
+
+%% The Appendices part is started with the command \appendix;
+%% appendix sections are then done as normal sections
+%% \appendix
+
+%% \section{}
+%% \label{}
+
+%% For citations use: 
+%%       \citet{<label>} ==> Jones et al. [21]
+%%       \citep{<label>} ==> [21]
+%%
+
+%% If you have bibdatabase file and want bibtex to generate the
+%% bibitems, please use
+%%
+\bibliographystyle{elsarticle-num-names} 
+\bibliography{bibliography/owp_3dep_2022}
+
+%% else use the following coding to input the bibitems directly in the
+%% TeX file.
+
+%\begin{thebibliography}{00}
+
+%% \bibitem[Author(year)]{label}
+%% Text of bibliographic item
+
+%\bibitem[ ()]{}
+
+%\end{thebibliography}
+
+
+\end{document}
+\endinput
+%%
+%% End of file `elsarticle-template-num-names.tex'.
