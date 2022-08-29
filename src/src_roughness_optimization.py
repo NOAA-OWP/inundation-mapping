@@ -117,7 +117,6 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
             df_nvalues.loc[index,'discharge_cms'] = find_src_stage.discharge_cms
 
     ## mask src values that crosswalk to the SRC zero point (src_stage ~ 0 or discharge <= 0)
-    print(str(huc) + '  branch id: ' + str(branch_id))
     df_nvalues[['HydraulicRadius_m','WetArea_m2']] = df_nvalues[['HydraulicRadius_m','WetArea_m2']].mask((df_nvalues['src_stage'] <= 0.1) | (df_nvalues['discharge_cms'] <= 0.0), np.nan)
 
     ## Calculate roughness using Manning's equation
