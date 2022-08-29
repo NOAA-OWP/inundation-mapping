@@ -112,13 +112,13 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
         'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
         
-        # Filter out hydroids that have no performance scores
-        dict_to_df = dict_to_df.loc[dict_to_df[['CSI','FAR','TPR','TNR','PND']].any(axis=1)]
 
         concat_list = [in_mem_df, dict_to_df]
-
         in_mem_df = pd.concat(concat_list, sort=False)
-        
+
+        # Filter out hydroids that have no performance scores
+        in_mem_df = in_mem_df.loc[in_mem_df[['CSI','FAR','TPR','TNR','PND']].any(axis=1)]
+
     return in_mem_df
 
 if __name__ == "__main__":
