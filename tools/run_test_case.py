@@ -305,7 +305,7 @@ class test_case(benchmark):
                                     unit_attribute_name = 'huc8',
                                     nodata = elev_raster_ndv,
                                     workers = 1,
-                                    remove_inputs = False,
+                                    remove_inputs = True,
                                     subset = None,
                                     verbose = verbose )
             # FIM v3 and before
