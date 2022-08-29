@@ -179,5 +179,6 @@ if __name__ == "__main__":
                 
                
 
-    csv_output = csv_output[csv_output['CSI'].notna()]
+    csv_output = csv_output[csv_output['CSI']!= "NA"]
+    csv_output = csv_output[csv_output['CSI']!= 0]
     csv_output.to_csv(csv, index=False, chunksize=1000)
