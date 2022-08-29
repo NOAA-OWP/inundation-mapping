@@ -27,8 +27,17 @@ def perform_zonal_stats(huc_gpkg,agree_rast):
 # Bench is the benchmark source.
 #####################################################
 def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
-
-    in_mem_df = pd.DataFrame(columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
+    print(huc8)
+    print('huc8')
+    print(type(huc8))
+    print('typehuc8')
+    in_mem_df = pd.DataFrame(columns=['HydroID', 'huc8', 'true_negatives_count', 'false_negatives_count', 'true_positives_count',
+        'false_positives_count', 'contingency_tot_count', 'cell_area_m2', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2',
+        'FN_area_km2', 'contingency_tot_area_km2', 'predPositive_area_km2', 'predNegative_area_km2', 'obsPositive_area_km2',
+        'obsNegative_area_km2', 'positiveDiff_area_km2', 'CSI', 'FAR', 'TPR', 'TNR', 'PND', 'PPV', 'NPV', 'ACC', 'Bal_ACC',
+        'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc',
+        'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
+        'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
     
     for dicts in stats:
         stats_dictionary = compute_stats_from_contingency_table(dicts['tn'], dicts['fn'], dicts['fp'], dicts['tp'], cell_area=100, masked_count= dicts['mp'])
@@ -36,16 +45,77 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         
         hydroid = dicts['HydroID']
         stats_dictionary['HydroID'] = hydroid
+               
         
-        csi = stats_dictionary['CSI']
-        far = stats_dictionary['FAR']
-        tpr = stats_dictionary['TPR']
-        tnr = stats_dictionary['TNR']
-        pnd = stats_dictionary['PND']
+        true_negatives_count = stats_dictionary['true_negatives_count']
+        false_negatives_count = stats_dictionary['false_negatives_count']
+        true_positives_count = stats_dictionary['true_positives_count']
+        false_positives_count = stats_dictionary['false_positives_count']
+        contingency_tot_count = stats_dictionary['contingency_tot_count']
+        cell_area_m2 = stats_dictionary['cell_area_m2']
+        TP_area_km2 = stats_dictionary['TP_area_km2']
+        FP_area_km2 = stats_dictionary['FP_area_km2']
+        TN_area_km2 = stats_dictionary['TN_area_km2']
+        FN_area_km2 = stats_dictionary['FN_area_km2']
+        contingency_tot_area_km2 = stats_dictionary['contingency_tot_area_km2']
+        predPositive_area_km2 = stats_dictionary['predPositive_area_km2']
+        predNegative_area_km2 = stats_dictionary['predNegative_area_km2']
+        obsPositive_area_km2 = stats_dictionary['obsPositive_area_km2']
+        obsNegative_area_km2 = stats_dictionary['obsNegative_area_km2']
+        positiveDiff_area_km2 = stats_dictionary['positiveDiff_area_km2']
+        CSI = stats_dictionary['CSI']
+        FAR = stats_dictionary['FAR']
+        TPR = stats_dictionary['TPR']
+        TNR = stats_dictionary['TNR']
+        PND = stats_dictionary['PND']
+        PPV = stats_dictionary['PPV']
+        NPV = stats_dictionary['NPV']
+        ACC = stats_dictionary['ACC'] 
+        Bal_ACC = stats_dictionary['Bal_ACC']
+        MCC = stats_dictionary['MCC']
+        EQUITABLE_THREAT_SCORE = stats_dictionary['EQUITABLE_THREAT_SCORE']
+        PREVALENCE = stats_dictionary['PREVALENCE']
+        BIAS = stats_dictionary['BIAS']
+        F1_SCORE = stats_dictionary['F1_SCORE']
+        TP_perc = stats_dictionary['TP_perc']
+        FP_perc = stats_dictionary['FP_perc']
+        TN_perc = stats_dictionary['TN_perc']
+        FN_perc = stats_dictionary['FN_perc']
+        predPositive_perc = stats_dictionary['predPositive_perc'] 
+        predNegative_perc = stats_dictionary['predNegative_perc']
+        obsPositive_perc = stats_dictionary['obsPositive_perc']
+        obsNegative_perc = stats_dictionary['obsNegative_perc']
+        positiveDiff_perc = stats_dictionary['positiveDiff_perc']
+        masked_count = stats_dictionary['masked_count']
+        masked_perc = stats_dictionary['masked_perc']
+        masked_area_km2 = stats_dictionary['masked_area_km2']
+        HydroID = stats_dictionary['HydroID']
+
+        #print(true_negatives_count)
+        #print('trueNegcount')
+
+        dict_with_list_values = {'HydroID': [HydroID],'huc8':[huc8], 'true_negatives_count': [true_negatives_count], 'false_negatives_count': [false_negatives_count],
+        'true_positives_count': [true_positives_count], 'false_positives_count': [false_positives_count],
+        'contingency_tot_count': [contingency_tot_count], 'cell_area_m2': [cell_area_m2],
+        'TP_area_km2': [TP_area_km2], 'FP_area_km2': [FP_area_km2], 'TN_area_km2': [TN_area_km2], 'FN_area_km2': [FN_area_km2],
+        'contingency_tot_area_km2': [contingency_tot_area_km2], 'predPositive_area_km2': [predPositive_area_km2],
+        'predNegative_area_km2': [predNegative_area_km2], 'obsPositive_area_km2': [obsPositive_area_km2],
+        'obsNegative_area_km2': [obsNegative_area_km2], 'positiveDiff_area_km2': [positiveDiff_area_km2], 'CSI': [CSI],
+        'FAR': [FAR], 'TPR': [TPR], 'TNR': [TNR], 'PND': [PND], 'PPV': [PPV], 'NPV': [NPV], 'ACC': [ACC],
+        'Bal_ACC': [Bal_ACC], 'MCC': [MCC], 'EQUITABLE_THREAT_SCORE': [EQUITABLE_THREAT_SCORE], 'PREVALENCE': [PREVALENCE],
+        'BIAS': [BIAS], 'F1_SCORE': [F1_SCORE], 'TP_perc': [TP_perc], 'FP_perc': [FP_perc], 'TN_perc': [TN_perc],
+        'FN_perc': [FN_perc], 'predPositive_perc': [predPositive_perc], 'predNegative_perc': [predNegative_perc],
+        'obsPositive_perc': [obsPositive_perc], 'obsNegative_perc': [obsNegative_perc], 'positiveDiff_perc': [positiveDiff_perc],
+        'masked_count': [masked_count], 'masked_perc': [masked_perc], 'masked_area_km2': [masked_area_km2],'MAG':[mag],'BENCH':[bench]}
         
-        dict_with_list_values = {'HydroID':[hydroid],'CSI':[csi],'FAR':[far], 'TPR':[tpr],'TNR':[tnr],'PND':[pnd],'HUC8':[huc8],'MAG':[mag],'BENCH':[bench]}
         
-        dict_to_df = pd.DataFrame(dict_with_list_values,columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
+        dict_to_df = pd.DataFrame(dict_with_list_values,columns=['HydroID','huc8', 'true_negatives_count', 'false_negatives_count', 'true_positives_count',
+        'false_positives_count', 'contingency_tot_count', 'cell_area_m2', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2',
+        'FN_area_km2', 'contingency_tot_area_km2', 'predPositive_area_km2', 'predNegative_area_km2', 'obsPositive_area_km2',
+        'obsNegative_area_km2', 'positiveDiff_area_km2', 'CSI', 'FAR', 'TPR', 'TNR', 'PND', 'PPV', 'NPV', 'ACC', 'Bal_ACC',
+        'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc',
+        'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
+        'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
         
         concat_list = [in_mem_df, dict_to_df]
 
@@ -74,7 +144,13 @@ if __name__ == "__main__":
     csv = args['csv']
     
     # Execution code
-    csv_output = pd.DataFrame(columns=['HydroID','CSI','FAR','TPR','TNR','PND','HUC8','MAG','BENCH'])
+    csv_output = pd.DataFrame(columns=['HydroID', 'huc8', 'true_negatives_count', 'false_negatives_count', 'true_positives_count',
+        'false_positives_count', 'contingency_tot_count', 'cell_area_m2', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2',
+        'FN_area_km2', 'contingency_tot_area_km2', 'predPositive_area_km2', 'predNegative_area_km2', 'obsPositive_area_km2',
+        'obsNegative_area_km2', 'positiveDiff_area_km2', 'CSI', 'FAR', 'TPR', 'TNR', 'PND', 'PPV', 'NPV', 'ACC', 'Bal_ACC',
+        'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc',
+        'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
+        'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
     # This funtion, relies on the test_case class defined in run_test_case.py to list all available test cases
     all_test_cases = test_case.list_all_test_cases(version=version, archive=True, benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
 
