@@ -27,10 +27,7 @@ def perform_zonal_stats(huc_gpkg,agree_rast):
 # Bench is the benchmark source.
 #####################################################
 def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
-    print(huc8)
-    print('huc8')
-    print(type(huc8))
-    print('typehuc8')
+
     in_mem_df = pd.DataFrame(columns=['HydroID', 'huc8', 'true_negatives_count', 'false_negatives_count', 'true_positives_count',
         'false_positives_count', 'contingency_tot_count', 'cell_area_m2', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2',
         'FN_area_km2', 'contingency_tot_area_km2', 'predPositive_area_km2', 'predNegative_area_km2', 'obsPositive_area_km2',
@@ -91,8 +88,6 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         masked_area_km2 = stats_dictionary['masked_area_km2']
         HydroID = stats_dictionary['HydroID']
 
-        #print(true_negatives_count)
-        #print('trueNegcount')
 
         dict_with_list_values = {'HydroID': [HydroID],'huc8':[huc8], 'true_negatives_count': [true_negatives_count], 'false_negatives_count': [false_negatives_count],
         'true_positives_count': [true_positives_count], 'false_positives_count': [false_positives_count],
@@ -117,6 +112,9 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
         'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
         
+        # Filter out hydroids that have no performance scores
+        dict_to_df = dict_to_df.loc[dict_to_df[['CSI','FAR','TPR','TNR','PND']].any(axis=1)]
+
         concat_list = [in_mem_df, dict_to_df]
 
         in_mem_df = pd.concat(concat_list, sort=False)
