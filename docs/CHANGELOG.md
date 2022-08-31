@@ -1,6 +1,11 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.0.8.0 - 2022-08-26 - [PR #671](https://github.com/NOAA-OWP/inundation-mapping/pull/671)
+
+Trims ends of branches that are in waterbodies; also removes branches if they are entirely in a waterbody.
+
+<br/><br/>
 
 ## v4.0.7.2 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
 
@@ -10,8 +15,11 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 - `inundate_gms`:  Changed `mask_type = 'filter'`
 
-<br/><br/>
+## Changes
 
+- `src/gms/stream_branches.py`: adds functionality to trim and prune branches in waterbodies.
+
+<br/><br/>
 
 ## v4.0.7.1 - 2022-08-22 - [PR #665](https://github.com/NOAA-OWP/inundation-mapping/pull/665)
 
