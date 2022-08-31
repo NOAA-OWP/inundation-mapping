@@ -278,7 +278,7 @@ The FR network constitutes the entire NWM stream network while the MS resolution
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Additional work is required to address the gaps that the AHPS leaves in terms of spatial resolution, spatial coverage, and temporal forecast horizons.
-In response to growing stakeholder demand for enhanced and integrated water resource forecasts, the Office of Water Prediction (OWP) at the National Water Center (NWC) along with its partners at the National Center for Atmospheric Research (NCAR) have developed and implemented operationally the NWM which is a configuration of the Weather Research and Forecasting Hydrologic Model (WRF-Hydro) \cite{gochis2018wrf,cosgrove2019evolution}. 
+In response to growing stakeholder demand for enhanced and integrated water resource forecasts, the Office of Water Prediction (OWP) at the National Water Center (NWC) along with its partners at the National Center for Atmospheric Research (NCAR) have developed and implemented operationally the NWM which is a configuration of the Weather Research and Forecasting Hydrologic Model (WRF-Hydro) \cite{salas2018towards,gochis2021wrf,cosgrove2019evolution}. 
 The NWM forecasts river discharges at more than 2.7 million forecast points at a variety of time horizons including lookback-range (3-28 hrs), short-range (18 hr), medium-range (10 day) and long-range (30 day) forecast horizons.
 The NWM enhances the spatial and temporal domain of the current AHPS capabilities operated at the 13 River Forecast Centers (RFC) in areas known as `hydro-blind'.
 As a complement to the operational NWM, RFC forecasts from AHPS forecast points are assimilated in the NWM and routed downstream to the next downstream AHPS forecast point where the process iterates again.
@@ -289,7 +289,7 @@ The MS network contains roughly 120 thousand forecasting points or roughly 4.4\%
 
 The National Hydrography Dataset Plus (NHDPlus) V2.1 is the basis for the ``hydrofabric'' in the NWM due to its comprehensive use with the hydrologic communities' stakeholders \cite{mckay2012nhdplus,nhdplus2022vectors}. 
 The term ``hydrofabric'' is used within the NWM jargon to describe the subset of hydrography composed of the geospatial datasets required for hydrologic modeling including but not limited to stream networks, catchments, channel properties, and elevation data. 
-The NWM provides stream forecasts at these hydrofabric segments using the Muskingum-Cunge method to reduce computational requirements of a continental scale model but fails to consider backwater dynamics \cite{bedient2008hydrology,ponce1994variable,gochis2018wrf}.
+The NWM provides stream forecasts at these hydrofabric segments using the Muskingum-Cunge method to reduce computational requirements of a continental scale model but fails to consider backwater dynamics \cite{bedient2008hydrology,ponce1994variable,gochis2021wrf}.
 The need for high-resolution FIM at 10 m or better requires additional post-processing from the principal output of the NWM which is forecast river discharges at the reach scale.
 The use of a 2-dimensional (2D) hydrodynamic model across a continental-scale and high spatial resolutions is very cost prohibitive especially in an operational setting.
 The Height Above Nearest Drainage (HAND) terrain model is one such technique that can be used, along with synthetic rating curves (SRC), to convert 1-dimensional (1D) riverine discharges to stages, and finally to inundation extents and depths.
