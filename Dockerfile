@@ -74,6 +74,11 @@ RUN DEBIAN_FRONTEND=noninteractive apt install -y grass=7.8.2-1build3 grass-doc=
 
 RUN apt auto-remove
 
+## adding AWS CLI (for bash) ##
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+	./aws/install
+
 ## adding environment variables for numba and python ##
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8

@@ -3,13 +3,14 @@
 # standard library imports (https://docs.python.org/3/library/
 # (imports first, then "froms", in alpha order)
 import os
-from xmlrpc.client import boolean
+import subprocess
+import sys
+
+sys.path.append('/foss_fim/src')
+from utils.shared_functions import FIM_Helpers as fh
 
 # third party imports
 # (imports first, then "froms", in alpha order)
-import boto3
-from botocore.exceptions import ClientError
-
 from dotenv import load_dotenv
 
 '''
@@ -17,7 +18,7 @@ This implements all common variables related when communicating to AWS
 '''
 class AWS_Base(object):
     
-    def __init__(self, path_to_cred_env_file):
+    def __init__(self, path_to_cred_env_file, *args, **kwargs):
 
         '''
         Overview
@@ -34,6 +35,9 @@ class AWS_Base(object):
         path_to_cred_env_file : str
             File path of the aws_credentials_file as an .env
 
+        is_verbose : bool
+            If True, then debugging output will be included
+
         '''
         
         if (not os.path.exists(path_to_cred_env_file)):
@@ -41,53 +45,80 @@ class AWS_Base(object):
             
         load_dotenv(path_to_cred_env_file)
         
+        if kwargs:
+            is_verbose = kwargs.pop("is_verbose",None)
+
+        self.is_verbose = is_verbose
+        
         # TODO: validate service name with AWS (which will help
         # validate the connection)
     
     
-    def get_aws_client(self, aws_service_type):
+    def get_aws_cli_credentials(self):
         
         '''
         Overview
         ----------
-        This will create an aws (boto3) client, open it and add it
-        as a property to your object, if it does not already exist
+        To run aws cli commands (subprocess), aws creds need to be set up
+        in the command environment. This method will take care of that
+        via bash "exports"
         
+        Returns
+        -----------
+        A string that can be concatenated to the front of a subprocess cmd
+        and includes the export creds.
+        
+        '''
+        
+        fh.vprint("getting aws credential string", self.is_verbose, True)
+        
+        cmd = "export AWS_ACCESS_KEY_ID=" + os.getenv('AWS_ACCESS_KEY')
+        cmd += " && export AWS_SECRET_ACCESS_KEY=" + os.getenv('AWS_SECRET_ACCESS_KEY')
+        cmd += " && export AWS_DEFAULT_REGION=" + os.getenv('AWS_REGION')
+        
+        return cmd
+   
+   
+    def create_aws_cli_include_argument(self, whitelist_file_names):
+        '''
+        Overview
+        ----------
+        Creates a string valid for aws_cli include commands.
+        
+        When using an "include", this string will automatically add
+        --exclude "*" , without it, the includes will not work.
+        
+        If the whitelist_file_names is empty, then an empty string will be returned.
+
         Parameters
         ----------
-        aws_service_type : str
-            an aws service name such as aws, batch, sts, s3, account, or whatever.
-            list of accepted aws service names at https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/index.html
-           
+        whitelist_file_names : list
+            a list of file names to be whitelisted. The file names should already be adjusted
+             to the "*" pattern already and stripped as applicable.
+
         Returns
         ----------
-        a boto3 client
+        A string that can be added straight into a aws cli command. 
+        
+        example: export AWS_ACCESS_KEY_ID=A{somekey}Q && export 
+        AWS_SECRET_ACCESS_KEY=KW(examplekey)80 && 
+        export AWS_DEFAULT_REGION=us-west-1
         '''
-
-        if (self.is_verbose):
-            print("loading client")
-            print(aws_service_type)
-            print(os.getenv('AWS_REGION'))
-            print(os.getenv('AWS_ACCESS_KEY'))
-            print(os.getenv('AWS_SECRET_ACCESS_KEY'))
         
-        aws_client = boto3.client(
-            aws_service_type,
-            region_name = os.getenv('AWS_REGION'),
-            aws_access_key_id = os.getenv('AWS_ACCESS_KEY'),
-            aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY'))
+        if (whitelist_file_names is None) or (len(whitelist_file_names) == 0):
+            return ""  # empty string
         
-        if (self.is_verbose):
-            print("client loaded")
-            print(aws_client)        
+        # For there to be "includes", for aws cli, you must have exclude "all"
+        cli_whitelist = '--exclude "*"' 
         
-        # if any issues, it will throw an exception. If no exception
-        # it is assumed to be valid.
-        # we can not validate a client against the S3 interface
-        #self.__validate_aws_credentials__('sts')
+        for whitelist_file_name in whitelist_file_names:
+            if not whitelist_file_name.startswith("*"):
+                whitelist_file_name = "*" + whitelist_file_name
             
-        # TODO: validate the connection
-        # ?? https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-example-configuring-buckets.html
-   
-        return aws_client
-   
+            whitelist_file_name = whitelist_file_name.replace("{}", "*")
+
+            cli_whitelist += f' --include "{whitelist_file_name}"'
+        
+        fh.vprint(f"cli include string is {cli_whitelist}", self.is_verbose, True)
+        
+        return cli_whitelist

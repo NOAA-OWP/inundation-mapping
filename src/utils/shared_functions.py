@@ -437,7 +437,11 @@ class FIM_Helpers:
             # replacing end splitting the text 
             # when newline ('\n') is seen.
             line_values_raw = data.split("\n")
-            line_values = [i.strip() for i in line_values_raw] # removes extra spaces
+            line_values_stripped = [i.strip() for i in line_values_raw] # removes extra spaces
+            
+            # dending on comments in the file or an extra line break at the end, we might
+            # get empty entries in the line_values collection. We remove them here
+            line_values = [ele for ele in line_values_stripped if ele != ""]
             
         if (len(line_values) == 0):
             raise Exception("Sorry, there are no value were in the list")
@@ -492,81 +496,4 @@ class FIM_Helpers:
         time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
         
         print("Duration: " + time_fmt)
-        
-    # -----------------------------------------------------------
-    @staticmethod
-    def is_string_in_list(search_str, list_strings):
-
-        '''
-            Overview
-            ----------
-            search a list of strings to see if the search string exists.
-            Note: supports most regex and wildcards
-            ie) https://www.w3schools.com/python/python_regex.asp
-            Careful with dots
-            
-            When using regex, many will use just a * + or ? not realizing
-            that python needs a dot in front of those wildcard chars.
-            so if they use those three without the dot in front, we will add it
-            
-            if the value of {} comes in, it changes it to a * (to match a fim
-            convention for the deny list system)
-            
-            Parameters
-            ----------
-            - bucket_address : str
-                bucket address not including folder names
-                ie.  some-address-us-east-1
-            
-            - src_folder_path : str
-                folder path of files to be copied up
-                
-            - aws_target_folder_path : str
-                folder locations in AWS (can not be blank) 
-                
-            - whitelist_file_path : str
-                A file with a set of line delimited file names that can be copied up to S3.
-                Note: make sure the list file is unix encoded and not windows encoded.
-                If None, then all files / folders will be pushed up
-                Note: wildcard variables of * is available.
-                
-            Returns:
-            ----------
-                True (search_str exists in list) or False
-                
-        '''
-        str_exists = False
-        
-        # --- Validate incoming values
-        if (list_strings is None) or (len(list_strings) == 0):
-            raise ValueError("list of strings is empty or does not exist")
-        
-        if (search_str is None) or (len(search_str) == 0):
-            raise ValueError("search str is empty or does not exist")
-        
-        # --- Process incoming values
-        for list_str_item in list_strings:
-            
-            list_str_item = list_str_item.strip()
-            
-            # depending on line breaks, list_str_item could be empty
-            if (list_str_item == ""):
-                continue
-            
-            list_str_item = list_str_item.replace('{}', '.*')
-            
-            if ('*' in list_str_item) and (not '.*' in list_str_item):
-                list_str_item = list_str_item.replace('*', '.*')
-            
-            if ('?' in list_str_item) and (not '.?' in list_str_item):
-                list_str_item = list_str_item.replace('?', '.?')
-
-            if ('+' in list_str_item) and (not '.+' in list_str_item):
-                list_str_item = list_str_item.replace('+', '.+')
-                                            
-            if re.search(list_str_item, search_str):
-                str_exists = True
-                break
-        
-        return str_exists
         
