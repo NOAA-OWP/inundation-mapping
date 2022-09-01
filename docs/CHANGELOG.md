@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.(to be assigned) - 2022-08-22 - [PR #664](https://github.com/NOAA-OWP/inundation-mapping/pull/664)
+## v4.0.(to be assigned) - 2022-09-01 - [PR #664](https://github.com/NOAA-OWP/inundation-mapping/pull/664)
 
 A couple of changes:
 1) Addition of a new tool for pushing files / folders up to an AWS (Amazon Web Service) S3 bucket.
@@ -29,19 +29,43 @@ A couple of changes:
        - A new method for quick calculation and formatting of time duration in hours, min and seconds.
        - A new method for search for a string in a given python list. It was designed with the following in mind, we already have a python list loaded with whitelist of files to be included in an S3 push. As we iterate through files from the file system, we can use this tool to see if the file should be pushed to S3. This tool can easily be used contexts and there is similar functionality in other FIM4 code that might be able to this method.
 
-- `Dockerfile` : Removed a line for reloading Shapely in recent PRs, which for some reason is no longer needed after adding the new BOTO3 python package. Must be related to python packages dependencies. This removed Shapely warning seen as a result of another recent PR.
+- `Dockerfile` : Removed a line for reloading Shapely in recent PRs, which for some reason is no longer needed after adding the new BOTO3 python package. Must be related to python packages dependencies. This removed Shapely warning seen as a result of another recent PR. Also added AWS CLI for bash commands.
 
 - `Pipfile` and `Pipfile.lock`:  Updates for the four new python packages, `boto3` (for AWS), `jupyter`, `jupyterlab` and `ipympl`. We have some staff that use Jupyter in their dev actitivies. Adding this package into the base Docker image will make it easier for them.
 
+<br/><br/>
+
+=======
+## 4.0.8.0 - 2022-08-26 - [PR #671](https://github.com/NOAA-OWP/inundation-mapping/pull/671)
+
+Trims ends of branches that are in waterbodies; also removes branches if they are entirely in a waterbody.
 
 <br/><br/>
 
-## v4.0.6.3 - 2022-08-04 - [PR #652](https://github.com/NOAA-OWP/inundation-mapping/pull/652)
+## v4.0.7.2 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
 
-Updated `Dockerfile`, `Pipfile` and `Pipfile.lock` to add the new psycopg2 python package required for a WIP code fix for the new FIM4 calibration db.
+`inundate_nation.py` A change to switch the inundate nation function away from refrences to `inundate.py`, and rather use `inundate_gms.py` and `mosaic_inundation.py`
+
+## Changes
+
+- `inundate_gms`:  Changed `mask_type = 'filter'`
+
+## Changes
+
+- `src/gms/stream_branches.py`: adds functionality to trim and prune branches in waterbodies.
 
 <br/><br/>
 
+## v4.0.7.1 - 2022-08-22 - [PR #665](https://github.com/NOAA-OWP/inundation-mapping/pull/665)
+
+Hotfix for addressing missing input variable when running `gms_run_branch.sh` outside of `gms_pipeline.sh`. 
+
+## Changes
+- `gms_run_branch.sh`: defining path to WBD HUC input file directly in ogr2ogr call rather than using the $input_WBD_gdb defined in `gms_run_unit.sh`
+- `src/src_adjust_spatial_obs.py`: removed an extra print statement
+- `src/src_roughness_optimization.py`: removed a log file write that contained sensitive host name
+
+<br/><br/>
 
 ## v4.0.7.0 - 2022-08-17 - [PR #657](https://github.com/NOAA-OWP/inundation-mapping/pull/657)
 
@@ -80,6 +104,12 @@ Introduces synthetic rating curve calibration workflow. The calibration computes
 
 <br/><br/>
 
+## v4.0.6.3 - 2022-08-04 - [PR #652](https://github.com/NOAA-OWP/inundation-mapping/pull/652)
+
+Updated `Dockerfile`, `Pipfile` and `Pipfile.lock` to add the new psycopg2 python package required for a WIP code fix for the new FIM4 calibration db.
+
+<br/><br/>
+
 ## v4.0.6.2 - 2022-08-16 - [PR #639](https://github.com/NOAA-OWP/inundation-mapping/pull/639)
 
 This file converts USFIMR remote sensed inundation shapefiles into a raster that can be used to compare to the FIM data. It has to be run separately for each shapefile. This addresses [#629].
@@ -103,6 +133,7 @@ Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_br
 - Deletes branch from `gms_inputs.csv`
 
 <br/><br/>
+
 
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 
@@ -166,6 +197,7 @@ New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output n
 
 Updates to unit tests including a minor update for outputs and loading in .json parameter files.
 <br><br>
+
 
 ## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
 
