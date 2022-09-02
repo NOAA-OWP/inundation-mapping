@@ -89,22 +89,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
         nhd_streams = nhd_streams.loc[nhd_streams.mainstem==1]
 
     if len(nhd_streams) > 0:
-
-        # Find incoming stream segments (to WBD buffer) and identify which are upstream
-        threshold_segments = gpd.overlay(nhd_streams, wbd_buffer, how='symmetric_difference')
-        from_list = threshold_segments.FromNode.to_list()
-        to_list = nhd_streams.ToNode.to_list()
-        missing_segments = list(set(from_list) - set(to_list))
-
-        # special case: stream meanders in and out of WBD buffer boundary
-        if str(hucCode) == '10030203':
-            missing_segments = missing_segments + [23001300001840.0, 23001300016571.0]
-            
-        if str(hucCode) == '08030100':
-            missing_segments = missing_segments + [20000600011559.0, 20000600045761.0, 20000600002821.0]
-
-        # Remove incoming stream segment so it won't be routed as outflow during hydroconditioning
-        nhd_streams = nhd_streams.loc[~nhd_streams.FromNode.isin(missing_segments)]
+        nhd_streams = gpd.sjoin(nhd_streams, wbd_buffer, op='within')
 
         nhd_streams.to_file(subset_nhd_streams_filename,driver=getDriver(subset_nhd_streams_filename),index=False)
     else:
