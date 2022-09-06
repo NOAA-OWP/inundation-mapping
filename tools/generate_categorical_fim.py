@@ -152,7 +152,6 @@ if __name__ == '__main__':
     start = time.time()
     manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, number_of_jobs, depthtif=False)
     
-#    subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
     end = time.time()
     elapsed_time = (end-start)/60
     print(f'Finished mapping in {elapsed_time} minutes')
