@@ -8,6 +8,8 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import glob
+from generate_categorical_fim_flows import generate_catfim_flows, get_env_paths
+from generate_categorical_fim_mapping import manage_catfim_mapping
 
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
@@ -136,9 +138,11 @@ if __name__ == '__main__':
     start = time.time()
     if args['stage_based']:
         fim_dir = args['fim_version']
-        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search, '-a', '-f', fim_version])
+        stage_based = True
     else:
-        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
+        fim_dir = ""
+        stage_based = False
+    generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
     end = time.time()
     elapsed_time = (end-start)/60
     print(f'Finished creating flow files in {elapsed_time} minutes')
@@ -146,7 +150,9 @@ if __name__ == '__main__':
     # Generate CatFIM mapping
     print('Begin mapping')
     start = time.time()
-    subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
+    manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, number_of_jobs, depthtif=False)
+    
+#    subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
     end = time.time()
     elapsed_time = (end-start)/60
     print(f'Finished mapping in {elapsed_time} minutes')

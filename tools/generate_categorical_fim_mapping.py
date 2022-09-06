@@ -309,25 +309,8 @@ def reformat_inundation_maps(args):
         except:
             pass
 
-
-if __name__ == '__main__':
-
-    # Parse arguments
-    parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
-    parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
-    parser.add_argument('-s', '--source-flow-dir',help='Path to directory containing flow CSVs to use to generate categorical FIM.',required=True, default="")
-    parser.add_argument('-o', '--output-cat-fim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
-    parser.add_argument('-j','--number-of-jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
-    parser.add_argument('-depthtif','--write-depth-tiff',help='Using this option will write depth TIFFs.',required=False, action='store_true')
-
-    args = vars(parser.parse_args())
-
-    fim_run_dir = args['fim_run_dir']
-    source_flow_dir = args['source_flow_dir']
-    output_cat_fim_dir = args['output_cat_fim_dir']
-    number_of_jobs = int(args['number_of_jobs'])
-    depthtif = args['write_depth_tiff']
-
+def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif):
+    
     # Create output directory
     if not os.path.exists(output_cat_fim_dir):
         os.mkdir(output_cat_fim_dir)
@@ -350,3 +333,24 @@ if __name__ == '__main__':
     # Get fim_version.
     fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_','').replace('_ms_c', '').replace('_', '.')
     post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file, fim_version)
+
+
+if __name__ == '__main__':
+
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
+    parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
+    parser.add_argument('-s', '--source-flow-dir',help='Path to directory containing flow CSVs to use to generate categorical FIM.',required=True, default="")
+    parser.add_argument('-o', '--output-cat-fim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
+    parser.add_argument('-j','--number-of-jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
+    parser.add_argument('-depthtif','--write-depth-tiff',help='Using this option will write depth TIFFs.',required=False, action='store_true')
+
+    args = vars(parser.parse_args())
+
+    fim_run_dir = args['fim_run_dir']
+    source_flow_dir = args['source_flow_dir']
+    output_cat_fim_dir = args['output_cat_fim_dir']
+    number_of_jobs = int(args['number_of_jobs'])
+    depthtif = args['write_depth_tiff']
+
+    manage_catfim_mapping(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif)

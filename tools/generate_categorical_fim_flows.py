@@ -46,12 +46,17 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         Downstream distance (in miles) for walking down NWM network.
     wbd_path : STR
         Location of HUC geospatial data (geopackage).
+    stage_based : BOOL
+        True or False, whether or not Stage-Based CatFIM is desired.
+    fim_dir : STR
+        Path to parent directory of FIM outputs.
         
     Returns
     -------
     None.
 
     '''
+    API_BASE_URL, WBD_LAYER = get_env_paths()
         
     all_start = time.time()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
@@ -421,5 +426,4 @@ if __name__ == '__main__':
 
 
     #Run get_env_paths and static_flow_lids
-    API_BASE_URL, WBD_LAYER = get_env_paths()
     generate_catfim_flows(**args)
