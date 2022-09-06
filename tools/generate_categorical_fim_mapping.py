@@ -2,7 +2,7 @@
 
 import sys
 import os
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import argparse
 import traceback
 import rasterio
@@ -44,69 +44,79 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
 
     # Loop through matching huc directories in the source_flow directory
     matching_hucs = list(set(output_flow_dir_list) & set(source_flow_dir_list))
-    for huc in matching_hucs:
-
-        if "." not in huc:
-
-            # Get list of AHPS site directories
-            ahps_site_dir = os.path.join(source_flow_dir, huc)
-            ahps_site_dir_list = os.listdir(ahps_site_dir)
-
-            # Map paths to HAND files needed for inundation()
-            fim_run_huc_dir = os.path.join(fim_run_dir, huc)
-            rem = os.path.join(fim_run_huc_dir, 'rem_zeroed_masked.tif')
-            catchments = os.path.join(fim_run_huc_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
-            hydroTable =  os.path.join(fim_run_huc_dir, 'hydroTable.csv')
-
-            exit_flag = False  # Default to False.
-
-            # Check if necessary data exist; set exit_flag to True if they don't exist
-            for f in [rem, catchments, hydroTable]:
-                if not os.path.exists(f):
-                    no_data_list.append(f)
-                    exit_flag = True
-
-            # Log missing data
-            if exit_flag == True:
-                f = open(log_file, 'a+')
-                f.write(f"Missing data for: {fim_run_huc_dir}\n")
-                f.close()
-
-            # Map path to huc directory inside out output_cat_fim_dir
-            cat_fim_huc_dir = os.path.join(output_cat_fim_dir, huc)
-            if not os.path.exists(cat_fim_huc_dir):
-                os.mkdir(cat_fim_huc_dir)
-
-            # Loop through AHPS sites
-            for ahps_site in ahps_site_dir_list:
-                # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
-                ahps_site_parent = os.path.join(ahps_site_dir, ahps_site)
-                thresholds_dir_list = os.listdir(ahps_site_parent)
-
-                # Map parent directory for all inundation output filesoutput files.
-                cat_fim_huc_ahps_dir = os.path.join(cat_fim_huc_dir, ahps_site)
-                if not os.path.exists(cat_fim_huc_ahps_dir):
-                    os.mkdir(cat_fim_huc_ahps_dir)
-
-                # Loop through thresholds/magnitudes and define inundation output files paths
-                for magnitude in thresholds_dir_list:
-
-                    if "." not in magnitude:
-
-                        magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
-
-                        if os.path.exists(magnitude_flows_csv):
-
-                            output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
-
-                            if depthtif:
-                                output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
-                            else:
-                                output_depth_grid = None
-
-                            # Append necessary variables to list for multiprocessing.
-#                            procs_list.append([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
-                            run_inundation([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
+    
+    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+    
+        for huc in matching_hucs:
+    
+            if "." not in huc:
+    
+                # Get list of AHPS site directories
+                ahps_site_dir = os.path.join(source_flow_dir, huc)
+                ahps_site_dir_list = os.listdir(ahps_site_dir)
+    
+                # Map paths to HAND files needed for inundation()
+                fim_run_huc_dir = os.path.join(fim_run_dir, huc)
+                rem = os.path.join(fim_run_huc_dir, 'rem_zeroed_masked.tif')
+                catchments = os.path.join(fim_run_huc_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif')
+                hydroTable =  os.path.join(fim_run_huc_dir, 'hydroTable.csv')
+    
+                exit_flag = False  # Default to False.
+    
+                # Check if necessary data exist; set exit_flag to True if they don't exist
+                for f in [rem, catchments, hydroTable]:
+                    if not os.path.exists(f):
+                        no_data_list.append(f)
+                        exit_flag = True
+    
+                # Log missing data
+                if exit_flag == True:
+                    f = open(log_file, 'a+')
+                    f.write(f"Missing data for: {fim_run_huc_dir}\n")
+                    f.close()
+    
+                # Map path to huc directory inside out output_cat_fim_dir
+                cat_fim_huc_dir = os.path.join(output_cat_fim_dir, huc)
+                if not os.path.exists(cat_fim_huc_dir):
+                    os.mkdir(cat_fim_huc_dir)
+    
+                # Loop through AHPS sites
+                for ahps_site in ahps_site_dir_list:
+                    # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
+                    ahps_site_parent = os.path.join(ahps_site_dir, ahps_site)
+                    thresholds_dir_list = os.listdir(ahps_site_parent)
+    
+                    # Map parent directory for all inundation output filesoutput files.
+                    cat_fim_huc_ahps_dir = os.path.join(cat_fim_huc_dir, ahps_site)
+                    if not os.path.exists(cat_fim_huc_ahps_dir):
+                        os.mkdir(cat_fim_huc_ahps_dir)
+    
+                    # Loop through thresholds/magnitudes and define inundation output files paths
+                    for magnitude in thresholds_dir_list:
+    
+                        if "." not in magnitude:
+    
+                            magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
+    
+                            if os.path.exists(magnitude_flows_csv):
+    
+                                output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
+    
+                                if depthtif:
+                                    output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
+                                else:
+                                    output_depth_grid = None
+    
+                                # Append necessary variables to list for multiprocessing.
+                                try:
+                                    executor.submit(run_inundation, [rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir, number_of_jobs])
+                                except Exception as ex:
+                                    print(f"*** {ex}")
+                                    traceback.print_exc()
+#                                procs_list.append([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
+    #                            run_inundation([rem, catchments, magnitude_flows_csv, huc, hydroTable, output_extent_grid, output_depth_grid, ahps_site, magnitude, log_file, fim_run_dir])
+                            
+    
                         
 #    # Initiate multiprocessing
 #    print(f"Running inundation for {len(procs_list)} sites using {number_of_jobs} jobs")
@@ -116,6 +126,8 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
 
 def run_inundation(args):
 
+    print("hello")
+    
     rem = args[0]
     catchments = args[1]
     magnitude_flows_csv = args[2]
@@ -127,15 +139,14 @@ def run_inundation(args):
     magnitude = args[8]
     log_file = args[9]
     fim_run_dir = args[10]
+    number_of_jobs = args[11]
 
-    print(fim_run_dir)
     huc_dir = os.path.join(fim_run_dir, huc)
-
     try:
         print("Running Inundate_gms for " + huc)
         map_file = Inundate_gms(  hydrofabric_dir = fim_run_dir, 
                                          forecast = magnitude_flows_csv, 
-                                         num_workers = 8,
+                                         num_workers = number_of_jobs,
                                          hucs = huc,
                                          inundation_raster = output_extent_grid,
                                          inundation_polygon = None,
@@ -210,7 +221,6 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
                         else:
                             try:
                                 f = open(log_file, 'a+')
-                                print("Nope")
                                 f.write(f"Missing layers: {extent_grid}\n")
                                 f.close()
                             except:
@@ -308,6 +318,7 @@ def reformat_inundation_maps(args):
             f.close()
         except:
             pass
+
 
 def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif):
     
