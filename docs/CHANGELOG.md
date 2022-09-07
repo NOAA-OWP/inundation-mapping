@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.0.8.0 - 2022-08-26 - [PR #671](https://github.com/NOAA-OWP/inundation-mapping/pull/671)
+
+Trims ends of branches that are in waterbodies; also removes branches if they are entirely in a waterbody.
+
+## Changes
+- `src/gms/stream_branches.py`: adds functionality to trim and prune branches in waterbodies.
+
+<br/><br/>
+
+## v4.0.7.2 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
+
+`inundate_nation.py` A change to switch the inundate nation function away from refrences to `inundate.py`, and rather use `inundate_gms.py` and `mosaic_inundation.py`
+
+## Changes
+- `inundate_gms`:  Changed `mask_type = 'filter'`
+
 ## v4.0.7.1 - 2022-08-22 - [PR #665](https://github.com/NOAA-OWP/inundation-mapping/pull/665)
 
 Hotfix for addressing missing input variable when running `gms_run_branch.sh` outside of `gms_pipeline.sh`. 
@@ -79,6 +95,7 @@ Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_br
 
 <br/><br/>
 
+
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 
 Addressing #560, this fix in run_by_branch trims the DEM derived streamline if it extends past the end of the branch streamline. It does this by finding the terminal point of the branch stream, snapping to the nearest point on the DEM derived stream, and cutting off the remaining downstream portion of the DEM derived stream.
@@ -141,6 +158,7 @@ New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output n
 
 Updates to unit tests including a minor update for outputs and loading in .json parameter files.
 <br><br>
+
 
 ## v4.0.5.1 - 2022-06-27 - [PR #612](https://github.com/NOAA-OWP/inundation-mapping/pull/612)
 

@@ -208,7 +208,7 @@ def __inundate_gms_generator( hucs_branches,
                             'catchment_poly' : catchment_poly,
                             'hydro_table' : hydroTable_branch,
                             'forecast' : forecast,
-                            'mask_type' : None,
+                            'mask_type' : 'filter',
                             'hucs' : None,
                             'hucs_layerName' : None,
                             'subset_hucs' : None, 
@@ -241,4 +241,3 @@ if __name__ == '__main__':
     
     # extract to dictionary and run
     Inundate_gms( **vars(parser.parse_args()) )
-    
