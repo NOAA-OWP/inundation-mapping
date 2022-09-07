@@ -179,6 +179,17 @@ if __name__ == "__main__":
                 
                
 
-    csv_output = csv_output[csv_output['CSI']!= "NA"]
-    csv_output = csv_output[csv_output['CSI']!= 0]
+    csv_output = csv_output[csv_output['CSI']!= "NA" & csv_output['FAR']!= "NA" & csv_output['TPR']!= "NA" 
+                    & csv_output['TNR']!= "NA" & csv_output['PND']!= "NA" & csv_output['PPV']!= "NA"
+                    & csv_output['NPV']!= "NA" & csv_output['ACC']!= "NA" & csv_output['Bal_ACC']!= "NA"
+                    & csv_output['MCC']!= "NA" & csv_output['EQUITABLE_THREAT_SCORE']!= "NA"
+                    & csv_output['PREVALENCE']!= "NA" & csv_output['BIAS']!= "NA" & csv_output['F1_SCORE']!= "NA"
+                    & csv_output['TP_perc']!= "NA" & csv_output['FP_perc']!= "NA" & csv_output['TN_perc']!= "NA"
+                    & csv_output['FN_perc']!= "NA" & csv_output['predPositive_perc']!= "NA"
+                    & csv_output['predNegative_perc']!= "NA" & csv_output['obsPositive_perc']!= "NA"
+                    & csv_output['obsNegative_perc']!= "NA" & csv_output['positiveDiff_perc']!= "NA"  ]
+    
     csv_output.to_csv(csv, index=False, chunksize=1000)
+
+
+
