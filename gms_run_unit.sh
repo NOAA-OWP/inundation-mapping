@@ -161,16 +161,14 @@ if [ ! -d $outputRunDataDir ]; then
     mkdir -p $outputRunDataDir
 fi
 
-# we need to clean out the all log files overwrite or not
-rm -rf $outputRunDataDir/logs/unit/
-mkdir -p $outputRunDataDir/logs/unit
-
-rm -rf $outputRunDataDir/unit_errors/
-mkdir -p $outputRunDataDir/unit_errors
-
-# if it exists, but don't make a new one yet, let gms_run_branch do that.        
-rm -rf $outputRunDataDir/logs/branch
+# remove these directories on a new or overwrite run
+rm -rf $outputRunDataDir/logs
 rm -rf $outputRunDataDir/branch_errors
+rm -rf $outputRunDataDir/unit_errors
+
+# we need to clean out the all log files overwrite or not
+mkdir -p $outputRunDataDir/logs/unit
+mkdir -p $outputRunDataDir/unit_errors
 
 # copy over config file
 cp -a $envFile $outputRunDataDir
