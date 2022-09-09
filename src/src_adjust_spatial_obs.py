@@ -201,7 +201,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     - procs_list:           passes multiprocessing list of input args for process_points function input
     '''
     conn = connect() # Connect to the PostgreSQL db once
-    log_file.write('Connected to database via host: ' + str(CALIBRATION_DB_HOST) + '\n')
+    log_file.write('Connected to database via host\n')
     print("Finding all fim_output hucs that contain calibration points...")
     fim_out_huc_list  = [ item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item)) ]
     fim_out_huc_list.remove('logs')
