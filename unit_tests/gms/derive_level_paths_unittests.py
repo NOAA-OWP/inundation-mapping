@@ -16,7 +16,7 @@ from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 sys.path.append('/foss_fim/src/gms/')
 import derive_level_paths as src
 import stream_branches
-from utils.fim_enums import FIM_system_exit_codes as fec
+from utils.fim_enums import FIM_exit_codes as fec
 
 
 # NOTE: This goes directly to the function.

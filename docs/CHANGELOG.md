@@ -35,7 +35,12 @@ A couple of changes:
 
 <br/><br/>
 
-=======
+## 4.0.9.0 - 2022-09-09 - [PR #672](https://github.com/NOAA-OWP/inundation-mapping/pull/672)
+
+When deriving level paths, this improvement allows stream order to override arbolate sum when selecting the proper upstream segment to continue the current branch.
+
+<br/><br/>
+
 ## 4.0.8.0 - 2022-08-26 - [PR #671](https://github.com/NOAA-OWP/inundation-mapping/pull/671)
 
 Trims ends of branches that are in waterbodies; also removes branches if they are entirely in a waterbody.
