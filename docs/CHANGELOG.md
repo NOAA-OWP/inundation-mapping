@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.(to be assigned) - 2022-09-01 - [PR #664](https://github.com/NOAA-OWP/inundation-mapping/pull/664)
+## v4.0.9.1 - 2022-09-01 - [PR #664](https://github.com/NOAA-OWP/inundation-mapping/pull/664)
 
 A couple of changes:
 1) Addition of a new tool for pushing files / folders up to an AWS (Amazon Web Service) S3 bucket.
