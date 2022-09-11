@@ -19,7 +19,8 @@ import utils.shared_variables as sv
 __USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt'  # 10m = 13 (1/3 arc second)
 
 
-def acquire_and_preprocess_3dep_dems(output_folder_path = '', 
+def acquire_and_preprocess_3dep_dems(extent_file_path,
+                                     target_output_folder_path = '', 
                                      number_of_jobs = 1, 
                                      retry = False):
     
@@ -40,10 +41,16 @@ def acquire_and_preprocess_3dep_dems(output_folder_path = '',
     Notes:
         - As this is a very low use tool, all values such as the USGS vrt path, output
           folder paths, huc unit level (huc4), etc are all hardcoded
+         
         
     Parameters
     ----------
-        - output_folder_path (str):
+        - extent_file_path (str):
+            Location of where the extent files that are to be used as clip extent against
+            the USGS 3Dep vrt url.
+            ie) \data\inputs\wbd\HUC4
+            
+        - target_output_folder_path (str):
             The output location of the new 3dep dem files. When the param is not submitted,
             it will be sent to /data/input/usgs/3dep_dems/10m/.
     
@@ -67,20 +74,24 @@ def acquire_and_preprocess_3dep_dems(output_folder_path = '',
     
     start_time = datetime.now()
     print_start_header('Loading 3dep dems', start_time)
+
+    if (not os.path.exists(extent_file_path)):
+        raise ValueError(f'extent_file_path value of {extent_file_path}'\
+                          ' not set to a valid path')
     
-    if (output_folder_path is None) or (output_folder_path == ""):
-        output_folder_path = sv.USGS_3DEP_DEMS_10M_PARENT_10M_DIR
+    if (target_output_folder_path is None) or (target_output_folder_path == ""):
+        target_output_folder_path = sv.INPUT_DEMS_3DEP_10M_DIR
     
-    if (not os.path.exists(output_folder_path)):
-        raise ValueError(f"Output folder path {output_folder_path} does not exist" )
+    if (not os.path.exists(target_output_folder_path)):
+        raise ValueError(f"Output folder path {target_output_folder_path} does not exist" )
    
-    print(f"Downloading to {output_folder_path}")    
+    print(f"Downloading to {target_output_folder_path}")    
     
-    # Get the huc4 WBD file so we can download them as extents
-    extent_file_names = get_extent_file_names(sv.WBD_HUC4_DIR, "HUC4_*.gpkg")
+    # Get the WBD .gpkg files (or clip extent)
+    extent_file_names = get_extent_file_names(extent_file_path)
    
     # download dems, setting projection, block size, etc
-    __download_usgs_dems(extent_file_names, output_folder_path, number_of_jobs, retry)
+    __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
     
     
     # TODO:  Save an log file with date stamp so we know the last
@@ -207,8 +218,7 @@ def download_usgs_dem_file(extent_file,
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.PIPE,
                                     check = True,
-                                    universal_newlines=True,
-                                    ) 
+                                    universal_newlines=True) 
 
         print(process.stdout)
         print(process.stderr)
@@ -219,7 +229,7 @@ def download_usgs_dem_file(extent_file,
         print(f"Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))")    
     
 
-def get_extent_file_names(extent_src_folder, file_pattern):
+def get_extent_file_names(extent_src_folder):
     '''
     Process
     ----------
@@ -228,7 +238,8 @@ def get_extent_file_names(extent_src_folder, file_pattern):
     
     Notes:
         - The files need to be .gkpg files
-        - all extent files must be in the same directory.
+        - all files in this directory will be used and should be cut as HUC4, 6, 8 or 
+          whatever. Remember.. by using vrt files later, size is not relavent so 4's are fine.
     
     Parameters
     ----------
@@ -249,12 +260,13 @@ def get_extent_file_names(extent_src_folder, file_pattern):
     # test that folder exists
     if (not os.path.exists(extent_src_folder)):
         raise ValueError(f"Extent src folder of {extent_src_folder} not found")
-    
-    if (file_pattern is None) or (file_pattern.strip() == ""):
-        raise ValueError(f"File Pattern parameter not set")
-    
+
     print(f"Extent files coming from {extent_src_folder}")
-    extent_files = glob.glob(os.path.join(extent_src_folder, file_pattern.strip()))
+    
+    if (not extent_src_folder.endswith("/")):
+        extent_src_folder += "/"
+    
+    extent_files = glob.glob(extent_src_folder + "*.*")
  
     if (len(extent_files) == 0):
         raise Exception("extent files not loaded or do not exist")
@@ -302,6 +314,9 @@ if __name__ == '__main__':
 
     # Parse arguments.
     
+    # sample usage (min params):
+    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC4
+    
     # Notes:
     #   - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
     #     hardcoded paths for the wbd gpkg to be used for clipping (no buffer for now).
@@ -316,17 +331,28 @@ if __name__ == '__main__':
     #     depending on your machine performance, maybe half of your cpus / cores. This tool will
     #     not fail or freeze depending on the number of jobs / cores you select.
         
+        
+    # IMPORTANT: 
+    # (Sept 2022): we do not process HUC2 of 19 (alaska) or 22 (misc US pacific islands).
+    # They need to be removed from the input src clip directory in the first place.
+    # They can not be reliably removed in code.
+       
     parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems')
+
+    parser.add_argument('-e','--extent_file_path', help='location the gpkg files that will'\
+                        ' are being used as clip regions (aka.. huc4_*.gpkg or whatever).'\
+                        ' All gpkgs in this folder will be used.', required=True)
 
     parser.add_argument('-j','--number_of_jobs', help='Number of (jobs) cores/processes to used.', 
                         required=False, default=1, type=int)
 
-    parser.add_argument('-o','--output_folder_path', help='location of where the 3dep files will be saved', 
-                        required=False, default='')
-
     parser.add_argument('-r','--retry', help='If included, it will skip files that already exist.'\
-                                'Default is all will be loaded/reloaded.', 
+                        ' Default is all will be loaded/reloaded.', 
                         required=False, action='store_true', default=False)
+
+    parser.add_argument('-t','--target_output_folder_path', help='location of where the 3dep files'\
+                        ' will be saved', required=False, default='')
+
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

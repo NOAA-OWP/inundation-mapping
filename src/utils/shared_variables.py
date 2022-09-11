@@ -20,8 +20,8 @@ WBD_HU2_URL_PARENT = r'http://prd-tnm.s3-website-us-west-2.amazonaws.com/?prefix
 
 # -- Local Data paths -- #
 # For 10m (1/3 arc second)
-USGS_3DEP_DEMS_10M_PARENT_10M_DIR = '/data/inputs/usgs/3dep_dems/10m'
-#USGS_3DEP_DEMS_10M_FIM_VRT = '/data/inputs/usgs/3dep_dems/10m/USGS_FIM_Seamless_DEM_10m.vrt'
+INPUT_DEMS_3DEP_10M_DIR = '/data/inputs/usgs/3dep_dems/10m'
+INPUT_DEMS_3DEP_10M_FIM_VRT = '/data/inputs/usgs/3dep_dems/10m/FIM_Seamless_DEM_10m.vrt'
 WBD_HUC4_DIR = '/data/inputs/wbd/HUC4'
 
 
