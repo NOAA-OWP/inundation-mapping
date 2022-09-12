@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 
-import os, inspect
+import os
+import inspect
+import re
+
 from os.path import splitext
 from datetime import datetime, timezone
-import fiona
-import rasterio
-import numpy as np
 from pathlib import Path
+
+import fiona
+import pandas as pd
+import numpy as np
+import rasterio
+
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 from pyproj.crs import CRS
-import pandas as pd
+
 
 def getDriver(fileName):
 
@@ -251,77 +257,6 @@ def mem_profile(func):
     return wrapper
 
 
-class FIM_Helpers:
-
-    @staticmethod    
-    def append_id_to_file_name(file_name, identifier):
-        '''
-        Processing:
-            Takes an incoming file name and inserts an identifier into the name
-            just ahead of the extension, with an underscore added.
-            ie) filename = "/output/myfolder/a_raster.tif"
-                indentifer = "13090001"
-                Becomes: "/output/myfolder/a_raster_13090001.tif"
-            Note: 
-                - Can handle a single identifier or a list of identifier
-                ie) identifier = ["13090001", "123000001"]
-                Becomes: "/output/myfolder/a_raster_13090001_123000001.tif"
-                - This allows for file name to not be submitted and will return None
-        Inputs:
-            file_name: a single file name
-            identifier: a value or list of values to be inserted with an underscore 
-                added ahead of the extention
-        Output:
-            out_file_name: A single name with each identifer added at the end before
-                the extension, each with an underscore in front of the identifier.
-        '''
-
-        if file_name is not None:
-
-            root,extension = os.path.splitext(file_name)
-
-            if isinstance(identifier, list):
-
-                out_file_name = root
-                for i in identifier:
-                    out_file_name += "_{}".format(i)
-                out_file_name += extension
-            else:
-                out_file_name = root + "_{}".format(identifier) + extension
-        else:
-            out_file_name = None
-
-        return(out_file_name)
-
-    @staticmethod
-    def vprint (message, is_verbose, show_caller = False):
-        '''
-        Processing: Will print a standard output message only when the 
-            verbose flag is set to True
-        Parameters:
-            message : str
-                The message for output
-                Note: this method puts a '...' in front of the message
-            is_verbose : bool
-                This exists so the call to vprint always exists and does not 
-                need a "if verbose: test for inline code
-                If this value is False, this method will simply return
-            show_caller : bool
-                Sometimes, it is desired to see the calling function, method or class
-        Returns:
-            str : the message starting with "... " and optionallly ending with
-                the calling function, method or class name
-        '''
-        if not is_verbose:
-            return
-
-        msg = f"... {message}"
-        if (show_caller):
-            caller_name = inspect.stack()[1][3]
-            if (caller_name == "<module"):
-                caller_name = inspect.stack()[1][1]
-            msg += f"  [from : {caller_name}]"
-        print (msg)
 
 ########################################################################
 #Function to check the age of a file (use for flagging potentially outdated input)
@@ -368,3 +303,197 @@ def concat_huc_csv(fim_dir,csv_name):
         print(f"Creating aggregate csv")
         concat_df = pd.concat(merged_csv)
         return concat_df
+      
+
+
+
+
+
+# #####################################
+class FIM_Helpers:
+
+    # -----------------------------------------------------------
+    @staticmethod    
+    def append_id_to_file_name(file_name, identifier):
+        '''
+        Processing:
+            Takes an incoming file name and inserts an identifier into the name
+            just ahead of the extension, with an underscore added.
+            ie) filename = "/output/myfolder/a_raster.tif"
+                indentifer = "13090001"
+                Becomes: "/output/myfolder/a_raster_13090001.tif"
+            Note: 
+                - Can handle a single identifier or a list of identifier
+                ie) identifier = ["13090001", "123000001"]
+                Becomes: "/output/myfolder/a_raster_13090001_123000001.tif"
+                - This allows for file name to not be submitted and will return None
+        -------
+        
+        Inputs:
+            file_name: a single file name
+            identifier: a value or list of values to be inserted with an underscore 
+                added ahead of the extention
+        
+        -------
+        Output:
+            out_file_name: A single name with each identifer added at the end before
+                the extension, each with an underscore in front of the identifier.
+
+        -------                
+        Usage:
+            from utils.shared_functions import FIM_Helpers as fh
+            composite_file_output = fh.append_id_to_file_name(composite_file_output, huc)
+        '''
+
+        if file_name is not None:
+
+            root,extension = os.path.splitext(file_name)
+
+            if isinstance(identifier, list):
+
+                out_file_name = root
+                for i in identifier:
+                    out_file_name += "_{}".format(i)
+                out_file_name += extension
+            else:
+                out_file_name = root + "_{}".format(identifier) + extension
+        else:
+            out_file_name = None
+
+        return(out_file_name)
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def vprint (message, is_verbose, show_caller = False):
+        '''
+        Processing: Will print a standard output message only when the 
+            verbose flag is set to True
+        -------
+        
+        Parameters:
+            message : str
+                The message for output
+                Note: this method puts a '...' in front of the message
+            is_verbose : bool
+                This exists so the call to vprint always exists and does not 
+                need a "if verbose: test for inline code
+                If this value is False, this method will simply return
+            show_caller : bool
+                Sometimes, it is desired to see the calling function, method or class
+        
+        -------
+        Returns:
+            str : the message starting with "... " and optionallly ending with
+                the calling function, method or class name
+        
+        ------- 
+        Usage:
+            from utils.shared_functions import FIM_Helpers as fh
+            fh.vprint(f"Starting alpha test for {self.dir}", verbose)
+        '''
+        if not is_verbose:
+            return
+
+        msg = f"... {message}"
+        if (show_caller):
+            caller_name = inspect.stack()[1][3]
+            if (caller_name == "<module"):
+                caller_name = inspect.stack()[1][1]
+            msg += f"  [from : {caller_name}]"
+        print (msg)
+
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def load_list_file(file_name_and_path):
+        '''
+        Process:
+        -------
+        Attempts to load a .txt or .lst file of line delimited values into a python list
+        
+        Parameters:
+        -------
+        file_name_and_path : str
+            path and file name of data to be loaded.
+        
+        Returns:
+        -------
+        a Python list
+        
+        -------
+        Usage:
+            from utils.shared_functions import FIM_Helpers as fh
+            fh.vprint(f"Starting alpha test for {self.dir}", verbose)
+        
+        '''
+        
+        if (not os.path.isfile(file_name_and_path)):
+            raise ValueError(f"Sorry, file {file_name_and_path} does not exist. Check name and path.")
+        
+        line_values = []
+        
+        with open(file_name_and_path, "r") as data_file:
+            data = data_file.read()
+            # replacing end splitting the text 
+            # when newline ('\n') is seen.
+            line_values_raw = data.split("\n")
+            line_values_stripped = [i.strip() for i in line_values_raw] # removes extra spaces
+            
+            # dending on comments in the file or an extra line break at the end, we might
+            # get empty entries in the line_values collection. We remove them here
+            line_values = [ele for ele in line_values_stripped if ele != ""]
+            
+        if (len(line_values) == 0):
+            raise Exception("Sorry, there are no value were in the list")
+            
+        return line_values       
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def print_current_date_time():
+        '''
+        Process:
+        -------
+        prints the following:
+        
+            Current date and time: 2022-08-19 15:22:49
+        
+        -------
+        Usage:
+            from utils.shared_functions import FIM_Helpers as fh
+            fh.print_current_date_time()
+        
+        '''
+        d1 = datetime.now()
+        dt_stamp = "Current date and time : "
+        dt_stamp += d1.strftime("%Y-%m-%d %H:%M:%S")
+        print (dt_stamp)
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def print_date_time_duration(start_dt, end_dt):
+        '''
+        Process:
+        -------
+        Calcuates the diffenence in time between the start and end time
+        and prints is as:
+        
+            Duration: 4 hours 23 mins 15 secs
+        
+        -------
+        Usage:
+            from utils.shared_functions import FIM_Helpers as fh
+            fh.print_current_date_time()
+        
+        '''
+        time_delta = (end_dt - start_dt)
+        total_seconds = int(time_delta.total_seconds())
+
+        total_days, rem_seconds = divmod(total_seconds, 60 * 60 * 24)        
+        total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
+        total_mins, seconds = divmod(rem_seconds, 60)
+
+        time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+        
+        print("Duration: " + time_fmt)
+        
