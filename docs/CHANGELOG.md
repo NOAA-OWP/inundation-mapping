@@ -2,6 +2,19 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## [Version to be assigned] - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
+
+This fixes several bugs related to branch definition and trimming due to waterbodies.
+
+## Changes
+
+- `src/gms/stream_branches.py`
+   - Bypasses erroneous stream network data in the to ID field by using the Node attribute instead ([5pt] Branch pruning errors #677)
+   - Adds check if no nwm_lakes_proj_subset.gpkg file is found due to no waterbodies in the HUC ([5pt] Branch pruning errors #677)
+   - Allows for multiple upstream branches when stream order overrides arbolate sum
+
+<br/><br/>
+
 ## v4.0.9.1 - 2022-09-01 - [PR #664](https://github.com/NOAA-OWP/inundation-mapping/pull/664)
 
 A couple of changes:
