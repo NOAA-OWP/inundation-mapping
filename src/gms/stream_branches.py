@@ -454,35 +454,40 @@ class StreamNetwork(gpd.GeoDataFrame):
         waterbody (determined by the Lake attribute).
         """
 
-        def find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs=[]):
-            downstream_ID = int(tmp_self.ID[tmp_self.to==downstream_ID])
+        def find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
+            # Find lowest reach(es)
+            downstream_IDs = [int(x) for x in tmp_self.ID[~tmp_self.to.isin(tmp_self.ID)]] # IDs of most downstream reach(es)
 
-            # Stop if lowest reach is not in a lake
-            if int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
-                return tmp_IDs
-            else:
-                tmp_IDs.append(downstream_ID)
-
-                # Find next lowest downstream reach
-                if downstream_ID in tmp_self.to.values:
-                    return find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs)
-                else:
+            for downstream_ID in downstream_IDs:
+                # Stop if lowest reach is not in a lake
+                if int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
                     return tmp_IDs
-
-        def find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs=[]):
-            upstream_ID = int(tmp_self.to[tmp_self.ID==upstream_ID])
-
-            # Stop if uppermost reach is not in a lake
-            if int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999:
-                return tmp_IDs
-            else:
-                tmp_IDs.append(upstream_ID)
-
-                # Find next highest upstream reach
-                if upstream_ID in tmp_self.ID.values:
-                    return find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs)
                 else:
-                    return tmp_IDs
+                    # Remove reach from tmp_self
+                    tmp_IDs.append(downstream_ID)
+                    tmp_self.drop(tmp_self[tmp_self.ID.isin([downstream_ID,])].index, inplace=True)
+
+                    # Repeat for next lowest downstream reach
+                    if downstream_ID in tmp_self.to.values:
+                        return find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
+                    else:
+                        return tmp_IDs
+
+        def find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
+            # Find highest reach(es)
+            upstream_IDs = [int(x) for x in tmp_self.ID[~tmp_self.ID.isin(tmp_self.to)]] # IDs of most upstream reach(es)
+
+            for upstream_ID in upstream_IDs:
+                # Stop if uppermost reach is not in a lake
+                if int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999:
+                    return(tmp_IDs)
+                else:
+                    # Remove reach from tmp_self
+                    tmp_IDs.append(upstream_ID)
+                    tmp_self.drop(tmp_self[tmp_self.ID.isin([upstream_ID,])].index, inplace=True)
+
+                    # Repeat for next highest upstream reach
+                    return find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
 
         if verbose:
             print("Trimming stream branches in waterbodies ...")
@@ -496,20 +501,13 @@ class StreamNetwork(gpd.GeoDataFrame):
                 
             else:
                 # Find bottom up
-                downstream_ID = int(tmp_self.ID[~tmp_self.to.isin(tmp_self.ID)]) # ID of most downstream reach
-                if not int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
-                    tmp_IDs = find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, [downstream_ID])
-                else:
-                    tmp_IDs = []
+                tmp_IDs = find_downstream_reaches_in_waterbodies(tmp_self)
 
                 # Find top down
-                upstream_ID = int(tmp_self.ID[~tmp_self.ID.isin(tmp_self.to)])
-                if (len(tmp_IDs) != len(tmp_self)) and not (int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999):
-                    tmp_IDs.append(upstream_ID)
-                    tmp_IDs.append(find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs))
+                tmp_IDs = find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
 
             if len(tmp_IDs) > 0:
-                self.drop(tmp_self[tmp_self.ID.isin(tmp_IDs)].index, inplace=True)
+                self.drop(self[self.ID.isin(tmp_IDs)].index, inplace=True)
 
         return(self)
 
