@@ -9,9 +9,9 @@ This fixes several bugs related to branch definition and trimming due to waterbo
 ## Changes
 
 - `src/gms/stream_branches.py`
-   - Bypasses erroneous stream network data in the to ID field by using the Node attribute instead ([5pt] Branch pruning errors #677)
-   - Adds check if no nwm_lakes_proj_subset.gpkg file is found due to no waterbodies in the HUC ([5pt] Branch pruning errors #677)
-   - Allows for multiple upstream branches when stream order overrides arbolate sum
+   - Bypasses erroneous stream network data in the to ID field by using the Node attribute instead.
+   - Adds check if no nwm_lakes_proj_subset.gpkg file is found due to no waterbodies in the HUC.
+   - Allows for multiple upstream branches when stream order overrides arbolate sum.
 
 <br/><br/>
 
