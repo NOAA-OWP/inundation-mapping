@@ -456,35 +456,35 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         def find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
             # Find lowest reach(es)
-            downstream_IDs = [int(x) for x in tmp_self.ID[~tmp_self.to.isin(tmp_self.ID)]] # IDs of most downstream reach(es)
+            downstream_IDs = [int(x) for x in tmp_self.From_Node[~tmp_self.To_Node.isin(tmp_self.From_Node)]] # IDs of most downstream reach(es)
 
             for downstream_ID in downstream_IDs:
                 # Stop if lowest reach is not in a lake
-                if int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
+                if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==downstream_ID]) == -9999:
                     continue
                 else:
                     # Remove reach from tmp_self
                     tmp_IDs.append(downstream_ID)
-                    tmp_self.drop(tmp_self[tmp_self.ID.isin([downstream_ID,])].index, inplace=True)
+                    tmp_self.drop(tmp_self[tmp_self.From_Node.isin([downstream_ID,])].index, inplace=True)
 
                     # Repeat for next lowest downstream reach
-                    if downstream_ID in tmp_self.to.values:
+                    if downstream_ID in tmp_self.To_Node.values:
                         return find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
 
             return tmp_IDs
 
         def find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
             # Find highest reach(es)
-            upstream_IDs = [int(x) for x in tmp_self.ID[~tmp_self.ID.isin(tmp_self.to)]] # IDs of most upstream reach(es)
+            upstream_IDs = [int(x) for x in tmp_self.From_Node[~tmp_self.From_Node.isin(tmp_self.To_Node)]] # IDs of most upstream reach(es)
 
             for upstream_ID in upstream_IDs:
                 # Stop if uppermost reach is not in a lake
-                if int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999:
+                if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==upstream_ID]) == -9999:
                     continue
                 else:
                     # Remove reach from tmp_self
                     tmp_IDs.append(upstream_ID)
-                    tmp_self.drop(tmp_self[tmp_self.ID.isin([upstream_ID,])].index, inplace=True)
+                    tmp_self.drop(tmp_self[tmp_self.From_Node.astype(int).isin([upstream_ID,])].index, inplace=True)
 
                     # Repeat for next highest upstream reach
                     return find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
@@ -499,7 +499,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             # If entire branch is in waterbody
             if all(tmp_self.Lake.values != -9999):
-                tmp_IDs = tmp_self.ID
+                tmp_IDs = tmp_self.From_Node.astype(int)
                 
             else:
                 # Find bottom up
@@ -509,7 +509,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 tmp_IDs = find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
 
             if len(tmp_IDs) > 0:
-                self.drop(self[self.ID.isin(tmp_IDs)].index, inplace=True)
+                self.drop(self[self.From_Node.astype(int).isin(tmp_IDs)].index, inplace=True)
 
         return(self)
 
@@ -787,7 +787,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         
         self["order_"] = max_stream_order.values
 
-        # merges each multi-line string to a sigular linestring
+        # merges each multi-line string to a singular linestring
         for lpid,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc="Merging mult-part geoms"):
             if isinstance(row.geometry,MultiLineString):
                 merged_line = linemerge(row.geometry)
@@ -805,7 +805,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         if out_vector_files is not None:
             
-            base_file_path,extension = splitext(out_vector_files)
+            # base_file_path,extension = splitext(out_vector_files)
             
             if verbose:
                 print("Writing dissolved branches ...")
