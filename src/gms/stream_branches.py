@@ -643,12 +643,13 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Continue the current branch up the larger stream
                     continue_id = upstream_reaches_compare_values.idxmax()[decision_attribute]
                     self.loc[continue_id,branch_id_attribute] = current_reach_branch_id
-                    # Create a new level path for the smaller tributary
+                    # Create a new level path for the smaller tributary(ies)
                     if len(not_visited_upstream_ids) == 1: continue # only create a new branch if there are 2 upstreams
-                    new_id = upstream_reaches_compare_values.idxmin()[decision_attribute]
-                    branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
-                    self.loc[new_id,branch_id_attribute] = branch_id
-                    bid += 1
+                    new_upstream_branches = upstream_reaches_compare_values.loc[~upstream_reaches_compare_values.index.isin([continue_id,])]
+                    for new_up_id in new_upstream_branches.index:
+                        branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
+                        self.loc[new_up_id,branch_id_attribute] = branch_id
+                        bid += 1
                     #==================================================================================
                     ''' NOTE: The above logic uses stream order to override arbolate sum. Use the commented section
                      below if this turns out to be a bad idea!'''
