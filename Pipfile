@@ -29,6 +29,10 @@ tables = "==3.6.1"
 h5py = "==3.4.0"
 pyproj = "==3.1.0"
 psycopg2-binary = "==2.8.6"
+boto3 = "*"
+jupyter = "*"
+jupyterlab = "*"
+ipympl = "*"
 
 [requires]
 python_version = "3.8"
