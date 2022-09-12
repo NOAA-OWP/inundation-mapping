@@ -4,6 +4,7 @@
 import os
 # Import data analysis library
 import pandas as pd
+import geopandas as gpd
 import argparse
 from pixel_counter import zonal_stats
 from tools_shared_functions import compute_stats_from_contingency_table
@@ -39,7 +40,8 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
     for dicts in stats:
         stats_dictionary = compute_stats_from_contingency_table(dicts['tn'], dicts['fn'], dicts['fp'], dicts['tp'], cell_area=100, masked_count= dicts['mp'])
         # Calls compute_stats_from_contingency_table from run_test_case.py
-        
+
+
         hydroid = dicts['HydroID']
         stats_dictionary['HydroID'] = hydroid
                
@@ -147,7 +149,7 @@ if __name__ == "__main__":
         'obsNegative_area_km2', 'positiveDiff_area_km2', 'CSI', 'FAR', 'TPR', 'TNR', 'PND', 'PPV', 'NPV', 'ACC', 'Bal_ACC',
         'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc',
         'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
-        'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
+        'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH','geometry'])
     # This funtion, relies on the test_case class defined in run_test_case.py to list all available test cases
     all_test_cases = test_case.list_all_test_cases(version=version, archive=True, benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
 
@@ -158,37 +160,45 @@ if __name__ == "__main__":
     for test_case_class in all_test_cases:
 
         if not os.path.exists(test_case_class.fim_dir):
-            print(f'{test_case_class.fim_dir} does not exist')
+            print(f'{test_case_class.fim_dir} does not exist_bilbo_baggins')
             continue
         else:
-            print(test_case_class.test_id, end='\r')
+            print(test_case_class.test_id)
+            #print(test_case_class.test_id, end='\r')
 
-        # Define the catchment geopackage that contains the hydroid and geometry of each catchment. 
-        huc_gpkg = os.path.join(test_case_class.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+            # Define the catchment geopackage that contains the hydroid and geometry of each catchment. 
+            huc_gpkg = os.path.join(test_case_class.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
 
-        agreement_dict = test_case_class.get_current_agreements()
-        for mag in agreement_dict:
-            for agree_rast in agreement_dict[mag]:
-                
-                stats = perform_zonal_stats(huc_gpkg,agree_rast)
-                in_mem_df = assemble_hydro_alpha_for_single_huc(stats, test_case_class.huc, mag, test_case_class.benchmark_cat)
-                
-                concat_df_list = [in_mem_df, csv_output]
-
-                csv_output = pd.concat(concat_df_list, sort=False)
+            agreement_dict = test_case_class.get_current_agreements()
+            for mag in agreement_dict:
+                for agree_rast in agreement_dict[mag]:
+                    
+                    stats = perform_zonal_stats(huc_gpkg,agree_rast)
+                    
+                    in_mem_df = assemble_hydro_alpha_for_single_huc(stats, test_case_class.huc, mag, test_case_class.benchmark_cat)
+                    get_geom = gpd.read_file(huc_gpkg)
+                    print(get_geom)
+                    hydro_geom_df = get_geom[["HydroID", "geometry"]]
+                    geom_output = pd.merge(in_mem_df, hydro_geom_df, how = 'inner', on = 'HydroID')
+                    
+                    
+                    concat_df_list = [in_mem_df, csv_output]
+                    print(csv_output.dtypes)
+                    csv_output = pd.concat(concat_df_list, sort=False)
                 
                
-
-    csv_output = csv_output[csv_output['CSI']!= "NA" & csv_output['FAR']!= "NA" & csv_output['TPR']!= "NA" 
-                    & csv_output['TNR']!= "NA" & csv_output['PND']!= "NA" & csv_output['PPV']!= "NA"
-                    & csv_output['NPV']!= "NA" & csv_output['ACC']!= "NA" & csv_output['Bal_ACC']!= "NA"
-                    & csv_output['MCC']!= "NA" & csv_output['EQUITABLE_THREAT_SCORE']!= "NA"
-                    & csv_output['PREVALENCE']!= "NA" & csv_output['BIAS']!= "NA" & csv_output['F1_SCORE']!= "NA"
-                    & csv_output['TP_perc']!= "NA" & csv_output['FP_perc']!= "NA" & csv_output['TN_perc']!= "NA"
-                    & csv_output['FN_perc']!= "NA" & csv_output['predPositive_perc']!= "NA"
-                    & csv_output['predNegative_perc']!= "NA" & csv_output['obsPositive_perc']!= "NA"
-                    & csv_output['obsNegative_perc']!= "NA" & csv_output['positiveDiff_perc']!= "NA"  ]
+    csv_output = csv_output.convert_dtypes()
+    csv_output = csv_output[(csv_output['CSI']!= "NA") & (csv_output['FAR']!= "NA") & (csv_output['TPR']!= "NA") 
+                    & (csv_output['TNR']!= "NA") & (csv_output['PND']!= "NA") & (csv_output['PPV']!= "NA")
+                    & (csv_output['NPV']!= "NA") & (csv_output['ACC']!= "NA") & (csv_output['Bal_ACC']!= "NA")
+                    & (csv_output['MCC']!= "NA") & (csv_output['EQUITABLE_THREAT_SCORE']!= "NA")
+                    & (csv_output['PREVALENCE']!= "NA") & (csv_output['BIAS']!= "NA") & (csv_output['F1_SCORE']!= "NA")
+                    & (csv_output['TP_perc']!= "NA") & (csv_output['FP_perc']!= "NA") & (csv_output['TN_perc']!= "NA")
+                    & (csv_output['FN_perc']!= "NA") & (csv_output['predPositive_perc']!= "NA")
+                    & (csv_output['predNegative_perc']!= "NA") & (csv_output['obsPositive_perc']!= "NA")
+                    & (csv_output['obsNegative_perc']!= "NA") & (csv_output['positiveDiff_perc']!= "NA")]
     
+    print(csv_output.dtypes)
     csv_output.to_csv(csv, index=False, chunksize=1000)
 
 
