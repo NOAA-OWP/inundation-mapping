@@ -465,10 +465,10 @@ class StreamNetwork(gpd.GeoDataFrame):
                 else:
                     # Remove reach from tmp_self
                     tmp_IDs.append(downstream_ID)
-                    tmp_self.drop(tmp_self[tmp_self.From_Node.isin([downstream_ID,])].index, inplace=True)
+                    tmp_self.drop(tmp_self[tmp_self.From_Node.astype(int).isin([downstream_ID,])].index, inplace=True)
 
                     # Repeat for next lowest downstream reach
-                    if downstream_ID in tmp_self.To_Node.values:
+                    if downstream_ID in tmp_self.To_Node.astype(int).values:
                         return find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
 
             return tmp_IDs
@@ -494,8 +494,8 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Trimming stream branches in waterbodies ...")
 
-        for branch in self[branch_id_attribute].unique():
-            tmp_self = self[self[branch_id_attribute]==branch]
+        for branch in self[branch_id_attribute].astype(int).unique():
+            tmp_self = self[self[branch_id_attribute].astype(int)==branch]
 
             # If entire branch is in waterbody
             if all(tmp_self.Lake.values != -9999):
