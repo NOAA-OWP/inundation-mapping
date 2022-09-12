@@ -5,7 +5,7 @@ import pandas as pd
 import rasterio
 from rasterio.mask import mask
 from rasterio.io import DatasetReader
-from os.path import splitext
+from os.path import splitext, isfile
 import fiona
 from fiona.errors import DriverError
 from collections import deque
@@ -461,7 +461,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             for downstream_ID in downstream_IDs:
                 # Stop if lowest reach is not in a lake
                 if int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
-                    return tmp_IDs
+                    continue
                 else:
                     # Remove reach from tmp_self
                     tmp_IDs.append(downstream_ID)
@@ -470,8 +470,8 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Repeat for next lowest downstream reach
                     if downstream_ID in tmp_self.to.values:
                         return find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
-                    else:
-                        return tmp_IDs
+
+            return tmp_IDs
 
         def find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
             # Find highest reach(es)
@@ -480,7 +480,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             for upstream_ID in upstream_IDs:
                 # Stop if uppermost reach is not in a lake
                 if int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999:
-                    return(tmp_IDs)
+                    continue
                 else:
                     # Remove reach from tmp_self
                     tmp_IDs.append(upstream_ID)
@@ -488,6 +488,8 @@ class StreamNetwork(gpd.GeoDataFrame):
 
                     # Repeat for next highest upstream reach
                     return find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
+
+            return tmp_IDs
 
         if verbose:
             print("Trimming stream branches in waterbodies ...")
@@ -525,23 +527,20 @@ class StreamNetwork(gpd.GeoDataFrame):
             print('Removing branches in waterbodies')
 
         # load waterbodies
-        if isinstance(waterbodies,gpd.GeoDataFrame):
-            pass
-        elif isinstance(waterbodies,str):
+        if isinstance(waterbodies,str) and isfile(waterbodies):
             waterbodies = gpd.read_file(waterbodies)
-        else:
-            raise TypeError("Waterbodies needs to be GeoDataFame or path to vector file")
 
-        # Find branches in waterbodies
-        sjoined = gpd.sjoin(self, waterbodies, op='within')
-        self.drop(sjoined.index, inplace=True)
+        if isinstance(waterbodies,gpd.GeoDataFrame):
+            # Find branches in waterbodies
+            sjoined = gpd.sjoin(self, waterbodies, op='within')
+            self.drop(sjoined.index, inplace=True)
 
-        if out_vector_files is not None:
-            
-            if verbose:
-                print("Writing pruned branches ...")
-            
-            self.write(out_vector_files, index=False)
+            if out_vector_files is not None:
+                
+                if verbose:
+                    print("Writing pruned branches ...")
+                
+                self.write(out_vector_files, index=False)
 
         return(self)
 
