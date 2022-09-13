@@ -58,6 +58,10 @@ When deriving level paths, this improvement allows stream order to override arbo
 
 Trims ends of branches that are in waterbodies; also removes branches if they are entirely in a waterbody.
 
+## Changes
+
+- `src/gms/stream_branches.py`: adds `trim_branches_in_waterbodies()` and `remove_branches_in_waterbodies()` to trim and prune branches in waterbodies.
+
 <br/><br/>
 
 ## v4.0.7.2 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
@@ -67,10 +71,6 @@ Trims ends of branches that are in waterbodies; also removes branches if they ar
 ## Changes
 
 - `inundate_gms`:  Changed `mask_type = 'filter'`
-
-## Changes
-
-- `src/gms/stream_branches.py`: adds functionality to trim and prune branches in waterbodies.
 
 <br/><br/>
 
