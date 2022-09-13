@@ -433,7 +433,10 @@ if __name__ == '__main__':
         else:
             dev_versions_to_include_list = previous_fim_list
     if config == 'PREV':
-        dev_versions_to_include_list = dev_versions_to_compare
+        if dev_versions_to_compare != None:
+            dev_versions_to_include_list = dev_versions_to_compare + previous_fim_list
+        else:
+            dev_versions_to_include_list = previous_fim_list
 
     if master_metrics_csv is not None:
         # Do aggregate_metrics.

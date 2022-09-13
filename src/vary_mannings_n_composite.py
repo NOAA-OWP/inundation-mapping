@@ -14,6 +14,7 @@ import shutil
 import warnings
 from pathlib import Path
 import datetime as dt
+import re
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -42,19 +43,21 @@ def variable_mannings_calc(args):
     channel_ratio_src_column    = args[1]
     df_mann                     = args[2]
     huc                         = args[3]
-    out_src_vmann_filename   = args[4]
-    htable_filename             = args[5]
-    src_plot_option             = args[6]
-    huc_output_dir              = args[7]
-    viz_clean_flag              = args[8]
+    branch_id                   = args[4]
+    out_src_vmann_filename      = args[5]
+    htable_filename             = args[6]
+    src_plot_option             = args[7]
+    huc_output_dir              = args[8]
+    viz_clean_flag              = args[9]
 
     ## Read the src_full_crosswalked.csv
-    log_text = 'Calculating: ' + str(huc) + '\n'
+    print('Calculating variable roughness: ' + str(huc) + '  branch id: ' + str(branch_id))
+    log_text = 'Calculating variable roughness: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
     df_src = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': 'int64'})
 
     ## Check that the channel ratio column the user specified exists in the def
     if channel_ratio_src_column not in df_src.columns:
-        log_text += 'WARNING --> ' + str(huc) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
+        log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
     else:
         ## Raname the current discharge & ManningN columns
         df_src = df_src.rename(columns={'Discharge (m3s-1)':'default_Discharge (m3s-1)','ManningN':'default_ManningN'})
@@ -62,7 +65,7 @@ def variable_mannings_calc(args):
         df_src = df_src.merge(df_mann,  how='left', on='feature_id')
         check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
         if check_null > 0:
-            log_text += str(huc) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
+            log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
 
         ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
         df_src['comp_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
@@ -71,7 +74,7 @@ def variable_mannings_calc(args):
         ## Check if there are any missing data in the composite ManningN column
         check_null_comp = df_src['comp_ManningN'].isnull().sum()
         if check_null_comp > 0:
-            log_text += str(huc) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
+            log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
         df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
 
         ## Define the channel geometry variable names to use from the src
@@ -129,7 +132,7 @@ def variable_mannings_calc(args):
         log_text += 'Completed: ' + str(huc)
 
         ## plot rating curves
-        if src_plot_option == 'True':
+        if src_plot_option:
             if isdir(huc_output_dir) == False:
                 os.mkdir(huc_output_dir)
             generate_src_plot(df_src, huc_output_dir)
@@ -174,12 +177,67 @@ def generate_src_plot(df_src, plt_out_dir):
 #        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png',dpi=175, bbox_inches='tight')
 #        plt.close()
 
-def multi_process(variable_mannings_calc, procs_list):
+def multi_process(variable_mannings_calc, procs_list, log_file):
     ## Initiate multiprocessing
     print(f"Applying variable Manning's n to SRC calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         map_output = pool.map(variable_mannings_calc, procs_list)
     log_file.writelines(["%s\n" % item  for item in map_output])
+
+def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,src_plot_option,viz_clean_flag):
+    procs_list = []
+
+    print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + output_suffix + '.log')))
+    print('This may take a few minutes...')
+    ## Create a time var to log run time
+    begin_time = dt.datetime.now()
+
+    ## initiate log file
+    log_file = open(join(fim_dir,'logs','log_composite_n' + output_suffix + '.log'),"w")
+    log_file.write('START TIME: ' + str(begin_time) + '\n')
+    log_file.write('#########################################################\n\n')
+
+    ## Check that the input fim_dir exists
+    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
+    ## Check that the manning's roughness input filepath exists and then read to dataframe
+    assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(mann_n_table)
+    
+    ## Read the Manning's n csv (ensure that it contains feature_id, channel mannings, floodplain mannings)
+    print('Importing the Manning roughness data file: ' + mann_n_table)
+    df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': 'int64'})
+    if 'channel_n' not in df_mann.columns or 'overbank_n' not in df_mann.columns or 'feature_id' not in df_mann.columns:
+        print('Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann)
+    else:
+        print('Running the variable_mannings_calc function...')
+
+        ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
+        huc_list  = os.listdir(fim_dir)
+        for huc in huc_list:
+            #if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
+            if re.match('\d{8}', huc):    
+                huc_branches_dir = os.path.join(fim_dir, huc,'branches')
+                for branch_id in os.listdir(huc_branches_dir):
+                    branch_dir = os.path.join(huc_branches_dir,branch_id)
+                    in_src_bankfull_filename = join(branch_dir,'src_full_crosswalked_bankfull_' + branch_id + '.csv')
+                    out_src_vmann_filename = join(branch_dir,'src_full_crosswalked_vmann_' + branch_id + '.csv')
+                    htable_filename = join(branch_dir,'hydroTable_' + branch_id + '.csv')
+                    huc_plot_output_dir = join(branch_dir,'src_plots')
+
+                    if isfile(in_src_bankfull_filename) and isfile(htable_filename):
+                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, branch_id, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir,viz_clean_flag])
+                    else:
+                        print('HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: ' + str(branch_dir) + ' - skipping this branch!!!\n')
+                        log_file.write('HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: ' + str(branch_dir) + ' - skipping this branch!!!\n')
+
+        ## Pass huc procs_list to multiprocessing function
+        multi_process(variable_mannings_calc, procs_list, log_file)
+
+        ## Record run time and close log file
+        end_time = dt.datetime.now()
+        log_file.write('END TIME: ' + str(end_time) + '\n')
+        tot_run_time = end_time - begin_time
+        log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
+        log_file.close()
 
 if __name__ == '__main__':
 
@@ -189,7 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('-mann','--mann-n-table',help="Path to a csv file containing Manning's n values by featureid",required=True,type=str)
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
-    parser.add_argument('-plots','--src-plot-option',help='Optional (True or False): use this flag to create src plots for all hydroids. WARNING - long runtime',required=False,default='False',type=str)
+    parser.add_argument('-plots','--src-plot-option',help='OPTIONAL flag: use this flag to create src plots for all hydroids. WARNING - long runtime',default=False,required=False, action='store_true')
     parser.add_argument('-viz_clean','--viz-clean',help='Optional (Viz flag): pass the viz flag (0 or 1) to delete intermediate csv files',required=False,default=0,type=int)
 
     args = vars(parser.parse_args())
@@ -201,56 +259,5 @@ if __name__ == '__main__':
     number_of_jobs = args['number_of_jobs']
     src_plot_option = args['src_plot_option']
     viz_clean_flag = args['viz_clean']
-    procs_list = []
 
-    print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + output_suffix + '.log')))
-    print('This may take a few minutes...')
-    ## Create a time var to log run time
-    begin_time = dt.datetime.now()
-
-    ## Check that the bankfull flow filepath exists and read to dataframe
-    if not isfile(mann_n_table):
-        print('!!! Can not find the input roughness/feature_id file: ' + str(mann_n_table))
-    else:
-        ## Read the Manning's n csv (ensure that it contains feature_id, channel mannings, floodplain mannings)
-        print('Importing the Manning roughness data file: ' + mann_n_table)
-        df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': 'int64'})
-        if 'channel_n' not in df_mann.columns or 'overbank_n' not in df_mann.columns or 'feature_id' not in df_mann.columns:
-            print('Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann)
-        else:
-            print('Running the variable_mannings_calc function...')
-
-            ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-            huc_list  = os.listdir(fim_dir)
-            skip_hucs_log = ""
-            for huc in huc_list:
-                if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-                    in_src_bankfull_filename = join(fim_dir,huc,'src_full_crosswalked_bankfull.csv')
-                    out_src_vmann_filename = join(fim_dir,huc,'src_full_crosswalked_vmann.csv')
-                    htable_filename = join(fim_dir,huc,'hydroTable.csv')
-                    huc_plot_output_dir = join(fim_dir,huc,'src_plots')
-
-                    if isfile(in_src_bankfull_filename):
-                        print(str(huc))
-                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, out_src_vmann_filename, htable_filename, src_plot_option, huc_plot_output_dir,viz_clean_flag])
-                    else:
-                        print(str(huc) + '\nWARNING --> can not find the src_full_crosswalked_bankfull.csv in the fim output dir: ' + str(join(fim_dir,huc)) + ' - skipping this HUC!!!\n')
-
-            ## initiate log file
-            print(f"Applying variable Manning's n to SRC calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")
-            sys.__stdout__ = sys.stdout
-            log_file = open(join(fim_dir,'logs','log_composite_n' + output_suffix + '.log'),"w")
-            sys.stdout = log_file
-            log_file.write('START TIME: ' + str(begin_time) + '\n')
-            log_file.write('#########################################################\n\n')
-
-            ## Pass huc procs_list to multiprocessing function
-            multi_process(variable_mannings_calc, procs_list)
-
-            ## Record run time and close log file
-            end_time = dt.datetime.now()
-            log_file.write('END TIME: ' + str(end_time) + '\n')
-            tot_run_time = end_time - begin_time
-            log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
-            sys.stdout = sys.__stdout__
-            log_file.close()
+    run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,src_plot_option,viz_clean_flag)
