@@ -182,7 +182,7 @@ if __name__ == "__main__":
                     geom_output = pd.merge(in_mem_df, hydro_geom_df, how = 'inner', on = 'HydroID')
                     
                     
-                    concat_df_list = [in_mem_df, csv_output]
+                    concat_df_list = [geom_output, csv_output]
                     print(csv_output.dtypes)
                     csv_output = pd.concat(concat_df_list, sort=False)
                 
