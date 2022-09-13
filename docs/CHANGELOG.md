@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## [Version to be assigned] - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
+## 4.0.9.2 - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
 
 This fixes several bugs related to branch definition and trimming due to waterbodies.
 
