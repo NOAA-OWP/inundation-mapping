@@ -5,12 +5,15 @@ import geopandas as gpd
 import argparse
 from shapely.geometry import MultiPolygon,Polygon
 from utils.shared_functions import getDriver, mem_profile
-
+import rasterio as rio
 
 @mem_profile
-def subset_vector_layers(hucCode, nwm_streams_filename, nhd_streams_filename, nwm_lakes_filename, nld_lines_filename, nwm_catchments_filename, nhd_headwaters_filename, landsea_filename, wbd_filename, wbd_buffer_filename, subset_nhd_streams_filename, subset_nld_lines_filename, subset_nwm_lakes_filename, subset_nwm_catchments_filename, subset_nhd_headwaters_filename, subset_nwm_streams_filename, subset_landsea_filename, extent, great_lakes_filename, wbd_buffer_distance, lake_buffer_distance):
+def subset_vector_layers(hucCode, nwm_streams_filename, nhd_streams_filename, nwm_lakes_filename, nld_lines_filename, nwm_catchments_filename, nhd_headwaters_filename, landsea_filename, wbd_filename, wbd_buffer_filename, subset_nhd_streams_filename, subset_nld_lines_filename, subset_nwm_lakes_filename, subset_nwm_catchments_filename, subset_nhd_headwaters_filename, subset_nwm_streams_filename, subset_landsea_filename, extent, great_lakes_filename, wbd_buffer_distance, lake_buffer_distance, dem_filename):
 
     hucUnitLength = len(str(hucCode))
+
+    with rio.open(dem_filename) as dem_raster:
+        dem_cellsize = max(dem_raster.res)
 
     # Get wbd buffer
     wbd = gpd.read_file(wbd_filename)
@@ -21,7 +24,7 @@ def subset_vector_layers(hucCode, nwm_streams_filename, nhd_streams_filename, nw
     wbd_buffer_filename_split = os.path.splitext(wbd_buffer_filename)
     wbd_streams_buffer_filename = wbd_buffer_filename_split[0] + '_streams' + wbd_buffer_filename_split[1]
     wbd_streams_buffer = wbd.copy()
-    wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-20, resolution=32)
+    wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-2*dem_cellsize, resolution=32)
 
     # projection = wbd_buffer.crs
 
@@ -143,6 +146,7 @@ if __name__ == '__main__':
     parser.add_argument('-l','--nwm-lakes', help='NWM Lakes', required=True)
     parser.add_argument('-r','--nld-lines', help='Levee vectors to use within project path', required=True)
     parser.add_argument('-g','--wbd', help='HUC boundary', required=True)
+    parser.add_argument('-i','--dem-filename', help='DEM filename', required=True)
     parser.add_argument('-f','--wbd-buffer', help='Buffered HUC boundary', required=True)
     parser.add_argument('-m','--nwm-catchments', help='NWM catchments', required=True)
     parser.add_argument('-y','--nhd-headwaters', help='NHD headwaters', required=True)
@@ -182,5 +186,6 @@ if __name__ == '__main__':
     great_lakes_filename = args['great_lakes_filename']
     wbd_buffer_distance = args['wbd_buffer_distance']
     lake_buffer_distance  = args['lake_buffer_distance']
+    dem_filename = args['dem_filename']
 
-    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance)
+    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance, dem_filename)
