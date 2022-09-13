@@ -2,6 +2,7 @@
 
 import argparse
 import glob
+import logging
 import os
 import subprocess
 import sys
@@ -9,11 +10,13 @@ import traceback
 
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime
-from tqdm import tqdm
+#from tqdm import tqdm
 
 sys.path.append('/foss_fim/src')
 import utils.shared_variables as sv
+import utils.shared_functions as sf
 
+from utils.shared_functions import FIM_Helpers as fh
 
 # local constants (until changed to input param)
 __USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt'  # 10m = 13 (1/3 arc second)
@@ -41,7 +44,6 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     Notes:
         - As this is a very low use tool, all values such as the USGS vrt path, output
           folder paths, huc unit level (huc4), etc are all hardcoded
-         
         
     Parameters
     ----------
@@ -61,9 +63,8 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
             If retry is True and the file exists (either the raw downloaded DEM and/or)
             the projected one, then skip it
     '''
-    
-    # TODO Change to shared_functions as header (wait until s3 merged)
-
+    # -------------------
+    # Validation
     total_cpus_available = os.cpu_count() - 1
     if number_of_jobs > total_cpus_available:
         raise ValueError('The number of jobs {number_of_jobs}'\
@@ -71,9 +72,6 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
                           'Please lower the number of jobs '\
                           'values accordingly.'.format(number_of_jobs)
                         )
-    
-    start_time = datetime.now()
-    print_start_header('Loading 3dep dems', start_time)
 
     if (not os.path.exists(extent_file_path)):
         raise ValueError(f'extent_file_path value of {extent_file_path}'\
@@ -85,7 +83,18 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     if (not os.path.exists(target_output_folder_path)):
         raise ValueError(f"Output folder path {target_output_folder_path} does not exist" )
    
-    print(f"Downloading to {target_output_folder_path}")    
+    # -------------------
+    # setup logs
+    start_time = datetime.now()
+    fh.print_start_header('Loading 3dep dems', start_time)
+   
+    #print(f"Downloading to {target_output_folder_path}")
+    setup_logger(target_output_folder_path)
+    logging.info(f"Downloading to {target_output_folder_path}")
+    
+    
+    # -------------------
+    # processing
     
     # Get the WBD .gpkg files (or clip extent)
     extent_file_names = get_extent_file_names(extent_file_path)
@@ -93,14 +102,10 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     # download dems, setting projection, block size, etc
     __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
     
-    
-    # TODO:  Save an log file with date stamp so we know the last
-    # time it was loaded. It shoudl include all outputs plus input parameters.
-    # Note: I don't see versions on USGS, so this will
-    # have to do.
-    
+    logging.info(fh.print_current_date_time())
     end_time = datetime.now()
-    print_end_header('Loading 3dep dems', start_time, end_time)
+    duration_str = fh.print_end_header('Loading 3dep dems', start_time, end_time)
+    logging.info(duration_str)
 
 
 def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry):
@@ -111,6 +116,10 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     download the actual raw (non reprojected files) from the USGS
     based on stated embedded arguments
     
+    Parameters
+    ----------
+        - fl (object of fim_logger (must have been created))
+        - remaining params are defined in acquire_and_preprocess_3dep_dems
     '''
 
     print(f"==========================================================")
@@ -140,16 +149,22 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
                 future = executor.submit(download_usgs_dem_file, **download_dem_args)
                 executor_dict[future] = extent_file
             except Exception as ex:
-                print(f"*** {ex}")
-                traceback.print_exc()
+                
+                summary = traceback.StackSummary.extract(
+                        traceback.walk_stack(None))
+                print(f"*** {ex}")                
+                print(''.join(summary.format()))    
+                
+                logging.critical(f"*** {ex}")
+                logging.critical(''.join(summary.format()))
+
                 sys.exit(1)
             
         # Send the executor to the progress bar and wait for all FR tasks to finish
-        progress_bar_handler(executor_dict, f"Downloading USGG 3Dep Dems")
-       
-
+        sf.progress_bar_handler(executor_dict, f"Downloading USGG 3Dep Dems")
 
     print(f"-- Downloading USGS DEMs Completed")
+    logging.info(f"-- Downloading USGS DEMs Completed")
     print(f"==========================================================")    
     
         
@@ -195,38 +210,56 @@ def download_usgs_dem_file(extent_file,
                                     target_file_name_raw)
     
     # File might exist from a previous failed run. If it was aborted or failed
-    # on a previous attempt, it's size less than 1mg, so delete it. Note:
-    # it might be compromised on a previous run but not less than 1mg (part written).
+    # on a previous attempt, it's size less than 1mg, so delete it.
+    # 
+    # IMPORTANT:
+    #
+    # it might be compromised on a previous run but GREATER 1mg (part written).
     # That scenerio is not handled as we can not tell if it completed.
-    if (os.path.exists(target_path_raw)) and (os.stat(target_path_raw).st_size < 1000):
-        os.remove(target_path_raw)
     
-    if (not retry) or (retry and not os.path.exists(target_path_raw)):
-        
-        print(f"Downloading -- {target_file_name_raw} - Started")       
-                
-        cmd = base_cmd.format(download_url,
-                              target_path_raw,
-                              extent_file)
-        #PREP_PROJECTION_EPSG
-        #fh.vprint(f"cmd is {cmd}", self.is_verbose, True)
-        #print(f"cmd is {cmd}")
-        
-        # didn't use Popen becuase of how it interacts with multi proc
-        # was creating some issues. Run worked much better.
-        process = subprocess.run(cmd, shell = True,
-                                    stdout = subprocess.PIPE, 
-                                    stderr = subprocess.PIPE,
-                                    check = True,
-                                    universal_newlines=True) 
+    if (retry) and (os.path.exists(target_path_raw)):
+        if (os.stat(target_path_raw).st_size < 1000000):
+            os.remove(target_path_raw)
+        else:
+            msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
+            print(msg)  
+            logging.info(msg)
+            return
+    
+    msg = f" - Downloading -- {target_file_name_raw} - Started"
+    print(msg)
+    logging.info(msg)
+            
+    cmd = base_cmd.format(download_url,
+                            target_path_raw,
+                            extent_file)
+    #PREP_PROJECTION_EPSG
+    #fh.vprint(f"cmd is {cmd}", self.is_verbose, True)
+    #print(f"cmd is {cmd}")
+    
+    # didn't use Popen becuase of how it interacts with multi proc
+    # was creating some issues. Run worked much better.
+    process = subprocess.run(cmd, shell = True,
+                                stdout = subprocess.PIPE, 
+                                stderr = subprocess.PIPE,
+                                check = True,
+                                universal_newlines=True) 
 
-        print(process.stdout)
-        print(process.stderr)
-                    
-        print(f"Downloading -- {target_file_name_raw} - Complete")
-
+    msg = process.stdout
+    print(msg)
+    logging.info(msg)
+    
+    if (process.stderr != ""):
+        if ("ERROR" in process.stderr.upper()):
+            msg = f" - Downloading -- {target_file_name_raw}"\
+                    f"  ERROR -- details: ({process.stderr})"
+            print(msg)
+            logging.error(msg)
+            os.remove(target_path_raw)
     else:
-        print(f"Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))")    
+        msg = f" - Downloading -- {target_file_name_raw} - Complete"
+        print(msg)
+        logging.info(msg)
     
 
 def get_extent_file_names(extent_src_folder):
@@ -261,7 +294,9 @@ def get_extent_file_names(extent_src_folder):
     if (not os.path.exists(extent_src_folder)):
         raise ValueError(f"Extent src folder of {extent_src_folder} not found")
 
-    print(f"Extent files coming from {extent_src_folder}")
+    msg = f"Extent files coming from {extent_src_folder}"
+    print(msg)
+    logging.info(msg)
     
     if (not extent_src_folder.endswith("/")):
         extent_src_folder += "/"
@@ -275,39 +310,27 @@ def get_extent_file_names(extent_src_folder):
     
     return extent_files
 
+
+def setup_logger(output_folder_path):
+
+    start_time = datetime.now()
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"3Dep_downloaded-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder_path, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.DEBUG)    
     
-def print_start_header(friendly_program_name, start_time):
-    
-    print("================================")
-    print(f"Start {friendly_program_name}")
-    dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
-    print (f"started: {dt_string}")
-    print()
-
-
-def print_end_header(friendly_program_name, start_time, end_time):
-    
-    print("================================")
-    print(f"End {friendly_program_name}")
-
-    dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
-    print (f"ended: {dt_string}")
-
-    # calculate duration
-    time_duration = end_time - start_time
-    print(f"Duration: {str(time_duration).split('.')[0]}")
-    print()
-
-def progress_bar_handler(executor_dict, desc):
-
-    for future in tqdm(as_completed(executor_dict),
-                    total=len(executor_dict),
-                    desc=desc
-                    ):
-        try:
-            future.result()
-        except Exception as exc:
-            print('{}, {}, {}'.format(executor_dict[future],exc.__class__.__name__,exc))
+    logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info("----------------")
 
 
 if __name__ == '__main__':

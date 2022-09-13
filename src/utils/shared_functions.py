@@ -3,18 +3,22 @@
 import os
 import inspect
 import re
+import sys
 
-from os.path import splitext
+from concurrent.futures import as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from os.path import splitext
 
 import fiona
-import pandas as pd
 import numpy as np
+import pandas as pd
 import rasterio
+import utils.shared_variables as sv
 
-from rasterio.warp import calculate_default_transform, reproject, Resampling
 from pyproj.crs import CRS
+from rasterio.warp import calculate_default_transform, reproject, Resampling
+from tqdm import tqdm
 
 
 def getDriver(fileName):
@@ -71,7 +75,7 @@ def run_system_command(args):
 def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
 
     import geopandas as gp
-    from utils.shared_variables import CONUS_STATE_LIST, PREP_PROJECTION
+
 
     print("Subsetting " + wbd_gpkg + "...")
     # Read geopackage into dataframe.
@@ -82,12 +86,12 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
         state = row["STATES"]
         if state != None:  # Some polygons are empty in the STATES field.
             keep_flag = False  # Default to Fault, i.e. to delete the polygon.
-            if state in CONUS_STATE_LIST:
+            if state in sv.CONUS_STATE_LIST:
                 keep_flag = True
             # Only split if multiple states present. More efficient this way.
             elif len(state) > 2:
                 for wbd_state in state.split(","):  # Some polygons have multiple states, separated by a comma.
-                    if wbd_state in CONUS_STATE_LIST:  # Check each polygon to make sure it's state abbrev name is allowed.
+                    if wbd_state in sv.CONUS_STATE_LIST:  # Check each polygon to make sure it's state abbrev name is allowed.
                         keep_flag = True
                         break
             if not keep_flag:
@@ -95,7 +99,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
 
     # Overwrite geopackage.
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
-    gdf.crs = PREP_PROJECTION
+    gdf.crs = sv.PREP_PROJECTION
     gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)
 
 
@@ -303,10 +307,18 @@ def concat_huc_csv(fim_dir,csv_name):
         print(f"Creating aggregate csv")
         concat_df = pd.concat(merged_csv)
         return concat_df
-      
 
 
+def progress_bar_handler(executor_dict, desc):
 
+    for future in tqdm(as_completed(executor_dict),
+                    total=len(executor_dict),
+                    desc=desc
+                    ):
+        try:
+            future.result()
+        except Exception as exc:
+            print('{}, {}, {}'.format(executor_dict[future],exc.__class__.__name__,exc))
 
 
 # #####################################
@@ -462,12 +474,18 @@ class FIM_Helpers:
         Usage:
             from utils.shared_functions import FIM_Helpers as fh
             fh.print_current_date_time()
+
+        -------
+        Returns:
+            Current date / time as a formatted string
         
         '''
         d1 = datetime.now()
         dt_stamp = "Current date and time : "
         dt_stamp += d1.strftime("%Y-%m-%d %H:%M:%S")
         print (dt_stamp)
+        
+        return dt_stamp
 
     # -----------------------------------------------------------
     @staticmethod
@@ -485,6 +503,10 @@ class FIM_Helpers:
             from utils.shared_functions import FIM_Helpers as fh
             fh.print_current_date_time()
         
+        -------
+        Returns:
+            Duration as a formatted string
+            
         '''
         time_delta = (end_dt - start_dt)
         total_seconds = int(time_delta.total_seconds())
@@ -497,3 +519,26 @@ class FIM_Helpers:
         
         print("Duration: " + time_fmt)
         
+        return time_fmt
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def print_start_header(friendly_program_name, start_time):
+        
+        print("================================")
+        dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
+        print(f"Start {friendly_program_name} : {dt_string}")
+        print()
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def print_end_header(friendly_program_name, start_time, end_time):
+        
+        print("================================")
+        dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+        print (f"End {friendly_program_name} : {dt_string}")
+
+        # calculate duration
+        time_duration = end_time - start_time
+        print(f"Duration: {str(time_duration).split('.')[0]}")
+        print()
