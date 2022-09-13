@@ -89,7 +89,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     fh.print_start_header('Loading 3dep dems', start_time)
    
     #print(f"Downloading to {target_output_folder_path}")
-    setup_logger(target_output_folder_path)
+    __setup_logger(target_output_folder_path)
     logging.info(f"Downloading to {target_output_folder_path}")
     
     
@@ -97,15 +97,17 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     # processing
     
     # Get the WBD .gpkg files (or clip extent)
-    extent_file_names = get_extent_file_names(extent_file_path)
+    extent_file_names = fh.get_file_names(extent_file_path, 'gpkg')
+    msg = f"Extent files coming from {extent_file_path}"
+    print(msg)
+    logging.info(msg)
    
     # download dems, setting projection, block size, etc
     __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
     
-    logging.info(fh.print_current_date_time())
     end_time = datetime.now()
-    duration_str = fh.print_end_header('Loading 3dep dems', start_time, end_time)
-    logging.info(duration_str)
+    fh.print_end_header('Loading 3dep dems', start_time, end_time)
+    logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
 def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry):
@@ -260,58 +262,9 @@ def download_usgs_dem_file(extent_file,
         msg = f" - Downloading -- {target_file_name_raw} - Complete"
         print(msg)
         logging.info(msg)
-    
-
-def get_extent_file_names(extent_src_folder):
-    '''
-    Process
-    ----------
-    Get a list of file names and paths from wbd huc gpkgs (or other files
-    can be used for extents.
-    
-    Notes:
-        - The files need to be .gkpg files
-        - all files in this directory will be used and should be cut as HUC4, 6, 8 or 
-          whatever. Remember.. by using vrt files later, size is not relavent so 4's are fine.
-    
-    Parameters
-    ----------
-        - extent_src_folder (str)
-             Location of the .gkpg files defining the extent of each 
-             downloaded DEM.
-        - file_pattern  (str) 
-             All files in the folder will likely follow a pattern, such as
-             HUC4_xxxx.pkg  or HUC_8_xxxxxxxx.gkpg, so just use the * wildcard
-             character for file name portions that are changeable. ie) HUC4_*.gkpg
-             or HUC8_8.gpkg or whatever.
-    
-    Returns
-    ----------
-    A list of gkpgs
-    '''
-    
-    # test that folder exists
-    if (not os.path.exists(extent_src_folder)):
-        raise ValueError(f"Extent src folder of {extent_src_folder} not found")
-
-    msg = f"Extent files coming from {extent_src_folder}"
-    print(msg)
-    logging.info(msg)
-    
-    if (not extent_src_folder.endswith("/")):
-        extent_src_folder += "/"
-    
-    extent_files = glob.glob(extent_src_folder + "*.*")
- 
-    if (len(extent_files) == 0):
-        raise Exception("extent files not loaded or do not exist")
-    
-    extent_files.sort()
-    
-    return extent_files
 
 
-def setup_logger(output_folder_path):
+def __setup_logger(output_folder_path):
 
     start_time = datetime.now()
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")

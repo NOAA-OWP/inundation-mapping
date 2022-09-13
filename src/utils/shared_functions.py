@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import glob
 import inspect
 import re
 import sys
@@ -462,6 +463,53 @@ class FIM_Helpers:
 
     # -----------------------------------------------------------
     @staticmethod
+    def get_file_names(src_folder, file_extension):
+        '''
+        Process
+        ----------
+        Get a list of file names and paths matching the file extension
+        
+        Parameters
+        ----------
+            - src_folder (str)
+                Location of the files.
+
+            - file_extension (str)
+                All files matching this file_extension will be added to the list.
+
+        
+        Returns
+        ----------
+        A list of file names and paths
+        '''
+
+        if (not file_extension) and (len(file_extension.strip()) == 0):
+            raise ValueError(f"file_extension value not set")
+        
+        # remove the starting . if it exists
+        if (file_extension.startswith(".")):
+            file_extension = file_extension[1:]
+        
+        # test that folder exists
+        if (not os.path.exists(src_folder)):
+            raise ValueError(f"{file_extension} src folder of {src_folder} not found")
+        
+        if (not src_folder.endswith("/")):
+            src_folder += "/"
+        
+        glob_pattern = f"{src_folder}*.{file_extension}"
+        file_list = glob.glob(glob_pattern)
+    
+        if (len(file_list) == 0):
+            raise Exception(f"files with the extension of {file_extension} "\
+                            f" in the {src_folder} did not load or do not exist")
+        
+        file_list.sort()
+        
+        return file_list
+
+    # -----------------------------------------------------------
+    @staticmethod
     def print_current_date_time():
         '''
         Process:
@@ -517,9 +565,10 @@ class FIM_Helpers:
 
         time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
         
-        print("Duration: " + time_fmt)
+        duration_msg = "Duration: " + time_fmt
+        print(duration_msg)
         
-        return time_fmt
+        return duration_msg
 
     # -----------------------------------------------------------
     @staticmethod
@@ -537,8 +586,4 @@ class FIM_Helpers:
         print("================================")
         dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
         print (f"End {friendly_program_name} : {dt_string}")
-
-        # calculate duration
-        time_duration = end_time - start_time
-        print(f"Duration: {str(time_duration).split('.')[0]}")
         print()
