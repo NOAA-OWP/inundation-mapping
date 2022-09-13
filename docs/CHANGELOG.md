@@ -128,10 +128,6 @@ Updated `Dockerfile`, `Pipfile` and `Pipfile.lock` to add the new psycopg2 pytho
 
 <br/><br/>
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 5cc1f72248af90af441021d012aae777b1802958
 ## v4.0.6.2 - 2022-08-16 - [PR #639](https://github.com/NOAA-OWP/inundation-mapping/pull/639)
 
 This file converts USFIMR remote sensed inundation shapefiles into a raster that can be used to compare to the FIM data. It has to be run separately for each shapefile. This addresses [#629].
