@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## [Version number to be assigned] - 2022-09-13 - [PR #679](https://github.com/NOAA-OWP/inundation-mapping/pull/679)
+
+Fixes thalweg notch created by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
+
+### Changes
+
+- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-20) to clip stream network inside of DEM extent.
+
+<br/><br/>
+
 ## v3.0.32.1 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `tools` with `test_case_by_hydroid.py`, `pixel_counter.py`, `pixel_counter_functions.py`, `pixel_counter_wrapper.py`. `test_case_by_hydroid.py` assembles alpha stats on the catchment scale. Uses the class `test_case` from the file `run_test_case.py`. Outputs a csv to a specified location. 
