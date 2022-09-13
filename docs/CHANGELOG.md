@@ -9,7 +9,7 @@ A couple of changes:
 2) Updates to the Docker image creation files to include new packages for boto3 (for AWS) and also added `jupyter`, `jupterlab` and `ipympl` to make it easier to use those tools during development.
 3) Correct an oversight of `logs\src_optimization` not being cleared upon `overwrite` run.
 
-## Additions
+### Additions
 
 - `src`
    - `data`
@@ -20,7 +20,7 @@ A couple of changes:
            - `s3.py`: This file pushes file and folders up to a defined S3 bucket and root folder. Note: while it is designed only for `puts` (pushing to S3), hooks were added in case functional is added later for `gets` (pull from S3).
 
 
-## Changes
+### Changes
 
 - `utils`
    - `shared_functions.py`:  A couple of new features
@@ -51,11 +51,11 @@ Trims ends of branches that are in waterbodies; also removes branches if they ar
 
 `inundate_nation.py` A change to switch the inundate nation function away from refrences to `inundate.py`, and rather use `inundate_gms.py` and `mosaic_inundation.py`
 
-## Changes
+### Changes
 
 - `inundate_gms`:  Changed `mask_type = 'filter'`
 
-## Changes
+### Changes
 
 - `src/gms/stream_branches.py`: adds functionality to trim and prune branches in waterbodies.
 
@@ -65,7 +65,7 @@ Trims ends of branches that are in waterbodies; also removes branches if they ar
 
 Hotfix for addressing missing input variable when running `gms_run_branch.sh` outside of `gms_pipeline.sh`. 
 
-## Changes
+### Changes
 - `gms_run_branch.sh`: defining path to WBD HUC input file directly in ogr2ogr call rather than using the $input_WBD_gdb defined in `gms_run_unit.sh`
 - `src/src_adjust_spatial_obs.py`: removed an extra print statement
 - `src/src_roughness_optimization.py`: removed a log file write that contained sensitive host name
@@ -76,13 +76,13 @@ Hotfix for addressing missing input variable when running `gms_run_branch.sh` ou
 
 Introduces synthetic rating curve calibration workflow. The calibration computes new Manning's coefficients for the HAND SRCs using input data: USGS gage locations, USGS rating curve csv, and a benchmark FIM extent point database stored in PostgreSQL database. This addresses [#535].
 
-## Additions
+### Additions
 
 - `src/src_adjust_spatial_obs.py`: new synthetic rating curve calibration routine that prepares all of the spatial (point data) benchmark data for ingest to the Manning's coefficient calculations performed in `src_roughness_optimization.py`
 - `src/src_adjust_usgs_rating.py`: new synthetic rating curve calibration routine that prepares all of the USGS gage location and observed rating curve data for ingest to the Manning's coefficient calculations performed in `src_roughness_optimization.py`
 - `src/src_roughness_optimization.py`: new SRC post-processing script that ingests observed data and HUC/branch FIM output data to compute optimized Manning's coefficient values and update the discharge values in the SRCs. Outputs a new hydroTable.csv.
 
-## Changes
+### Changes
 
 - `config/deny_gms_branch_zero.lst`: added `gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg` to list of files to keep (used in calibration workflow)
 - `config/deny_gms_branches_min.lst`: added `gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg` to list of files to keep (used in calibration workflow)
@@ -119,7 +119,7 @@ Updated `Dockerfile`, `Pipfile` and `Pipfile.lock` to add the new psycopg2 pytho
 
 This file converts USFIMR remote sensed inundation shapefiles into a raster that can be used to compare to the FIM data. It has to be run separately for each shapefile. This addresses [#629].
 
-## Additions
+### Additions
 
 - `/tools/fimr_to_benchmark.py`: This file converts USFIMR remote sensed inundation shapefiles into a raster that can be used to compare to the FIM data. It has to be run separately for each shapefile.
 
@@ -129,11 +129,11 @@ This file converts USFIMR remote sensed inundation shapefiles into a raster that
 
 Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_branch.sh` after running `split_flows.py`
 
-## Additions
+### Additions
 - Adds `remove_error_branches.py` (called from `gms_run_branch.sh`)
 - Adds `gms_inputs_removed.csv` to log branches that have been removed across all HUCs
 
-## Removals
+### Removals
 - Deletes branch folders that fail
 - Deletes branch from `gms_inputs.csv`
 
@@ -144,7 +144,7 @@ Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_br
 
 Addressing #560, this fix in run_by_branch trims the DEM derived streamline if it extends past the end of the branch streamline. It does this by finding the terminal point of the branch stream, snapping to the nearest point on the DEM derived stream, and cutting off the remaining downstream portion of the DEM derived stream.
 
-## Changes
+### Changes
 
 - `/src/split_flows.py`: Trims the DEM derived streamline if it flows past the terminus of the branch (or level path) streamline.
 - `/src/gms/delineate_hydros_and_produce_HAND.sh`: Added branch streamlines as an input to `split_flows.py`.
@@ -155,7 +155,7 @@ Addressing #560, this fix in run_by_branch trims the DEM derived streamline if i
 
 Fixes bug that causes [Errno2] No such file or directory error when running synthesize_test_cases.py if testing_versions folder doesn't exist (for example, after downloading test_cases from ESIP S3).
 
-## Additions
+### Additions
 
 - `run_test_case.py`: Checks for testing_versions folder in test_cases and adds it if it doesn't exist.
 
@@ -171,14 +171,14 @@ New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output n
 	
 `gms_run_branch.sh` and `gms_run_branch.sh` have also been changed to add the new -a flag and default to dropping stream orders 1 and 2.
 
-## Additions
+### Additions
 
 - `src`
     - `check_unit_errors.py`: as described above.
 - `unit_tests`
     - `check_unit_errors_unittests.py` and `check_unit_errors_params.json`: to match new file.    
 
-## Changes
+### Changes
 
 - `README.md`:  Updated text for FIM4, gms_pipeline, S3 input updates, information about updating dependencies, misc link updates and misc text verbage.
 - `gms_pipeline.sh`: as described above.
@@ -193,7 +193,7 @@ New FIM4/gms usability is now just (at a minumum): `gms_pipeline.sh -n <output n
 - `unit_tests`
    - `README.md`: Misc text and link updates.
 
-## Removals
+### Removals
 
 - `config\params_template_calibrated.env`: No longer needed. Has been removed already from dev-fim3 and confirmed that it is not needed.
 <br><br>
@@ -208,7 +208,7 @@ Updates to unit tests including a minor update for outputs and loading in .json 
 
 `Alpha Test Refactor` An upgrade was made a few weeks back to the dev-fim3 branch that improved performance, usability and readability of running alpha tests. Some cleanup in other files for readability, debugging verbosity and styling were done as well. A newer, cleaner system for printing lines when the verbose flag is enabled was added.
 
-## Changes
+### Changes
 
 - `gms_run_branch.sh`:  Updated help instructions to about using multiple HUCs as command arguments.
 - `gms_run_unit.sh`:  Updated help instructions to about using multiple HUCs as command arguments.
@@ -236,12 +236,12 @@ Updates to unit tests including a minor update for outputs and loading in .json 
 
 'Branch zero' is a new branch that runs the HUCs full stream network to make up for stream orders 1 & 2 being skipped by the GMS solution and is similar to the FR extent in FIM v3. This new branch is created during `run_by_unit.sh` and the processed DEM is used by the other GMS branches during `run_by_branch.sh` to improve efficiency.
 
-## Additions
+### Additions
 
 - `src/gms/delineate_hydros_and_produce_HAND.sh`: Runs all of the modules associated with delineating stream lines and catchments and building the HAND relative elevation model. This file is called once during `gms_run_unit` to produce the branch zero files and is also run for every GMS branch in `gms_run_branch`.
 - `config/deny_gms_branch_zero.lst`: A list specifically for branch zero that helps with cleanup (removing unneeded files after processing).
 
-## Changes
+### Changes
 
 - `src/`
     - `output_cleanup.py`: Fixed bug for viz flag.
@@ -259,7 +259,7 @@ Updates to unit tests including a minor update for outputs and loading in .json 
 - `gms_run_unit.sh`: Added export of extent variable, dropped the -s flag and added the -a flag so it now defaults to dropping stream orders 1 and 2.
 - `gms_run_branch.sh`: Fixed bug when using overwrite flag saying branch errors folder already exists, dropped the -s flag and added the -a flag so it now defaults to dropping stream orders 1 and 2.
 
-## Removals
+### Removals
 
 - `tests/`: Redundant
 - `tools/shared_variables`: Redundant
@@ -270,7 +270,7 @@ Updates to unit tests including a minor update for outputs and loading in .json 
 
 We needed a tool that could composite / mosaic inundation maps for FIM3 FR and FIM4 / GMS with stream orders 3 and higher. A tool previously existed named composite_fr_ms_inundation.py and it was renamed to composite_inundation.py and upgraded to handle any combination of 2 of 3 items (FIM3 FR, FIM3 MS and/or FIM4 GMS).
 
-## Additions
+### Additions
 
 - `tools/composite_inundation.py`: Technically it is a renamed from composite_ms_fr_inundation.py, and is based on that functionality, but has been heavily modified. It has a number of options, but primarily is designed to take two sets of output directories, inundate the files, then composite them into a single mosiac'd raster per huc. The primary usage is expected to be compositing FIM3 FR with FIM4 / GMS with stream orders 3 and higher. 
 
@@ -281,7 +281,7 @@ We needed a tool that could composite / mosaic inundation maps for FIM3 FR and F
 
 - `tools/composite_ms_fr_inundation.py`: replaced with upgraded version named `composite_inundation.py`.
 
-## Changes
+### Changes
 
 - `tools/gms_tools/inundate_gms.py`: some style, readabilty cleanup plus move a function up to `shared_functions.py`.
 - `tools/gms_tools/mosaic_inundation.py`: some style, readabilty cleanup plus move a function up to `shared_functions.py`.
@@ -293,7 +293,7 @@ We needed a tool that could composite / mosaic inundation maps for FIM3 FR and F
 
 This hotfix includes several revisions needed to fix/update the FIM4 area inundation evaluation scripts. These changes largely migrate revisions from the FIM3 evaluation code to the FIM4 evaluation code.
 
-## Changes
+### Changes
 
 - `tools/eval_plots.py`: Copied FIM3 code revisions to enable RAS2FIM evals and PND plots. Replaced deprecated parameter name for matplotlib grid()
 - `tools/synthesize_test_cases.py`: Copied FIM3 code revisions to assign FR, MS, COMP resolution variable and addressed magnitude list variable for IFC eval
@@ -312,12 +312,12 @@ Now that we have a list of relavent HUC's, we need to consolidate output folders
 
 A few other small adjustments were made for readability and traceability as well as a few small fixes discovered when running at scale.
 
-## Additions
+### Additions
 
 - `tools/find_test_case_folders.py`: A new tool for creating a list of HUC's that we have test/evaluation data for.
 - `tools/copy_test_case_folders.py`: A new tool for using the list created above, to scan through other fully processed output folders and extract only the HUC's (gms units) and it's branches into a consolidated folder, ready for alpha test processing (or other needs).
 
-## Changes
+### Changes
 
 - `src/gms/aggregate_branch_lists.py`: Adjusted to allow two previously hardcoded values to now be incoming arguments. Now this file can be used by both `gms_run_unit.sh` and `copy_test_case_folders.py`.
 - `tools/synthesize_test_cases.py`: Adjustments for readability and progress status. The embedded progress bars are not working and will be addressed later.
@@ -347,7 +347,7 @@ Fixes were put in place for a couple of new logging behaviors.
          - A new class called `FIM_system_exit_codes` was added. This allows tracking and blocking of duplicate system exit codes when a custom system code is required.
         
 
-## Changes
+### Changes
 
 - `fim_run.sh`: Added the gms `non-zero-exit-code` system to `fim_run` to help uncover and isolate errors during processing. Errors recorded in log files within in the logs/unit folder are now copied into a new folder called `unit_errors`.  
     
@@ -425,7 +425,7 @@ Fixes were put in place for a couple of new logging behaviors.
 
 Bug fixes to get the Alpha Test working in FIM 4.
 
-## Changes
+### Changes
 
 - `tools/sythesize_test_cases.py`: Fixed bugs that prevented multiple benchmark types in the same huc from running `run_test_case.py`.
 - `tools/run_test_case.py`: Fixed mall bug for IFC benchmark.
@@ -437,13 +437,13 @@ Bug fixes to get the Alpha Test working in FIM 4.
 
 This PR ports the functionality of `usgs_gage_crosswalk.py` and `rating_curve_comparison.py` to FIM 4.
 
-## Additions
+### Additions
 
 - `src/`:
     - `usgs_gage_aggregate.py`: Aggregates all instances of `usgs_elev_table.csv` to the HUC level. This makes it easier to view the gages in each HUC without having to hunt through branch folders and easier for the Sierra Test to run at the HUC level.
     - `usgs_gage_unit_setup.py`: Assigns a branch to each USGS gage within a unit. The output of this module is `usgs_subset_gages.gpkg` at the HUC level containing the `levpa_id` attribute.
 
-## Changes
+### Changes
 
 - `gms_run_branch.sh`: Added a line to aggregate all `usgs_elev_table.csv` into the HUC directory level using `src/usgs_gage_aggregate.py`.
 - `src/`:
@@ -465,7 +465,7 @@ This PR ports the functionality of `usgs_gage_crosswalk.py` and `rating_curve_co
 
 Added a new optional system which allows an argument to be added to the `gms_run_unit.sh` command line to filter out stream orders 1 and 2 when calculating branches. 
 
-## Changes
+### Changes
 
 - `gms_run_unit.sh`: Add the new optional `-s` command line argument. Inclusion of this argument means "drop stream orders 1 and 2".
 
@@ -485,7 +485,7 @@ Added a new optional system which allows an argument to be added to the `gms_run
 
 The addition of a very simple and evolving unit test system which has two unit tests against two py files.  This will set a precendence and will grow over time and may be automated, possibly during git check-in triggered. The embedded README.md has more details of what we currently have, how to use it, how to add new unit tests, and expected future enhancements.
 
-## Additions
+### Additions
 
 - `/unit_tests/` folder which has the following:
 
@@ -510,7 +510,7 @@ FIM4 builds upon FIM3 and allows for better representation of inundation through
 
 More details will be made available through a publication by Aristizabal et. al. and will be included in the "Credits and References" section of the README.md, titled "Reducing Horton-Strahler Stream Order Can Enhance Flood Inundation Mapping Skill with Applications for the U.S. National Water Model."
 
-## Additions
+### Additions
 
 - `/src/gms`: A new directory containing scripts necessary to produce the FIM4 Height Above Nearest Drainage grids and synthetic rating curves needed for inundation mapping.
 - `/tools/gms_tools`: A new directory containing scripts necessary to generate and evaluate inundation maps produced from FIM4 Height Above Nearest Drainage grids and synthetic rating curves.
@@ -523,7 +523,7 @@ More details will be made available through a publication by Aristizabal et. al.
 
 Fixed projection issue in `synthesize_test_cases.py`.
 
-## Changes
+### Changes
 
 - `Pipfile`: Added `Pyproj` to `Pipfile` to specify a version that did not have the current projection issues.
 
@@ -533,7 +533,7 @@ Fixed projection issue in `synthesize_test_cases.py`.
 
 Adding a new check to keep `usgs_elev_table.csv`, `src_base.csv`, `small_segments.csv` for runs not using the `-viz` flag. We unintentionally deleted some .csv files in `vary_mannings_n_composite.py` but need to maintain some of these for non `-viz` runs (e.g. `usgs_elev_table.csv` is used for sierra test input).
 
-## Changes
+### Changes
 
 - `fim_run.sh`: passing `-v` flag to `vary_mannings_n_composite.py` to determine which csv files to delete. Setting `$viz` = 0 for non `-v` runs.
 - `src/vary_mannings_n_composite.py`: added `-v` input arg and if statement to check which .csv files to delete.
@@ -546,11 +546,11 @@ Adding a new check to keep `usgs_elev_table.csv`, `src_base.csv`, `small_segment
 
 Patch to clean up unnecessary files and create better names for intermediate raster files.
 
-## Removals
+### Removals
 
 - `tools/run_test_case_gms.py`: Unnecessary file.
 
-## Changes
+### Changes
 
 - `tools/composite_ms_fr_inundation.py`: Clean up documentation and intermediate file names.
 - `tools/run_test_case.py`: Remove unnecessary imports.
@@ -561,11 +561,11 @@ Patch to clean up unnecessary files and create better names for intermediate ras
 
 Adds `composite_ms_fr_inundation.py` to allow for the generation of an inundation map given a "flow file" CSV and full-resolution (FR) and mainstem (MS) relative elevation models, synthetic rating curves, and catchments rasters created by the `fim_run.sh` script.
 
-## Additions
+### Additions
 - `composite_ms_fr_inundation.py`: New module that is used to inundate both MS and FR FIM and composite the two inundation rasters.
 - `/tools/gms_tools/`: Three modules (`inundate_gms.py`, `mosaic_inundation.py`, `overlapping_inundation.py`) ported from the GMS branch used to composite inundation rasters.
 
-## Changes
+### Changes
 - `inundation.py`: Added 2 exception classes ported from the GMS branch.
 
 <br/><br/>
@@ -573,7 +573,7 @@ Adds `composite_ms_fr_inundation.py` to allow for the generation of an inundatio
 ## v3.0.23.3 - 2021-11-04 - [PR #481](https://github.com/NOAA-OWP/cahaba/pull/481)
 Includes additional hydraulic properties to the `hydroTable.csv`: `Number of Cells`, `SurfaceArea (m2)`, `BedArea (m2)`, `Volume (m3)`, `SLOPE`, `LENGTHKM`, `AREASQKM`, `Roughness`, `TopWidth (m)`, `WettedPerimeter (m)`. Also adds `demDerived_reaches_split_points.gpkg`, `flowdir_d8_burned_filled.tif`, and `dem_thalwegCond.tif` to `-v` whitelist.
 
-## Changes
+### Changes
 - `run_by_unit.sh`: Added `EXIT FLAG` tag and previous non-zero exit code tag to the print statement to allow log lookup.
 - `add_crosswalk.py`: Added extra attributes to the hydroTable.csv. Includes a default `barc_on` and `vmann_on` (=False) attribute that is overwritten (=True) if SRC post-processing modules are run.
 - `bathy_src_adjust_topwidth.py`: Overwrites the `barc_on` attribute where applicable and includes the BARC-modified Volume property.
@@ -585,7 +585,7 @@ Includes additional hydraulic properties to the `hydroTable.csv`: `Number of Cel
 ## v3.0.23.2 - 2021-11-04 - [PR #480](https://github.com/NOAA-OWP/cahaba/pull/480)
 Hotfix for `vary_manning_n_composite.py` to address null discharge values for non-CONUS hucs.
 
-## Changes
+### Changes
 - `vary_manning_n_composite.py`: Add numpy where clause to set final discharge value to the original value if `vmann=False`
 
 <br/><br/>
@@ -593,7 +593,7 @@ Hotfix for `vary_manning_n_composite.py` to address null discharge values for no
 ## v3.0.23.1 - 2021-11-03 - [PR #479](https://github.com/NOAA-OWP/cahaba/pull/479)
 Patches the API updater. The `params_calibrated.env` is replaced with `params_template.env` because the BARC and Multi-N modules supplant the calibrated values.
 
-## Changes
+### Changes
 - `api/node/updater/updater.py`: Changed `params_calibrated.env` to `params_template.env`
 
 <br/><br/>
@@ -602,14 +602,14 @@ Patches the API updater. The `params_calibrated.env` is replaced with `params_te
 
 Moved the synthetic rating curve (SRC) processes from the `\tools` directory to `\src` directory to support post-processing in `fim_run.sh`. These SRC post-processing modules will now run as part of the default `fim_run.sh` workflow. Reconfigured bathymetry adjusted rating curve (BARC) module to use the 1.5yr flow from NWM v2 recurrence flow data in combination with the Bieger et al. (2015) regression equations with bankfull discharge predictor variable input.
 
-## Additions
+### Additions
 - `src/bathy_src_adjust_topwidth.py` --> New version of bathymetry adjusted rating curve (BARC) module that is configured to use the Bieger et al. (2015) regression equation with input bankfull discharge as the predictor variable (previous version used the drainage area version of the regression equations). Also added log output capability, added reconfigured output content in `src_full_crosswalked_BARC.csv` and `hydroTable.csv`, and included modifications to allow BARC to run as a post-processing step in `fim_run.sh`. Reminder: BARC is only configured for MS extent.
 
-## Removals
+### Removals
 - `config/params_calibrated.env` --> deprecated the calibrated roughness values by stream order with the new introduction of variable/composite roughness module
 - `src/bathy_rc_adjust.py` --> deprecated the previous BARC version
 
-## Changes
+### Changes
 - `src/identify_src_bankfull.py` --> Moved this script from /tools to /src, added more doc strings, cleaned up output log, and reconfigured to allow execution from fim_run.sh post-processing.
 - `src/vary_mannings_n_composite.py` --> Moved this script from /tools to /src, added more doc strings, cleaned up output log, added/reconfigured output content in src_full_crosswalked_vmann.csv and hydroTable.csv, and reconfigured to allow execution from fim_run.sh post-processing.
 - `config/params_template.env` --> Added additional parameter/variables for input to `identify_src_bankfull.py`, `vary_mannings_n_composite.py`, and `bathy_src_adjust_topwidth.py`.
@@ -628,7 +628,7 @@ Moved the synthetic rating curve (SRC) processes from the `\tools` directory to 
 
 Manually filtering segments from stream input layer to fix flow reversal of the MS River (HUC 08030100).
 
-## Changes
+### Changes
 - `clip_vectors_to_wbd.py`: Fixes bug where flow direction is reversed for HUC 08030100. The issue is resolved by filtering incoming stream segments that intersect with the elevation grid boundary.
 
 <br/><br/>
@@ -637,11 +637,11 @@ Manually filtering segments from stream input layer to fix flow reversal of the 
 
 These "tool" enhancements 1) delineate in-channel vs. out-of-channel geometry to allow more targeted development of key physical drivers influencing the SRC calculations (e.g. bathymetry & Manning’s n) #418 and 2) applies a variable/composite Manning’s roughness (n) using user provided csv with in-channel vs. overbank roughness values #419 & #410.
 
-## Additions
+### Additions
 - `identify_src_bankfull.p`: new post-processing tool that ingests a flow csv (e.g. NWM 1.5yr recurr flow) to approximate the bankfull STG and then calculate the channel vs. overbank proportions using the volume and hydraulic radius variables
 - `vary_mannings_n_composite.py`: new post-processing tool that ingests a csv containing feature_id, channel roughness, and overbank roughness and then generates composite n values via the channel ratio variable
 
-## Changes
+### Changes
 - `eval_plots.py`: modified the plot legend text to display full label for development tests
 - `inundation.py`: added new optional argument (-n) and corresponding function to produce a csv containing the stage value (and SRC variables) calculated from the flow to stage interpolation.
 
@@ -651,7 +651,7 @@ These "tool" enhancements 1) delineate in-channel vs. out-of-channel geometry to
 
 This new workflow ingests FIM point observations from users and “corrects” the synthetic rating curves to produce the desired FIM extent at locations where feedback is available (locally calibrate FIM).
 
-## Changes
+### Changes
 - `add_crosswalk.py`: added `NextDownID` and `order_` attributes to the exported `hydroTable.csv`. This will potentially be used in future enhancements to extend SRC changes to upstream/downstream catchments.
 - `adjust_rc_with_feedback.py`: added a new workflow to perform the SRC modifications (revised discharge) using the existing HAND geometry variables combined with the user provided point location flow and stage data.
 - `inundation_wrapper_custom_flow.py`: updated code to allow for huc6 processing to generate custom inundation outputs.
@@ -662,7 +662,7 @@ This new workflow ingests FIM point observations from users and “corrects” t
 
 Patches an issue where only certain benchmark categories were being used in evaluation.
 
-## Changes
+### Changes
 - In `tools/tools_shared_variables.py`, created a variable `MAGNITUDE_DICT` to store benchmark category magnitudes.
 - `synthesize_test_cases.py` imports `MAGNITUDE_DICT` and uses it to assign magnitudes.
 
@@ -672,7 +672,7 @@ Patches an issue where only certain benchmark categories were being used in eval
 
 Renames the BARC modified variables that are exported to `src_full_crosswalked.csv` to replace the original variables. The default/original variables are renamed with `orig_` prefix. This change is needed to ensure downstream uses of the `src_full_crosswalked.csv` are able to reference the authoritative version of the channel geometry variables (i.e. BARC-adjust where available).
 
-## Changes
+### Changes
 - In `src_full_crosswalked.csv`, default/original variables are renamed with `orig_` prefix and `SA_div` is renamed to `SA_div_flag`.
 
 <br/><br/>
@@ -681,7 +681,7 @@ Renames the BARC modified variables that are exported to `src_full_crosswalked.c
 
 This fixes a bug in the `get_metadata()` function in `/tools/tools_shared_functions.py` that arose because of a WRDS update. Previously the `metadata_source` response was returned as independent variables, but now it is returned a list of strings. Another issue was observed where the `EVALUATED_SITES_CSV` variable was being misdefined (at least on the development VM) through the OS environmental variable setting.
 
-## Changes
+### Changes
 - In `tools_shared_functions.py`, changed parsing of WRDS `metadata_sources` to account for new list type.
 - In `generate_categorical_fim_flows.py`, changed the way the `EVALUATED_SITES_CSV` path is defined from OS environmental setting to a relative path that will work within Docker container.
 
@@ -691,7 +691,7 @@ This fixes a bug in the `get_metadata()` function in `/tools/tools_shared_functi
 
 This merge addresses an issues with the bathymetry adjusted rating curve (BARC) calculations exacerbating single-pixel inundation issues for the lower Mississippi River. This fix allows the user to specify a stream order value that will be ignored in BARC calculations (reverts to using the original/default rating curve). If/when the "thalweg notch" issue is addressed, this change may be unmade.
 
-## Changes
+### Changes
 - Added new env variable `ignore_streamorders` set to 10.
 - Added new BARC code to set the bathymetry adjusted cross-section area to 0 (reverts to using the default SRC values) based on the streamorder env variable.
 
@@ -701,7 +701,7 @@ This merge addresses an issues with the bathymetry adjusted rating curve (BARC) 
 
 Patches the minimum stream length in the template parameters file.
 
-## Changes
+### Changes
 - Changes `max_split_distance_meters` in `params_template.env` to 1500.
 
 <br/><br/>
@@ -710,7 +710,7 @@ Patches the minimum stream length in the template parameters file.
 
 This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in future issues. The primary function that performs the HAND value and hydroid extraction is ingest_points_layer() but this may change as the overall synthetic rating curve automatic update machanism evolves.
 
-## Additions
+### Additions
 - Added `adjust_rc_with_feedback.py` with `ingest_points_layer()`, a function to extract HAND and hydroid values for use in an automatic synthetic rating curve updating mechanism.
 
 <br/><br/>
@@ -719,7 +719,7 @@ This adds a script, `adjust_rc_with_feedback.py`, that will be expanded  in futu
 
 General repository cleanup, made memory-profiling an optional flag, API's release feature now saves outputs.
 
-## Changes
+### Changes
 - Remove `Dockerfile.prod`, rename `Dockerfile.dev` to just `Dockerfile`, and remove `.dockerignore`.
 - Clean up `Dockerfile` and remove any unused* packages or variables.
 - Remove any unused* Python packages from the `Pipfile`.
@@ -736,7 +736,7 @@ General repository cleanup, made memory-profiling an optional flag, API's releas
 
 This merge modifies `clip_vectors_to_wbd.py` to check for relevant input data.
 
-## Changes
+### Changes
 - `clip_vectors_to_wbd.py` now checks that there are NWM stream segments within the buffered HUC boundary.
 - `included_huc8_ms.lst` has several additional HUC8s.
 
@@ -746,7 +746,7 @@ This merge modifies `clip_vectors_to_wbd.py` to check for relevant input data.
 
 This merge improves documentation in various scripts.
 
-## Changes
+### Changes
 This PR better documents the following:
 
 - `inundate_nation.py`
@@ -760,7 +760,7 @@ This PR better documents the following:
 
 This merge adds two new scripts into `/tools/` for use in QAQC.
 
-## Additions
+### Additions
 - `inundate_nation.py` to produce inundation maps for the entire country for use in QAQC.
 - `check_deep_flooding.py` to check for depths of inundation greater than a user-supplied threshold at specific areas defined by a user-supplied shapefile.
 
@@ -776,11 +776,11 @@ Updating `README.md`.
 
 Updating logging and fixing bug in vector preprocessing.
 
-## Additions
+### Additions
 - `fim_completion_check.py` adds message to docker log to log any HUCs that were requested but did not finish `run_by_unit.sh`.
 - Adds `input_data_edits_changelog.txt` to the inputs folder to track any manual or version/location specific changes that were made to data used in FIM 3.
 
-## Changes
+### Changes
 - Provides unique exit codes to relevant domain checkpoints within `run_by_unit.sh`.
 - Bug fixes in `reduce_nhd_stream_density.py`, `mprof plot` call.
 - Improved error handling in `add_crosswalk.py`.
@@ -791,7 +791,7 @@ Updating logging and fixing bug in vector preprocessing.
 
 Hot fix to `synthesize_test_cases`.
 
-## Changes
+### Changes
 - Fixed if/elif/else statement in `synthesize_test_cases.py` that resulted in only IFC data being evaluated.
 
 <br/><br/>
@@ -800,7 +800,7 @@ Hot fix to `synthesize_test_cases`.
 
 Updates to evaluation scripts to allow for Alpha testing at Iowa Flood Center (IFC) sites. Also, `BAD_SITES` variable updates to omit sites not suitable for evaluation from metric calculations.
 
-## Changes
+### Changes
 - The `BAD_SITES` list in `tools_shared_variables.py` was updated and reasons for site omission are documented.
 - Refactored `run_test_case.py`, `synthesize_test_cases.py`, `tools_shared_variables.py`, and `eval_plots.py` to allow for IFC comparisons.
 
@@ -810,13 +810,13 @@ Updates to evaluation scripts to allow for Alpha testing at Iowa Flood Center (I
 
 Adding a thalweg profile tool to identify significant drops in thalweg elevation. Also setting lateral thalweg adjustment threshold in hydroconditioning.
 
-## Additions
+### Additions
 - `thalweg_drop_check.py` checks the elevation along the thalweg for each stream path downstream of MS headwaters within a HUC.
 
-## Removals
+### Removals
 - Removing `dissolveLinks` arg from `clip_vectors_to_wbd.py`.
 
-## Changes
+### Changes
 - Cleaned up code in `split_flows.py` to make it more readable.
 - Refactored `reduce_nhd_stream_density.py` and `adjust_headwater_streams.py` to limit MS headwater points in `agg_nhd_headwaters_adj.gpkg`.
 - Fixed a bug in `adjust_thalweg_lateral.py` lateral elevation replacement threshold; changed threshold to 3 meters.
@@ -828,7 +828,7 @@ Adding a thalweg profile tool to identify significant drops in thalweg elevation
 
 Feature to evaluate performance of alternative CatFIM techniques.
 
-## Additions
+### Additions
 - Added `eval_catfim_alt.py` to evaluate performance of alternative CatFIM techniques.
 
 <br/><br/>
@@ -838,12 +838,12 @@ To help analyze the memory consumption of the Fim Run process, the python module
 
 In addition, the Dockerfile was previously broken due to the Taudem dependency removing the version that was previously being used by FIM. To fix this, and allow new docker images to be built, the Taudem version has been updated to the newest version on the Github repo and thus needs to be thoroughly tested to determine if this new version has affected the overall FIM outputs.
 
-## Additions
+### Additions
 - Added `memory-profiler` to `Pipfile` and `Pipfile.lock`.
 - Added `mprof` (memory-profiler cli utility) call to the `time_and_tee_run_by_unit.sh` to create overall memory usage graph location in the `/logs/{HUC}_memory.png` of the outputs directory.
 - Added `@profile` decorator to all functions within scripts used in the `run_by_unit.sh` script to allow for memory usage tracking, which is then recorded in the `/logs/{HUC}.log` file of the outputs directory.
 
-## Changes
+### Changes
 - Changed the Taudem version in `Dockerfile.dev` to `98137bb6541a0d0077a9c95becfed4e56d0aa0ac`.
 - Changed all calls of python scripts in `run_by_unit.s` to be called with the `-m memory-profiler` argument to allow scripts to also track memory usage.
 
@@ -852,7 +852,7 @@ In addition, the Dockerfile was previously broken due to the Taudem dependency r
 
 Bug fix to the `generate_nws_lid.py` script
 
-## Changes
+### Changes
 - Fixes incorrectly assigned attribute field "is_headwater" for some sites in the `nws_lid.gpkg` layer.
 - Updated `agg_nhd_headwaters_adj.gpkg`, `agg_nhd_streams_adj.gpkg`, `nwm_flows.gpkg`, and `nwm_catchments.gpkg` input layers using latest NWS LIDs.
 
@@ -860,7 +860,7 @@ Bug fix to the `generate_nws_lid.py` script
 ## v3.0.17.0 - 2021-06-04 - [PR #393](https://github.com/NOAA-OWP/cahaba/pull/393)
 BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and allow user to choose input bankfull geometry.
 
-## Changes
+### Changes
 
 - Added new env variable to control which input file is used for the bankfull geometry input to bathy estimation workflow.
 - Modified the bathymetry cross section area calculation to cap the additional area value so that it cannot exceed the bankfull cross section area value for each stream segment (bankfull value obtained from regression equation dataset).
@@ -873,7 +873,7 @@ BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and a
 
 Enhancement and bug fixes to `synthesize_test_cases.py`.
 
-## Changes
+### Changes
 - Addresses a bug where AHPS sites without benchmark data were receiving a CSI of 0 in the master metrics CSV produced by `synthesize_test_cases.py`.
 - Includes a feature enhancement to `synthesize_test_cases.py` that allows for the inclusion of user-specified testing versions in the master metrics CSV.
 - Removes some of the print statements used by `synthesize_test_cases.py`.
@@ -883,7 +883,7 @@ Enhancement and bug fixes to `synthesize_test_cases.py`.
 
 Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preprocessing scripts.
 
-## Changes
+### Changes
 - Comment out return statement causing `run_test_case.py` to skip over sites/hucs when calculating contingency rasters.
 - Move bad sites list and query statement used to filter out bad sites to the `tools_shared_variables.py`.
 - Add print statements in `eval_plots.py` detailing the bad sites used and the query used to filter out bad sites.
@@ -896,7 +896,7 @@ Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preproc
 
 The current version of Eventlet used in the Connector module of the FIM API is outdated and vulnerable. This update bumps the version to the patched version.
 
-## Changes
+### Changes
 - Updated `api/node/connector/requirements.txt` to have the Eventlet version as 0.31.0
 
 <br/><br/>
@@ -904,12 +904,12 @@ The current version of Eventlet used in the Connector module of the FIM API is o
 
 New "Release" feature added to the FIM API. This feature will allow for automated FIM, CatFIM, and relevant metrics to be generated when a new FIM Version is released. See [#373](https://github.com/NOAA-OWP/cahaba/issues/373) for more detailed steps that take place in this feature.
 
-## Additions
+### Additions
 - Added new window to the UI in `api/frontend/gui/templates/index.html`.
 - Added new job type to `api/node/connector/connector.py` to allow these release jobs to run.
 - Added additional logic in `api/node/updater/updater.py` to run the new eval and CatFIM scripts used in the release feature.
 
-## Changes
+### Changes
 - Updated `api/frontend/output_handler/output_handler.py` to allow for copying more broad ranges of file paths instead of only the `/data/outputs` directory.
 
 <br/><br/>
@@ -917,7 +917,7 @@ New "Release" feature added to the FIM API. This feature will allow for automate
 
 Remove Great Lakes coastlines from WBD buffer.
 
-## Changes
+### Changes
 - `gl_water_polygons.gpkg` layer is used to mask out Great Lakes boundaries and remove NHDPlus HR coastline segments.
 
 <br/><br/>
@@ -925,7 +925,7 @@ Remove Great Lakes coastlines from WBD buffer.
 
 Generate `nws_lid.gpkg`.
 
-## Additions
+### Additions
 - Generate `nws_lid.gpkg` with attributes indicating if site is a headwater `nws_lid` as well as if it is co-located with another `nws_lid` which is referenced to the same `nwm_feature_id` segment.
 
 <br/><br/>
@@ -933,7 +933,7 @@ Generate `nws_lid.gpkg`.
 
 Refactor NHDPlus HR preprocessing workflow. Resolves issue #238
 
-## Changes
+### Changes
 - Consolidate NHD streams, NWM catchments, and headwaters MS and FR layers with `mainstem` column.
 - HUC8 intersections are included in the input headwaters layer.
 - `clip_vectors_to_wbd.py` removes incoming stream segment from the selected layers.
@@ -943,7 +943,7 @@ Refactor NHDPlus HR preprocessing workflow. Resolves issue #238
 
 Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Resolves issue #351
 
-## Changes
+### Changes
 - refactored `inundation.py` and `run_test_case.py` to handle exceptions without using `sys.exit()`.
 
 <br/><br/>
@@ -951,11 +951,11 @@ Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Re
 
 Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preprocessing scripts.
 
-## Additions
+### Additions
 - Produce CatFIM flows file when running `rating_curve_get_usgs_gages.py`.
 - Several scripts to preprocess AHPS benchmark data. Requires numerous file dependencies not available through Cahaba.
 
-## Changes
+### Changes
 - Modify `rating_curve_comparison.py` to ingest CatFIM threshold flows in calculations.
 - Modify `eval_plots.py` to save all site specific bar plots in same parent directory instead of in subdirectories.
 - Add variables to `env.template` for AHPS benchmark preprocessing.
@@ -965,7 +965,7 @@ Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preproces
 
 Prevent eval_plots.py from erroring out when spatial argument enabled if certain datasets not analyzed.
 
-## Changes
+### Changes
 - Add check to make sure analyzed dataset is available prior to creating spatial dataset.
 
 <br/><br/>
@@ -978,14 +978,14 @@ Closing all multiprocessing Pool objects in repo.
 
 Preprocess NHDPlus HR rasters for consistent projections, nodata values, and convert from cm to meters.
 
-## Additions
+### Additions
 - `preprocess_rasters.py` reprojects raster, converts to meters, and updates nodata value to -9999.
 - Cleaned up log messages from `bathy_rc_adjust.py` and `usgs_gage_crosswalk.py`.
 - Outputs paths updated in `generate_categorical_fim_mapping.py` and `generate_categorical_fim.py`.
 - `update_raster_profile` cleans up raster crs, blocksize, nodata values, and converts elevation grids from cm to meters.
 - `reproject_dem.py` imports gdal to reproject elevation rasters because an error was occurring when using rasterio.
 
-## Changes
+### Changes
 - `burn_in_levees.py` replaces the `gdal_calc.py` command to resolve inconsistent outputs with burned in levee values.
 
 <br/><br/>
@@ -993,7 +993,7 @@ Preprocess NHDPlus HR rasters for consistent projections, nodata values, and con
 
 Hotfix to preserve desired files when production flag used in `fim_run.sh`.
 
-## Changes
+### Changes
 
 - Fixed production whitelisted files.
 
@@ -1002,19 +1002,20 @@ Hotfix to preserve desired files when production flag used in `fim_run.sh`.
 
 Sierra test considered all USGS gage locations to be mainstems even though many actually occurred with tributaries. This resulted in unrealistic comparisons as incorrect gages were assigned to mainstems segments. This feature branch identifies gages that are on mainstems via attribute field.
 
-## Changes
+### Changes
 
 - Modifies `usgs_gage_crosswalk.py` to filter out gages from the `usgs_gages.gpkg` layer such that for a "MS" run, only consider gages that contain rating curve information (via `curve` attribute) and are also mainstems gages (via `mainstems` attribute).
 - Modifies `usgs_gage_crosswalk.py` to filter out gages from the `usgs_gages.gpkg` layer such that for a "FR" run, only consider gages that contain rating curve information (via `curve` attribute) and are not mainstems gages (via `mainstems` attribute).
 - Modifies how mainstems segments are determined by using the `nwm_flows_ms.gpkg` as a lookup to determine if the NWM segment specified by WRDS for a gage site is a mainstems gage.
 
-## Additions
+### Additions
 
 - Adds a `mainstem` attribute field to `usgs_gages.gpkg` that indicates whether a gage is located on a mainstems river.
 - Adds `NWM_FLOWS_MS` variable to the `.env` and `.env.template` files.
 - Adds the `extent` argument specified by user when running `fim_run.sh` to `usgs_gage_crosswalk.py`.
 
 <br/><br/>
+
 ## v3.0.15.0 - 2021-04-08 - [PR #340](https://github.com/NOAA-OWP/cahaba/pull/340)
 
 Implementing a prototype technique to estimate the missing bathymetric component in the HAND-derived synthetic rating curves. The new Bathymetric Adjusted Rating Curve (BARC) function is built within the `fim_run.sh` workflow and will ingest bankfull geometry estimates provided by the user to modify the cross section area used in the synthetic rating curve generation.
@@ -1032,6 +1033,7 @@ Implementing a prototype technique to estimate the missing bathymetric component
     - Flags issues with the thalweg-notch artifact.
 
 <br/><br/>
+
 ## v3.0.14.0 - 2021-04-05 - [PR #338](https://github.com/NOAA-OWP/cahaba/pull/338)
 
 Create tool to retrieve rating curves from USGS sites and convert to elevation (NAVD88). Intended to be used as part of the Sierra Test.
@@ -1049,6 +1051,7 @@ Create tool to retrieve rating curves from USGS sites and convert to elevation (
      3) `usgs_gages.gpkg`: A geospatial layer (in FIM projection) of all active USGS gages that meet a predefined criteria. Additionally, the `curve` attribute indicates whether a rating curve is found in the `usgs_rating_curves.csv`. This spatial file is only generated if the `all` option is passed with the `-l` argument.
 
 <br/><br/>
+
 ## v3.0.13.0 - 2021-04-01 - [PR #332](https://github.com/NOAA-OWP/cahaba/pull/332)
 
 Created tool to compare synthetic rating curve with benchmark rating curve (Sierra Test).
@@ -1063,6 +1066,7 @@ Created tool to compare synthetic rating curve with benchmark rating curve (Sier
  - `rating_curve_comparison.py`: post-processing script to plot and calculate metrics between synthetic rating curves and USGS rating curve data.
 
 <br/><br/>
+
 ## v3.0.12.1 - 2021-03-31 - [PR #336](https://github.com/NOAA-OWP/cahaba/pull/336)
 
 Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
@@ -1077,6 +1081,7 @@ Fix spatial option in `eval_plots.py` when creating plots and spatial outputs.
  - Creates `fim_performance_polys.shp`: this layer consists of all evaluated huc8s (with metrics). Spatial data retrieved from WBD layer.
 
 <br/><br/>
+
 ## v3.0.12.0 - 2021-03-26 - [PR #327](https://github.com/NOAA-OWP/cahaba/pull/237)
 
 Add more detail/information to plotting capabilities.
@@ -1090,6 +1095,7 @@ Add more detail/information to plotting capabilities.
  - Create a csv containing the data used to create the scatterplots.
 
 <br/><br/>
+
 ## v3.0.11.0 - 2021-03-22 - [PR #319](https://github.com/NOAA-OWP/cahaba/pull/298)
 
 Improvements to CatFIM service source data generation.
@@ -1104,6 +1110,7 @@ Improvements to CatFIM service source data generation.
  - Create new `nws_lid_sites` shapefile located in same directory as the `catfim_library` shapefile.
 
 <br/><br/>
+
 ## v3.0.10.1 - 2021-03-24 - [PR #320](https://github.com/NOAA-OWP/cahaba/pull/320)
 
 Patch to synthesize_test_cases.py.
@@ -1112,6 +1119,7 @@ Patch to synthesize_test_cases.py.
  - Bug fix to `synthesize_test_cases.py` to allow comparison between `testing` version and `official` versions.
 
 <br/><br/>
+
 ## v3.0.10.0 - 2021-03-12 - [PR #298](https://github.com/NOAA-OWP/cahaba/pull/298)
 
 Preprocessing of flow files for Categorical FIM.
@@ -1127,6 +1135,7 @@ Preprocessing of flow files for Categorical FIM.
  - Stability fixes to `generate_categorical_fim.py`.
 
 <br/><br/>
+
 ## v3.0.9.0 - 2021-03-12 - [PR #297](https://github.com/NOAA-OWP/cahaba/pull/297)
 
 Enhancements to FIM API.
@@ -1142,6 +1151,7 @@ Enhancements to FIM API.
  - Both FR and MS configs can be selected for a single job.
 
 <br/><br/>
+
 ## v3.0.8.2 - 2021-03-11 - [PR #296](https://github.com/NOAA-OWP/cahaba/pull/296)
 
 Enhancements to post-processing for Viz-related use-cases.
@@ -1152,6 +1162,7 @@ Enhancements to post-processing for Viz-related use-cases.
  - Aggregate grid blocksize is changed from 256 to 1024 for faster postprocessing.
 
 <br/><br/>
+
 ## v3.0.8.1 - 2021-03-10 - [PR #302](https://github.com/NOAA-OWP/cahaba/pull/302)
 
 Patched import issue in `tools_shared_functions.py`.
@@ -1160,6 +1171,7 @@ Patched import issue in `tools_shared_functions.py`.
  - Changed `utils.` to `tools_` in `tools_shared_functions.py` after recent structural change to `tools` directory.
 
 <br/><br/>
+
 ## v3.0.8.0 - 2021-03-09 - [PR #279](https://github.com/NOAA-OWP/cahaba/pull/279)
 
 Refactored NWS Flood Categorical HAND FIM (CatFIM) pipeline to open source.
@@ -1171,6 +1183,7 @@ Refactored NWS Flood Categorical HAND FIM (CatFIM) pipeline to open source.
  - Removed `util` folders under `tools` directory.
 
 <br/><br/>
+
 ## v3.0.7.1 - 2021-03-02 - [PR #290](https://github.com/NOAA-OWP/cahaba/pull/290)
 
 Renamed benchmark layers in `test_cases` and updated variable names in evaluation scripts.
@@ -1180,6 +1193,7 @@ Renamed benchmark layers in `test_cases` and updated variable names in evaluatio
  - Updated `run_test_case_calibration.py` with new benchmark layer names.
 
 <br/><br/>
+
 ## v3.0.7.0 - 2021-03-01 - [PR #288](https://github.com/NOAA-OWP/cahaba/pull/288)
 
 Restructured the repository. This has no impact on hydrological work done in the codebase and is simply moving files and renaming directories.
@@ -1190,6 +1204,7 @@ Restructured the repository. This has no impact on hydrological work done in the
  - Changed any instance of `lib` or `libDir` to `src` or `srcDir`.
 
 <br/><br/>
+
 ## v3.0.6.0 - 2021-02-25 - [PR #276](https://github.com/NOAA-OWP/cahaba/pull/276)
 
 Enhancement that creates metric plots and summary statistics using metrics compiled by `synthesize_test_cases.py`.
@@ -1203,6 +1218,7 @@ Enhancement that creates metric plots and summary statistics using metrics compi
     - CSV of analyzed data and analyzed sites
 
 <br/><br/>
+
 ## v3.0.5.3 - 2021-02-23 - [PR #275](https://github.com/NOAA-OWP/cahaba/pull/275)
 
 Bug fixes to new evaluation code.
@@ -1215,6 +1231,7 @@ Bug fixes to new evaluation code.
  - Updated README.md
 
 <br/><br/>
+
 ## v3.0.5.2 - 2021-02-23 - [PR #272](https://github.com/NOAA-OWP/cahaba/pull/272)
 
 Adds HAND synthetic rating curve (SRC) datum elevation values to `hydroTable.csv` output.
@@ -1234,6 +1251,7 @@ Fixed `TEST_CASES_DIR` path in `tests/utils/shared_variables.py`.
  - Removed `"_new"` from `TEST_CASES_DIR` variable.
 
 <br/><br/>
+
 ## v3.0.5.0 - 2021-02-22 - [PR #267](https://github.com/NOAA-OWP/cahaba/pull/267)
 
 Enhancements to allow for evaluation at AHPS sites, the generation of a query-optimized metrics CSV, and the generation of categorical FIM. This merge requires that the `/test_cases` directory be updated for all machines performing evaluation.
@@ -1269,6 +1287,7 @@ Rating curves for short stream segments are replaced with rating curves from ups
  - Variable names and general workflow are cleaned up.
 
 <br/><br/>
+
 ## v3.0.4.3 - 2021-02-12 - [PR #254](https://github.com/NOAA-OWP/cahaba/pull/254)
 
 Modified `rem.py` with a new function to output HAND reference elev.
@@ -1281,6 +1300,7 @@ Modified `rem.py` with a new function to output HAND reference elev.
  - Overwrites the `demDerived_reaches_split.gpk` layer by adding additional attribute `Min_Thal_Elev_meters` to view the elevation value for each hydroid.
 
 <br/><br/>
+
 ## v3.0.4.2 - 2021-02-12 - [PR #255](https://github.com/NOAA-OWP/cahaba/pull/255)
 
 Addresses issue when running on HUC6 scale.
@@ -1294,6 +1314,7 @@ Addresses issue when running on HUC6 scale.
  - Fixed known issue where sometimes an incoming stream is not included in the final selection will affect aggregate outputs.
 
 <br/><br/>
+
 ## v3.0.4.1 - 2021-02-12 - [PR #261](https://github.com/NOAA-OWP/cahaba/pull/261)
 
 Updated MS Crosswalk method to address gaps in FIM.
@@ -1305,6 +1326,7 @@ Updated MS Crosswalk method to address gaps in FIM.
  - `add_crosswalk.py` now performs a secondary MS crosswalk selection by nearest NWM MS catchment.
 
 <br/><br/>
+
 ## v3.0.4.0 - 2021-02-10 - [PR #256](https://github.com/NOAA-OWP/cahaba/pull/256)
 
 New python script "wrappers" for using `inundation.py`.
@@ -1316,6 +1338,7 @@ New python script "wrappers" for using `inundation.py`.
  - Created new `tools` parent directory to store `inundation_wrapper_nwm_flows.py` and  `inundation_wrapper_custom_flow.py`.
 
 <br/><br/>
+
 ## v3.0.3.1 - 2021-02-04 - [PR #253](https://github.com/NOAA-OWP/cahaba/pull/253)
 
 Bug fixes to correct mismatched variable name and file path.
@@ -1326,6 +1349,7 @@ Bug fixes to correct mismatched variable name and file path.
  - `acquire_and_preprocess_inputs.py` now creates `huc_lists` folder and updates file path.
 
 <br/><br/>
+
 ## v3.0.3.0 - 2021-02-04 - [PR #227](https://github.com/NOAA-OWP/cahaba/pull/227)
 
 Post-process to aggregate FIM outputs to HUC6 scale.
@@ -1345,6 +1369,7 @@ Post-process to aggregate FIM outputs to HUC6 scale.
  - Cleanup of `clip_vectors_to_wbd.py`.
 
 <br/><br/>
+
 ## v3.0.2.0 - 2021-01-25 - [PR #218](https://github.com/NOAA-OWP/cahaba/pull/218)
 
 Addition of an API service to schedule, run and manage `fim_run` jobs through a user-friendly web interface.
@@ -1354,6 +1379,7 @@ Addition of an API service to schedule, run and manage `fim_run` jobs through a 
  - `api` folder that contains all the codebase for the new service.
 
 <br/><br/>
+
 ## v3.0.1.0 - 2021-01-21 - [PR #206](https://github.com/NOAA-OWP/cahaba/pull/206)
 
 Preprocess MS and FR stream networks
@@ -1370,6 +1396,7 @@ Preprocess MS and FR stream networks
  - Cleaned up variable names and types.
 
 <br/><br/>
+
 ## v3.0.0.4 - 2021-01-20 - [PR #230](https://github.com/NOAA-OWP/cahaba/pull/230)
 
 Changed the directory where the `included_huc*.lst` files are being read from.
@@ -1379,6 +1406,7 @@ Changed the directory where the `included_huc*.lst` files are being read from.
  - Changed the directory where the `included_huc*.lst` files are being read from.
 
 <br/><br/>
+
 ## v3.0.0.3 - 2021-01-14 - [PR #210](https://github.com/NOAA-OWP/cahaba/pull/210)
 
 Hotfix for handling nodata value in rasterized levee lines.
@@ -1389,6 +1417,7 @@ Hotfix for handling nodata value in rasterized levee lines.
  - Initialize the `nld_rasterized_elev.tif` using a value of `-9999` instead of `$ndv`.
 
  <br/><br/>
+
 ## v3.0.0.2 - 2021-01-06 - [PR #200](https://github.com/NOAA-OWP/cahaba/pull/200)
 
 Patch to address AHPSs mapping errors.
@@ -1401,6 +1430,7 @@ Patch to address AHPSs mapping errors.
  - Updated [readme](https://github.com/NOAA-OWP/cahaba/commit/9bffb885f32dfcd95978c7ccd2639f9df56ff829)
 
 <br/><br/>
+
 ## v3.0.0.1 - 2020-12-31 - [PR #184](https://github.com/NOAA-OWP/cahaba/pull/184)
 
 Modifications to build and run Docker image more reliably. Cleanup on some pre-processing scripts.
@@ -1414,6 +1444,7 @@ Modifications to build and run Docker image more reliably. Cleanup on some pre-p
  - `aggregate_vector_inputs.py` doesn't work yet. Need to externally download required data to run fim_run.sh
 
  <br/><br/>
+
 ## v3.0.0.0 - 2020-12-22 - [PR #181](https://github.com/NOAA-OWP/cahaba/pull/181)
 
 The software released here builds on the flood inundation mapping capabilities demonstrated as part of the National Flood Interoperability Experiment, the Office of Water Prediction's Innovators Program and the National Water Center Summer Institute. The flood inundation mapping software implements the Height Above Nearest Drainage (HAND) algorithm and incorporates community feedback and lessons learned over several years. The software has been designed to meet the requirements set by stakeholders interested in flood prediction and has been developed in partnership with several entities across the water enterprise.
