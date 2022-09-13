@@ -2,13 +2,104 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v3.0.33.0 - 2022-09-13 - [PR #679](https://github.com/NOAA-OWP/inundation-mapping/pull/679)
+## v3.0.36.0 - 2022-09-13 - [PR #679](https://github.com/NOAA-OWP/inundation-mapping/pull/679)
 
 Fixes thalweg notch created by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
 
 ### Changes
 
-- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-2*[DEM cell size]) to clip stream network inside of DEM extent.
+- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-2*(DEM cell size)) to clip stream network inside of DEM extent.
+
+<br/><br/>
+
+## v3.0.35.1 - 2022-07-29 - [PR #646](https://github.com/NOAA-OWP/cahaba/pull/646)
+
+Patches and improvements for Flow-Based CatFIM and Stage-Based CatFIM scripts.
+
+## Changes
+
+- `/tools/generate_categorical_fim.py`:
+    - Changed "Alternate Method" to "Stage-Based Method" parameter.
+    - Added function and call to produce CSV versions of final output.
+- `/tools_generate_categorical_fim_flows.py`:
+    - Changed "Alternate Method" to "Stage-Based Method" parameter and relevant variables.
+    - Fixed a bug where Flow-Based CatFIM could not run because of a variable being assigned outside of a Stage-Based conditional.
+- `/tools_generate_categorical_fim_mapping.py`:
+    - Fixed bug where `version` variable was being misassigned to `mapping` instead of the actual FIM version.
+
+<br/><br/>
+
+## v3.0.35.0 - 2022-07-27 - [PR #640](https://github.com/NOAA-OWP/cahaba/pull/640)
+
+These code changes introduce a new script (`tools/inundate_nation_composite.py`) for performing the inundate nation workflow to produce MS, FR, and Composite (MS+FR) inundation, boolean rasters, and national mosaics inside one script. Also included changes to the `inundation.py` calls to use `mask_type='filter'` to resolve undesirable inundation clipping at HUC boundaries. 
+
+## Additions
+
+- `tools/inundate_nation_composite.py`: new script to perform the entire inundation nation workflow. Generalized steps:
+       1) Pass huc list to multiprocessing function to produce MS & FR inundation rasters
+       2) Create boolean rasters for all inundation rasters
+       3) Perform MS + FR mosaic operation
+       4) Perform national mosaic operation for all avialable HUCs by resolution (using virtual raster)
+
+## Removals
+
+- `tools/inundate_nation.py`: removed this script - it is superseded by `inundate_nation_composite.py`
+
+## Changes
+
+- `tools/inundation_mosaic_vrt.py`: updated `inundation.py` calls to use `mask_type='filter'` to resolve undesirable inundation clipping at HUC boundaries
+- `tools/inundation_wrapper_nwm_flows.py`: `inundation.py` calls to use `mask_type='filter'` to resolve undesirable inundation clipping at HUC boundaries; some slight modifications to output directory structure
+
+<br/><br/>
+
+## v3.0.34.2 - 2022-07-19 - [PR #632](https://github.com/NOAA-OWP/cahaba/pull/632)
+
+We have identified five HUC8s that were not producing FIM outputs for large portions of the expected domain. The cause of this issue varies slightly between the HUCs but the NHD headwater points were used to address the issue for all five scenarios.  
+
+## Changes
+
+- `fim_run.sh`: minor change to move the postgreSQL database ogr2ogr commands inside the if statement that checks if SRC spatial calibration is to be run `src_adjust_spatial="True"`
+- `src/clip_vectors_to_wbd.py`: created HUC specific checks to add/remove/change NHD headwater points when performing the HUC subset process. See screenshots below for explanations for point revisions applied to each HUC
+
+<br/><br/>
+
+## v3.0.34.1 - 2022-07-11 - [PR #628](https://github.com/NOAA-OWP/cahaba/pull/628)
+
+This fixes `add_crosswalk.py` by dropping duplicates from pandas dataframes. In prior versions, the duplicate features were causing the `hydroTable.csv` to blow up in size.
+
+## Changes
+- `add_crosswalk.py`: Added pandas `drop_duplicates` to the `output_hydro_table` and `output_flows` and `output_src` dataframes to remove duplicates.
+
+<br/><br/>
+
+## v3.0.34.0 - 2022-06-30 - [PR #619](https://github.com/NOAA-OWP/cahaba/pull/619)
+
+This PR adds a new option to the `/tools/generate_categorical_fim.py` script `-a` that allows for an alternate method (CatFIM B) for producing inundation maps at the official AHPS flood categories. Similar to the original CatFIM method (CatFIM A), CatFIM B produces inundation maps at the official AHPS categories, but instead of creating maps from the official AHPS discharges, maps are produced using the official stage values, which are converted to water surface elevation.
+
+## Changes
+
+- `generate_categorical_fim_flows.py` : Added options `-a` and `-f`. `-a` is interpreted as a bool and if provided by a user will run the CatFIM B method. If `-a` is passed, then the `-f` flag (fim version full path) is required so that necessary input layers can be accessed.
+- `generate_categorical_fim.py`: Added `-a` option to run the alternate CatFIM method.
+
+<br/><br/>
+
+## v3.0.33.0 - 2022-06-24 - [PR #618](https://github.com/NOAA-OWP/cahaba/pull/618)
+
+These changes introduce a PostgreSQL database solution for storing, processing, and accessing the point-based calibration data previously stored in a gpkg. The PostgreSQL enables faster processing and a flexible solution for continuously increasing the number of calibration points.
+
+## Additions
+
+- `tools/calibration/README.md`: documentation and tips for working with the PostgreSQL DB
+- `tools/calibration/start_db.sh`: bash shell script for creating the docker container for the database (only needs to be executed if the container is closed or disconnected - see instructions in README)
+
+## Changes
+
+- `config/params_template.env`: added a variable with the filepath location for the sensitive variables
+- `fim_run.sh`: added two ogr2ogr commands to populate the PostgreSQL database with the point and huc boundary spatial data
+- `src/src_adjust_spatial_obs.py`: revised to ingest the PostgreSQL database, perform a spatial query to create a list of all HUCs containing calb points, query points to each huc, and pass a dataframe to the `src_roughness_optimization.py` workflow
+- `src/src_adjust_usgs_rating.py`: simplified the `-debug` flag (action='store_true')
+- `src/src_roughness_optimization.py`: added placeholder variable creation (this is only needed to run the script for older FIM versions as they are now created by default in `add_crosswalk.py`)
+- *additional miscellaneous files updated to facilitate the PostgreSQL DB configuration on the production machine 
 
 <br/><br/>
 
@@ -25,8 +116,7 @@ This PR updates `tools` with `test_case_by_hydroid.py`, `pixel_counter.py`, `pix
 
 <br/><br/>
 
-
-## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
+## v3.0.32.0 - 2022-05-26 - [PR #588](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
 `run_test_case.py` has also been refactored to use a `test_case` python class. This workflow has shown decreased memory usage as compared to the previous version of `run_test_case.py`.
@@ -76,7 +166,6 @@ Modifications to enforce consistent hydroTable.csv column dimensions for all HUC
 Addition of `correlation_analysis.py`, a tool to perform single varible analysis bewteen Sierra Test error and various indicator variables.
 
 <br/><br/>
-
 
 ## v3.0.28.2 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
 

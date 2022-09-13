@@ -197,7 +197,7 @@ if __name__ == '__main__':
     parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
     parser.add_argument('-usgs_rc','--usgs-ratings',help='Path to USGS rating curve csv file',required=True)
     parser.add_argument('-nwm_recur','--nwm_recur',help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',required=True)
-    parser.add_argument('-debug','--extra-outputs',help='True or False: Include intermediate output files for debugging/testing',default='False',required=False)
+    parser.add_argument('-debug','--extra-outputs',help='Optional flag: Use this to keep intermediate output files for debugging/testing',default=False,required=False, action='store_true')
     parser.add_argument('-scale','--scale',help='HUC6 or HUC8', default='HUC8',required=False)
     parser.add_argument('-j','--job-number',help='Number of jobs to use',required=False,default=2)
 

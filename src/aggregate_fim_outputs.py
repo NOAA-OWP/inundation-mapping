@@ -4,7 +4,7 @@ from os import listdir, remove
 from os.path import split, dirname
 from pathlib import Path
 import argparse
-from multiprocessing import Pool
+from multiprocessing import Pool, Manager
 import pandas as pd
 import geopandas as gpd
 import json
@@ -18,9 +18,10 @@ from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 
 def aggregate_fim_outputs(args):
 
-    fim_out_dir   = args[0]
-    huc6          = args[1]
-    huc_list      = args[2]
+    fim_out_dir              = args[0]
+    huc6                     = args[1]
+    huc_list                 = args[2]
+    hydrotable_columns       = args[3]
 
     print(f"aggregating {huc6}")
 
@@ -47,6 +48,9 @@ def aggregate_fim_outputs(args):
 
             # Open hydrotable
             hydrotable = pd.read_csv(hydrotable_filename)
+            
+            # Adding the hydrotable columns to dictionary for future error checking
+            hydrotable_columns[huc] = set(hydrotable.columns)
             
             # Check that there are valid entries in HUC8 hydrotable
             if hydrotable.isnull().all().all():
@@ -245,10 +249,14 @@ if __name__ == '__main__':
     fim_outputs_directory = Path(args['fim_outputs_directory'])
     number_of_jobs = int(args['number_of_jobs'])
 
-    drop_folders = ['logs']
+    drop_folders = ['logs', 'aggregate_fim_outputs']
     huc_list = [huc for huc in listdir(fim_outputs_directory) if huc not in drop_folders]
     huc6_list = [str(huc[0:6]) for huc in listdir(fim_outputs_directory) if huc not in drop_folders]
     huc6_list = list(set(huc6_list))
+
+    # Creating a shared Dictionary so that the hydrotable columns for each huc can be stored and checked later
+    manager = Manager()
+    hydrotable_columns = manager.dict()
 
     procs_list = []
 
@@ -256,9 +264,33 @@ if __name__ == '__main__':
 
         limited_huc_list = [huc for huc in huc_list if huc.startswith(huc6)]
 
-        procs_list.append([fim_outputs_directory,huc6,limited_huc_list])
+        procs_list.append([fim_outputs_directory,huc6,limited_huc_list,hydrotable_columns])
 
     print(f"aggregating {len(huc_list)} hucs to HUC6 scale using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         pool.map(aggregate_fim_outputs, procs_list)
     print('Aggregation process finished')
+
+    # Iterate though hydrotable_columns dictionary to find hucs with incorrect hydrotable.csv column count
+    max_column_count = 0
+    prev_hucs = []
+    for huc in hydrotable_columns:
+
+        # Get current hydrotable column count
+        current_column_count = len(hydrotable_columns[huc])
+
+        # If the current column count is higher than the current max, it is the new max and the prev_hucs are inccorect
+        if current_column_count > max_column_count:
+            for prev_huc in prev_hucs:
+                print(f"ERROR: HUC {prev_huc} has the incorrect number of hydrotable.csv columns ({max_column_count})")
+            prev_hucs = []
+            prev_hucs.append(huc)
+            max_column_count = current_column_count
+
+        # If the current column count is equal to max, add it to the prev_hucs
+        elif current_column_count == max_column_count:
+            prev_hucs.append(huc)
+
+        # If the current column count is lower than the max, it is incorrect
+        else:
+            print(f"ERROR: HUC {huc} has the incorrect number of hydrotable.csv columns ({current_column_count})")

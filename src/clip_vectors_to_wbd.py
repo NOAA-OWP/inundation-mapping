@@ -2,6 +2,7 @@
 
 import os, sys
 import geopandas as gpd
+import pandas as pd
 import argparse
 from shapely.geometry import MultiPolygon,Polygon
 from utils.shared_functions import getDriver, mem_profile
@@ -84,7 +85,42 @@ def subset_vector_layers(hucCode, nwm_streams_filename, nhd_streams_filename, nw
     print("Subsetting NHD Headwater Points for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
     nhd_headwaters = gpd.read_file(nhd_headwaters_filename, mask=wbd_streams_buffer)
     if extent == 'MS':
-        nhd_headwaters = nhd_headwaters.loc[nhd_headwaters.mainstem==1]
+        # special cases: missing MS headwater points
+        # 02030101 (Hudson River) → Resolved (added 2 headwaters on DEM divide)
+        # 07060001 (Mississippi River) → Resolved (force the non-mainstem NHD headwater point to be included)
+        # 07060003 (Mississippi River) → Resolved  (added 2 headwaters on DEM divide)
+        # 08040207 (Ouachita River) → Resolved (added missing NHD headwater at HUC8 boundary)
+        # 05120108 (Wabash River) → Resolved  (added 2 headwaters on DEM divide)
+
+        nhd_headwaters_manual_include_all = {'07060001':['22000400022137']}
+        nhd_headwaters_manual_exclude_all = {} #{'05120108':['24001301276670','24001301372152']}
+        if hucCode in nhd_headwaters_manual_include_all:
+            nhd_headwaters_manual_include = nhd_headwaters_manual_include_all[hucCode]
+            print('!!Manually including MS headwater point (address missing MS bug)')
+            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) | (nhd_headwaters.site_id.isin(nhd_headwaters_manual_include))]
+        elif hucCode in nhd_headwaters_manual_exclude_all:
+            nhd_headwaters_manual_exclude = nhd_headwaters_manual_exclude_all[hucCode]
+            print('!!Manually removing MS headwater point (address missing MS bug)')
+            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1) & (~nhd_headwaters.site_id.isin(nhd_headwaters_manual_exclude))]
+        else:
+            nhd_headwaters = nhd_headwaters.loc[(nhd_headwaters.mainstem==1)]
+            
+        # dataframe below contains new nhd_headwater points to add to the huc subset
+        df_manual_add = pd.DataFrame({
+            'huc':['08040207','05120108','05120108','07060003','07060003','02030101','02030101'],
+            'site_id': ['20000800111111','11111111111112','11111111111113','11111111111114','11111111111115','11111111111116','11111111111116'],
+            'pt_type': ['manual_add','manual_add','manual_add','manual_add','manual_add','manual_add','manual_add'],
+            'mainstem': [True,True,True,True,True,True,True],
+            'Latitude': [32.568401,40.451615,40.451776,42.786042,42.785914,41.196772,41.196883],
+            'Longitude': [-92.144639,-86.894058,-86.894025,-91.092300,-91.092294,-73.928789,-73.928848]})
+        if str(hucCode) in df_manual_add.huc.values:
+            print('!!Manually adding additional MS headwater point (address missing MS bug)')
+            df_manual_add = df_manual_add.loc[df_manual_add.huc==str(hucCode)]
+            df_manual_add.drop(['huc'], axis=1, inplace=True)
+            gdf_manual = gpd.GeoDataFrame(df_manual_add, geometry=gpd.points_from_xy(df_manual_add.Longitude, df_manual_add.Latitude, crs="EPSG:4326"))
+            nhd_headwaters_crs = nhd_headwaters.crs
+            gdf_manual.to_crs(nhd_headwaters_crs, inplace=True) 
+            nhd_headwaters = nhd_headwaters.append(gdf_manual)
 
     if len(nhd_headwaters) > 0:
         nhd_headwaters.to_file(subset_nhd_headwaters_filename, driver=getDriver(subset_nhd_headwaters_filename), index=False)

@@ -24,7 +24,7 @@ TWHITE = '\033[37m'
 WHITE_BOLD = '\033[37;1m'
 CYAN_BOLD = '\033[36;1m'
 
-def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc', output_dir=None):
+def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='filter', output_dir=None):
 
     # Construct paths to development test results if not existent.
     huc_id_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id)
@@ -32,13 +32,22 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
         os.mkdir(huc_id_dir_parent)
         
     if output_dir == None:
-        branch_test_case_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id, branch_name)
+        branch_test_case_dir_parent = os.path.join(INUN_REVIEW_DIR, branch_name)
     else:
-        branch_test_case_dir_parent = os.path.join(output_dir, huc_id, branch_name)
+        branch_test_case_dir_parent = os.path.join(output_dir, branch_name)  
 
-    # Delete the entire directory if it already exists.
-    if os.path.exists(branch_test_case_dir_parent):
+    # Create branch directory if needed
+    if not os.path.exists(branch_test_case_dir_parent):
+        os.mkdir(branch_test_case_dir_parent)
+
+    '''
+    branch_test_case_dir_parent = os.path.join(branch_test_case_dir, huc_id)
+    if not os.path.exists(branch_test_case_dir_parent):
+        os.mkdir(branch_test_case_dir_parent)
+    else:
         shutil.rmtree(branch_test_case_dir_parent)
+        os.mkdir(branch_test_case_dir_parent)
+    '''
 
     print("Running the NWM recurrence intervals for huc_id: " + huc_id + ", " + branch_name + "...")
 
@@ -64,9 +73,6 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
     #benchmark_category = huc_id.split('_')[1]
     current_huc = huc_id.split('_')[0]  # Break off HUC ID and assign to variable.
 
-    if not os.path.exists(branch_test_case_dir_parent):
-        os.mkdir(branch_test_case_dir_parent)
-
     # Check if magnitude is list of magnitudes or single value.
     magnitude_list = magnitude
     if type(magnitude_list) != list:
@@ -76,12 +82,13 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
         # Construct path to validation raster and forecast file.
 
         branch_test_case_dir = os.path.join(branch_test_case_dir_parent, magnitude)
-
-        os.makedirs(branch_test_case_dir)  # Make output directory for branch.
+        if not os.path.exists(branch_test_case_dir):
+            os.mkdir(branch_test_case_dir)
 
         # Define paths to inundation_raster and forecast file.
         inundation_raster = os.path.join(branch_test_case_dir, branch_name + '_inund_extent.tif')
-        forecast = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'recurr_' + magnitude + '_cms.csv')
+        print("Using NWM v2.1 17C recurrence flow data")
+        forecast = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'nwm21_17C_recurr_' + magnitude + '_cms.csv')
 
         # Run inundate.
         print("-----> Running inundate() to produce modeled inundation extent for the " + magnitude + " magnitude...")
@@ -100,13 +107,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Inundation outputs are stored in the /inundation_review/inundation_nwm_recurr/ directory.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test)',required=True)
     parser.add_argument('-b', '--branch-name',help='The name of the working branch in which features are being tested (used to name the output inundation directory) -> type=str',required=True,default="")
-    parser.add_argument('-t', '--huc-id',help='Provide either a single hucid (Format as: xxxxxxxx, e.g. 12345678) or a filepath to a list of hucids',required=True,default="")
-    parser.add_argument('-m', '--mask-type', help='Optional: specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="huc")
-    parser.add_argument('-y', '--magnitude',help='The magnitude (reccur interval) to run. Leave blank to use default intervals (options: 1_5, 5_0, 10_0).',required=False, default="")
+    parser.add_argument('-t', '--huc-id',help='Provide either a single hucid (Format as: xxxxxxxx, e.g. 12345678), or a filepath to a list of hucids, or no argument will use all hucs in the provided fim-run-dir',required=False,default="")
+    parser.add_argument('-m', '--mask-type', help='Optional: specify \'huc\' (FIM < 3) or \'filter\' (FIM >= 3) masking method', required=False,default="filter")
+    parser.add_argument('-y', '--magnitude',help='The magnitude (reccur interval) to run. Leave blank to use default intervals (options: 10_0, 50_0, 100_0).', nargs = '+',required=False, default="10_0, 50_0, 100_0")
 
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
+
+    fim_run_dir = args['fim_run_dir']
+    branch_name = args['branch_name']
+    huc_id_input = args['huc_id']
+    mask_type = args['mask_type']
+    magnitude = args['magnitude']
 
     valid_test_id_list = ['nwm_recurr']
 
@@ -114,43 +127,46 @@ if __name__ == '__main__':
     print()
 
     # check if user provided a single huc_id or a file path to a list of huc ids
-    if args['huc_id'].isdigit():
-        huc_list = [args['huc_id']]
-    elif os.path.exists(args['huc_id']): # check if provided str is a valid path
-        with open(args['huc_id'],newline='') as list_file:
-            read_list = csv.reader(list_file)
-            huc_list=[i for row in read_list for i in row]
-    else:
-        print(TRED_BOLD + "Warning: " + WHITE_BOLD + "Invalid huc-id entry: " + CYAN_BOLD + args['fim_run_dir'] + WHITE_BOLD + " --> check that huc_id number or list file is valid")
-        exit_flag = True
+    if huc_id_input.isdigit():
+        huc_list = [huc_id_input]
+        if os.path.exists(huc_id_input): # check if provided str is a valid path
+            with open(huc_id_input,newline='') as list_file:
+                read_list = csv.reader(list_file)
+                huc_list=[i for row in read_list for i in row]
+        else:
+            print(TRED_BOLD + "Warning: " + WHITE_BOLD + "Invalid huc-id entry: " + CYAN_BOLD + args['fim_run_dir'] + WHITE_BOLD + " --> check that huc_id number or list file is valid")
+            exit_flag = True
+    if huc_id_input == "":
+        huc_list = os.listdir(fim_run_dir)
+            
     print(huc_list)
     if exit_flag:
         print()
         sys.exit()
 
     for huc_id in huc_list:
-        args['huc_id'] = huc_id
-        # Ensure fim_run_dir exists.
-        fim_run_dir = args['fim_run_dir'] + os.sep + huc_id
-        if not os.path.exists(fim_run_dir):
-            print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided fim_run_dir (-r) " + CYAN_BOLD + fim_run_dir + WHITE_BOLD + " could not be located in the 'outputs' directory." + ENDC)
-            print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456." + ENDC)
-            print()
-            exit_flag = True
-
-        # Ensure valid flow recurr intervals
-        default_flow_intervals = ['1_5','5_0','10_0']
-        if args['magnitude'] == '':
-            args['magnitude'] = default_flow_intervals
-            print(TRED_BOLD + "Using default flow reccurence intervals: " + WHITE_BOLD + str(default_flow_intervals)[1:-1])
-        else:
-            if set(default_flow_intervals).issuperset(set(args['magnitude'])) == False:
-                print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + args['magnitude'] + WHITE_BOLD + " is invalid. NWM Recurrence Interval options include: " + str(default_flow_intervals)[1:-1] + ENDC)
+        if huc_id != 'logs' and huc_id != 'aggregate_fim_outputs':
+            # Ensure fim_run_dir exists.
+            fim_run_dir = args['fim_run_dir'] + os.sep + huc_id
+            if not os.path.exists(fim_run_dir):
+                print(TRED_BOLD + "Warning: " + WHITE_BOLD + "The provided fim_run_dir (-r) " + CYAN_BOLD + fim_run_dir + WHITE_BOLD + " could not be located in the 'outputs' directory." + ENDC)
+                print(WHITE_BOLD + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456." + ENDC)
+                print()
                 exit_flag = True
 
-        if exit_flag:
-            print()
-            sys.exit()
+            # Ensure valid flow recurr intervals
+            default_flow_intervals = ['10_0','50_0','100_0']
+            if magnitude == '':
+                magnitude = default_flow_intervals
+                print(TRED_BOLD + "Using default flow reccurence intervals: " + WHITE_BOLD + str(default_flow_intervals)[1:-1])
+            else:
+                if set(default_flow_intervals).issuperset(set(magnitude)) == False:
+                    print(TRED_BOLD + "Error: " + WHITE_BOLD + "The provided magnitude (-y) " + CYAN_BOLD + magnitude + WHITE_BOLD + " is invalid. NWM Recurrence Interval options include: " + str(default_flow_intervals)[1:-1] + ENDC)
+                    exit_flag = True
 
-        else:
-            run_recurr_test(fim_run_dir,args['branch_name'],huc_id,args['magnitude'],args['mask_type'])
+            if exit_flag:
+                print()
+                sys.exit()
+
+            else:
+                run_recurr_test(fim_run_dir,branch_name,huc_id,magnitude,mask_type)

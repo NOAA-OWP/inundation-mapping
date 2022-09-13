@@ -1,4 +1,4 @@
-flask==1.1.2
+flask==2.1.2
+werkzeug==2.0.0
 flask-socketio==5.0.0
-itsdangerous==2.0.1
 eventlet==0.31.0
