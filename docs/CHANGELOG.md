@@ -277,7 +277,7 @@ We needed a tool that could composite / mosaic inundation maps for FIM3 FR and F
 - `unit_tests/gms/inundate_gms_unittests.py and inundate_gms_params.json`: for running unit tests against `tools/gms_tools/inunundate_gms.py`.
 - `unit_tests/shared_functions_unittests.py and shared_functions_params.json`: A new function named `append_id_to_file_name_single_identifier` was added to `src/utils/shared_functions.py` and some unit tests for that function was created.
 
-## Removed
+### Removed
 
 - `tools/composite_ms_fr_inundation.py`: replaced with upgraded version named `composite_inundation.py`.
 
@@ -339,7 +339,7 @@ Fixes were put in place for a couple of new logging behaviors.
 
 3. A minor correction was made when dissolved level paths were created with the new merged level path not always having a valid stream order value.
 
-## File Additions
+### File Additions
 
 - `src/`
    - `utils/`
@@ -410,14 +410,12 @@ Fixes were put in place for a couple of new logging behaviors.
            - Changed pathing for unit test data pathing from `/data/outputs/gms_example_unit_tests` to `/data/outputs/fim_unit_test_data_do_not_remove`. The new folder is intended to be a more permanent folder for unit test data.
            - Some additional tests were added validating the argument for dropping stream orders.
 
-
-## Unit Test File Additions:
+### Unit Test File Additions:
 
 - `unit_tests/`
    - `filter_catchments_and_add_attributes_unittests.py` and `filter_catchments_and_add_attributes_params.json`:
 
    - `split_flows_unittests.py' and `split_flows_params.json`
-
 
 <br/><br/>
 
@@ -832,6 +830,7 @@ Feature to evaluate performance of alternative CatFIM techniques.
 - Added `eval_catfim_alt.py` to evaluate performance of alternative CatFIM techniques.
 
 <br/><br/>
+
 ## v3.0.18.0 - 2021-06-09 - [PR #404](https://github.com/NOAA-OWP/cahaba/pull/404)
 
 To help analyze the memory consumption of the Fim Run process, the python module `memory-profiler` has been added to give insights into where peak memory usage is with in the codebase.
@@ -848,6 +847,7 @@ In addition, the Dockerfile was previously broken due to the Taudem dependency r
 - Changed all calls of python scripts in `run_by_unit.s` to be called with the `-m memory-profiler` argument to allow scripts to also track memory usage.
 
 <br/><br/>
+
 ## v3.0.17.1 - 2021-06-04 - [PR #395](https://github.com/NOAA-OWP/cahaba/pull/395)
 
 Bug fix to the `generate_nws_lid.py` script
@@ -857,6 +857,7 @@ Bug fix to the `generate_nws_lid.py` script
 - Updated `agg_nhd_headwaters_adj.gpkg`, `agg_nhd_streams_adj.gpkg`, `nwm_flows.gpkg`, and `nwm_catchments.gpkg` input layers using latest NWS LIDs.
 
 <br/><br/>
+
 ## v3.0.17.0 - 2021-06-04 - [PR #393](https://github.com/NOAA-OWP/cahaba/pull/393)
 BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and allow user to choose input bankfull geometry.
 
@@ -869,6 +870,7 @@ BARC updates to cap the bathy calculated xsec area in `bathy_rc_adjust.py` and a
 - Evaluate the FIM Bathymetry Adjusted Rating Curve (BARC) tool performance using the estimated bankfull geometry dataset derived for the NWM route link dataset.
 
 <br/><br/>
+
 ## v3.0.16.3 - 2021-05-21 - [PR #388](https://github.com/NOAA-OWP/cahaba/pull/388)
 
 Enhancement and bug fixes to `synthesize_test_cases.py`.
@@ -879,6 +881,7 @@ Enhancement and bug fixes to `synthesize_test_cases.py`.
 - Removes some of the print statements used by `synthesize_test_cases.py`.
 
 <br/><br/>
+
 ## v3.0.16.2 - 2021-05-18 - [PR #384](https://github.com/NOAA-OWP/cahaba/pull/384)
 
 Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preprocessing scripts.
@@ -892,6 +895,7 @@ Modifications and fixes to `run_test_case.py`, `eval_plots.py`, and AHPS preproc
 - Update workarounds for some sites in ahps preprocessing scripts.
 
 <br/><br/>
+
 ## v3.0.16.1 - 2021-05-11 - [PR #380](https://github.com/NOAA-OWP/cahaba/pull/380)
 
 The current version of Eventlet used in the Connector module of the FIM API is outdated and vulnerable. This update bumps the version to the patched version.
@@ -900,6 +904,7 @@ The current version of Eventlet used in the Connector module of the FIM API is o
 - Updated `api/node/connector/requirements.txt` to have the Eventlet version as 0.31.0
 
 <br/><br/>
+
 ## v3.0.16.0 - 2021-05-07 - [PR #378](https://github.com/NOAA-OWP/cahaba/pull/378)
 
 New "Release" feature added to the FIM API. This feature will allow for automated FIM, CatFIM, and relevant metrics to be generated when a new FIM Version is released. See [#373](https://github.com/NOAA-OWP/cahaba/issues/373) for more detailed steps that take place in this feature.
@@ -913,6 +918,7 @@ New "Release" feature added to the FIM API. This feature will allow for automate
 - Updated `api/frontend/output_handler/output_handler.py` to allow for copying more broad ranges of file paths instead of only the `/data/outputs` directory.
 
 <br/><br/>
+
 ## v3.0.15.10 - 2021-05-06 - [PR #375](https://github.com/NOAA-OWP/cahaba/pull/375)
 
 Remove Great Lakes coastlines from WBD buffer.
@@ -921,6 +927,7 @@ Remove Great Lakes coastlines from WBD buffer.
 - `gl_water_polygons.gpkg` layer is used to mask out Great Lakes boundaries and remove NHDPlus HR coastline segments.
 
 <br/><br/>
+
 ## v3.0.15.9 - 2021-05-03 - [PR #372](https://github.com/NOAA-OWP/cahaba/pull/372)
 
 Generate `nws_lid.gpkg`.
@@ -929,6 +936,7 @@ Generate `nws_lid.gpkg`.
 - Generate `nws_lid.gpkg` with attributes indicating if site is a headwater `nws_lid` as well as if it is co-located with another `nws_lid` which is referenced to the same `nwm_feature_id` segment.
 
 <br/><br/>
+
 ## v3.0.15.8 - 2021-04-29 - [PR #371](https://github.com/NOAA-OWP/cahaba/pull/371)
 
 Refactor NHDPlus HR preprocessing workflow. Resolves issue #238
@@ -939,6 +947,7 @@ Refactor NHDPlus HR preprocessing workflow. Resolves issue #238
 - `clip_vectors_to_wbd.py` removes incoming stream segment from the selected layers.
 
 <br/><br/>
+
 ## v3.0.15.7 - 2021-04-28 - [PR #367](https://github.com/NOAA-OWP/cahaba/pull/367)
 
 Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Resolves issue #351
@@ -947,6 +956,7 @@ Refactor synthesize_test_case.py to handle exceptions during multiprocessing. Re
 - refactored `inundation.py` and `run_test_case.py` to handle exceptions without using `sys.exit()`.
 
 <br/><br/>
+
 ## v3.0.15.6 - 2021-04-23 - [PR #365](https://github.com/NOAA-OWP/cahaba/pull/365)
 
 Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preprocessing scripts.
@@ -961,6 +971,7 @@ Implement CatFIM threshold flows to Sierra test and add AHPS benchmark preproces
 - Add variables to `env.template` for AHPS benchmark preprocessing.
 
 <br/><br/>
+
 ## v3.0.15.5 - 2021-04-20 - [PR #363](https://github.com/NOAA-OWP/cahaba/pull/363)
 
 Prevent eval_plots.py from erroring out when spatial argument enabled if certain datasets not analyzed.
@@ -969,11 +980,13 @@ Prevent eval_plots.py from erroring out when spatial argument enabled if certain
 - Add check to make sure analyzed dataset is available prior to creating spatial dataset.
 
 <br/><br/>
+
 ## v3.0.15.4 - 2021-04-20 - [PR #356](https://github.com/NOAA-OWP/cahaba/pull/356)
 
 Closing all multiprocessing Pool objects in repo.
 
 <br/><br/>
+
 ## v3.0.15.3 - 2021-04-19 - [PR #358](https://github.com/NOAA-OWP/cahaba/pull/358)
 
 Preprocess NHDPlus HR rasters for consistent projections, nodata values, and convert from cm to meters.
@@ -989,6 +1002,7 @@ Preprocess NHDPlus HR rasters for consistent projections, nodata values, and con
 - `burn_in_levees.py` replaces the `gdal_calc.py` command to resolve inconsistent outputs with burned in levee values.
 
 <br/><br/>
+
 ## v3.0.15.2 - 2021-04-16 - [PR #359](https://github.com/NOAA-OWP/cahaba/pull/359)
 
 Hotfix to preserve desired files when production flag used in `fim_run.sh`.
@@ -998,6 +1012,7 @@ Hotfix to preserve desired files when production flag used in `fim_run.sh`.
 - Fixed production whitelisted files.
 
 <br/><br/>
+
 ## v3.0.15.1 - 2021-04-13 - [PR #355](https://github.com/NOAA-OWP/cahaba/pull/355)
 
 Sierra test considered all USGS gage locations to be mainstems even though many actually occurred with tributaries. This resulted in unrealistic comparisons as incorrect gages were assigned to mainstems segments. This feature branch identifies gages that are on mainstems via attribute field.
