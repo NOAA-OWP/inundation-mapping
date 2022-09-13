@@ -5,7 +5,7 @@ import pandas as pd
 import rasterio
 from rasterio.mask import mask
 from rasterio.io import DatasetReader
-from os.path import splitext
+from os.path import splitext, isfile
 import fiona
 from fiona.errors import DriverError
 from collections import deque
@@ -454,62 +454,62 @@ class StreamNetwork(gpd.GeoDataFrame):
         waterbody (determined by the Lake attribute).
         """
 
-        def find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs=[]):
-            downstream_ID = int(tmp_self.ID[tmp_self.to==downstream_ID])
+        def find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
+            # Find lowest reach(es)
+            downstream_IDs = [int(x) for x in tmp_self.From_Node[~tmp_self.To_Node.isin(tmp_self.From_Node)]] # IDs of most downstream reach(es)
 
-            # Stop if lowest reach is not in a lake
-            if int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
-                return tmp_IDs
-            else:
-                tmp_IDs.append(downstream_ID)
-
-                # Find next lowest downstream reach
-                if downstream_ID in tmp_self.to.values:
-                    return find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, tmp_IDs)
+            for downstream_ID in downstream_IDs:
+                # Stop if lowest reach is not in a lake
+                if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==downstream_ID]) == -9999:
+                    continue
                 else:
-                    return tmp_IDs
+                    # Remove reach from tmp_self
+                    tmp_IDs.append(downstream_ID)
+                    tmp_self.drop(tmp_self[tmp_self.From_Node.astype(int).isin([downstream_ID,])].index, inplace=True)
 
-        def find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs=[]):
-            upstream_ID = int(tmp_self.to[tmp_self.ID==upstream_ID])
+                    # Repeat for next lowest downstream reach
+                    if downstream_ID in tmp_self.To_Node.astype(int).values:
+                        return find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
 
-            # Stop if uppermost reach is not in a lake
-            if int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999:
-                return tmp_IDs
-            else:
-                tmp_IDs.append(upstream_ID)
+            return tmp_IDs
 
-                # Find next highest upstream reach
-                if upstream_ID in tmp_self.ID.values:
-                    return find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs)
+        def find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
+            # Find highest reach(es)
+            upstream_IDs = [int(x) for x in tmp_self.From_Node[~tmp_self.From_Node.isin(tmp_self.To_Node)]] # IDs of most upstream reach(es)
+
+            for upstream_ID in upstream_IDs:
+                # Stop if uppermost reach is not in a lake
+                if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==upstream_ID]) == -9999:
+                    continue
                 else:
-                    return tmp_IDs
+                    # Remove reach from tmp_self
+                    tmp_IDs.append(upstream_ID)
+                    tmp_self.drop(tmp_self[tmp_self.From_Node.astype(int).isin([upstream_ID,])].index, inplace=True)
+
+                    # Repeat for next highest upstream reach
+                    return find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
+
+            return tmp_IDs
 
         if verbose:
             print("Trimming stream branches in waterbodies ...")
 
-        for branch in self[branch_id_attribute].unique():
-            tmp_self = self[self[branch_id_attribute]==branch]
+        for branch in self[branch_id_attribute].astype(int).unique():
+            tmp_self = self[self[branch_id_attribute].astype(int)==branch]
 
             # If entire branch is in waterbody
             if all(tmp_self.Lake.values != -9999):
-                tmp_IDs = tmp_self.ID
+                tmp_IDs = tmp_self.From_Node.astype(int)
                 
             else:
                 # Find bottom up
-                downstream_ID = int(tmp_self.ID[~tmp_self.to.isin(tmp_self.ID)]) # ID of most downstream reach
-                if not int(tmp_self.Lake[tmp_self.ID==downstream_ID]) == -9999:
-                    tmp_IDs = find_downstream_reaches_in_waterbodies(tmp_self, downstream_ID, [downstream_ID])
-                else:
-                    tmp_IDs = []
+                tmp_IDs = find_downstream_reaches_in_waterbodies(tmp_self)
 
                 # Find top down
-                upstream_ID = int(tmp_self.ID[~tmp_self.ID.isin(tmp_self.to)])
-                if (len(tmp_IDs) != len(tmp_self)) and not (int(tmp_self.Lake[tmp_self.ID==upstream_ID]) == -9999):
-                    tmp_IDs.append(upstream_ID)
-                    tmp_IDs.append(find_upstream_reaches_in_waterbodies(tmp_self, upstream_ID, tmp_IDs))
+                tmp_IDs = find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
 
             if len(tmp_IDs) > 0:
-                self.drop(tmp_self[tmp_self.ID.isin(tmp_IDs)].index, inplace=True)
+                self.drop(self[self.From_Node.astype(int).isin(tmp_IDs)].index, inplace=True)
 
         return(self)
 
@@ -527,23 +527,20 @@ class StreamNetwork(gpd.GeoDataFrame):
             print('Removing branches in waterbodies')
 
         # load waterbodies
-        if isinstance(waterbodies,gpd.GeoDataFrame):
-            pass
-        elif isinstance(waterbodies,str):
+        if isinstance(waterbodies,str) and isfile(waterbodies):
             waterbodies = gpd.read_file(waterbodies)
-        else:
-            raise TypeError("Waterbodies needs to be GeoDataFame or path to vector file")
 
-        # Find branches in waterbodies
-        sjoined = gpd.sjoin(self, waterbodies, op='within')
-        self.drop(sjoined.index, inplace=True)
+        if isinstance(waterbodies,gpd.GeoDataFrame):
+            # Find branches in waterbodies
+            sjoined = gpd.sjoin(self, waterbodies, op='within')
+            self.drop(sjoined.index, inplace=True)
 
-        if out_vector_files is not None:
-            
-            if verbose:
-                print("Writing pruned branches ...")
-            
-            self.write(out_vector_files, index=False)
+            if out_vector_files is not None:
+                
+                if verbose:
+                    print("Writing pruned branches ...")
+                
+                self.write(out_vector_files, index=False)
 
         return(self)
 
@@ -646,12 +643,13 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Continue the current branch up the larger stream
                     continue_id = upstream_reaches_compare_values.idxmax()[decision_attribute]
                     self.loc[continue_id,branch_id_attribute] = current_reach_branch_id
-                    # Create a new level path for the smaller tributary
+                    # Create a new level path for the smaller tributary(ies)
                     if len(not_visited_upstream_ids) == 1: continue # only create a new branch if there are 2 upstreams
-                    new_id = upstream_reaches_compare_values.idxmin()[decision_attribute]
-                    branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
-                    self.loc[new_id,branch_id_attribute] = branch_id
-                    bid += 1
+                    new_upstream_branches = upstream_reaches_compare_values.loc[~upstream_reaches_compare_values.index.isin([continue_id,])]
+                    for new_up_id in new_upstream_branches.index:
+                        branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
+                        self.loc[new_up_id,branch_id_attribute] = branch_id
+                        bid += 1
                     #==================================================================================
                     ''' NOTE: The above logic uses stream order to override arbolate sum. Use the commented section
                      below if this turns out to be a bad idea!'''
@@ -790,7 +788,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         
         self["order_"] = max_stream_order.values
 
-        # merges each multi-line string to a sigular linestring
+        # merges each multi-line string to a singular linestring
         for lpid,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc="Merging mult-part geoms"):
             if isinstance(row.geometry,MultiLineString):
                 merged_line = linemerge(row.geometry)
@@ -808,7 +806,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         if out_vector_files is not None:
             
-            base_file_path,extension = splitext(out_vector_files)
+            # base_file_path,extension = splitext(out_vector_files)
             
             if verbose:
                 print("Writing dissolved branches ...")
