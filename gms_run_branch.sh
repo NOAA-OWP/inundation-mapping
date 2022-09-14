@@ -113,6 +113,21 @@ fi
 source $envFile
 source $srcDir/bash_functions.env
 
+## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
+if [ "$src_adjust_spatial" = "True" ]; then
+    if [ ! -f $CALB_DB_KEYS_FILE ]; then
+        echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+        exit 1
+    else
+        source $CALB_DB_KEYS_FILE
+        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
+        echo "Loading HUC Data"
+        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+        echo "Loading Point Data"
+        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
+    fi
+fi
+
 # default values
 if [ "$jobLimit" = "" ] ; then
     jobLimit=$default_max_jobs
@@ -161,21 +176,6 @@ elif [ $overwrite -eq 1 ]; then
     mkdir -p $outputRunDataDir/branch_errors
 fi
 
-## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
-if [ "$src_adjust_spatial" = "True" ]; then
-    if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
-        exit 1
-    else
-        source $CALB_DB_KEYS_FILE
-        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
-        echo "Loading HUC Data"
-        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
-        echo "Loading Point Data"
-        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
-    fi
-fi
-
 ## RUN GMS BY BRANCH ##
 echo "=========================================================================="
 echo "Start of branch processing"
@@ -211,7 +211,7 @@ fi
 echo -e $startDiv"Applying variable roughness in SRCs"$stopDiv
 if [ "$src_vrough_toggle" = "True" ]; then
     # Run SRC Variable Roughness routine
-    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit -plots $src_vrough_plot_option "${args[@]}"
+    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
