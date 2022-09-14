@@ -20,4 +20,4 @@ manuscripts/**/prev
 .vscode/
 **/.DS_Store
 **/*_pytest.py
-manuscripts/**/rebuttal.pdf
+manuscripts/**/responses.pdf
