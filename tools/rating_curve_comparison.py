@@ -290,8 +290,14 @@ def aggregate_metrics(output_dir,procs_list,stat_groups):
 
 def generate_facet_plot(rc, plot_filename, recurr_data_table):
 
+    tmp_rc = rc.copy()
+
     # Filter FIM elevation based on USGS data
     for gage in rc.location_id.unique():
+        rc = rc[rc.location_id==gage]
+
+        plot_filename_splitext = os.path.splitext(plot_filename)
+        gage_plot_filename = plot_filename_splitext[0] + '_' + gage +  plot_filename_splitext[1]
 
         min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.min()
         max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.max()
@@ -306,45 +312,48 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
             rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
 
-    rc = rc.rename(columns={"location_id": "USGS Gage"})
+        rc = rc.rename(columns={"location_id": "USGS Gage"})
 
-    ## Generate rating curve plots
-    num_plots = len(rc["USGS Gage"].unique())
-    if num_plots > 3:
-        columns = num_plots // 3
-    else:
-        columns = 1
+        ## Generate rating curve plots
+        num_plots = len(rc["USGS Gage"].unique())
+        if num_plots > 3:
+            columns = num_plots // 3
+        else:
+            columns = 1
 
-    sns.set(style="ticks")
+        sns.set(style="ticks")
 
-    # Plot both "FIM" and "FIM_default" rating curves
-    hue_order = ['USGS','FIM','FIM_default'] if 'default_discharge_cfs' in rc.columns else ['USGS','FIM']
-    # Facet Grid
-    g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=hue_order,
-                    sharex=False, sharey=False,col_wrap=columns,
-                    height=3.5, aspect=1.65)
-    g.map(plt.plot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
-    g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
+        # Plot both "FIM" and "FIM_default" rating curves
+        hue_order = ['USGS','FIM','FIM_default'] if 'default_discharge_cfs' in rc.columns else ['USGS','FIM']
+        # Facet Grid
+        g = sns.FacetGrid(rc, col="USGS Gage", hue="source", hue_order=hue_order,
+                        sharex=False, sharey=False,col_wrap=columns,
+                        height=3.5, aspect=1.65)
+        g.map(plt.plot, "discharge_cfs", "elevation_ft", linewidth=2, alpha=0.8)
+        g.set_axis_labels(x_var="Discharge (cfs)", y_var="Elevation (ft)")
 
-    ## Plot recurrence intervals
-    axes = g.axes_dict
-    for gage in axes:
-        ax = axes[gage]
-        plt.sca(ax)
-        recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
-            .filter(items=['recurr_interval', 'discharge_cfs'])
-        for i, r in recurr_data.iterrows():
-            if not r.recurr_interval.isnumeric(): continue # skip catfim flows
-            l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
-            plt.axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
-            plt.text(r.discharge_cfs, ax.get_ylim()[1] - (ax.get_ylim()[1]-ax.get_ylim()[0])*0.03, r.recurr_interval, size='small', c='purple')
+        ## Plot recurrence intervals
+        axes = g.axes_dict
+        for gage in axes:
+            ax = axes[gage]
+            plt.sca(ax)
+            recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
+                .filter(items=['recurr_interval', 'discharge_cfs'])
+            for i, r in recurr_data.iterrows():
+                if not r.recurr_interval.isnumeric(): continue # skip catfim flows
+                l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
+                plt.axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
+                plt.text(r.discharge_cfs, ax.get_ylim()[1] - (ax.get_ylim()[1]-ax.get_ylim()[0])*0.03, r.recurr_interval, size='small', c='purple')
 
-    # Adjust the arrangement of the plots
-    g.fig.tight_layout(w_pad=1)
-    g.add_legend()
+        # Adjust the arrangement of the plots
+        g.fig.tight_layout(w_pad=1)
+        g.add_legend()
 
-    plt.savefig(plot_filename)
-    plt.close()
+        plt.savefig(gage_plot_filename)
+        plt.close()
+
+        rc = tmp_rc
+
 
 def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, hydrotable_filename):
     gages_list = rc.location_id.unique()
