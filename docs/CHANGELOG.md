@@ -286,7 +286,8 @@ We needed a tool that could composite / mosaic inundation maps for FIM3 FR and F
 - `tools/gms_tools/inundate_gms.py`: some style, readabilty cleanup plus move a function up to `shared_functions.py`.
 - `tools/gms_tools/mosaic_inundation.py`: some style, readabilty cleanup plus move a function up to `shared_functions.py`.
 - `tools/inundation.py`: some style, readabilty cleanup.
-- `tools/synthesize_test_cases.py`: was updated primarily for sample usage notes. 
+- `tools/synthesize_test_cases.py`: was updated primarily for sample usage notes.
+
 <br/><br/>
 
 ## v4.0.4.2 - 2022-05-03 - [PR #594](https://github.com/NOAA-OWP/inundation-mapping/pull/594)
@@ -501,7 +502,6 @@ The addition of a very simple and evolving unit test system which has two unit t
 
 <br/><br/>
 
-
 ## v4.0.0.0 - 2022-02-01 - [PR #524](https://github.com/NOAA-OWP/cahaba/pull/524)
 
 FIM4 builds upon FIM3 and allows for better representation of inundation through the reduction of artificial restriction of inundation at catchment boundaries.
@@ -513,9 +513,7 @@ More details will be made available through a publication by Aristizabal et. al.
 - `/src/gms`: A new directory containing scripts necessary to produce the FIM4 Height Above Nearest Drainage grids and synthetic rating curves needed for inundation mapping.
 - `/tools/gms_tools`: A new directory containing scripts necessary to generate and evaluate inundation maps produced from FIM4 Height Above Nearest Drainage grids and synthetic rating curves.
 
-
 <br/><br/>
-
 
 ## v3.0.24.3 - 2021-11-29 - [PR #488](https://github.com/NOAA-OWP/cahaba/pull/488)
 
