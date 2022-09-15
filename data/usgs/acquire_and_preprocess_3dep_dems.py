@@ -88,7 +88,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     start_time = datetime.now()
     fh.print_start_header('Loading 3dep dems', start_time)
    
-    #print(f"Downloading to {target_output_folder_path}")
+    print(f"Downloading to {target_output_folder_path}")
     __setup_logger(target_output_folder_path)
     logging.info(f"Downloading to {target_output_folder_path}")
     
@@ -279,7 +279,7 @@ def __setup_logger(output_folder_path):
 
     logger = logging.getLogger()
     logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+    # logger.addHandler(console_handler)
     logger.setLevel(logging.DEBUG)    
     
     logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
