@@ -18,10 +18,10 @@ To be more specific, Table \ref{tab:aggregate_metrics} sums the primary metrics,
 The same trends discussed below are consistent across both reporting methods (Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metrics}).
 
 The distribution of these flood extent metrics can be examined in Figure \ref{fig:violin_plot} as violin plots.
-Each half of a violin plot represents the kernel density estimation (KDE) for a given model (FR, MS, GMS), given Manning's n value (0.06, 0.12), and given recurrence interval (1\%, 0.2\%), and performance metric (CSI, POD, FAR).
+Each half of a violin plot represents the kernel density estimation (KDE) for a given model (FR, MS, GMS), Manning's n value (0.06, 0.12), recurrence interval (1\%, 0.2\%), and performance metric (CSI, POD, FAR).
 For example, let's examine the violin plot for the row marked CSI and column for Manning's n = 0.06.
 This sub-figure shows the CSI distributions across all 49 HUC8s when Manning's n is set to 0.06.
-Each independent, whole violin represents the distribution of FR, MS, or GMS while each half of the violin represents the distribution of that data divided up by magnitude (blue for 100 yr and orange for 500 yr).
+Each independent, whole violin represents the HUC8 metric value distribution of FR, MS, or GMS while each half of the violin represents the distribution of that data divided up by magnitude (blue for 100 yr and orange for 500 yr).
 The horizontal dashed and dotted lines represent the 25th, 50th, and 75th percentiles from bottom to top, respectively.
 Additionally, we show trend lines symbolized in green that for each metric and Manning's n combination denotes the best fit line for the three methods (FR, MS, and GMS).
 To avoid having two trend lines per sub-figure, we elected to aggregate the two magnitudes together as they tend to observe similar trends across the three models.
@@ -35,23 +35,23 @@ As can be seen in Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metr
 This increase is primarily driven by an increase in POD thus generally increasing the probability of correctly detecting inundation.
 Also, we note that FAR is somewhat, albeit marginally, decreased from FR to MS and MS to GMS for both sets of Manning's n values and flood magnitudes.
 The increases in CSI and POD as well as the decreases in FAR with respect to the methods, FR, MS, and GMS, are not only observed among the trend lines but also in the 25th, 50th, and 75th percentiles (Figure \ref{fig:violin_plot}).
-So overall and in other words, the entire distribution of HUC8s improves across the three methods.
+So overall and in other words, the broader distribution of HUC8s improves across the three methods.
 Due to the means by which FIM is produced utilizing FR, MS, and GMS, we can say that the more we derive HAND on networks of unit stream order and mosaic the resulting FIMs, the better those FIMs perform.
 We move more details on the relationship between stream order and FIM skill to the Discussion section (Section \ref{sec:discussion}).
 
 Additional noteworthy trends in Figure \ref{fig:violin_plot} center around the all-around better performance of FIMs for those of higher Manning's n values and recurrence flows.
-The higher Manning's n value enhances performance for both recurrence intervals across all models which seems to better agree with the value used in the BLE model, 0.11 \cite{fema2021base,fema2021estimated}.
-Most of this improvement is driven by significant increases in POD but, unfortunately, leading to a significant amount of over-prediction as observed by the increase in FAR.
+The higher Manning's n value enhances performance for both recurrence intervals across all models which seems to better agree with the value of 0.11 used in the BLE model \cite{fema2021base,fema2021estimated}.
+Most of this improvement is driven by significant increases in POD, but unfortunately, it also leads to a significant amount of over-prediction as observed by the increase in FAR.
 More work can be invested to better regionalize Manning's n values for FIM purposes with HAND.
 We also observe additional trends associated with the magnitude or recurrence interval of the flow rates used with the higher flow rates exhibiting better overall CSI, POD, and FAR values than the lower, 100 yr magnitude.
 We introduce in the Discussion (Section \ref{sec:discussion}) that this skill premium exhibited by higher flow events could be due higher quality elevation data in regions that are not described as bathymetric areas.
 %
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.9]{figures/violin_plots.jpg}
+\includegraphics[scale=0.8]{figures/violin_plots.jpg}
 \caption{Shows kernel density estimation of the distributions (sample size = 49) for 1\% (100 year) and 0.2\% (500 year) along with horizontal, dashed lines for the 25th, 50th, and 75th percentiles (in order from bottom to top).
 The sub-figures separate the combination of three metrics (CSI, POD, and FAR) for two settings of Manning's n (0.06 and 0.12).
-Trend lines for each metric - Mannings combination are shown (sample size = 294) along with associated slope and p-value of slope testing one-tailed significance.}
+Trend lines for each combination of metric and Manning's n are shown (sample size = 294) along with associated slope and p-value of slope testing one-tailed significance.}
 \label{fig:violin_plot}
 \end{figure}
 %
@@ -65,6 +65,7 @@ Trend lines for each metric - Mannings combination are shown (sample size = 294)
 \begin{tabular}{|c|c||c|c|c|c|c|c|}
 \hline
 \multirow{2}{*}{Metric} & \multirow{2}{*}{Manning's n} & \multicolumn{2}{|c|}{FR} & \multicolumn{2}{|c|}{\shortstack{MS\\(\% Change)}} & \multicolumn{2}{|c|}{\shortstack{GMS\\(\% Change)}} \\
+%\multirow{2}{*}{Metric} & \multirow{2}{*}{Manning's n} & \multicolumn{2}{|c|}{FR} & \multicolumn{2}{|c|}{\shortstack{MS\\(\% Change)}} & \multicolumn{2}{|c|}{\shortstack{GMS\\(\% Change)}} \\
 \cline{3-8}
   &  & 100 yr & 500 yr & 100 yr & 500 yr & 100 yr & 500 yr \\
 \hline
@@ -90,6 +91,6 @@ Trend lines for each metric - Mannings combination are shown (sample size = 294)
 %
 The NFIE experiments were able to produce HAND for 331 HUC6's in 1.34 CPU years \cite{liu2016cybergis} and estimates using work from \citeA{djokic2019arc} put producing HAND at the FR NWM at 0.55 CPU years. 
 For our work, we were able to produce HAND at the full NWM resolution in 0.13 CPU years which represents a substantial speed-up compared to previous works.
-For the MS resolution an additional, 0.05 CPU years is required on top of this bringing the total to about 0.18 CPU years to produce 2,188 HUC8s that span additional areas not covered in previous HAND versions including Hawaii and Puerto Rico.
+For the MS resolution, an additional 0.05 CPU years is required on top of this bringing the total to about 0.18 CPU years to produce 2,188 HUC8s that span additional areas not covered in previous HAND versions including Hawaii and Puerto Rico.
 GMS which generalizes HAND production to the LP scale adds a significant amount of CPU time to the process bringing the estimate total to about 1.17 CPU years.
 %

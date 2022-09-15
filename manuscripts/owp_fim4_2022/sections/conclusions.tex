@@ -25,7 +25,7 @@ Extending order reduction to the entire network, the Generalized Mainstem (GMS) 
 All LP based FIM derived from LP based HAND datasets are mosaiced together to form one seamless FIM.
 Dissecting the stream network into regions of LPs with unit stream order is necessary because HAND has a ``nearest drainage'' limitation meaning it only accounts for riverine inundation sourced from the nearest drainage line.
 In our evaluation of this technique, we observe that HAND based FIM improves in skill as we extend from nearest drainage inundation in FR to multiple drainage support in MS for only 4-5\% of the FR network.
-Extending multiple drainage support to the entire FR network with GMS based HAND improves upon skill at around the same magnitude that MS improved upon FR.
+Extending multiple drainage support to the entire FR network with GMS based HAND improves skill at around the same magnitude that MS improved upon FR.
 Thus we conclude that deriving HAND with independent stream networks of unit Horton-Strahler stream order enhances the skill of FIM but offers diminishing returns as we extend from 4-5\% of the network with MS to 100\% of the network with GMS since deriving HAND and FIMs at these localized scale does add computational expense.
 
 This primary contribution also affects the parameters used to compute stage-discharge relationships shifting discharge higher at given stages which reduced the rate of false positives.

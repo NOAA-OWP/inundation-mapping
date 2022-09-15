@@ -7,9 +7,9 @@
 %
 Overall, the main observation of this study was how FIM performance can be improved by reducing the Horton-Strahler stream order of the target stream network used for HAND computation.
 Most of this change is accounted for by substantially increasing POD and inundation extents in some areas thus reducing FNs.
-We believe, as we later argue for, that the increase in POD is primarily driven by an increase in the catchment sizes that is inherently enabled by dividing up the stream network into independent stream networks of unit stream order.
+We believe, as we later argue, that the increase in POD is primarily driven by an increase in the catchment sizes that is inherently enabled by dividing up the stream network into independent stream networks of unit stream order.
 Additionally, we note that reducing drainage order also has some minor influence on reducing inundation extents in other areas and the rate of false alarms.
-We believe that this effect is driven by a change in the stage-discharge relationship where a given streamflow now leads to lower river stage values when HAND is computed with target stream networks of unit drainage order.
+We believe that this effect is driven by a change in the stage-discharge relationship where a given streamflow leads to lower river stage values when HAND is computed with target stream networks of unit drainage order.
 We seek to explain that these two effects, catchment boundary enlargement and stage-discharge curve lowering, are highly interrelated and cannot be easily detangled.
 Lastly, we discuss the diminishing effects on performance that the MS and GMS techniques may have and also any additional effects including enhanced cross-walking abilities.
 
@@ -19,12 +19,11 @@ This can be inferred by close inspection of Figure \ref{fig:violin_plot} and Tab
 Upon investigation of the performance of HAND derived FIM, we note a general increase of catchment sizes for the MS and GMS methods when compared to the FR method as they are now delineated independently of any tributaries that would constrain catchment sizes otherwise.
 Additionally, we note significantly less water build up along catchment boundaries especially at the junction of lower order tributaries with lower flow rates and higher order rivers with more flow.
 This allows for inundation extents to expand across regions previously encapsulated by catchments of joining reaches in lower flow tributaries.
-The water built up along the catchment boundaries can be thought of as a column of water in a cylindrical container (catchment) that has exceeded the elevation of the containers rim.
-This, of course, does not represent accurate physics but it is what does occur in HAND when water accumulates along catchment boundaries.
+The water built up along the catchment boundaries can be thought of as a column of water in a cylindrical container (catchment) that has exceeded the elevation of the container's rim which does not represent accurate physics.
 
 Large scale HUC8 level evaluations can fail to demonstrate fine grain enhancements as they aggregate away many changes that are only clear at more local scales.
 Future assessments of OWP FIM should consider finer grain evaluation units as well possible impact assessments using asset information such as building footprints to better illustrate fine grain changes in a more relevant manner to stakeholders.
-For now, we offer up Figure \ref{fig:gms_enhancement} which best illustrates the improvement offered by multi-source fluvial flooding capabilities in a more local context.
+For now, we provide Figure \ref{fig:gms_enhancement} which best illustrates the improvement offered by multi-source fluvial flooding capabilities in a more local context.
 The figure is comprised of two agreement rasters for two different HAND based FIMs compared to the validation dataset for a given region with a high flow mainstem (500 yr recurrence flow) running horizontally along the region.
 Sub-figure \ref{fig:gms_enhancement}a demonstrates the agreement raster for the FR stream network as well as its respective catchment boundary lines symbolized in white and stream network shown in green.
 Inspection of this sub-figure denotes a clear spatial pattern where TPs or areas correctly inundated are pooled alongside catchment boundary lines. 
@@ -39,7 +38,7 @@ Showing all the catchments for the tributaries that were all derived independent
 The main message illustrated here is that the catchments associated with the mainstem of this area significantly increase in size.
 Since they are not restricted by the catchments of tributaries that lie in the same drainage areas as those of the mainstem, they extend to include those as well.
 The consequence for inundation extents is a general increase in spatial coverage of the river's water which shows to be in much better agreement with the benchmark map.
-The TPs are no longer bounded by the catchment lines and allowed the expand to their natural extents.
+The TPs are no longer bounded by the catchment lines and allowed to expand to their natural extents.
 
 We note here as a contribution of this study that a major inherent, limitation of HAND is the ``nearest drainage'' constraint or the idea that a given river reach only drains or, in HAND's case, inundates its immediate, unique drainage area or catchment.
 In other words, HAND based FIMs are limited to producing fluvial inundation to only their nearest drainage area or catchment.
@@ -66,7 +65,7 @@ Discharge, Q, is directly related to volume and inversely related to bed area an
 Figures \ref{fig:rating_curve_comparison}b and \ref{fig:rating_curve_comparison}c show how volume and bed area compare across the three methods with GMS having significantly greater values than MS which has greater values than FR.
 Again the relative discrepancy between FR vs MS and MS vs GMS is explained by the extent of their spatial coverages.
 Both V and B values increase but are weighed differently by their respective exponents and pull Q in different directions.
-We show in Figure \ref{fig:rating_curve_comparison}d the relationship of $\frac{V^{5/3}}{B^{2/3}}$ and plot this ratio against stage, y, to show how these two parameters collectively pull the SRC Q up and changes the SRC accordingly.
+We show in Figure \ref{fig:rating_curve_comparison}d the relationship of $\frac{V^{5/3}}{B^{2/3}}$ and plot this ratio against stage, y, to show how these two parameters collectively pull the Q up and changes the SRC accordingly.
 In other words, the magnitude and weight of the volume at each stage level exceeds the influence of the magnitude and weight of the bed area.
 Both parameters are set to increase mainly due to much larger catchments leading to more pixels at each stage level as shown in Figure \ref{fig:rating_curve_comparison}e.
 
@@ -75,15 +74,15 @@ These tributaries have a significant amount of bathymetry that is low-lying thus
 They also contribute volume and bed area that is technically not perpendicular to the flux of streamflow being accounted for in the stream in question. 
 Careful examination of Figure \ref{fig:gms_enhancement}b shows how much larger catchments include neighboring tributaries and the geometry associated with those tributaries. 
 This geometry is not perpendicular to the flow that is associated with the main reach thus leading to biases in the SRC.
-We consider this fact to have a nuanced effect on skill, while reducing the rate of FPs it also can lead to FNs due to biases in the SRC.
+We consider this to have a nuanced effect on skill, while reducing the rate of FPs it also can lead to FNs due to biases in the SRC.
 
-We note that reducing stream order does in turn suffer from diminishing returns in which the increase in mapping skill for applying stream order reduction to roughly 4-5\% of the stream network is about the same as the increase for applying stream order reduction to the remaining 95-96\% of the stream network.
+We note that reducing stream order does suffer from diminishing returns where the increase in mapping skill for applying stream order reduction to roughly 4-5\% of the stream network is about the same as the increase for applying stream order reduction to the remaining 95-96\% of the stream network.
 This motivates further work in identifying what the optimal coverage of stream order reduction could be and how to parameterize that coverage. 
-One option could be removing stream orders ones and possibly twos and threes from stream order reduction and simply using the inundation from FR from these areas.
+One option could be removing lower stream orders (e.g. 1 and 2) from stream order reduction and simply using the inundation from FR from these areas.
 
-Additional careful analysis of Figure \ref{fig:gms_enhancement}a, leads one to note many catchments that don't have inundation or significant inundation.
+Additional analysis of Figure \ref{fig:gms_enhancement}a, reveals that some catchments don't have inundation or significant inundation.
 While the cause of these errors can be varied, we assert here that conflating four networks for use in evaluations leads to significant error.
-As one may remember, Section \ref{sssec:cross_walking_networks} details how reach identifiers are conflated for the FIM network back to that of the NWM. 
+Section \ref{sssec:cross_walking_networks} details how reach identifiers are conflated for the FIM network back to that of the NWM. 
 One of the issues with the FR version of HAND occurs when a reach of given stream order accidentally conflates to that of a neighboring tributary that is of lower order which leads to areas of FNs.
 The utilization of MS and GMS only conflates to NWM catchments directly associated with the LP in question which is inherently easy to do with those methods. 
 Thus part of the improvement in MS and GMS methods is due to a slight improvement in cross-walking methodology.

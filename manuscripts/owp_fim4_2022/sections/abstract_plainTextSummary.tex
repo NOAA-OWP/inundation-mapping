@@ -21,16 +21,17 @@
 
 \begin{abstract}
 The National Water Model (NWM) currently requires additional modeling from discharges to produce forecast flood inundation maps (FIM) for protecting life and property. 
-Height Above Nearest Drainage (HAND), a drainage normalizing terrain index, is worthy of producing high-resolution FIMs at large spatial scales and frequent time steps using reach-averaged synthetic rating curves.
+Height Above Nearest Drainage (HAND), a drainage normalizing terrain index, is a means worthy of producing high resolution FIMs at large spatial scales and frequent time steps using reach-averaged synthetic rating curves.
 However, HAND based FIMs suffer from a known limitation caused by independent catchments that lack the ability to cross catchment boundaries and ridgelines.
-We propose here that HAND is limited to producing inundation only when sourced from its nearest drainage line thus lacks the ability to source inundation from multiple fluvial sources.
-To counter this constraint, a version of HAND known as Generalized Mainstems (GMS) is proposed that discretizes a target stream network into segments of unit Horton-Strahler stream order known as level paths (LP).
+We propose here that HAND is limited to producing inundation only when sourced from its nearest drainage line, thus lacks the ability to source inundation from multiple fluvial sources.
+To counter this constraint, a version of HAND, known as Generalized Mainstems (GMS), is proposed that discretizes a target stream network into segments of unit Horton-Strahler stream order known as level paths (LP).
 LPs are unique identifiers propagated upstream from a sub-basin’s outlet along the direction of maximum flow distance and repeated recursively until all segments are assigned LP identifiers.
 The FIMs associated with each independent LP are then mosaiced together, effectively turning the stream network into discrete groups of homogeneous unit stream order by removing the influence of neighboring tributaries.
-Improvement in mapping skill is observed when the extents are compared to HEC-RAS 1D models by significantly reducing false negatives at river junctions.
+Improvement in mapping skill is observed by significantly reducing false negatives at river junctions when the inundation extents are compared to FIMs from the Hydrologic Engineering Center's River Analysis System (HEC-RAS).
 A more marginal reduction in the false alarm rate is also observed due to a bias introduced in the stage-discharge relationship by increasing the size of the catchments.
 We observe that the improvement from extending drainage order reduction techniques from 4-5\% of the entire stream network to 100\% of the network is about the same magnitude improvement as going from no drainage order reduction to 4-5\% of the network.
-Thus, we conclude that drainage order reduction techniques circumvent the nearest drainage limitation while offering diminishing returns to skill improvement and penalizing with additional computational expenses.
+Thus, we conclude that drainage order reduction techniques circumvent the nearest drainage limitation while offering diminishing returns to skill improvement.
+Drainage order reduction techniques also penalize with additional computational expenses in terms of processing and storage.
 This novel contribution is proposed and studied in a new open-source implementation that utilizes the latest combination of hydro-conditioning techniques to enforce drainage and counter limitations in the elevation data.
 This framework scales to the entire NWM modeling domain including Hawaii and Puerto Rico to help forecasters provide timely and accurate flood warnings.
 \end{abstract}
@@ -39,11 +40,11 @@ This framework scales to the entire NWM modeling domain including Hawaii and Pue
 Flooding is one of the most impactful natural disasters on life and property.
 The United States National Water Model (NWM) provides flood forecasts for the entire country so that adequate warnings can be raised to the public to enable safe evacuations and protective measures.
 In order to convert forecasted flow rates from the NWM to flood inundation maps (FIM), a model is used that converts elevation data from height above mean sea-level to height above the nearest river bottom.
-This model known as Height Above Nearest Drainage (HAND) suffers from issues in mapping performance because only fluvial inundation, or inundation sourced from rivers, is only considered from the nearest drainage line.
-As rivers flood, multiple neighboring rivers could contribute to a regions inundation and HAND has no means of modeling for that.
+This model, known as Height Above Nearest Drainage (HAND), suffers from issues in mapping performance because only fluvial inundation, or inundation sourced from rivers, is considered from the nearest drainage line.
+As rivers flood, multiple neighboring rivers could contribute to a region's inundation for which HAND has no means of modeling for.
 We developed a technique that mitigates these errors by removing consideration for neighboring tributaries in the relative elevation computation process.
-This is done by splitting the stream network into continuous rivers known as level paths.
-These level paths have no tributaries thus are known to be stream lines with a unit stream order indicating no branching.
-HAND is computed independently for each level path and the resulting FIMs are mosaiced together to form one seamless map.
+This is done by splitting the stream network into continuous river segments known as level paths (LPs).
+These LPs have no tributaries, thus are known to be stream lines with a unit stream order indicating no branching.
+HAND is computed independently for each LP and the resulting FIMs are mosaiced together to form one seamless map.
 We compared these HAND derived FIMs to maps from physically-based models and found improvement in mapping performance to counter one of HAND's fundamental limitations.
 %
