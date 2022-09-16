@@ -159,7 +159,7 @@ def generate_rating_curve_metrics(args):
             str_order = np.unique(usgs_rc.str_order).item()
             feature_id = str(gage.feature_id)
 
-            usgs_pred_elev = get_reccur_intervals(usgs_rc, usgs_crosswalk,nwm_recurr_intervals_all)
+            usgs_pred_elev = get_recurr_intervals(usgs_rc, usgs_crosswalk,nwm_recurr_intervals_all)
 
             # Handle sites missing data
             if len(usgs_pred_elev) <1:
@@ -178,7 +178,7 @@ def generate_rating_curve_metrics(args):
                 print(f"missing FIM rating curve data for usgs station {gage.location_id} in huc {huc}")
                 continue
 
-            fim_pred_elev = get_reccur_intervals(fim_rc, usgs_crosswalk,nwm_recurr_intervals_all)
+            fim_pred_elev = get_recurr_intervals(fim_rc, usgs_crosswalk,nwm_recurr_intervals_all)
 
             # Handle sites missing data
             if len(fim_pred_elev) <1:
@@ -464,7 +464,7 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, hydrotable_f
     plt.savefig(plot_filename, dpi=200)
     plt.close()
 
-def get_reccur_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
+def get_recurr_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
 
     usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
