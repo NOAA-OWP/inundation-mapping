@@ -6,7 +6,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 This fixes several bugs related to branch definition and trimming due to waterbodies.
 
-## Changes
+### Changes
 
 - `src/gms/stream_branches.py`
    - Bypasses erroneous stream network data in the to ID field by using the Node attribute instead.
