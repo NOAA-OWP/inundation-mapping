@@ -2,6 +2,19 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.9.2 - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
+
+This fixes several bugs related to branch definition and trimming due to waterbodies.
+
+## Changes
+
+- `src/gms/stream_branches.py`
+   - Bypasses erroneous stream network data in the to ID field by using the Node attribute instead.
+   - Adds check if no nwm_lakes_proj_subset.gpkg file is found due to no waterbodies in the HUC.
+   - Allows for multiple upstream branches when stream order overrides arbolate sum.
+
+<br/><br/>
+
 ## v4.0.9.1 - 2022-09-01 - [PR #664](https://github.com/NOAA-OWP/inundation-mapping/pull/664)
 
 A couple of changes:
@@ -45,6 +58,10 @@ When deriving level paths, this improvement allows stream order to override arbo
 
 Trims ends of branches that are in waterbodies; also removes branches if they are entirely in a waterbody.
 
+## Changes
+
+- `src/gms/stream_branches.py`: adds `trim_branches_in_waterbodies()` and `remove_branches_in_waterbodies()` to trim and prune branches in waterbodies.
+
 <br/><br/>
 
 ## v4.0.7.2 - 2022-08-11 - [PR #654](https://github.com/NOAA-OWP/inundation-mapping/pull/654)
@@ -54,10 +71,6 @@ Trims ends of branches that are in waterbodies; also removes branches if they ar
 ### Changes
 
 - `inundate_gms`:  Changed `mask_type = 'filter'`
-
-### Changes
-
-- `src/gms/stream_branches.py`: adds functionality to trim and prune branches in waterbodies.
 
 <br/><br/>
 
