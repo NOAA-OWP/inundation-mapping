@@ -191,7 +191,7 @@ class test_case(benchmark):
                     self.catchment_poly = ''
                 else:
                     self.catchment_poly = os.path.join(self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-                self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
+                self.hydro_table = os.path.join(self.fim_dir, 'hydroTable_vmann_surfarea.csv')
 
             # Map necessary inputs for inundate().
             self.hucs, self.hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
