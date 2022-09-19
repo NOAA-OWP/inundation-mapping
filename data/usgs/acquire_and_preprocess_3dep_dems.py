@@ -131,7 +131,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
     base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
     base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"'
-    base_cmd += ' -t_srs EPSG:4269'
+    base_cmd += ' -t_srs EPSG:5070'
    
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
@@ -200,7 +200,7 @@ def download_usgs_dem_file(extent_file,
                 base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
                 base_cmd +=  ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
                 base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"'
-                base_cmd +=  ' -t_srs EPSG:4269'
+                base_cmd +=  ' -t_srs EPSG:5070'
         - retry (bool)
              If True, and the file exists (and is over 0k), downloading will be skipped.
         
