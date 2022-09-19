@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %DIF LATEXDIFF DIFFERENCE FILE
 %DIF DEL owp_fim4_expanded_original.tex   Fri Sep 16 22:13:08 2022
-%DIF ADD owp_fim4_expanded.tex            Fri Sep 16 22:08:25 2022
+%DIF ADD owp_fim4_expanded.tex            Mon Sep 19 13:10:47 2022
 % AGUJournalTemplate.tex: this template file is for articles formatted with LaTeX
 %
 % This file includes commands and instructions
@@ -201,9 +201,9 @@
 % \end{keypoints}
 %
 \begin{keypoints}
-\item Flood inundation maps derived from Height Above Nearest Drainage (HAND) are subject to \DIFdelbegin \DIFdel{limitations }\DIFdelend \DIFaddbegin \DIFadd{a ``nearest drainage'' limitation most evident }\DIFaddend at river junctions.
-\item A means of resolving this limitation is provided by reducing HAND processing units to level paths of unit stream order.
-\item Changing the scale of the stream network for HAND processing affects the stage-discharge relationship and leads to higher skill inundation \DIFaddbegin \DIFadd{extents}\DIFaddend .
+\item Flood \DIFdelbegin \DIFdel{inundation }\DIFdelend maps derived from Height Above Nearest Drainage (HAND) are subject to \DIFdelbegin \DIFdel{limitations at river junctions}\DIFdelend \DIFaddbegin \DIFadd{nearest drainage line limitations that affect inundation skill}\DIFaddend .
+\item A means of resolving this limitation is provided by reducing HAND processing units to level paths \DIFdelbegin \DIFdel{of }\DIFdelend \DIFaddbegin \DIFadd{with effective }\DIFaddend unit stream order.
+\item \DIFdelbegin \DIFdel{Changing the scale of the }\DIFdelend \DIFaddbegin \DIFadd{Discretizing the }\DIFaddend stream network for HAND \DIFdelbegin \DIFdel{processing }\DIFdelend \DIFaddbegin \DIFadd{computation }\DIFaddend affects the stage-discharge relationship and leads to higher skill inundation.
 \end{keypoints}
 %
 
@@ -231,35 +231,31 @@
 %% \begin{abstract} starts the second page
 
 \begin{abstract}
-The National Water Model (NWM) currently requires \DIFdelbegin \DIFdel{the post-processing of forecast }\DIFdelend \DIFaddbegin \DIFadd{additional modeling from }\DIFaddend discharges to produce forecast flood inundation maps (FIM) for protecting life and property. 
-Height Above Nearest Drainage (HAND), a drainage normalizing terrain index, is \DIFaddbegin \DIFadd{a means }\DIFaddend worthy of producing \DIFdelbegin \DIFdel{high-resolution }\DIFdelend \DIFaddbegin \DIFadd{high resolution }\DIFaddend FIMs at large spatial scales and frequent time steps using reach-averaged synthetic rating curves.
-However, HAND based FIMs suffer from a known limitation caused by independent catchments that lack the ability to cross catchment boundaries and ridgelines.
-\DIFaddbegin \DIFadd{We propose here that HAND is limited to producing inundation only when sourced from its nearest drainage line, thus lacks the ability to source inundation from multiple fluvial sources.
-}\DIFaddend To counter this constraint, a version of HAND\DIFaddbegin \DIFadd{, }\DIFaddend known as Generalized Mainstems (GMS)\DIFaddbegin \DIFadd{, }\DIFaddend is proposed that \DIFdelbegin \DIFdel{reduces the Horton-Strahler stream order of the stream network .
-GMS contains all segments within the NWM stream network but instead of deriving HAND by accounting for all river segments at once, it is derived independently at the level path }\DIFdelend \DIFaddbegin \DIFadd{discretizes a target stream network into segments of unit Horton-Strahler stream order known as level paths }\DIFaddend (LP)\DIFdelbegin \DIFdel{scale}\DIFdelend .
+\DIFdelbegin \DIFdel{The National Water Model (NWM) currently requires the post-processing of forecast discharges to produce forecast flood inundation maps (FIM) for protecting life and property. 
+}\DIFdelend Height Above Nearest Drainage (HAND), a drainage normalizing terrain index, is \DIFdelbegin \DIFdel{worthy of producing high-resolution FIMsat large spatial scales and frequent time steps }\DIFdelend \DIFaddbegin \DIFadd{a means able of producing high resolution flood inundation maps (FIMs) from the National Water Model (NWM) at large scales and high resolutions }\DIFaddend using reach-averaged synthetic rating curves. 
+\DIFdelbegin \DIFdel{However, HAND based FIMs suffer from a known limitation caused by independent catchments that lack }\DIFdelend \DIFaddbegin \DIFadd{We highlight here that HAND is limited to producing inundation only when sourced from its nearest drainage line, thus lacks }\DIFaddend the ability to \DIFdelbegin \DIFdel{cross catchment boundaries and ridgelines.
+To counter this constraint, a }\DIFdelend \DIFaddbegin \DIFadd{source inundation from multiple fluvial sources.
+A }\DIFaddend version of HAND\DIFaddbegin \DIFadd{, }\DIFaddend known as Generalized Mainstems (GMS)\DIFaddbegin \DIFadd{, }\DIFaddend is proposed that \DIFdelbegin \DIFdel{reduces the Horton-Strahler stream order of the stream network .
+GMS contains all segments within the NWM stream network but instead of deriving HAND by accounting for all river segments at once, it is derived independently at the level path }\DIFdelend \DIFaddbegin \DIFadd{discretizes a target stream network into segments of unit Horton-Strahler stream order known as level paths }\DIFaddend (LP)\DIFdelbegin \DIFdel{scale.
 LPs are unique identifiers propagated upstream from a sub-basin’s outlet along the direction of maximum flow distance and repeated recursively until all segments are assigned LP identifiers.
-\DIFdelbegin \DIFdel{These FIMs }\DIFdelend \DIFaddbegin \DIFadd{The FIMs associated with each independent LP }\DIFaddend are then mosaiced together, effectively turning the stream network into discrete groups of \DIFdelbegin \DIFdel{homogenous }\DIFdelend \DIFaddbegin \DIFadd{homogeneous }\DIFaddend unit stream order by removing the influence of neighboring tributaries.
-Improvement in mapping skill is observed \DIFdelbegin \DIFdel{when compared to HEC-RAS 1D models }\DIFdelend by significantly reducing false negatives at river junctions \DIFaddbegin \DIFadd{when the inundation extents are compared to FIMs from the Hydrologic Engineering Center's River Analysis System (HEC-RAS)}\DIFaddend .
-A more marginal reduction in the false alarm rate is also observed due to a bias introduced in the stage-discharge relationship by increasing the size of the catchments.
-\DIFaddbegin \DIFadd{We observe that the improvement from extending drainage order reduction techniques from 4-5\% of the entire stream network to 100\% of the network is about the same magnitude improvement as going from no drainage order reduction to 4-5\% of the network.
-Thus, we conclude that drainage order reduction techniques circumvent the nearest drainage limitation while offering diminishing returns to skill improvement.
-Drainage order reduction techniques also penalize with additional computational expenses in terms of processing and storage.
-This novel contribution is proposed and studied in a new open-source implementation that utilizes the latest combination of hydro-conditioning techniques to enforce drainage and counter limitations in the elevation data.
-This framework scales to the entire NWM modeling domain including Hawaii and Puerto Rico to help forecasters provide timely and accurate flood warnings.
+These FIMs }\DIFdelend \DIFaddbegin \DIFadd{.
+The FIMs associated with each independent LP }\DIFaddend are then mosaiced together, effectively turning the stream network into discrete groups of \DIFdelbegin \DIFdel{homogenous }\DIFdelend \DIFaddbegin \DIFadd{homogeneous }\DIFaddend unit stream order by removing the influence of neighboring tributaries.
+Improvement in mapping skill is observed \DIFdelbegin \DIFdel{when compared to HEC-RAS 1D models }\DIFdelend by significantly reducing false negatives at river junctions \DIFaddbegin \DIFadd{when the inundation extents are compared to FIMs from that of benchmarks}\DIFaddend .
+A more marginal reduction in the false alarm rate is also observed due to a \DIFdelbegin \DIFdel{bias }\DIFdelend \DIFaddbegin \DIFadd{shift }\DIFaddend introduced in the stage-discharge relationship by increasing the size of the catchments.
+\DIFaddbegin \DIFadd{We observe that the improvement of this method applied at 4-5\% of the entire stream network to 100\% of the network is about the same magnitude improvement as going from no drainage order reduction to 4-5\% of the network.
+This novel contribution is framed in a new open-source implementation that utilizes the latest combination of hydro-conditioning techniques to enforce drainage and counter limitations in the input data.
 }\DIFaddend \end{abstract}
 %
 \section*{Plain Language Summary}
 Flooding is one of the most impactful natural disasters on life and property.
 The United States National Water Model (NWM) provides flood forecasts for the entire country so that adequate warnings can be raised to the public to enable safe evacuations and protective measures.
-In order to convert forecasted flow rates from the NWM to flood inundation maps (FIM), a model is used that converts elevation data from height above mean sea-level to height above the nearest river bottom.
-This model\DIFaddbegin \DIFadd{, }\DIFaddend known as Height Above Nearest Drainage (HAND)\DIFaddbegin \DIFadd{, }\DIFaddend suffers from issues in mapping performance \DIFdelbegin \DIFdel{where riversconverge.
-}\DIFdelend \DIFaddbegin \DIFadd{because only fluvial inundation, or inundation sourced from rivers, is considered from the nearest drainage line.
-As rivers flood, multiple neighboring rivers could contribute to a region's inundation for which HAND has no means of modeling for.
-}\DIFaddend We developed a technique that mitigates these errors by removing consideration for neighboring tributaries in the relative elevation computation process.
+In order to convert \DIFdelbegin \DIFdel{forecasted }\DIFdelend flow rates from the NWM to flood inundation maps (FIM), a model\DIFaddbegin \DIFadd{, known as Height Above Nearest Drainage (HAND), }\DIFaddend is used that converts elevation data from height above mean sea-level to height above the nearest river bottom.
+This model \DIFdelbegin \DIFdel{known as Height Above Nearest Drainage (HAND) }\DIFdelend suffers from issues in mapping performance \DIFdelbegin \DIFdel{where rivers converge}\DIFdelend \DIFaddbegin \DIFadd{because inundation sourced from rivers is only considered from the nearest river line}\DIFaddend .
+We developed a technique that mitigates these errors by removing consideration for neighboring tributaries in the relative elevation computation process.
 \DIFaddbegin \DIFadd{This is done by splitting the stream network into continuous river segments known as level paths (LPs).
 These LPs have no tributaries, thus are known to be stream lines with a unit stream order indicating no branching.
 HAND is computed independently for each LP and the resulting FIMs are mosaiced together to form one seamless map.
-}\DIFaddend We compared these HAND derived FIMs to maps from \DIFdelbegin \DIFdel{more realistic }\DIFdelend \DIFaddbegin \DIFadd{physically-based }\DIFaddend models and found improvement in mapping performance \DIFaddbegin \DIFadd{to counter one of HAND's fundamental limitations}\DIFaddend .
+}\DIFaddend We compared these HAND derived FIMs to maps from \DIFdelbegin \DIFdel{more realistic }\DIFdelend \DIFaddbegin \DIFadd{physically-based }\DIFaddend models and found improvement in mapping performance.
 %
 
 
@@ -1625,35 +1621,16 @@ Utilizing the highest resolution Lidar and bathymetric data should also improve 
 Two other issues left open for improvement include the integration of higher resolution Lidar-based digital elevation maps (DEM) as well as the use of physics-based models for continental scale, high resolution forecasting applications.
 }\DIFaddend Due to inherent limitations with HAND, scalable, physics-based methods are necessary to consider to provide a better representation of flood extent dynamics in steady and unsteady conditions.
  %
-%DIF >  Acknowledgments
-\DIFaddbegin \clearpage %DIF >  this clears figures before references
+%DIF >  Open Research
+\DIFaddbegin \clearpage
 %DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%DIF >  Acknowledgments
-\acknowledgments
+\section*{\DIFadd{Open Research}}
+%DIF > \openresearch
 %DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \DIFaddend %
-\DIFaddbegin \DIFadd{This work was funded by the Office of Water Prediction (OWP) which is part of the National Oceanic and Atmospheric Administration's (NOAA) National Weather Service (NWS).
-Lynker, under contract with OWP, facilitated this work and computational resources used in research and development.
-We would like to thank some notable contributors of this work including Chief Scientist at OWP, Fred Ogden for his technical expertise.
-Additionally, David Blodgett from the United States Geolgical Survey (USGS) Water Mission Area was instrumental in helping define level paths and other hydrographic work.
-More information on code availability, usage, and data retrieval for OWP FIM is available on GitHub \mbox{%DIFAUXCMD
-\cite{inundationMapping2022}}\hskip0pt%DIFAUXCMD
-.
-Thanks to the Earth and Space Science Informatics Partnership (ESIP) for storing data from this study for public use and dissemination helping to provide transparent datasets for further collaboration with the research community \mbox{%DIFAUXCMD
-\cite{esipData2022}}\hskip0pt%DIFAUXCMD
-.
- %DIF > 
-%DIF >  Open Research
-}\clearpage
-%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\openresearch
-%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%DIF > 
-\DIFadd{National Water Model (NWM) data used in this study includes the hydrofabric related datasets \mbox{%DIFAUXCMD
+\DIFaddbegin \DIFadd{National Water Model (NWM) data used in this study includes the hydrofabric related datasets \mbox{%DIFAUXCMD
 \cite{nwm2022hydrofabric} }\hskip0pt%DIFAUXCMD
 including catchments, streamlines, and reservoirs \mbox{%DIFAUXCMD
 \cite{nwm2022hydrofabric}}\hskip0pt%DIFAUXCMD
@@ -1687,6 +1664,26 @@ Additionally, some FIM hydrofabric data including HAND grids, catchments, stream
 
 \DIFadd{Software used in preprocessing data, producing FIM hydrofrabic, generating FIM, computing metrics, and conducting analysis is available from a publicly available Github repository called ``inundation-mapping'' from the ``NOAA-OWP'' organization \mbox{%DIFAUXCMD
 \cite{inundationMapping2022}}\hskip0pt%DIFAUXCMD
+.
+ %DIF > 
+%DIF >  Acknowledgments
+}\clearpage %DIF >  this clears figures before references
+%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%DIF >  Acknowledgments
+\acknowledgments
+%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%DIF > %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%DIF > 
+\DIFadd{This work was funded by the Office of Water Prediction (OWP) which is part of the National Oceanic and Atmospheric Administration's (NOAA) National Weather Service (NWS).
+Lynker, under contract with OWP, facilitated this work and computational resources used in research and development.
+We would like to thank some notable contributors of this work including Chief Scientist at OWP, Fred Ogden for his technical expertise.
+Additionally, David Blodgett from the United States Geolgical Survey (USGS) Water Mission Area was instrumental in helping define level paths and other hydrographic work.
+More information on code availability, usage, and data retrieval for OWP FIM is available on GitHub \mbox{%DIFAUXCMD
+\cite{inundationMapping2022}}\hskip0pt%DIFAUXCMD
+.
+Thanks to the Earth and Space Science Informatics Partnership (ESIP) for storing data from this study for public use and dissemination helping to provide transparent datasets for further collaboration with the research community \mbox{%DIFAUXCMD
+\cite{esipData2022}}\hskip0pt%DIFAUXCMD
 .
  %DIF > 
 %DIF >  Bibliography
