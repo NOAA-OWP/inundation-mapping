@@ -54,6 +54,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     '''
         
     all_start = time.time()
+    API_BASE_URL, WBD_LAYER = get_env_paths()
+
+    
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
@@ -102,6 +105,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     #Loop through each huc unit, first define message variable and flood categories.
     all_messages = []
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
+    
+    if stage_based:
+        return huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists
     
     for huc in huc_dictionary:
         if stage_based:  # Only need to read in hydroTable if running in alt mode.
