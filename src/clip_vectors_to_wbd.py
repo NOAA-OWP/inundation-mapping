@@ -8,7 +8,7 @@ from utils.shared_functions import getDriver, mem_profile
 
 
 @mem_profile
-def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance):
+def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,levee_protected_areas_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,subset_levee_protected_areas_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance):
 
     hucUnitLength = len(str(hucCode))
 
@@ -45,6 +45,12 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     if not landsea.empty:
         landsea.to_file(subset_landsea_filename,driver=getDriver(subset_landsea_filename),index=False)
     del landsea
+
+    # Clip levee-protected areas polygons for future masking ocean areas (where applicable)
+    levee_protected_areas = gpd.read_file(levee_protected_areas_filename, mask=wbd_buffer)
+    if not levee_protected_areas.empty:
+        levee_protected_areas.to_file(subset_levee_protected_areas_filename, driver=getDriver(subset_levee_protected_areas_filename), index=False)
+    del levee_protected_areas
 
     # Find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength,hucCode),flush=True)
@@ -166,8 +172,10 @@ if __name__ == '__main__':
     parser.add_argument('-e','--subset-nhd-headwaters',help='NHD headwaters subset',required=True,default=None)
     parser.add_argument('-b','--subset-nwm-streams',help='NWM streams subset',required=True)
     parser.add_argument('-x','--subset-landsea',help='LandSea subset',required=True)
+    parser.add_argument('-lps','--subset-levee-protected-areas',help='Levee-protected areas subset',required=True)
     parser.add_argument('-extent','--extent',help='FIM extent',required=True)
     parser.add_argument('-gl','--great-lakes-filename',help='Great Lakes layer',required=True)
+    parser.add_argument('-lpf','--levee-protected-areas-filename',help='Levee-protected areas filename',required=True)
     parser.add_argument('-wb','--wbd-buffer-distance',help='WBD Mask buffer distance',required=True,type=int)
     parser.add_argument('-lb','--lake-buffer-distance',help='Great Lakes Mask buffer distance',required=True,type=int)
 
@@ -183,6 +191,7 @@ if __name__ == '__main__':
     nwm_catchments_filename = args['nwm_catchments']
     nhd_headwaters_filename = args['nhd_headwaters']
     landsea_filename = args['landsea']
+    levee_protected_areas_filename = args['levee_protected_areas_filename']
     subset_nhd_streams_filename = args['subset_nhd_streams']
     subset_nld_lines_filename = args['subset_nld_lines']
     subset_nwm_lakes_filename = args['subset_lakes']
@@ -190,9 +199,11 @@ if __name__ == '__main__':
     subset_nhd_headwaters_filename = args['subset_nhd_headwaters']
     subset_nwm_streams_filename = args['subset_nwm_streams']
     subset_landsea_filename = args['subset_landsea']
+    subset_levee_protected_areas_filename = args['subset_levee_protected_areas']
     extent = args['extent']
     great_lakes_filename = args['great_lakes_filename']
+
     wbd_buffer_distance = args['wbd_buffer_distance']
     lake_buffer_distance  = args['lake_buffer_distance']
 
-    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance)
+    subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_lakes_filename,nld_lines_filename,nwm_catchments_filename,nhd_headwaters_filename,landsea_filename,levee_protected_areas_filename,wbd_filename,wbd_buffer_filename,subset_nhd_streams_filename,subset_nld_lines_filename,subset_nwm_lakes_filename,subset_nwm_catchments_filename,subset_nhd_headwaters_filename,subset_nwm_streams_filename,subset_landsea_filename,subset_levee_protected_areas_filename,extent,great_lakes_filename,wbd_buffer_distance,lake_buffer_distance)
