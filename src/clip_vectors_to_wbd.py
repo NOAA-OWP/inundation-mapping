@@ -25,7 +25,7 @@ def subset_vector_layers(hucCode, nwm_streams_filename, nhd_streams_filename, nw
     wbd_buffer_filename_split = os.path.splitext(wbd_buffer_filename)
     wbd_streams_buffer_filename = wbd_buffer_filename_split[0] + '_streams' + wbd_buffer_filename_split[1]
     wbd_streams_buffer = wbd.copy()
-    wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-2*dem_cellsize, resolution=32)
+    wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-3*dem_cellsize, resolution=32)
 
     # projection = wbd_buffer.crs
 
