@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import sys
 import pandas as pd
-import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shutil
+import warnings
+import datetime as dt
+import re
+import traceback
+from pathlib import Path
 from functools import reduce
 from multiprocessing import Pool
 from os.path import isfile, join, dirname, isdir
-import shutil
-import warnings
-from pathlib import Path
-import datetime as dt
-import re
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -45,89 +46,97 @@ def src_bankfull_lookup(args):
     ## Read the src_full_crosswalked.csv
     print('Calculating bankfull: ' + str(huc) + '  branch id: ' + str(branch_id))
     log_text = 'Calculating: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
-    df_src = pd.read_csv(src_full_filename,usecols=src_usecols,dtype={'HydroID': int,'feature_id': int})
+    try:
+        df_src = pd.read_csv(src_full_filename,usecols=src_usecols,dtype={'HydroID': int,'feature_id': int})
 
-    ## NWM recurr rename discharge var
-    df_bflows = df_bflows.rename(columns={'discharge':'bankfull_flow'})
+        ## NWM recurr rename discharge var
+        df_bflows = df_bflows.rename(columns={'discharge':'bankfull_flow'})
 
-    ## Combine the nwm 1.5yr flows into the SRC via feature_id
-    df_src = df_src.merge(df_bflows,how='left',on='feature_id')
+        ## Combine the nwm 1.5yr flows into the SRC via feature_id
+        df_src = df_src.merge(df_bflows,how='left',on='feature_id')
 
-    ## Check if there are any missing data, negative or zero flow values in the bankfull_flow
-    check_null = df_src['bankfull_flow'].isnull().sum()
-    if check_null > 0:
-        log_text += 'Missing feature_id in crosswalk for huc: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> these featureids will be ignored in bankfull calcs (~' + str(check_null/84) +  ' features) \n'
-        ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
-        df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
-    negative_flows = len(df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)])
-    if negative_flows > 0:
-        log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Negative or zero flow values found in the input bankfull flows csv (likely lakeid loc)\n'
+        ## Check if there are any missing data, negative or zero flow values in the bankfull_flow
+        check_null = df_src['bankfull_flow'].isnull().sum()
+        if check_null > 0:
+            log_text += 'Missing feature_id in crosswalk for huc: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> these featureids will be ignored in bankfull calcs (~' + str(check_null/84) +  ' features) \n'
+            ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
+            df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
+        negative_flows = len(df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)])
+        if negative_flows > 0:
+            log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Negative or zero flow values found in the input bankfull flows csv (likely lakeid loc)\n'
 
-    ## Define the channel geometry variable names to use from the src
-    hradius_var = 'HydraulicRadius (m)'
-    volume_var = 'Volume (m3)'
-    surface_area_var = 'SurfaceArea (m2)'
+        ## Define the channel geometry variable names to use from the src
+        hradius_var = 'HydraulicRadius (m)'
+        volume_var = 'Volume (m3)'
+        surface_area_var = 'SurfaceArea (m2)'
 
-    ## Locate the closest SRC discharge value to the NWM 1.5yr flow
-    df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
+        ## Locate the closest SRC discharge value to the NWM 1.5yr flow
+        df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
 
-    ## Check for any missing/null entries in the input SRC
-    if df_src['Q_bfull_find'].isnull().values.any(): # there may be null values for lake or coastal flow lines (need to set a value to do groupby idxmin below)
-        log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "Q_bfull_find" calc. These will be filled with 999999 () \n'
-        ## Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
-        df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
-    if df_src['HydroID'].isnull().values.any():
-        log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "HydroID"... \n'
+        ## Check for any missing/null entries in the input SRC
+        if df_src['Q_bfull_find'].isnull().values.any(): # there may be null values for lake or coastal flow lines (need to set a value to do groupby idxmin below)
+            log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "Q_bfull_find" calc. These will be filled with 999999 () \n'
+            ## Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
+            df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
+        if df_src['HydroID'].isnull().values.any():
+            log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "HydroID"... \n'
 
-    df_bankfull_calc = df_src[['Stage','HydroID',volume_var,hradius_var,surface_area_var,'Q_bfull_find']] # create new subset df to perform the Q_1_5 lookup
-    df_bankfull_calc = df_bankfull_calc[df_bankfull_calc['Stage'] > 0.0] # Ensure bankfull stage is greater than stage=0
-    df_bankfull_calc.reset_index(drop=True, inplace=True)
-    df_bankfull_calc = df_bankfull_calc.loc[df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()].reset_index(drop=True) # find the index of the Q_bfull_find (closest matching flow)
-    df_bankfull_calc = df_bankfull_calc.rename(columns={'Stage':'Stage_bankfull',volume_var:'Volume_bankfull',hradius_var:'HRadius_bankfull',surface_area_var:'SurfArea_bankfull'}) # rename volume to use later for channel portion calc
-    df_src = df_src.merge(df_bankfull_calc[['Stage_bankfull','HydroID','Volume_bankfull','HRadius_bankfull','SurfArea_bankfull']],how='left',on='HydroID')
-    df_src.drop(['Q_bfull_find'], axis=1, inplace=True)
+        df_bankfull_calc = df_src[['Stage','HydroID',volume_var,hradius_var,surface_area_var,'Q_bfull_find']] # create new subset df to perform the Q_1_5 lookup
+        df_bankfull_calc = df_bankfull_calc[df_bankfull_calc['Stage'] > 0.0] # Ensure bankfull stage is greater than stage=0
+        df_bankfull_calc.reset_index(drop=True, inplace=True)
+        df_bankfull_calc = df_bankfull_calc.loc[df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()].reset_index(drop=True) # find the index of the Q_bfull_find (closest matching flow)
+        df_bankfull_calc = df_bankfull_calc.rename(columns={'Stage':'Stage_bankfull',volume_var:'Volume_bankfull',hradius_var:'HRadius_bankfull',surface_area_var:'SurfArea_bankfull'}) # rename volume to use later for channel portion calc
+        df_src = df_src.merge(df_bankfull_calc[['Stage_bankfull','HydroID','Volume_bankfull','HRadius_bankfull','SurfArea_bankfull']],how='left',on='HydroID')
+        df_src.drop(['Q_bfull_find'], axis=1, inplace=True)
 
-    ## Calculate the channel portion of bankfull Volume
-    df_src['chann_volume_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-    df_src['chann_volume_ratio'].where(df_src['Stage'] == 0, df_src['Volume_bankfull'] / (df_src[volume_var]),inplace=True)
-    #df_src['chann_volume_ratio'] = df_src['chann_volume_ratio'].clip_upper(1.0)
-    df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-    df_src['chann_volume_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
-    #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
+        ## Calculate the channel portion of bankfull Volume
+        df_src['chann_volume_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+        df_src['chann_volume_ratio'].where(df_src['Stage'] == 0, df_src['Volume_bankfull'] / (df_src[volume_var]),inplace=True)
+        #df_src['chann_volume_ratio'] = df_src['chann_volume_ratio'].clip_upper(1.0)
+        df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+        df_src['chann_volume_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
 
-    ## Calculate the channel portion of bankfull Hydraulic Radius
-    df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-    df_src['chann_hradius_ratio'].where(df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]),inplace=True)
-    #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # old adding 0.01 to avoid dividing by 0 at stage=0
-    df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-    df_src['chann_hradius_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
-    #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
+        ## Calculate the channel portion of bankfull Hydraulic Radius
+        df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+        df_src['chann_hradius_ratio'].where(df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]),inplace=True)
+        #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # old adding 0.01 to avoid dividing by 0 at stage=0
+        df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+        df_src['chann_hradius_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
 
-    ## Calculate the channel portion of bankfull Surface Area
-    df_src['chann_surfarea_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-    df_src['chann_surfarea_ratio'].where(df_src['Stage'] == 0, df_src['SurfArea_bankfull'] / (df_src[surface_area_var]),inplace=True)
-    df_src['chann_surfarea_ratio'].where(df_src['chann_surfarea_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-    df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
-    #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
+        ## Calculate the channel portion of bankfull Surface Area
+        df_src['chann_surfarea_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+        df_src['chann_surfarea_ratio'].where(df_src['Stage'] == 0, df_src['SurfArea_bankfull'] / (df_src[surface_area_var]),inplace=True)
+        df_src['chann_surfarea_ratio'].where(df_src['chann_surfarea_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+        df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
 
-    ## mask bankfull variables when the 1.5yr flow value is <= 0
-    df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0,inplace=True)
+        ## mask bankfull variables when the 1.5yr flow value is <= 0
+        df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0,inplace=True)
 
-    ## Create a new column to identify channel/floodplain via the bankfull stage value
-    df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'channel_fplain_1_5'] = 'channel'
-    df_src.loc[df_src['Stage'] > df_src['Stage_bankfull'], 'channel_fplain_1_5'] = 'floodplain'
-    df_src['channel_fplain_1_5'] = df_src['channel_fplain_1_5'].fillna('channel')
+        ## Create a new column to identify channel/floodplain via the bankfull stage value
+        df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'channel_fplain_1_5'] = 'channel'
+        df_src.loc[df_src['Stage'] > df_src['Stage_bankfull'], 'channel_fplain_1_5'] = 'floodplain'
+        df_src['channel_fplain_1_5'] = df_src['channel_fplain_1_5'].fillna('channel')
 
-    ## Output new SRC with bankfull column
-    df_src.to_csv(src_full_filename,index=False)
-    log_text += 'Completed: ' + str(huc)
+        ## Output new SRC with bankfull column
+        df_src.to_csv(src_full_filename,index=False)
+        log_text += 'Completed: ' + str(huc)
 
-    ## plot rating curves (optional arg)
-    if src_plot_option:
-        if isdir(huc_output_dir) == False:
-            os.mkdir(huc_output_dir)
-        generate_src_plot(df_src, huc_output_dir)
+        ## plot rating curves (optional arg)
+        if src_plot_option:
+            if isdir(huc_output_dir) == False:
+                os.mkdir(huc_output_dir)
+            generate_src_plot(df_src, huc_output_dir)
 
+    except Exception as ex:
+        summary = traceback.StackSummary.extract(
+                traceback.walk_stack(None))
+        print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
+        print(f"*** {ex}")                
+        print(''.join(summary.format()))    
+        log_text += 'ERROR --> ' + str(huc) + '  branch id: ' + str(branch_id) + " failed (details: " + (f"*** {ex}") + (''.join(summary.format())) + '\n'
     return(log_text)
 
 def generate_src_plot(df_src, plt_out_dir):
