@@ -49,6 +49,7 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
     # Clip levee-protected areas polygons for future masking ocean areas (where applicable)
     levee_protected_areas = gpd.read_file(levee_protected_areas_filename, mask=wbd_buffer)
     if not levee_protected_areas.empty:
+        levee_protected_areas = levee_protected_areas.to_crs('ESRI:102039')
         levee_protected_areas.to_file(subset_levee_protected_areas_filename, driver=getDriver(subset_levee_protected_areas_filename), index=False)
     del levee_protected_areas
 

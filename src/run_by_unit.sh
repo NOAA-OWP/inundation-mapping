@@ -45,7 +45,7 @@ else
   input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
 fi
 
-input_nld_leveeprotectedareas=$inputDataDir/nld_vectors/levees_geojson.zip/LeveedArea.geojson
+#input_nld_leveeprotectedareas=$inputDataDir/nld_vectors/LeveedArea.geojson
 
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
@@ -394,7 +394,7 @@ Tstart
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed_masked.tif -B $outputHucDataDir/LandSea_subset.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
 Tcount
 
-## MASK REM RASTER TO REMOVE OCEAN AREAS ##
+## MASK REM RASTER TO REMOVE LEVEE-PROTECTED AREAS ##
 echo -e $startDiv"Additional masking to REM raster to remove levee-protected areas in HUC $hucNumber"$stopDiv
 date -u
 Tstart

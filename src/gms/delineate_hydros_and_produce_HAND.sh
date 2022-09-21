@@ -158,20 +158,22 @@ $srcDir/make_stages_and_catchlist.py -f $outputCurrentBranchDataDir/demDerived_r
 Tcount
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove ocean/Glake areas $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-[ -f $outputCurrentBranchDataDir/LandSea_subset.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif -B $outputCurrentBranchDataDir/LandSea_subset_$current_node_id.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
-Tcount
+if  [ -f $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
+    echo -e $startDiv"Additional masking to REM raster to remove ocean/Glake areas $hucNumber $current_branch_id"$stopDiv
+    date -u
+    Tstart
+    gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif -B $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+    Tcount
+fi
 
 ## MASK REM RASTER TO REMOVE LEVEE-PROTECTED AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove levee-protected areas $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-[ -f $outputCurrentBranchDataDir/levee-protectedAreas_subset.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif -B $outputCurrentBranchDataDir/LandSea_subset_$current_node_id.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
-Tcount
+if [ -f $outputCurrentBranchDataDir/LeveeProtectedAreas_subset_$current_branch_id.tif ]; then
+    echo -e $startDiv"Additional masking to REM raster to remove levee-protected areas $hucNumber $current_branch_id"$stopDiv
+    date -u
+    Tstart
+    gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif -B $outputCurrentBranchDataDir/LeveeProtectedAreas_subset_$current_branch_id.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+    Tcount
+fi
 
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"$stopDiv
