@@ -35,9 +35,9 @@ mv $buildDir/"$mainfile_base".pdf "$mainfile_base".pdf
 #if test -f "$originalExandedFile"; then
 #    echo 'Latexdiff to make a difference file'
 #    latexdiff "$originalExandedFile" "$expandedFile" > "$differenceFile"
-#    pdflatex "$differenceFile"
-#    bibtex "${differenceFile%%.*}".aux
-#    pdflatex "$differenceFile"
-#    pdflatex "$differenceFile"
+#    pdflatex -output-directory "$buildDir" "$differenceFile"
+#    bibtex -output-directory "$buildDir" "$buildDir"/"${differenceFile%%.*}".aux
+#    pdflatex -output-directory "$buildDir" "$differenceFile"
+#    pdflatex -output-directory "$buildDir" "$differenceFile"
 #fi
 
