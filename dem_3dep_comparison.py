@@ -157,7 +157,7 @@ def Dem_3dep_comparison( huc4 = huc4,
                                               '-n', f'3dep_test_{huc4}_{resolution}m_GMS',
                                               '-c', f'/foss_fim/config/params_{resolution}m.env',
                                               '-j', f'{bjobs}',
-                                              '-d', f'/foss_fim/config/deny_gms_branches_default.lst'
+                                              '-d', f'/foss_fim/config/deny_gms_branches_default.lst',
                                             ]
                     
                     if production:

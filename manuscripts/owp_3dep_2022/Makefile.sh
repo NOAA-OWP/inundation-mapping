@@ -24,6 +24,7 @@ pdflatex -output-directory "$buildDir" "$mainFile"
 pdflatex -output-directory "$buildDir" "$mainFile"
 
 # move pdf output
+echo Moving $buildDir/$mainfile_base.pdf to main directory.
 mv $buildDir/"$mainfile_base".pdf "$mainfile_base".pdf
 
 # expands all tex files into one file
