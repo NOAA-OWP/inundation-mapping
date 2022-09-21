@@ -115,13 +115,13 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
     # value is in the hydroid_list.
     reclass_rem_array = np.where((rem_array<=hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype('uint8')
     
-    output_tif1 = os.path.join(lid_directory, lid + '_' + category + '_rem_reclass_' + huc + '.tif')
-    with rasterio.Env():
-        profile = rem_src.profile
-        profile.update(dtype=rasterio.uint8)
-        profile.update(nodata=10)
-        with rasterio.open(output_tif1, 'w', **profile) as dst:
-            dst.write(reclass_rem_array, 1)
+#    output_tif1 = os.path.join(lid_directory, lid + '_' + category + '_rem_reclass_' + huc + '.tif')
+#    with rasterio.Env():
+#        profile = rem_src.profile
+#        profile.update(dtype=rasterio.uint8)
+#        profile.update(nodata=10)
+#        with rasterio.open(output_tif1, 'w', **profile) as dst:
+#            dst.write(reclass_rem_array, 1)
             
     print(hydroid_list)
 
@@ -129,28 +129,29 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
     max_hydroid = max(hydroid_list)
     target_catchments_array = np.where((catchments_array >= min_hydroid) & (catchments_array <= max_hydroid) & (catchments_array != catchments_src.nodata), 1, 0).astype('uint8')
 
-    output_tif2 = os.path.join(lid_directory, lid + '_' + category + '_target_cats_' + huc + '.tif')
-    with rasterio.Env():
-        profile = catchments_src.profile
-        profile.update(dtype=rasterio.uint8)
-        profile.update(nodata=10)
-        with rasterio.open(output_tif2, 'w', **profile) as dst:
-            dst.write(target_catchments_array, 1)
+#    output_tif2 = os.path.join(lid_directory, lid + '_' + category + '_target_cats_' + huc + '.tif')
+#    with rasterio.Env():
+#        profile = catchments_src.profile
+#        profile.update(dtype=rasterio.uint8)
+#        profile.update(nodata=10)
+#        with rasterio.open(output_tif2, 'w', **profile) as dst:
+#            dst.write(target_catchments_array, 1)
     
-    masked_reclass_rem_array = np.where((reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0)
-    
-    masked_reclass_rem_array = masked_reclass_rem_array.astype('uint8')
-    
-    # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
-    output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '.tif')
-
-    with rasterio.Env():
-        profile = rem_src.profile
-        profile.update(dtype=rasterio.uint8)
-        profile.update(nodata=10)
+    masked_reclass_rem_array = np.where((reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0).astype('uint8')
         
-        with rasterio.open(output_tif, 'w', **profile) as dst:
-            dst.write(masked_reclass_rem_array, 1)
+    # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
+    is_all_zero = np.all((masked_reclass_rem_array == 0))
+    
+    if not is_all_zero:
+        print(lid + " at " + category + " in " + huc + " is not all zero")
+        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '.tif')
+        with rasterio.Env():
+            profile = rem_src.profile
+            profile.update(dtype=rasterio.uint8)
+            profile.update(nodata=10)
+            
+            with rasterio.open(output_tif, 'w', **profile) as dst:
+                dst.write(masked_reclass_rem_array, 1)
     
     
 def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search):
@@ -364,7 +365,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                         datum_adj_ft = stage_based_att_dict[lid][threshold]['datum_adj_ft']
                         datum_adj_wse_ft = stage_based_att_dict[lid][threshold]['datum_adj_wse_ft']
                         datum_adj_wse_m = stage_based_att_dict[lid][threshold]['datum_adj_wse_m']
-                        interpolated_hand_flow_cms = stage_based_att_dict[lid][threshold]['interpolated_hand_flow_cms']
                         lid_alt_ft = stage_based_att_dict[lid][threshold]['lid_alt_ft']
                         lid_alt_m = stage_based_att_dict[lid][threshold]['lid_alt_m']
 
@@ -372,13 +372,12 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                             'dtm_adj_ft': datum_adj_ft,
                                             'dadj_w_ft': datum_adj_wse_ft,
                                             'dadj_w_m': datum_adj_wse_m,
-                                            'han_q_cms': interpolated_hand_flow_cms,
                                             'lid_alt_ft': lid_alt_ft,
                                             'lid_alt_m': lid_alt_m})
                         csv_df = csv_df.append(line_df)
                         
-                    except KeyError:
-                        pass
+                    except Exception as e:
+                        print(e)
                 else:
                     line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
                     csv_df = csv_df.append(line_df)
@@ -443,8 +442,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
     all_end = time.time()
     print(f'total time is {round((all_end - all_start)/60),1} minutes')
     
-
-
 
 if __name__ == '__main__':
 
