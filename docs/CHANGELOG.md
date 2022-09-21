@@ -2,6 +2,22 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## [Version number to be assigned] - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
+
+Masks levee-protected areas from Relative Elevation Model
+
+### Additions
+
+- `src/gms/delineate_hydros_and_produce_HAND.sh`
+   - Reprojects and creates raster subset of levee-protected areas from polygon layer
+   - Uses that raster to mask/remove those areas from the Relative Elevation Model
+
+### Changes
+- `src/gms/delineate_hydros_and_produce_HAND.sh`
+   - Fixes a bug in ocean/Great Lakes masking
+
+<br/><br/>
+
 ## v4.0.9.2 - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
 
 This fixes several bugs related to branch definition and trimming due to waterbodies.
