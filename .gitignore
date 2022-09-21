@@ -12,4 +12,5 @@ config/*.swp
 .vscode/
 **/.DS_Store
 **/*_pytest.py
-
+manuscripts/**/owp_3dep.pdf
+manuscripts/**/build/*

@@ -8,39 +8,64 @@ import subprocess
 import shutil
 import os
 from ast import literal_eval
+import boto3
+import tqdm
 
-def Dem_3dep_comparison( huc4=1202,
-                         resolutions=[20,15,10,5,3,1], 
-                         tile_sizes={20:10000,15:10000,10:5000,5:2000,3:1500,1:1000},
-                         huc_sizes ={20:8, 15:8, 10:8, 5:8, 3:12, 1:12},
-                         stream_resolutions=['FR','MS', 'GMS'],
-                         acquire_data=True,
-                         resolutions_to_acquire_data_for = {20,15,10,5,3,1},
-                         skip_hydrofabric=False,
-                         skip_evaluate=False,
-                         manning = 12,
-                         production = True,
-                         overwrite = True,
-                         overwrite_eval = True,
-                         remove_inputs = True,
-                         remove_outputs = True,
-                         hand_jobs_dict = { 
-                                            'FR' : 
-                                              { 1 : 3, 3 : 3, 5 : 7, 10 : 7, 15 : 7 , 20 : 7 },
-                                            'MS' :
-                                              { 1 : 5, 3 : 3, 5 : 7, 10 : 7, 15 : 7 , 20 : 7 },
-                                            'GMS' :
-                                              { 1 : [10,5], 3 : [15,15], 5 : [7,15], 10 : [7,15], 15 : [7,15] , 20 : [7,15] }
-                                           },
-                         eval_jobs_dict = { 
-                                            'FR' :
-                                              { 1 : 12, 3 : 12, 5 : 4, 10 : 7, 15 : 7 , 20 : 7 },
-                                            'MS' :
-                                              { 1 : 12, 3 : 12, 5 : 4, 10 : 7, 15 : 7 , 20 : 7 },
-                                            'GMS' :
-                                              { 1 : [3,4], 3 : [3,4], 5 : [2,4], 10 : [3,4], 15 : [3,4] , 20 : [3,4]}
-                                              }
-        ):
+huc4 = 1202
+resolutions=[20,15,10,5,3,1]
+tile_sizes = {100:100000,20:10000,15:10000,10:5000,5:2000,3:1500,1:1000}
+huc_sizes = {100:8,20:8, 15:8, 10:8, 5:8, 3:12, 1:12}
+stream_resolutions=['FR','MS', 'GMS']
+acquire_data=True
+use_s3_for_3dep_data_if_available = False
+resolutions_to_acquire_data_for = {100,20,15,10,5,3,1}
+skip_hydrofabric = False
+skip_evaluate = False
+manning = 12
+production = True
+overwrite = True
+overwrite_eval = True
+remove_inputs = True
+remove_outputs = True
+retry_3dep = False
+hand_jobs_dict = { 
+                'FR' : 
+                  { 1 : 3, 3 : 3, 5 : 7, 10 : 7, 15 : 7 , 20 : 7 },
+                'MS' :
+                  { 1 : 5, 3 : 3, 5 : 7, 10 : 7, 15 : 7 , 20 : 7 },
+                'GMS' :
+                  { 1 : [10,5], 3 : [15,15], 5 : [7,15], 10 : [7,15], 15 : [7,15] , 20 : [7,15] }
+                 }
+eval_jobs_dict = { 
+                'FR' :
+                  { 1 : 12, 3 : 12, 5 : 4, 10 : 7, 15 : 7 , 20 : 7 },
+                'MS' :
+                  { 1 : 12, 3 : 12, 5 : 4, 10 : 7, 15 : 7 , 20 : 7 },
+                'GMS' :
+                  { 1 : [3,4], 3 : [3,4], 5 : [2,4], 10 : [3,4], 15 : [3,4] , 20 : [3,4]}
+                  }
+
+
+def Dem_3dep_comparison( huc4 = huc4,
+                         resolutions = resolutions, 
+                         tile_sizes= tile_sizes,
+                         huc_sizes = huc_sizes,
+                         stream_resolutions = stream_resolutions,
+                         acquire_data = acquire_data,
+                         use_s3_for_3dep_data_if_available = use_s3_for_3dep_data_if_available,
+                         resolutions_to_acquire_data_for = resolutions_to_acquire_data_for,
+                         skip_hydrofabric = skip_hydrofabric,
+                         skip_evaluate = skip_evaluate,
+                         manning = manning,
+                         production = production,
+                         overwrite = overwrite,
+                         overwrite_eval = overwrite_eval,
+                         remove_inputs = remove_inputs,
+                         remove_outputs = remove_outputs,
+                         hand_jobs_dict = hand_jobs_dict,
+                         eval_jobs_dict = eval_jobs_dict,
+                         retry_3dep = retry_3dep
+                       ):
 
     resolutions_to_acquire_data_for = set(resolutions_to_acquire_data_for)
 
@@ -53,13 +78,41 @@ def Dem_3dep_comparison( huc4=1202,
 
         # acquire data
         if acquire_data & (resolution in resolutions_to_acquire_data_for):
-            print(f"Acquiring data for {resolution}m")
-            manage_preprocessing(
-                                  hucs_of_interest=huc4,
-                                  tile_size=tile_size,
-                                  download_3dep=True,
-                                  resolution=resolution
-                                )
+            
+            if use_s3_for_3dep_data_if_available:
+                print(f"Acquiring data for {resolution}m from S3")
+
+                session = boto3.Session(profile_name='default')
+                s3_bucket = session.resource('s3').Bucket('fernandoa-bucket')
+                
+                s3_objects = [f.key for f in s3_bucket.objects.filter(Prefix=f'foss_fim/inputs/dem_3dep_rasters/{huc4}_{resolution}m')]
+                for obj in tqdm.tqdm(s3_objects,desc='Downloading 3DEP from S3'):
+                    prefix,file_name = os.path.split(obj)
+                    
+                    prefix_list = prefix.split('/')
+                    prefix_list[0] = 'data'
+                    prefix = os.path.join(*prefix_list)
+
+                    download_target = os.path.join(prefix,file_name)
+
+                    if not os.path.exists(prefix):
+                        os.makedir(prefix)
+
+                    s3_bucket.download_file(obj, download_target)
+
+                # download vrt file
+                s3_bucket.download_file(f'foss_fim/inputs/dem_3dep_rasters/dem_3dep_{huc4}_{resolution}m.vrt',
+                                        f'data/inputs/dem_3dep_rasters/dem_3dep_{huc4}_{resolution}m.vrt')
+
+            else:
+                print(f"Acquiring data for {resolution}m")
+                manage_preprocessing(
+                                      hucs_of_interest=huc4,
+                                      tile_size=tile_size,
+                                      download_3dep=True,
+                                      resolution=resolution,
+                                      retry_3dep=retry_3dep
+                                    )
 
         for sr in stream_resolutions:
             
@@ -199,55 +252,40 @@ if __name__ == '__main__':
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Master script for parents')
-    parser.add_argument('-u','--huc4',help='HUC4', required=False, default=1202, type=str)
+    parser.add_argument('-u','--huc4',help='HUC4', required=False, default=huc4, type=str)
     parser.add_argument('-r','--resolutions',help='Spatial resolutions',
-                            required=False, default=[20,15,10,5,1], nargs='+', type=int)
+                            required=False, default=resolutions, nargs='+', type=int)
     parser.add_argument('-t','--tile-sizes',help='Size of tiles for preprocessing (m)',
-                            required=False, default={20:10000,15:10000,10:5000,5:2000,3:1500,1:1000}, type=dict)
+                            required=False, default=tile_sizes, type=dict)
     parser.add_argument('-s','--huc-sizes',help='HUC sizes',
-                            required=False, default={20:8, 15:8, 10:8, 5:8, 3:12, 1:12}, type=dict)
+                            required=False, default=huc_sizes, type=dict)
     parser.add_argument('-o','--stream-resolutions',help='Resolutions of Streams',
-                            required=False, default=['FR','MS','GMS'], nargs='+')
+                            required=False, default=stream_resolutions, nargs='+')
     parser.add_argument('-a','--acquire-data',help='Acquire data',
-                            required=False, default=True, action='store_false')
+                            required=False, default=acquire_data, action='store_false')
+    parser.add_argument('-s3', '--use-s3-for-3dep-data-if-available',help='Use S3 3DEP data if available.',
+                            required=False, default=use_s3_for_3dep_data_if_available, action='store_true')
     parser.add_argument('-sh','--skip-hydrofabric',help='Skips FIM hydrofabric computation',
-                            required=False, default=False, action='store_true')
+                            required=False, default=skip_hydrofabric, action='store_true')
     parser.add_argument('-se','--skip-evaluate',help='Skips evaluation',
-                            required=False, default=False, action='store_true')
+                            required=False, default=skip_evaluate, action='store_true')
     parser.add_argument('-e','--resolutions-to-acquire-data-for',help='Spatial resolutions to acquire data',
-                            required=False, default={20,15,10,5,3,1}, nargs='+', type=int)
+                            required=False, default=resolutions_to_acquire_data_for, nargs='+', type=int)
     parser.add_argument('-m','--manning',help='Manning\'s N value to use in integer form',
-                            required=False, default=12, type=int)
+                            required=False, default=manning, type=int)
     parser.add_argument('-p','--production',help='Production data only',
-                            required=False, default=True, action='store_false')
+                            required=False, default=production, action='store_false')
     parser.add_argument('-ov','--overwrite',help='Overwrite HAND data',
-                            required=False, default=True, action='store_false')
+                            required=False, default=overwrite, action='store_false')
     parser.add_argument('-oe','--overwrite-eval',help='Overwrite eval data',
-                            required=False, default=True, action='store_false')
+                            required=False, default=overwrite_eval, action='store_false')
     parser.add_argument('-n','--remove-inputs',help='Acquire data',
-                            required=False, default=True, action='store_false')
+                            required=False, default=remove_inputs, action='store_false')
     parser.add_argument('-v','--remove-outputs',help='Acquire data',
-                            required=False, default=True, action='store_false')
-    parser.add_argument('-hj','--hand-jobs-dict',help='Acquire data',
-                            required=False,
-                            default= { 
-                                      'FR' : 
-                                        { 1 : 3, 3 : 4, 5 : 7, 10 : 7, 15 : 7 , 20 : 7 },
-                                      'MS' :
-                                        { 1 : 3, 3 : 4,5 : 7, 10 : 7, 15 : 7 , 20 : 7 },
-                                      'GMS' :
-                                        { 1 : [10,5], 3 : [15,15], 5 : [7,15], 10 : [7,15], 15 : [7,15] , 20 : [7,15] }
-                                      } )
-    parser.add_argument('-ej','--eval-jobs-dict',help='Acquire data',
-                            required=False,
-                            default= { 
-                                      'FR' : 
-                                          { 1 : 12, 3 : 12, 5 : 4, 10 : 7, 15 : 7 , 20 : 7 },
-                                      'MS' :
-                                          { 1 : 12, 3 : 12, 5 : 4, 10 : 7, 15 : 7 , 20 : 7 },
-                                      'GMS' :
-                                          { 1 : [3,4], 3 : [3,4], 5 : [2,4], 10 : [3,4], 15 : [3,4] , 20 : [3,4] }
-                                     })
+                            required=False, default=remove_outputs, action='store_false')
+    parser.add_argument('-hj','--hand-jobs-dict',help='Acquire data', required=False, default=hand_jobs_dict )
+    parser.add_argument('-ej','--eval-jobs-dict',help='Acquire data', required=False, default= eval_jobs_dict)
+    parser.add_argument('-rd', '--retry-3dep', help='Retry failed 3dep tiles',required=False,default=False,action='store_true')
 
     args = vars(parser.parse_args())
     

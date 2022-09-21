@@ -8,6 +8,7 @@ sys.path.append('/foss_fim/src')
 import shutil
 from multiprocessing import Pool
 import geopandas as gpd
+import pandas as pd
 from urllib.error import HTTPError
 from tqdm import tqdm
 import xarray as xr
@@ -15,6 +16,7 @@ import py3dep
 import fiona
 from fiona.crs import to_string
 from shapely.geometry import shape,box,Polygon, MultiPolygon
+import shapely
 from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
 import dask
@@ -315,7 +317,8 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
                                          output_dir=None,
                                          ndv=elev_raster_ndv,
                                          num_workers=1,
-                                         wbd_buffer=2000
+                                         wbd_buffer=2000,
+                                         retry_3dep=False
                                        ):
 
     def __fishnet_geometry(geometry,cell_size_meters=1000,cell_buffer=10):
@@ -384,11 +387,12 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         # huc4 output dir
         huc4_output_dir = os.path.join(output_dir,f'{current_huc4}_{int(dem_resolution)}m')
         
-        # remove
-        shutil.rmtree(huc4_output_dir,ignore_errors=True)
+        if not retry_3dep:
+            # remove
+            shutil.rmtree(huc4_output_dir,ignore_errors=True)
         
-        # re-create
-        os.makedirs(huc4_output_dir,exist_ok=True)
+            # re-create
+            os.makedirs(huc4_output_dir,exist_ok=True)
 
         # buffer
         geometry = geometry.buffer(wbd_buffer)
@@ -418,7 +422,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
                    [ndv for _ in range(number_of_boxes)],
                    huc4_output_dirs,
                    hucs,
-                   [idx for idx in range(number_of_boxes)]
+                   [int(idx) for idx in range(number_of_boxes)]
                  ]
 
 
@@ -443,15 +447,19 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
 
     def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,output_dir,huc,idx):
 
-        max_retries = 5
-        retries = 0
+        max_retries = 5; retries = 0
+        nhd_failed, failed_3dep = False, False
         while True:
             try:
+                
+                # for testing only
+                #if (not retry_3dep) & (idx in {0,9}): nhd_failed, failed_3dep = True, True ; dem = None ;break
+
                 dem = py3dep.get_map( 'DEM',
                                       geometry=geometry,
                                       resolution=dem_resolution,
                                       geo_crs=wbd_crs
-                                    ) 
+                                    )
                 break
             
             #except (ReadTimeout,HTTPError,RasterioIOError,pygeoogc.exceptions.ServiceUnavailable) as e:
@@ -464,12 +472,34 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
                     continue
                 else:
                     print(f'{e} - idx: {idx} | retries: {retries} - Using NHD')
-                    dem = __get_tile_from_nhd(geometry,huc)
+                    failed_3dep = True
+                    try:
+                        dem = __get_tile_from_nhd(geometry,huc)
+                    except Exception as e:
+                        nhd_failed = True
+                        dem = None
+                        print(f'{e} - idx: {idx} | retries: {retries} - NHD Failed')
+                        #breakpoint()
                     break
             
-        if dem is None:
-            return
+        log_dict = {
+                    'idx' : idx, 'huc' : huc,
+                    'retries' : retries, 'NHD Failed' : nhd_failed, '3DEP Failed' : failed_3dep,
+                    'Both failed' : all([nhd_failed,failed_3dep])
+                   }
+
+        if (log_dict['NHD Failed']) | (log_dict['3DEP Failed']):
+            log_dict['geometry'] = geometry
+            log_dict['dem_resolution'] = dem_resolution
+            log_dict['wbd_crs'] = wbd_crs
+            log_dict['ndv'] = ndv
+            log_dict['output_dir'] = output_dir
+            log_dict['huc'] = huc
+            
         
+        if dem is None:
+            return(log_dict)
+
         # reproject and resample
         #dem = dask.delayed(dem.rio.reproject)( wbd_crs,
         dem = dem.rio.reproject( wbd_crs,
@@ -494,13 +524,64 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
             #dem = dem.rio.to_raster(dem_file_name,windowed=True,compute=False)
             dem = dem.rio.to_raster(dem_file_name,windowed=True,compute=True)
 
-            return(dem)
+            return(log_dict)
     
+    if retry_3dep:
+        log_file_paths = ( os.path.join(output_dir,f'{huc4}_{int(dem_resolution)}m','log_file.csv') for huc4 in huc4s )
+        input_logs = ( pd.read_csv(log_file_path,index_col=False) for log_file_path in log_file_paths )
+        input_log_save = pd.concat(input_logs)
+        input_log_save = input_log_save.reset_index(drop=True)
+        
+        def convert_to_shape(string):
+            try:
+                return(shapely.wkt.loads(string))
+            except TypeError:
+                return(Polygon())
+        
+        input_log = input_log_save.copy()
+
+        input_log.loc[:,'geometry'] = input_log.loc[:,'geometry'].apply(convert_to_shape)
+        
+        input_log = gpd.GeoDataFrame(input_log,geometry='geometry')
+        
+        input_log = input_log.loc[:,['geometry','dem_resolution','wbd_crs','ndv','output_dir','huc','idx']]
+        input_log = input_log.loc[~input_log.isna().any(axis=1),:]
+        input_log = input_log.astype({'dem_resolution':float,'wbd_crs':str,'ndv':float,'output_dir':str,'huc':str,'idx':int})
+
+        input_dict = input_log.T.values.tolist()
+
     # make list of operations to complete
     operations = [ dask.delayed(__retrieve_and_process_single_3dep_dem)(*inputs) for inputs in zip(*input_dict) ]
     
-    with TqdmCallback(desc=' Retrieve and process tiles'):
-        dask.compute(*operations)
+    retrieve_message = ' Retrieve and process tiles'
+    
+    if retry_3dep:
+        retrieve_message = ' RETRY:' + retrieve_message
+    
+    with TqdmCallback(desc=retrieve_message):
+        res = dask.compute(*operations)
+    
+    output_log = pd.DataFrame(res)
+
+    # impute new log entries into original log files
+    if retry_3dep:
+        input_log_save = input_log_save.loc[~input_log_save.loc[:,'idx'].isin(output_log.loc[:,'idx']),:]
+        output_log = pd.concat( (input_log_save,output_log))
+        output_log.sort_values('idx',inplace=True,axis=0,ignore_index=True)
+        output_log = output_log.reset_index(drop=True)
+    
+    failed_3dep = output_log.loc[:,'3DEP Failed'].sum()
+    failed_nhd = output_log.loc[:,'NHD Failed'].sum()
+    failed_both = output_log.loc[:,'Both failed'].sum()
+    
+    print(f'3DEP failed tiles: {failed_3dep} | NHD failed tiles: {failed_nhd} | Both failed tiles: {failed_both}')
+
+    # save new log files
+    for huc4 in huc4s:
+        log_file_path = os.path.join(output_dir,f'{huc4}_{int(dem_resolution)}m','log_file.csv')
+        
+        huc4_output_log = output_log.loc[output_log.loc[:,'huc'] == huc4,:]
+        huc4_output_log.to_csv(log_file_path,index=False)
 
     # merge into vrt and then tiff
     huc4_directories = [os.path.basename(f) for f in input_dict[4] ]
@@ -559,13 +640,13 @@ def manage_preprocessing( hucs_of_interest,
                           download_3dep=False,
                           tile_size=1000,
                           resolution=1,
-                          wbd_buffer=3000
+                          wbd_buffer=3000,
+                          retry_3dep=False
                         ):
     """
     This functions manages the downloading and preprocessing of gridded and vector data for FIM production.
 
     Args:
-        hucs_of_interest (str): Path to a user-supplied config file of hydrologic unit codes to be pulled and post-processed.
 
     """
 
@@ -636,9 +717,16 @@ def manage_preprocessing( hucs_of_interest,
         nhd_procs_list.append([nhd_raster_download_url, nhd_raster_extraction_path, nhd_vector_download_url, nhd_vector_extraction_path, overwrite_nhd_dem, overwrite_nhd_gdb])
 
     # Pull and prepare NHD data.
-    print(nhd_procs_list);exit()
-    with Pool(processes=num_workers) as pool:
-        pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    #print(nhd_procs_list);exit()
+    #print(nhd_procs_list)
+    #with Pool(processes=num_workers) as pool:
+    #    pool.map(pull_and_prepare_nhd_data, nhd_procs_list)
+    
+    # make list of operations to complete
+    operations = [ dask.delayed(pull_and_prepare_nhd_data)(*inputs) for inputs in nhd_procs_list ]
+    
+    with TqdmCallback(desc=' Retrieve and process NHD data'):
+        dask.compute(*operations)
 
     for huc in nhd_procs_list:
         try:
@@ -662,11 +750,12 @@ def manage_preprocessing( hucs_of_interest,
                                              output_dir=dem_3dep_data_dir,
                                              ndv=elev_raster_ndv, 
                                              num_workers=num_workers,
-                                             wbd_buffer=wbd_buffer
+                                             wbd_buffer=wbd_buffer,
+                                             retry_3dep = retry_3dep
                                             )
 
     # Create HUC list files.
-    build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)
+    #build_huc_list_files(path_to_saved_data_parent_dir, wbd_directory)
 
 
 if __name__ == '__main__':
@@ -684,6 +773,7 @@ if __name__ == '__main__':
     dem_group.add_argument('-t', '--tile-size', help='Length of square tile in meters to download 3DEP data at',required=False,default=1000, type=int)
     dem_group.add_argument('-r', '--resolution', help='Desired DEM resolution in meters',required=False,default=1,type=float)
     dem_group.add_argument('-b', '--wbd-buffer', help='Extra WBD buffer distance in meters to acquire',required=False,default=3000,type=float)
+    dem_group.add_argument('-rd', '--retry-3dep', help='Retry failed 3dep tiles',required=False,default=False,action='store_true')
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

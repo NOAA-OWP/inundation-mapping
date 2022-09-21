@@ -1,20 +1,42 @@
 #!/bin/bash -e
 
+# declare files
+mainFile=owp_3dep.tex
+bibFile=bibliography/owp_3dep_2022.bib
+#expandedFile=owp_3dep_expanded.tex
+#differenceFile=owp_3dep_expanded_diff.tex
+#originalExandedFile=owp_3dep_expanded_original.tex
+
+# record build directory
+buildDir=build
+
+# record parent path
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd $parent_path
 
-fullFile=owp_3dep.tex
-baseName="${fullFile%%.*}"
-extension="${fullFile#*.}"
+# get main file basename
+mainfile_base="${mainFile%%.*}"
 
-pdflatex "$fullFile"
-bibtex "$baseName".aux
-pdflatex "$fullFile"
-pdflatex "$fullFile"
+# compile document
+pdflatex -output-directory "$buildDir" "$mainFile"
+bibtex $buildDir/"$mainfile_base".aux
+pdflatex -output-directory "$buildDir" "$mainFile"
+pdflatex -output-directory "$buildDir" "$mainFile"
+
+# move pdf output
+mv $buildDir/"$mainfile_base".pdf "$mainfile_base".pdf
 
 # expands all tex files into one file
-#echo 'Lat-Expand to Create One Tex File ...'
-#/usr/bin/latexpand/latexpand --keep-comments --biber bibliography/owp_3dep_2022.bib owp_3dep.tex -o owp_3dep_expanded.tex
+#echo 'Latexpand to create one tex file ...'
+#latexpand --keep-comments --biber "$bibFile" "$mainFile" -o "$expandedFile"
 
-
+# makes difference file
+#if test -f "$originalExandedFile"; then
+#    echo 'Latexdiff to make a difference file'
+#    latexdiff "$originalExandedFile" "$expandedFile" > "$differenceFile"
+#    pdflatex "$differenceFile"
+#    bibtex "${differenceFile%%.*}".aux
+#    pdflatex "$differenceFile"
+#    pdflatex "$differenceFile"
+#fi
 

@@ -226,7 +226,7 @@ if __name__ == '__main__':
     parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=False,default='DEV')
     parser.add_argument('-l','--calibrated',help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir',required=False, default=False,action='store_true')
     parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.',required=True)
-    parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
+    parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all",nargs='+')
     parser.add_argument('-jh','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
     parser.add_argument('-jb','--job-number-branch',help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
     parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
@@ -266,7 +266,7 @@ if __name__ == '__main__':
                         )
 
     # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
-    if fim_version != "all":
+    if (fim_version != "all") & (not isinstance(fim_version,list)):
         previous_fim_list = [fim_version]
     else:
         if config == 'PREV':
@@ -315,6 +315,7 @@ if __name__ == '__main__':
                     # Loop through versions.
                     for version in previous_fim_list:
                         
+                        #print(version,type(version),previous_fim_list,type(previous_fim_list));exit()
                         version = os.path.basename(version)
                         
                         if config == 'DEV':

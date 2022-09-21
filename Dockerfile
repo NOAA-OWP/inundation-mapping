@@ -89,9 +89,9 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 ## install python 3 modules ##
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
-RUN pip install -U py3dep==0.13.3 tqdm==4.64.0 ## issues installing this in command below so installing here
-RUN pip install dask pygeohydro==0.13.3 statsmodels==0.13.2 awscli==1.25.60 ## issues installing this in command below so installing here
+RUN pip3 install -U pipenv && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy
+RUN pip install -U py3dep==0.13.3 tqdm==4.64.1 ## issues installing this in command below so installing here
+RUN pip install dask pygeohydro==0.13.3 statsmodels==0.13.2 awscli==1.25.60 boto3==1.24.66 ## issues installing this in command below so installing here
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /
