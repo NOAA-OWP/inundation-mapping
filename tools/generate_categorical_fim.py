@@ -295,6 +295,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     hydroid_list.append(nwm_crosswalked_hydroid)
                 except IndexError:
                     pass
+                
+            if len(hydroid_list) == 0:
+                continue
             print("NWM")
             print(site_ms_segments)
             print("Hydroids")
@@ -479,26 +482,54 @@ if __name__ == '__main__':
     start = time.time()
     if args['stage_based']:
         fim_dir = args['fim_version']
-        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search)        
+        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search)
+        elapsed_time = (end-start)/60
+        print(f'Finished creating flow files in {elapsed_time} minutes')
+    
+        # Generate CatFIM mapping
+        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished mapping in {elapsed_time} minutes')
+    
+        print("Post-processing TIFs...")
+        # Create log directory
+        log_dir = os.path.join(output_cat_fim_dir, 'logs')
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
+    
+        # Create error log path
+        log_file = os.path.join(log_dir, 'errors.log')
+        post_process_cat_fim_for_viz(number_of_jobs, output_mapping_dir, nws_lid_attributes_filename, log_file, fim_version)
+    
+        # Updating mapping status
+        print('Updating mapping status')
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+        
+        # Create CSV versions of the final shapefiles.
+        print('Creating CSVs')
+        reformatted_catfim_method = catfim_method.lower().replace('-', '_')
+        create_csvs(output_mapping_dir, reformatted_catfim_method)
+
     else:
         subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
-    end = time.time()
-    elapsed_time = (end-start)/60
-    print(f'Finished creating flow files in {elapsed_time} minutes')
-
-    # Generate CatFIM mapping
-    print('Begin mapping')
-    start = time.time()
-    subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
-    end = time.time()
-    elapsed_time = (end-start)/60
-    print(f'Finished mapping in {elapsed_time} minutes')
-
-    # Updating mapping status
-    print('Updating mapping status')
-    update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished creating flow files in {elapsed_time} minutes')
     
-    # Create CSV versions of the final shapefiles.
-    print('Creating CSVs')
-    reformatted_catfim_method = catfim_method.lower().replace('-', '_')
-    create_csvs(output_mapping_dir, reformatted_catfim_method)
+        # Generate CatFIM mapping
+        print('Begin mapping')
+        start = time.time()
+        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished mapping in {elapsed_time} minutes')
+    
+        # Updating mapping status
+        print('Updating mapping status')
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+        
+        # Create CSV versions of the final shapefiles.
+        print('Creating CSVs')
+        reformatted_catfim_method = catfim_method.lower().replace('-', '_')
+        create_csvs(output_mapping_dir, reformatted_catfim_method)
