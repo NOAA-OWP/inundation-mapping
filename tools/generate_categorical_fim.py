@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
+import rasterio
 import glob
 from generate_categorical_fim_flows import generate_catfim_flows
 from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
@@ -103,6 +104,55 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     flows_df.to_file(nws_lid_path)
 
 
+def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid):
+    # Open rem_path and catchment_path using rasterio.
+    rem_src = rasterio.open(rem_path)
+    catchments_src = rasterio.open(catchments_path)
+    rem_array = rem_src.read(1)
+    catchments_array = catchments_src.read(1)
+    
+    # Use numpy.where operation to reclassify rem_path on the condition that the pixel values are <= to hand_stage and the catchments
+    # value is in the hydroid_list.
+    reclass_rem_array = np.where((rem_array<=hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype('uint8')
+    
+    output_tif1 = os.path.join(lid_directory, lid + '_' + category + '_rem_reclass_' + huc + '.tif')
+    with rasterio.Env():
+        profile = rem_src.profile
+        profile.update(dtype=rasterio.uint8)
+        profile.update(nodata=10)
+        with rasterio.open(output_tif1, 'w', **profile) as dst:
+            dst.write(reclass_rem_array, 1)
+            
+    print(hydroid_list)
+
+    min_hydroid = min(hydroid_list)
+    max_hydroid = max(hydroid_list)
+    target_catchments_array = np.where((catchments_array >= min_hydroid) & (catchments_array <= max_hydroid) & (catchments_array != catchments_src.nodata), 1, 0).astype('uint8')
+
+    output_tif2 = os.path.join(lid_directory, lid + '_' + category + '_target_cats_' + huc + '.tif')
+    with rasterio.Env():
+        profile = catchments_src.profile
+        profile.update(dtype=rasterio.uint8)
+        profile.update(nodata=10)
+        with rasterio.open(output_tif2, 'w', **profile) as dst:
+            dst.write(target_catchments_array, 1)
+    
+    masked_reclass_rem_array = np.where((reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0)
+    
+    masked_reclass_rem_array = masked_reclass_rem_array.astype('uint8')
+    
+    # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
+    output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '.tif')
+
+    with rasterio.Env():
+        profile = rem_src.profile
+        profile.update(dtype=rasterio.uint8)
+        profile.update(nodata=10)
+        
+        with rasterio.open(output_tif, 'w', **profile) as dst:
+            dst.write(masked_reclass_rem_array, 1)
+    
+    
 def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search):
     
     stage_based = True
@@ -114,22 +164,22 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
     huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
     
     for huc in huc_dictionary:
+        
+        # Make output directory for huc.
+        huc_directory = os.path.join(workspace, huc)
+        if not os.path.exists(huc_directory):
+            os.mkdir(huc_directory)
+        
         if stage_based:  # Only need to read in hydroTable if running in alt mode.
             
-            # Get path to relevant synthetic rating curve.
-            hydroTable_path = os.path.join(fim_dir, huc, 'hydroTable.csv')
-            if not os.path.exists(hydroTable_path):
-                continue
-            hydroTable = pd.read_csv(
-                         hydroTable_path,
-                         dtype={'HUC':str,'feature_id':str,
-                                 'HydroID':str,'stage':float,
-                                 'discharge_cms':float,'LakeID' : int, 
-                                 'last_updated':object,'submitter':object,'adjust_ManningN':object,'obs_source':object}
-                        )
-
-            catchments_path = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+            catchments_path = os.path.join(fim_dir, huc, 'gw_catchments_reaches_filtered_addedAttributes.tif')
             if not os.path.exists(catchments_path):
+                continue
+            hydrotable_path = os.path.join(fim_dir, huc, 'hydroTable.csv')
+            if not os.path.exists(hydrotable_path):
+                continue
+            rem_path = os.path.join(fim_dir, huc, 'rem_zeroed_masked.tif')
+            if not os.path.exists(rem_path):
                 continue
             usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
             if not os.path.exists(usgs_elev_table):
@@ -148,6 +198,12 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
             
             #Convert lid to lower case
             lid = lid.lower()
+            
+            # Make lid_directory.
+            lid_directory = os.path.join(huc_directory, lid)
+            if not os.path.exists(lid_directory):
+                os.mkdir(lid_directory)
+
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
             #Check if stages are supplied, if not write message and exit. 
@@ -225,17 +281,26 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
             #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             segments = get_nwm_segs(metadata)        
             site_ms_segs = set(segments).intersection(ms_segs)
-            segments = list(site_ms_segs)    
+            site_ms_segments = list(site_ms_segs)    
+            
+            # Use hydroTable to determine hydroid_list from site_ms_segments.
+            hydrotable_df = pd.read_csv(hydrotable_path)
+            hydroid_list = []
+#            print(hydrotable_df.dtypes)
+            
+            for feature_id in site_ms_segments:
+                try:
+                    nwm_crosswalked_hydroid = hydrotable_df.loc[hydrotable_df['feature_id'] == int(feature_id), 'HydroID'].values[0]
+                    hydroid_list.append(nwm_crosswalked_hydroid)
+                except IndexError:
+                    pass
+            print("NWM")
+            print(site_ms_segments)
+            print("Hydroids")
+            print(hydroid_list)
+            print("")
+            print("")
         
-            # Subset by Hydroid
-            hydroid = str(hydroid)
-            subset_hydroTable = hydroTable.loc[hydroTable['HydroID'] == hydroid]
-
-            hand_stage_array = subset_hydroTable[["stage"]].to_numpy()
-            hand_flow_array = subset_hydroTable[["discharge_cms"]].to_numpy()
-            hand_stage_array = hand_stage_array[:, 0]
-            hand_flow_array = hand_flow_array[:, 0]
-                
             #if no segments, write message and exit out
             if not segments:
                 print(f'{lid} no segments')
@@ -252,7 +317,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     datum_adj_ft = 0.0
                 stage = stages[category]
                 
-                if len(hand_stage_array) > 0 and stage != None and datum_adj_ft != None and lid_altitude != None:
+                if stage != None and datum_adj_ft != None and lid_altitude != None:
                     # Determine datum-offset water surface elevation (from above).
                     datum_adj_wse = stage + datum_adj_ft + lid_altitude
                     datum_adj_wse_m = datum_adj_wse*0.3048  # Convert ft to m
@@ -260,6 +325,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
                     hand_stage = datum_adj_wse_m - lid_usgs_elev
                     print(hand_stage)
+                    
+                    # Produce extent tif hand_stage.
+                    produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid)
                     
                     # Extra metadata for alternative CatFIM technique.
                     stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
@@ -414,7 +482,7 @@ if __name__ == '__main__':
     start = time.time()
     if args['stage_based']:
         fim_dir = args['fim_version']
-        generate_stage_based_categorical_fim(output_flows_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search)        
+        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search)        
     else:
         subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search])
     end = time.time()
