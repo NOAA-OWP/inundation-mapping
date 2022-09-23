@@ -19,13 +19,13 @@ usage ()
     echo '  -r/--retry      : retries failed jobs'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -d/--denylist    : A file with line delimited list of files in branches directories to remove' 
-    echo '                    upon completion (see config/deny_gms_branches_min.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches_min.lst'    
+    echo '                    upon completion (see config/deny_gms_branches_prod.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'    
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited).'
     echo '                    A line delimited file also acceptable. HUCs must present in inputs directory.'
-	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
-	echo '                    at the initial load of the nwm_subset_streams.'
-	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
+    echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
+    echo '                    at the initial load of the nwm_subset_streams.'
+    echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
     echo
     exit
 }
@@ -85,7 +85,7 @@ then
 fi
 if [ "$deny_gms_branches_list" = "" ]
 then
-   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_min.lst
+   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_prod.lst
 fi
 
 if [ "$overwrite" = "" ]
@@ -216,17 +216,25 @@ if [ "$src_adjust_spatial" = "True" ]; then
 fi
 
 # -------------------
+## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO##
+if [ -f $deny_gms_branches_list ]; then
+    echo -e $startDiv"Cleaning up (Removing) files all branch zero for all HUCs"$stopDiv
+    date -u
+    $srcDir/gms/outputs_cleanup.py -d $outputRunDataDir -l $deny_gms_branches_list -b 0
+fi
+
+# -------------------
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
 echo
-echo "Start non-zero exit code checking"
+echo -e $startDiv"Start non-zero exit code checking"$stopDiv
 find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
 
 # -------------------
 ## REMOVE FAILED BRANCHES ##
 # Needed in case aggregation fails, we will need the logs
 echo
-echo "Removing branches that failed with Exit status: 61"
+echo -e $startDiv"Removing branches that failed with Exit status: 61"$stopDiv
 python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $outputRunDataDir/gms_inputs.csv
 
 echo "=========================================================================="
