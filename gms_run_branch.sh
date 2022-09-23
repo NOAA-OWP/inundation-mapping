@@ -216,7 +216,7 @@ if [ "$src_vrough_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC variable Manning's n routine"$stopDiv
     # Run SRC Variable Roughness routine
     Tstart
-    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit
+    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -j $jobLimit
     Tcount
 fi
 
