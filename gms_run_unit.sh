@@ -22,6 +22,8 @@ usage ()
     echo '  -r/--retry      : retries failed jobs'
     echo '  -d/--denylist   : file with line delimited list of files in huc directories to remove upon completion'
     echo '                   (see config/deny_gms_unit_prod.lst for a starting point)'
+    echo '                    -- Note: if you want all output files (aka.. no files removed),'
+    echo '                    use the word none as this value for this parameter.'
 	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
 	echo '                    at the initial load of the nwm_subset_streams.'
 	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    

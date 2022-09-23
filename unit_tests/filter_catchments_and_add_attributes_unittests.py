@@ -21,8 +21,8 @@ import filter_catchments_and_add_attributes as src
 
 # *************
 # Important: For this to work, when you run gms_run_branch.sh, you have to 
-# use deny_gms_branches_dev.lst or one that does not exist. Key files need to exist
-# for this unit test to work.
+# use deny_gms_branches_dev.lst or the word "none" for the deny list arguments
+# (unit and branch deny list parameters). Key files need to exist for this unit test to work.
 class test_filter_catchments_and_add_attributes(unittest.TestCase):
 
     '''

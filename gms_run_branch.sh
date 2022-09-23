@@ -20,6 +20,8 @@ usage ()
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -d/--denylist    : A file with line delimited list of files in branches directories to remove' 
     echo '                    upon completion (see config/deny_gms_branches_prod.lst for a starting point)'
+    echo '                    -- Note: if you want all output files (aka.. no files removed),'
+    echo '                    use the word none as this value for this parameter.'
     echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'    
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited).'
     echo '                    A line delimited file also acceptable. HUCs must present in inputs directory.'
