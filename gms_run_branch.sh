@@ -202,29 +202,39 @@ echo
 echo "Processing usgs gage aggregation"
 python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
-echo -e $startDiv"Estimating bankfull stage in SRCs"$stopDiv
+## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
+    echo -e $startDiv"Estimating bankfull stage in SRCs"$stopDiv
     # Run SRC bankfull estimation routine routine
+    Tstart
     time python3 /foss_fim/src/identify_src_bankfull.py -fim_dir $outputRunDataDir -flows $bankfull_flows_file -j $jobLimit
+    Tcount
 fi
 
-echo -e $startDiv"Applying variable roughness in SRCs"$stopDiv
+## RUN SYNTHETIC RATING CURVE VARIABLE ROUGHNESS ROUTINE ##
 if [ "$src_vrough_toggle" = "True" ]; then
+    echo -e $startDiv"Performing SRC variable Manning's n routine"$stopDiv
     # Run SRC Variable Roughness routine
+    Tstart
     time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -suff $vrough_suffix -j $jobLimit
+    Tcount
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ]; then
-    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
+    echo -e $startDiv"Performing SRC optimization using USGS rating curve database"$stopDiv
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
+    Tstart
     time python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    Tcount
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
-    echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
+    echo -e $startDiv"Performing SRC optimization using benchmark inundation point database"$stopDiv
+    Tstart
     time python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
+    Tcount
 fi
 
 # -------------------

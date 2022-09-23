@@ -15,6 +15,7 @@ from pathlib import Path
 from functools import reduce
 from multiprocessing import Pool
 from os.path import isfile, join, dirname, isdir
+from tqdm import tqdm
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -165,14 +166,19 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_bankfull.png',dpi=100, bbox_inches='tight')
         plt.close()
 
-def multi_process(src_bankfull_lookup, procs_list, log_file):
+def multi_process(src_bankfull_lookup, procs_list, log_file, verbose):
     ## Initiate multiprocessing
     print(f"Identifying bankfull stage for {len(procs_list)} hucs using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
-        map_output = pool.map(src_bankfull_lookup, procs_list)
+        #progress_bar = tqdm(total=len(procs_list[0]))
+        if verbose:
+            map_output = tqdm(pool.imap(src_bankfull_lookup, procs_list), total=len(procs_list))
+            tuple(map_output)  # fetch the lazy results
+        else:
+            map_output = pool.map(src_bankfull_lookup, procs_list)
     log_file.writelines(["%s\n" % item  for item in map_output])
 
-def run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,src_plot_option):
+def run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,verbose,src_plot_option):
     procs_list = []
 
     ## Print message to user and initiate run clock
@@ -217,7 +223,7 @@ def run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,src_plot_option):
     log_file.write('#########################################################\n\n')
 
     ## Pass huc procs_list to multiprocessing function
-    multi_process(src_bankfull_lookup, procs_list, log_file)
+    multi_process(src_bankfull_lookup, procs_list, log_file, verbose)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
@@ -232,6 +238,7 @@ if __name__ == '__main__':
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-flows','--bankfull-flow-input',help='NWM recurrence flows dir (flow units in CMS!!!)',required=True,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
+    parser.add_argument('-vb','--verbose',help='Optional verbose progress bar',required=False,default=None,action='store_true')
     parser.add_argument('-plots','--src-plot-option',help='OPTIONAL flag: use this flag to create src plots for all hydroids (helpful for evaluating). WARNING - long runtime',default=False,required=False, action='store_true')
 
     args = vars(parser.parse_args())
@@ -239,7 +246,8 @@ if __name__ == '__main__':
     fim_dir = args['fim_dir']
     bankfull_flow_filepath = args['bankfull_flow_input']
     number_of_jobs = args['number_of_jobs']
+    verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
     
     ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,src_plot_option)
+    run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,verbose,src_plot_option)

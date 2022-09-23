@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+import datetime as dt
+import re
 import os
 import sys
 import pandas as pd
@@ -7,14 +8,15 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shutil
+import traceback
+import warnings
 from functools import reduce
 from multiprocessing import Pool
 from os.path import isfile, join, dirname, isdir
-import shutil
-import warnings
 from pathlib import Path
-import datetime as dt
-import re
+from tqdm import tqdm
+
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -60,79 +62,87 @@ def variable_mannings_calc(args):
         print('Skipping --> ' + str(huc) + '  branch id: ' + str(branch_id))
         log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
     else:
-        if 'comp_ManningN' in df_src.columns:
-            df_src.drop(['channel_n','overbank_n','comp_ManningN','vmann_on','Discharge (m3s-1)_varMann'], axis=1, inplace=True) # drop these cols (in case vmann was previously performed)
-        
-        ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
-        df_src = df_src.merge(df_mann,  how='left', on='feature_id')
-        check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
-        if check_null > 0:
-            log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
+        try:
+            if 'comp_ManningN' in df_src.columns:
+                df_src.drop(['channel_n','overbank_n','comp_ManningN','vmann_on','Discharge (m3s-1)_varMann'], axis=1, inplace=True) # drop these cols (in case vmann was previously performed)
+            
+            ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
+            df_src = df_src.merge(df_mann,  how='left', on='feature_id')
+            check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
+            if check_null > 0:
+                log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
 
-        ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
-        df_src['comp_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
-        #print('Done calculating composite Manning n (' + channel_ratio_src_column + '): ' + str(huc))
+            ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
+            df_src['comp_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
+            #print('Done calculating composite Manning n (' + channel_ratio_src_column + '): ' + str(huc))
 
-        ## Check if there are any missing data in the composite ManningN column
-        check_null_comp = df_src['comp_ManningN'].isnull().sum()
-        if check_null_comp > 0:
-            log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
-        df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
+            ## Check if there are any missing data in the composite ManningN column
+            check_null_comp = df_src['comp_ManningN'].isnull().sum()
+            if check_null_comp > 0:
+                log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
+            df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
 
-        ## Define the channel geometry variable names to use from the src
-        hydr_radius = 'HydraulicRadius (m)'
-        wet_area = 'WetArea (m2)'
+            ## Define the channel geometry variable names to use from the src
+            hydr_radius = 'HydraulicRadius (m)'
+            wet_area = 'WetArea (m2)'
 
-        ## Calculate Q using Manning's equation
-        #df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
-        df_src['Discharge (m3s-1)_varMann'] = df_src[wet_area]* \
-        pow(df_src[hydr_radius],2.0/3)* \
-        pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
+            ## Calculate Q using Manning's equation
+            #df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
+            df_src['Discharge (m3s-1)_varMann'] = df_src[wet_area]* \
+            pow(df_src[hydr_radius],2.0/3)* \
+            pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
 
-        ## Set Q values to 0 and -999 for specified criteria (thalweg notch check happens in BARC)
-        # df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0,0,inplace=True)
-        # if 'Thalweg_burn_elev' in df_src:
-        #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
-        #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
+            ## Set Q values to 0 and -999 for specified criteria (thalweg notch check happens in BARC)
+            # df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0,0,inplace=True)
+            # if 'Thalweg_burn_elev' in df_src:
+            #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
+            #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
 
-        ## Use the default discharge column when vmann is not being applied
-        df_src['Discharge (m3s-1)_varMann'] = np.where(df_src['vmann_on']==False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']) # reset the discharge value back to the original if vmann=false
-        df_src['comp_ManningN'] = np.where(df_src['vmann_on']==False, df_src['ManningN'], df_src['comp_ManningN']) # reset the ManningN value back to the original if vmann=false
+            ## Use the default discharge column when vmann is not being applied
+            df_src['Discharge (m3s-1)_varMann'] = np.where(df_src['vmann_on']==False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']) # reset the discharge value back to the original if vmann=false
+            df_src['comp_ManningN'] = np.where(df_src['vmann_on']==False, df_src['ManningN'], df_src['comp_ManningN']) # reset the ManningN value back to the original if vmann=false
 
-        ## Output new SRC with bankfull column
-        df_src.to_csv(in_src_bankfull_filename,index=False)
+            ## Output new SRC with bankfull column
+            df_src.to_csv(in_src_bankfull_filename,index=False)
 
-        ## Output new hydroTable with updated discharge and ManningN column
-        df_src_trim = df_src[['HydroID','Stage','vmann_on','comp_ManningN','Discharge (m3s-1)_varMann']]
-        df_src_trim = df_src_trim.rename(columns={'Stage':'stage','comp_ManningN':'vmann_ManningN','Discharge (m3s-1)_varMann': 'vmann_discharge_cms'})
-        df_src_trim['ManningN'] = df_src_trim['vmann_ManningN'] # create a copy of vmann modified ManningN (used to track future changes)
-        df_src_trim['discharge_cms'] = df_src_trim['vmann_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
-        df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
+            ## Output new hydroTable with updated discharge and ManningN column
+            df_src_trim = df_src[['HydroID','Stage','vmann_on','comp_ManningN','Discharge (m3s-1)_varMann']]
+            df_src_trim = df_src_trim.rename(columns={'Stage':'stage','comp_ManningN':'vmann_ManningN','Discharge (m3s-1)_varMann': 'vmann_discharge_cms'})
+            df_src_trim['ManningN'] = df_src_trim['vmann_ManningN'] # create a copy of vmann modified ManningN (used to track future changes)
+            df_src_trim['discharge_cms'] = df_src_trim['vmann_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
+            df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
 
-        ## Check if BARC ran
-        # if not set(['orig_discharge_cms']).issubset(df_htable.columns):
-        #     df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
-        #     df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
-        # else:
+            ## Check if BARC ran
+            # if not set(['orig_discharge_cms']).issubset(df_htable.columns):
+            #     df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
+            #     df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
+            # else:
 
-        ## drop the previously modified discharge column to be replaced with updated version
-        df_htable.drop(['vmann_on','discharge_cms','ManningN','vmann_discharge_cms','vmann_ManningN'], axis=1, inplace=True) 
-        df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
+            ## drop the previously modified discharge column to be replaced with updated version
+            df_htable.drop(['vmann_on','discharge_cms','ManningN','vmann_discharge_cms','vmann_ManningN'], axis=1, inplace=True) 
+            df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
 
-        df_htable['vmann_on'] = np.where(df_htable['LakeID']>0, False, df_htable['vmann_on']) # reset the ManningN value back to the original if vmann=false
+            df_htable['vmann_on'] = np.where(df_htable['LakeID']>0, False, df_htable['vmann_on']) # reset the ManningN value back to the original if vmann=false
 
-        ## Output new hydroTable csv
-        if output_suffix != "":
-            htable_filename = os.path.splitext(htable_filename)[0] + output_suffix + '.csv' 
-        df_htable.to_csv(htable_filename,index=False)
+            ## Output new hydroTable csv
+            if output_suffix != "":
+                htable_filename = os.path.splitext(htable_filename)[0] + output_suffix + '.csv' 
+            df_htable.to_csv(htable_filename,index=False)
 
-        log_text += 'Completed: ' + str(huc)
+            log_text += 'Completed: ' + str(huc)
 
-        ## plot rating curves
-        if src_plot_option:
-            if isdir(huc_output_dir) == False:
-                os.mkdir(huc_output_dir)
-            generate_src_plot(df_src, huc_output_dir)
+            ## plot rating curves
+            if src_plot_option:
+                if isdir(huc_output_dir) == False:
+                    os.mkdir(huc_output_dir)
+                generate_src_plot(df_src, huc_output_dir)
+        except Exception as ex:
+            summary = traceback.StackSummary.extract(
+                    traceback.walk_stack(None))
+            print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
+            print(f"*** {ex}")                
+            print(''.join(summary.format()))    
+            log_text += 'ERROR --> ' + str(huc) + '  branch id: ' + str(branch_id) + " failed (details: " + (f"*** {ex}") + (''.join(summary.format())) + '\n'
 
     return(log_text)
 
@@ -174,14 +184,18 @@ def generate_src_plot(df_src, plt_out_dir):
 #        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png',dpi=175, bbox_inches='tight')
 #        plt.close()
 
-def multi_process(variable_mannings_calc, procs_list, log_file):
+def multi_process(variable_mannings_calc, procs_list, log_file, verbose):
     ## Initiate multiprocessing
     print(f"Applying variable Manning's n to SRC calcs for {len(procs_list)} hucs using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
-        map_output = pool.map(variable_mannings_calc, procs_list)
+        if verbose:
+            map_output = tqdm(pool.imap(variable_mannings_calc, procs_list), total=len(procs_list))
+            tuple(map_output)  # fetch the lazy results
+        else:
+            map_output = pool.map(variable_mannings_calc, procs_list)
     log_file.writelines(["%s\n" % item  for item in map_output])
 
-def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,src_plot_option):
+def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,verbose,src_plot_option):
     procs_list = []
 
     print('Writing progress to log file here: ' + str(join(fim_dir,'log_composite_n' + output_suffix + '.log')))
@@ -226,7 +240,7 @@ def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_
                         log_file.write('HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: ' + str(branch_dir) + ' - skipping this branch!!!\n')
 
         ## Pass huc procs_list to multiprocessing function
-        multi_process(variable_mannings_calc, procs_list, log_file)
+        multi_process(variable_mannings_calc, procs_list, log_file, verbose)
 
         ## Record run time and close log file
         end_time = dt.datetime.now()
@@ -243,6 +257,7 @@ if __name__ == '__main__':
     parser.add_argument('-mann','--mann-n-table',help="Path to a csv file containing Manning's n values by featureid",required=True,type=str)
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",default="",required=False,type=str)
     parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
+    parser.add_argument('-vb','--verbose',help='Optional verbose progress bar',required=False,default=None,action='store_true')
     parser.add_argument('-plots','--src-plot-option',help='OPTIONAL flag: use this flag to create src plots for all hydroids. WARNING - long runtime',default=False,required=False, action='store_true')
 
     args = vars(parser.parse_args())
@@ -252,6 +267,7 @@ if __name__ == '__main__':
     mann_n_table = args['mann_n_table']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
+    verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
-    run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,src_plot_option)
+    run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,verbose,src_plot_option)
