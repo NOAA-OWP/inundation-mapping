@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.(pending) - 2022-09-13 - [PR #681](https://github.com/NOAA-OWP/inundation-mapping/pull/681)
+## v4.0.9.3 - 2022-09-13 - [PR #681](https://github.com/NOAA-OWP/inundation-mapping/pull/681)
 
 Created a new tool to downloaded USGS 3Dep DEM's via their S3 bucket.
 
@@ -10,18 +10,18 @@ Other changes:
  - Some code file re-organization in favour of the new `data` folder which is designed for getting, setting, and processing data from external sources such as AWS, WBD, NHD, NWM, etc.
  - Added tmux as a new tool embedded inside the docker images.
 
-## Additions
+### Additions
 
 - `data`
    - `usgs`
       - `acquire_and_preprocess_3dep_dems.py`:  The new tool as described above. For now it is hardcoded to a set path for USGS AWS S3 vrt file but may change later for it to become parameter driven.
  - `create_vrt_file.py`: This is also a new tool that can take a directory of geotiff files and create a gdal virtual file, .vrt extention, also called a `virtual raster`. Instead of clipping against HUC4, 6, 8's raster files, and run risks of boundary issues, vrt's actual like all of the tif's are one giant mosaiced raster and can be clipped as one.
 
-## Removals
+### Removals
 
 - 'Dockerfile.prod`:  No longer being used (never was used)
 
-## Changes
+### Changes
 
 - `Dockerfile`:  Added apt install for tmux. This tool will now be available in docker images and assists developers.
 
