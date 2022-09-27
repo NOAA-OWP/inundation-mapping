@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 
 import os
+import glob
 import inspect
 import re
+import sys
 
-from os.path import splitext
+from concurrent.futures import as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from os.path import splitext
 
 import fiona
-import pandas as pd
 import numpy as np
+import pandas as pd
 import rasterio
+import utils.shared_variables as sv
 
-from rasterio.warp import calculate_default_transform, reproject, Resampling
 from pyproj.crs import CRS
+from rasterio.warp import calculate_default_transform, reproject, Resampling
+from tqdm import tqdm
 
 
 def getDriver(fileName):
@@ -71,7 +76,7 @@ def run_system_command(args):
 def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
 
     import geopandas as gp
-    from utils.shared_variables import CONUS_STATE_LIST, PREP_PROJECTION
+
 
     print("Subsetting " + wbd_gpkg + "...")
     # Read geopackage into dataframe.
@@ -82,12 +87,12 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
         state = row["STATES"]
         if state != None:  # Some polygons are empty in the STATES field.
             keep_flag = False  # Default to Fault, i.e. to delete the polygon.
-            if state in CONUS_STATE_LIST:
+            if state in sv.CONUS_STATE_LIST:
                 keep_flag = True
             # Only split if multiple states present. More efficient this way.
             elif len(state) > 2:
                 for wbd_state in state.split(","):  # Some polygons have multiple states, separated by a comma.
-                    if wbd_state in CONUS_STATE_LIST:  # Check each polygon to make sure it's state abbrev name is allowed.
+                    if wbd_state in sv.CONUS_STATE_LIST:  # Check each polygon to make sure it's state abbrev name is allowed.
                         keep_flag = True
                         break
             if not keep_flag:
@@ -95,7 +100,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
 
     # Overwrite geopackage.
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
-    gdf.crs = PREP_PROJECTION
+    gdf.crs = sv.PREP_PROJECTION
     gdf.to_file(multilayer_wbd_geopackage, layer=layer_name,driver='GPKG',index=False)
 
 
@@ -303,10 +308,18 @@ def concat_huc_csv(fim_dir,csv_name):
         print(f"Creating aggregate csv")
         concat_df = pd.concat(merged_csv)
         return concat_df
-      
 
 
+def progress_bar_handler(executor_dict, desc):
 
+    for future in tqdm(as_completed(executor_dict),
+                    total=len(executor_dict),
+                    desc=desc
+                    ):
+        try:
+            future.result()
+        except Exception as exc:
+            print('{}, {}, {}'.format(executor_dict[future],exc.__class__.__name__,exc))
 
 
 # #####################################
@@ -450,6 +463,53 @@ class FIM_Helpers:
 
     # -----------------------------------------------------------
     @staticmethod
+    def get_file_names(src_folder, file_extension):
+        '''
+        Process
+        ----------
+        Get a list of file names and paths matching the file extension
+        
+        Parameters
+        ----------
+            - src_folder (str)
+                Location of the files.
+
+            - file_extension (str)
+                All files matching this file_extension will be added to the list.
+
+        
+        Returns
+        ----------
+        A list of file names and paths
+        '''
+
+        if (not file_extension) and (len(file_extension.strip()) == 0):
+            raise ValueError(f"file_extension value not set")
+        
+        # remove the starting . if it exists
+        if (file_extension.startswith(".")):
+            file_extension = file_extension[1:]
+        
+        # test that folder exists
+        if (not os.path.exists(src_folder)):
+            raise ValueError(f"{file_extension} src folder of {src_folder} not found")
+        
+        if (not src_folder.endswith("/")):
+            src_folder += "/"
+        
+        glob_pattern = f"{src_folder}*.{file_extension}"
+        file_list = glob.glob(glob_pattern)
+    
+        if (len(file_list) == 0):
+            raise Exception(f"files with the extension of {file_extension} "\
+                            f" in the {src_folder} did not load or do not exist")
+        
+        file_list.sort()
+        
+        return file_list
+
+    # -----------------------------------------------------------
+    @staticmethod
     def print_current_date_time():
         '''
         Process:
@@ -462,12 +522,18 @@ class FIM_Helpers:
         Usage:
             from utils.shared_functions import FIM_Helpers as fh
             fh.print_current_date_time()
+
+        -------
+        Returns:
+            Current date / time as a formatted string
         
         '''
         d1 = datetime.now()
         dt_stamp = "Current date and time : "
         dt_stamp += d1.strftime("%Y-%m-%d %H:%M:%S")
         print (dt_stamp)
+        
+        return dt_stamp
 
     # -----------------------------------------------------------
     @staticmethod
@@ -485,6 +551,10 @@ class FIM_Helpers:
             from utils.shared_functions import FIM_Helpers as fh
             fh.print_current_date_time()
         
+        -------
+        Returns:
+            Duration as a formatted string
+            
         '''
         time_delta = (end_dt - start_dt)
         total_seconds = int(time_delta.total_seconds())
@@ -495,5 +565,25 @@ class FIM_Helpers:
 
         time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
         
-        print("Duration: " + time_fmt)
+        duration_msg = "Duration: " + time_fmt
+        print(duration_msg)
         
+        return duration_msg
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def print_start_header(friendly_program_name, start_time):
+        
+        print("================================")
+        dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
+        print(f"Start {friendly_program_name} : {dt_string}")
+        print()
+
+    # -----------------------------------------------------------
+    @staticmethod
+    def print_end_header(friendly_program_name, start_time, end_time):
+        
+        print("================================")
+        dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+        print (f"End {friendly_program_name} : {dt_string}")
+        print()
