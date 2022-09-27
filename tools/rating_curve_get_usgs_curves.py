@@ -74,16 +74,26 @@ def get_all_active_usgs_sites():
     
     #Cycle through each site and filter out if site doesn't meet criteria.
     acceptable_sites_metadata = []
+    code_list_to_write = [['usgs_site_code', 'nws_lid', 'coord_acc', 'coord_meth', 'alt_acc', 'alt_meth', 'site_type']]
     for metadata in metadata_list:
         #Get the usgs info from each site
         usgs_data = metadata['usgs_data']
                 
+        usgs_site_code = metadata['identifiers']['usgs_site_code']
+        
+        try:
+            nws_lid = metadata['identifiers']['nws_lid']
+        except:
+            nws_lid = None
+        
         #Get site quality attributes      
         coord_accuracy_code = usgs_data.get('coord_accuracy_code')        
         coord_method_code =   usgs_data.get('coord_method_code')
         alt_accuracy_code =   usgs_data.get('alt_accuracy_code')
         alt_method_code =     usgs_data.get('alt_method_code')
         site_type =           usgs_data.get('site_type')
+        
+        code_list_to_write.append([usgs_site_code, nws_lid, coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type])
         
         #Check to make sure that none of the codes were null, if null values are found, skip to next.
         if not all([coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type]):
@@ -102,7 +112,7 @@ def get_all_active_usgs_sites():
             
             #Append metadata of acceptable site to acceptable_sites list.
             acceptable_sites_metadata.append(metadata)  
-        
+    
     #Get a geospatial layer (gdf) for all acceptable sites
     dictionary, gdf = aggregate_wbd_hucs(acceptable_sites_metadata, Path(WBD_LAYER), retain_attributes = False)
     #Get a list of all sites in gdf
@@ -110,7 +120,7 @@ def get_all_active_usgs_sites():
     #Rename gdf fields
     gdf.columns = gdf.columns.str.replace('identifiers_','')
 
-    return gdf, list_of_sites, acceptable_sites_metadata
+    return gdf, list_of_sites, acceptable_sites_metadata, code_list_to_write
             
 ##############################################################################
 #Generate categorical flows for each category across all sites.
@@ -240,7 +250,13 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     #If 'all' option passed to list of gages sites, it retrieves all acceptable sites within CONUS.
     print('getting metadata for all sites')
     if list_of_gage_sites == ['all']:
-        acceptable_sites_gdf, acceptable_sites_list, metadata_list = get_all_active_usgs_sites()
+        acceptable_sites_gdf, acceptable_sites_list, metadata_list, code_list_to_write = get_all_active_usgs_sites()
+        
+        import csv 
+        with open(os.path.join(workspace, 'all_codes.csv'), 'w+', newline ='') as f: 
+            write = csv.writer(f) 
+            write.writerows(code_list_to_write) 
+            
     #Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:        
         #Define arguments to retrieve metadata and then get metadata from WRDS
