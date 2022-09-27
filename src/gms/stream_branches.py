@@ -606,7 +606,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             progress.update(1)
 
             # get current reach stream order and branch id
-            #current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
+            # current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
             current_reach_branch_id = self.at[current_reach_id,branch_id_attribute]
 
             # get upstream ids
@@ -632,7 +632,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
                     # find 
                     upstream_reaches_compare_values = self.loc[not_visited_upstream_ids,comparison_attributes]
-                    matching_value = comparison_function(upstream_reaches_compare_values)
+                    # matching_value = comparison_function(upstream_reaches_compare_values)
 
                     #==================================================================================
                     # If the two stream orders aren't the same, then follow the highest order, otherwise use arbolate sum

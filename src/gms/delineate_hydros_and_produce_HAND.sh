@@ -108,18 +108,18 @@ if [ -f $outputHucDataDir/LandSea_subset.gpkg ]; then
     echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber $current_branch_id"$stopDiv
     date -u
     Tstart
-
     gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LandSea_subset.gpkg $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif
     Tcount
 fi
 
 ## RASTERIZE LEVEE-PROTECTED AREAS POLYGON (IF APPLICABLE) ##
 if [ -f $outputHucDataDir/LeveeProtectedAreas_subset.gpkg ]; then
-    echo -e $startDiv"Rasterize levee-protected areas polygons $hucNumber $current_branch_id"$stopDiv
+    echo -e $startDiv"Rasterize levee-protected areas polygons $hucNumber $current_branch_id $max_order $max_order_branch"$stopDiv
     date -u
     Tstart
-
-    gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LeveeProtectedAreas_subset.gpkg $outputCurrentBranchDataDir/LeveeProtectedAreas_subset_$current_branch_id.tif
+    if [ "$max_order" = "10" ] && [ "$current_branch_id" = "$max_order_branch"]; then
+        gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LeveeProtectedAreas_subset.gpkg $outputCurrentBranchDataDir/LeveeProtectedAreas_subset_$current_branch_id.tif
+    fi
     Tcount
 fi
 

@@ -155,6 +155,10 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                            out_vector_files=out_stream_network_dissolved,
                                                            verbose=verbose)
 
+        stream_network_dissolved_max_order = stream_network.order_.max()
+        stream_network_dissolved_max_order_branch = stream_network[stream_network.order_==stream_network_dissolved_max_order]
+        print(stream_network_dissolved_max_order_branch, stream_network_dissolved_max_order)
+
         stream_network = stream_network.remove_branches_in_waterbodies(waterbodies=waterbodies,
                                                                        out_vector_files=out_stream_network_dissolved,
                                                                        verbose=False
