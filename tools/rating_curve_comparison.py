@@ -97,8 +97,7 @@ def generate_rating_curve_metrics(args):
             hydrotable = branch_hydrotable
         else:
             hydrotable = hydrotable.append(branch_hydrotable)
-        print('huc: ' + str(huc) + '  branch: ' + str(branch))
-    
+   
     # Join rating curves with elevation data
     #elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
     #hydrotable = hydrotable.merge(elev_table, on="HydroID")
@@ -216,7 +215,6 @@ def generate_rating_curve_metrics(args):
             # Melt dataframe
             usgs_pred_elev = pd.melt(usgs_pred_elev, id_vars=['location_id','feature_id','recurr_interval','discharge_cfs','HUC','HUC4','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
             nwm_recurr_data_table = nwm_recurr_data_table.append(usgs_pred_elev)
-            print(usgs_pred_elev.to_string())
 
             # Interpolate FIM elevation at USGS observations
             # fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
