@@ -97,7 +97,7 @@ def generate_rating_curve_metrics(args):
             hydrotable = branch_hydrotable
         else:
             hydrotable = hydrotable.append(branch_hydrotable)
-   
+
     # Join rating curves with elevation data
     #elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
     #hydrotable = hydrotable.merge(elev_table, on="HydroID")
