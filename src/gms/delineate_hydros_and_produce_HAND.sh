@@ -114,12 +114,10 @@ fi
 
 ## RASTERIZE LEVEE-PROTECTED AREAS POLYGON (IF APPLICABLE) ##
 if [ -f $outputHucDataDir/LeveeProtectedAreas_subset.gpkg ]; then
-    echo -e $startDiv"Rasterize levee-protected areas polygons $hucNumber $current_branch_id $max_order $max_order_branch"$stopDiv
+    echo -e $startDiv"Rasterize levee-protected areas polygons $hucNumber $current_branch_id"$stopDiv
     date -u
     Tstart
-    if [ "$max_order" = "10" ] && [ "$current_branch_id" = "$max_order_branch"]; then
-        gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LeveeProtectedAreas_subset.gpkg $outputCurrentBranchDataDir/LeveeProtectedAreas_subset_$current_branch_id.tif
-    fi
+    $srcDir/gms/rasterize_by_order.py -c $ncols -r $nrows -n $ndv --x-min $xmin --y-min $ymin --x-max $xmax --y-max $ymax -v $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -f $outputCurrentBranchDataDir/LeveeProtectedAreas_subset_$current_branch_id.tif -s $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -i $current_branch_id -o 10
     Tcount
 fi
 
