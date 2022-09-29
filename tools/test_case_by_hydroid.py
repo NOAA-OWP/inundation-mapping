@@ -38,9 +38,22 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
     
     for dicts in stats:
+        tot_pop = dicts['tn'] +dicts['fn'] + dicts['fp'] + dicts['tp']
+        if tot_pop == 0:
+            continue
+        print('tn is')
+        print(dicts['tn'])
+        print('fn is')
+        print(dicts['fn'])
+        print('fp is')
+        print(dicts['fp'])
+        print('tp is')
+        print(dicts['tp'])
         stats_dictionary = compute_stats_from_contingency_table(dicts['tn'], dicts['fn'], dicts['fp'], dicts['tp'], cell_area=100, masked_count= dicts['mp'])
         # Calls compute_stats_from_contingency_table from run_test_case.py
-
+        # if 'NA' in stats_dictionary.values():
+        #     continue
+            
 
         hydroid = dicts['HydroID']
         stats_dictionary['HydroID'] = hydroid
@@ -62,32 +75,112 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         obsPositive_area_km2 = round(float(stats_dictionary['obsPositive_area_km2']),2)
         obsNegative_area_km2 = round(float(stats_dictionary['obsNegative_area_km2']),2)
         positiveDiff_area_km2 = round(float(stats_dictionary['positiveDiff_area_km2']),2)
-        CSI = round(float(stats_dictionary['CSI']),2)
-        FAR = round(float(stats_dictionary['FAR']),2)
-        TPR = round(float(stats_dictionary['TPR']),2)
-        TNR = round(float(stats_dictionary['TNR']),2)
-        PND = round(float(stats_dictionary['PND']),2)
-        PPV = round(float(stats_dictionary['PPV']),2)
-        NPV = round(float(stats_dictionary['NPV']),2)
-        ACC = round(float(stats_dictionary['ACC']),2)
-        Bal_ACC = round(float(stats_dictionary['Bal_ACC']),2)
-        MCC = round(float(stats_dictionary['MCC']),2)
-        EQUITABLE_THREAT_SCORE = round(float(stats_dictionary['EQUITABLE_THREAT_SCORE']),2)
-        PREVALENCE = round(float(stats_dictionary['PREVALENCE']),2)
-        BIAS = round(float(stats_dictionary['BIAS']),2)
-        F1_SCORE = round(float(stats_dictionary['F1_SCORE']),2)
-        TP_perc = round(float(stats_dictionary['TP_perc']),2)
-        FP_perc = round(float(stats_dictionary['FP_perc']),2)
-        TN_perc = round(float(stats_dictionary['TN_perc']),2)
-        FN_perc = round(float(stats_dictionary['FN_perc']),2)
-        predPositive_perc = round(float(stats_dictionary['predPositive_perc']),2) 
-        predNegative_perc = round(float(stats_dictionary['predNegative_perc']),2)
-        obsPositive_perc = round(float(stats_dictionary['obsPositive_perc']),2)
-        obsNegative_perc = round(float(stats_dictionary['obsNegative_perc']),2)
-        positiveDiff_perc = round(float(stats_dictionary['positiveDiff_perc']),2)
-        masked_count = round(float(stats_dictionary['masked_count']),2)
-        masked_perc = round(float(stats_dictionary['masked_perc']),2)
-        masked_area_km2 = round(float(stats_dictionary['masked_area_km2']),2)
+        
+        CSI = stats_dictionary['CSI']
+        if CSI != 'NA':
+            CSI = round(CSI,2)
+
+        FAR = stats_dictionary['FAR']
+        if FAR != 'NA':
+            FAR = round(FAR,2)
+        
+        TPR = stats_dictionary['TPR']
+        if TPR != 'NA':
+            TPR = round(TPR,2)
+
+        TNR = stats_dictionary['TNR']
+        if TNR != 'NA':
+            TNR = round(TNR,2)
+
+        PND = stats_dictionary['PND']
+        if PND != 'NA':
+            PND = round(PND,2)
+
+        PPV = stats_dictionary['PPV']
+        if PPV != 'NA':
+            PPV = round(PPV,2)
+
+        NPV = stats_dictionary['NPV']
+        if NPV != 'NA':
+            NPV = round(NPV,2)
+
+        ACC = stats_dictionary['ACC']
+        if ACC != 'NA':
+            ACC = round(ACC,2)
+
+        Bal_ACC = stats_dictionary['Bal_ACC']
+        if Bal_ACC != 'NA':
+            Bal_ACC = round(Bal_ACC,2)
+
+        MCC = stats_dictionary['MCC']
+        if MCC != 'NA':
+            MCC = round(MCC,2)
+
+        EQUITABLE_THREAT_SCORE = stats_dictionary['EQUITABLE_THREAT_SCORE']
+        if EQUITABLE_THREAT_SCORE != 'NA':
+            EQUITABLE_THREAT_SCORE = round(EQUITABLE_THREAT_SCORE,2)
+
+        PREVALENCE = stats_dictionary['PREVALENCE']
+        if PREVALENCE != 'NA':
+            PREVALENCE = round(PREVALENCE,2)
+
+        BIAS = stats_dictionary['BIAS']
+        if BIAS != 'NA':
+            BIAS = round(BIAS,2)   
+
+        F1_SCORE = stats_dictionary['F1_SCORE']
+        if F1_SCORE != 'NA':
+            F1_SCORE = round(F1_SCORE,2)    
+
+        TP_perc = stats_dictionary['TP_perc']
+        if TP_perc != 'NA':
+            TP_perc = round(TP_perc,2) 
+
+        FP_perc = stats_dictionary['FP_perc']
+        if FP_perc != 'NA':
+            FP_perc = round(FP_perc,2)
+        
+        TN_perc = stats_dictionary['TN_perc']
+        if TN_perc != 'NA':
+            TN_perc = round(TN_perc,2)
+
+        FN_perc = stats_dictionary['FN_perc']
+        if FN_perc != 'NA':
+            FN_perc = round(FN_perc,2)
+
+        predPositive_perc = stats_dictionary['predPositive_perc']
+        if predPositive_perc != 'NA':
+            predPositive_perc = round(predPositive_perc,2)
+
+        predNegative_perc = stats_dictionary['predNegative_perc']
+        if predNegative_perc != 'NA':
+            predNegative_perc = round(predNegative_perc,2)
+
+        obsPositive_perc = stats_dictionary['obsPositive_perc']
+        if obsPositive_perc != 'NA':
+            obsPositive_perc = round(obsPositive_perc,2)
+
+        obsNegative_perc = stats_dictionary['obsNegative_perc']
+        if obsNegative_perc != 'NA':
+            obsNegative_perc = round(obsNegative_perc,2)
+
+        positiveDiff_perc = stats_dictionary['positiveDiff_perc']
+        if positiveDiff_perc != 'NA':
+            positiveDiff_perc = round(positiveDiff_perc,2)
+
+        masked_count = stats_dictionary['masked_count']
+        if masked_count != 'NA':
+            masked_count = round(masked_count,2)
+
+        masked_perc = stats_dictionary['masked_perc']
+        if masked_perc != 'NA':
+            masked_perc = round(masked_perc,2)
+
+        masked_area_km2 = stats_dictionary['masked_area_km2']
+        if masked_area_km2 != 'NA':
+            masked_area_km2 = round(masked_area_km2,2)
+
+        
         HydroID = stats_dictionary['HydroID']
 
 
@@ -169,7 +262,7 @@ if __name__ == "__main__":
         else:
             print(test_case_class.test_id)
             # counter = counter + 1
-            # if counter >=2:
+            # if counter >=3:
             #     break
             #print(test_case_class.test_id, end='\r')
 
@@ -196,8 +289,8 @@ if __name__ == "__main__":
                     print('filtering_rows')
                     #in_mem_df = in_mem_df.convert_dtypes()
                     #try find and reaplace with NAN then use dropna???might be beter way to do
-                    in_mem_df = in_mem_df[(in_mem_df['CSI']!= "NA") & (in_mem_df['FAR']!= "NA") & (in_mem_df['TPR']!= "NA") 
-                    & (in_mem_df['TNR']!= "NA") & (in_mem_df['PND']!= "NA")]
+                    # in_mem_df = in_mem_df[(in_mem_df['CSI']!= "NA") & (in_mem_df['FAR']!= "NA") & (in_mem_df['TPR']!= "NA") 
+                    # & (in_mem_df['TNR']!= "NA") & (in_mem_df['PND']!= "NA")]
                     
 
                     # & (in_mem_df['PPV']!= "NA")
@@ -220,7 +313,7 @@ if __name__ == "__main__":
                     
                     csv_output = pd.concat(concat_df_list, sort=False)
                     print(csv_output)
-                    csv_output = csv_output[(csv_output['CSI']!= "NA")]
+                    #csv_output = csv_output[(csv_output['CSI']!= "NA")]
                     print(csv_output.crs)
                     print(type(csv_output))
                     
@@ -229,7 +322,7 @@ if __name__ == "__main__":
 
     
     print('writing_to_gpkg')
-
+    
     #tmp_path = "/data/temp/caleb/test_data/ble_test_geom_error.gpkg"
     csv_output.to_file(csv, driver="GPKG")
 
