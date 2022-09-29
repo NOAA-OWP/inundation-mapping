@@ -229,12 +229,16 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--csv',
                         help='Path to folder to hold exported csv file.',
                         required=True)
+    parser.add_argument('-comp','--composite',
+                        help='If used, composite metrics will be pulled instead',
+                        required=False,default=None,action='store_true')
     ##Rob Notes
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     benchmark_category = args['benchmark_category']
     version = args['version']
     csv = args['csv']
+    composite = bool(args['composite'])
     
     # Execution code
     
@@ -269,7 +273,7 @@ if __name__ == "__main__":
             # Define the catchment geopackage that contains the hydroid and geometry of each catchment. 
             huc_gpkg = os.path.join(test_case_class.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
 
-            agreement_dict = test_case_class.get_current_agreements()
+            agreement_dict = test_case_class.get_current_agreements(composite)
             for mag in agreement_dict:
                 for agree_rast in agreement_dict[mag]:
                     print('performing_zonal_stats')
