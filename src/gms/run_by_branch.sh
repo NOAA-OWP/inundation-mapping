@@ -22,12 +22,6 @@ outputHucDataDir=$outputRunDataDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
 outputCurrentBranchDataDir=$outputBranchDataDir/$current_branch_id
 
-# set input files
-input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
-input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
-input_bathy_bankfull=$inputDataDir/$bankfull_input_table
-input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
-
 ## OVERWRITE
 if [ -d "$outputCurrentBranchDataDir" ];then
     if [ $overwrite -eq 1 ]; then

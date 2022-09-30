@@ -18,19 +18,13 @@ WBD_NATIONAL_URL = r'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography
 WBD_HU2_URL_PARENT = r'http://prd-tnm.s3-website-us-west-2.amazonaws.com/?prefix=StagedProducts/Hydrography/WBD/HU2/GDB'
 
 
-# -- Local Data paths -- #
-# For 10m (1/3 arc second)
-INPUT_DEMS_3DEP_10M_DIR = '/data/inputs/usgs/3dep_dems/10m'
-INPUT_DEMS_3DEP_10M_FIM_VRT = '/data/inputs/usgs/3dep_dems/10m/FIM_Seamless_DEM_10m.vrt'
-WBD_HUC4_DIR = '/data/inputs/wbd/HUC4'
-
-
 # -- Prefixes and Suffixes -- #
 NHD_URL_PREFIX = 'NHDPLUS_H_'
 NHD_RASTER_URL_SUFFIX = '_HU4_RASTER.7z'
 NHD_VECTOR_URL_SUFFIX = '_HU4_GDB.zip'
-NHD_RASTER_EXTRACTION_PREFIX = 'HRNHDPlusRasters'
-NHD_RASTER_EXTRACTION_SUFFIX = 'elev_cm.tif'
+
+    #NHD_RASTER_EXTRACTION_PREFIX = 'HRNHDPlusRasters'
+    #NHD_RASTER_EXTRACTION_SUFFIX = 'elev_cm.tif'
 
 NHD_VECTOR_EXTRACTION_PREFIX = 'NHDPLUS_H_'
 NHD_VECTOR_EXTRACTION_SUFFIX = '_HU4_GDB.zip'
@@ -69,22 +63,22 @@ ROUGHNESS_MIN_THRESH = 0.001 # min allowable adjusted roughness value (void valu
 os.environ['src_dir'] = '/foss_fim/src'
 os.environ['input_dir'] = 'data/inputs'
 
-os.environ['nhdplus_rasters_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_rasters')
+#os.environ['nhdplus_rasters_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_rasters')
 os.environ['nhdplus_vectors_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors')
 os.environ['nwm_dir'] = os.path.join(os.environ.get('input_dir'),'nwm_hydrofabric')
 os.environ['wbd_dir'] = os.path.join(os.environ.get('input_dir'),'wbd')
 os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahp_sites')
-os.environ['nhdplus_aggregate_dir'] = os.path.join(os.environ.get('input_dir'),'nhdplus_vectors_aggregate')
+os.environ['ahps_filename'] = os.path.join(os.environ.get('ahps_dir'),'nws_lid.gpkg')
 
-# File Paths
-os.environ['wbd_filename'] = os.path.join(os.environ.get('wbd_dir'),'WBD_National.gpkg')
+os.environ['usgs_3dep_dems_10m_5070'] = os.path.join(os.environ.get('input_dir'),'usgs/3dep_dems/10m_5070')
+os.environ['usgs_3dep_dems_10m_5070_vrt'] = os.path.join(os.environ.get('usgs_3dep_dems_10m_5070'),
+                                                    'fim_seemless_3dep_dem_10m_5070.vrt')
+
+os.environ['nwm_dir'] = os.path.join(os.environ.get('input_dir'),'nwm_hydrofabric')
 os.environ['nwm_streams_orig_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_flows_original.gpkg')
 os.environ['nwm_streams_all_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_flows.gpkg')
 os.environ['nwm_headwaters_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_headwaters.gpkg')
 os.environ['nwm_huc4_intersections_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_huc4_intersections.gpkg')
-os.environ['nhd_huc8_intersections_filename'] = os.path.join(os.environ.get('nwm_dir'),'nhd_huc8_intersections.gpkg')
-os.environ['ahps_filename'] = os.path.join(os.environ.get('ahps_dir'),'nws_lid.gpkg')
-os.environ['agg_nhd_headwaters_adj_fileName'] = os.path.join(os.environ.get('nhdplus_aggregate_dir'),'agg_nhd_headwaters_adj.gpkg')
-os.environ['agg_nhd_streams_adj_fileName'] = os.path.join(os.environ.get('nhdplus_aggregate_dir'),'agg_nhd_streams_adj.gpkg')
 os.environ['nwm_catchments_orig_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_catchments_original.gpkg')
 os.environ['nwm_catchments_all_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_catchments.gpkg')
+os.environ['nhd_huc8_intersections_filename'] = os.path.join(os.environ.get('nwm_dir'),'nhd_huc8_intersections.gpkg')
