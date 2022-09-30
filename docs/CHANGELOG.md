@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v3.0.36.0 - 2022-09-13 - [PR #679](https://github.com/NOAA-OWP/inundation-mapping/pull/679)
+
+Fixes thalweg notch created by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
+
+### Changes
+
+- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-2*(DEM cell size)) to clip stream network inside of DEM extent.
+
+<br/><br/>
+
 ## v3.0.35.1 - 2022-07-29 - [PR #646](https://github.com/NOAA-OWP/cahaba/pull/646)
 
 Patches and improvements for Flow-Based CatFIM and Stage-Based CatFIM scripts.
@@ -72,7 +83,6 @@ This PR adds a new option to the `/tools/generate_categorical_fim.py` script `-a
 
 <br/><br/>
 
-
 ## v3.0.33.0 - 2022-06-24 - [PR #618](https://github.com/NOAA-OWP/cahaba/pull/618)
 
 These changes introduce a PostgreSQL database solution for storing, processing, and accessing the point-based calibration data previously stored in a gpkg. The PostgreSQL enables faster processing and a flexible solution for continuously increasing the number of calibration points.
@@ -90,6 +100,19 @@ These changes introduce a PostgreSQL database solution for storing, processing, 
 - `src/src_adjust_usgs_rating.py`: simplified the `-debug` flag (action='store_true')
 - `src/src_roughness_optimization.py`: added placeholder variable creation (this is only needed to run the script for older FIM versions as they are now created by default in `add_crosswalk.py`)
 - *additional miscellaneous files updated to facilitate the PostgreSQL DB configuration on the production machine 
+
+<br/><br/>
+
+## v3.0.32.1 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
+
+This PR updates `tools` with `test_case_by_hydroid.py`, `pixel_counter.py`, `pixel_counter_functions.py`, `pixel_counter_wrapper.py`. `test_case_by_hydroid.py` assembles alpha stats on the catchment scale. Uses the class `test_case` from the file `run_test_case.py`. Outputs a csv to a specified location. 
+
+## Changes
+
+- `tools/`
+    - `test_case_by_hydroid.py`: New file created
+    - `pixel_counter_functions.py`: Added function `get_mask_value_counts`  to line 97
+    - `pixel_counter.py`:-Added additional option `agreement_raster`  to line 217
 
 <br/><br/>
 
@@ -143,7 +166,6 @@ Modifications to enforce consistent hydroTable.csv column dimensions for all HUC
 Addition of `correlation_analysis.py`, a tool to perform single varible analysis bewteen Sierra Test error and various indicator variables.
 
 <br/><br/>
-
 
 ## v3.0.28.2 - 2022-03-18 - [PR #575](https://github.com/NOAA-OWP/cahaba/pull/575)
 
