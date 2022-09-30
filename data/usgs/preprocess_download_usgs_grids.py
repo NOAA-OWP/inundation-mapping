@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-import urllib.request 
-from pathlib import Path
-from dotenv import load_dotenv
-import os
 import argparse
-import requests
-from collections import defaultdict
-import urllib
+import os
 import pandas as pd
+import requests
+import urllib
+import urllib.request 
+
+from collections import defaultdict
+from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 USGS_DOWNLOAD_URL = os.getenv("USGS_DOWNLOAD_URL")
