@@ -3,6 +3,7 @@
 NHDPlusBurnLineEvent_subset.gpkg
 #branch_id.lst
 #branch_polygons.gpkg
+LeveeProtectedAreas_subset.gpkg
 nhd_headwater_points_subset.gpkg
 #nld_subset_levees.gpkg
 #nwm_catchments_proj_subset.gpkg

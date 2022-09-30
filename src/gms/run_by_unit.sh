@@ -83,7 +83,7 @@ Tcount
 echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 date -u
 Tstart
-$($srcDir/gms/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $outputHucDataDir/nwm_headwaters.gpkg -c $outputHucDataDir/nwm_catchments_proj_subset.gpkg -t $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -v -s $dropLowStreamOrders -w $outputHucDataDir/nwm_lakes_proj_subset.gpkg)
+$srcDir/gms/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $outputHucDataDir/nwm_headwaters.gpkg -c $outputHucDataDir/nwm_catchments_proj_subset.gpkg -t $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -v -s $dropLowStreamOrders -w $outputHucDataDir/nwm_lakes_proj_subset.gpkg
 
 # test if we received a non-zero code back from derive_level_paths.py
 subscript_exit_code=$?
@@ -209,8 +209,7 @@ export xmax=$xmax
 export ymax=$ymax
 export ncols=$ncols
 export nrows=$nrows
-export max_order_branch=$max_order_branch
-export max_order=$max_order
+
 if [ $dropLowStreamOrders != 0 ]; then # only produce branch zero HAND if low stream orders are dropped
     $srcDir/gms/delineate_hydros_and_produce_HAND.sh "unit"
 else

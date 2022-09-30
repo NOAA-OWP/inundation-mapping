@@ -8,11 +8,11 @@ def rasterize_by_order(vector_filename, raster_filename, x_min, y_min, x_max, y_
     """
     Rasterizes polygon layers exceeding a stream order threshold
     """
-
+    
     streams = gpd.read_file(stream_layer)
 
-    # Rasterize if branch is at least the minimum order
-    if int(streams.loc[streams[branch_id_attribute]==branch_id, order_attribute]) >= min_order:
+    # Rasterize branch zero or if branch is at least the minimum order
+    if branch_id == 0 or int(streams.loc[streams[branch_id_attribute].astype(int)==branch_id, order_attribute].max()) >= min_order:
 
         # Open the data source and read in the extent
         source_ds = gdal.OpenEx(vector_filename)
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--nodata-value', help='NoData value', required=True)
     parser.add_argument('-s', '--stream-layer', help='Stream layer filename', required=True)
     parser.add_argument('-b', '--branch-id-attribute', help='Branch ID attribute name', required=False, default='levpa_id')
-    parser.add_argument('-i', '--branch-id', help='Branch ID', required='True')
+    parser.add_argument('-i', '--branch-id', help='Branch ID', type=int, required='True')
     parser.add_argument('-a', '--order-attribute', help='Stream order attribute name', required=False, default='order_')
     parser.add_argument('-o', '--min-order', help='Minimum order to process', type=int, required=False, default=10)
 
