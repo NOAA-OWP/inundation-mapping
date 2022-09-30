@@ -23,14 +23,18 @@ usage ()
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -r/--retry      : retries failed jobs'
     echo '  -ud/--unitDenylist : A file with line delimited list of files in UNIT (HUC) directories to remove'
-    echo '                    upon completion (see config/deny_gms_unit_default.lst for a starting point)'
-    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_default.lst'
+    echo '                    upon completion (see config/deny_gms_unit_prod.lst for a starting point)'
+    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_prod.lst'
+    echo '                    -- Note: if you want all output files (aka.. no files removed),'
+    echo '                    use the word none as this value for this parameter.'
     echo '  -bd/--branchDenylist : A file with line delimited list of files in branches directories to remove' 
-    echo '                    upon completion (see config/deny_gms_branches_min.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches_min.lst'    
+    echo '                    upon completion (see config/deny_gms_branches_prod.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'   
+    echo '                    -- Note: if you want all output files (aka.. no files removed),'
+    echo '                    use the word none as this value for this parameter.'
 	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
-	echo '                    at the initial load of the nwm_subset_streams.'
-	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
+    echo '                    at the initial load of the nwm_subset_streams.'
+    echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
     echo
     exit
 }
@@ -101,11 +105,11 @@ then
 fi
 if [ "$deny_gms_unit_list" = "" ]
 then
-   deny_gms_unit_list=/foss_fim/config/deny_gms_unit_default.lst
+   deny_gms_unit_list=/foss_fim/config/deny_gms_unit_prod.lst
 fi
 if [ "$deny_gms_branches_list" = "" ]
 then
-   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_min.lst
+   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_prod.lst
 fi
 if [ -z "$overwrite" ]
 then
