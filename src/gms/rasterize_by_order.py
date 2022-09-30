@@ -8,11 +8,11 @@ def rasterize_by_order(vector_filename, raster_filename, x_min, y_min, x_max, y_
     """
     Rasterizes polygon layers exceeding a stream order threshold
     """
-    
-    streams = gpd.read_file(stream_layer)
 
-    # Rasterize branch zero or if branch is at least the minimum order
-    if branch_id == 0 or int(streams.loc[streams[branch_id_attribute].astype(int)==branch_id, order_attribute].max()) >= min_order:
+    streams_df = gpd.read_file(stream_layer, ignore_geometry=True)
+
+    # Rasterize if branch is at least the minimum order
+    if streams_df.loc[streams_df[branch_id_attribute].astype(int)==branch_id, order_attribute].max() >= min_order:
 
         # Open the data source and read in the extent
         source_ds = gdal.OpenEx(vector_filename)

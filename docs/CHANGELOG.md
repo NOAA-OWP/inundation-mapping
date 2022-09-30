@@ -2,17 +2,23 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## [Version number to be assigned] - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
+## v4.[number to be assigned] - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
 
-Masks levee-protected areas from Relative Elevation Model
+Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold (default order 10)
 
 ### Additions
 
-- `src/gms/delineate_hydros_and_produce_HAND.sh`
-   - Reprojects and creates raster subset of levee-protected areas from polygon layer
-   - Uses that raster to mask/remove those areas from the Relative Elevation Model
+- `src/gms/`
+   - `delineate_hydros_and_produce_HAND.sh`
+      - Reprojects and creates HUC-level raster of levee-protected areas from polygon layer
+      - Uses that raster to mask/remove those areas from the Relative Elevation Model
+   - `rasterize_by_order.py`
+      - Subsets levee-protected area branch-level raster if branch 0 or if order exceeds a threshold
+- `config/`
+   - `deny_gms_branches_default.lst`, and `deny_gms_branches_min.lst`: Added LeveeProtectedAreas_subset_{}.tif
 
 ### Changes
+
 - `src/gms/delineate_hydros_and_produce_HAND.sh`
    - Fixes a bug in ocean/Great Lakes masking
 
