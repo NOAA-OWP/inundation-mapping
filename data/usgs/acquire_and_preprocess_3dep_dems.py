@@ -63,7 +63,6 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
             If retry is True and the file exists (either the raw downloaded DEM and/or)
             the projected one, then skip it
     '''
-
     # -------------------
     # Validation
     total_cpus_available = os.cpu_count() - 1

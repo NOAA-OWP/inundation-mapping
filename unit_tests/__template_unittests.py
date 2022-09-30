@@ -78,7 +78,6 @@ class test_<Your original source python file name>(unittest.TestCase):
     #    Notes about what the test is and the expected results (or expected exception if applicable)
     #    '''
     #   #global params_file
-    #   helpers.print_unit_test_function_header()
         
     #   params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
 
