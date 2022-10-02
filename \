@@ -285,37 +285,36 @@ Work by \citet{gesch2014accuracy},\citep{gesch2007digital}, and \citet{dobbs2010
 \citet{gesch2014accuracy} identified that the \ac{NED} 1/3 arc-second \ac{DEM}, as of April 2013, had a mean error of -0.29 \ac{m} with an \ac{RMSE} of 1.55 \ac{m} when compared to over 25 thousand reference points. 
 At the time of evaluation, the \ac{NED} was subject to legacy, lower quality data sources dating almost a century in the past \citep{sugarbaker20143d,gesch2014accuracy,gesch2007digital}.
 This reduction in error and its impact on people and commerce \citep{dewberry2011final} motivated action on collection of elevation data from higher quality data sources \citep{sugarbaker20143d}. 
-Assessments of point accuracy \citep{callahan2022vertical,kim2022absolute}
 
 %%% 3DEP AND LIDAR %%%%%
-%%% NEED LIDAR REFERENCES %%%%
 \ac{3DEP} is a national, multi-organizational effort by the \ac{NDEP} to survey elevations with high quality sensors in response to growing stakeholder needs on a recurring collection cycle of no greater than 8 \acp{year} \citep{dewberry2011final,snyder2013national,sugarbaker20143d}.
 \ac{3DEP} leverages two main collection technologies including \ac{LiDAR} for the \ac{CONUS}, \ac{HI}, and \ac{US} territories as well as \ac{InSAR} for \ac{AK}.
 \ac{LiDAR}, the collection source of focus in this study, is a light reflection technology that beams concentrated powerful light and receives the return while recording the travel time and intensity of return. 
-\ac{LiDAR} sensors are mounted on top of a variety mobile or static platforms whose positions are geo-tracked as it collects \ac{LiDAR} returns.
+\ac{LiDAR} sensors are mounted on top of a variety air, ground, and water vehicles whose positions are geo-tracked as it collects \ac{LiDAR} returns.
 The travel time of the returns, along with knowledge of the speed of light, serve as a relative positioning of the target(s) referenced to a common vertical datum while the intensity serves as an indicator of what the target(s) represent.
-The relationship of return intensities with respect to travel time/distance from the \ac{LiDAR} wave forms which can be indicative of vegetation or other \acp{LULC} that reflect signals at varying distances and magnitudes and influence elevation errors \citep{gesch2014accuracy}.
+The relationship of return intensities with respect to travel time/distance from the \ac{LiDAR} wave forms which can be indicative of vegetation or other land covers that reflect signals at varying distances and magnitudes and influence elevation errors \citep{gesch2014accuracy}.
 These wave forms can be conserved or compressed via discretization.
-The horizontal and vertical accuracies and the horizontal resolutions of terrain observations derived from \ac{LiDAR}, and even the consequential economic benefits \citep{dewberry2011final,dewberry2022nation}, are dependent on a variety of sensor, platform, target, and collection specifications and practices such as nominal pulse spacing, nominal pulse density, and \ac{LULC} of the target \citep{heidemann2018lidar,passalacqua2015analyzing,smith2019determining,salach2018accuracy,gesch2014accuracy}.
-\ac{LiDAR} produces point cloud datasets which are scattered, geo-referenced points representing full wave forms or discretized return intensities.
-Point clouds must undergo a series of operations to produce analysis ready, seamless \acp{DEM} \citep{passalacqua2015analyzing}.
- - Assessment of Lidar \citep{tarolli2014high,kim2022absolute,stoker2022accuracy,callahan2022vertical,salach2018accuracy,passalacqua2015analyzing}
+The quality of terrain observations derived from \ac{LiDAR} are dependent on a variety of sensor, platform, and collection specifications and practices such as nominal pulse spacing and nominal pulse density \citep{heidemann2018lidar}.
 
-%%%% 3DEP DEMs and Accuracies %%%%
-\ac{3DEP} extends \ac{TNM} to include a 1/27 arc-second (1 \ac{m}), \ac{LiDAR} derived \ac{DEM} product for \ac{CONUS}, \ac{HI}, and \ac{US} territories as well as a 1/2 arc-second (5 \ac{m}) \ac{DEM} for \ac{AK} derived from \ac{InSAR} \citep{sugarbaker20143d,stoker2015usgs}.
-To create bare earth \acp{DEM}, \ac{LiDAR} observations must undergo a series of processes that filter out returns from vegetation, anthropogenic, and other features then grid the observations with resampling methods \citep{passalacqua2015analyzing}.
-The 1 \ac{m} \ac{3DEP} product is a \ac{hydro-flattened}, topographic, and bare-earth raster \ac{DEM} gridded to 1 \ac{km} square shaped tiles with 6 pixels of overlap \citep{arundel20151}.
+\ac{3DEP} extends \ac{TNM} to include a 1/27 arc-second (1 \ac{m}), \ac{LiDAR} derived \ac{DEM} product for \ac{CONUS}, \ac{HI}, and \ac{US} territories as well as a 1/2 arc-second (5 \ac{m}) \ac{DEM} for \ac{AK} derived from \ac{InSAR}.
+To create bare earth \acp{DEM}, \ac{LiDAR} observations must undergo a series of processes that filter out returns from vegetation, anthropogenic, and other features then grid the observations with resampling methods.
+The 1 \ac{m} \ac{3DEP} product is a hydro-flattened, topographic bare-earth raster \ac{DEM} gridded to 1 \ac{km} square shaped tiles with 6 pixels of overlap \citep{arundel20151}.
 Hydro-flattening refers to a process in which hydrologic features such as lakes, reservoirs, streams, rivers, and more are flattened in elevation for bathymetric regions from lower bank to lower bank represented by breaklines \citep{archuleta2017national,maune2018digital}.
 This flattening excludes along gradient directions, parallel to the direction of the breaklines, for hydrologic features that naturally exhibit water conveyance such as streams, rivers, and long reservoirs \citep{arundel20151}.
 According to specifications, the horizontal accuracy of 1 \ac{m} \ac{3DEP} is expected to be within 1 \ac{m} while the vertical accuracies are within 19.6 \ac{cm} and 30 \ac{cm} at the 95\% confidence interval for non-vegetative and vegetative regions, respectively \citep{arundel20151}.
 Non-vegetative vertical accuracies fall within 10 \ac{cm} \ac{RMSE} \citep{arundel20151}.
-Assessments of \ac{3DEP} point clouds have yielded satisfactory results
-\begin{comment}
- - Assessments of 3DEP \citep{stoker2022accuracy,callahan2022vertical,kim2022absolute}
+%%%% assessments on Elevation data %%%%
+ - Assessments of 3DEP \citep{stoker2022accuracy,kim2020positional,chirico2020evaluating,callahan2022vertical,scott2022statewide,dobbs2010evaluation,kim2022absolute}
  - Assessment of airborne Lidar on bathymetry data quality \citep{hilldale2008assessing}.
+ - Assessment of Lidar \citep{tarolli2014high,kim2022absolute}
+
+
+\begin{comment}
+
 
 %%%% FIM studies on importance of Lidar and elevation data %%%%
-As previously stated, topographic information is of primary importance to the quality of \acp{FIM}.
+Numerous reports and academic studies discuss the principal effect that topographic data quality has on the quality of \ac{FIM}.
+
 Uncertainty in FIM \citep{merwade2008uncertainty} including data sources, gridding, resampling, resolution, mosaicing, hydrologic conditioning, and more.
 
 % Need to revise references to dewberry2011final in liu of new report dewberry2022nation.
@@ -344,7 +343,7 @@ As the 1 \ac{m} \ac{3DEP} product rapidly approaches full \ac{CONUS} coverage in
 We will investigate utilizing \ac{3DEP} data for \ac{HAND} computation to generate the \ac{FIM} hydrofabric.
 Additionally, we investigate the utility of varying spatial resolutions from 1, 3, 5, 10, 15, and 20 \ac{m}.
 \ac{HAND} depends on the drainage assumptions which requires \acp{DEM} to undergo a long series of enforcement processes to ensure monotonically decreasing elevations with hydrologically correct flow directions \citep{garousi2019terrain,nobre2011height,nobre2016hand,aristizabal2022extending}.
-The resampling of \acp{DEM} into varying spatial resolutions could interact with these \ac{hydro-conditioning} operations thus influencing the \ac{FIM} hydrofabric and the resulting quality of the \acp{FIM} produced.
+The resampling of \acp{DEM} into varying spatial resolutions could interact with these hydro-conditioning operations thus influencing the \ac{FIM} hydrofabric and the resulting quality of the \acp{FIM} produced.
 As validation, we utilize \ac{1D} \ac{HEC-RAS} modeled flood inundation extents from both the \ac{BLE} published by \ac{InFRM} and from a novel package that automates the generation of \ac{FIM} from existing \ac{1D} \ac{HEC-RAS} models.
 As a third source of validation, we utilize proprietary \ac{FIM} derived from remote sensing earth observation \ac{SAR} furnished by ICEYE.
 By varying the spatial resolution of \ac{3DEP} \acp{DEM}, we seek to understand the relationship between spatial resolution and \ac{FIM} skill produced from \ac{HAND} that requires significant \ac{DEM} manipulations to satisfy inherent assumptions. 
@@ -358,7 +357,7 @@ By varying the spatial resolution of \ac{3DEP} \acp{DEM}, we seek to understand 
 \label{sec:material_and_matheds}
 %
 \ac{HAND} assumes monotonically decreasing elevations with hydrologically relevant flow paths ensuring all cells in a region drain \citep{renno2008hand,nobre2011height,nobre2016hand}.
-This requires the use of extensive \ac{hydro-conditioning} techniques on \acp{DEM} to enforce drainage and agreement with existing hydrography \citep{aristizabal2022extending,maidment2017conceptual,liu2016cybergis,liu2020height}.
+This requires the use of extensive hydro-conditioning techniques on \acp{DEM} to enforce drainage and agreement with existing hydrography \citep{aristizabal2022extending,maidment2017conceptual,liu2016cybergis,liu2020height}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{\ac{3DEP}}
@@ -553,11 +552,6 @@ This research did not receive any specific grant from funding agencies in the pu
 \acro{NGS}{National Geodetic Survey}
 \acro{NDEP}{National Digital Elevation Program}
 \acro{year}{yr}
-\acro{hydro-conditioning}{hydrological conditioning}
-\acro{hydro-conditioned}{hydrologically conditioned}
-\acro{hydro-flattening}{hydrological flattening}
-\acro{hydro-flattened}{hydrologically conditioned}
-\acro{LULC}{land use/land cover}
 \end{acronym}
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

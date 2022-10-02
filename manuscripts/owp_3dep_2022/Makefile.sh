@@ -14,6 +14,9 @@ buildDir=build
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd $parent_path
 
+# clear build directory of intermediate files
+rm -f $buildDir/*
+
 # get main file basename
 mainfile_base="${mainFile%%.*}"
 
