@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.(pending) - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
+
+- Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
+- Change default for params_template.env -> src_adjust_spatial="False", back to default of "True"
+- Fixed an infinite loop when src_adjust_usgs_rating.py was unable to talk to the calib db.
+- Fixed src_adjsust_usgs_rating.py for when the usgs_elev_table.csv may not exist.
+
+### Changes
+
+- `gms_run_branch.sh`:  removed some "time" command in favour of using fim commands from bash_functions.sh which give better time and output messages.
+
+- `config`
+    - `deny_gms_unit_prod.lst`: Commented out LandSea_subset.gpkg as some HUCs need that file in place.
+    - `params_template.env`: Changed default src_adjust_spatial back to True
+
+- `src`
+    - `src_adjust_spatial_obs.py`:  Added code to a while loop (line 298) so it is not an indefinite loop that never stops running. It will now attempts to contact the calibration db after 6 attempts. Small adjustments to output and logging were also made and validation that a connection to the calib db was actually successful.
+    - `src_adjust_usgs_rating.py`: Discovered that a usgs_elev_df might not exist (particularly when processing was being done for hucs that have no usgs guage data). If the usgs_elev_df does not exist, it no longer errors out.
+
+<br/><br/>
+
 ## v4.0.9.4 - 2022-09-30 - [PR #691](https://github.com/NOAA-OWP/inundation-mapping/pull/691)
 
 Cleanup Branch Zero output at the end of a processing run. Without this fix, some very large files were being left on the file system. Adjustments and cleanup changed the full BED output run from appx 2 TB output to appx 1 TB output.
