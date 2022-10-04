@@ -93,7 +93,7 @@
 %% TITLE 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\title{On the Effects of Varying Spatial Resolutions of 3DEP Data on Flood Inundation Maps Produced from Height Above Nearest Drainage}
+\title{On the Effects of Varying Spatial Resolutions of 3DEP Data on Flood Inundation Extents Produced from Height Above Nearest Drainage}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% AUTHORS
@@ -255,20 +255,21 @@ While streamflow is an important variable for engineering and scientific applica
 %%%% Introduces and motivates HAND %%%%
 The \ac{SWE}, a system of two hyperbolic partial differential equations, formally govern the flow of fluvial surface water by conserving both mass (first equation) and momentum (second equation) and can be expressed in both the \ac{1D} (Saint Venant Equations) and \ac{2D} forms.
 Solving this system in full \ac{2D} form requires numerical methods that can be very cost prohibitive and numerically unstable in an operational setting across continental-scales at high spatial discretizations (10 \ac{m} or higher).
-This use case motivates the implementation of an inundation proxy, also known as a zero-physics or a simplified conceptual model, that is agnostic to the \acp{SWE} while still computing accurate fluvial inundation extents and depths for this problem \citep{teng2015rapid}.
+This use case motivates the implementation of an inundation proxy, also known as a zero-physics or a simplified conceptual model, that is agnostic to the \acp{SWE} while still computing accurate fluvial inundation extents and depths for this problem \citep{teng2015rapid,bates2000simple}.
 \ac{HAND} detrends elevations within \acp{DEM} to compute drainage potentials by normalizing elevations to the nearest, relevant drainage line instead of datums that represent mean sea level \citep{renno2008hand,nobre2011height,nobre2016hand}.
 \ac{HAND} as a terrain index has been used extensively for \ac{FIM} purposes from both modeled or observed stream flows and stages \citep{nobre2016hand,afshari2018comparison,garousi2019terrain,johnson2019integrated,zheng2018geoflood,zheng2018river,zhang2018comparative,teng2015rapid,li2022accounting,li2020evaluation}, as well as for assisting the remote sensing detection of fluvial inundation \citep{aristizabal2020high,shastry2019using,aristizabal2021mapping,huang2017comparison,twele2016sentinel}.
 \ac{HAND} operates as an inundation proxy by thresholding the relative elevation (or \ac{HAND}) values with a singular river stage value for each catchment corresponding to the drainage area of a given river reach \citep{nobre2016hand,garousi2019terrain,johnson2019integrated,zheng2018geoflood,teng2015rapid,li2020evaluation,liu2016cybergis,maidment2017conceptual,liu2018cybergis,liu2020height,liu2018review}.
 When used to generate inundation extents and depths from streamflow, reach-averaged \ac{SRC} sample geometric variables along an entire reach and normalize using the length of the reach to create stage-discharge relationships \citep{zheng2018river,aristizabal2022extending,godbout2019error}.
 These relationships depend on a friction parameter, Manning's n, and used to convert streamflows to stages for eventual \ac{2D} mapping with \ac{HAND}.
-Numerous investigations have validated the use of \ac{HAND} for flood mapping applications as a suitable alternative to more sophisticated physics-based techniques for large scale and high resolution use cases \citep{johnson2019integrated,li2020evaluation,li2022comparative,aristizabal2022extending,nobre2016hand,godbout2019error,afshari2018comparison,zhang2018comparative,teng2015rapid,teng2017flood,diehl2021improving,hocini2021performance}.
+Numerous investigations have validated the use of \ac{HAND} for flood mapping applications as a suitable alternative to more sophisticated physics-based techniques for large scale and high resolution use cases \citep{johnson2019integrated,li2020evaluation,li2022comparative,aristizabal2022extending,nobre2016hand,godbout2019error,afshari2018comparison,zhang2018comparative,teng2015rapid,teng2017flood,diehl2021improving,hocini2021performance,bates2003optimal}.
 
 %%%% Motivates and introduces OWP FIM %%%%
 Several prior and active large-scale \ac{HAND} implementations catered to operational \ac{EWS} applications including the \ac{NFIE} \citep{maidment2017conceptual,liu2016cybergis,liu2018cybergis}, GeoFlood \citep{zheng2018geoflood,hocini2021performance,d2022identification,carruthers2021assessment,zheng2022application}, and \ac{PyGFT}, i.e. \ac{GIS} \citep{petrochenkov2020pygft,verdin2016software}.
 The \ac{NFIE} was a broad, inter-institutional, and pioneering effort to apply HAND to the initial versions of the \ac{NWM} which leveraged 1/3 arc-second (10 \ac{m}) seamless elevation data available at the time \citep{maidment2017conceptual,liu2016cybergis,liu2018cybergis} from the \ac{USGS}'s \ac{NED} \citep{gesch2002national,gesch2007digital}.
 \citet{zheng2018geoflood} applied HAND for operational applications with 1/27 arc-second (1 \ac{m}) elevation data with a novel least cost, geodesic based stream delineation method \citep{passalacqua2010geometric,passalacqua2012automatic,zheng2018geoflood,zheng2019automatic,carruthers2021assessment,d2022identification,zheng2022application}.
 For applications with the \ac{NWM}, an advanced version of \ac{HAND} coupled with the use of \acp{SRC}, known as \ac{OWP} \ac{FIM}, converts \ac{NWM} analysis, reanalysis, and forecast streamflows to river stages and fluvial inundation depths and extents on an operational basis to \ac{CONUS} while extending the modeling domain to \ac{PR} and \ac{HI} \citep{aristizabal2022extending,inundationMapping2022}.
-\ac{OWP} \ac{FIM} utilizes some of the latest datasets including the \ac{NHDPlusHR} \citep{moore2019user}, \ac{NLD} \citep{engineers2016national}, and the \ac{NWM} \ac{V2.1} hydrofabric \citep{water2022nwm,noaa2016national,nwm2022hydrofabric,gochis2021wrf} to enforce drainage, hydrologically relevant features such as levees, and conflation with the forecast stream network \citep{aristizabal2022extending,inundationMapping2022}.
+\ac{OWP} \ac{FIM} utilizes some of the latest datasets including the \ac{NHDPlusHR} \citep{moore2019user}, \ac{NLD} \citep{engineers2016national}, and the \ac{NWM} \ac{V2.1} hydrofabric \citep{water2022nwm,noaa2016national,nwm2022hydrofabric,gochis2021wrf}.
+These datasets enforce hydrologically relevant features such as levees and the general location of stream lines to facilitate conflation with the forecast stream network \citep{aristizabal2022extending,inundationMapping2022}.
 Additionally, \ac{OWP} \ac{FIM} advanced a fundamental limitation of \ac{HAND} that limits sourcing fluvial inundation only from the nearest, relevant drainage line \citep{mcgehee2016modified,aristizabal2022extending,zhang2018comparative,li2022comparative,zheng2018geoflood,zheng2018river,nobre2016hand}.
 Stream lines of higher Horton-Strahler stream order that could contribute inundation to a given area have no way of extending beyond catchment lines which creates artificial bottlenecks in inundation extents especially along junctions of high order rivers with their lower flow tributaries \citep{aristizabal2022extending,mcgehee2016modified}.
 To resolve this limitation, \ac{OWP} \ac{FIM} disaggregates the \ac{NWM} \ac{V2.1} stream network into segments of effective unit stream order called \acp{LP} \citep{aristizabal2022extending}.
@@ -285,21 +286,20 @@ Work by \citet{gesch2014accuracy},\citep{gesch2007digital}, and \citet{dobbs2010
 \citet{gesch2014accuracy} identified that the \ac{NED} 1/3 arc-second \ac{DEM}, as of April 2013, had a mean error of -0.29 \ac{m} with an \ac{RMSE} of 1.55 \ac{m} when compared to over 25 thousand reference points. 
 At the time of evaluation, the \ac{NED} was subject to legacy, lower quality data sources dating almost a century in the past \citep{sugarbaker20143d,gesch2014accuracy,gesch2007digital}.
 This reduction in error and its impact on people and commerce \citep{dewberry2011final} motivated action on collection of elevation data from higher quality data sources \citep{sugarbaker20143d}. 
-Assessments of point accuracy \citep{callahan2022vertical,kim2022absolute}
 
 %%% 3DEP AND LIDAR %%%%%
 %%% NEED LIDAR REFERENCES %%%%
 \ac{3DEP} is a national, multi-organizational effort by the \ac{NDEP} to survey elevations with high quality sensors in response to growing stakeholder needs on a recurring collection cycle of no greater than 8 \acp{year} \citep{dewberry2011final,snyder2013national,sugarbaker20143d}.
 \ac{3DEP} leverages two main collection technologies including \ac{LiDAR} for the \ac{CONUS}, \ac{HI}, and \ac{US} territories as well as \ac{InSAR} for \ac{AK}.
 \ac{LiDAR}, the collection source of focus in this study, is a light reflection technology that beams concentrated powerful light and receives the return while recording the travel time and intensity of return. 
-\ac{LiDAR} sensors are mounted on top of a variety mobile or static platforms whose positions are geo-tracked as it collects \ac{LiDAR} returns.
-The travel time of the returns, along with knowledge of the speed of light, serve as a relative positioning of the target(s) referenced to a common vertical datum while the intensity serves as an indicator of what the target(s) represent.
-The relationship of return intensities with respect to travel time/distance from the \ac{LiDAR} wave forms which can be indicative of vegetation or other \acp{LULC} that reflect signals at varying distances and magnitudes and influence elevation errors \citep{gesch2014accuracy}.
-These wave forms can be conserved or compressed via discretization.
+\ac{LiDAR} sensors are mounted on top of a variety of mobile or static platforms whose positions are geo-tracked as they collect \ac{LiDAR} returns.
+The travel time of the returns, along with knowledge of the speed of light, serve as a relative positioning of the target(s) referenced to a common vertical datum while the intensities serve as indicators of what the target(s) represent.
+Modes within the relationship of return intensities with respect to travel time/distance from the \ac{LiDAR} wave forms can be indicative of vegetation or other \acp{LULC} that reflect signals at varying distances and magnitudes and influence elevation errors \citep{gesch2014accuracy}.
+These modes can be discretized into varying \ac{DEM} products representing bare earth, structures, or canopy elevations.
 The horizontal and vertical accuracies and the horizontal resolutions of terrain observations derived from \ac{LiDAR}, and even the consequential economic benefits \citep{dewberry2011final,dewberry2022nation}, are dependent on a variety of sensor, platform, target, and collection specifications and practices such as nominal pulse spacing, nominal pulse density, and \ac{LULC} of the target \citep{heidemann2018lidar,passalacqua2015analyzing,smith2019determining,salach2018accuracy,gesch2014accuracy}.
 \ac{LiDAR} produces point cloud datasets which are scattered, geo-referenced points representing full wave forms or discretized return intensities.
+Various assessments of the vertical accuracries of \ac{LiDAR} point clouds have yielded satisfactory results in agreement with \ac{3DEP} requirements \citep{stoker2022accuracy,kim2022absolute,callahan2022vertical,kim2022absolute,salach2018accuracy,passalacqua2015analyzing}.
 Point clouds must undergo a series of operations to produce analysis ready, seamless \acp{DEM} \citep{passalacqua2015analyzing}.
- - Assessment of Lidar \citep{tarolli2014high,kim2022absolute,stoker2022accuracy,callahan2022vertical,salach2018accuracy,passalacqua2015analyzing}
 
 %%%% 3DEP DEMs and Accuracies %%%%
 \ac{3DEP} extends \ac{TNM} to include a 1/27 arc-second (1 \ac{m}), \ac{LiDAR} derived \ac{DEM} product for \ac{CONUS}, \ac{HI}, and \ac{US} territories as well as a 1/2 arc-second (5 \ac{m}) \ac{DEM} for \ac{AK} derived from \ac{InSAR} \citep{sugarbaker20143d,stoker2015usgs}.
@@ -307,19 +307,18 @@ To create bare earth \acp{DEM}, \ac{LiDAR} observations must undergo a series of
 The 1 \ac{m} \ac{3DEP} product is a \ac{hydro-flattened}, topographic, and bare-earth raster \ac{DEM} gridded to 1 \ac{km} square shaped tiles with 6 pixels of overlap \citep{arundel20151}.
 Hydro-flattening refers to a process in which hydrologic features such as lakes, reservoirs, streams, rivers, and more are flattened in elevation for bathymetric regions from lower bank to lower bank represented by breaklines \citep{archuleta2017national,maune2018digital}.
 This flattening excludes along gradient directions, parallel to the direction of the breaklines, for hydrologic features that naturally exhibit water conveyance such as streams, rivers, and long reservoirs \citep{arundel20151}.
-According to specifications, the horizontal accuracy of 1 \ac{m} \ac{3DEP} is expected to be within 1 \ac{m} while the vertical accuracies are within 19.6 \ac{cm} and 30 \ac{cm} at the 95\% confidence interval for non-vegetative and vegetative regions, respectively \citep{arundel20151}.
-Non-vegetative vertical accuracies fall within 10 \ac{cm} \ac{RMSE} \citep{arundel20151}.
-Assessments of \ac{3DEP} point clouds have yielded satisfactory results
-\begin{comment}
- - Assessments of 3DEP \citep{stoker2022accuracy,callahan2022vertical,kim2022absolute}
- - Assessment of airborne Lidar on bathymetry data quality \citep{hilldale2008assessing}.
+This process includes elevations underneath bridges that are not accurately observed from topographic \ac{LiDAR}.
+According to specifications, the horizontal accuracy of 1 \ac{m} \ac{3DEP} is expected to be within 1 \ac{m} while the vertical accuracies are within 19.6 \ac{cm} and 30 \ac{cm} at the 95\% confidence interval for non-vegetative and vegetative regions, respectively \citep{arundel20151,heidemann2018lidar}.
+Non-vegetative vertical accuracies fall within 10 \ac{cm} \ac{RMSE} \citep{arundel20151,heidemann2018lidar}.
+ Work by \citet{stoker2022accuracy,callahan2022vertical,kim2022absolute} have verified the vertical accuracies and general quality of the \acp{DEM} for \ac{3DEP} specifications.
 
 %%%% FIM studies on importance of Lidar and elevation data %%%%
-As previously stated, topographic information is of primary importance to the quality of \acp{FIM}.
-Uncertainty in FIM \citep{merwade2008uncertainty} including data sources, gridding, resampling, resolution, mosaicing, hydrologic conditioning, and more.
+As previously stated, the features of topographic information including its source, accuracies, resolutions, and processing methods are of primary importance to the quality of \acp{FIM} \citep{national2007elevation,national2009mapping,carswell20183d,bales2009sources}.
+Uncertainties in elevations and the processes used to determine them are propogated into \ac{FIM} extents.
+Uncertainty in FIM \citep{merwade2008uncertainty} including data sources, gridding, resampling, resolution, mosaicing, hydrologic conditioning, and more. 
 
-% Need to revise references to dewberry2011final in liu of new report dewberry2022nation.
-Several technical reports document that the quality of the elevation map used is of primal significance to the quality of the flood maps produced \citep{national2007elevation,national2009mapping}.
+
+\citep{tarolli2014high} good review of channel extraction and other issues surrounding elevations and resolutions. 
 
 Flood specific assessments for 3DEP \citep{carswell20183d,bales2009sources,gesch2018best,podhoranyi2015inaccuracy,lamichhane2018effect,tsubaki2013uncertainty,dobbs2010evaluation,arrighi2019effects,zazo2015analysis,bhuyian2018accounting,gesch2012elevation,witt2015evaluation}.
 
@@ -329,6 +328,10 @@ DEMs and flooding \citep{casas2006topographic,thomas2016quantifying,savage2016do
  - Compares Lidar data to NED for flooding using HEC-RAS \citep{wang2005comparison}.
 
 Effects of resolution on hilly areas \citep{dai2019effects}
+
+Concluded 10m DEM was good enough for hydro applications \citep{zhang1994digital}
+
+more FIM and elevations \citep{werner2001impact,omer2003impact,bates2003optimal,tate2002creating,colby2000modeling}.
 
 Changed the horizontal resolution of DEM for HAND \citep{li2022accounting}, showed that DEM resolution was the most important factor influencing FIM extent skill when varied alongside water depth and drainage threshold.
 \citep{garousi2019terrain} using 3m vs 10m with HAND.
@@ -340,7 +343,7 @@ Effects of flat areas on FIM quality and overestimation \citep{garousi2019terrai
 
 %%%% Motivation paragraph for this study %%%%
 Previous efforts with \ac{OWP} \ac{FIM} avoided use of 1 \ac{m} \ac{3DEP} \ac{DEM} products due to lack of spatial coverage and no seamless data availability.
-As the 1 \ac{m} \ac{3DEP} product rapidly approaches full \ac{CONUS} coverage in 2023, we propose investigating the integration of \ac{3DEP} data into \ac{OWP} \ac{FIM} for continental-scale inundation forecasting abilities.
+As the 1 \ac{m} \ac{3DEP} product rapidly approaches full \ac{CONUS} coverage in 2023, we propose investigating the integration of \ac{3DEP} data into \ac{OWP} \ac{FIM} for continental-scale inundation forecasting abilities \citep{usgs2022status,usgs2022partnerships}.
 We will investigate utilizing \ac{3DEP} data for \ac{HAND} computation to generate the \ac{FIM} hydrofabric.
 Additionally, we investigate the utility of varying spatial resolutions from 1, 3, 5, 10, 15, and 20 \ac{m}.
 \ac{HAND} depends on the drainage assumptions which requires \acp{DEM} to undergo a long series of enforcement processes to ensure monotonically decreasing elevations with hydrologically correct flow directions \citep{garousi2019terrain,nobre2011height,nobre2016hand,aristizabal2022extending}.
@@ -349,7 +352,6 @@ As validation, we utilize \ac{1D} \ac{HEC-RAS} modeled flood inundation extents 
 As a third source of validation, we utilize proprietary \ac{FIM} derived from remote sensing earth observation \ac{SAR} furnished by ICEYE.
 By varying the spatial resolution of \ac{3DEP} \acp{DEM}, we seek to understand the relationship between spatial resolution and \ac{FIM} skill produced from \ac{HAND} that requires significant \ac{DEM} manipulations to satisfy inherent assumptions. 
 
-\end{comment}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% MATERIAL AND METHODS
@@ -387,10 +389,7 @@ Table \ref{tab:tnm_layer_specifications} illustrates the various elevation layer
 \subsection{\ac{3DEP} Data Acquisition and Preparation}
 \label{ssec:py3dep}
 %
-\begin{comment}
 Since the highest resolution \ac{3DEP} \ac{DEM} is at the 1/3 arc-second, we leverage a tool known as \ac{Py3DEP} to handle mosaicing and resampling of best available \acp{DEM} into a singular seamless one.
-This measure 
-\end{comment}
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Evaluation}
@@ -401,6 +400,7 @@ This measure
 \subsubsection{\ac{BLE}}
 \label{sssec:ble}
 %
+
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{\ac{RAS2FIM}}
@@ -425,11 +425,9 @@ This measure
 \section{Discussion}
 \label{sec:discussion}
 %
-\begin{comment}
 Future work could employ the use of STAC catalogs to acquire and process data from the cloud from Open Topography (\url{https://stacindex.org/catalogs/opentopography#/})
 Tangentially, we assert the gridding of source elevations from \ac{InSAR} and \ac{LiDAR} point clouds to be out of scope for this analysis elected instead to deal with already gridded elevations.
 Future work can further understand how \ac{HAND} is affect by gridding techniques most specifically that of point cloud conversion.
-\end{comment}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% CONCLUSIONS
