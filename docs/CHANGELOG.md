@@ -1,6 +1,33 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.(pending) - 2022-10-4 - [PR #697](https://github.com/NOAA-OWP/inundation-mapping/pull/697)
+
+Change FIM to load DEM's from the new USGS 3Dep files instead of the original NHD Rasters.
+
+### Changes
+
+- `config`
+    - `params_template.env`: Change default of the calib db back to true:  src_adjust_spatial back to "True". Plus a few text updates.
+- `src`
+    - `gms`
+        - `run_by_unit.sh`: Change input_DEM value to the new vrt `$inputDataDir/usgs/3dep_dems/10m_5070/fim_seemless_3dep_dem_10m_5070.vrt` to load the new 3Dep DEM's. Note: The 3Dep DEM's are projected as CRS 5070, but for now, our code is using ESRI:102039. Later all code and input will be changed to CRS:5070. We now are defining the FIM desired projection (102039), so we need to reproject on the fly from 5070 to 102039 during the gdalwarp cut.
+        - `run_by_branch.sh`: Removed unused lines.
+    - `utils`
+        - `shared_variables.py`: Changes to use the new 3Dep DEM rasters instead of the NHD rasters. Moved some values (grouped some variables). Added some new variables for 3Dep. Note: At this time, some of these new enviro variables for 3Dep are not used but are expected to be used shortly.
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Minor updates for adjustments of environmental variables. Adjustments to ensure the cell sizes are fully defined as 10 x 10 as source has a different resolution. The data we downloaded to the new `inputs/usgs/3dep_dems/10m_5070` was loaded as 10x10, CRS:5070 rasters.
+
+## Removals
+
+- `lib`
+    - `aggregate_fim_outputs.py` : obsolete. Had been deprecated for a while and replaced by other files.
+    - `fr_to_mr_raster_mask.py` : obsolete. Had been deprecated for a while and replaced by other files.
+
+<br/><br/>
+
 ## v4.0.9.4 - 2022-09-30 - [PR #691](https://github.com/NOAA-OWP/inundation-mapping/pull/691)
 
 Cleanup Branch Zero output at the end of a processing run. Without this fix, some very large files were being left on the file system. Adjustments and cleanup changed the full BED output run from appx 2 TB output to appx 1 TB output.
