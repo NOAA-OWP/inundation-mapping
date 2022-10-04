@@ -200,15 +200,25 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     Outputs
     - procs_list:           passes multiprocessing list of input args for process_points function input
     '''
+    
+    log_file.write('Connecting to database via host\n')    
     conn = connect() # Connect to the PostgreSQL db once
+    
+    if (conn is None):
+        msg = "unable to connect to calibration db\n"
+        print(msg)
+        log_file.write(msg)
+        return
+    
     log_file.write('Connected to database via host\n')
     print("Finding all fim_output hucs that contain calibration points...")
     fim_out_huc_list  = [ item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item)) ]
+
     fim_out_huc_list.remove('logs')
     ## Record run time and close log file
     run_time_start = dt.datetime.now()
     log_file.write('Finding all hucs that contain calibration points...' + '\n')
-    huc_list_db = find_hucs_with_points(conn,fim_out_huc_list)
+    huc_list_db = find_hucs_with_points(conn, fim_out_huc_list)
     run_time_end = dt.datetime.now()
     task_run_time = run_time_end - run_time_start
     log_file.write('HUC SEARCH TASK RUN TIME: ' + str(task_run_time) + '\n')
@@ -284,7 +294,8 @@ def connect():
     print('Connecting to the PostgreSQL database...')
     conn = None
     not_connected = True
-    while not_connected:
+    fail_ctr = 0
+    while not_connected and fail_ctr < 6:
         try:
 
             # connect to the PostgreSQL server
@@ -312,6 +323,7 @@ def connect():
             print("Connected to database\n\n")
         except (Exception, psycopg2.DatabaseError) as error:
             print("Waiting for database to come online")
+            fail_ctr += 1
             time.sleep(5)
 
     return conn
