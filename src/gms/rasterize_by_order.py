@@ -4,7 +4,7 @@ import argparse
 from osgeo import gdal
 import geopandas as gpd
 
-def rasterize_by_order(vector_filename, raster_filename, x_min, y_min, x_max, y_max, columns, rows, nodata_value, stream_layer, branch_id_attribute, branch_id, order_attribute, min_order):
+def rasterize_by_order(vector_filename, raster_filename, x_min, y_min, x_max, y_max, columns, rows, nodata_value, stream_layer, branch_id_attribute, branch_id, order_attribute):
     """
     Rasterizes polygon layers exceeding a stream order threshold
     """
@@ -12,7 +12,7 @@ def rasterize_by_order(vector_filename, raster_filename, x_min, y_min, x_max, y_
     streams_df = gpd.read_file(stream_layer, ignore_geometry=True)
 
     # Rasterize if branch is at least the minimum order
-    if streams_df.loc[streams_df[branch_id_attribute].astype(int)==branch_id, order_attribute].max() >= min_order:
+    if streams_df.loc[streams_df[branch_id_attribute].astype(int)==branch_id, order_attribute].max() >= streams_df[order_attribute].max() - 1:
 
         # Open the data source and read in the extent
         source_ds = gdal.OpenEx(vector_filename)
@@ -47,7 +47,6 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--branch-id-attribute', help='Branch ID attribute name', required=False, default='levpa_id')
     parser.add_argument('-i', '--branch-id', help='Branch ID', type=int, required='True')
     parser.add_argument('-a', '--order-attribute', help='Stream order attribute name', required=False, default='order_')
-    parser.add_argument('-o', '--min-order', help='Minimum order to process', type=int, required=False, default=10)
 
     args = vars(parser.parse_args())
 

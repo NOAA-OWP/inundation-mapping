@@ -45,7 +45,7 @@ Cleanup Branch Zero output at the end of a processing run. Without this fix, som
 
 ## v4.[number to be assigned] - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
 
-Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold (default order 10)
+Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold
 
 ### Additions
 
@@ -54,9 +54,11 @@ Masks levee-protected areas from Relative Elevation Model if branch 0 or if bran
       - Reprojects and creates HUC-level raster of levee-protected areas from polygon layer
       - Uses that raster to mask/remove those areas from the Relative Elevation Model
    - `rasterize_by_order.py`
-      - Subsets levee-protected area branch-level raster if branch 0 or if order exceeds a threshold
+      - Subsets levee-protected area branch-level raster if branch 0 or if order exceeds a threshold  (default threshold: max order - 1)
 - `config/`
    - `deny_gms_branches_default.lst`, and `deny_gms_branches_min.lst`: Added LeveeProtectedAreas_subset_{}.tif
+   - `params_template.env`
+      - Adds mask_leveed_area_toggle
 
 ### Changes
 
