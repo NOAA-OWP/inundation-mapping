@@ -84,7 +84,7 @@ def generate_rating_curve_metrics(args):
     
     # Filter out null and non-integer location_id entries (the crosswalk steps tries to fill AHPS only sites with the nws_lid)
     elev_table.dropna(subset=['location_id'], inplace=True)
-    elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
+    elev_table = elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
 
     # Read in the USGS gages rating curve database csv
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object, 'feature_id':object})
@@ -193,7 +193,7 @@ def generate_rating_curve_metrics(args):
 
                 # Handle sites missing data
                 if len(usgs_pred_elev) <1:
-                    logging.info(f"missing USGS elevation data for usgs station {gage.location_id} in huc {huc}")
+                    logging.info(f"WARNING: missing USGS elevation data for usgs station {gage.location_id} in huc {huc}")
                     continue
 
                 # Clean up data
@@ -212,7 +212,7 @@ def generate_rating_curve_metrics(args):
 
                 # Handle sites missing data
                 if len(fim_pred_elev) <1:
-                    logging.info(f"missing FIM elevation data for usgs station {gage.location_id} in huc {huc}")
+                    logging.info(f"WARNING: missing FIM elevation data for usgs station {gage.location_id} in huc {huc}")
                     continue
 
                 # Clean up data
@@ -261,6 +261,8 @@ def generate_rating_curve_metrics(args):
                 nwm_recurr_data_table.discharge_cfs = np.round(nwm_recurr_data_table.discharge_cfs,2)
                 nwm_recurr_data_table.elevation_ft = np.round(nwm_recurr_data_table.elevation_ft,2)
                 nwm_recurr_data_table.to_csv(nwm_recurr_data_filename,index=False)
+            if 'location_id' not in nwm_recurr_data_table.columns:
+                logging.info(f"WARNING: nwm_recurr_data_table is missing location_id column for gage {relevant_gages} in huc {huc}")
 
             # plot rating curves
             if alt_plot:
@@ -324,19 +326,24 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
     
     # Filter FIM elevation based on USGS data
     for gage in rc.location_id.unique():
+        #print(recurr_data_table.head)
+        try:
+            min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.min()
+            max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.max()
+            min_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.min()
+            max_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.max()
+            ri100 = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')].discharge_cfs.max()
 
-        min_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.min()
-        max_elev = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].elevation_ft.max()
-        min_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.min()
-        max_q = rc.loc[(rc.location_id==gage) & (rc.source=='USGS')].discharge_cfs.max()
-        ri100 = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')].discharge_cfs.max()
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
+            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2) & (rc.discharge_cfs < min_q)].index)
 
-        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
-        rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM') & (rc.elevation_ft < min_elev - 2) & (rc.discharge_cfs < min_q)].index)
-
-        if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
-            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
-            rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
+            if 'default_discharge_cfs' in rc.columns: # Plot both "FIM" and "FIM_default" rating curves
+                rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (((rc.elevation_ft > (max_elev + 2)) | (rc.discharge_cfs > ri100)) & (rc.discharge_cfs > max_q))].index)
+                rc = rc.drop(rc[(rc.location_id==gage) & (rc.source=='FIM_default') & (rc.elevation_ft < min_elev - 2)].index)
+        except Exception as ex:
+            summary = traceback.StackSummary.extract(
+                    traceback.walk_stack(None))
+            logging.info("WARNING: rating curve dataframe not processed correctly...")
 
     rc = rc.rename(columns={"location_id": "USGS Gage"})
 
@@ -372,13 +379,18 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
     for gage in axes:
         ax = axes[gage]
         plt.sca(ax)
-        recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
-            .filter(items=['recurr_interval', 'discharge_cfs'])
-        for i, r in recurr_data.iterrows():
-            if not r.recurr_interval.isnumeric(): continue # skip catfim flows
-            l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
-            plt.axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
-            plt.text(r.discharge_cfs, ax.get_ylim()[1] - (ax.get_ylim()[1]-ax.get_ylim()[0])*0.03, r.recurr_interval, size='small', c='purple')
+        try:
+            recurr_data = recurr_data_table[(recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')]\
+                .filter(items=['recurr_interval', 'discharge_cfs'])
+            for i, r in recurr_data.iterrows():
+                if not r.recurr_interval.isnumeric(): continue # skip catfim flows
+                l = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None # only label 2 yr 
+                plt.axvline(x=r.discharge_cfs, c='purple', linewidth=0.5, label=l) # plot recurrence intervals
+                plt.text(r.discharge_cfs, ax.get_ylim()[1] - (ax.get_ylim()[1]-ax.get_ylim()[0])*0.03, r.recurr_interval, size='small', c='purple')
+        except Exception as ex:
+            summary = traceback.StackSummary.extract(
+                    traceback.walk_stack(None))
+            logging.info("WARNING: Could not plot recurrence intervals...")
 
     # Adjust the arrangement of the plots
     g.fig.tight_layout(w_pad=1)
@@ -508,7 +520,7 @@ def get_reccur_intervals(site_rc, usgs_crosswalk,nwm_recurr_intervals):
         except Exception as ex:
             summary = traceback.StackSummary.extract(
                     traceback.walk_stack(None))
-            logging.info("WARNING: get_recurr_intervals failed for some reason....")
+            #logging.info("WARNING: get_recurr_intervals failed for some reason....")
             #logging.info(f"*** {ex}")                
             #logging.info(''.join(summary.format()))
             return []
