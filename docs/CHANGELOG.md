@@ -1,6 +1,112 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
+
+- Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
+- Change default for params_template.env -> src_adjust_spatial="False", back to default of "True"
+- Fixed an infinite loop when src_adjust_usgs_rating.py was unable to talk to the calib db.
+- Fixed src_adjsust_usgs_rating.py for when the usgs_elev_table.csv may not exist.
+
+### Changes
+
+- `gms_run_branch.sh`:  removed some "time" command in favour of using fim commands from bash_functions.sh which give better time and output messages.
+
+- `config`
+    - `deny_gms_unit_prod.lst`: Commented out LandSea_subset.gpkg as some HUCs need that file in place.
+    - `params_template.env`: Changed default src_adjust_spatial back to True
+
+- `src`
+    - `src_adjust_spatial_obs.py`:  Added code to a while loop (line 298) so it is not an indefinite loop that never stops running. It will now attempts to contact the calibration db after 6 attempts. Small adjustments to output and logging were also made and validation that a connection to the calib db was actually successful.
+    - `src_adjust_usgs_rating.py`: Discovered that a usgs_elev_df might not exist (particularly when processing was being done for hucs that have no usgs guage data). If the usgs_elev_df does not exist, it no longer errors out.
+
+<br/><br/>
+
+## v4.0.9.4 - 2022-09-30 - [PR #691](https://github.com/NOAA-OWP/inundation-mapping/pull/691)
+
+Cleanup Branch Zero output at the end of a processing run. Without this fix, some very large files were being left on the file system. Adjustments and cleanup changed the full BED output run from appx 2 TB output to appx 1 TB output.
+
+### Additions
+
+- `unit_tests`
+    - `gms`
+        - `outputs_cleanup_params.json` and `outputs_cleanup_unittests.py`: The usual unit test files.
+
+### Changes
+
+- `gms_pipeline.sh`: changed variables and text to reflect the renamed default `deny_gms_branchs_prod.lst` and `deny_gms_unit_prod.lst` files. Also tells how a user can use the word 'none' for the deny list parameter (both or either unit or branch deny list) to skip output cleanup(s).
+
+- `gms_run_unit.sh`: changed variables and text to reflect the renamed default `deny_gms_unit_prod.lst` files. Also added a bit of minor output text (styling). Also tells how a user can use the word 'none' for the deny list parameter to skip output cleanup.
+
+- `gms_run_branch.sh`:
+       ... changed variables and text to reflect the renamed default `deny_gms_branches.lst` files. 
+       ... added a bit of minor output text (styling).
+       ... also tells how a user can use the word 'none' for the deny list parameter to skip output cleanup.
+       ... added a new section that calls the `outputs_cleanup.py` file and will do post cleanup on branch zero output files.
+
+- `src`
+    - `gms`
+        - `outputs_cleanup.py`: pretty much rewrote it in its entirety. Now accepts a manditory branch id (can be zero) and can recursively search subdirectories. ie) We can submit a whole output directory with all hucs and ask to cleanup branch 0 folder OR cleanup files in any particular directory as we did before (per branch id).
+          
+          - `run_by_unit.sh`:  updated to pass in a branch id (or the value of "0" meaning branch zero) to outputs_cleanup.py.
+          - `run_by_branch.sh`:  updated to pass in a branch id to outputs_cleanup.py.
+      
+- `unit_tests`
+    - `README.md`: updated to talk about the specific deny list for unit_testing.
+    - `__template_unittests.py`: updated for the latest code standards for unit tests. 
+
+- `config`
+    - `deny_gms_branch_unittest.lst`: Added some new files to be deleted, updated others.
+    - `deny_gms_branch_zero.lst`: Added some new files to be deleted.
+    - `deny_gms_branches_dev.lst`:  Renamed from `deny_gms_branches_default.lst` and some new files to be deleted, updated others. Now used primarily for development and testing use.
+    - `deny_gms_branches_prod.lst`:  Renamed from `deny_gms_branches_min` and some new files to be deleted, updated others. Now used primarily for when releasing a version to production.
+    -  `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
+
+<br/><br/>
+
+## v4.0.9.3 - 2022-09-13 - [PR #681](https://github.com/NOAA-OWP/inundation-mapping/pull/681)
+
+Created a new tool to downloaded USGS 3Dep DEM's via their S3 bucket.
+
+Other changes:
+ - Some code file re-organization in favour of the new `data` folder which is designed for getting, setting, and processing data from external sources such as AWS, WBD, NHD, NWM, etc.
+ - Added tmux as a new tool embedded inside the docker images.
+
+### Additions
+
+- `data`
+   - `usgs`
+      - `acquire_and_preprocess_3dep_dems.py`:  The new tool as described above. For now it is hardcoded to a set path for USGS AWS S3 vrt file but may change later for it to become parameter driven.
+ - `create_vrt_file.py`: This is also a new tool that can take a directory of geotiff files and create a gdal virtual file, .vrt extention, also called a `virtual raster`. Instead of clipping against HUC4, 6, 8's raster files, and run risks of boundary issues, vrt's actual like all of the tif's are one giant mosaiced raster and can be clipped as one.
+
+### Removals
+
+- 'Dockerfile.prod`:  No longer being used (never was used)
+
+### Changes
+
+- `Dockerfile`:  Added apt install for tmux. This tool will now be available in docker images and assists developers.
+
+- `data`
+   - `acquire_and_preprocess_inputs.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+   - `nws`
+      - `preprocess_ahps_nws.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+      - `preprocess_rasters.py`: moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+    - `usgs`
+         - `preprocess_ahps_usgs.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+         - `preprocess_download_usgs_grids.py`: moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+
+ - `src`
+     - `utils`
+         - `shared_functions.py`:  changes made were
+              - Cleanup the "imports" section of the file (including a change to how the utils.shared_variables file is loaded.
+              - Added `progress_bar_handler` function which can be re-used by other code files.
+              - Added `get_file_names` which can create a list of files from a given directory matching a given extension. 
+              - Modified `print_current_date_time` and `print_date_time_duration` and  methods to return the date time strings. These helper methods exist to help with standardization of logging and output console messages.
+              - Added `print_start_header` and `print_end_header` to help with standardization of console and logging output messages.
+          - `shared_variables.py`: Additions in support of near future functionality of having fim load DEM's from USGS 3DEP instead of NHD rasters.
+
+<br/><br/>
 
 ## v4.0.9.2 - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
 

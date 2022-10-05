@@ -19,13 +19,15 @@ usage ()
     echo '  -r/--retry      : retries failed jobs'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -d/--denylist    : A file with line delimited list of files in branches directories to remove' 
-    echo '                    upon completion (see config/deny_gms_branches_min.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches_min.lst'    
+    echo '                    upon completion (see config/deny_gms_branches_prod.lst for a starting point)'
+    echo '                    -- Note: if you want all output files (aka.. no files removed),'
+    echo '                    use the word none as this value for this parameter.'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'    
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited).'
     echo '                    A line delimited file also acceptable. HUCs must present in inputs directory.'
-	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
-	echo '                    at the initial load of the nwm_subset_streams.'
-	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
+    echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
+    echo '                    at the initial load of the nwm_subset_streams.'
+    echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
     echo
     exit
 }
@@ -85,7 +87,7 @@ then
 fi
 if [ "$deny_gms_branches_list" = "" ]
 then
-   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_min.lst
+   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_prod.lst
 fi
 
 if [ "$overwrite" = "" ]
@@ -112,21 +114,6 @@ fi
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
-
-## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
-if [ "$src_adjust_spatial" = "True" ]; then
-    if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
-        exit 1
-    else
-        source $CALB_DB_KEYS_FILE
-        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
-        echo "Loading HUC Data"
-        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
-        echo "Loading Point Data"
-        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
-    fi
-fi
 
 # default values
 if [ "$jobLimit" = "" ] ; then
@@ -176,13 +163,13 @@ elif [ $overwrite -eq 1 ]; then
     mkdir -p $outputRunDataDir/branch_errors
 fi
 
+## Track total time of the overall run
+T_total_start
+
 ## RUN GMS BY BRANCH ##
 echo "=========================================================================="
 echo "Start of branch processing"
 echo "Started: `date -u`" 
-
-## Track total time of the overall run
-T_total_start
 Tstart
 
 if [ "$jobLimit" -eq 1 ]; then
@@ -211,6 +198,25 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     Tcount
 fi
 
+## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
+if [ "$src_adjust_spatial" = "True" ]; then
+    if [ ! -f $CALB_DB_KEYS_FILE ]; then
+        echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+        exit 1
+    else
+        source $CALB_DB_KEYS_FILE
+        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
+        echo "Loading HUC Data"
+        Tstart
+        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+        echo "Loading Point Data"
+        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
+        Tcount
+        Tstart
+        date -u
+    fi
+fi
+
 ## RUN SYNTHETIC RATING CURVE VARIABLE ROUGHNESS ROUTINE ##
 if [ "$src_vrough_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC variable Manning's n routine"$stopDiv
@@ -222,33 +228,43 @@ fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ]; then
-    echo -e $startDiv"Performing SRC optimization using USGS rating curve database"$stopDiv
-    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
     Tstart
-    time python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
+    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
     Tcount
+    date -u
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
-    echo -e $startDiv"Performing SRC optimization using benchmark inundation point database"$stopDiv
     Tstart
-    time python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
+    echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
+    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
     Tcount
+    date -u
+fi
+
+# -------------------
+## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO##
+if [ -f $deny_gms_branches_list ]; then
+    echo -e $startDiv"Cleaning up (Removing) files all branch zero for all HUCs"$stopDiv
+    date -u
+    $srcDir/gms/outputs_cleanup.py -d $outputRunDataDir -l $deny_gms_branches_list -b 0
 fi
 
 # -------------------
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
 echo
-echo "Start non-zero exit code checking"
+echo -e $startDiv"Start non-zero exit code checking"$stopDiv
 find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
 
 # -------------------
 ## REMOVE FAILED BRANCHES ##
 # Needed in case aggregation fails, we will need the logs
 echo
-echo "Removing branches that failed with Exit status: 61"
+echo -e $startDiv"Removing branches that failed with Exit status: 61"$stopDiv
 python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $outputRunDataDir/gms_inputs.csv
 
 echo "=========================================================================="

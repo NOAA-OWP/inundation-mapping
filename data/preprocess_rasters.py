@@ -7,6 +7,8 @@ from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import argparse
+
+sys.path.append('/foss_fim/src')
 from utils.reproject_dem import reproject_dem
 from utils.shared_functions import update_raster_profile
 from utils.shared_variables import PREP_PROJECTION, PREP_PROJECTION_CM

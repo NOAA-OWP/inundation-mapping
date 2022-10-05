@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
+import argparse
 import numpy as np
-from pathlib import Path
+import os
 import pandas as pd
 import rasterio
 import requests
-from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wbd_hucs, get_thresholds, get_datum, ngvd_to_navd_ft, get_rating_curve, select_grids, get_nwm_segs, flow_data, process_extent, process_grid, raster_to_feature
-import argparse
-from dotenv import load_dotenv
-import os
 import sys
-sys.path.append('/foss_fim/src')
 import traceback
 
+from dotenv import load_dotenv
+from pathlib import Path
+
+sys.path.append('/foss_fim/tools')
+from tools_shared_functions import mainstem_nwm_segs, get_metadata, aggregate_wbd_hucs, get_thresholds, get_datum, ngvd_to_navd_ft, get_rating_curve, select_grids, get_nwm_segs, flow_data, process_extent, process_grid, raster_to_feature
 
 def get_env_paths():
     load_dotenv()
