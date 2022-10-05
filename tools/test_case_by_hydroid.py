@@ -9,6 +9,7 @@ import argparse
 from pixel_counter import zonal_stats
 from tools_shared_functions import compute_stats_from_contingency_table
 from run_test_case import test_case
+from shapely.validation import make_valid
 
 #####################################################
 # Perform zonal stats is a funtion stored in pixel_counter.py.
@@ -265,6 +266,7 @@ if __name__ == "__main__":
             continue
         else:
             print(test_case_class.test_id)
+            print('thisisthecurrentinteration!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             # counter = counter + 1
             # if counter >=3:
             #     break
@@ -281,6 +283,8 @@ if __name__ == "__main__":
                     
                     print('assembling_hydroalpha_for_single_huc')
                     get_geom = gpd.read_file(huc_gpkg)
+                    
+                    get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
                     print(get_geom.crs)
                     
                     in_mem_df = assemble_hydro_alpha_for_single_huc(stats, test_case_class.huc, mag, test_case_class.benchmark_cat)
@@ -326,7 +330,7 @@ if __name__ == "__main__":
 
     
     print('writing_to_gpkg')
-    
+    #csv_output.to_file(csv)
     #tmp_path = "/data/temp/caleb/test_data/ble_test_geom_error.gpkg"
     csv_output.to_file(csv, driver="GPKG")
 
