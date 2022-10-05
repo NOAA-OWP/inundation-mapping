@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # declare files
-mainFile=owp_3dep.tex
+mainFile=template.tex
 bibFile=bibliography/owp_3dep_2022.bib
 #expandedFile=owp_3dep_expanded.tex
 #differenceFile=owp_3dep_expanded_diff.tex
