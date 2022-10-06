@@ -1,6 +1,38 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+
+## v4.0.(pending) - 2022-10-06 - [PR #(pending)](https://github.com/NOAA-OWP/inundation-mapping/pull/618)
+
+Moved into the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
+
+Also updated for ease of setup as well as more setup detail. More user friendly for external contributors.
+
+Changed the system so the calibration database name is configurable. This allows test databases to be setup in the same postgres db / server system. You can have more than one calb_db_keys.env running in different computers (or even more than one on one server) pointing to the same actual postgres server and service. ie) multiple dev machine can call a single production server which hosts the database.
+
+### Changes
+
+- `tools`
+    - `calibration-db`
+        - `docker-compose.yml`: changed to allow for configurable database name. (allows for more then one database in a postgres database system (one for prod, another for test if needed))
+
+### Additions
+
+- `tools`
+    - `calibration-db`
+        - `calb_db_keys_template.env`: a new template verison of the required config values.
+
+### Removals
+
+- `tools`
+    - `calibration-db`
+        - `start_db.sh`: Removed as the command should be run on demand and not specifically scripted because of its configurable location of the env file.
+
+
+<br/><br/>
+
+
 ## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
 
 - Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
