@@ -3,14 +3,16 @@ import rasterio
 import numpy as np
 import os
 import argparse
-from r_grow_distance import r_grow_distance
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.set_verbose_mode(False)
 from utils.shared_functions import mem_profile
 
 
 @mem_profile
-def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data):
+def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data):
     '''
-    Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html). The GRASS gis tool r.grow.distance is used to calculate intermediate allocation and proximity rasters.
+    Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html).
 
     Parameters
     ----------
@@ -22,8 +24,6 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
         Path to output raster. For example, dem_burned.tif
     workspace : STR
         Path to workspace to save all intermediate files.
-    grass_workspace : STR
-        Path to the temporary workspace for grass inputs. This temporary workspace is deleted once grass datasets are produced and exported to tif files.
     buffer_dist : FLOAT
         AGREE stream buffer distance (in meters) on either side of stream.
     smooth_drop : FLOAT
@@ -55,6 +55,8 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     smo_profile.update(nodata = 0)
     smo_profile.update(dtype = 'float32')
     smo_output = os.path.join(workspace, 'agree_smogrid.tif')
+    vectdist_grid = os.path.join(workspace,'agree_smogrid_dist.tif')
+    vectallo_grid = os.path.join(workspace,'agree_smogrid_allo.tif')
 
     # Windowed reading/calculating/writing
     with rasterio.Env():
@@ -92,10 +94,11 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # cells in vector allocation grid (vectallo) store the elevation of
     # the closest vector cell.
 
-    # Compute allocation and proximity grid using GRASS gis
-    # r.grow.distance tool. Output distance grid in meters. Set datatype
-    # for output allocation and proximity grids to float32.
-    vectdist_grid, vectallo_grid = r_grow_distance(smo_output, grass_workspace, 'Float32', 'Float32')
+    # Compute allocation and proximity grid using WhiteboxTools
+    smo_output_zerod = os.path.join(workspace, 'agree_smogrid_zerod.tif')
+    wbt.euclidean_distance(rivers_raster,vectdist_grid)
+    wbt.convert_nodata_to_zero(smo_output,smo_output_zerod)
+    wbt.euclidean_allocation(smo_output_zerod,vectallo_grid)
 
     #------------------------------------------------------------------
     # 4. From Hellweger documentation: Compute the buffer grid
@@ -110,6 +113,8 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
 
     # Define bufgrid profile and output file.
     buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
+    bufdist_grid = os.path.join(workspace,'agree_bufgrid_dist.tif')
+    bufallo_grid = os.path.join(workspace,'agree_bufgrid_allo.tif')
     buf_profile = dem_profile.copy()
     buf_profile.update(dtype = 'float32')
 
@@ -145,10 +150,32 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     # cell (bufgrid2). The cells in buffer allocation grid (bufallo)
     # store the elevation of the closest valued buffer cell.
 
-    # Compute allocation and proximity grid using GRASS gis
-    # r.grow.distance. Output distance grid in meters. Set datatype for
-    # output allocation and proximity grids to float32.
-    bufdist_grid, bufallo_grid = r_grow_distance(buf_output, grass_workspace, 'Float32', 'Float32')
+    # Transform the buffer grid (bufgrid2) to binary raster
+    bin_buf_output = os.path.join(workspace, 'agree_binary_bufgrid.tif')
+    agree_bufgrid = rasterio.open(buf_output)
+    agree_bufgrid_profile = agree_bufgrid.profile
+    bin_buf_output_profile = agree_bufgrid_profile.copy()
+    bin_buf_output_profile.update(dtype = 'float32')
+
+    with rasterio.Env():
+        with rasterio.open(bin_buf_output, 'w', **bin_buf_output_profile) as raster:
+            for ji, window in agree_bufgrid.block_windows(1):
+                # read distance, allocation, and elevation datasets
+                agree_bufgrid_data_window = agree_bufgrid.read(1, window = window)
+
+                # Calculate bufgrid. Assign NODATA to areas where vectdist_data <=
+                agree_bufgrid_data_window = np.where(agree_bufgrid_data_window>-10000, 1, 0)
+
+                # Write out raster.
+                raster.write(agree_bufgrid_data_window.astype('float32'), indexes = 1, window = window)
+
+    agree_bufgrid.close()
+
+    # Compute allocation and proximity grid using WhiteboxTools
+    buf_output_zerod = os.path.join(workspace, 'agree_bufgrid_zerod.tif')
+    wbt.euclidean_distance(bin_buf_output,bufdist_grid)
+    wbt.convert_nodata_to_zero(buf_output,buf_output_zerod)
+    wbt.euclidean_allocation(buf_output_zerod,bufallo_grid)
 
     # Open distance, allocation, elevation grids.
     bufdist = rasterio.open(bufdist_grid)
@@ -229,6 +256,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
         os.remove(vectallo_grid)
         os.remove(bufdist_grid)
         os.remove(bufallo_grid)
+        os.remove(bin_buf_output)
 
 
 if __name__ == '__main__':
@@ -238,7 +266,6 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--rivers', help = 'flows grid boolean layer', required = True)
     parser.add_argument('-d', '--dem_m',  help = 'DEM raster in meters', required = True)
     parser.add_argument('-w', '--workspace', help = 'Workspace', required = True)
-    parser.add_argument('-g', '--grass_workspace', help = 'Temporary GRASS workspace', required = True)
     parser.add_argument('-o',  '--output', help = 'Path to output raster', required = True)
     parser.add_argument('-b',  '--buffer', help = 'Buffer distance (m) on either side of channel', required = True)
     parser.add_argument('-sm', '--smooth', help = 'Smooth drop (m)', required = True)
@@ -252,7 +279,6 @@ if __name__ == '__main__':
     rivers_raster = args['rivers']
     dem = args['dem_m']
     workspace = args['workspace']
-    grass_workspace = args['grass_workspace']
     output_raster = args['output']
     buffer_dist = float(args['buffer'])
     smooth_drop = float(args['smooth'])
@@ -260,4 +286,4 @@ if __name__ == '__main__':
     delete_intermediate_data = args['del']
 
     #Run agreedem
-    agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data)
+    agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data)

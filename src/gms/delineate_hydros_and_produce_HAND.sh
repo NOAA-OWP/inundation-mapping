@@ -24,7 +24,7 @@ Tcount
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/unique_pixel_and_allocation.py -s $outputCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif -o $outputCurrentBranchDataDir/demDerived_streamPixels_ids_$current_branch_id.tif -g $outputCurrentBranchDataDir/temp_grass
+python3 -m memory_profiler $srcDir/unique_pixel_and_allocation.py -s $outputCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif -o $outputCurrentBranchDataDir/demDerived_streamPixels_ids_$current_branch_id.tif
 Tcount
 
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
