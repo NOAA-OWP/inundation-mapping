@@ -7,7 +7,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Moved into the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
 
-Also updated for ease of setup as well as more setup detail. More user friendly for external contributors.
+Also updated making it easier to deploy, along with better information for external contributors.
 
 Changed the system so the calibration database name is configurable. This allows test databases to be setup in the same postgres db / server system. You can have more than one calb_db_keys.env running in different computers (or even more than one on one server) pointing to the same actual postgres server and service. ie) multiple dev machine can call a single production server which hosts the database.
 
