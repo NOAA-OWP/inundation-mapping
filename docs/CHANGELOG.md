@@ -1,6 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.(pending) - 2022-10-7 - [PR #703](https://github.com/NOAA-OWP/inundation-mapping/pull/703)
+
+During a recent release of a FIM 3 version, it was discovered that FIM3 has slightly different AWS S3 upload requirements. A new s3 whitelist file has been created for FIM3 and the other s3 file was renamed to include the phrase "fim4" in it.
+
+This is being added to source control as it might be used again and we don't want to loose it.
+
+### Additions
+
+- `config`
+   - `aws_s3_put_fim3_whitelist.lst`
+   
+### Renamed
+
+- `config`
+   - `aws_s3_put_fim4_whitelist.lst`: renamed from aws_s3_put_whitelist.lst
+
+<br/><br/>
+
 ## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
 
 - Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
