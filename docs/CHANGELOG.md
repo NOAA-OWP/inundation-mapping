@@ -28,6 +28,27 @@ Change FIM to load DEM's from the new USGS 3Dep files instead of the original NH
 
 <br/><br/>
 
+## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
+
+- Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
+- Change default for params_template.env -> src_adjust_spatial="False", back to default of "True"
+- Fixed an infinite loop when src_adjust_usgs_rating.py was unable to talk to the calib db.
+- Fixed src_adjsust_usgs_rating.py for when the usgs_elev_table.csv may not exist.
+
+### Changes
+
+- `gms_run_branch.sh`:  removed some "time" command in favour of using fim commands from bash_functions.sh which give better time and output messages.
+
+- `config`
+    - `deny_gms_unit_prod.lst`: Commented out LandSea_subset.gpkg as some HUCs need that file in place.
+    - `params_template.env`: Changed default src_adjust_spatial back to True
+
+- `src`
+    - `src_adjust_spatial_obs.py`:  Added code to a while loop (line 298) so it is not an indefinite loop that never stops running. It will now attempts to contact the calibration db after 6 attempts. Small adjustments to output and logging were also made and validation that a connection to the calib db was actually successful.
+    - `src_adjust_usgs_rating.py`: Discovered that a usgs_elev_df might not exist (particularly when processing was being done for hucs that have no usgs guage data). If the usgs_elev_df does not exist, it no longer errors out.
+
+<br/><br/>
+
 ## v4.0.9.4 - 2022-09-30 - [PR #691](https://github.com/NOAA-OWP/inundation-mapping/pull/691)
 
 Cleanup Branch Zero output at the end of a processing run. Without this fix, some very large files were being left on the file system. Adjustments and cleanup changed the full BED output run from appx 2 TB output to appx 1 TB output.
@@ -66,7 +87,7 @@ Cleanup Branch Zero output at the end of a processing run. Without this fix, som
     - `deny_gms_branch_zero.lst`: Added some new files to be deleted.
     - `deny_gms_branches_dev.lst`:  Renamed from `deny_gms_branches_default.lst` and some new files to be deleted, updated others. Now used primarily for development and testing use.
     - `deny_gms_branches_prod.lst`:  Renamed from `deny_gms_branches_min` and some new files to be deleted, updated others. Now used primarily for when releasing a version to production.
-    -  `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
+    - `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
 
 <br/><br/>
 
