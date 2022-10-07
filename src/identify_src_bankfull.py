@@ -31,7 +31,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     number_of_jobs : str
         Number of jobs.
     plots : str
-        Flag to create SRC plots for all hydroids (True/False)
+        Optional: Flag to create SRC plots for all hydroids (True/False)
 """
 
 def src_bankfull_lookup(args):
