@@ -20,12 +20,12 @@ Steps:
 1. Copy `/config/calb_db_keys_template.env` and rename it to a name of your choice (ie: `calb_db_keys.env` or whatever). We recommend saving the file outside the fim source code folder for security purposes. 
 
 2. Update the values in the new .env file. 
-	Note: The `CALIBRATION_DB_HOST` is the computer/server where the docker container is physically running. This may be your server name, but can also be a different server if you like. One calibration database service can be shared by multiple other servers, each with their own FIM source code folders (a "client" if you will). Each "client" server can have it's own calib_db_keys.env file and/or can share the .env with other servers.  ie) dev-1 and prod-1 can share a .env file if they have a shared drive.
+	Note: The `CALIBRATION_DB_HOST` is the computer/server where the docker container is physically running. This may be your server name, but can also be a different server if you like. One calibration database service can be shared by multiple other servers, each with their own FIM source code folders (a "client" if you will). Each "client" server can have it's own calb_db_keys.env file and/or can share the .env with other servers.  ie) dev-1 and prod-1 can share a .env file if they have a shared drive.
 	
 3. Start the service from the /tools/calibration-db directory of the server that will run the calibration database service. 
    Using a bash terminal window, run
 	  `docker-compose --env-file {path to .env file}/{your key file name} up --build -d` 
-	  ie) docker-compose --env-file /my_server/config/calib_db_keys.env up --build -d
+	  ie) docker-compose --env-file /my_server/config/calb_db_keys.env up --build -d
 
 	   - If you get an error of permissions denied, you might need to upgrade the permissions to your calibration-db folder. From your /tools directory, run `chmod -R 777 calibration-db` (yes.. 777).  You may need to add the word "sudo" at the front of the command, depending on your system configuration.
 	   - If you get an error saying `command not found: docker compose`, you may need to install it via `sudo apt install docker-compose` or check your system configuration.
