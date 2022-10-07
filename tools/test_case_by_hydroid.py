@@ -30,14 +30,21 @@ def perform_zonal_stats(huc_gpkg,agree_rast):
 #####################################################
 def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
 
-    in_mem_df = pd.DataFrame(columns=['HydroID', 'huc8', 'true_negatives_count', 'false_negatives_count', 'true_positives_count',
-        'false_positives_count', 'contingency_tot_count', 'cell_area_m2', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2',
-        'FN_area_km2', 'contingency_tot_area_km2', 'predPositive_area_km2', 'predNegative_area_km2', 'obsPositive_area_km2',
-        'obsNegative_area_km2', 'positiveDiff_area_km2', 'CSI', 'FAR', 'TPR', 'TNR', 'PND', 'PPV', 'NPV', 'ACC', 'Bal_ACC',
-        'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc',
-        'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
-        'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
-    
+    # in_mem_df = pd.DataFrame(columns=['HydroID', 'huc8', 'true_negatives_count', 'false_negatives_count', 'true_positives_count',
+    #     'false_positives_count', 'contingency_tot_count', 'cell_area_m2', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2',
+    #     'FN_area_km2', 'contingency_tot_area_km2', 'predPositive_area_km2', 'predNegative_area_km2', 'obsPositive_area_km2',
+    #     'obsNegative_area_km2', 'positiveDiff_area_km2', 'CSI', 'FAR', 'TPR', 'TNR', 'PND', 'PPV', 'NPV', 'ACC', 'Bal_ACC',
+    #     'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc',
+    #     'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
+    #     'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
+
+    in_mem_df = pd.DataFrame(columns=['HydroID', 'huc8','cell_area_m2',
+                                    'CSI', 'FAR', 'TPR', 'TNR',  'PPV', 'NPV', 'Bal_ACC',
+                                    'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE',
+                                    'masked_perc', 'MAG','BENCH'])
+
+
+
     for dicts in stats:
         tot_pop = dicts['tn'] +dicts['fn'] + dicts['fp'] + dicts['tp']
         if tot_pop == 0:
@@ -60,22 +67,17 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         stats_dictionary['HydroID'] = hydroid
                
         
-        true_negatives_count = round(float(stats_dictionary['true_negatives_count']),2)
-        false_negatives_count = round(float(stats_dictionary['false_negatives_count']),2)
-        true_positives_count = round(float(stats_dictionary['true_positives_count']),2)
-        false_positives_count = round(float(stats_dictionary['false_positives_count']),2)
-        contingency_tot_count = round(float(stats_dictionary['contingency_tot_count']),2)
+
+
+
+        # true_negatives_count = round(float(stats_dictionary['true_negatives_count']),2)
+        # false_negatives_count = round(float(stats_dictionary['false_negatives_count']),2)
+        # true_positives_count = round(float(stats_dictionary['true_positives_count']),2)
+        # false_positives_count = round(float(stats_dictionary['false_positives_count']),2)
+        # contingency_tot_count = round(float(stats_dictionary['contingency_tot_count']),2)
         cell_area_m2 = round(float(stats_dictionary['cell_area_m2']),2)
-        TP_area_km2 = round(float(stats_dictionary['TP_area_km2']),2)
-        FP_area_km2 = round(float(stats_dictionary['FP_area_km2']),2)
-        TN_area_km2 = round(float(stats_dictionary['TN_area_km2']),2)
-        FN_area_km2 = round(float(stats_dictionary['FN_area_km2']),2)
-        contingency_tot_area_km2 = round(float(stats_dictionary['contingency_tot_area_km2']),2)
-        predPositive_area_km2 = round(float(stats_dictionary['predPositive_area_km2']),2)
-        predNegative_area_km2 = round(float(stats_dictionary['predNegative_area_km2']),2)
-        obsPositive_area_km2 = round(float(stats_dictionary['obsPositive_area_km2']),2)
-        obsNegative_area_km2 = round(float(stats_dictionary['obsNegative_area_km2']),2)
-        positiveDiff_area_km2 = round(float(stats_dictionary['positiveDiff_area_km2']),2)
+        
+       
         
         CSI = stats_dictionary['CSI']
         if CSI != 'NA':
@@ -93,9 +95,9 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         if TNR != 'NA':
             TNR = round(TNR,2)
 
-        PND = stats_dictionary['PND']
-        if PND != 'NA':
-            PND = round(PND,2)
+        # PND = stats_dictionary['PND']
+        # if PND != 'NA':
+        #     PND = round(PND,2)
 
         PPV = stats_dictionary['PPV']
         if PPV != 'NA':
@@ -105,9 +107,9 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         if NPV != 'NA':
             NPV = round(NPV,2)
 
-        ACC = stats_dictionary['ACC']
-        if ACC != 'NA':
-            ACC = round(ACC,2)
+        # ACC = stats_dictionary['ACC']
+        # if ACC != 'NA':
+        #     ACC = round(ACC,2)
 
         Bal_ACC = stats_dictionary['Bal_ACC']
         if Bal_ACC != 'NA':
@@ -133,80 +135,69 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         if F1_SCORE != 'NA':
             F1_SCORE = round(F1_SCORE,2)    
 
-        TP_perc = stats_dictionary['TP_perc']
-        if TP_perc != 'NA':
-            TP_perc = round(TP_perc,2) 
+        # TP_perc = stats_dictionary['TP_perc']
+        # if TP_perc != 'NA':
+        #     TP_perc = round(TP_perc,2) 
 
-        FP_perc = stats_dictionary['FP_perc']
-        if FP_perc != 'NA':
-            FP_perc = round(FP_perc,2)
+        # FP_perc = stats_dictionary['FP_perc']
+        # if FP_perc != 'NA':
+        #     FP_perc = round(FP_perc,2)
         
-        TN_perc = stats_dictionary['TN_perc']
-        if TN_perc != 'NA':
-            TN_perc = round(TN_perc,2)
+        # TN_perc = stats_dictionary['TN_perc']
+        # if TN_perc != 'NA':
+        #     TN_perc = round(TN_perc,2)
 
-        FN_perc = stats_dictionary['FN_perc']
-        if FN_perc != 'NA':
-            FN_perc = round(FN_perc,2)
+        # FN_perc = stats_dictionary['FN_perc']
+        # if FN_perc != 'NA':
+        #     FN_perc = round(FN_perc,2)
 
-        predPositive_perc = stats_dictionary['predPositive_perc']
-        if predPositive_perc != 'NA':
-            predPositive_perc = round(predPositive_perc,2)
+        # predPositive_perc = stats_dictionary['predPositive_perc']
+        # if predPositive_perc != 'NA':
+        #     predPositive_perc = round(predPositive_perc,2)
 
-        predNegative_perc = stats_dictionary['predNegative_perc']
-        if predNegative_perc != 'NA':
-            predNegative_perc = round(predNegative_perc,2)
+        # predNegative_perc = stats_dictionary['predNegative_perc']
+        # if predNegative_perc != 'NA':
+        #     predNegative_perc = round(predNegative_perc,2)
 
-        obsPositive_perc = stats_dictionary['obsPositive_perc']
-        if obsPositive_perc != 'NA':
-            obsPositive_perc = round(obsPositive_perc,2)
+        # obsPositive_perc = stats_dictionary['obsPositive_perc']
+        # if obsPositive_perc != 'NA':
+        #     obsPositive_perc = round(obsPositive_perc,2)
 
-        obsNegative_perc = stats_dictionary['obsNegative_perc']
-        if obsNegative_perc != 'NA':
-            obsNegative_perc = round(obsNegative_perc,2)
+        # obsNegative_perc = stats_dictionary['obsNegative_perc']
+        # if obsNegative_perc != 'NA':
+        #     obsNegative_perc = round(obsNegative_perc,2)
 
-        positiveDiff_perc = stats_dictionary['positiveDiff_perc']
-        if positiveDiff_perc != 'NA':
-            positiveDiff_perc = round(positiveDiff_perc,2)
+        # positiveDiff_perc = stats_dictionary['positiveDiff_perc']
+        # if positiveDiff_perc != 'NA':
+        #     positiveDiff_perc = round(positiveDiff_perc,2)
 
-        masked_count = stats_dictionary['masked_count']
-        if masked_count != 'NA':
-            masked_count = round(masked_count,2)
+        # masked_count = stats_dictionary['masked_count']
+        # if masked_count != 'NA':
+        #     masked_count = round(masked_count,2)
 
         masked_perc = stats_dictionary['masked_perc']
         if masked_perc != 'NA':
             masked_perc = round(masked_perc,2)
 
-        masked_area_km2 = stats_dictionary['masked_area_km2']
-        if masked_area_km2 != 'NA':
-            masked_area_km2 = round(masked_area_km2,2)
+        # masked_area_km2 = stats_dictionary['masked_area_km2']
+        # if masked_area_km2 != 'NA':
+        #     masked_area_km2 = round(masked_area_km2,2)
 
         
         HydroID = stats_dictionary['HydroID']
 
 
-        dict_with_list_values = {'HydroID': [HydroID],'huc8':[huc8], 'true_negatives_count': [true_negatives_count], 'false_negatives_count': [false_negatives_count],
-        'true_positives_count': [true_positives_count], 'false_positives_count': [false_positives_count],
-        'contingency_tot_count': [contingency_tot_count], 'cell_area_m2': [cell_area_m2],
-        'TP_area_km2': [TP_area_km2], 'FP_area_km2': [FP_area_km2], 'TN_area_km2': [TN_area_km2], 'FN_area_km2': [FN_area_km2],
-        'contingency_tot_area_km2': [contingency_tot_area_km2], 'predPositive_area_km2': [predPositive_area_km2],
-        'predNegative_area_km2': [predNegative_area_km2], 'obsPositive_area_km2': [obsPositive_area_km2],
-        'obsNegative_area_km2': [obsNegative_area_km2], 'positiveDiff_area_km2': [positiveDiff_area_km2], 'CSI': [CSI],
-        'FAR': [FAR], 'TPR': [TPR], 'TNR': [TNR], 'PND': [PND], 'PPV': [PPV], 'NPV': [NPV], 'ACC': [ACC],
+        dict_with_list_values = {'HydroID': [HydroID],'huc8':[huc8], 'cell_area_m2': [cell_area_m2],
+        'CSI': [CSI], 'FAR': [FAR], 'TPR': [TPR], 'TNR': [TNR], 'PPV': [PPV], 'NPV': [NPV],
         'Bal_ACC': [Bal_ACC], 'MCC': [MCC], 'EQUITABLE_THREAT_SCORE': [EQUITABLE_THREAT_SCORE], 'PREVALENCE': [PREVALENCE],
-        'BIAS': [BIAS], 'F1_SCORE': [F1_SCORE], 'TP_perc': [TP_perc], 'FP_perc': [FP_perc], 'TN_perc': [TN_perc],
-        'FN_perc': [FN_perc], 'predPositive_perc': [predPositive_perc], 'predNegative_perc': [predNegative_perc],
-        'obsPositive_perc': [obsPositive_perc], 'obsNegative_perc': [obsNegative_perc], 'positiveDiff_perc': [positiveDiff_perc],
-        'masked_count': [masked_count], 'masked_perc': [masked_perc], 'masked_area_km2': [masked_area_km2],'MAG':[mag],'BENCH':[bench]}
+        'BIAS': [BIAS], 'F1_SCORE': [F1_SCORE], 'masked_perc': [masked_perc], 'MAG':[mag],'BENCH':[bench]}
         
         
-        dict_to_df = pd.DataFrame(dict_with_list_values,columns=['HydroID','huc8', 'true_negatives_count', 'false_negatives_count', 'true_positives_count',
-        'false_positives_count', 'contingency_tot_count', 'cell_area_m2', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2',
-        'FN_area_km2', 'contingency_tot_area_km2', 'predPositive_area_km2', 'predNegative_area_km2', 'obsPositive_area_km2',
-        'obsNegative_area_km2', 'positiveDiff_area_km2', 'CSI', 'FAR', 'TPR', 'TNR', 'PND', 'PPV', 'NPV', 'ACC', 'Bal_ACC',
-        'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc',
-        'predPositive_perc', 'predNegative_perc', 'obsPositive_perc', 'obsNegative_perc', 'positiveDiff_perc',
-        'masked_count', 'masked_perc', 'masked_area_km2', 'MAG','BENCH'])
+
+
+        dict_to_df = pd.DataFrame(dict_with_list_values,columns=['HydroID','huc8', 'cell_area_m2',
+        'CSI', 'FAR', 'TPR', 'TNR', 'PPV', 'NPV', 'Bal_ACC',
+        'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE', 'masked_perc', 'MAG','BENCH'])
         
         #dict_to_df.round(2)
         concat_list = [in_mem_df, dict_to_df]
