@@ -70,9 +70,9 @@ os.environ['wbd_dir'] = os.path.join(os.environ.get('input_dir'),'wbd')
 os.environ['ahps_dir'] = os.path.join(os.environ.get('input_dir'),'ahp_sites')
 os.environ['ahps_filename'] = os.path.join(os.environ.get('ahps_dir'),'nws_lid.gpkg')
 
-os.environ['usgs_3dep_dems_10m_5070'] = os.path.join(os.environ.get('input_dir'),'usgs/3dep_dems/10m_5070')
-os.environ['usgs_3dep_dems_10m_5070_vrt'] = os.path.join(os.environ.get('usgs_3dep_dems_10m_5070'),
-                                                    'fim_seemless_3dep_dem_10m_5070.vrt')
+os.environ['3dep_dems_10m_5070'] = os.path.join(os.environ.get('input_dir'),'3dep_dems/10m_5070')
+os.environ['3dep_dems_10m_5070_vrt'] = os.path.join(os.environ.get('3dep_dems_10m_5070'),
+                                                    'fim_seamless_3dep_dem_10m_5070.vrt')
 
 os.environ['nwm_dir'] = os.path.join(os.environ.get('input_dir'),'nwm_hydrofabric')
 os.environ['nwm_streams_orig_filename'] = os.path.join(os.environ.get('nwm_dir'),'nwm_flows_original.gpkg')

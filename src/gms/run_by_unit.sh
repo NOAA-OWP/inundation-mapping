@@ -45,7 +45,7 @@ huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 
 default_projection_crs="ESRI:102039"
-input_DEM=$inputDataDir/usgs/3dep_dems/10m_5070/fim_seemless_3dep_dem_10m_5070.vrt
+input_DEM=$inputDataDir/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
 
