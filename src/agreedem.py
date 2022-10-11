@@ -36,8 +36,8 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
     Returns
     -------
     None.
-
     '''
+    
     #------------------------------------------------------------------
     # 1. From Hellweger documentation: Compute the vector grid
     # (vectgrid). The cells in the vector grid corresponding to the
@@ -100,7 +100,6 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
 
         # Open distance, allocation, elevation grids.
         with rasterio.open(vectdist_grid) as vectdist, rasterio.open(vectallo_grid) as vectallo:
-
             # Define bufgrid profile and output file.
             buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
             buf_profile = dem_profile.copy()
@@ -142,7 +141,6 @@ def agreedem(rivers_raster, dem, output_raster, workspace, grass_workspace, buff
 
             # Open distance, allocation, elevation grids.
             with rasterio.open(bufdist_grid) as bufdist, rasterio.open(bufallo_grid) as bufallo:
-
                 # Define profile output file.
                 agree_output = output_raster
                 agree_profile = dem_profile.copy()
