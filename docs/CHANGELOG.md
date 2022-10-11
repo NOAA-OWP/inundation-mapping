@@ -2,6 +2,18 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v3.[to be assigned] - 2022-10-11 - [PR #707](https://github.com/NOAA-OWP/inundation-mapping/pull/707)
+
+Adds capability to produce single rating curve comparison plots for each gage.
+
+### Changes
+
+- `tools/rating_curve_comparison.py`
+    - Adds generate_single_plot() to make a single rating curve comparison plot for each gage in a given HUC
+    - Adds command line switch to generate single plots
+
+<br/><br/>
+
 ## v3.0.36.0 - 2022-09-13 - [PR #679](https://github.com/NOAA-OWP/inundation-mapping/pull/679)
 
 Fixes thalweg notch created by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
