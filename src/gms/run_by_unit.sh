@@ -230,13 +230,6 @@ if [ -f $outputHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
     Tcount
 fi
 
-## CLEANUP BRANCH ZERO OUTPUTS ##
-echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"$stopDiv
-date -u
-Tstart
-$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $srcDir/../config/deny_gms_branch_zero.lst -b 0
-Tcount
-
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_gms_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"$stopDiv

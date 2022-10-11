@@ -21,7 +21,7 @@ usage ()
     echo '  -d/--denylist    : A file with line delimited list of files in branches directories to remove' 
     echo '                    upon completion (see config/deny_gms_branches_prod.lst for a starting point)'
     echo '                    -- Note: if you want all output files (aka.. no files removed),'
-    echo '                    use the word none as this value for this parameter.'
+    echo '                    use the word "none" as this value for this parameter.'
     echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'    
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited).'
     echo '                    A line delimited file also acceptable. HUCs must present in inputs directory.'
@@ -231,8 +231,7 @@ fi
 # -------------------
 ## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO##
 if [ -f $deny_gms_branches_list ]; then
-    echo -e $startDiv"Cleaning up (Removing) files all branch zero for all HUCs"$stopDiv
-    date -u
+    echo -e $startDiv"Cleaning up (Removing) files for branch zero"$stopDiv
     $srcDir/gms/outputs_cleanup.py -d $outputRunDataDir -l $deny_gms_branches_list -b 0
 fi
 
