@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.(pending) - 2022-10-11 - [PR 708](https://github.com/NOAA-OWP/inundation-mapping/pull/708)
+
+Change branch zero output cleanups to no longer be done after processing units. An recent PR, changed gms_run_branch for a second branch zero output cleanup after all branches have been processed. This means the first cleanup of branch zero is no longer needed.  Branch zero is cleaned at the end as some branches need some of those files during their processing.
+
+### Removals
+
+- `config`
+    - `deny_gms_branch_zero.lst`:  no longer needed as branch zero will be cleaned the same way all other branches are cleaned using other deny lists.
+
+### Changes
+
+- `gms_pipeline.sh`: A quick help text update.
+- `gms_run_branch.sh`: A couple of quick text updates.
+- `gms_run_unit.sh`: A quick help text update.
+- `src`
+    - `gms`
+        - `gms_run_unit.sh`: Remove the block that does an pre-branch processing, branch zero cleanup.
+
+<br/><br/>
+
+
 ## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
 
 - Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
