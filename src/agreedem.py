@@ -4,8 +4,6 @@ import numpy as np
 import os
 import argparse
 import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
 from utils.shared_functions import mem_profile
 
 
@@ -38,6 +36,10 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
     None.
 
     '''
+    # Set wbt envs
+    wbt = whitebox.WhiteboxTools()
+    wbt.set_verbose_mode(False)
+
     #------------------------------------------------------------------
     # 1. From Hellweger documentation: Compute the vector grid
     # (vectgrid). The cells in the vector grid corresponding to the
@@ -257,8 +259,25 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
         os.remove(bufdist_grid)
         os.remove(bufallo_grid)
         os.remove(bin_buf_output)
+        os.remove(buf_output_zerod)
+        os.remove(smo_output_zerod)
 
+    #------------------------------------------------------------------
+    # 4. From Hellweger documentation: Compute the buffer grid
+    # (bufgrid2). The cells in the buffer grid outside the buffer
+    # distance (buffer) store the original elevation. The cells in the
+    # buffer grid inside the buffer distance have no data.
 
+    # Open distance, allocation, elevation grids.
+    vectdist = rasterio.open(vectdist_grid)
+    vectallo = rasterio.open(vectallo_grid)
+    elev = rasterio.open(dem)
+
+    # Define bufgrid profile and output file.
+    buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
+    bufdist_grid = os.path.join(workspace,'agree_bufgrid_dist.tif')
+    bufallo_grid = os.path.join(workspace,'agree_bufgrid_allo.tif')
+    
 if __name__ == '__main__':
 
     #Parse arguments

@@ -9,8 +9,6 @@ import numpy as np
 import os
 import argparse
 import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
 from utils.shared_functions import mem_profile
 
 
@@ -36,6 +34,9 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
         Path to output allocation raster.
 
     '''
+    # Set wbt envs
+    wbt = whitebox.WhiteboxTools()
+    wbt.set_verbose_mode(False)
     
     workspace = os.path.dirname(unique_stream_pixels)
     base = os.path.basename(unique_stream_pixels)
