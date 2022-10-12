@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.[to be assigned] - 2022-10-12 - [PR #709](https://github.com/NOAA-OWP/inundation-mapping/pull/709)
+
+Adds capability to produce single rating curve comparison plots for each gage.
+
+### Changes
+
+- `tools/rating_curve_comparison.py`
+    - Adds generate_single_plot() to make a single rating curve comparison plot for each gage in a given HUC
+    - Adds command line switch to generate single plots
+
+<br/><br/>
+
 ## v4.0.9.4 - 2022-09-30 - [PR #691](https://github.com/NOAA-OWP/inundation-mapping/pull/691)
 
 Cleanup Branch Zero output at the end of a processing run. Without this fix, some very large files were being left on the file system. Adjustments and cleanup changed the full BED output run from appx 2 TB output to appx 1 TB output.
@@ -236,7 +249,6 @@ Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_br
 - Deletes branch from `gms_inputs.csv`
 
 <br/><br/>
-
 
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 
