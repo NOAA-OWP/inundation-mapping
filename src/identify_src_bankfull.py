@@ -70,6 +70,7 @@ def src_bankfull_lookup(args):
         hradius_var = 'HydraulicRadius (m)'
         volume_var = 'Volume (m3)'
         surface_area_var = 'SurfaceArea (m2)'
+        bedarea_var = 'BedArea (m2)'
 
         ## Locate the closest SRC discharge value to the NWM 1.5yr flow
         df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
@@ -82,12 +83,12 @@ def src_bankfull_lookup(args):
         if df_src['HydroID'].isnull().values.any():
             log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "HydroID"... \n'
 
-        df_bankfull_calc = df_src[['Stage','HydroID',volume_var,hradius_var,surface_area_var,'Q_bfull_find']] # create new subset df to perform the Q_1_5 lookup
+        df_bankfull_calc = df_src[['Stage','HydroID',bedarea_var,volume_var,hradius_var,surface_area_var,'Q_bfull_find']] # create new subset df to perform the Q_1_5 lookup
         df_bankfull_calc = df_bankfull_calc[df_bankfull_calc['Stage'] > 0.0] # Ensure bankfull stage is greater than stage=0
         df_bankfull_calc.reset_index(drop=True, inplace=True)
         df_bankfull_calc = df_bankfull_calc.loc[df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()].reset_index(drop=True) # find the index of the Q_bfull_find (closest matching flow)
-        df_bankfull_calc = df_bankfull_calc.rename(columns={'Stage':'Stage_bankfull',volume_var:'Volume_bankfull',hradius_var:'HRadius_bankfull',surface_area_var:'SurfArea_bankfull'}) # rename volume to use later for channel portion calc
-        df_src = df_src.merge(df_bankfull_calc[['Stage_bankfull','HydroID','Volume_bankfull','HRadius_bankfull','SurfArea_bankfull']],how='left',on='HydroID')
+        df_bankfull_calc = df_bankfull_calc.rename(columns={'Stage':'Stage_bankfull',bedarea_var:'BedArea_bankfull',volume_var:'Volume_bankfull',hradius_var:'HRadius_bankfull',surface_area_var:'SurfArea_bankfull'}) # rename volume to use later for channel portion calc
+        df_src = df_src.merge(df_bankfull_calc[['Stage_bankfull','HydroID','BedArea_bankfull','Volume_bankfull','HRadius_bankfull','SurfArea_bankfull']],how='left',on='HydroID')
         df_src.drop(['Q_bfull_find'], axis=1, inplace=True)
 
         ## Calculate the channel portion of bankfull Volume
