@@ -167,6 +167,22 @@ fi
 T_total_start
 Tstart
 
+: '
+This makes the local variables from the calb_db_keys files
+into global variables that can be used in other files, including python.
+
+Why not just leave the word export in front of each of the keys in the
+calb_db_keys.env? Becuase that file is used against docker-compose
+when we start up that part of the sytem and it does not like the word
+export.
+'
+export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
+export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
+export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
+export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
+
+echo "CALIBRATION_DB_HOST is $CALIBRATION_DB_HOST"
+
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
     if [ ! -f $CALB_DB_KEYS_FILE ]; then
