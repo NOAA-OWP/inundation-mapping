@@ -45,8 +45,6 @@ else
   input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
 fi
 
-#input_nld_leveeprotectedareas=$inputDataDir/nld_vectors/LeveedArea.geojson
-
 ## GET WBD ##
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
@@ -60,7 +58,7 @@ echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
 [ ! -f $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg ] && \
-python3 -m memory_profiler $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -s $input_nhd_flowlines -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nhd_headwaters -v $input_LANDSEA -lpf $input_nld_leveeprotectedareas -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -extent $extent -gl $input_GL_boundaries -lb $lakes_buffer_dist_meters -wb $wbd_buffer
+python3 -m memory_profiler $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -s $input_nhd_flowlines -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nhd_headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -extent $extent -gl $input_GL_boundaries -lb $lakes_buffer_dist_meters -wb $wbd_buffer
 Tcount
 
 if [ "$extent" = "MS" ]; then
@@ -91,7 +89,6 @@ echo -e $startDiv"Get DEM Metadata $hucNumber"$stopDiv
 date -u
 Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputHucDataDir/dem_meters.tif)
-Tcount
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices"$stopDiv
@@ -363,14 +360,6 @@ Tstart
 gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LandSea_subset.gpkg $outputHucDataDir/LandSea_subset.tif
 Tcount
 
-## RASTERIZE LEVEE-PROTECTED AREAS POLYGON (IF APPLICABLE) ##
-echo -e $startDiv"Rasterizing levee-protected areas polygons $hucNumber"$stopDiv
-date -u
-Tstart
-[ -f $outputHucDataDir/LeveeProtectedAreas_subset.gpkg ] && [ ! -f $outputHucDataDir/LeveeProtectedAreas_subset.tif ] && \
-gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LeveeProtectedAreas_subset.gpkg $outputHucDataDir/LeveeProtectedAreas_subset.tif
-Tcount
-
 ## MASK SLOPE RASTER ##
 echo -e $startDiv"Masking Slope Raster to HUC $hucNumber"$stopDiv
 date -u
@@ -393,14 +382,6 @@ date -u
 Tstart
 [ -f $outputHucDataDir/LandSea_subset.tif ] && \
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed_masked.tif -B $outputHucDataDir/LandSea_subset.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
-Tcount
-
-## MASK REM RASTER TO REMOVE LEVEE-PROTECTED AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove levee-protected areas in HUC $hucNumber"$stopDiv
-date -u
-Tstart
-[ -f $outputHucDataDir/LeveeProtectedAreas_subset.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputHucDataDir/rem_zeroed_masked.tif -B $outputHucDataDir/LeveeProtectedAreas_subset.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputHucDataDir/"rem_zeroed_masked.tif"
 Tcount
 
 ## MAKE CATCHMENT AND STAGE FILES ##
