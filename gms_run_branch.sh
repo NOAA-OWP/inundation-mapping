@@ -167,18 +167,32 @@ fi
 T_total_start
 Tstart
 
+: '
+This makes the local variables from the calb_db_keys files
+into global variables that can be used in other files, including python.
+
+Why not just leave the word export in front of each of the keys in the
+calb_db_keys.env? Becuase that file is used against docker-compose
+when we start up that part of the sytem and it does not like the word
+export.
+'
+export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
+export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
+export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
+export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
+
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
     if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
         exit 1
     else
         source $CALB_DB_KEYS_FILE
-        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
+        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
         echo "Loading HUC Data"
-        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
         echo "Loading Point Data"
-        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
+        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
     fi
 fi
 
