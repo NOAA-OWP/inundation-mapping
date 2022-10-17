@@ -1,6 +1,11 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.36.1 - 2022-10-5 - [PR #700](https://github.com/NOAA-OWP/cahaba/pull/700)
+
+A small change made to the Calibration DB's `docker-compose.yml` file to fix a couple of issues that were causing the DB data to not persist after the host machine was rebooted.
+
+This has already been tested on the dev and prod machines for a while and seems to have solved the issue.
 
 ## v3.0.36.0 - 2022-09-13 - [PR #679](https://github.com/NOAA-OWP/inundation-mapping/pull/679)
 
