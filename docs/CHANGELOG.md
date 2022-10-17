@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.0.9.8 - 2022-10-06 - [PR #(pending)](https://github.com/NOAA-OWP/inundation-mapping/pull/618)
+## v4.0.9.8 - 2022-10-06 - [PR #701](https://github.com/NOAA-OWP/inundation-mapping/pull/701)
 
 Moved the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
 
