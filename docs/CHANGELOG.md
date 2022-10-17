@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v3.0.36.1 - 2022-10-5 - [PR #700](https://github.com/NOAA-OWP/cahaba/pull/700)
+
+A small change made to the Calibration DB's `docker-compose.yml` file to fix a couple of issues that were causing the DB data to not persist after the host machine was rebooted.
+
+This has already been tested on the dev and prod machines for a while and seems to have solved the issue.
+
+<br/><br/>
+
 ## v3.0.34.2 - 2022-07-19 - [PR #632](https://github.com/NOAA-OWP/cahaba/pull/632)
 
 We have identified five HUC8s that were not producing FIM outputs for large portions of the expected domain. The cause of this issue varies slightly between the HUCs but the NHD headwater points were used to address the issue for all five scenarios.  
