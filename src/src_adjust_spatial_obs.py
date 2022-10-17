@@ -1,28 +1,32 @@
+#!/usr/bin/env python3
+
 import argparse
-import geopandas as gpd
-from geopandas.tools import sjoin
-import os
-import rasterio
-import pandas as pd
-import numpy as np
-import sys
-import json
 import datetime as dt
-from collections import deque
+import geopandas as gpd
+#import json
 import multiprocessing
+import numpy as np
+import os
+import pandas as pd
+import psycopg2 # python package for connecting to postgres
+import rasterio
+import sys
+import time
+
+from collections import deque
+from dotenv import load_dotenv
+from geopandas.tools import sjoin
 from multiprocessing import Pool
 from src_roughness_optimization import update_rating_curve
-import psycopg2 # python package for connecting to postgres
-from dotenv import load_dotenv
-import time
+from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 
 #import variables from .env file
 load_dotenv()
 CALIBRATION_DB_HOST = os.getenv("CALIBRATION_DB_HOST")
+CALIBRATION_DB_NAME = os.getenv("CALIBRATION_DB_NAME")
 CALIBRATION_DB_USER_NAME = os.getenv("CALIBRATION_DB_USER_NAME")
 CALIBRATION_DB_PASS = os.getenv("CALIBRATION_DB_PASS")
 
-from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
 '''
 The script imports a PostgreSQL database containing observed FIM extent points and associated flow data. This script attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow.
 
@@ -90,11 +94,13 @@ def process_points(args):
 
     ## Check that there are valid obs in the water_edge_df (not empty)
     if water_edge_df.empty:
-        log_text = 'NOTE --> skipping HUC: ' + str(huc) + '  Branch: ' + str(branch_id) + ': no valid observation points found within the branch catchments'
+        log_text = 'NOTE --> skipping HUC: ' + str(huc) + '  Branch: ' + str(branch_id)\
+            + ': no valid observation points found within the branch catchments'
     else:
         ## Intermediate output for debugging
         if optional_outputs:
-            branch_debug_pts_out_gpkg = os.path.join(branch_dir, 'export_water_edge_df_' + branch_id + '.gpkg')
+            branch_debug_pts_out_gpkg = os.path.join(branch_dir, 'export_water_edge_df_'
+                                                     + branch_id + '.gpkg')
             water_edge_df.to_file(branch_debug_pts_out_gpkg, driver='GPKG', index=False)
             
         #print('Processing points for HUC: ' + str(huc) + '  Branch: ' + str(branch_id))
@@ -114,7 +120,9 @@ def process_points(args):
         merge_prev_adj = True # merge in previous SRC adjustment calculations
 
         ## Call update_rating_curve() to perform the rating curve calibration.
-        log_text = update_rating_curve(branch_dir, water_edge_median_df, htable_path, huc, branch_id, catchments_poly_path, optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
+        log_text = update_rating_curve(branch_dir, water_edge_median_df, htable_path, huc, 
+                                       branch_id, catchments_poly_path, optional_outputs, 
+                                       source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
         ## Still testing: use code below to print out any exceptions.
         '''
         try:
@@ -150,12 +158,14 @@ def find_points_in_huc(huc_id, conn):
     
     # Need to hard code the CRS to use EPSG:5070 instead of the default ESRI:102039 (gdal pyproj throws an error with crs 102039)
     # Appears that EPSG:5070 is functionally equivalent to ESRI:102039: https://gis.stackexchange.com/questions/329123/crs-interpretation-in-qgis
-    water_edge_df = gpd.GeoDataFrame.from_postgis(huc_pt_query, con=conn, params=[huc_id], crs="EPSG:5070", parse_dates=['coll_time'])
+    water_edge_df = gpd.GeoDataFrame.from_postgis(huc_pt_query, con=conn, 
+                                                  params=[huc_id], crs="EPSG:5070",
+                                                  parse_dates=['coll_time'])
     water_edge_df = water_edge_df.drop(columns=['st_x','st_y'])
     
     return water_edge_df
 
-def find_hucs_with_points(conn,fim_out_huc_list):
+def find_hucs_with_points(conn, fim_out_huc_list):
     '''
     The function queries the PostgreSQL database and returns a list of all the HUCs that contain calb point data.
 
@@ -267,7 +277,8 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
             hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
             catchments_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif')
             htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-            catchments_poly_path = os.path.join(branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
+            catchments_poly_path = os.path.join(branch_dir, 
+                'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
@@ -285,6 +296,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     with Pool(processes=job_number) as pool:
                 log_output = pool.map(process_points, procs_list)
                 log_file.writelines(["%s\n" % item  for item in log_output])
+                
     log_file.write('#########################################################\n')
     disconnect(conn) # move this to happen at the end of the huc looping
 
@@ -301,7 +313,7 @@ def connect():
             # connect to the PostgreSQL server
             conn = psycopg2.connect(
                 host=CALIBRATION_DB_HOST,
-                database="calibration",
+                database=CALIBRATION_DB_NAME,
                 user=CALIBRATION_DB_USER_NAME,
                 password=CALIBRATION_DB_PASS)
 
@@ -321,6 +333,7 @@ def connect():
             cur.close()
             not_connected = False
             print("Connected to database\n\n")
+            
         except (Exception, psycopg2.DatabaseError) as error:
             print("Waiting for database to come online")
             fail_ctr += 1
@@ -335,20 +348,25 @@ def disconnect(conn):
         conn.close()
         print('Database connection closed.')
 
-def run_prep(fim_directory,debug_outputs_option,ds_thresh_override,DOWNSTREAM_THRESHOLD,job_number):
-    assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(fim_directory)
+def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number):
+    
+    assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: '\
+        + str(fim_directory)
 
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
         job_number = available_cores - 1
-        print("Provided job number exceeds the number of available cores. " + str(job_number) + " max jobs will be used instead.")
+        print("Provided job number exceeds the number of available cores. " \
+            + str(job_number) + " max jobs will be used instead.")
 
     if ds_thresh_override != DOWNSTREAM_THRESHOLD:
-        print('ALERT!! - Using a downstream distance threshold value (' + str(float(ds_thresh_override)) + 'km) different than the default (' + str(DOWNSTREAM_THRESHOLD) + 'km) - interpret results accordingly')
+        print('ALERT!! - Using a downstream distance threshold value ('
+            + str(float(ds_thresh_override)) + 'km) different than the default ('\
+            + str(DOWNSTREAM_THRESHOLD) + 'km) - interpret results accordingly')
         DOWNSTREAM_THRESHOLD = float(ds_thresh_override)
 
     ## Create output dir for log file
-    output_dir = os.path.join(fim_directory,"logs","src_optimization")
+    output_dir = os.path.join(fim_directory, "logs", "src_optimization")
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
         
@@ -360,7 +378,9 @@ def run_prep(fim_directory,debug_outputs_option,ds_thresh_override,DOWNSTREAM_TH
     sys.__stdout__ = sys.stdout
     log_file = open(os.path.join(output_dir,'log_spatial_src_adjust.log'),"w")
     log_file.write('#########################################################\n')
-    log_file.write('Parameter Values:\n' + 'DOWNSTREAM_THRESHOLD= ' + str(DOWNSTREAM_THRESHOLD) + '\n' + 'ROUGHNESS_MIN_THRESH= ' + str( ROUGHNESS_MIN_THRESH) + '\n' + 'ROUGHNESS_MAX_THRESH=' + str(ROUGHNESS_MAX_THRESH) + '\n')
+    log_file.write('Parameter Values:\n' + 'DOWNSTREAM_THRESHOLD = ' + str(DOWNSTREAM_THRESHOLD)\
+        + '\n' + 'ROUGHNESS_MIN_THRESH = ' + str( ROUGHNESS_MIN_THRESH) + '\n'\
+        + 'ROUGHNESS_MAX_THRESH = ' + str(ROUGHNESS_MAX_THRESH) + '\n')
     log_file.write('#########################################################\n\n')
     log_file.write('START TIME: ' + str(begin_time) + '\n')
 
@@ -378,10 +398,17 @@ if __name__ == '__main__':
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts rating curve given a shapefile containing points of known water boundary.')
     #parser.add_argument('-db','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
-    parser.add_argument('-fim_dir','--fim-directory',help='Parent directory of FIM-required datasets.',required=True)
-    parser.add_argument('-debug','--extra-outputs',help='OPTIONAL flag: Use this to keep intermediate output files for debugging/testing',default=False,required=False, action='store_true')
-    parser.add_argument('-dthresh','--downstream-thresh',help='OPTIONAL Override: distance in km to propogate modified roughness values downstream', default=DOWNSTREAM_THRESHOLD,required=False)
-    parser.add_argument('-j','--job-number',help='OPTIONAL: Number of jobs to use',required=False,default=2)
+    parser.add_argument('-fim_dir','--fim-directory',
+                        help='Parent directory of FIM-required datasets.', required=True)
+    parser.add_argument('-debug','--extra-outputs',
+                        help='OPTIONAL flag: Use this to keep intermediate output files for debugging/testing',
+                        default=False, required=False, action='store_true')
+    parser.add_argument('-dthresh','--downstream-thresh',
+                        help='OPTIONAL Override: distance in km to propogate modified roughness values downstream', 
+                        default=DOWNSTREAM_THRESHOLD, required=False)
+    parser.add_argument('-j','--job-number',
+                        help='OPTIONAL: Number of jobs to use', required=False,
+                        default=2)
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -391,4 +418,5 @@ if __name__ == '__main__':
     ds_thresh_override = args['downstream_thresh']
     job_number = int(args['job_number'])
 
-    run_prep(fim_directory,debug_outputs_option,ds_thresh_override,DOWNSTREAM_THRESHOLD,job_number)
+    run_prep(fim_directory, debug_outputs_option, ds_thresh_override, 
+             DOWNSTREAM_THRESHOLD, job_number)
