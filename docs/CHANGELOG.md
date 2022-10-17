@@ -1,6 +1,32 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.10.0 - 2022-10-4 - [PR #697](https://github.com/NOAA-OWP/inundation-mapping/pull/697)
+
+Change FIM to load DEM's from the new USGS 3Dep files instead of the original NHD Rasters.
+
+### Changes
+
+- `config`
+    - `params_template.env`: Change default of the calib db back to true:  src_adjust_spatial back to "True". Plus a few text updates.
+- `src`
+    - `gms`
+        - `run_by_unit.sh`: Change input_DEM value to the new vrt `$inputDataDir/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt` to load the new 3Dep DEM's. Note: The 3Dep DEM's are projected as CRS 5070, but for now, our code is using ESRI:102039. Later all code and input will be changed to CRS:5070. We now are defining the FIM desired projection (102039), so we need to reproject on the fly from 5070 to 102039 during the gdalwarp cut.
+        - `run_by_branch.sh`: Removed unused lines.
+    - `utils`
+        - `shared_variables.py`: Changes to use the new 3Dep DEM rasters instead of the NHD rasters. Moved some values (grouped some variables). Added some new variables for 3Dep. Note: At this time, some of these new enviro variables for 3Dep are not used but are expected to be used shortly.
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Minor updates for adjustments of environmental variables. Adjustments to ensure the cell sizes are fully defined as 10 x 10 as source has a different resolution. The data we downloaded to the new `inputs/3dep_dems/10m_5070` was loaded as 10x10, CRS:5070 rasters.
+
+### Removals
+
+- `lib`
+    - `aggregate_fim_outputs.py` : obsolete. Had been deprecated for a while and replaced by other files.
+    - `fr_to_mr_raster_mask.py` : obsolete. Had been deprecated for a while and replaced by other files.
+
+<br/><br/>
+
 ## v4.0.9.8 - 2022-10-06 - [PR #701](https://github.com/NOAA-OWP/inundation-mapping/pull/701)
 
 Moved the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
@@ -122,7 +148,7 @@ Cleanup Branch Zero output at the end of a processing run. Without this fix, som
     - `deny_gms_branch_zero.lst`: Added some new files to be deleted.
     - `deny_gms_branches_dev.lst`:  Renamed from `deny_gms_branches_default.lst` and some new files to be deleted, updated others. Now used primarily for development and testing use.
     - `deny_gms_branches_prod.lst`:  Renamed from `deny_gms_branches_min` and some new files to be deleted, updated others. Now used primarily for when releasing a version to production.
-    -  `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
+    - `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
 
 <br/><br/>
 
@@ -169,6 +195,51 @@ Other changes:
           - `shared_variables.py`: Additions in support of near future functionality of having fim load DEM's from USGS 3DEP instead of NHD rasters.
 
 <br/><br/>
+
+## v4.0.(pending) - 2022-09-13 - [PR #681](https://github.com/NOAA-OWP/inundation-mapping/pull/681)
+
+Created a new tool to downloaded USGS 3Dep DEM's via their S3 bucket.
+
+Other changes:
+ - Some code file re-organization in favour of the new `data` folder which is designed for getting, setting, and processing data from external sources such as AWS, WBD, NHD, NWM, etc.
+ - Added tmux as a new tool embedded inside the docker images.
+
+## Additions
+
+- `data`
+   - `usgs`
+      - `acquire_and_preprocess_3dep_dems.py`:  The new tool as described above. For now it is hardcoded to a set path for USGS AWS S3 vrt file but may change later for it to become parameter driven.
+ - `create_vrt_file.py`: This is also a new tool that can take a directory of geotiff files and create a gdal virtual file, .vrt extention, also called a `virtual raster`. Instead of clipping against HUC4, 6, 8's raster files, and run risks of boundary issues, vrt's actual like all of the tif's are one giant mosaiced raster and can be clipped as one.
+
+## Removals
+
+- 'Dockerfile.prod`:  No longer being used (never was used)
+
+## Changes
+
+- `Dockerfile`:  Added apt install for tmux. This tool will now be available in docker images and assists developers.
+
+- `data`
+   - `acquire_and_preprocess_inputs.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+   - `nws`
+      - `preprocess_ahps_nws.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+      - `preprocess_rasters.py`: moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+    - `usgs`
+         - `preprocess_ahps_usgs.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+         - `preprocess_download_usgs_grids.py`: moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+
+ - `src`
+     - `utils`
+         - `shared_functions.py`:  changes made were
+              - Cleanup the "imports" section of the file (including a change to how the utils.shared_variables file is loaded.
+              - Added `progress_bar_handler` function which can be re-used by other code files.
+              - Added `get_file_names` which can create a list of files from a given directory matching a given extension. 
+              - Modified `print_current_date_time` and `print_date_time_duration` and  methods to return the date time strings. These helper methods exist to help with standardization of logging and output console messages.
+              - Added `print_start_header` and `print_end_header` to help with standardization of console and logging output messages.
+          - `shared_variables.py`: Additions in support of near future functionality of having fim load DEM's from USGS 3DEP instead of NHD rasters.
+
+<br/><br/>
+
 
 ## v4.0.9.2 - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
 
