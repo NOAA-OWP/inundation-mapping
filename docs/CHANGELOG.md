@@ -19,7 +19,7 @@ Change FIM to load DEM's from the new USGS 3Dep files instead of the original NH
     - `usgs`
         - `acquire_and_preprocess_3dep_dems.py`: Minor updates for adjustments of environmental variables. Adjustments to ensure the cell sizes are fully defined as 10 x 10 as source has a different resolution. The data we downloaded to the new `inputs/3dep_dems/10m_5070` was loaded as 10x10, CRS:5070 rasters.
 
-## Removals
+### Removals
 
 - `lib`
     - `aggregate_fim_outputs.py` : obsolete. Had been deprecated for a while and replaced by other files.
