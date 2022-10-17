@@ -1,9 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-
-
-## v4.0.(pending) - 2022-10-06 - [PR #(pending)](https://github.com/NOAA-OWP/inundation-mapping/pull/618)
+## v4.0.9.8 - 2022-10-06 - [PR #(pending)](https://github.com/NOAA-OWP/inundation-mapping/pull/618)
 
 Moved the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
 
@@ -30,9 +28,40 @@ For more details see /tools/calibration-db/README.md
     - `calibration-db`
         - `start_db.sh`: Removed as the command should be run on demand and not specifically scripted because of its configurable location of the env file.
 
+<br/><br/>
+
+## v4.0.9.7 - 2022-10-7 - [PR #703](https://github.com/NOAA-OWP/inundation-mapping/pull/703)
+
+During a recent release of a FIM 3 version, it was discovered that FIM3 has slightly different AWS S3 upload requirements. A new s3 whitelist file has been created for FIM3 and the other s3 file was renamed to include the phrase "fim4" in it.
+
+This is being added to source control as it might be used again and we don't want to loose it.
+
+### Additions
+
+- `config`
+   - `aws_s3_put_fim3_whitelist.lst`
+   
+### Renamed
+
+- `config`
+   - `aws_s3_put_fim4_whitelist.lst`: renamed from aws_s3_put_whitelist.lst
 
 <br/><br/>
 
+## v4.0.9.6 - 2022-10-17 - [PR #711](https://github.com/NOAA-OWP/inundation-mapping/pull/711)
+
+Bug fix and formatting upgrades. It was also upgraded to allow for misc other inundation data such as high water data.
+
+### Changes
+
+- `tools`
+    - `inundate_nation.py`:  As stated above.
+
+### Testing
+
+- it was run in a production model against fim 4.0.9.2 at 100 yr and 2 yr as well as a new High Water dataset.
+
+<br/><br/>
 
 ## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
 
