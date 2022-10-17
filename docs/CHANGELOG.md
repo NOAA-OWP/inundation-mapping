@@ -15,6 +15,115 @@ This hotfix address a bug with how the rating curve comparison (sierra test) han
 
 <br/><br/>
 
+## v4.0.10.0 - 2022-10-4 - [PR #697](https://github.com/NOAA-OWP/inundation-mapping/pull/697)
+
+Change FIM to load DEM's from the new USGS 3Dep files instead of the original NHD Rasters.
+
+### Changes
+
+- `config`
+    - `params_template.env`: Change default of the calib db back to true:  src_adjust_spatial back to "True". Plus a few text updates.
+- `src`
+    - `gms`
+        - `run_by_unit.sh`: Change input_DEM value to the new vrt `$inputDataDir/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt` to load the new 3Dep DEM's. Note: The 3Dep DEM's are projected as CRS 5070, but for now, our code is using ESRI:102039. Later all code and input will be changed to CRS:5070. We now are defining the FIM desired projection (102039), so we need to reproject on the fly from 5070 to 102039 during the gdalwarp cut.
+        - `run_by_branch.sh`: Removed unused lines.
+    - `utils`
+        - `shared_variables.py`: Changes to use the new 3Dep DEM rasters instead of the NHD rasters. Moved some values (grouped some variables). Added some new variables for 3Dep. Note: At this time, some of these new enviro variables for 3Dep are not used but are expected to be used shortly.
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Minor updates for adjustments of environmental variables. Adjustments to ensure the cell sizes are fully defined as 10 x 10 as source has a different resolution. The data we downloaded to the new `inputs/3dep_dems/10m_5070` was loaded as 10x10, CRS:5070 rasters.
+
+### Removals
+
+- `lib`
+    - `aggregate_fim_outputs.py` : obsolete. Had been deprecated for a while and replaced by other files.
+    - `fr_to_mr_raster_mask.py` : obsolete. Had been deprecated for a while and replaced by other files.
+
+<br/><br/>
+
+## v4.0.9.8 - 2022-10-06 - [PR #701](https://github.com/NOAA-OWP/inundation-mapping/pull/701)
+
+Moved the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
+
+Also updated making it easier to deploy, along with better information for external contributors.
+
+Changed the system so the calibration database name is configurable. This allows test databases to be setup in the same postgres db / server system. You can have more than one calb_db_keys.env running in different computers (or even more than one on one server) pointing to the same actual postgres server and service. ie) multiple dev machine can call a single production server which hosts the database.
+
+For more details see /tools/calibration-db/README.md
+
+### Changes
+
+- `tools`
+    - `calibration-db`
+        - `docker-compose.yml`: changed to allow for configurable database name. (allows for more then one database in a postgres database system (one for prod, another for test if needed))
+
+### Additions
+
+- `config`
+    - `calb_db_keys_template.env`: a new template verison of the required config values.
+
+### Removals
+
+- `tools`
+    - `calibration-db`
+        - `start_db.sh`: Removed as the command should be run on demand and not specifically scripted because of its configurable location of the env file.
+
+<br/><br/>
+
+## v4.0.9.7 - 2022-10-7 - [PR #703](https://github.com/NOAA-OWP/inundation-mapping/pull/703)
+
+During a recent release of a FIM 3 version, it was discovered that FIM3 has slightly different AWS S3 upload requirements. A new s3 whitelist file has been created for FIM3 and the other s3 file was renamed to include the phrase "fim4" in it.
+
+This is being added to source control as it might be used again and we don't want to loose it.
+
+### Additions
+
+- `config`
+   - `aws_s3_put_fim3_whitelist.lst`
+   
+### Renamed
+
+- `config`
+   - `aws_s3_put_fim4_whitelist.lst`: renamed from aws_s3_put_whitelist.lst
+
+<br/><br/>
+
+## v4.0.9.6 - 2022-10-17 - [PR #711](https://github.com/NOAA-OWP/inundation-mapping/pull/711)
+
+Bug fix and formatting upgrades. It was also upgraded to allow for misc other inundation data such as high water data.
+
+### Changes
+
+- `tools`
+    - `inundate_nation.py`:  As stated above.
+
+### Testing
+
+- it was run in a production model against fim 4.0.9.2 at 100 yr and 2 yr as well as a new High Water dataset.
+
+<br/><br/>
+
+## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
+
+- Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
+- Change default for params_template.env -> src_adjust_spatial="False", back to default of "True"
+- Fixed an infinite loop when src_adjust_usgs_rating.py was unable to talk to the calib db.
+- Fixed src_adjsust_usgs_rating.py for when the usgs_elev_table.csv may not exist.
+
+### Changes
+
+- `gms_run_branch.sh`:  removed some "time" command in favour of using fim commands from bash_functions.sh which give better time and output messages.
+
+- `config`
+    - `deny_gms_unit_prod.lst`: Commented out LandSea_subset.gpkg as some HUCs need that file in place.
+    - `params_template.env`: Changed default src_adjust_spatial back to True
+
+- `src`
+    - `src_adjust_spatial_obs.py`:  Added code to a while loop (line 298) so it is not an indefinite loop that never stops running. It will now attempts to contact the calibration db after 6 attempts. Small adjustments to output and logging were also made and validation that a connection to the calib db was actually successful.
+    - `src_adjust_usgs_rating.py`: Discovered that a usgs_elev_df might not exist (particularly when processing was being done for hucs that have no usgs guage data). If the usgs_elev_df does not exist, it no longer errors out.
+
+<br/><br/>
+
 ## v4.0.9.4 - 2022-09-30 - [PR #691](https://github.com/NOAA-OWP/inundation-mapping/pull/691)
 
 Cleanup Branch Zero output at the end of a processing run. Without this fix, some very large files were being left on the file system. Adjustments and cleanup changed the full BED output run from appx 2 TB output to appx 1 TB output.
@@ -53,7 +162,7 @@ Cleanup Branch Zero output at the end of a processing run. Without this fix, som
     - `deny_gms_branch_zero.lst`: Added some new files to be deleted.
     - `deny_gms_branches_dev.lst`:  Renamed from `deny_gms_branches_default.lst` and some new files to be deleted, updated others. Now used primarily for development and testing use.
     - `deny_gms_branches_prod.lst`:  Renamed from `deny_gms_branches_min` and some new files to be deleted, updated others. Now used primarily for when releasing a version to production.
-    -  `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
+    - `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
 
 <br/><br/>
 
@@ -100,6 +209,51 @@ Other changes:
           - `shared_variables.py`: Additions in support of near future functionality of having fim load DEM's from USGS 3DEP instead of NHD rasters.
 
 <br/><br/>
+
+## v4.0.(pending) - 2022-09-13 - [PR #681](https://github.com/NOAA-OWP/inundation-mapping/pull/681)
+
+Created a new tool to downloaded USGS 3Dep DEM's via their S3 bucket.
+
+Other changes:
+ - Some code file re-organization in favour of the new `data` folder which is designed for getting, setting, and processing data from external sources such as AWS, WBD, NHD, NWM, etc.
+ - Added tmux as a new tool embedded inside the docker images.
+
+## Additions
+
+- `data`
+   - `usgs`
+      - `acquire_and_preprocess_3dep_dems.py`:  The new tool as described above. For now it is hardcoded to a set path for USGS AWS S3 vrt file but may change later for it to become parameter driven.
+ - `create_vrt_file.py`: This is also a new tool that can take a directory of geotiff files and create a gdal virtual file, .vrt extention, also called a `virtual raster`. Instead of clipping against HUC4, 6, 8's raster files, and run risks of boundary issues, vrt's actual like all of the tif's are one giant mosaiced raster and can be clipped as one.
+
+## Removals
+
+- 'Dockerfile.prod`:  No longer being used (never was used)
+
+## Changes
+
+- `Dockerfile`:  Added apt install for tmux. This tool will now be available in docker images and assists developers.
+
+- `data`
+   - `acquire_and_preprocess_inputs.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+   - `nws`
+      - `preprocess_ahps_nws.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+      - `preprocess_rasters.py`: moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+    - `usgs`
+         - `preprocess_ahps_usgs.py`:  moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+         - `preprocess_download_usgs_grids.py`: moved from the `tools` directory but not other changes made. Note: will required review/adjustments before being used again.
+
+ - `src`
+     - `utils`
+         - `shared_functions.py`:  changes made were
+              - Cleanup the "imports" section of the file (including a change to how the utils.shared_variables file is loaded.
+              - Added `progress_bar_handler` function which can be re-used by other code files.
+              - Added `get_file_names` which can create a list of files from a given directory matching a given extension. 
+              - Modified `print_current_date_time` and `print_date_time_duration` and  methods to return the date time strings. These helper methods exist to help with standardization of logging and output console messages.
+              - Added `print_start_header` and `print_end_header` to help with standardization of console and logging output messages.
+          - `shared_variables.py`: Additions in support of near future functionality of having fim load DEM's from USGS 3DEP instead of NHD rasters.
+
+<br/><br/>
+
 
 ## v4.0.9.2 - 2022-09-12 - [PR #678](https://github.com/NOAA-OWP/inundation-mapping/pull/678)
 

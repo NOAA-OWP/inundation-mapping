@@ -43,7 +43,9 @@ hucUnitLength=${#hucNumber}
 huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
-input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
+
+default_projection_crs="ESRI:102039"
+input_DEM=$inputDataDir/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 input_bathy_bankfull=$inputDataDir/$bankfull_input_table
 
@@ -132,7 +134,7 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"$stopD
 date -u
 Tstart
 [ ! -f $outputCurrentBranchDataDir/dem_meters.tif ] && \
-gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" $input_DEM $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $default_projection_crs $input_DEM $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
 Tcount
 
 ## GET RASTER METADATA

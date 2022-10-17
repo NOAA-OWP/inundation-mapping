@@ -201,11 +201,6 @@ def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,j
     #usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
     #usgs_elev_df = pd.read_csv(usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int})
     csv_name = 'usgs_elev_table.csv'
-    usgs_elev_df = concat_huc_csv(run_dir,csv_name)
-    if usgs_elev_df is None:
-        print('WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in fim_dir!')
-    elif usgs_elev_df.empty:
-        print('WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in fim_dir!')
     
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
@@ -218,18 +213,32 @@ def run_prep(run_dir,usgs_rc_filepath,nwm_recurr_filepath,debug_outputs_option,j
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 
-    print('This may take a few minutes...')
-    usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
-
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
     # Create log file for processing records
     log_file = open(os.path.join(log_dir,'log_usgs_rc_src_adjust.log'),"w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
+   
+    usgs_elev_df = concat_huc_csv(run_dir,csv_name)
 
-    ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-    branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file)
+    if usgs_elev_df is None:
+        warn_err = 'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in fim_dir!'
+        print(warn_err)
+        log_file.write(warn_err)
+        
+    elif usgs_elev_df.empty:
+        warn_err = 'WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in fim_dir!'
+        print(warn_err)
+        log_file.write(warn_err)
+
+    else:
+        print('This may take a few minutes...')
+        log_file.write("starting create usgs rating db")
+        usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
+
+        ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
+        branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file)
 
     ## Record run time and close log file
     log_file.write('#########################################################\n\n')
