@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
+
+This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 
+
+### Changes
+
+- `tools/rating_curve_comparison.py`
+  - Added logging function to print and write to log file
+  - Added new filters to ignore AHPS only sites (these are sites that we need for CatFIM but do not have a USGS gage or USGS rating curve available for sierra test analysis)
+  - Added functionality to identify branch zero SRCs
+  - Added new plot formatting to distinguish branch zero from other branches
+
+<br/><br/>
+
 ## v4.0.10.0 - 2022-10-4 - [PR #697](https://github.com/NOAA-OWP/inundation-mapping/pull/697)
 
 Change FIM to load DEM's from the new USGS 3Dep files instead of the original NHD Rasters.
