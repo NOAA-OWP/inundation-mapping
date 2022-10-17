@@ -1,6 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.9.8 - 2022-10-06 - [PR #701](https://github.com/NOAA-OWP/inundation-mapping/pull/701)
+
+Moved the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
+
+Also updated making it easier to deploy, along with better information for external contributors.
+
+Changed the system so the calibration database name is configurable. This allows test databases to be setup in the same postgres db / server system. You can have more than one calb_db_keys.env running in different computers (or even more than one on one server) pointing to the same actual postgres server and service. ie) multiple dev machine can call a single production server which hosts the database.
+
+For more details see /tools/calibration-db/README.md
+
+### Changes
+
+- `tools`
+    - `calibration-db`
+        - `docker-compose.yml`: changed to allow for configurable database name. (allows for more then one database in a postgres database system (one for prod, another for test if needed))
+
+### Additions
+
+- `config`
+    - `calb_db_keys_template.env`: a new template verison of the required config values.
+
+### Removals
+
+- `tools`
+    - `calibration-db`
+        - `start_db.sh`: Removed as the command should be run on demand and not specifically scripted because of its configurable location of the env file.
+
+<br/><br/>
+
 ## v4.0.9.7 - 2022-10-7 - [PR #703](https://github.com/NOAA-OWP/inundation-mapping/pull/703)
 
 During a recent release of a FIM 3 version, it was discovered that FIM3 has slightly different AWS S3 upload requirements. A new s3 whitelist file has been created for FIM3 and the other s3 file was renamed to include the phrase "fim4" in it.
