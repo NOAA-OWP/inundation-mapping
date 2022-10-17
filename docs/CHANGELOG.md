@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.pending - 2022-10-17 - [PR #711](https://github.com/NOAA-OWP/inundation-mapping/pull/711)
+
+Bug fix and formatting upgrades. It was also upgraded to allow for misc other inundation data such as high water data.
+
+## Changes
+
+- `tools`
+    - `inundate_nation.py`:  As stated above.
+
+## Testing
+
+- it was run in a production model against fim 4.0.9.2 at 100 yr and 2 yr as well as a new High Water dataset.
+
+<br/><br/>
+
+
 ## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
 
 - Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
