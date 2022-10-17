@@ -374,13 +374,15 @@ class test_case(benchmark):
 
     def get_current_agreements(self):
         '''Returns a list of all agreement rasters currently existing for the test_case.'''
-        agreement_list = []
+        agreement_dict = {}
         for mag in os.listdir(self.dir):
             mag_dir = os.path.join(self.dir, mag)
             if not os.path.isdir(mag_dir): continue
+            agreement_list =[]
 
             for f in os.listdir(mag_dir):
                 if 'agreement.tif' in f:
                     agreement_list.append(os.path.join(mag_dir, f))
-        return agreement_list
+            agreement_dict[mag]= agreement_list
+        return agreement_dict
 

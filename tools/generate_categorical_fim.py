@@ -7,6 +7,38 @@ import time
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
+import glob
+
+
+def create_csvs(output_mapping_dir, reformatted_catfim_method):
+    '''
+    Produces CSV versions of any shapefile in the output_mapping_dir.
+
+    Parameters
+    ----------
+    output_mapping_dir : STR
+        Path to the output directory of all inundation maps.
+    reformatted_catfim_method : STR
+        Text to append to CSV to communicate the type of CatFIM.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    # Convert any shapefile in the root level of output_mapping_dir to CSV and rename.
+    shapefile_list = glob.glob(os.path.join(output_mapping_dir, '*.shp'))
+    for shapefile in shapefile_list:
+        gdf = gpd.read_file(shapefile)
+        parent_directory = os.path.split(shapefile)[0]
+        if 'catfim_library' in shapefile:
+            file_name = reformatted_catfim_method + '_catfim.csv'
+        if 'nws_lid_sites' in shapefile:
+            file_name = reformatted_catfim_method + '_catfim_sites.csv'
+        
+        csv_output_path = os.path.join(parent_directory, file_name)
+        gdf.to_csv(csv_output_path)
 
 
 def update_mapping_status(output_mapping_dir, output_flows_dir):
@@ -71,9 +103,9 @@ if __name__ == '__main__':
 
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
-    parser.add_argument('-f','--fim_version',help='Name of directory containing outputs of fim_run.sh',required=True)
+    parser.add_argument('-f','--fim_version',help='Path to directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-j','--number_of_jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
-    parser.add_argument('-a', '--alt-catfim', help = 'Run alternative CatFIM that bypasses synthetic rating curves?', required=False, default=False, action='store_true')
+    parser.add_argument('-a', '--stage_based', help = 'Run stage-based CatFIM instead of flow-based? NOTE: flow-based CatFIM is the default.', required=False, default=False, action='store_true')
     args = vars(parser.parse_args())
 
     # Get arguments
@@ -83,6 +115,15 @@ if __name__ == '__main__':
     # Define default arguments. Modify these if necessary
     fim_run_dir = Path(f'{fim_version}')
     fim_version_folder = os.path.basename(fim_version)
+    
+    # Append option configuration (flow_based or stage_based) to output folder name.
+    if args['stage_based']:
+        fim_version_folder += "_stage_based"
+        catfim_method = "STAGE-BASED"
+    else:
+        fim_version_folder += "_flow_based"
+        catfim_method = "FLOW-BASED"
+    
     output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
     output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
     nwm_us_search = '5'
@@ -91,9 +132,9 @@ if __name__ == '__main__':
 
     ## Run CatFIM scripts in sequence
     # Generate CatFIM flow files
-    print('Creating flow files')
+    print('Creating flow files using the ' + catfim_method + ' technique...')
     start = time.time()
-    if args['alt_catfim']:
+    if args['stage_based']:
         fim_dir = args['fim_version']
         subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_flows.py', '-w' , str(output_flows_dir), '-u', nwm_us_search, '-d', nwm_ds_search, '-a', '-f', fim_version])
     else:
@@ -113,3 +154,8 @@ if __name__ == '__main__':
     # Updating mapping status
     print('Updating mapping status')
     update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+    
+    # Create CSV versions of the final shapefiles.
+    print('Creating CSVs')
+    reformatted_catfim_method = catfim_method.lower().replace('-', '_')
+    create_csvs(output_mapping_dir, reformatted_catfim_method)
