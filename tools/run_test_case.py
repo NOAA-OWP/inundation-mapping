@@ -105,7 +105,7 @@ class test_case(benchmark):
         # Create list of shapefile paths to use as exclusion areas.
         zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
         self.mask_dict = {'levees':
-                        {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
+                        {'path': '/data/inputs/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt',
                         'buffer': None,
                         'operation': 'exclude'
                         },
