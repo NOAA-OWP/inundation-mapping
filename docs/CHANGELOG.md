@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## V4.[version number to be assigned] - 2022-10-19 - [PR #718](https://github.com/NOAA-OWP/inundation-mapping/pull/718)
+
+Fixes thalweg notch by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
+
+### Changes
+
+- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-2*(DEM cell size)) to clip stream network inside of DEM extent.
+
+<br/><br/>
+
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 
