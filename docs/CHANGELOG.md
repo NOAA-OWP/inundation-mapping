@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.[number to be assigned] - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
+
+Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold.
+
+### Additions
+
+- `src/gms/`
+   - `delineate_hydros_and_produce_HAND.sh`
+      - Reprojects and creates HUC-level raster of levee-protected areas from polygon layer
+      - Uses that raster to mask/remove those areas from the Relative Elevation Model
+   - `rasterize_by_order.py`: Subsets levee-protected area branch-level raster if branch 0 or if order exceeds a threshold (default threshold: max order - 1)
+- `config/`
+   - `deny_gms_branches_default.lst`, and `deny_gms_branches_min.lst`: Added LeveeProtectedAreas_subset_{}.tif
+   - `params_template.env`: Adds mask_leveed_area_toggle
+
+### Changes
+
+- `src/gms/delineate_hydros_and_produce_HAND.sh`: Fixes a bug in ocean/Great Lakes masking
+- `tools/`
+    - `eval_alt_catfim.py` and `run_test_case.py`: Changes the levee mask to the updated inputs/nld_vectors/Levee_protected_areas.gpkg
+
+<br/><br/>
+
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 
@@ -163,30 +186,6 @@ Cleanup Branch Zero output at the end of a processing run. Without this fix, som
     - `deny_gms_branches_dev.lst`:  Renamed from `deny_gms_branches_default.lst` and some new files to be deleted, updated others. Now used primarily for development and testing use.
     - `deny_gms_branches_prod.lst`:  Renamed from `deny_gms_branches_min` and some new files to be deleted, updated others. Now used primarily for when releasing a version to production.
     - `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
-
-<br/><br/>
-
-## v4.[number to be assigned] - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
-
-Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold
-
-### Additions
-
-- `src/gms/`
-   - `delineate_hydros_and_produce_HAND.sh`
-      - Reprojects and creates HUC-level raster of levee-protected areas from polygon layer
-      - Uses that raster to mask/remove those areas from the Relative Elevation Model
-   - `rasterize_by_order.py`
-      - Subsets levee-protected area branch-level raster if branch 0 or if order exceeds a threshold  (default threshold: max order - 1)
-- `config/`
-   - `deny_gms_branches_default.lst`, and `deny_gms_branches_min.lst`: Added LeveeProtectedAreas_subset_{}.tif
-   - `params_template.env`
-      - Adds mask_leveed_area_toggle
-
-### Changes
-
-- `src/gms/delineate_hydros_and_produce_HAND.sh`
-   - Fixes a bug in ocean/Great Lakes masking
 
 <br/><br/>
 
