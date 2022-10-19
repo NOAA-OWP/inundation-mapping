@@ -105,7 +105,7 @@ class test_case(benchmark):
         # Create list of shapefile paths to use as exclusion areas.
         zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
         self.mask_dict = {'levees':
-                        {'path': '/data/inputs/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt',
+                        {'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
                         'buffer': None,
                         'operation': 'exclude'
                         },
