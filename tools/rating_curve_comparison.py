@@ -268,12 +268,10 @@ def generate_rating_curve_metrics(args):
             # plot rating curves
             if alt_plot:
                 generate_rc_and_rem_plots(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table, branches_folder)
+            elif single_plot:
+                generate_single_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
             else:
                 generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
-                
-            if single_plot:
-                generate_single_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
-
         else:
             logging.info(f"no USGS data for gage(s): {relevant_gages} in huc {huc}")
     else:
