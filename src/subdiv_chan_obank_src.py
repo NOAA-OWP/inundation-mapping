@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import datetime as dt
-import re
 import os
 import sys
-import pandas as pd
-import numpy as np
 import argparse
+import datetime as dt
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import re
 import seaborn as sns
 import shutil
 import traceback
@@ -21,7 +21,8 @@ sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
-    Vary the Manning's n values for in-channel vs. floodplain
+    Compute channel geomety and Manning's equation using subdivision method (separate in-channel vs. overbank).
+    Also apply unique Manning's n-values for channel and overbank using a user provided feature_id csv
 
     Parameters
     ----------
@@ -30,13 +31,13 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     channel_ratio_src_column : str
         SRC attribute containing the channel vs. floodplain attribute
     mann_n_table : str
-        Path to a csv file containing Manning's n values by feature_id
+        Path to a csv file containing Manning's n values by feature_id (must contain variables "feature_id", "channel_n", "overbank_n")
     file_suffix : str
         Suffix to append to the output log file
     number_of_jobs : str
         Number of jobs.
     src_plot_option : str
-        Optional (True or False): use this flag to crate src plots for all hydroids
+        Optional (True or False): use this flag to crate src plots for all hydroids (long run time)
 """
 
 def variable_mannings_calc(args):
@@ -87,48 +88,14 @@ def variable_mannings_calc(args):
             log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
         df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
 
-        ## Define the channel geometry variable names to use from the src
-        hydr_radius = 'HydraulicRadius (m)'
-        wet_area = 'WetArea (m2)'
-
-        ## Calculate Q using Manning's equation
+        ## Calculate varMann Q using Manning's equation
         #df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
-        df_src['Discharge (m3s-1)_varMann'] = df_src[wet_area]* \
-        pow(df_src[hydr_radius],2.0/3)* \
+        df_src['Discharge (m3s-1)_varMann'] = df_src['WetArea (m2)']* \
+        pow(df_src['HydraulicRadius (m)'],2.0/3)* \
         pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
 
-        ## Calculate discharge (channel) using Manning's equation
-        df_src.drop(['WetArea_chan (m2)','HydraulicRadius_chan (m)','Discharge_chan (m3s-1)','Velocity_chan (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
-        df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)']/df_src['LENGTHKM']/1000
-        df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)']/df_src['WettedPerimeter_chan (m)']
-        df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
-        df_src['Discharge_chan (m3s-1)'] = df_src['WetArea_chan (m2)']* \
-        pow(df_src['HydraulicRadius_chan (m)'],2.0/3)* \
-        pow(df_src['SLOPE'],0.5)/df_src['channel_n']
-        df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)']/df_src['WetArea_chan (m2)']
-        df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
-
-         ## Calculate discharge (overbank) using Manning's equation
-        df_src.drop(['WetArea_obank (m2)','HydraulicRadius_obank (m)','Discharge_obank (m3s-1)','Velocity_obank (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
-        df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)']/df_src['LENGTHKM']/1000
-        df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)']/df_src['WettedPerimeter_obank (m)']
-        df_src.replace([np.inf, -np.inf], np.nan, inplace=True) # need to replace inf instances (divide by 0)
-        df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
-        df_src['Discharge_obank (m3s-1)'] = df_src['WetArea_obank (m2)']* \
-        pow(df_src['HydraulicRadius_obank (m)'],2.0/3)* \
-        pow(df_src['SLOPE'],0.5)/df_src['overbank_n']
-        df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)']/df_src['WetArea_obank (m2)']
-        df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
-
-        if 'Discharge (m3s-1)_subdiv' in df_src.columns:
-            df_src.drop(['Discharge (m3s-1)_subdiv'], axis=1, inplace=True) # drop these cols (in case vmann was previously performed)
-        df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
-
-        ## Set Q values to 0 and -999 for specified criteria (thalweg notch check happens in BARC)
-        # df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0,0,inplace=True)
-        # if 'Thalweg_burn_elev' in df_src:
-        #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
-        #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
+        ## Calculate Manning's equation discharge for channel, overbank, and total
+        df_src = subdiv_mannings_eq(df_src)
 
         ## Use the default discharge column when vmann is not being applied
         df_src['Discharge (m3s-1)_varMann'] = np.where(df_src['vmann_on']==False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']) # reset the discharge value back to the original if vmann=false
@@ -180,15 +147,44 @@ def variable_mannings_calc(args):
 
 def subdiv_geometry(df_src):
 
-    # Calculate in-channel volume & bed area
+    ## Calculate in-channel volume & bed area
     df_src['Volume_chan (m3)'] = np.where(df_src['channel_fplain_1_5']=='channel', df_src['Volume (m3)'], (df_src['Volume_bankfull'] + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])))
     df_src['BedArea_chan (m2)'] = np.where(df_src['channel_fplain_1_5']=='channel', df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
     df_src['WettedPerimeter_chan (m)'] = np.where(df_src['channel_fplain_1_5']=='channel', (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2))
 
-    # Calculate overbank volume & bed area
+    ## Calculate overbank volume & bed area
     df_src['Volume_obank (m3)'] = np.where(df_src['channel_fplain_1_5']=='floodplain', (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0)
     df_src['BedArea_obank (m2)'] = np.where(df_src['channel_fplain_1_5']=='floodplain', (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']), 0.0)
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)']/df_src['LENGTHKM']/1000
+    return(df_src)
+
+def subdiv_mannings_eq(df_src):
+    ## Calculate discharge (channel) using Manning's equation
+    df_src.drop(['WetArea_chan (m2)','HydraulicRadius_chan (m)','Discharge_chan (m3s-1)','Velocity_chan (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)']/df_src['LENGTHKM']/1000
+    df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)']/df_src['WettedPerimeter_chan (m)']
+    df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
+    df_src['Discharge_chan (m3s-1)'] = df_src['WetArea_chan (m2)']* \
+    pow(df_src['HydraulicRadius_chan (m)'],2.0/3)* \
+    pow(df_src['SLOPE'],0.5)/df_src['channel_n']
+    df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)']/df_src['WetArea_chan (m2)']
+    df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
+
+    ## Calculate discharge (overbank) using Manning's equation
+    df_src.drop(['WetArea_obank (m2)','HydraulicRadius_obank (m)','Discharge_obank (m3s-1)','Velocity_obank (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)']/df_src['LENGTHKM']/1000
+    df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)']/df_src['WettedPerimeter_obank (m)']
+    df_src.replace([np.inf, -np.inf], np.nan, inplace=True) # need to replace inf instances (divide by 0)
+    df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
+    df_src['Discharge_obank (m3s-1)'] = df_src['WetArea_obank (m2)']* \
+    pow(df_src['HydraulicRadius_obank (m)'],2.0/3)* \
+    pow(df_src['SLOPE'],0.5)/df_src['overbank_n']
+    df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)']/df_src['WetArea_obank (m2)']
+    df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
+
+    ## Calcuate the total of the subdivided discharge (channel + overbank)
+    df_src.drop(['Discharge (m3s-1)_subdiv'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
     return(df_src)
 
 def generate_src_plot(df_src, plt_out_dir):
