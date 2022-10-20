@@ -240,7 +240,7 @@ def generate_rating_curve_metrics(args):
             generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
 
         if single_plot:
-            generate_facet_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
+            generate_single_plot(rating_curves, rc_comparison_plot_filename, nwm_recurr_data_table)
 
     else:
         print(f"no USGS data for gage(s): {relevant_gages} in huc {huc}")
