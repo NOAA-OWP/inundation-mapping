@@ -131,6 +131,7 @@ mkdir -p $outputCurrentBranchDataDir
 
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"$stopDiv
+# Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
 date -u
 Tstart
 [ ! -f $outputCurrentBranchDataDir/dem_meters.tif ] && \
