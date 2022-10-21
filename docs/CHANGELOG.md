@@ -1,6 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.(pending) - 2022-10-21 - [PR #720](https://github.com/NOAA-OWP/inundation-mapping/pull/720)
+
+Earlier versions of the acquire_and_preprocess_3dep_dems.py did not have any buffer added when downloading HUC6 DEMs. This resulted in 1 pixel nodata gaps in the final REM outputs in some cases at HUC8 sharing a HUC6 border. Adding the param of cblend 6 to the gdalwarp command meant put a 6 extra pixels all around perimeter. Testing showed that 6 pixels was plenty sufficient as the gaps were never more than 1 pixel on borders of no-data.
+
+### Changes
+
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Added the `cblend 6` param to the gdalwarp call for when the dem is downloaded from USGS.
+    - `create_vrt_file.py`:  Added sample usage comment.
+ - `src`
+     - `gms`
+         `run_by_unit.sh`: Added a comment about gdal as it relates to run_by_unit.
+
+Note: the new replacement inputs/3dep_dems/10m_5070/ files can / will be copied before PR approval as the true fix was replacment DEM's. There is zero risk of overwriting prior to code merge.
+
+<br/><br/>
+
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 
