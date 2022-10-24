@@ -45,7 +45,7 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
     # Loop through matching huc directories in the source_flow directory
     matching_hucs = list(set(output_flow_dir_list) & set(source_flow_dir_list))
     
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+    with ProcessPoolExecutor(max_workers=1) as executor:
     
         for huc in matching_hucs:
     
@@ -301,7 +301,7 @@ def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_cat_fim_dir, numb
     nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
 
     print("Generating Categorical FIM")
-#    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
+    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
     # Get fim_version.
