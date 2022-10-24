@@ -48,7 +48,7 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
 
     wbd8 = wbd8.filter(items=[FIM_ID, 'geometry'])
     wbd8 = wbd8.set_index(FIM_ID)
-    flows = flows.explode()
+    flows = flows.explode(ignore_index=True)
 
     # temp
     flows = flows.to_crs(wbd8.crs)
@@ -59,7 +59,7 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
 
     # split at HUC8 boundaries
     print ('splitting stream segments at HUC8 boundaries')
-    flows = gpd.overlay(flows, wbd8, how='union').explode().reset_index(drop=True)
+    flows = gpd.overlay(flows, wbd8, how='union').explode(ignore_index=True).reset_index(drop=True)
 
     # check for lake features
     if lakes is not None:
@@ -68,7 +68,7 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
           #create splits at lake boundaries
           lakes = lakes.filter(items=['newID', 'geometry'])
           lakes = lakes.set_index('newID')
-          flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
+          flows = gpd.overlay(flows, lakes, how='union').explode(ignore_index=True).reset_index(drop=True)
           lakes_buffer = lakes.copy()
           lakes_buffer['geometry'] = lakes.buffer(lakes_buffer_input) # adding X meter buffer for spatial join comparison (currently using 20meters)
 
@@ -171,7 +171,7 @@ def split_flows(max_length, slope_min, lakes_buffer_input, flows_filename, dem_f
     if tResults[0] == 'OK':
         split_flows_gdf = tResults[1]
     else:
-        print ('Error: Could not add network attributes to stream segments')
+        raise KeyError('Could not add network attributes to stream segments')
 
     # remove single node segments
     split_flows_gdf = split_flows_gdf.query("From_Node != To_Node")

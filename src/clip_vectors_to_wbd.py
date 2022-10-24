@@ -53,11 +53,13 @@ def subset_vector_layers(hucCode,nwm_streams_filename,nhd_streams_filename,nwm_l
 
     if not nwm_lakes.empty:
         # Perform fill process to remove holes/islands in the NWM lake polygons
-        nwm_lakes = nwm_lakes.explode()
+        nwm_lakes = nwm_lakes.explode(ignore_index=True)
         nwm_lakes_fill_holes=MultiPolygon(Polygon(p.exterior) for p in nwm_lakes['geometry']) # remove donut hole geometries
         # Loop through the filled polygons and insert the new geometry
         for i in range(len(nwm_lakes_fill_holes)):
             nwm_lakes.loc[i,'geometry'] = nwm_lakes_fill_holes[i]
+        nwm_lakes.set_geometry(col='geometry',inplace=True)
+        #print(nwm_lakes,nwm_lakes.geometry)
         nwm_lakes.to_file(subset_nwm_lakes_filename,driver=getDriver(subset_nwm_lakes_filename),index=False)
     del nwm_lakes
 
