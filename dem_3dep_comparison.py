@@ -12,10 +12,12 @@ import boto3
 import tqdm
 
 huc4 = 1202
-resolutions=[20,15,10,5,3,1]
+#resolutions=[20,15,10,5,3,1]
+resolutions=[20,15,10,5,3]
 tile_sizes = {100:100000,20:10000,15:10000,10:5000,5:2000,3:1500,1:1000}
 huc_sizes = {100:8,20:8, 15:8, 10:8, 5:8, 3:12, 1:12}
-stream_resolutions=['FR','MS', 'GMS']
+#stream_resolutions=['FR','MS', 'GMS']
+stream_resolutions=['GMS']
 acquire_data=True
 use_s3_for_3dep_data_if_available = False
 resolutions_to_acquire_data_for = {100,20,15,10,5,3,1}
