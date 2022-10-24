@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.[to be assigned] - 2022-10-24 - [PR #723](https://github.com/NOAA-OWP/inundation-mapping/pull/723)
+
+Runs branch 0 on HUCs with no other branches remaining after filtering stream orders if `drop_low_stream_orders` is used.
+
+### Additions
+
+- `src/gms`
+    - `stream_branches.py`: adds `exclude_attribute_values()` to filter out stream orders 1&2 outside of `load_file()`
+
+### Changes
+
+- `src/gms`
+    - `buffer_stream_branches.py`: adds check for `streams_file`
+    - `derive_level_paths.py`: checks length of `stream_network` before filtering out stream orders 1&2, then filters using `stream_network.exclude_attribute_values()`
+    - `generate_branch_list.py`: adds check for `stream_network_dissolved`
+
+<br/><br/>
+    
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 
