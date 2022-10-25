@@ -267,7 +267,7 @@ python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors
 echo
 echo -e $startDiv"Building master hydroTable"$stopDiv
 # aggregate outputs
-python3 /foss_fim/tools/gms_tools/make_master_table.py -d $outputRunDataDir
+python3 /foss_fim/tools/gms_tools/make_complete_hydrotable.py -d $outputRunDataDir
 
 echo "=========================================================================="
 echo "GMS_run_branch complete"

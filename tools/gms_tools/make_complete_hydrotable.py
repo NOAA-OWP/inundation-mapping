@@ -20,11 +20,10 @@ def make_complete_hydrotable(data_directory, output_directory=None):
         filename_parts = filename.split('/')
         branch_id = filename_parts[6]
 
-        file_df = pd.read_csv(filename, dtype={'HUC':str})
+        file_df = pd.read_csv(filename, usecols=['HUC', 'HydroID', 'feature_id', 'LakeID'], dtype={'HUC':str})
         file_df['BranchID'] = branch_id
-        file_df = file_df[['HUC', 'BranchID', 'HydroID', 'feature_id', 'LakeID']]
         file_df.drop_duplicates(inplace=True)
-
+        
         if n > 0:
             df = pd.concat([df, file_df])
         else:
