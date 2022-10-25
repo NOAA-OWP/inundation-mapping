@@ -4,6 +4,7 @@ import sys
 import argparse
 import datetime as dt
 import matplotlib.pyplot as plt
+import multiprocessing
 import numpy as np
 import pandas as pd
 import re
@@ -211,8 +212,13 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_vmann.png',dpi=175, bbox_inches='tight')
         plt.close()
 
-def multi_process(variable_mannings_calc, procs_list, log_file, verbose):
+def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, verbose):
     ## Initiate multiprocessing
+    available_cores = multiprocessing.cpu_count()
+    if number_of_jobs > available_cores:
+        number_of_jobs = available_cores - 2
+        print("Provided job number exceeds the number of available cores. " + str(number_of_jobs) + " max jobs will be used instead.")
+
     print(f"Computing subdivided SRC and applying variable Manning's n to channel/overbank for {len(procs_list)} hucs using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         if verbose:
@@ -267,7 +273,7 @@ def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_
                         log_file.write('HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: ' + str(branch_dir) + ' - skipping this branch!!!\n')
 
         ## Pass huc procs_list to multiprocessing function
-        multi_process(variable_mannings_calc, procs_list, log_file, verbose)
+        multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, verbose)
 
         ## Record run time and close log file
         end_time = dt.datetime.now()
@@ -283,8 +289,8 @@ if __name__ == '__main__':
     parser.add_argument('-bc','--channel-ratio-src-column',help='SRC attribute containing the channel vs. overbank geometry ratio (for composite calc)',required=False,type=str,default='chann_hradius_ratio')
     parser.add_argument('-mann','--mann-n-table',help="Path to a csv file containing Manning's n values by featureid",required=True,type=str)
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",default="",required=False,type=str)
-    parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
-    parser.add_argument('-vb','--verbose',help='Optional verbose progress bar',required=False,default=None,action='store_true')
+    parser.add_argument('-j','--number-of-jobs',help='OPTIONAL: number of workers (default=8)',required=False,default=8,type=int)
+    parser.add_argument('-vb','--verbose',help='OPTIONAL: verbose progress bar',required=False,default=None,action='store_true')
     parser.add_argument('-plots','--src-plot-option',help='OPTIONAL flag: use this flag to create src plots for all hydroids. WARNING - long runtime',default=False,required=False, action='store_true')
 
     args = vars(parser.parse_args())

@@ -5,6 +5,7 @@ import os
 import sys
 import pandas as pd
 import matplotlib.pyplot as plt
+import multiprocessing
 import seaborn as sns
 import shutil
 import warnings
@@ -167,8 +168,13 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_bankfull.png',dpi=100, bbox_inches='tight')
         plt.close()
 
-def multi_process(src_bankfull_lookup, procs_list, log_file, verbose):
+def multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, verbose):
     ## Initiate multiprocessing
+    available_cores = multiprocessing.cpu_count()
+    if number_of_jobs > available_cores:
+        number_of_jobs = available_cores - 2
+        print("Provided job number exceeds the number of available cores. " + str(number_of_jobs) + " max jobs will be used instead.")
+
     print(f"Identifying bankfull stage for {len(procs_list)} hucs using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         #progress_bar = tqdm(total=len(procs_list[0]))
@@ -224,7 +230,7 @@ def run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,verbose,src_plot_opti
     log_file.write('#########################################################\n\n')
 
     ## Pass huc procs_list to multiprocessing function
-    multi_process(src_bankfull_lookup, procs_list, log_file, verbose)
+    multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, verbose)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
@@ -238,8 +244,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Identify bankfull stage for each hydroid synthetic rating curve')
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-flows','--bankfull-flow-input',help='NWM recurrence flows dir (flow units in CMS!!!)',required=True,type=str)
-    parser.add_argument('-j','--number-of-jobs',help='number of workers',required=False,default=1,type=int)
-    parser.add_argument('-vb','--verbose',help='Optional verbose progress bar',required=False,default=None,action='store_true')
+    parser.add_argument('-j','--number-of-jobs',help='OPTIONAL: number of workers (default=8)',required=False,default=8,type=int)
+    parser.add_argument('-vb','--verbose',help='OPTIONAL: verbose progress bar',required=False,default=None,action='store_true')
     parser.add_argument('-plots','--src-plot-option',help='OPTIONAL flag: use this flag to create src plots for all hydroids (helpful for evaluating). WARNING - long runtime',default=False,required=False, action='store_true')
 
     args = vars(parser.parse_args())
