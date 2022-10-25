@@ -264,6 +264,11 @@ echo
 echo -e $startDiv"Removing branches that failed with Exit status: 61"$stopDiv
 python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $outputRunDataDir/gms_inputs.csv
 
+echo
+echo -e $startDiv"Building master hydroTable"$stopDiv
+# aggregate outputs
+python3 /foss_fim/tools/gms_tools/make_master_table.py -d $outputRunDataDir
+
 echo "=========================================================================="
 echo "GMS_run_branch complete"
 Tcount
