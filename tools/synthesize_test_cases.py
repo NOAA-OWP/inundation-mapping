@@ -114,6 +114,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                             versions_to_aggregate = dev_versions_to_include_list
 
                         for magnitude in magnitude_list:
+                            print(versions_to_aggregate)
                             for version in versions_to_aggregate:
                                 if '_fr' in version:
                                     extent_config = 'FR'
@@ -266,14 +267,21 @@ if __name__ == '__main__':
                         )
 
     # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
-    if (fim_version != "all") & (not isinstance(fim_version,list)):
+    #if (fim_version != "all") & (not isinstance(fim_version,list)):
+    # changed default behaviour above
+    if not isinstance(fim_version,list):
         previous_fim_list = [fim_version]
+    else:
+        previous_fim_list = fim_version.copy()
+    """
     else:
         if config == 'PREV':
             previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
         elif config == 'DEV':
             previous_fim_list = os.listdir(OUTPUTS_DIR)
+    """
 
+    #print(previous_fim_list);exit()
     # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
     if config == 'PREV':
         archive_results = True
@@ -324,6 +332,10 @@ if __name__ == '__main__':
                         elif config == 'PREV':
                             fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
                         
+                        # check if fim_run_dir exists and skips otherwise
+                        if not os.path.exists(fim_run_dir):
+                            continue
+                        
                         # For previous versions of HAND computed at HUC6 scale
                         if not os.path.exists(fim_run_dir):
                             if config == 'DEV':
@@ -334,7 +346,7 @@ if __name__ == '__main__':
                                     fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
                         
                         # For current versions of HAND computed at HUC12 scale
-                        if not os.path.exists(fim_run_dir):
+                        if (not os.path.exists(fim_run_dir)) & (len(current_huc) == 12):
                             if config == 'DEV':
                                 fim_run_dir = glob(os.path.join(OUTPUTS_DIR, version, current_huc+'*'))
                             elif config == 'PREV':
@@ -394,6 +406,7 @@ if __name__ == '__main__':
                                
                                procs_dict[os.path.basename(frd)] = alpha_test_args
 
+                        # for HUC8s
                         else:
 
                             alpha_test_args = { 
@@ -412,11 +425,9 @@ if __name__ == '__main__':
                                                 'verbose': False,
                                                 'gms_verbose': False
                                               }
-                        
                             procs_dict[current_huc] = alpha_test_args
 
-                        #print(procs_dict)
-                        #exit()
+    #print(procs_dict.keys());exit()
     # delete version dirs with HUC12
     if overwrite:
         for ch,ata in procs_dict.items():

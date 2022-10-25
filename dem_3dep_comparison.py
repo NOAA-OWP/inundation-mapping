@@ -13,12 +13,12 @@ import tqdm
 
 huc4 = 1202
 #resolutions=[20,15,10,5,3,1]
-resolutions=[20,15,10,5,3]
-tile_sizes = {100:100000,20:10000,15:10000,10:5000,5:2000,3:1500,1:1000}
-huc_sizes = {100:8,20:8, 15:8, 10:8, 5:8, 3:12, 1:12}
+resolutions = [20,15,10,5,3]
+tile_sizes = {100:100000, 20:10000, 15:10000, 10:5000, 5:2000, 3:1500, 1:1000}
+huc_sizes = {100:8, 20:8, 15:8, 10:8, 5:8, 3:12, 1:12}
 #stream_resolutions=['FR','MS', 'GMS']
-stream_resolutions=['GMS']
-acquire_data=True
+stream_resolutions = ['GMS']
+acquire_data = True
 use_s3_for_3dep_data_if_available = False
 resolutions_to_acquire_data_for = {100,20,15,10,5,3,1}
 skip_hydrofabric = False
@@ -36,7 +36,7 @@ hand_jobs_dict = {
                 'MS' :
                   { 1 : 5, 3 : 3, 5 : 7, 10 : 7, 15 : 7 , 20 : 7 },
                 'GMS' :
-                  { 1 : [10,5], 3 : [15,15], 5 : [7,15], 10 : [7,15], 15 : [7,15] , 20 : [7,15] }
+                  { 1 : [10,5], 3 : [6,6], 5 : [6,6], 10 : [6,6], 15 : [6,6] , 20 : [6,6] }
                  }
 eval_jobs_dict = { 
                 'FR' :
@@ -44,8 +44,8 @@ eval_jobs_dict = {
                 'MS' :
                   { 1 : 12, 3 : 12, 5 : 4, 10 : 7, 15 : 7 , 20 : 7 },
                 'GMS' :
-                  { 1 : [3,4], 3 : [3,4], 5 : [2,4], 10 : [3,4], 15 : [3,4] , 20 : [3,4]}
-                  }
+                  { 1 : [1,3], 3 : [1,3], 5 : [1,3], 10 : [1,3], 15 : [1,3] , 20 : [1,3]}
+                 }
 
 
 def Dem_3dep_comparison( huc4 = huc4,
