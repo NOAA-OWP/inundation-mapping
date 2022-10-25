@@ -20,14 +20,14 @@ sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
-    Identify the SRC bankfull stage values using the NWM 1.5yr flows
+    Identify the SRC bankfull stage values using the NWM bankfull estimated flows
 
     Parameters
     ----------
     fim_dir : str
         Directory containing FIM output folders.
     bankfull_flow_dir : str
-        Directory containing "bankfull" flows files (e.g. NWM 1.5yr recurr).
+        Directory containing "bankfull" flows files (e.g. NWM bankfull estimated recurr).
     number_of_jobs : str
         Number of jobs.
     plots : str
@@ -53,18 +53,18 @@ def src_bankfull_lookup(args):
         ## NWM recurr rename discharge var
         df_bflows = df_bflows.rename(columns={'discharge':'bankfull_flow'})
 
-        ## Combine the nwm 1.5yr flows into the SRC via feature_id
+        ## Combine the nwm bankfull estimated flows into the SRC via feature_id
         df_src = df_src.merge(df_bflows,how='left',on='feature_id')
 
         ## Check if there are any missing data, negative or zero flow values in the bankfull_flow
         check_null = df_src['bankfull_flow'].isnull().sum()
         if check_null > 0:
-            log_text += 'Missing feature_id in crosswalk for huc: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> these featureids will be ignored in bankfull calcs (~' + str(check_null/84) +  ' features) \n'
+            log_text += 'WARNING: Missing feature_id in crosswalk for huc: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> these featureids will be ignored in bankfull calcs (~' + str(check_null/84) +  ' features) \n'
             ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
             df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
         negative_flows = len(df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)])
         if negative_flows > 0:
-            log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Negative or zero flow values found in the input bankfull flows csv (likely lakeid loc)\n'
+            log_text += 'WARNING: HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Negative or zero flow values found in the input bankfull flows csv (likely lakeid loc)\n'
 
         ## Define the channel geometry variable names to use from the src
         hradius_var = 'HydraulicRadius (m)'
@@ -72,16 +72,16 @@ def src_bankfull_lookup(args):
         surface_area_var = 'SurfaceArea (m2)'
         bedarea_var = 'BedArea (m2)'
 
-        ## Locate the closest SRC discharge value to the NWM 1.5yr flow
+        ## Locate the closest SRC discharge value to the NWM bankfull estimated flow
         df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
 
         ## Check for any missing/null entries in the input SRC
         if df_src['Q_bfull_find'].isnull().values.any(): # there may be null values for lake or coastal flow lines (need to set a value to do groupby idxmin below)
-            log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "Q_bfull_find" calc. These will be filled with 999999 () \n'
+            log_text += 'WARNING: HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "Q_bfull_find" calc. These will be filled with 999999 () \n'
             ## Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
             df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
         if df_src['HydroID'].isnull().values.any():
-            log_text += 'HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "HydroID"... \n'
+            log_text += 'WARNING: HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Null values found in "HydroID"... \n'
 
         df_bankfull_calc = df_src[['Stage','HydroID',bedarea_var,volume_var,hradius_var,surface_area_var,'Q_bfull_find']] # create new subset df to perform the Q_1_5 lookup
         df_bankfull_calc = df_bankfull_calc[df_bankfull_calc['Stage'] > 0.0] # Ensure bankfull stage is greater than stage=0
@@ -114,7 +114,7 @@ def src_bankfull_lookup(args):
         df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
         #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
 
-        ## mask bankfull variables when the 1.5yr flow value is <= 0
+        ## mask bankfull variables when the bankfull estimated flow value is <= 0
         df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0,inplace=True)
 
         ## Create a new column to identify channel/floodplain via the bankfull stage value
