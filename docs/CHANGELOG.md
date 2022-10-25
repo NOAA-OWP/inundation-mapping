@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v3.[to be assigned] - 2022-10-11 - [PR #707](https://github.com/NOAA-OWP/inundation-mapping/pull/707)
+## v3.0.36.2 - 2022-10-11 - [PR #707](https://github.com/NOAA-OWP/inundation-mapping/pull/707)
 
 Adds capability to produce single rating curve comparison plots for each gage.
 
