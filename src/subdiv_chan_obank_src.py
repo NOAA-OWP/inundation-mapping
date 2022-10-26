@@ -112,12 +112,6 @@ def variable_mannings_calc(args):
         df_src_trim['discharge_cms'] = df_src_trim['subdiv_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
         df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
 
-        ## Check if BARC ran
-        # if not set(['orig_discharge_cms']).issubset(df_htable.columns):
-        #     df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
-        #     df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
-        # else:
-
         ## drop the previously modified discharge column to be replaced with updated version
         df_htable.drop(['vmann_on','discharge_cms','ManningN','vmann_discharge_cms','vmann_ManningN','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
         df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])

@@ -69,13 +69,15 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
     df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object, 'obs_source':object})
     df_prev_adj = pd.DataFrame() # initialize empty df for populating/checking later
     if 'default_discharge_cms' not in df_htable.columns: # need this column to exist before continuing
-        df_htable['adjust_src_on'] = False
+        df_htable['calb_applied'] = False
         df_htable['last_updated'] = pd.NA
         df_htable['submitter'] = pd.NA
-        df_htable['adjust_ManningN'] = pd.NA
         df_htable['obs_source'] = pd.NA
         df_htable['default_discharge_cms'] = pd.NA
         df_htable['default_ManningN'] = pd.NA
+        df_htable['calb_coef_usgs'] = pd.NA
+        df_htable['calb_coef_spatial'] = pd.NA
+        df_htable['adjust_ManningN'] = pd.NA
     if df_htable['default_discharge_cms'].isnull().values.any(): # check if there are not valid values in the column (True = no previous calibration outputs)
         df_htable['default_discharge_cms'] = df_htable['discharge_cms'].values
         df_htable['default_ManningN'] = df_htable['ManningN'].values
@@ -89,7 +91,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
         df_prev_adj = df_prev_adj_htable[df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating", na=False)] 
         log_text += 'HUC: ' + str(huc) + '  Branch: ' + str(branch_id) + ': found previous hydroTable calibration attributes --> retaining previous calb attributes for blending...\n'
     # Delete previous adj columns to prevent duplicate variable issues (if src_roughness_optimization.py was previously applied)
-    df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN','adjust_src_on','obs_source'], axis=1, inplace=True) 
+    df_htable.drop(['ManningN','discharge_cms','submitter','last_updated','adjust_ManningN','calb_applied','obs_source'], axis=1, inplace=True, errors='ignore') 
     df_htable.rename(columns={'default_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
 
     ## loop through the user provided point data --> stage/flow dataframe row by row
@@ -219,7 +221,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
                 choices     = [ df_nmerge['featid_ManningN'], df_nmerge['group_ManningN'] ]
                 df_nmerge['adjust_ManningN'] = np.select(conditions, choices, default=df_nmerge['hydroid_ManningN'])
                 df_nmerge['obs_source'] = np.where(df_nmerge['adjust_ManningN'].notnull(), source_tag, pd.NA)
-                df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
+                df_nmerge.drop(['feature_id','NextDownID','LENGTHKM','LakeID','order_'], axis=1, inplace=True, errors='ignore') # drop these columns to avoid duplicates where merging with the full hydroTable df
 
                 ## Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new adjusted roughness value
                 if not df_prev_adj.empty:
@@ -228,19 +230,19 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
                     df_nmerge['last_updated'] = np.where((df_nmerge['adjust_ManningN'].isnull() & df_nmerge['adjust_ManningN_prev'].notnull()),df_nmerge['last_updated_prev'],df_nmerge['last_updated'])
                     df_nmerge['obs_source'] = np.where((df_nmerge['adjust_ManningN'].isnull() & df_nmerge['adjust_ManningN_prev'].notnull()),df_nmerge['obs_source_prev'],df_nmerge['obs_source'])
                     df_nmerge['adjust_ManningN'] = np.where((df_nmerge['adjust_ManningN'].isnull() & df_nmerge['adjust_ManningN_prev'].notnull()),df_nmerge['adjust_ManningN_prev'],df_nmerge['adjust_ManningN'])
-                    df_nmerge.drop(['submitter_prev','last_updated_prev','adjust_ManningN_prev','obs_source_prev'], axis=1, inplace=True)
+                    df_nmerge.drop(['submitter_prev','last_updated_prev','adjust_ManningN_prev','obs_source_prev'], axis=1, inplace=True, errors='ignore')
                 
                 ## Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
                 if os.path.isfile(catchments_poly_path):
                     input_catchments = gpd.read_file(catchments_poly_path)
                     ## Create new "src_calibrated" column for viz query
                     if 'src_calibrated' in input_catchments.columns: # check if this attribute already exists and drop if needed
-                        input_catchments.drop(['src_calibrated'], axis=1, inplace=True)
+                        input_catchments.drop(['src_calibrated'], axis=1, inplace=True, errors='ignore')
                     df_nmerge['src_calibrated'] = np.where(df_nmerge['adjust_ManningN'].notnull(), 'True', 'False')
                     output_catchments = input_catchments.merge(df_nmerge[['HydroID','src_calibrated']], how='left', on='HydroID')
                     output_catchments['src_calibrated'].fillna('False', inplace=True)
                     output_catchments.to_file(catchments_poly_path,driver="GPKG",index=False) # overwrite the previous layer
-                    df_nmerge.drop(['src_calibrated'], axis=1, inplace=True)
+                    df_nmerge.drop(['src_calibrated'], axis=1, inplace=True, errors='ignore')
                 ## Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
                 if debug_outputs_option:
                     output_merge_n_csv = os.path.join(fim_directory, 'merge_src_n_vals_' + branch_id + '.csv')
@@ -253,9 +255,9 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
                         output_catchments.to_file(output_catchments_fileName,driver="GPKG",index=False)
 
                 ## Merge the final ManningN dataframe to the original hydroTable
-                df_nmerge.drop(['ahps_lid','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN',], axis=1, inplace=True) # drop these columns to avoid duplicates where merging with the full hydroTable df
+                df_nmerge.drop(['ahps_lid','start_catch','route_count','branch_id','hydroid_ManningN','featid_ManningN','group_ManningN',], axis=1, inplace=True, errors='ignore') # drop these columns to avoid duplicates where merging with the full hydroTable df
                 df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
-                df_htable['adjust_src_on'] = np.where(df_htable['adjust_ManningN'].notnull(), 'True', 'False') # create true/false column to clearly identify where new roughness values are applied
+                df_htable['calb_applied'] = np.where(df_htable['adjust_ManningN'].notnull(), 'True', 'False') # create true/false column to clearly identify where new roughness values are applied
 
                 ## Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
                 df_htable['ManningN'] = np.where(df_htable['adjust_ManningN'].isnull(),df_htable['default_ManningN'],df_htable['adjust_ManningN'])
@@ -370,6 +372,6 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
 
     ## Delete unnecessary intermediate outputs
     if 'hyid_count' in df_nmerge.columns:
-        df_nmerge.drop(['hyid_count','accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop hydroid counter if it exists
+        df_nmerge.drop(['hyid_count','accum_dist','hyid_accum_count'], axis=1, inplace=True, errors='ignore') # drop hydroid counter if it exists
     #df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1, inplace=True) # drop accum vars from group calc
     return(df_nmerge)
