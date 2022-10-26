@@ -109,7 +109,6 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
 
 def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch):
     
-    print("HERE!!!")
     # Open rem_path and catchment_path using rasterio.
     rem_src = rasterio.open(rem_path)
     catchments_src = rasterio.open(catchments_path)
@@ -129,7 +128,6 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
 #            dst.write(reclass_rem_array, 1)
             
     print(hydroid_list)
-    print("Star wars")
 
     min_hydroid = min(hydroid_list)
     max_hydroid = max(hydroid_list)
