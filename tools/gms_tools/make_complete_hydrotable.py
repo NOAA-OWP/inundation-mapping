@@ -19,6 +19,7 @@ def combine_hydrotables(data_directory, output_directory=None):
     for filename in file_list:
         file_df = pd.read_csv(filename, usecols=['HUC', 'HydroID', 'feature_id', 'LakeID'], dtype={'HUC':str})
         file_df.drop_duplicates(inplace=True)
+        file_df.rename(columns={'HUC':'huc8'}, inplace=True)
         file_df['BranchID'] = os.path.split(os.path.dirname(filename))[1]
 
         dfs.append(file_df)
