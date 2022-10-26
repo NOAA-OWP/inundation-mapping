@@ -127,11 +127,11 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
 #        with rasterio.open(output_tif1, 'w', **profile) as dst:
 #            dst.write(reclass_rem_array, 1)
             
-    print(hydroid_list)
 
-    min_hydroid = min(hydroid_list)
-    max_hydroid = max(hydroid_list)
-    target_catchments_array = np.where((catchments_array >= min_hydroid) & (catchments_array <= max_hydroid) & (catchments_array != catchments_src.nodata), 1, 0).astype('uint8')
+    hydroid_mask = np.isin(catchments_array, hydroid_list)
+
+            
+    target_catchments_array = np.where((hydroid_mask == True) & (catchments_array != catchments_src.nodata), 1, 0).astype('uint8')
 
 #    output_tif2 = os.path.join(lid_directory, lid + '_' + category + '_target_cats_' + huc + '.tif')
 #    with rasterio.Env():
@@ -145,7 +145,6 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
         
     # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
     is_all_zero = np.all((masked_reclass_rem_array == 0))
-    print(is_all_zero)
     
     if not is_all_zero:
         print(lid + " at " + category + " in " + huc + " is not all zero")
@@ -159,7 +158,7 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
                 dst.write(masked_reclass_rem_array, 1)
     
     
-def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search):
+def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs):
     
     stage_based = True
     missing_huc_files = []
@@ -307,8 +306,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     
                     # Produce extent tif hand_stage. Multiprocess across branches.
                     branches = os.listdir(branch_dir)
-                    with ProcessPoolExecutor(max_workers=1) as executor:
+                    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
                         for branch in branches:
+#                            print("Trying branch " + branch)
                             # Define paths to necessary files to produce inundation grids.
                             full_branch_path = os.path.join(branch_dir, branch)
                             rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
@@ -318,7 +318,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                             # Use hydroTable to determine hydroid_list from site_ms_segments.
                             hydrotable_df = pd.read_csv(hydrotable_path)
                             hydroid_list = []
-                #            print(hydrotable_df.dtypes)
                             
                             # Determine hydroids at which to perform inundation
                             for feature_id in site_ms_segments:
@@ -345,6 +344,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                 continue
                             
                             if not os.path.exists(hydrotable_path):
+                                print("hydrotable doesn't exist")
                                 continue
                             try:
                                 print("Running inundation for " + huc + " and branch " + branch)
@@ -354,7 +354,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                 print(f"*** {ex}")
                                 traceback.print_exc()
                                 sys.exit(1)
-                    
+
                     # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
                     stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
                                                                  'datum_adj_wse_m': datum_adj_wse_m,
@@ -501,7 +501,7 @@ if __name__ == '__main__':
     
     if args['stage_based']:
         fim_dir = args['fim_version']
-        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search)
+        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
     
         # Generate CatFIM mapping
 #        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
