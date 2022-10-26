@@ -10,6 +10,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import rasterio
+from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
 from generate_categorical_fim_flows import generate_catfim_flows
 from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
@@ -354,7 +355,112 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                 print(f"*** {ex}")
                                 traceback.print_exc()
                                 sys.exit(1)
+                                
+                    # Merge all rasters in lid_directory that have the same magnitude/category.
+                    path_list = []
+                    lid_dir_list = os.listdir(lid_directory)
+                    print("Merging " + category)
+                    for f in lid_dir_list:
+                        if category in f:
+                            full_f_path = os.path.join(lid_directory, f)
+                            path_list.append(full_f_path)
+                    
+                    path_list.sort()  # To get branch 0 first.
+                    if len(path_list) > 0:
+                        zero_branch_grid = path_list[0]
+                            
+                        zero_branch_src = rasterio.open(zero_branch_grid)
+                        zero_branch_array = zero_branch_src.read(1)
+                        summed_array = zero_branch_array  # Initialize it as the branch zero array
+                        
+                        # Loop through remaining items in list and sum them with summed_array
+                        for remaining_raster in path_list[1:]:
+                            remaining_raster_src = rasterio.open(remaining_raster)
+                            remaining_raster_array_original = remaining_raster_src.read(1)
+                        
+                            # Reproject non-branch-zero grids so I can sum them with the branch zero grid
+                            if remaining_raster_array_original.shape != zero_branch_array.shape:
+                                remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
+                        
+                                reproject(remaining_raster_array_original,
+                                      destination = remaining_raster_array,
+                                      src_transform = remaining_raster_src.transform,
+                                      src_crs = remaining_raster_src.crs,
+                                      src_nodata = remaining_raster_src.nodata,
+                                      dst_transform = zero_branch_src.transform,
+                                      dst_crs = zero_branch_src.crs,
+                                      dst_nodata = remaining_raster_src.nodata,
+                                      dst_resolution = zero_branch_src.res,
+                                      resampling = Resampling.nearest)
+                                
+                            summed_array = summed_array + remaining_raster_array
+                            
+                        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_merged' + '.tif')
+                        profile = zero_branch_src.profile
+                        summed_array = summed_array.astype('uint8')
+                        with rasterio.open(output_tif, 'w', **profile) as dst:
+                            dst.write(summed_array, 1)
+                        
+#                    if benchmark_array_original.shape != predicted_array.shape:
+#                        benchmark_array = np.empty(predicted_array.shape, dtype=np.int8)
+#                
+#                        reproject(benchmark_array_original,
+#                              destination = benchmark_array,
+#                              src_transform = benchmark_src.transform,
+#                              src_crs = benchmark_src.crs,
+#                              src_nodata = benchmark_src.nodata,
+#                              dst_transform = predicted_src.transform,
+#                              dst_crs = predicted_src.crs,
+#                              dst_nodata = benchmark_src.nodata,
+#                              dst_resolution = predicted_src.res,
+#                              resampling = Resampling.nearest)
+#                    
+                    
+                    
+                    
+                    
+                    
 
+#                    path_list.sort()
+#                    print(path_list)
+#                    for p in path_list:
+#                            inundation_src = rasterio.open(p)
+#                            rasters_to_merge_list.append(inundation_src)
+#                    if len(rasters_to_merge_list) > 0:
+#                        print("Hello")
+#                        print(rasters_to_merge_list)
+#                        print("Merging " + category + "...")
+#                        mosaic, out_trans = merge(rasters_to_merge_list)
+#                        out_meta = inundation_src.meta.copy()
+#    
+#                        # Update the metadata
+#                        out_meta.update({"driver": "GTiff",
+#                                         "height": mosaic.shape[1],
+#                                         "width": mosaic.shape[2],
+#                                         "transform": out_trans,
+#                                         }
+#                                     )
+#                        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_merged' + '.tif')
+#                        with rasterio.open(output_tif, "w", **out_meta) as dest:
+#                            dest.write(mosaic)
+                    
+#                    print(rasters_to_merge_list)
+#                    from osgeo import gdal
+#                    output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_merged' + '.tif')
+#                    g = gdal.Warp(output_tif, rasters_to_merge_list, format="GTiff",
+#                                  options=["TILED=YES"]) # if you want
+#                    g = None # Close file and flush to disk
+                            
+#                    merged_array = rasterio.merge(rasters_to_merge_list)
+#                    with rasterio.Env():
+#                        profile = rem_src.profile
+#                        profile.update(dtype=rasterio.uint8)
+#                        profile.update(nodata=10)
+                        
+#                    
+#                    with rasterio.open(output_tif, 'w') as dst:
+#                        dst.write(merged_array, 1)
+                                
                     # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
                     stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
                                                                  'datum_adj_wse_m': datum_adj_wse_m,
