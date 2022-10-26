@@ -51,7 +51,7 @@ def Consolidate_metrics( benchmarks=['all'],versions=['all'],
         pass
     else:
         zones = list(zones)
-    
+   
     # Parse HUCs from hucs_of_interest.
     if isinstance(hucs_of_interest,list):
         if len(hucs_of_interest) == 1:
@@ -339,7 +339,7 @@ if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument('-b','--benchmarks',help='Allowed benchmarks', required=False, default='all', nargs="+")
-    parser.add_argument('-u','--hucs-of-interest',help='HUC8s of interest', required=False, default='None', nargs="+")
+    parser.add_argument('-u','--hucs-of-interest',help='HUC8s of interest', required=False, default=None, nargs="+")
     parser.add_argument('-v','--versions',help='Allowed versions', required=False, default='all', nargs="+")
     parser.add_argument('-z','--zones',help='Allowed zones', required=False, default='total_area', nargs="+")
     parser.add_argument('-o','--metrics-output-csv',help='File path to outputs csv', required=False, default=None)
