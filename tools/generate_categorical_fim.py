@@ -330,13 +330,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                 
                             if len(hydroid_list) == 0:
                                 continue
-                            print("NWM")
-                            print(site_ms_segments)
-                            print("Hydroids")
-                            print(hydroid_list)
-                            print("")
-                            print("")
-                        
+
                             #if no segments, write message and exit out
                             if not segments:
                                 print(f'{lid} no segments')
@@ -401,66 +395,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                         with rasterio.open(output_tif, 'w', **profile) as dst:
                             dst.write(summed_array, 1)
                         
-#                    if benchmark_array_original.shape != predicted_array.shape:
-#                        benchmark_array = np.empty(predicted_array.shape, dtype=np.int8)
-#                
-#                        reproject(benchmark_array_original,
-#                              destination = benchmark_array,
-#                              src_transform = benchmark_src.transform,
-#                              src_crs = benchmark_src.crs,
-#                              src_nodata = benchmark_src.nodata,
-#                              dst_transform = predicted_src.transform,
-#                              dst_crs = predicted_src.crs,
-#                              dst_nodata = benchmark_src.nodata,
-#                              dst_resolution = predicted_src.res,
-#                              resampling = Resampling.nearest)
-#                    
-                    
-                    
-                    
-                    
-                    
-
-#                    path_list.sort()
-#                    print(path_list)
-#                    for p in path_list:
-#                            inundation_src = rasterio.open(p)
-#                            rasters_to_merge_list.append(inundation_src)
-#                    if len(rasters_to_merge_list) > 0:
-#                        print("Hello")
-#                        print(rasters_to_merge_list)
-#                        print("Merging " + category + "...")
-#                        mosaic, out_trans = merge(rasters_to_merge_list)
-#                        out_meta = inundation_src.meta.copy()
-#    
-#                        # Update the metadata
-#                        out_meta.update({"driver": "GTiff",
-#                                         "height": mosaic.shape[1],
-#                                         "width": mosaic.shape[2],
-#                                         "transform": out_trans,
-#                                         }
-#                                     )
-#                        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_merged' + '.tif')
-#                        with rasterio.open(output_tif, "w", **out_meta) as dest:
-#                            dest.write(mosaic)
-                    
-#                    print(rasters_to_merge_list)
-#                    from osgeo import gdal
-#                    output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_merged' + '.tif')
-#                    g = gdal.Warp(output_tif, rasters_to_merge_list, format="GTiff",
-#                                  options=["TILED=YES"]) # if you want
-#                    g = None # Close file and flush to disk
-                            
-#                    merged_array = rasterio.merge(rasters_to_merge_list)
-#                    with rasterio.Env():
-#                        profile = rem_src.profile
-#                        profile.update(dtype=rasterio.uint8)
-#                        profile.update(nodata=10)
-                        
-#                    
-#                    with rasterio.open(output_tif, 'w') as dst:
-#                        dst.write(merged_array, 1)
-                                
                     # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
                     stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
                                                                  'datum_adj_wse_m': datum_adj_wse_m,
