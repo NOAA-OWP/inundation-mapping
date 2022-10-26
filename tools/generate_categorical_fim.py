@@ -3,13 +3,19 @@
 import os
 import subprocess
 import argparse
+import traceback
+import sys
 import time
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
+import rasterio
 import glob
-from generate_categorical_fim_flows import generate_catfim_flows, get_env_paths
-from generate_categorical_fim_mapping import manage_catfim_mapping
+from generate_categorical_fim_flows import generate_catfim_flows
+from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+import numpy as np
+from utils.shared_variables import VIZ_PROJECTION
 
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
@@ -101,6 +107,369 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     flows_df.to_file(nws_lid_path)
 
 
+def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch):
+    
+    print("HERE!!!")
+    # Open rem_path and catchment_path using rasterio.
+    rem_src = rasterio.open(rem_path)
+    catchments_src = rasterio.open(catchments_path)
+    rem_array = rem_src.read(1)
+    catchments_array = catchments_src.read(1)
+    
+    # Use numpy.where operation to reclassify rem_path on the condition that the pixel values are <= to hand_stage and the catchments
+    # value is in the hydroid_list.
+    reclass_rem_array = np.where((rem_array<=hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype('uint8')
+    
+#    output_tif1 = os.path.join(lid_directory, lid + '_' + category + '_rem_reclass_' + huc + '.tif')
+#    with rasterio.Env():
+#        profile = rem_src.profile
+#        profile.update(dtype=rasterio.uint8)
+#        profile.update(nodata=10)
+#        with rasterio.open(output_tif1, 'w', **profile) as dst:
+#            dst.write(reclass_rem_array, 1)
+            
+    print(hydroid_list)
+    print("Star wars")
+
+    min_hydroid = min(hydroid_list)
+    max_hydroid = max(hydroid_list)
+    target_catchments_array = np.where((catchments_array >= min_hydroid) & (catchments_array <= max_hydroid) & (catchments_array != catchments_src.nodata), 1, 0).astype('uint8')
+
+#    output_tif2 = os.path.join(lid_directory, lid + '_' + category + '_target_cats_' + huc + '.tif')
+#    with rasterio.Env():
+#        profile = catchments_src.profile
+#        profile.update(dtype=rasterio.uint8)
+#        profile.update(nodata=10)
+#        with rasterio.open(output_tif2, 'w', **profile) as dst:
+#            dst.write(target_catchments_array, 1)
+    
+    masked_reclass_rem_array = np.where((reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0).astype('uint8')
+        
+    # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
+    is_all_zero = np.all((masked_reclass_rem_array == 0))
+    print(is_all_zero)
+    
+    if not is_all_zero:
+        print(lid + " at " + category + " in " + huc + " is not all zero")
+        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif')
+        with rasterio.Env():
+            profile = rem_src.profile
+            profile.update(dtype=rasterio.uint8)
+            profile.update(nodata=10)
+            
+            with rasterio.open(output_tif, 'w', **profile) as dst:
+                dst.write(masked_reclass_rem_array, 1)
+    
+    
+def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search):
+    
+    stage_based = True
+    missing_huc_files = []
+    all_messages = []
+    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
+    stage_based_att_dict = {}
+
+    huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
+    
+    for huc in huc_dictionary:
+        # Make output directory for huc.
+        huc_directory = os.path.join(workspace, huc)
+        if not os.path.exists(huc_directory):
+            os.mkdir(huc_directory)
+        
+        # Open necessary HAND and HAND-related files.
+        usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
+        # If usgs_elev_table doesn't exist for a HUC, append HUC to list for logging
+        if not os.path.exists(usgs_elev_table):
+            if huc not in missing_huc_files:
+                missing_huc_files.append(huc)
+            with open(os.path.join(workspace, "missing_files.txt"),"a") as f:
+                f.write(usgs_elev_table + "\n")
+            continue
+        branch_dir = os.path.join(fim_dir, huc, 'branches')
+        if not os.path.exists(branch_dir):
+            with open(os.path.join(workspace, "missing_files.txt"),"a") as f:
+                f.write(branch_dir + "\n")
+            continue        
+        # Read usgs_elev_df
+        usgs_elev_df = pd.read_csv(usgs_elev_table)
+            
+        print(f'Iterating through {huc}')
+        #Get list of nws_lids
+        nws_lids = huc_dictionary[huc]
+        #Loop through each lid in nws_lids list
+        for lid in nws_lids:
+            
+            #Convert lid to lower case
+            lid = lid.lower()
+            
+            # Make lid_directory.
+            lid_directory = os.path.join(huc_directory, lid)
+            if not os.path.exists(lid_directory):
+                os.mkdir(lid_directory)
+
+            #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
+            stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
+            #Check if stages are supplied, if not write message and exit. 
+            if all(stages.get(category, None)==None for category in flood_categories):
+                message = f'{lid}:missing threshold stages'
+                all_messages.append(message)
+                continue
+            try:
+                lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]  # Assuming DEM datums are consistent across all DEMs
+                hydroid = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'HydroID'].values[0]
+            except IndexError:  # Occurs when LID is missing from table
+                continue
+            
+            # Initialize nested dict for lid attributes
+            stage_based_att_dict.update({lid:{}})
+                
+            #find lid metadata from master list of metadata dictionaries.
+            metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
+            lid_altitude = metadata['usgs_data']['altitude']
+       
+            ### --- Do Datum Offset --- ###
+            #determine source of interpolated threshold flows, this will be the rating curve that will be used.
+            rating_curve_source = flows.get('source')
+            if rating_curve_source is None:
+                continue
+                        
+            #Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
+            if lid == 'bmbp1':
+                rating_curve_source = 'NRLDB'
+            
+            #Get the datum and adjust to NAVD if necessary.
+            nws, usgs = get_datum(metadata)
+            datum_data = {}
+            if rating_curve_source == 'USGS Rating Depot':
+                datum_data = usgs
+            elif rating_curve_source == 'NRLDB':
+                datum_data = nws
+                        
+            #If datum not supplied, skip to new site
+            datum = datum_data.get('datum', None)
+            if datum is None:
+#                f.write(f'{lid} : skipping because site is missing datum\n')
+                continue      
+            
+            #Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
+            # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7 
+            # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
+            if lid in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
+                datum_data.update(crs = 'NAD83')
+            
+            #Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
+            if lid == 'bmbp1':
+                datum_data.update(crs = 'NAD27')
+            
+            #Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. If NGVD29 it is converted to NAVD88.
+            #bgwn7, eagi1 vertical datum unknown, assume navd88
+            #fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
+            #wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
+            if lid in ['bgwn7','eagi1','fatw3']:
+                datum_data.update(vcs = 'NAVD88')
+            elif lid == 'wlln7':
+                datum_data.update(vcs = 'NGVD29')
+            
+            #Adjust datum to NAVD88 if needed
+            # Default datum_adj_ft to 0.0
+            datum_adj_ft = 0.0
+            if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
+                #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
+                try:
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
+                except Exception as e:
+                    all_messages.append(e)
+            
+            ### -- Concluded Datum Offset --- ###
+            
+            #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
+            segments = get_nwm_segs(metadata)        
+            site_ms_segs = set(segments).intersection(ms_segs)
+            site_ms_segments = list(site_ms_segs)    
+            
+            #For each flood category
+            for category in flood_categories:
+                
+                # If running in the alternative CatFIM mode, then determine flows using the
+                # HAND synthetic rating curves, looking up the corresponding flows for datum-offset
+                # AHPS stage values.
+                if datum_adj_ft == None:
+                    datum_adj_ft = 0.0
+                stage = stages[category]
+                
+                if stage != None and datum_adj_ft != None and lid_altitude != None:
+                    # Determine datum-offset water surface elevation (from above).
+                    datum_adj_wse = stage + datum_adj_ft + lid_altitude
+                    datum_adj_wse_m = datum_adj_wse*0.3048  # Convert ft to m
+                    
+                    # Subtract HAND gage elevation from HAND WSE to get HAND stage.
+                    hand_stage = datum_adj_wse_m - lid_usgs_elev
+                    print(hand_stage)
+                    
+                    # Produce extent tif hand_stage. Multiprocess across branches.
+                    branches = os.listdir(branch_dir)
+                    with ProcessPoolExecutor(max_workers=1) as executor:
+                        for branch in branches:
+                            # Define paths to necessary files to produce inundation grids.
+                            full_branch_path = os.path.join(branch_dir, branch)
+                            rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
+                            catchments_path = os.path.join(fim_dir, huc, full_branch_path, 'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif')
+                            hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
+                            
+                            # Use hydroTable to determine hydroid_list from site_ms_segments.
+                            hydrotable_df = pd.read_csv(hydrotable_path)
+                            hydroid_list = []
+                #            print(hydrotable_df.dtypes)
+                            
+                            # Determine hydroids at which to perform inundation
+                            for feature_id in site_ms_segments:
+                                try:
+                                    nwm_crosswalked_hydroid = hydrotable_df.loc[hydrotable_df['feature_id'] == int(feature_id), 'HydroID'].values[0]
+                                    hydroid_list.append(nwm_crosswalked_hydroid)
+                                except IndexError:
+                                    pass
+                                
+                            if len(hydroid_list) == 0:
+                                continue
+                            print("NWM")
+                            print(site_ms_segments)
+                            print("Hydroids")
+                            print(hydroid_list)
+                            print("")
+                            print("")
+                        
+                            #if no segments, write message and exit out
+                            if not segments:
+                                print(f'{lid} no segments')
+                                message = f'{lid}:missing nwm segments'
+                                all_messages.append(message)
+                                continue
+                            
+                            if not os.path.exists(hydrotable_path):
+                                continue
+                            try:
+                                print("Running inundation for " + huc + " and branch " + branch)
+#                                produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
+                                executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
+                            except Exception as ex:
+                                print(f"*** {ex}")
+                                traceback.print_exc()
+                                sys.exit(1)
+                    
+                    # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
+                    stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
+                                                                 'datum_adj_wse_m': datum_adj_wse_m,
+                                                                 'hand_stage': hand_stage,
+                                                                 'datum_adj_ft': datum_adj_ft,
+                                                                 'lid_alt_ft': lid_altitude,
+                                                                 'lid_alt_m': lid_altitude*0.3048}})
+                    
+                # If missing HUC file data, write message
+                if huc in missing_huc_files:
+                    all_messages.append("Missing some HUC data")
+                    
+            lat = float(metadata['nws_preferred']['latitude'])
+            lon = float(metadata['nws_preferred']['longitude'])
+            wfo = metadata['nws_data']['wfo']
+            rfc = metadata['nws_data']['rfc']
+            state = metadata['nws_data']['state']
+            county = metadata['nws_data']['county']
+            name = metadata['nws_data']['name']
+            flow_units = flows['units']
+            flow_source = flows['source']
+            stage_units = stages['units']
+            stage_source = stages['source']
+            wrds_timestamp = stages['wrds_timestamp']
+            nrldb_timestamp = metadata['nrldb_timestamp']
+            nwis_timestamp = metadata['nwis_timestamp']
+                        
+            #Create a csv with same information as shapefile but with each threshold as new record.
+            csv_df = pd.DataFrame()
+            for threshold in flood_categories:
+                if stage_based:
+                    try:
+                        datum_adj_ft = stage_based_att_dict[lid][threshold]['datum_adj_ft']
+                        datum_adj_wse_ft = stage_based_att_dict[lid][threshold]['datum_adj_wse_ft']
+                        datum_adj_wse_m = stage_based_att_dict[lid][threshold]['datum_adj_wse_m']
+                        lid_alt_ft = stage_based_att_dict[lid][threshold]['lid_alt_ft']
+                        lid_alt_m = stage_based_att_dict[lid][threshold]['lid_alt_m']
+
+                        line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon],
+                                            'dtm_adj_ft': datum_adj_ft,
+                                            'dadj_w_ft': datum_adj_wse_ft,
+                                            'dadj_w_m': datum_adj_wse_m,
+                                            'lid_alt_ft': lid_alt_ft,
+                                            'lid_alt_m': lid_alt_m})
+                        csv_df = csv_df.append(line_df)
+                        
+                    except Exception as e:
+                        print(e)
+                else:
+                    line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
+                    csv_df = csv_df.append(line_df)
+            #Round flow and stage columns to 2 decimal places.
+            csv_df = csv_df.round({'q':2,'stage':2})
+
+            #If a site folder exists (ie a flow file was written) save files containing site attributes.
+            output_dir = workspace / huc / lid
+            if output_dir.exists():
+                #Export DataFrame to csv containing attributes
+                csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
+            else:
+                message = f'{lid}:missing all calculated flows'
+                all_messages.append(message)
+                
+    print('wrapping up...')
+    #Recursively find all *_attributes csv files and append
+    csv_files = list(workspace.rglob('*_attributes.csv'))
+    all_csv_df = pd.DataFrame()
+    for csv in csv_files:
+        #Huc has to be read in as string to preserve leading zeros.
+        print(csv)
+        temp_df = pd.read_csv(csv, dtype={'huc':str})
+        all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
+    #Write to file
+    all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
+   
+    #This section populates a shapefile of all potential sites and details
+    #whether it was mapped or not (mapped field) and if not, why (status field).
+    
+    #Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)    
+    viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
+    viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
+    
+    #Using list of csv_files, populate DataFrame of all nws_lids that had
+    #a flow file produced and denote with "mapped" column.
+    nws_lids = [file.stem.split('_attributes')[0] for file in csv_files]
+    lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
+    lids_df['mapped'] = 'yes'
+    
+    #Identify what lids were mapped by merging with lids_df. Populate 
+    #'mapped' column with 'No' if sites did not map.
+    viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
+    viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
+    
+    #Write messages to DataFrame, split into columns, aggregate messages.
+    messages_df  = pd.DataFrame(all_messages, columns = ['message'])
+    messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
+    status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+    
+    #Join messages to populate status field to candidate sites. Assign 
+    #status for null fields.
+    viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
+    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
+    
+    #Filter out columns and write out to file
+    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
+    viz_out_gdf.to_file(workspace /'nws_lid_flows_sites.shp')
+    
+    #time operation
+    all_end = time.time()
+    print(f'total time is {round((all_end - all_start)/60),1} minutes')
+
+
 if __name__ == '__main__':
 
     # Parse arguments
@@ -125,6 +494,41 @@ if __name__ == '__main__':
     else:
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
+    
+    output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
+    output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
+    nwm_us_search = '5'
+    nwm_ds_search = '5'
+    write_depth_tiff = False
+    
+    if args['stage_based']:
+        fim_dir = args['fim_version']
+        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search)
+    
+        # Generate CatFIM mapping
+#        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
+    
+#        print("Post-processing TIFs...")
+        # Create log directory
+#        log_dir = os.path.join(output_cat_fim_dir, 'logs')
+#        if not os.path.exists(log_dir):
+#            os.mkdir(log_dir)
+    
+#        # Create error log path
+#        log_file = os.path.join(log_dir, 'errors.log')
+#        #post_process_cat_fim_for_viz(number_of_jobs, output_mapping_dir, nws_lid_attributes_filename, log_file, fim_version)
+#    
+#        # Updating mapping status
+#        print('Updating mapping status')
+#        #update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+#        
+#        # Create CSV versions of the final shapefiles.
+#        print('Creating CSVs')
+#        reformatted_catfim_method = catfim_method.lower().replace('-', '_')
+#        create_csvs(output_mapping_dir, reformatted_catfim_method)
+#    
+    
+
     
     output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
     output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
