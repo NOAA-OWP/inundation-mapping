@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.[to be assigned] - 2022-10-27 - [PR #727](https://github.com/NOAA-OWP/inundation-mapping/pull/727)
+
+Creates a single crosswalk table containing HUC (huc8), BranchID, HydroID, feature_id (and optionally LakeID) from branch-level hydroTables.csv files.
+
+### Additions
+
+- `tools/gms_tools/combine_crosswalk_tables.py`: reads and concatenates hydroTable.csv files, writes crosswalk table
+- `gms_run_branch.sh`: Adds `tools/gms_tools/make_complete_hydrotable.py` to post-processing
+
+<br/><br/>
+
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 

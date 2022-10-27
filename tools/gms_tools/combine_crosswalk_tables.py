@@ -5,9 +5,9 @@ import glob
 import argparse
 import pandas as pd
 
-def combine_hydrotables(data_directory, output_directory=None):
+def combine_crosswalk_tables(data_directory, output_directory=None):
     """
-    Combines all hydrotables from a run into a single hydrotable with HUC, BranchID, HydroID, feature_id, and LakeID
+    Combines all hydrotables from a run into a single crosswalk table with HUC, BranchID, HydroID, feature_id, and LakeID
     """
 
     if not output_directory:
@@ -26,14 +26,14 @@ def combine_hydrotables(data_directory, output_directory=None):
 
     df = pd.concat(dfs)
 
-    df.to_csv(os.path.join(output_directory, 'hydroTable_complete.csv'), index=False)
+    df.to_csv(os.path.join(output_directory, 'crosswalk_table.csv'), index=False)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Combines hydrotables from HUC/branch hydrotables')
+    parser = argparse.ArgumentParser(description='Combines hydrotables from HUC/branch into a single crosswalk table')
     parser.add_argument('-d', '--data-directory', help='Data directory (name of run)', type=str, required=True)
     parser.add_argument('-o', '--output-directory', help='Directory for outputs to be saved', type=str, required=False)
 
     args = vars(parser.parse_args())
 
-    combine_hydrotables(**args)
+    combine_crosswalk_tables(**args)
