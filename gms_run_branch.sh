@@ -262,15 +262,21 @@ find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -
 # Needed in case aggregation fails, we will need the logs
 echo
 echo -e $startDiv"Removing branches that failed with Exit status: 61"$stopDiv
+Tstart
 python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $outputRunDataDir/gms_inputs.csv
+Tcount
+date -u
 
 echo
 echo -e $startDiv"Combining crosswalk tables"$stopDiv
 # aggregate outputs
-python3 /foss_fim/tools/gms_tools/combine_crosswalk_tables.py -d $outputRunDataDir
+Tstart
+python3 /foss_fim/tools/gms_tools/combine_crosswalk_tables.py -d $outputRunDataDir -o $outputRunDataDir/crosswalk_table.csv
+Tcount
+date -u
 
 echo "=========================================================================="
 echo "GMS_run_branch complete"
 Tcount
-echo "Ended: `date -u`" 
+echo "Ended: `date -u`"
 echo
