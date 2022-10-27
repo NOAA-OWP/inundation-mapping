@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import subprocess
 import argparse
 import traceback
 import sys
@@ -13,6 +12,7 @@ import rasterio
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
 from generate_categorical_fim_flows import generate_catfim_flows
+from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
 from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import numpy as np
@@ -343,7 +343,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                 continue
                             try:
                                 print("Running inundation for " + huc + " and branch " + branch)
-#                                produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
                                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
                             except Exception as ex:
                                 print(f"*** {ex}")
@@ -383,18 +382,22 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                       src_nodata = remaining_raster_src.nodata,
                                       dst_transform = zero_branch_src.transform,
                                       dst_crs = zero_branch_src.crs,
-                                      dst_nodata = remaining_raster_src.nodata,
+                                      dst_nodata = -1,
                                       dst_resolution = zero_branch_src.res,
                                       resampling = Resampling.nearest)
                                 
+                            # Sum rasters
                             summed_array = summed_array + remaining_raster_array
                             
-                        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_merged' + '.tif')
+                        # Reclassify to 0s and 1s after summing
+#                        summed_array = np.where(summed_array > 0, 1, 0)
+                        # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
+                        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')  
                         profile = zero_branch_src.profile
                         summed_array = summed_array.astype('uint8')
                         with rasterio.open(output_tif, 'w', **profile) as dst:
                             dst.write(summed_array, 1)
-                        
+                                                    
                     # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
                     stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
                                                                  'datum_adj_wse_m': datum_adj_wse_m,
@@ -533,28 +536,29 @@ if __name__ == '__main__':
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
     
+    output_catfim_dir_parent = Path(f'/data/catfim/{fim_version_folder}')
     output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
     output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
     nwm_us_search = '5'
     nwm_ds_search = '5'
     write_depth_tiff = False
+    fim_dir = args['fim_version']
+    
+    # Create log directory
+    log_dir = os.path.join(output_catfim_dir_parent, 'logs')
+    # Create error log path
+    log_file = os.path.join(log_dir, 'errors.log')
+    
+    fim_version = os.path.split(fim_version)[1]
     
     if args['stage_based']:
-        fim_dir = args['fim_version']
-        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
+        stage_based = True
+        # Generate Stage-Based CatFIM mapping
+#        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
     
-        # Generate CatFIM mapping
-#        subprocess.call(['python3','/foss_fim/tools/generate_categorical_fim_mapping.py', '-r' , str(fim_run_dir), '-s', str(output_flows_dir), '-o', str(output_mapping_dir), '-j', str(number_of_jobs)])
-    
-#        print("Post-processing TIFs...")
-        # Create log directory
-#        log_dir = os.path.join(output_cat_fim_dir, 'logs')
-#        if not os.path.exists(log_dir):
-#            os.mkdir(log_dir)
-    
-#        # Create error log path
-#        log_file = os.path.join(log_dir, 'errors.log')
-#        #post_process_cat_fim_for_viz(number_of_jobs, output_mapping_dir, nws_lid_attributes_filename, log_file, fim_version)
+        print("Post-processing TIFs...")
+        print(fim_version)
+        post_process_cat_fim_for_viz(number_of_jobs, output_mapping_dir, nws_lid_attributes_filename="", log_file=log_file, fim_version=fim_version)
 #    
 #        # Updating mapping status
 #        print('Updating mapping status')
@@ -565,38 +569,26 @@ if __name__ == '__main__':
 #        reformatted_catfim_method = catfim_method.lower().replace('-', '_')
 #        create_csvs(output_mapping_dir, reformatted_catfim_method)
 #    
-    
 
-    
-    output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
-    nwm_us_search = '5'
-    nwm_ds_search = '5'
-    write_depth_tiff = False
 
     ## Run CatFIM scripts in sequence
     # Generate CatFIM flow files
-    print('Creating flow files using the ' + catfim_method + ' technique...')
-    start = time.time()
-    if args['stage_based']:
-        fim_dir = args['fim_version']
-        stage_based = True
     else:
         fim_dir = ""
         stage_based = False
-    generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
-    end = time.time()
-    elapsed_time = (end-start)/60
-    print(f'Finished creating flow files in {elapsed_time} minutes')
-
-    # Generate CatFIM mapping
-    print('Begin mapping')
-    start = time.time()
-    manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, number_of_jobs, depthtif=False)
-    
-    end = time.time()
-    elapsed_time = (end-start)/60
-    print(f'Finished mapping in {elapsed_time} minutes')
+        print('Creating flow files using the ' + catfim_method + ' technique...')
+        start = time.time()
+        generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished creating flow files in {elapsed_time} minutes')
+        # Generate CatFIM mapping
+        print('Begin mapping')
+        start = time.time()
+        manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, number_of_jobs, depthtif=False)
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished mapping in {elapsed_time} minutes')
 
     # Updating mapping status
     print('Updating mapping status')

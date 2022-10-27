@@ -26,7 +26,7 @@ hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WB
 mask_type, catchment_poly = 'huc', ''
 
 
-def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif, log_file):
+def generate_categorical_fim(fim_run_dir, source_flow_dir, output_catfim_dir, number_of_jobs, depthtif, log_file):
 
     no_data_list = []
     procs_list = []
@@ -58,8 +58,8 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, n
                 # Map paths to HAND files needed for inundation()
                 fim_run_huc_dir = os.path.join(fim_run_dir, huc)
 
-                # Map path to huc directory inside out output_cat_fim_dir
-                cat_fim_huc_dir = os.path.join(output_cat_fim_dir, huc)
+                # Map path to huc directory inside out output_catfim_dir
+                cat_fim_huc_dir = os.path.join(output_catfim_dir, huc)
                 if not os.path.exists(cat_fim_huc_dir):
                     os.mkdir(cat_fim_huc_dir)
     
@@ -151,41 +151,46 @@ def run_inundation(args):
             f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
 
 
-def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file, fim_version):
-
+def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attributes_filename="", log_file="", fim_version=""):
+    
     # Create workspace
-    gpkg_dir = os.path.join(output_cat_fim_dir, 'gpkg')
+    gpkg_dir = os.path.join(output_catfim_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
 
     # Find the FIM version
-    merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.shp')
+    merged_layer = os.path.join(output_catfim_dir, 'catfim_library.shp')
 
     if not os.path.exists(merged_layer): # prevents appending to existing output
 
         with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+            huc_ahps_dir_list = os.listdir(output_catfim_dir)
+            skip_list=['errors','logs','gpkg','missing_files.txt',merged_layer]
 
-            huc_ahps_dir_list = os.listdir(output_cat_fim_dir)
-            skip_list=['errors','logs','gpkg',merged_layer]
-    
             for magnitude in magnitude_list:
-        
                 # Loop through all categories
                 for huc in huc_ahps_dir_list:
     
                     if huc not in skip_list:
-    
-                        huc_dir = os.path.join(output_cat_fim_dir, huc)
+                        huc_dir = os.path.join(output_catfim_dir, huc)
                         ahps_dir_list = os.listdir(huc_dir)
     
                         # Loop through ahps sites
                         for ahps_lid in ahps_dir_list:
+                            print("1")
+                            print(ahps_lid)
+                            print("")
                             ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
     
                             extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent' + '.tif')
-                            if os.path.exists(extent_grid):                                
-                                
+                            print("extent_grid")
+                            print(extent_grid)
+                            # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
+                            nws_lid_attributes_filename = os.path.join(ahps_lid_dir, ahps_lid + '_attributes.csv')
+                            
+                            if os.path.exists(extent_grid):
                                 try:
+#                                    reformat_inundation_maps([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
                                     executor.submit(reformat_inundation_maps, [ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
                                 except Exception as ex:
                                     print(f"*** {ex}")
@@ -213,7 +218,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_att
 
             del diss_extent
 
-        shutil.rmtree(gpkg_dir)
+        #shutil.rmtree(gpkg_dir)
 
     else:
         print(f"{merged_layer} already exists.")
@@ -229,6 +234,11 @@ def reformat_inundation_maps(args):
         huc = args[4]
         magnitude = args[5]
         nws_lid_attributes_filename = args[6]
+
+        print("2")
+        print(lid)
+        print(nws_lid_attributes_filename)
+        print("")
 
         # Convert raster to to shapes
         with rasterio.open(grid_path) as src:
@@ -269,7 +279,10 @@ def reformat_inundation_maps(args):
 
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
 
+
+        print("here")
         if not extent_poly_diss.empty:
+            print("not empty")
 
             extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
@@ -283,14 +296,14 @@ def reformat_inundation_maps(args):
             pass
 
 
-def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif):
+def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir, number_of_jobs, depthtif):
     
     # Create output directory
-    if not os.path.exists(output_cat_fim_dir):
-        os.mkdir(output_cat_fim_dir)
+    if not os.path.exists(output_catfim_dir):
+        os.mkdir(output_catfim_dir)
 
     # Create log directory
-    log_dir = os.path.join(output_cat_fim_dir, 'logs')
+    log_dir = os.path.join(output_catfim_dir, 'logs')
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
 
@@ -301,12 +314,12 @@ def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_cat_fim_dir, numb
     nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
 
     print("Generating Categorical FIM")
-    generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
+    generate_categorical_fim(fim_run_dir, source_flow_dir, output_catfim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
     # Get fim_version.
     fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_','').replace('_ms_c', '').replace('_', '.')
-    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file, fim_version)
+    post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attributes_filename, log_file, fim_version)
 
 
 if __name__ == '__main__':
@@ -315,7 +328,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
     parser.add_argument('-r','--fim-run-dir',help='Name of directory containing outputs of fim_run.sh',required=True)
     parser.add_argument('-s', '--source-flow-dir',help='Path to directory containing flow CSVs to use to generate categorical FIM.',required=True, default="")
-    parser.add_argument('-o', '--output-cat-fim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
+    parser.add_argument('-o', '--output-catfim-dir',help='Path to directory where categorical FIM outputs will be written.',required=True, default="")
     parser.add_argument('-j','--number-of-jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
     parser.add_argument('-depthtif','--write-depth-tiff',help='Using this option will write depth TIFFs.',required=False, action='store_true')
 
@@ -323,8 +336,8 @@ if __name__ == '__main__':
 
     fim_run_dir = args['fim_run_dir']
     source_flow_dir = args['source_flow_dir']
-    output_cat_fim_dir = args['output_cat_fim_dir']
+    output_catfim_dir = args['output_catfim_dir']
     number_of_jobs = int(args['number_of_jobs'])
     depthtif = args['write_depth_tiff']
     
-    manage_catfim_mapping(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif)
+    manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir, number_of_jobs, depthtif)
