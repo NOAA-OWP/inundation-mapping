@@ -148,7 +148,6 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
     is_all_zero = np.all((masked_reclass_rem_array == 0))
     
     if not is_all_zero:
-        print(lid + " at " + category + " in " + huc + " is not all zero")
         output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif')
         with rasterio.Env():
             profile = rem_src.profile
@@ -169,7 +168,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
 
     huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
     
-    for huc in huc_dictionary:
+    for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
         # Make output directory for huc.
         huc_directory = os.path.join(workspace, huc)
         if not os.path.exists(huc_directory):
@@ -286,12 +285,8 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
             site_ms_segs = set(segments).intersection(ms_segs)
             site_ms_segments = list(site_ms_segs)    
             
-            #For each flood category
+            # For each flood category
             for category in flood_categories:
-                
-                # If running in the alternative CatFIM mode, then determine flows using the
-                # HAND synthetic rating curves, looking up the corresponding flows for datum-offset
-                # AHPS stage values.
                 if datum_adj_ft == None:
                     datum_adj_ft = 0.0
                 stage = stages[category]
@@ -303,18 +298,23 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     
                     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
                     hand_stage = datum_adj_wse_m - lid_usgs_elev
-                    print(hand_stage)
                     
                     # Produce extent tif hand_stage. Multiprocess across branches.
                     branches = os.listdir(branch_dir)
                     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
                         for branch in branches:
-#                            print("Trying branch " + branch)
                             # Define paths to necessary files to produce inundation grids.
                             full_branch_path = os.path.join(branch_dir, branch)
                             rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
                             catchments_path = os.path.join(fim_dir, huc, full_branch_path, 'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif')
                             hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
+                            
+                            if not os.path.exists(rem_path):
+                                continue
+                            if not os.path.exists(catchments_path):
+                                continue
+                            if not os.path.exists(hydrotable_path):
+                                continue
                             
                             # Use hydroTable to determine hydroid_list from site_ms_segments.
                             hydrotable_df = pd.read_csv(hydrotable_path)
@@ -341,6 +341,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                             if not os.path.exists(hydrotable_path):
                                 print("hydrotable doesn't exist")
                                 continue
+                            # Create inundation maps with branch and stage data
                             try:
                                 print("Running inundation for " + huc + " and branch " + branch)
                                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
@@ -358,10 +359,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                             full_f_path = os.path.join(lid_directory, f)
                             path_list.append(full_f_path)
                     
-                    path_list.sort()  # To get branch 0 first.
+                    path_list.sort()  # To force branch 0 first in list, sort
                     if len(path_list) > 0:
                         zero_branch_grid = path_list[0]
-                            
                         zero_branch_src = rasterio.open(zero_branch_grid)
                         zero_branch_array = zero_branch_src.read(1)
                         summed_array = zero_branch_array  # Initialize it as the branch zero array
@@ -388,15 +388,15 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                 
                             # Sum rasters
                             summed_array = summed_array + remaining_raster_array
+                            del zero_branch_array, remaining_raster_array, remaining_raster_array_original
                             
-                        # Reclassify to 0s and 1s after summing
-#                        summed_array = np.where(summed_array > 0, 1, 0)
                         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
                         output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')  
                         profile = zero_branch_src.profile
                         summed_array = summed_array.astype('uint8')
                         with rasterio.open(output_tif, 'w', **profile) as dst:
                             dst.write(summed_array, 1)
+                        del summed_array
                                                     
                     # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
                     stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,

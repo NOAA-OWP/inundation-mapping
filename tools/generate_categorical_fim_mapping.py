@@ -279,10 +279,7 @@ def reformat_inundation_maps(args):
 
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
 
-
-        print("here")
         if not extent_poly_diss.empty:
-            print("not empty")
 
             extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
