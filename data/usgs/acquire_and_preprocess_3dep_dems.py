@@ -107,6 +107,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     
     end_time = datetime.now()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
+    print(f'---- NOTE: Remember to scan the log file for any failures')
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
@@ -127,6 +128,9 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     ----------
         - pixel size set to 10 x 10 (m)
         - block size (256) (sometimes we use 512)
+        - cblend 6 add's a small buffer when pulling down the tif (ensuring seamless
+          overlap at the borders.)    
+    
     '''
 
     print(f"==========================================================")
@@ -136,7 +140,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
     base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
     base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
-    base_cmd += ' -t_srs EPSG:5070'
+    base_cmd += ' -t_srs EPSG:5070 -cblend 6'
    
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
@@ -205,7 +209,7 @@ def download_usgs_dem_file(extent_file,
                 base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
                 base_cmd +=  ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
                 base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
-                base_cmd +=  ' -t_srs EPSG:5070'
+                base_cmd +=  ' -t_srs EPSG:5070 -cblend 6'
         - retry (bool)
              If True, and the file exists (and is over 0k), downloading will be skipped.
         
@@ -295,7 +299,7 @@ if __name__ == '__main__':
     # Parse arguments.
     
     # sample usage (min params):
-    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC4
+    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC6_ESPG_5070/ -t /data/inputs/3dep_dems/10m_5070/ -r -j 20
     
     # Notes:
     #   - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
