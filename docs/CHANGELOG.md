@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.[to be assigned] - 2022-10-24 - [PR #723](https://github.com/NOAA-OWP/inundation-mapping/pull/723)
+## v4.0.10.2 - 2022-10-24 - [PR #723](https://github.com/NOAA-OWP/inundation-mapping/pull/723)
 
 Runs branch 0 on HUCs with no other branches remaining after filtering stream orders if `drop_low_stream_orders` is used.
 
