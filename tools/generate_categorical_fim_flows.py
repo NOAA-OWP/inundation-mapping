@@ -89,7 +89,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     import json
     f = open('/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json')
     huc_dictionary = json.load(f)
-    out_gdf = ''
+    out_gdf = ''  # TEMP TODO
 
     #Get all possible mainstem segments
     print('Getting list of mainstem segments')
@@ -431,7 +431,6 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--stage_based', help = 'Run stage-based CatFIM instead of flow-based? NOTE: flow-based CatFIM is the default.', required=False, default=False, action='store_true')
     parser.add_argument('-f', '--fim-dir', help='Path to FIM outputs directory. Only use this option if you are running in alt-catfim mode.',required=False,default="")
     args = vars(parser.parse_args())
-
 
     #Run get_env_paths and static_flow_lids
     generate_catfim_flows(**args)

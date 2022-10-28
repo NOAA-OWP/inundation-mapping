@@ -128,10 +128,22 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
 #        with rasterio.open(output_tif1, 'w', **profile) as dst:
 #            dst.write(reclass_rem_array, 1)
             
+    # Write out hydroid mask to make sure you're not masking what you should keep
 
+    print(branch)
+    print(hydroid_list)
     hydroid_mask = np.isin(catchments_array, hydroid_list)
 
-            
+#    output_tif_c = os.path.join(lid_directory, lid + '_' + category + '_mask_' + huc + '_' + branch + '.tif')
+#
+#    masked_array = np.where(hydroid_mask == True, 1, 0).astype('uint8')
+#    with rasterio.Env():
+#        profile = rem_src.profile
+#        profile.update(dtype=rasterio.uint8)
+#        profile.update(nodata=10)
+#        with rasterio.open(output_tif_c, 'w', **profile) as dst:
+#            dst.write(masked_array, 1)        
+    
     target_catchments_array = np.where((hydroid_mask == True) & (catchments_array != catchments_src.nodata), 1, 0).astype('uint8')
 
 #    output_tif2 = os.path.join(lid_directory, lid + '_' + category + '_target_cats_' + huc + '.tif')
@@ -196,6 +208,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in nws_lids list
         for lid in nws_lids:
+            print(lid)
             
             #Convert lid to lower case
             lid = lid.lower()
@@ -281,7 +294,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
             ### -- Concluded Datum Offset --- ###
             
             #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
-            segments = get_nwm_segs(metadata)        
+            segments = get_nwm_segs(metadata)
             site_ms_segs = set(segments).intersection(ms_segs)
             site_ms_segments = list(site_ms_segs)    
             
@@ -323,11 +336,10 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                             # Determine hydroids at which to perform inundation
                             for feature_id in site_ms_segments:
                                 try:
-                                    nwm_crosswalked_hydroid = hydrotable_df.loc[hydrotable_df['feature_id'] == int(feature_id), 'HydroID'].values[0]
-                                    hydroid_list.append(nwm_crosswalked_hydroid)
+                                    subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
+                                    hydroid_list += list(subset_hydrotable_df.HydroID.unique())
                                 except IndexError:
                                     pass
-                                
                             if len(hydroid_list) == 0:
                                 continue
 
@@ -388,7 +400,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                                 
                             # Sum rasters
                             summed_array = summed_array + remaining_raster_array
-                            del zero_branch_array, remaining_raster_array, remaining_raster_array_original
+                        del zero_branch_array, remaining_raster_array, remaining_raster_array_original
                             
                         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
                         output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')  
@@ -554,7 +566,7 @@ if __name__ == '__main__':
     if args['stage_based']:
         stage_based = True
         # Generate Stage-Based CatFIM mapping
-#        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
+        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
     
         print("Post-processing TIFs...")
         print(fim_version)
@@ -590,9 +602,9 @@ if __name__ == '__main__':
         elapsed_time = (end-start)/60
         print(f'Finished mapping in {elapsed_time} minutes')
 
-    # Updating mapping status
-    print('Updating mapping status')
-    update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+        # Updating mapping status
+        print('Updating mapping status')
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
     
     # Create CSV versions of the final shapefiles.
     print('Creating CSVs')
