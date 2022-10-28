@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.[to be assigned] - 2022-10-27 - [PR #727](https://github.com/NOAA-OWP/inundation-mapping/pull/727)
+## v4.0.10.4 - 2022-10-27 - [PR #727](https://github.com/NOAA-OWP/inundation-mapping/pull/727)
 
 Creates a single crosswalk table containing HUC (huc8), BranchID, HydroID, feature_id (and optionally LakeID) from branch-level hydroTables.csv files.
 
@@ -12,6 +12,34 @@ Creates a single crosswalk table containing HUC (huc8), BranchID, HydroID, featu
 
 <br/><br/>
 
+## v4.0.10.3 - 2022-10-19 - [PR #718](https://github.com/NOAA-OWP/inundation-mapping/pull/718)
+
+Fixes thalweg notch by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
+
+### Changes
+
+- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-2*(DEM cell size)) to clip stream network inside of DEM extent.
+
+<br/><br/>
+
+## v4.0.10.2 - 2022-10-24 - [PR #723](https://github.com/NOAA-OWP/inundation-mapping/pull/723)
+
+Runs branch 0 on HUCs with no other branches remaining after filtering stream orders if `drop_low_stream_orders` is used.
+
+### Additions
+
+- `src/gms`
+    - `stream_branches.py`: adds `exclude_attribute_values()` to filter out stream orders 1&2 outside of `load_file()`
+
+### Changes
+
+- `src/gms`
+    - `buffer_stream_branches.py`: adds check for `streams_file`
+    - `derive_level_paths.py`: checks length of `stream_network` before filtering out stream orders 1&2, then filters using `stream_network.exclude_attribute_values()`
+    - `generate_branch_list.py`: adds check for `stream_network_dissolved`
+
+<br/><br/>
+    
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 

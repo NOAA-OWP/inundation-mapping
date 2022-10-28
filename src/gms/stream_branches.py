@@ -375,6 +375,18 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return(headwater_points_gdf)
 
+
+    def exclude_attribute_values(self, branch_id_attribute=None, values_excluded=None, verbose=False):
+                      
+        if (branch_id_attribute is not None) and (values_excluded is not None):
+            self = StreamNetwork(self[~self[branch_id_attribute].isin(values_excluded)], branch_id_attribute=branch_id_attribute)
+       
+        if verbose:         
+             print("Number of df rows = " + str(self.shape[0]))
+        
+        return(self)
+
+
     def remove_stream_segments_without_catchments( self,
                                                    catchments,
                                                    reach_id_attribute='NHDPlusID',
