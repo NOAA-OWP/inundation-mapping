@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.pending - 2022-10-27 - [PR #730](https://github.com/NOAA-OWP/inundation-mapping/pull/730)
+
+Hotfix: Jupyter core is considered a security risk by OWP and needed to be removed.
+
+Rolled back the following packages: jupyterlab, jupyter, ipympl
+
+### Changes:
+
+- `Pipfile`  and `Pipfile`: remove all references to Jupyter packages. 
+
+
+<br/><br/>
+
+
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 
