@@ -65,7 +65,7 @@ def src_bankfull_lookup(args):
             df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
         negative_flows = len(df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)])
         if negative_flows > 0:
-            log_text += 'WARNING: HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Negative or zero flow values found in the input bankfull flows csv (likely lakeid loc)\n'
+            log_text += 'WARNING: HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + ' --> Negative or zero flow values found in the input bankfull flows csv (posible lakeid loc)\n'
 
         ## Define the channel geometry variable names to use from the src
         hradius_var = 'HydraulicRadius (m)'

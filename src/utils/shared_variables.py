@@ -61,7 +61,7 @@ OVERWRITE_ALL = 'OVERWRITE_ALL'
 
 # Rating Curve Adjustment (local calibration) variables
 DOWNSTREAM_THRESHOLD = 10 # distance in km to propogate new roughness values downstream
-ROUGHNESS_MAX_THRESH = 0.6 # max allowable adjusted roughness value (void values larger than this)
+ROUGHNESS_MAX_THRESH = 0.8 # max allowable adjusted roughness value (void values larger than this)
 ROUGHNESS_MIN_THRESH = 0.001 # min allowable adjusted roughness value (void values smaller than this)
 
 ## Input Paths and Directories

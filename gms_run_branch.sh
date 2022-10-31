@@ -198,6 +198,20 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     Tcount
 fi
 
+## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
+if [ "$src_subdiv_toggle" = "True" ]; then
+    echo -e $startDiv"Performing SRC channel/overbank subdivision routine"$stopDiv
+    # Run SRC Subdivision & Variable Roughness routine
+    Tstart
+    time python3 /foss_fim/src/subdiv_chan_obank_src.py -fim_dir $outputRunDataDir -bc $bankfull_attribute -mann $vmann_input_file -j $jobLimit
+    Tcount
+fi
+
+export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
+export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
+export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
+export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
+
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
     if [ ! -f $CALB_DB_KEYS_FILE ]; then
@@ -217,30 +231,21 @@ if [ "$src_adjust_spatial" = "True" ]; then
     fi
 fi
 
-## RUN SYNTHETIC RATING CURVE VARIABLE ROUGHNESS ROUTINE ##
-if [ "$src_vrough_toggle" = "True" ]; then
-    echo -e $startDiv"Performing SRC variable Manning's n routine"$stopDiv
-    # Run SRC Variable Roughness routine
-    Tstart
-    time python3 /foss_fim/src/vary_mannings_n_composite.py -fim_dir $outputRunDataDir -mann $vmann_input_file -bc $bankfull_attribute -j $jobLimit
-    Tcount
-fi
-
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
-if [ "$src_adjust_usgs" = "True" ]; then
+if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     Tstart
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit -debug
     Tcount
     date -u
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
-if [ "$src_adjust_spatial" = "True" ]; then
+if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     Tstart
     echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
-    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
+    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit -debug
     Tcount
     date -u
 fi
