@@ -152,14 +152,14 @@ if [ ! -d "$outputRunDataDir/logs/branch" ]; then
     mkdir -p $outputRunDataDir/logs/branch
 elif [ $overwrite -eq 1 ]; then
     # need to clean it out if we are overwriting
-    rm -rf $outputRunDataDir/logs/branch
+    rm -rdf $outputRunDataDir/logs/branch
     mkdir -p $outputRunDataDir/logs/branch
 fi
 
 if [ ! -d "$outputRunDataDir/branch_errors" ]; then
     mkdir -p "$outputRunDataDir/branch_errors"
 elif [ $overwrite -eq 1 ]; then
-    rm -rf $outputRunDataDir/branch_errors
+    rm -rdf $outputRunDataDir/branch_errors
     mkdir -p $outputRunDataDir/branch_errors
 fi
 

@@ -6,12 +6,14 @@ T_total_start
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
 
-# Even though check_input_hucs at gms_run_unit validate that all values
-# are numbers, sometimes the huc list can come in as windows incoded and not
-# unix encoded. It can get missed but tee and time can parse it wrong.
-# so, we will strip a slash of the end if it exists, the re-validat that the
-# value is a number.  (Note: doesn't seem to work all of the time for encoding
-# issues (??))
+: '
+  Even though check_input_hucs at gms_run_unit validate that all values
+  are numbers, sometimes the huc list can come in as windows incoded and not
+  unix encoded. It can get missed but tee and time can parse it wrong.
+  so, we will strip a slash of the end if it exists, the re-validat that the
+  value is a number.  (Note: doesn''t seem to work all of the time for encoding
+  issues (??))
+'
 re='^[0-9]+$'
 if ! [[ $hucNumber =~ $re ]] ; then
    echo "Error: hucNumber is not a number" >&2; exit 1
@@ -71,8 +73,38 @@ Tcount
 echo -e $startDiv"Get Vector Layers and Subset $hucNumber"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -s $input_nhd_flowlines -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nhd_headwaters -v $input_LANDSEA -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -gl $input_GL_boundaries -lb $lakes_buffer_dist_meters -wb $wbd_buffer -i $input_DEM
+
+cmd_args=" -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg"
+cmd_args+=" -b $outputHucDataDir/nwm_subset_streams.gpkg"
+cmd_args+=" -c $outputHucDataDir/NHPlusBurnLineEvent_subset.gpkg"
+cmd_args+=" -d $hucNumber"
+cmd_args+=" -e $outputHucDataDir/nhd_headwater_points_subset.gpkg"
+cmd_args+=" -f $outputHucDataDir/wbd_buffered.gpkg"
+cmd_args+=" -g $outputHucDataDir/wbd.gpkg"
+cmd_args+=" -i $input_DEM"
+cmd_args+=" -l $input_nwm_lakes"
+cmd_args+=" -m $input_nwm_catchments"
+cmd_args+=" -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg"
+cmd_args+=" -r $input_NLD"
+cmd_args+=" -s $input_nhd_flowlines"
+cmd_args+=" -v $input_LANDSEA"
+cmd_args+=" -w $input_nwm_flows"
+cmd_args+=" -x $outputHucDataDir/LandSea_subset.gpkg"
+cmd_args+=" -y $input_nhd_headwaters"
+cmd_args+=" -z $outputHucDataDir/nld_subset_levees.gpkg"
+cmd_args+=" -gl $input_GL_boundaries"
+cmd_args+=" -lb $lakes_buffer_dist_meters"
+cmd_args+=" -wb $wbd_buffer"
+cmd_args+=" -lpf $input_nld_levee_protected_areas"
+cmd_args+=" -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg"
+
 Tcount
+#echo "$cmd_args"
+python3 $srcDir/clip_vectors_to_wbd.py $cmd_args
+
+: '
+python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -s $input_nhd_flowlines -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nhd_headwaters -v $input_LANDSEA -lpf $input_nld_levee_protected_areas -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -gl $input_GL_boundaries -lb $lakes_buffer_dist_meters -wb $wbd_buffer -i $input_DEM
+'
 
 ## Clip WBD8 ##
 echo -e $startDiv"Clip WBD8"$stopDiv

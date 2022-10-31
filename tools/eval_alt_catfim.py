@@ -195,7 +195,7 @@ if __name__ == '__main__':
                                 mask_values=None
                                 stats_modes_list=['total_area']
                                 test_id=''
-                                mask_dict={'levees': {'path': '/data/test_cases/other/zones/leveed_areas_conus.shp', 'buffer': None, 'operation': 'exclude'}, 
+                                mask_dict={'levees': {'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg', 'buffer': None, 'operation': 'exclude'}, 
                                             'waterbodies': {'path': '/data/test_cases/other/zones/nwm_v2_reservoirs.shp', 'buffer': None, 'operation': 'exclude'},
                                             site: {'path': '/data/test_cases/{benchmark_type}_test_cases/validation_data_{benchmark_type}/{huc}/{site}/{site}_domain.shp'.format(benchmark_type=benchmark_type, site=site, category=category, huc=huc), 'buffer': None, 'operation': 'include'}}
                                 
