@@ -3,28 +3,38 @@
 import os
 import sys
 import pandas as pd
+import geopandas as gpd
 import argparse
 import rasterio as rio
-import geopandas as gpd
 
-from datetime import datetime
 from shapely.geometry import MultiPolygon,Polygon
 from utils.shared_functions import getDriver, mem_profile
 
 @mem_profile
-def subset_vector_layers(hucCode, nwm_streams_filename,
-                         nhd_streams_filename, nwm_lakes_filename, 
-                         nld_lines_filename, nwm_catchments_filename,
-                         nhd_headwaters_filename, landsea_filename,
-                         levee_protected_areas_filename, wbd_filename, 
-                         wbd_buffer_filename, subset_nhd_streams_filename, 
-                         subset_nld_lines_filename, subset_nwm_lakes_filename, 
-                         subset_nwm_catchments_filename, subset_nhd_headwaters_filename,
-                         subset_nwm_streams_filename, subset_landsea_filename,
-                         subset_levee_protected_areas_filename, 
-                         great_lakes_filename, wbd_buffer_distance,
-                         lake_buffer_distance, dem_filename):
-
+def subset_vector_layers(subset_nwm_lakes, 
+                         subset_nwm_streams,
+                         subset_nhd_streams,
+                         hucCode,
+                         subset_nhd_headwaters,
+                         wbd_buffer_filename,
+                         wbd_filename,
+                         dem_filename,
+                         nwm_lakes,
+                         nwm_catchments,
+                         subset_nwm_catchments,
+                         nld_lines,
+                         nhd_streams,
+                         landsea,
+                         nwm_streams,
+                         subset_landsea,
+                         nhd_headwaters,
+                         subset_nld_lines,
+                         great_lakes,
+                         lake_buffer_distance,
+                         wbd_buffer_distance,
+                         levee_protected_areas,
+                         subset_levee_protected_areas):
+        
     hucUnitLength = len(str(hucCode))
 
     with rio.open(dem_filename) as dem_raster:
@@ -43,7 +53,7 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
 
     # projection = wbd_buffer.crs
 
-    great_lakes = gpd.read_file(great_lakes_filename, mask=wbd_buffer).reset_index(drop=True)
+    great_lakes = gpd.read_file(great_lakes, mask=wbd_buffer).reset_index(drop=True)
 
     if not great_lakes.empty:
         print("Masking Great Lakes for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
@@ -68,23 +78,23 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
     del great_lakes
 
     # Clip ocean water polygon for future masking ocean areas (where applicable)
-    landsea = gpd.read_file(landsea_filename, mask=wbd_buffer)
+    landsea = gpd.read_file(landsea, mask=wbd_buffer)
     if not landsea.empty:
-        landsea.to_file(subset_landsea_filename, driver = getDriver(subset_landsea_filename), index=False)
+        landsea.to_file(subset_landsea, driver = getDriver(subset_landsea), index=False)
     del landsea
 
     # Clip levee-protected areas polygons for future masking ocean areas (where applicable)
     print("Subsetting Levee Protected Areas", flush=True)
-    levee_protected_areas = gpd.read_file(levee_protected_areas_filename, mask=wbd_buffer)
+    levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer)
     if not levee_protected_areas.empty:
         levee_protected_areas = levee_protected_areas.to_crs('ESRI:102039')
-        levee_protected_areas.to_file(subset_levee_protected_areas_filename, driver = getDriver
-                                      (subset_levee_protected_areas_filename), index=False)
+        levee_protected_areas.to_file(subset_levee_protected_areas, driver = getDriver
+                                      (subset_levee_protected_areas), index=False)
     del levee_protected_areas
 
     # Find intersecting lakes and writeout
     print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
-    nwm_lakes = gpd.read_file(nwm_lakes_filename, mask = wbd_buffer)
+    nwm_lakes = gpd.read_file(nwm_lakes, mask = wbd_buffer)
     nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
     if not nwm_lakes.empty:
@@ -94,24 +104,22 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
         # Loop through the filled polygons and insert the new geometry
         for i in range(len(nwm_lakes_fill_holes)):
             nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes[i]
-        nwm_lakes.to_file(subset_nwm_lakes_filename, 
-                          driver = getDriver(subset_nwm_lakes_filename), index=False)
+        nwm_lakes.to_file(subset_nwm_lakes, driver = getDriver(subset_nwm_lakes), index=False)
     del nwm_lakes
 
     # Find intersecting levee lines
     print("Subsetting NLD levee lines for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
-    nld_lines = gpd.read_file(nld_lines_filename, mask = wbd_buffer)
+    nld_lines = gpd.read_file(nld_lines, mask = wbd_buffer)
     if not nld_lines.empty:
-        nld_lines.to_file(subset_nld_lines_filename, 
-                          driver = getDriver(subset_nld_lines_filename), index=False)
+        nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False)
     del nld_lines
 
     # Subset nhd headwaters
     print("Subsetting NHD Headwater Points for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
-    nhd_headwaters = gpd.read_file(nhd_headwaters_filename, mask=wbd_streams_buffer)
+    nhd_headwaters = gpd.read_file(nhd_headwaters, mask=wbd_streams_buffer)
 
     if len(nhd_headwaters) > 0:
-        nhd_headwaters.to_file(subset_nhd_headwaters_filename, driver=getDriver(subset_nhd_headwaters_filename), index=False)
+        nhd_headwaters.to_file(subset_nhd_headwaters, driver=getDriver(subset_nhd_headwaters), index=False)
     else:
         print ("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
@@ -119,13 +127,13 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
 
     # Subset nhd streams
     print("Querying NHD Streams for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
-    nhd_streams = gpd.read_file(nhd_streams_filename, mask=wbd_streams_buffer)
+    nhd_streams = gpd.read_file(nhd_streams, mask=wbd_streams_buffer)
 
     if len(nhd_streams) > 0:
         nhd_streams = gpd.clip(nhd_streams, wbd_streams_buffer)
 
-        nhd_streams.to_file(subset_nhd_streams_filename, 
-                            driver = getDriver(subset_nhd_streams_filename), index=False)
+        nhd_streams.to_file(subset_nhd_streams, 
+                            driver = getDriver(subset_nhd_streams), index=False)
     else:
         print ("No NHD streams within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
@@ -133,10 +141,10 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
 
     # Find intersecting nwm_catchments
     print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
-    nwm_catchments = gpd.read_file(nwm_catchments_filename, mask=wbd_buffer)
+    nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer)
 
     if len(nwm_catchments) > 0:
-        nwm_catchments.to_file(subset_nwm_catchments_filename, driver=getDriver(subset_nwm_catchments_filename), index=False)
+        nwm_catchments.to_file(subset_nwm_catchments, driver=getDriver(subset_nwm_catchments), index=False)
     else:
         print ("No NHD catchments within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
@@ -146,7 +154,7 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
 
     print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
 
-    nwm_streams = gpd.read_file(nwm_streams_filename, mask = wbd)
+    nwm_streams = gpd.read_file(nwm_streams, mask = wbd)
     nwm_streams = gpd.clip(nwm_streams, wbd)
 
      # NWM can have duplicate records, but appear to always be identical duplicates
@@ -156,7 +164,7 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
     if len(nwm_streams) > 0:
         nwm_streams = gpd.clip(nwm_streams, wbd_streams_buffer)
 
-        nwm_streams.to_file(subset_nwm_streams_filename, driver=getDriver(subset_nwm_streams_filename), index=False)
+        nwm_streams.to_file(subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False)
     else:
         print ("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
@@ -165,51 +173,53 @@ def subset_vector_layers(hucCode, nwm_streams_filename,
 
 if __name__ == '__main__':
 
+    #print(sys.argv)
+
     parser = argparse.ArgumentParser(description='Subset vector layers')
+    parser.add_argument('-a','--subset-nwm-lakes', help='NWM lake subset', 
+                        required=True)
+    parser.add_argument('-b','--subset-nwm-streams', help='NWM streams subset', 
+                        required=True)
+    parser.add_argument('-c','--subset-nhd-streams', help='NHD streams subset', 
+                        required=True)
     parser.add_argument('-d','--hucCode', help='HUC boundary ID', required=True,
                         type=str)
-    parser.add_argument('-w','--nwm-streams-filename', help='NWM flowlines',
+    parser.add_argument('-e','--subset-nhd-headwaters', help='NHD headwaters subset', 
+                        required=True, default=None)
+    parser.add_argument('-f','--wbd_buffer_filename', help='Buffered HUC boundary', 
                         required=True)
-    parser.add_argument('-s','--nhd-streams-filename', help='NHDPlus HR burnline',
-                        required=True)
-    parser.add_argument('-l','--nwm-lakes-filename', help='NWM Lakes', required=True)
-    parser.add_argument('-r','--nld-lines-filename', help='Levee vectors to use within project path',
-                        required=True)
-    parser.add_argument('-m','--nwm-catchments-filename', help='NWM catchments',
-                        required=True)	 
-    parser.add_argument('-y','--nhd-headwaters-filename', help='NHD headwaters',
-                        required=True)	 
-    parser.add_argument('-v','--landsea-filename', help='LandSea - land boundary',
-                        required=True)	 
-    parser.add_argument('-lpf','--levee-protected-areas-filename', 
-                        help='Levee-protected areas filename', required=True)
     parser.add_argument('-g','--wbd-filename', help='HUC boundary', required=True)
     parser.add_argument('-i','--dem-filename', help='DEM filename', required=True)
-    parser.add_argument('-f','--wbd-buffer-filename', help='Buffered HUC boundary', 
+    parser.add_argument('-l','--nwm-lakes', help='NWM Lakes', required=True)    
+    parser.add_argument('-m','--nwm-catchments', help='NWM catchments',
+                        required=True)	 
+    parser.add_argument('-n','--subset-nwm-catchments', help='NWM catchments subset', 
                         required=True)
-    parser.add_argument('-c','--subset-nhd-streams-filename', help='NHD streams subset', 
+    parser.add_argument('-r','--nld-lines', help='Levee vectors to use within project path',
                         required=True)
-    parser.add_argument('-z','--subset-nld-lines-filename', help='Subset of NLD levee vectors for HUC',
+    parser.add_argument('-s','--nhd-streams', help='NHDPlus HR burnline',
                         required=True)
-    parser.add_argument('-a','--subset-nwm-lakes-filename', help='NWM lake subset', 
+    parser.add_argument('-v','--landsea', help='LandSea - land boundary',
+                        required=True)	 
+    parser.add_argument('-w','--nwm-streams', help='NWM flowlines',
                         required=True)
-    parser.add_argument('-n','--subset-nwm-catchments-filename', help='NWM catchments subset', 
+    parser.add_argument('-x','--subset-landsea', help='LandSea subset', 
                         required=True)
-    parser.add_argument('-e','--subset-nhd-headwaters-filename', help='NHD headwaters subset', 
-                        required=True, default=None)
-    parser.add_argument('-b','--subset-nwm-streams-filename', help='NWM streams subset', 
+    parser.add_argument('-y','--nhd-headwaters', help='NHD headwaters',
+                        required=True)	 
+    parser.add_argument('-z','--subset-nld-lines', help='Subset of NLD levee vectors for HUC',
                         required=True)
-    parser.add_argument('-x','--subset-landsea-filename', help='LandSea subset', 
+    parser.add_argument('-gl','--great-lakes', help='Great Lakes layer', 
                         required=True)
-    parser.add_argument('-lps','--subset-levee-protected-areas-filename', 
-                        help='Levee-protected areas subset', required=True)
-    parser.add_argument('-extent','--extent', help='FIM extent', required=True)
-    parser.add_argument('-gl','--great-lakes-filename', help='Great Lakes layer', 
-                        required=True)
+    parser.add_argument('-lb','--lake-buffer-distance', help='Great Lakes Mask buffer distance',
+                        required=True, type=int)
     parser.add_argument('-wb','--wbd-buffer-distance', help='WBD Mask buffer distance', 
                         required=True, type=int)
-    parser.add_argument('-lb','--lake-buffer-distance', help='Great Lakes Mask buffer distance', required=True, type=int)
-
+    parser.add_argument('-lpf','--levee-protected-areas', 
+                        help='Levee-protected areas filename', required=True)    
+    parser.add_argument('-lps','--subset-levee-protected-areas', 
+                        help='Levee-protected areas subset', required=True)
+    
     args = vars(parser.parse_args())
 
     subset_vector_layers(**args)

@@ -165,9 +165,9 @@ if [ ! -d $outputRunDataDir ]; then
 fi
 
 # remove these directories on a new or overwrite run
-rm -rf $outputRunDataDir/logs
-rm -rf $outputRunDataDir/branch_errors
-rm -rf $outputRunDataDir/unit_errors
+rm -rdf $outputRunDataDir/logs
+rm -rdf $outputRunDataDir/branch_errors
+rm -rdf $outputRunDataDir/unit_errors
 
 # we need to clean out the all log files overwrite or not
 mkdir -p $outputRunDataDir/logs/unit
