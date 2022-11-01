@@ -173,7 +173,10 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
     
                     if huc not in skip_list:
                         huc_dir = os.path.join(output_catfim_dir, huc)
-                        ahps_dir_list = os.listdir(huc_dir)
+                        try:
+                            ahps_dir_list = os.listdir(huc_dir)
+                        except NotADirectoryError:
+                            continue
     
                         # Loop through ahps sites
                         for ahps_lid in ahps_dir_list:

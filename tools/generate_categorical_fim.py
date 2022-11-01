@@ -129,9 +129,6 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
 #            dst.write(reclass_rem_array, 1)
             
     # Write out hydroid mask to make sure you're not masking what you should keep
-
-    print(branch)
-    print(hydroid_list)
     hydroid_mask = np.isin(catchments_array, hydroid_list)
 
 #    output_tif_c = os.path.join(lid_directory, lid + '_' + category + '_mask_' + huc + '_' + branch + '.tif')
@@ -290,10 +287,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
                 except Exception as e:
                     all_messages.append(e)
-            
             ### -- Concluded Datum Offset --- ###
             
-            #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
+            # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             segments = get_nwm_segs(metadata)
             site_ms_segs = set(segments).intersection(ms_segs)
             site_ms_segments = list(site_ms_segs)    
@@ -322,12 +318,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                             catchments_path = os.path.join(fim_dir, huc, full_branch_path, 'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif')
                             hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
                             
-                            if not os.path.exists(rem_path):
-                                continue
-                            if not os.path.exists(catchments_path):
-                                continue
-                            if not os.path.exists(hydrotable_path):
-                                continue
+                            if not os.path.exists(rem_path): continue
+                            if not os.path.exists(catchments_path): continue
+                            if not os.path.exists(hydrotable_path): continue
                             
                             # Use hydroTable to determine hydroid_list from site_ms_segments.
                             hydrotable_df = pd.read_csv(hydrotable_path)
@@ -368,10 +361,10 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     print("Merging " + category)
                     for f in lid_dir_list:
                         if category in f:
-                            full_f_path = os.path.join(lid_directory, f)
-                            path_list.append(full_f_path)
-                    
+                            path_list.append(os.path.join(lid_directory, f))
                     path_list.sort()  # To force branch 0 first in list, sort
+                    print(path_list)
+                    
                     if len(path_list) > 0:
                         zero_branch_grid = path_list[0]
                         zero_branch_src = rasterio.open(zero_branch_grid)
@@ -384,24 +377,22 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                             remaining_raster_array_original = remaining_raster_src.read(1)
                         
                             # Reproject non-branch-zero grids so I can sum them with the branch zero grid
-                            if remaining_raster_array_original.shape != zero_branch_array.shape:
-                                remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
-                        
-                                reproject(remaining_raster_array_original,
-                                      destination = remaining_raster_array,
-                                      src_transform = remaining_raster_src.transform,
-                                      src_crs = remaining_raster_src.crs,
-                                      src_nodata = remaining_raster_src.nodata,
-                                      dst_transform = zero_branch_src.transform,
-                                      dst_crs = zero_branch_src.crs,
-                                      dst_nodata = -1,
-                                      dst_resolution = zero_branch_src.res,
-                                      resampling = Resampling.nearest)
-                                
+                            remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
+                            reproject(remaining_raster_array_original,
+                                  destination = remaining_raster_array,
+                                  src_transform = remaining_raster_src.transform,
+                                  src_crs = remaining_raster_src.crs,
+                                  src_nodata = remaining_raster_src.nodata,
+                                  dst_transform = zero_branch_src.transform,
+                                  dst_crs = zero_branch_src.crs,
+                                  dst_nodata = -1,
+                                  dst_resolution = zero_branch_src.res,
+                                  resampling = Resampling.nearest)
                             # Sum rasters
                             summed_array = summed_array + remaining_raster_array
-                        del zero_branch_array, remaining_raster_array, remaining_raster_array_original
                             
+                        del zero_branch_array  # Clean up
+                        
                         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
                         output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')  
                         profile = zero_branch_src.profile
@@ -566,7 +557,7 @@ if __name__ == '__main__':
     if args['stage_based']:
         stage_based = True
         # Generate Stage-Based CatFIM mapping
-        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
+#        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
     
         print("Post-processing TIFs...")
         print(fim_version)
