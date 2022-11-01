@@ -557,7 +557,7 @@ if __name__ == '__main__':
     if args['stage_based']:
         stage_based = True
         # Generate Stage-Based CatFIM mapping
-#        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
+        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
     
         print("Post-processing TIFs...")
         print(fim_version)
