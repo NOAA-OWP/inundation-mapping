@@ -134,7 +134,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
 
     ## Calculate calb coeff
     df_nvalues.rename(columns={'hydroid':'HydroID'}, inplace=True) # rename the previous ManningN column
-    df_nvalues['hydroid_calb_coef'] = df_nvalues['flow']/df_nvalues['discharge_cms'] # Qobs / Qsrc
+    df_nvalues['hydroid_calb_coef'] = df_nvalues['discharge_cms']/df_nvalues['flow'] # Qobs / Qsrc
 
     ## Calcuate a "calibrated" n value using channel and overbank n-values multiplied by calb_coef
     df_nvalues['channel_n_calb'] = df_nvalues['hydroid_calb_coef']*df_nvalues['channel_n']
@@ -142,7 +142,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
 
     ## Create dataframe to check for erroneous Manning's n values (values set in tools_shared_variables.py --> >0.6 or <0.001)
     df_nvalues['Mann_flag'] = np.where((df_nvalues['channel_n_calb'] >= ROUGHNESS_MAX_THRESH) | (df_nvalues['overbank_n_calb'] >= ROUGHNESS_MAX_THRESH) | (df_nvalues['channel_n_calb'] <= ROUGHNESS_MIN_THRESH) | (df_nvalues['overbank_n_calb'] <= ROUGHNESS_MIN_THRESH) | (df_nvalues['hydroid_calb_coef'].isnull()),'Fail','Pass')
-    df_mann_flag = df_nvalues[(df_nvalues['Mann_flag'] == 'Fail')][['HydroID','hydroid_calb_coef']]
+    df_mann_flag = df_nvalues[(df_nvalues['Mann_flag'] == 'Fail')][['HydroID','hydroid_calb_coef','channel_n_calb','overbank_n_calb']]
     if not df_mann_flag.empty:
         log_text += '!!! Flaged Mannings Roughness values below !!!' +'\n'
         log_text += df_mann_flag.to_string() + '\n'
@@ -284,7 +284,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
                 '''
 
                 ## Calculate new discharge_cms with new adjusted ManningN
-                df_htable['discharge_cms'] = np.where(df_htable['calb_coef_final'].isnull(), df_htable['precalb_discharge_cms'], df_htable['precalb_discharge_cms']*df_htable['calb_coef_final'])
+                df_htable['discharge_cms'] = np.where(df_htable['calb_coef_final'].isnull(), df_htable['precalb_discharge_cms'], df_htable['precalb_discharge_cms']/df_htable['calb_coef_final'])
 
                 ## Replace discharge_cms with 0 or -999 if present in the original discharge (carried over from thalweg notch workaround in SRC post-processing)
                 df_htable['discharge_cms'].mask(df_htable['precalb_discharge_cms']==0.0,0.0,inplace=True)
