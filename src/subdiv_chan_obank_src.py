@@ -250,6 +250,7 @@ def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_
 
         ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
         huc_list  = os.listdir(fim_dir)
+        huc_list.sort() # sort huc_list for helping track progress in future print statments
         for huc in huc_list:
             #if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
             if re.match('\d{8}', huc):    

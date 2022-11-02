@@ -246,11 +246,8 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_hydro_table['raw_WetArea (m2)'] = output_src['WetArea (m2)']
     output_hydro_table['raw_HydraulicRadius (m)'] = output_src['HydraulicRadius (m)']
     output_hydro_table['raw_ManningN'] = output_src['ManningN']
-    output_hydro_table['barc_on'] = False # set barc_on attribute to Fasle (default) --> will be overwritten if BARC module runs
-    output_hydro_table['vmann_on'] = False # set vmann_on attribute to Fasle (default) --> will be overwritten if variable roughness module runs
     output_hydro_table['vmann_discharge_cms'] = pd.NA
     output_hydro_table['vmann_ManningN'] = pd.NA
-    output_hydro_table['adjust_src_on'] = False
     output_hydro_table['last_updated'] = pd.NA
     output_hydro_table['submitter'] = pd.NA
     output_hydro_table['adjust_ManningN'] = pd.NA
