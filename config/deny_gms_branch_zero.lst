@@ -37,10 +37,12 @@ gw_catchments_reaches_{}.gpkg
 gw_catchments_reaches_{}.tif
 #gw_catchments_reaches_filtered_addedAttributes_{}.gpkg
 #gw_catchments_reaches_filtered_addedAttributes_{}.tif
-gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg
+#gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg
 headwaters_{}.tif
 #hydroTable_{}.csv
 idFile_{}.txt
+#LandSea_subset_{}.tif
+LeveeProtectedAreas_subset_{}.tif
 nld_rasterized_elev_{}.tif
 nwm_catchments_proj_subset_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_{}.gpkg

@@ -19,13 +19,15 @@ usage ()
     echo '  -r/--retry      : retries failed jobs'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -d/--denylist    : A file with line delimited list of files in branches directories to remove' 
-    echo '                    upon completion (see config/deny_gms_branches_min.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches_min.lst'    
+    echo '                    upon completion (see config/deny_gms_branches_prod.lst for a starting point)'
+    echo '                    -- Note: if you want all output files (aka.. no files removed),'
+    echo '                    use the word none as this value for this parameter.'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'    
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited).'
     echo '                    A line delimited file also acceptable. HUCs must present in inputs directory.'
-	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
-	echo '                    at the initial load of the nwm_subset_streams.'
-	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
+    echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
+    echo '                    at the initial load of the nwm_subset_streams.'
+    echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
     echo
     exit
 }
@@ -85,7 +87,7 @@ then
 fi
 if [ "$deny_gms_branches_list" = "" ]
 then
-   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_min.lst
+   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_prod.lst
 fi
 
 if [ "$overwrite" = "" ]
@@ -150,24 +152,58 @@ if [ ! -d "$outputRunDataDir/logs/branch" ]; then
     mkdir -p $outputRunDataDir/logs/branch
 elif [ $overwrite -eq 1 ]; then
     # need to clean it out if we are overwriting
-    rm -rf $outputRunDataDir/logs/branch
+    rm -rdf $outputRunDataDir/logs/branch
     mkdir -p $outputRunDataDir/logs/branch
 fi
 
 if [ ! -d "$outputRunDataDir/branch_errors" ]; then
     mkdir -p "$outputRunDataDir/branch_errors"
 elif [ $overwrite -eq 1 ]; then
-    rm -rf $outputRunDataDir/branch_errors
+    rm -rdf $outputRunDataDir/branch_errors
     mkdir -p $outputRunDataDir/branch_errors
 fi
+
+## Track total time of the overall run
+T_total_start
+Tstart
+
+: '
+This makes the local variables from the calb_db_keys files
+into global variables that can be used in other files, including python.
+
+Why not just leave the word export in front of each of the keys in the
+calb_db_keys.env? Becuase that file is used against docker-compose
+when we start up that part of the sytem and it does not like the word
+export.
+'
+export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
+export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
+export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
+export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
+
+## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
+if [ "$src_adjust_spatial" = "True" ]; then
+    if [ ! -f $CALB_DB_KEYS_FILE ]; then
+        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+        exit 1
+    else
+        source $CALB_DB_KEYS_FILE
+        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
+        echo "Loading HUC Data"
+        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+        echo "Loading Point Data"
+        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
+    fi
+fi
+
+Tcount
+Tstart
+date -u
 
 ## RUN GMS BY BRANCH ##
 echo "=========================================================================="
 echo "Start of branch processing"
 echo "Started: `date -u`" 
-
-## Track total time of the overall run
-T_total_start
 Tstart
 
 if [ "$jobLimit" -eq 1 ]; then
@@ -187,15 +223,60 @@ echo
 echo "Processing usgs gage aggregation"
 python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
 
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
+if [ "$src_adjust_usgs" = "True" ]; then
+    Tstart
+    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
+    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    Tcount
+    date -u
+fi
+
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
+if [ "$src_adjust_spatial" = "True" ]; then
+    Tstart
+    echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
+    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
+    Tcount
+    date -u
+fi
+
+# -------------------
+## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO##
+if [ -f $deny_gms_branches_list ]; then
+    echo -e $startDiv"Cleaning up (Removing) files all branch zero for all HUCs"$stopDiv
+    date -u
+    $srcDir/gms/outputs_cleanup.py -d $outputRunDataDir -l $deny_gms_branches_list -b 0
+fi
+
 # -------------------
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
 echo
-echo "Start non-zero exit code checking"
+echo -e $startDiv"Start non-zero exit code checking"$stopDiv
 find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
+
+# -------------------
+## REMOVE FAILED BRANCHES ##
+# Needed in case aggregation fails, we will need the logs
+echo
+echo -e $startDiv"Removing branches that failed with Exit status: 61"$stopDiv
+Tstart
+python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $outputRunDataDir/gms_inputs.csv
+Tcount
+date -u
+
+echo
+echo -e $startDiv"Combining crosswalk tables"$stopDiv
+# aggregate outputs
+Tstart
+python3 /foss_fim/tools/gms_tools/combine_crosswalk_tables.py -d $outputRunDataDir -o $outputRunDataDir/crosswalk_table.csv
+Tcount
+date -u
 
 echo "=========================================================================="
 echo "GMS_run_branch complete"
 Tcount
-echo "Ended: `date -u`" 
+echo "Ended: `date -u`"
 echo

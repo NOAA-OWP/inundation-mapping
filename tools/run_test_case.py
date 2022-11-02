@@ -105,7 +105,7 @@ class test_case(benchmark):
         # Create list of shapefile paths to use as exclusion areas.
         zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
         self.mask_dict = {'levees':
-                        {'path': os.path.join(zones_dir, 'leveed_areas_conus.shp'),
+                        {'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
                         'buffer': None,
                         'operation': 'exclude'
                         },
@@ -305,7 +305,7 @@ class test_case(benchmark):
                                     unit_attribute_name = 'huc8',
                                     nodata = elev_raster_ndv,
                                     workers = 1,
-                                    remove_inputs = False,
+                                    remove_inputs = True,
                                     subset = None,
                                     verbose = verbose )
             # FIM v3 and before

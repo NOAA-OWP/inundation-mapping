@@ -21,7 +21,9 @@ usage ()
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -r/--retry      : retries failed jobs'
     echo '  -d/--denylist   : file with line delimited list of files in huc directories to remove upon completion'
-    echo '                   (see config/deny_gms_unit_default.lst for a starting point)'
+    echo '                   (see config/deny_gms_unit_prod.lst for a starting point)'
+    echo '                    -- Note: if you want all output files (aka.. no files removed),'
+    echo '                    use the word none as this value for this parameter.'
 	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
 	echo '                    at the initial load of the nwm_subset_streams.'
 	echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
@@ -89,7 +91,7 @@ then
 fi
 if [ "$deny_gms_unit_list" = "" ]
 then
-   deny_gms_unit_list=/foss_fim/config/deny_gms_unit_default.lst
+   deny_gms_unit_list=/foss_fim/config/deny_gms_unit_prod.lst
 fi
 
 if [ -z "$overwrite" ]
@@ -145,6 +147,7 @@ export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
 export input_nhd_flowlines=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_streams_adj.gpkg
 export input_nhd_headwaters=$inputDataDir/nhdplus_vectors_aggregate/agg_nhd_headwaters_adj.gpkg
 export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
+export input_nld_levee_protected_areas=$inputDataDir/nld_vectors/Levee_protected_areas.gpkg
 export deny_gms_unit_list=$deny_gms_unit_list
 export extent=GMS
 
@@ -161,16 +164,14 @@ if [ ! -d $outputRunDataDir ]; then
     mkdir -p $outputRunDataDir
 fi
 
+# remove these directories on a new or overwrite run
+rm -rdf $outputRunDataDir/logs
+rm -rdf $outputRunDataDir/branch_errors
+rm -rdf $outputRunDataDir/unit_errors
+
 # we need to clean out the all log files overwrite or not
-rm -rf $outputRunDataDir/logs/unit/
 mkdir -p $outputRunDataDir/logs/unit
-
-rm -rf $outputRunDataDir/unit_errors/
 mkdir -p $outputRunDataDir/unit_errors
-
-# if it exists, but don't make a new one yet, let gms_run_branch do that.        
-rm -rf $outputRunDataDir/logs/branch
-rm -rf $outputRunDataDir/branch_errors
 
 # copy over config file
 cp -a $envFile $outputRunDataDir
@@ -205,11 +206,11 @@ date -u
 
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
-echo "Start of non zero exit codes check"
+echo -e $startDiv"Start of non zero exit codes check"$stopDiv
 find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log" &
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
-echo "Start branch aggregation"
+echo -e $startDiv"Start branch aggregation"$stopDiv
 python3 $srcDir/gms/aggregate_branch_lists.py -d $outputRunDataDir -f "gms_inputs.csv" -l $hucList
 
 echo "=========================================================================="
