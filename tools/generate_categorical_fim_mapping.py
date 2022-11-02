@@ -238,11 +238,6 @@ def reformat_inundation_maps(args):
         magnitude = args[5]
         nws_lid_attributes_filename = args[6]
 
-        print("2")
-        print(lid)
-        print(nws_lid_attributes_filename)
-        print("")
-
         # Convert raster to to shapes
         with rasterio.open(grid_path) as src:
             image = src.read(1)
@@ -272,7 +267,6 @@ def reformat_inundation_maps(args):
         nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==lid)]
 
         extent_poly_diss = extent_poly_diss.merge(nws_lid_attributes_table, left_on=['ahps_lid','magnitude','huc'], right_on=['nws_lid','magnitude','huc'])
-
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
 
         # Save dissolved multipolygon

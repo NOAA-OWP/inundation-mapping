@@ -54,7 +54,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     all_start = time.time()
     API_BASE_URL, WBD_LAYER = get_env_paths()
 
-    
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
@@ -98,9 +97,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     #The entire routine to get mainstems is hardcoded in this function.
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
         
-#    import ast
-#    with open('/data/temp/brad/alternate_catfim_temp_files/ms_segs.txt','r') as f:
-#       ms_segs = ast.literal_eval(f.read())
+    import ast
+    with open('/data/temp/brad/alternate_catfim_temp_files/ms_segs.txt','r') as f:
+       ms_segs = ast.literal_eval(f.read())
       
     if stage_based:
         stage_based_att_dict = {}
