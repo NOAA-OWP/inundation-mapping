@@ -8,7 +8,6 @@ from rasterstats import zonal_stats
 import json
 import argparse
 import sys
-from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver
 # sys.path.append('/foss_fim/src')
 # sys.path.append('/foss_fim/config')
