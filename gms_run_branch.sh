@@ -152,14 +152,14 @@ if [ ! -d "$outputRunDataDir/logs/branch" ]; then
     mkdir -p $outputRunDataDir/logs/branch
 elif [ $overwrite -eq 1 ]; then
     # need to clean it out if we are overwriting
-    rm -rf $outputRunDataDir/logs/branch
+    rm -rdf $outputRunDataDir/logs/branch
     mkdir -p $outputRunDataDir/logs/branch
 fi
 
 if [ ! -d "$outputRunDataDir/branch_errors" ]; then
     mkdir -p "$outputRunDataDir/branch_errors"
 elif [ $overwrite -eq 1 ]; then
-    rm -rf $outputRunDataDir/branch_errors
+    rm -rdf $outputRunDataDir/branch_errors
     mkdir -p $outputRunDataDir/branch_errors
 fi
 
@@ -207,27 +207,32 @@ if [ "$src_subdiv_toggle" = "True" ]; then
     Tcount
 fi
 
-export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
-export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
-export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
-export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
 
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
     if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - src_adjust_spatial parameter is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
         exit 1
     else
         source $CALB_DB_KEYS_FILE
-        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes"
+        : '
+        This makes the local variables from the calb_db_keys files
+        into global variables that can be used in other files, including python.
+
+        Why not just leave the word export in front of each of the keys in the
+        calb_db_keys.env? Becuase that file is used against docker-compose
+        when we start up that part of the sytem and it does not like the word
+        export.
+        '
+        export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
+        export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
+        export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
+        export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
+        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
         echo "Loading HUC Data"
-        Tstart
-        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
         echo "Loading Point Data"
-        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
-        Tcount
-        Tstart
-        date -u
+        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
     fi
 fi
 
@@ -270,10 +275,21 @@ find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -
 # Needed in case aggregation fails, we will need the logs
 echo
 echo -e $startDiv"Removing branches that failed with Exit status: 61"$stopDiv
+Tstart
 python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $outputRunDataDir/gms_inputs.csv
+Tcount
+date -u
+
+echo
+echo -e $startDiv"Combining crosswalk tables"$stopDiv
+# aggregate outputs
+Tstart
+python3 /foss_fim/tools/gms_tools/combine_crosswalk_tables.py -d $outputRunDataDir -o $outputRunDataDir/crosswalk_table.csv
+Tcount
+date -u
 
 echo "=========================================================================="
 echo "GMS_run_branch complete"
 Tcount
-echo "Ended: `date -u`" 
+echo "Ended: `date -u`"
 echo

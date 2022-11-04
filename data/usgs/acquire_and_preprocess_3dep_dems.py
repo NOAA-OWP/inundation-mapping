@@ -78,7 +78,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
                           ' not set to a valid path')
     
     if (target_output_folder_path is None) or (target_output_folder_path == ""):
-        target_output_folder_path = sv.INPUT_DEMS_3DEP_10M_DIR
+        target_output_folder_path = os.environ['usgs_3dep_dems_10m']
     
     if (not os.path.exists(target_output_folder_path)):
         raise ValueError(f"Output folder path {target_output_folder_path} does not exist" )
@@ -88,7 +88,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     start_time = datetime.now()
     fh.print_start_header('Loading 3dep dems', start_time)
    
-    print(f"Downloading to {target_output_folder_path}")
+    #print(f"Downloading to {target_output_folder_path}")
     __setup_logger(target_output_folder_path)
     logging.info(f"Downloading to {target_output_folder_path}")
     
@@ -107,6 +107,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     
     end_time = datetime.now()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
+    print(f'---- NOTE: Remember to scan the log file for any failures')
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
@@ -122,6 +123,14 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     ----------
         - fl (object of fim_logger (must have been created))
         - remaining params are defined in acquire_and_preprocess_3dep_dems
+        
+    Notes
+    ----------
+        - pixel size set to 10 x 10 (m)
+        - block size (256) (sometimes we use 512)
+        - cblend 6 add's a small buffer when pulling down the tif (ensuring seamless
+          overlap at the borders.)    
+    
     '''
 
     print(f"==========================================================")
@@ -130,8 +139,8 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     base_cmd =  'gdalwarp {0} {1}'
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
     base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"'
-    base_cmd += ' -t_srs EPSG:5070'
+    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
+    base_cmd += ' -t_srs EPSG:5070 -cblend 6'
    
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
@@ -199,8 +208,8 @@ def download_usgs_dem_file(extent_file,
                 base_cmd =  'gdalwarp {0} {1}'
                 base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
                 base_cmd +=  ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-                base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"'
-                base_cmd +=  ' -t_srs EPSG:5070'
+                base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
+                base_cmd +=  ' -t_srs EPSG:5070 -cblend 6'
         - retry (bool)
              If True, and the file exists (and is over 0k), downloading will be skipped.
         
@@ -279,7 +288,6 @@ def __setup_logger(output_folder_path):
 
     logger = logging.getLogger()
     logger.addHandler(file_handler)
-    # logger.addHandler(console_handler)
     logger.setLevel(logging.DEBUG)    
     
     logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
@@ -291,7 +299,7 @@ if __name__ == '__main__':
     # Parse arguments.
     
     # sample usage (min params):
-    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC4
+    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC6_ESPG_5070/ -t /data/inputs/3dep_dems/10m_5070/ -r -j 20
     
     # Notes:
     #   - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
@@ -309,7 +317,8 @@ if __name__ == '__main__':
         
         
     # IMPORTANT: 
-    # (Sept 2022): we do not process HUC2 of 19 (alaska) or 22 (misc US pacific islands).
+    # (Sept 2022): we do not process HUC2 of 22 (misc US pacific islands).
+    # We left in HUC2 of 19 (alaska) as we hope to get there in the semi near future
     # They need to be removed from the input src clip directory in the first place.
     # They can not be reliably removed in code.
        

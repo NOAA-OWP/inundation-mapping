@@ -37,7 +37,7 @@ Notice a modified branch "deny_gms_branch_unittests.lst"  (special for unittests
 
 Here are the params and args you need if you need to re-run unit and branch
 
-gms_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 02030201 05030104" -c /foss_fim/config/params_template.env -j 1 -bd /foss_fim/config/deny_gms_branch_unittests.lst -ud None -o -s
+gms_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 02030201 05030104" -bd /foss_fim/config/deny_gms_branch_unittests.lst -ud None -j 1 -o
 
 **NOTICE: the deny file used for gms_run_branch... its a special one for unittests `deny_gms_branch_unittests.lst`.
 

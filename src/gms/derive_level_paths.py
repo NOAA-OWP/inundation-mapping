@@ -24,27 +24,29 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     if verbose:
         print("Loading stream network ...")
         
-    if (drop_low_stream_orders):
-        stream_network = StreamNetwork.from_file(filename=in_stream_network,
-                                                 branch_id_attribute="order_",
-                                                 values_excluded=[1,2]
-                                                 )
-                                                 
-                                                 
-    else:
-        stream_network = StreamNetwork.from_file(filename=in_stream_network)
+    stream_network = StreamNetwork.from_file(filename=in_stream_network)
 
-    # if there are no reaches at this point (due to filtering if applicable)
-    if (len(stream_network) == 0) and (drop_low_stream_orders):
+    # if there are no reaches at this point
+    if (len(stream_network) == 0):
         # This is technically not an error but we need to have it logged so the user know what
         # happened to it and we need the huc to not be included in future processing. 
         # We need it to be not included in the gms_input.csv at the end of the unit processing.
         # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
         # Later, we can look at creating custom sys exit codes 
-        # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
-        print("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
+        # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file.")
+        print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
+                                                 
+    elif (drop_low_stream_orders):
+        stream_network = stream_network.exclude_attribute_values(branch_id_attribute="order_",
+                                               values_excluded=[1,2]
+                                              )
 
+        # if there are no reaches at this point (due to filtering)
+        if (len(stream_network) == 0):
+            print("No branches exist but branch zero processing will continue. This could be due to stream order filtering.")
+            return
+                                                 
     inlets_attribute = 'inlet_id'
     outlets_attribute = 'outlet_id'
     outlet_linestring_index = -1
