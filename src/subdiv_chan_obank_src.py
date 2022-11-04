@@ -54,89 +54,70 @@ def variable_mannings_calc(args):
     huc_output_dir              = args[8]
 
     ## Read the src_full_crosswalked.csv
-    print('Calculating modified SRCs: ' + str(huc) + '  branch id: ' + str(branch_id))
-    log_text = 'Calculating modified SRCs: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
-    df_src_orig = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': 'int64'})
+    log_text = 'Calculating modified SRC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
+    try:
+        df_src_orig = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': 'int64'})
 
-    ## Check that the channel ratio column the user specified exists in the def
-    if channel_ratio_src_column not in df_src_orig.columns:
-        print('WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
-        print('Skipping --> ' + str(huc) + '  branch id: ' + str(branch_id))
-        log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
-    else:
-        #try:
-        df_src_orig.drop(['channel_n','overbank_n','comp_ManningN','vmann_on','Discharge (m3s-1)_varMann'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
-        
-        ## Calculate subdiv geometry variables
-        df_src_orig.drop(['Volume_chan (m3)','Volume_obank (m3)','BedArea_chan (m2)','BedArea_obank (m2)','WettedPerimeter_chan (m)','WettedPerimeter_obank (m)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
-        print('Calculating subdiv variables for SRCs: ' + str(huc) + '  branch id: ' + str(branch_id))
-        log_text = 'Calculating subdiv variables for SRCs: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
-        df_src = subdiv_geometry(df_src_orig)
-        
-        ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
-        df_src = df_src.merge(df_mann,  how='left', on='feature_id')
-        check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
-        if check_null > 0:
-            log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
+        ## Check that the channel ratio column the user specified exists in the def
+        if channel_ratio_src_column not in df_src_orig.columns:
+            print('WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
+            print('Skipping --> ' + str(huc) + '  branch id: ' + str(branch_id))
+            log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
+        else:
+            df_src_orig.drop(['channel_n','overbank_n','subdiv_applied','Discharge (m3s-1)_subdiv','Volume_chan (m3)','Volume_obank (m3)','BedArea_chan (m2)','BedArea_obank (m2)','WettedPerimeter_chan (m)','WettedPerimeter_obank (m)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
+            
+            ## Calculate subdiv geometry variables
+            print('Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id))
+            log_text = 'Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
+            df_src = subdiv_geometry(df_src_orig)
+            
+            ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
+            df_src = df_src.merge(df_mann,  how='left', on='feature_id')
+            check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
+            if check_null > 0:
+                log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
 
-        ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
-        df_src['comp_ManningN'] = (df_src[channel_ratio_src_column]*df_src['channel_n']) + ((1.0 - df_src[channel_ratio_src_column])*df_src['overbank_n'])
-        #print('Done calculating composite Manning n (' + channel_ratio_src_column + '): ' + str(huc))
+            ## Check if there are any missing data in the 'Stage_bankfull' column (these are locations where subdiv will not be applied)
+            df_src['subdiv_applied'] = np.where(df_src['Stage_bankfull'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)        
 
-        ## Check if there are any missing data in the composite ManningN column
-        check_null_comp = df_src['comp_ManningN'].isnull().sum()
-        if check_null_comp > 0:
-            log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Missing values in the comp_ManningN calculation' + ' --> missing entries= ' + str(check_null_comp/84)  + '\n'
-        df_src['vmann_on'] = np.where(df_src['comp_ManningN'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)
+            ## Calculate Manning's equation discharge for channel, overbank, and total
+            df_src = subdiv_mannings_eq(df_src)
 
-        ## Calculate varMann Q using Manning's equation
-        #df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
-        df_src['Discharge (m3s-1)_varMann'] = df_src['WetArea (m2)']* \
-        pow(df_src['HydraulicRadius (m)'],2.0/3)* \
-        pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
+            ## Use the default discharge column when vmann is not being applied
+            df_src['Discharge (m3s-1)_subdiv'] = np.where(df_src['vmann_on']==False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']) # reset the discharge value back to the original if vmann=false
 
-        ## Calculate Manning's equation discharge for channel, overbank, and total
-        df_src = subdiv_mannings_eq(df_src)
+            ## Output new SRC with bankfull column
+            df_src.to_csv(in_src_bankfull_filename,index=False)
 
-        ## Use the default discharge column when vmann is not being applied
-        df_src['Discharge (m3s-1)_varMann'] = np.where(df_src['vmann_on']==False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']) # reset the discharge value back to the original if vmann=false
-        df_src['comp_ManningN'] = np.where(df_src['vmann_on']==False, df_src['ManningN'], df_src['comp_ManningN']) # reset the ManningN value back to the original if vmann=false
+            ## Output new hydroTable with updated discharge and ManningN column
+            df_src_trim = df_src[['HydroID','Stage','subdiv_applied','channel_n','overbank_n','Discharge (m3s-1)_subdiv']]
+            df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_subdiv': 'subdiv_discharge_cms'})
+            df_src_trim['discharge_cms'] = df_src_trim['subdiv_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
+            df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
 
-        ## Output new SRC with bankfull column
-        df_src.to_csv(in_src_bankfull_filename,index=False)
+            ## drop the previously modified discharge column to be replaced with updated version
+            df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
+            df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
 
-        ## Output new hydroTable with updated discharge and ManningN column
-        df_src_trim = df_src[['HydroID','Stage','vmann_on','comp_ManningN','Discharge (m3s-1)_varMann','channel_n','overbank_n','Discharge (m3s-1)_subdiv']]
-        df_src_trim = df_src_trim.rename(columns={'Stage':'stage','comp_ManningN':'vmann_ManningN','Discharge (m3s-1)_varMann': 'vmann_discharge_cms','Discharge (m3s-1)_subdiv': 'subdiv_discharge_cms'})
-        #df_src_trim['ManningN'] = df_src_trim['vmann_ManningN'] # create a copy of vmann modified ManningN (used to track future changes)
-        df_src_trim['discharge_cms'] = df_src_trim['subdiv_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
-        df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
+            ## Output new hydroTable csv
+            if output_suffix != "":
+                htable_filename = os.path.splitext(htable_filename)[0] + output_suffix + '.csv' 
+            df_htable.to_csv(htable_filename,index=False)
 
-        ## drop the previously modified discharge column to be replaced with updated version
-        df_htable.drop(['vmann_on','discharge_cms','ManningN','vmann_discharge_cms','vmann_ManningN','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
-        df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
+            log_text += 'Completed: ' + str(huc)
 
-        df_htable['vmann_on'] = np.where(df_htable['LakeID']>0, False, df_htable['vmann_on']) # reset the ManningN value back to the original if vmann=false
-
-        ## Output new hydroTable csv
-        if output_suffix != "":
-            htable_filename = os.path.splitext(htable_filename)[0] + output_suffix + '.csv' 
-        df_htable.to_csv(htable_filename,index=False)
-
-        log_text += 'Completed: ' + str(huc)
-
-        ## plot rating curves
-        if src_plot_option:
-            if isdir(huc_output_dir) == False:
-                os.mkdir(huc_output_dir)
-            generate_src_plot(df_src, huc_output_dir)
-        # except Exception as ex:
-        #     summary = traceback.StackSummary.extract(
-        #             traceback.walk_stack(None))
-        #     print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
-        #     print(f"*** {ex}")                
-        #     print(''.join(summary.format()))    
-        #     log_text += 'ERROR --> ' + str(huc) + '  branch id: ' + str(branch_id) + " failed (details: " + (f"*** {ex}") + (''.join(summary.format())) + '\n'
+            ## plot rating curves
+            if src_plot_option:
+                if isdir(huc_output_dir) == False:
+                    os.mkdir(huc_output_dir)
+                generate_src_plot(df_src, huc_output_dir)
+    except Exception as ex:
+        summary = traceback.StackSummary.extract(
+                traceback.walk_stack(None))
+        print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
+        print(f"*** {ex}")                
+        print(''.join(summary.format()))    
+        log_text += 'ERROR --> ' + str(huc) + '  branch id: ' + str(branch_id) + " failed (details: " + (f"*** {ex}") + (''.join(summary.format())) + '\n'
 
     return(log_text)
 

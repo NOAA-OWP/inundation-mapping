@@ -80,13 +80,11 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
         df_htable['submitter'] = pd.NA
         df_htable['obs_source'] = pd.NA
         df_htable['precalb_discharge_cms'] = pd.NA
-        df_htable['default_ManningN'] = pd.NA
         df_htable['calb_coef_usgs'] = pd.NA
         df_htable['calb_coef_spatial'] = pd.NA
         df_htable['calb_coef_final'] = pd.NA
     if df_htable['precalb_discharge_cms'].isnull().values.any(): # check if there are not valid values in the column (True = no previous calibration outputs)
         df_htable['precalb_discharge_cms'] = df_htable['discharge_cms'].values
-        #df_htable['default_ManningN'] = df_htable['ManningN'].values
 
     ## The section below allows for previous calibration modifications (i.e. usgs rating calbs) to be available in the final calibration outputs
     if merge_prev_adj and not df_htable['calb_coef_final'].isnull().all(): # check if the merge_prev_adj setting is True and there are valid 'calb_coef_final' values from previous calibration outputs
