@@ -29,7 +29,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     ----------
     fim_dir : str
         Directory containing FIM output folders.
-    channel_ratio_src_column : str
+    bankfull_proxy_column : str
         SRC attribute containing the channel vs. floodplain attribute
     mann_n_table : str
         Path to a csv file containing Manning's n values by feature_id (must contain variables "feature_id", "channel_n", "overbank_n")
@@ -44,7 +44,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 def variable_mannings_calc(args):
 
     in_src_bankfull_filename    = args[0]
-    channel_ratio_src_column    = args[1]
+    bankfull_proxy_column    = args[1]
     df_mann                     = args[2]
     huc                         = args[3]
     branch_id                   = args[4]
@@ -59,19 +59,19 @@ def variable_mannings_calc(args):
         df_src_orig = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': 'int64'})
 
         ## Check that the channel ratio column the user specified exists in the def
-        if channel_ratio_src_column not in df_src_orig.columns:
-            print('WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column)
+        if bankfull_proxy_column not in df_src_orig.columns:
+            print('WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + bankfull_proxy_column)
             print('Skipping --> ' + str(huc) + '  branch id: ' + str(branch_id))
-            log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + channel_ratio_src_column  + '\n'
+            log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified channel ratio column: ' + bankfull_proxy_column  + '\n'
         else:
             df_src_orig.drop(['channel_n','overbank_n','subdiv_applied','Discharge (m3s-1)_subdiv','Volume_chan (m3)','Volume_obank (m3)','BedArea_chan (m2)','BedArea_obank (m2)','WettedPerimeter_chan (m)','WettedPerimeter_obank (m)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
             
             ## Calculate subdiv geometry variables
             print('Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id))
             log_text = 'Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
-            df_src = subdiv_geometry(df_src_orig)
+            df_src = subdiv_geometry(df_src_orig, bankfull_proxy_column)
             
-            ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
+            ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the bankfull_proxy_column)
             df_src = df_src.merge(df_mann,  how='left', on='feature_id')
             check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
             if check_null > 0:
@@ -84,7 +84,7 @@ def variable_mannings_calc(args):
             df_src = subdiv_mannings_eq(df_src)
 
             ## Use the default discharge column when vmann is not being applied
-            df_src['Discharge (m3s-1)_subdiv'] = np.where(df_src['vmann_on']==False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']) # reset the discharge value back to the original if vmann=false
+            df_src['Discharge (m3s-1)_subdiv'] = np.where(df_src['subdiv_applied']==False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']) # reset the discharge value back to the original if vmann=false
 
             ## Output new SRC with bankfull column
             df_src.to_csv(in_src_bankfull_filename,index=False)
@@ -114,23 +114,23 @@ def variable_mannings_calc(args):
     except Exception as ex:
         summary = traceback.StackSummary.extract(
                 traceback.walk_stack(None))
-        print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
-        print(f"*** {ex}")                
-        print(''.join(summary.format()))    
-        log_text += 'ERROR --> ' + str(huc) + '  branch id: ' + str(branch_id) + " failed (details: " + (f"*** {ex}") + (''.join(summary.format())) + '\n'
+        print('WARNING: ' + str(huc) + '  branch id: ' + str(branch_id) + " subdivision failed for some reason")
+        #print(f"*** {ex}")                
+        #print(''.join(summary.format()))    
+        log_text += 'ERROR --> ' + str(huc) + '  branch id: ' + str(branch_id) + " subdivision failed (details: " + (f"*** {ex}") + (''.join(summary.format())) + '\n'
 
     return(log_text)
 
-def subdiv_geometry(df_src):
+def subdiv_geometry(df_src, bankfull_proxy_column):
 
     ## Calculate in-channel volume & bed area
-    df_src['Volume_chan (m3)'] = np.where(df_src['channel_fplain_1_5']=='channel', df_src['Volume (m3)'], (df_src['Volume_bankfull'] + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])))
-    df_src['BedArea_chan (m2)'] = np.where(df_src['channel_fplain_1_5']=='channel', df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
-    df_src['WettedPerimeter_chan (m)'] = np.where(df_src['channel_fplain_1_5']=='channel', (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2))
+    df_src['Volume_chan (m3)'] = np.where(df_src[bankfull_proxy_column]=='channel', df_src['Volume (m3)'], (df_src['Volume_bankfull'] + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])))
+    df_src['BedArea_chan (m2)'] = np.where(df_src[bankfull_proxy_column]=='channel', df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
+    df_src['WettedPerimeter_chan (m)'] = np.where(df_src[bankfull_proxy_column]=='channel', (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2))
 
     ## Calculate overbank volume & bed area
-    df_src['Volume_obank (m3)'] = np.where(df_src['channel_fplain_1_5']=='floodplain', (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0)
-    df_src['BedArea_obank (m2)'] = np.where(df_src['channel_fplain_1_5']=='floodplain', (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']), 0.0)
+    df_src['Volume_obank (m3)'] = np.where(df_src[bankfull_proxy_column]=='floodplain', (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0)
+    df_src['BedArea_obank (m2)'] = np.where(df_src[bankfull_proxy_column]=='floodplain', (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']), 0.0)
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)']/df_src['LENGTHKM']/1000
     return(df_src)
 
@@ -203,7 +203,7 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
             map_output = pool.map(variable_mannings_calc, procs_list)
     log_file.writelines(["%s\n" % item  for item in map_output])
 
-def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,verbose,src_plot_option):
+def run_prep(fim_dir,bankfull_proxy_column,mann_n_table,output_suffix,number_of_jobs,verbose,src_plot_option):
     procs_list = []
 
     print('Writing progress to log file here: ' + str(join(fim_dir,'logs','subdiv_src_' + output_suffix + '.log')))
@@ -243,7 +243,7 @@ def run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_
                     huc_plot_output_dir = join(branch_dir,'src_plots')
 
                     if isfile(in_src_bankfull_filename) and isfile(htable_filename):
-                        procs_list.append([in_src_bankfull_filename, channel_ratio_src_column, df_mann, huc, branch_id, htable_filename, output_suffix, src_plot_option, huc_plot_output_dir])
+                        procs_list.append([in_src_bankfull_filename, bankfull_proxy_column, df_mann, huc, branch_id, htable_filename, output_suffix, src_plot_option, huc_plot_output_dir])
                     else:
                         print('HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: ' + str(branch_dir) + ' - skipping this branch!!!\n')
                         log_file.write('HUC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: ' + str(branch_dir) + ' - skipping this branch!!!\n')
@@ -262,7 +262,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Subdivide the default SRC to compute a seperate channel component and overbank component. Impliment user provided Manning's n values for in-channel vs. overbank flow. Recalculate Manning's eq for discharge")
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
-    parser.add_argument('-bc','--channel-ratio-src-column',help='SRC attribute containing the channel vs. overbank geometry ratio (for composite calc)',required=False,type=str,default='chann_hradius_ratio')
+    parser.add_argument('-bfull','--bankfull-proxy-column',help='SRC attribute defining channel vs. overbank for each SRC',required=False,type=str,default='chann_hradius_ratio')
     parser.add_argument('-mann','--mann-n-table',help="Path to a csv file containing Manning's n values by featureid",required=True,type=str)
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",default="",required=False,type=str)
     parser.add_argument('-j','--number-of-jobs',help='OPTIONAL: number of workers (default=8)',required=False,default=8,type=int)
@@ -272,11 +272,11 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     fim_dir = args['fim_dir']
-    channel_ratio_src_column = args['channel_ratio_src_column']
+    bankfull_proxy_column = args['bankfull_proxy_column']
     mann_n_table = args['mann_n_table']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
-    run_prep(fim_dir,channel_ratio_src_column,mann_n_table,output_suffix,number_of_jobs,verbose,src_plot_option)
+    run_prep(fim_dir,bankfull_proxy_column,mann_n_table,output_suffix,number_of_jobs,verbose,src_plot_option)

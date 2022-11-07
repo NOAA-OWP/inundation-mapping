@@ -119,9 +119,9 @@ def src_bankfull_lookup(args):
         df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0,inplace=True)
 
         ## Create a new column to identify channel/floodplain via the bankfull stage value
-        df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'channel_fplain_1_5'] = 'channel'
-        df_src.loc[df_src['Stage'] > df_src['Stage_bankfull'], 'channel_fplain_1_5'] = 'floodplain'
-        df_src['channel_fplain_1_5'] = df_src['channel_fplain_1_5'].fillna('channel')
+        df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'bankfull_proxy'] = 'channel'
+        df_src.loc[df_src['Stage'] > df_src['Stage_bankfull'], 'bankfull_proxy'] = 'floodplain'
+        df_src['bankfull_proxy'] = df_src['bankfull_proxy'].fillna('channel')
 
         ## Output new SRC with bankfull column
         df_src.to_csv(src_full_filename,index=False)
