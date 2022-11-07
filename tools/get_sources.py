@@ -72,7 +72,6 @@ def get_sources_by_hucs(hucs,desired_crs=PREP_PROJECTION,output_file=None):
 
     # clipping
     print('Clipping to WBDs')
-    breakpoint()
     source_polygons = gpd.overlay(source_polygons,wbd_df,keep_geom_type=True,make_valid=True)
     source_polygons = source_polygons.explode(ignore_index=True,index_parts=True)
     source_polygons=source_polygons.dropna(axis=1)
