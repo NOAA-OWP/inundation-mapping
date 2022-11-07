@@ -1,6 +1,97 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.11.1 - 2022-11-01 - [PR #732](https://github.com/NOAA-OWP/inundation-mapping/pull/732)
+
+Due to a recent IT security scan, it was determined that Jupyter-core needed to be upgraded.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`:  Added a specific version of Jupyter Core that is compliant with IT.
+
+<br/><br/>
+
+## v4.0.11.0 - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
+
+Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold.
+
+### Additions
+
+- `src/gms/`
+   - `delineate_hydros_and_produce_HAND.sh`
+      - Reprojects and creates HUC-level raster of levee-protected areas from polygon layer
+      - Uses that raster to mask/remove those areas from the Relative Elevation Model
+   - `rasterize_by_order.py`: Subsets levee-protected area branch-level raster if branch 0 or if order exceeds a threshold (default threshold: max order - 1)
+- `config/`
+   - `deny_gms_branches_default.lst`, and `deny_gms_branches_min.lst`: Added LeveeProtectedAreas_subset_{}.tif
+   - `params_template.env`: Adds mask_leveed_area_toggle
+
+### Changes
+
+- `src/gms/delineate_hydros_and_produce_HAND.sh`: Fixes a bug in ocean/Great Lakes masking
+- `tools/`
+    - `eval_alt_catfim.py` and `run_test_case.py`: Changes the levee mask to the updated inputs/nld_vectors/Levee_protected_areas.gpkg
+
+<br/><br/>
+
+## v4.0.10.5 - 2022-10-21 - [PR #720](https://github.com/NOAA-OWP/inundation-mapping/pull/720)
+
+Earlier versions of the acquire_and_preprocess_3dep_dems.py did not have any buffer added when downloading HUC6 DEMs. This resulted in 1 pixel nodata gaps in the final REM outputs in some cases at HUC8 sharing a HUC6 border. Adding the param of cblend 6 to the gdalwarp command meant put a 6 extra pixels all around perimeter. Testing showed that 6 pixels was plenty sufficient as the gaps were never more than 1 pixel on borders of no-data.
+
+### Changes
+
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Added the `cblend 6` param to the gdalwarp call for when the dem is downloaded from USGS.
+    - `create_vrt_file.py`:  Added sample usage comment.
+ - `src`
+     - `gms`
+         `run_by_unit.sh`: Added a comment about gdal as it relates to run_by_unit.
+
+Note: the new replacement inputs/3dep_dems/10m_5070/ files can / will be copied before PR approval as the true fix was replacment DEM's. There is zero risk of overwriting prior to code merge.
+
+<br/><br/>
+
+## v4.0.10.4 - 2022-10-27 - [PR #727](https://github.com/NOAA-OWP/inundation-mapping/pull/727)
+
+Creates a single crosswalk table containing HUC (huc8), BranchID, HydroID, feature_id (and optionally LakeID) from branch-level hydroTables.csv files.
+
+### Additions
+
+- `tools/gms_tools/combine_crosswalk_tables.py`: reads and concatenates hydroTable.csv files, writes crosswalk table
+- `gms_run_branch.sh`: Adds `tools/gms_tools/make_complete_hydrotable.py` to post-processing
+
+<br/><br/>
+
+## v4.0.10.3 - 2022-10-19 - [PR #718](https://github.com/NOAA-OWP/inundation-mapping/pull/718)
+
+Fixes thalweg notch by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
+
+### Changes
+
+- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-2*(DEM cell size)) to clip stream network inside of DEM extent.
+
+<br/><br/>
+
+## v4.0.10.2 - 2022-10-24 - [PR #723](https://github.com/NOAA-OWP/inundation-mapping/pull/723)
+
+Runs branch 0 on HUCs with no other branches remaining after filtering stream orders if `drop_low_stream_orders` is used.
+
+### Additions
+
+- `src/gms`
+    - `stream_branches.py`: adds `exclude_attribute_values()` to filter out stream orders 1&2 outside of `load_file()`
+
+### Changes
+
+- `src/gms`
+    - `buffer_stream_branches.py`: adds check for `streams_file`
+    - `derive_level_paths.py`: checks length of `stream_network` before filtering out stream orders 1&2, then filters using `stream_network.exclude_attribute_values()`
+    - `generate_branch_list.py`: adds check for `stream_network_dissolved`
+
+<br/><br/>
+    
 ## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
 
 This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 

@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
 
+import os
 import pandas as pd
 from stream_branches import StreamNetwork
 import argparse
 
 def Generate_branch_list(stream_network_dissolved, branch_id_attribute, output_branch_list, branch_zero):
 
-    # load stream network
+    if os.path.exists(stream_network_dissolved):
+        # load stream network
+        stream_network_dissolved = StreamNetwork.from_file( stream_network_dissolved,
+                                                            branch_id_attribute=branch_id_attribute )
 
-    stream_network_dissolved = StreamNetwork.from_file( stream_network_dissolved,
-                                                        branch_id_attribute=branch_id_attribute )
+        # reduce to branch id attribute and convert to pandas df
+        stream_network_dissolved = stream_network_dissolved.loc[:,branch_id_attribute]
 
-    # reduce to branch id attribute and convert to pandas df
-    stream_network_dissolved = stream_network_dissolved.loc[:,branch_id_attribute]
-
-    # write
-    stream_network_dissolved.to_csv(output_branch_list,sep= " ",index=False,header=False)
+        # write
+        stream_network_dissolved.to_csv(output_branch_list,sep= " ",index=False,header=False)
 
     # Add branch zero ID to branch list
     if branch_zero:
-        with open(output_branch_list,'a') as branch_lst:
+        with open(output_branch_list, 'a') as branch_lst:
             branch_lst.write(f'{branch_zero}')
 
 if __name__ == '__main__':
