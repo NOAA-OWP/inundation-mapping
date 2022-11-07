@@ -207,7 +207,6 @@ if [ "$src_subdiv_toggle" = "True" ]; then
     Tcount
 fi
 
-
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
 if [ "$src_adjust_spatial" = "True" ]; then
     if [ ! -f $CALB_DB_KEYS_FILE ]; then
