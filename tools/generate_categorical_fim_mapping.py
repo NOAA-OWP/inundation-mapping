@@ -120,7 +120,7 @@ def run_inundation(args):
                                          inundation_raster = output_extent_grid,
                                          inundation_polygon = None,
                                          depths_raster = None,
-                                         verbose = True,
+                                         verbose = False,
                                          log_file = None,
                                          output_fileNames = None )
         
@@ -133,7 +133,7 @@ def run_inundation(args):
                             workers = 1,
                             remove_inputs = False,
                             subset = None,
-                            verbose = True )
+                            verbose = False )
 
     except Exception:
         # Log errors and their tracebacks

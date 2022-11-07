@@ -133,6 +133,9 @@ def mosaic_by_unit(inundation_maps_list,
                 if os.path.isfile(inun_map):
                     os.remove(inun_map)
 
+    del overlap ## Theorically not needed but somethign is climbing the memory
+    
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Mosaic GMS Inundation Rasters')

@@ -17,6 +17,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
+from datetime import datetime
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
     '''
@@ -493,13 +494,15 @@ if __name__ == '__main__':
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
     
-    output_catfim_dir_parent = Path(f'/data/catfim/{fim_version_folder}')
-    output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
+    output_catfim_dir_parent = Path(f'/data/catfim_ucs3/{fim_version_folder}')
+    output_flows_dir = Path(f'/data/catfim_ucs3/{fim_version_folder}/flows')
+    output_mapping_dir = Path(f'/data/catfim_ucs3/{fim_version_folder}/mapping')
     nwm_us_search = '5'
     nwm_ds_search = '5'
     write_depth_tiff = False
     fim_dir = args['fim_version']
+    
+    start_overall_time = datetime.now()    
     
     # Create log directory
     log_dir = os.path.join(output_catfim_dir_parent, 'logs')
@@ -549,3 +552,15 @@ if __name__ == '__main__':
     print('Creating CSVs')
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
+
+    print("================================")
+    print("End generate categorical fim")
+
+    end_overall_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"ended: {dt_string}")
+
+    # calculate duration
+    time_duration = end_overall_time - start_overall_time
+    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print()
