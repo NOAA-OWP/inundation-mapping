@@ -7,7 +7,7 @@ usage ()
     echo 'Usage : gms_pipeline.sh [REQ: -u <hucs> - -n <run name> ]'
     echo '                        [OPT: -h -c <config file> -j <job limit>] -o -r'
     echo '                         -ud <unit deny list file> -bd <branch deny list file>'
-    echo '                         -a <use all stream orders> ]'
+    echo '                         -zd <branch zero deny list file> -a <use all stream orders> ]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
@@ -18,20 +18,27 @@ usage ()
     echo '  -h/--help       : help file'
     echo '  -c/--config     : configuration file with bash environment variables to export'
     echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'    
+    echo '  -ud/--unitDenylist : A file with a line delimited list of files in UNIT (HUC) directories to be removed'
+    echo '                    upon completion (see config/deny_gms_unit_prod.lst for a starting point)'
+    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_prod.lst'
+    echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
+    echo '                    use the word NONE as this value for this parameter.'
+    echo '  -bd/--branchDenylist : A file with a line delimited list of files in BRANCHES directories to be removed' 
+    echo '                    upon completion of branch processing.'
+    echo '                    (see config/deny_gms_branches_prod.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'   
+    echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
+    echo '                    use the word NONE as this value for this parameter.'
+    echo '  -zd/--branchZeroDenylist : A file with a line delimited list of files in BRANCH ZERO directories to' 
+    echo '                    be removed upon completion of branch zero processing.'
+    echo '                    (see config/deny_gms_branch_zero.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branch_zero.lst'   
+    echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
+    echo '                    use the word NONE as this value for this parameter.'    
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time.'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
     echo '  -r/--retry      : retries failed jobs'
-    echo '  -ud/--unitDenylist : A file with line delimited list of files in UNIT (HUC) directories to remove'
-    echo '                    upon completion (see config/deny_gms_unit_prod.lst for a starting point)'
-    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_prod.lst'
-    echo '                    -- Note: if you want all output files (aka.. no files removed),'
-    echo '                    use the word none as this value for this parameter.'
-    echo '  -bd/--branchDenylist : A file with line delimited list of files in branches directories to remove' 
-    echo '                    upon completion (see config/deny_gms_branches_prod.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'   
-    echo '                    -- Note: if you want all output files (aka.. no files removed),'
-    echo '                    use the word none as this value for this parameter.'
 	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
     echo '                    at the initial load of the nwm_subset_streams.'
     echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
@@ -73,12 +80,16 @@ in
         ;;
     -ud|--unitDenylist)
         shift
-        deny_gms_unit_list=$1
+        deny_unit_list=$1
         ;;
     -bd|--branchDenylist)
         shift
-        deny_gms_branches_list=$1
+        deny_branches_list=$1
         ;;
+    -zd|--branchZeroDenylist)
+        shift
+        deny_branch_zero_list=$1
+        ;;        
     -a|--useAllStreamOrders)
         useAllStreamOrders=1
         ;;
@@ -103,14 +114,7 @@ if [ "$envFile" = "" ]
 then
     envFile=/foss_fim/config/params_template.env
 fi
-if [ "$deny_gms_unit_list" = "" ]
-then
-   deny_gms_unit_list=/foss_fim/config/deny_gms_unit_prod.lst
-fi
-if [ "$deny_gms_branches_list" = "" ]
-then
-   deny_gms_branches_list=/foss_fim/config/deny_gms_branches_prod.lst
-fi
+
 if [ -z "$overwrite" ]
 then
     # default is false (0)
@@ -119,6 +123,35 @@ fi
 if [ -z "$retry" ]
 then
     retry=""
+fi
+
+# The tests for the deny lists are duplicated here on to help catch
+# them earlier (ie.. don't have to wait to process units to find an
+# pathing error with the branch deny list)
+if [ "$deny_unit_list" != "" ] && \
+   [ "${deny_unit_list^^}" != "NONE" ] && \
+   [ ! -f "$deny_unit_list" ]
+then
+    # NONE is not case sensitive
+    echo "Error: The -ud <unit deny file> does not exist and is not the word NONE"
+    usage
+fi
+
+if [ "$deny_branches_list" != "" ] && \
+   [ "${deny_branches_list^^}" != "NONE" ] && \
+   [ ! -f "$deny_branches_list" ]
+then
+    # NONE is not case sensitive
+    echo "Error: The -bd <branch deny file> does not exist and is not the word NONE"
+    usage
+fi
+
+if [ "$deny_branch_zero_list" != "" ] && \
+   [ "${deny_branch_zero_list^^}" != "NONE" ] && \
+   [ ! -f "$deny_branch_zero_list" ]
+then
+    echo "Error: The -zd <branch zero deny file> does not exist and is not the word NONE"
+    usage
 fi
 
 # invert useAllStreamOrders boolean (to make it historically compatiable
@@ -172,7 +205,7 @@ if [ $overwrite -eq 1 ]; then run_cmd+=" -o" ; fi
 if [ "$retry" == "--retry-failed" ]; then run_cmd+=" -r" ; fi
 if [ $dropLowStreamOrders -eq 1 ]; then run_cmd+=" -s" ; fi
 #echo "$run_cmd"
-. /foss_fim/gms_run_unit.sh -u "$hucList" $run_cmd -d $deny_gms_unit_list
+. /foss_fim/gms_run_unit.sh -u "$hucList" $run_cmd -ud "$deny_unit_list" -zd "$deny_branch_zero_list"
 
 ## CHECK IF OK TO CONTINUE ON TO BRANCH STEPS
 # Count the number of files in the $outputRunDataDir/unit_errors
@@ -188,7 +221,7 @@ python3 $srcDir/check_unit_errors.py -f $outputRunDataDir -n $num_hucs
 
 
 ## Produce level path or branch level datasets
-. /foss_fim/gms_run_branch.sh $run_cmd -d $deny_gms_branches_list
+. /foss_fim/gms_run_branch.sh $run_cmd -bd "$deny_branches_list" -zd "$deny_branch_zero_list"
 
 
 echo "======================== End of gms_pipeline.sh =========================="
