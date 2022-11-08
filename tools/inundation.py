@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from numba import njit, typed, types
 from concurrent.futures import ThreadPoolExecutor,as_completed
-from subprocess import run
 from os.path import splitext
 import rasterio
 import fiona
@@ -14,10 +13,169 @@ from rasterio.io import DatasetReader,DatasetWriter
 from collections import OrderedDict
 import argparse
 from warnings import warn
-from gdal import BuildVRT
 import geopandas as gpd
-import sys
 import xarray as xr
+import rioxarray
+import dask
+
+
+class RelativeElevationModel(object):
+    """ 
+    Class for working with HAND raster and Synthetic Rating Curve (SRC) outputs.
+    
+    Parameters
+    ----------
+    rem_path : str
+        Full path to the REM geotiff.
+    catch_path : str
+        Full path to the catchments geotiff.
+    hydroTable_path : str
+        Full path to the hydroTable CSV.
+    """
+    NODATA = -9999.
+    def __init__(self, rem_path:str, catch_path:str, hydroTable_path:str):
+        self.rem_path = rem_path
+        self.catch_path = catch_path
+        self.hydroTable_path = hydroTable_path
+        self.loaded = False
+        
+    def load(self):
+        """ 
+        Loads in the files associated with the class.
+
+        Returns
+        -------
+        self.ds : xarray.Dataset
+            Xarray Dataset containing the REM and catchments as variables (rem and catch respectively)
+        """
+        self.ds = xr.Dataset(data_vars=dict(rem=rioxarray.open_rasterio(self.rem_path, 
+                                                                        chunks=True, 
+                                                                        nodata=self.NODATA, 
+                                                                        masked=True, 
+                                                                        lock=False).sel(band=1).drop('band'),
+                                            catch=rioxarray.open_rasterio(self.catch_path, 
+                                                                        chunks=True, 
+                                                                        nodata=0.0, 
+                                                                        masked=True, 
+                                                                        lock=False).sel(band=1).drop('band')))
+        self.hydroTable = pd.read_csv(self.hydroTable_path, dtype={'huc8':str,'feature_id':int,'HydroID':int})
+        self.loaded = True
+        return self.ds
+    
+    def SRC_lookup(self, flow_df, units):
+        """ 
+        Uses an input flow forecast DataFrame and SRC to lookup stage values for each HydroID.
+
+        Parameters
+        ----------
+        flow_df : pandas.DataFrame
+            Pandas DataFrame with 'feature_id' and 'discharge' columns.
+        units : str
+            Discharge units. Acceptable values are 'cfs' or 'cms'.
+
+        Returns
+        -------
+        hydroid_stage_dict : dict
+            Dictionary with HydroIDs as keys and stages as values. This dict can be fed directly into the hydroid2stage() method.
+        """
+        # Merge flows with SRC
+        forecast = self.hydroTable.groupby('HydroID')['feature_id'].first()
+        forecast = pd.merge(forecast.reset_index(), flow_df, on='feature_id', how='left')
+        if units.lower() == 'cfs':
+            forecast['discharge'] = forecast['discharge'] / 35.3146
+            
+        # Stage lookup
+        forecast['stage'] = forecast.apply(lambda row: self.interp_stage(row.discharge, self.hydroTable.loc[self.hydroTable.HydroID == int(row.HydroID)]), axis=1)
+        hydroid_stage_dict = forecast.set_index('HydroID')['stage'].to_dict()
+        hydroid_stage_dict[0] = np.nan
+        return hydroid_stage_dict
+    
+    def hydroid2stage(self, hydroid_stage_dict:dict):
+        """ 
+        Creates a 'stage' variable in the Dataset that has each HydroID replaced with the corresponding stage value.
+
+        Parameters
+        ----------
+        hydroid_stage_dict : dict
+            Dictionary with HydroIDs as keys and stages as values. The output of SRC_lookup() can be fed directly into this method.
+        """
+        # Convert catchments to stage
+        self.ds["stage"] = self._assign_stages(self.ds.catch, hydroid_stage_dict)
+        
+    def inundate(self, depth=False):
+        assert "stage" in self.ds.variables, "stage does not yet exist in this dataset. Run hydroid2stage() to create it."
+
+        if depth:
+            inundate_var = "depth"
+        else:
+            inundate_var = "bool"
+            
+        self.ds[inundate_var] = self.ds.stage - self.ds.rem
+        self.ds[inundate_var] = xr.where(self.ds[inundate_var] >= 0.0, 
+                                self.ds[inundate_var] if depth else 1, 
+                                np.nan)
+        return inundate_var
+
+    @classmethod
+    def inundate_with_flows(cls, rem_path, catch_path, hydroTable_path, flow_file, units='cms', depth=False):
+        """ 
+        Class method for the full inundation workflow.
+
+        Parameters
+        ----------
+        rem_path : str
+            Full path to the REM geotiff.
+        catch_path : str
+            Full path to the catchments geotiff.
+        hydroTable_path : str
+            Full path to the hydroTable CSV.
+        flow_file : str
+            Full path to the forecast flow file CSV with columns 'feature_id' and 'discharge'.
+        units : str
+            Discharge units. Acceptable values are 'cfs' or 'cms'. Default='cms'.
+
+        Returns
+        -------
+        hydroid_stage_dict : dict
+            Dictionary with HydroIDs as keys and stages as values. This dict can be fed directly into the hydroid2stage() method.
+        """
+        rem = cls(rem_path, catch_path, hydroTable_path)
+        
+        # Load HAND datasets
+        if not rem.loaded: rem.load()
+         
+        # Load in flow file to a dataframe
+        if not isinstance(flow_file, pd.DataFrame):
+            flow_df = pd.read_csv(flow_file, dtype={'discharge':float,'feature_id':int})
+        else:
+            flow_df = flow_file
+        
+        # Use synthetic rating curve to lookup stage values
+        stage_dict = rem.SRC_lookup(flow_df, units)
+        
+        # Convert catchments to stage
+        rem.hydroid2stage(stage_dict)
+        
+        # Calc Depth
+        inundate_var = rem.inundate(depth=depth)
+        dask.compute(rem.ds[inundate_var])
+        return rem.ds
+        
+    @staticmethod
+    def interp_stage(cms, SRC):
+        interpolated_stage = np.interp(cms, SRC.loc[:,'discharge_cms'], SRC.loc[:,'stage'])
+        return interpolated_stage
+    
+    @staticmethod
+    def _assign_stages(catch, map_dict):
+        return xr.apply_ufunc(RelativeElevationModel._translate, catch, kwargs=dict(mapping=map_dict), dask="parallelized", output_dtypes=[np.ndarray])
+    
+    @staticmethod
+    def _translate(array, mapping):
+        orig_shape = array.shape
+        a,inv = np.unique(np.nan_to_num(array),return_inverse = True)
+        return np.array([mapping[k] for k in a])[inv].reshape(orig_shape)  
+
 
 class hydroTableHasOnlyLakes(Exception): 
     """ Raised when a Hydro-Table only has lakes """
