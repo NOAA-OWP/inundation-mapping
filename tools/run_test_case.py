@@ -34,8 +34,10 @@ class benchmark(object):
         '''Returns a dict of HUC8, magnitudes, and sites.'''
         huc_mags = {}
         for huc in os.listdir(self.validation_data):
+            print('listdir working')
             if not re.match('\d{8}', huc): continue
             huc_mags[huc] = self.data(huc)
+        
         return huc_mags
     
     def data(self, huc):
