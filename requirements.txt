@@ -22,7 +22,8 @@ tables==3.7.0
 h5py==3.7.0
 pyproj==3.4.0
 py3dep==0.13.6
-dask==2022.10.0
+dask==2022.10.2
+distributed==2022.10.2
 pygeohydro==0.13.6
 statsmodels==0.13.2
 awscli==1.25.96
