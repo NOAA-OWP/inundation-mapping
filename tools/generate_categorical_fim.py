@@ -18,6 +18,91 @@ import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
+def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inundate, 
+                                 stage_based, output_folder, overwrite):
+
+    # check job numbers
+    total_cpus_requested = job_number_huc * job_number_inundate
+    total_cpus_available = os.cpu_count() - 1
+    if total_cpus_requested > total_cpus_available:
+        raise ValueError('The HUC job number, {}, multiplied by the inundate job number, {}, '\
+                          'exceeds your machine\'s available CPU count minus one. '\
+                          'Please lower the job_number_huc or job_number_inundate '\
+                          'values accordingly.'.format(job_number_huc, job_number_inundate) )
+
+    # Define default arguments. Modify these if necessary
+    fim_run_dir = Path(f'{fim_version}')
+    fim_version_folder = os.path.basename(fim_version)
+    
+    # Append option configuration (flow_based or stage_based) to output folder name.
+    if args['stage_based']:
+        fim_version_folder += "_stage_based"
+        catfim_method = "STAGE-BASED"
+    else:
+        fim_version_folder += "_flow_based"
+        catfim_method = "FLOW-BASED"
+    
+    output_catfim_dir_parent = Path(f'/data/catfim_brad_testing/{fim_version_folder}')
+    output_flows_dir = Path(f'/data/catfim_brad_testing/{fim_version_folder}/flows')
+    output_mapping_dir = Path(f'/data/catfim_brad_testing/{fim_version_folder}/mapping')
+    nwm_us_search = '5'
+    nwm_ds_search = '5'
+    write_depth_tiff = False
+    fim_dir = args['fim_version']
+    
+    # Create log directory
+    log_dir = os.path.join(output_catfim_dir_parent, 'logs')
+    # Create error log path
+    log_file = os.path.join(log_dir, 'errors.log')
+    
+    fim_version = os.path.split(fim_version)[1]
+    
+    if args['stage_based']:
+        stage_based = True
+        # Generate Stage-Based CatFIM mapping
+        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate)
+    
+        print("Post-processing TIFs...")
+        print(fim_version)
+        post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, nws_lid_attributes_filename="", log_file=log_file, fim_version=fim_version)
+    
+        # Updating mapping status
+        print('Updating mapping status')
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+
+
+    ## Run CatFIM scripts in sequence
+    # Generate CatFIM flow files
+    else:
+        fim_dir = ""
+        stage_based = False
+        print('Creating flow files using the ' + catfim_method + ' technique...')
+        start = time.time()
+#        generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished creating flow files in {elapsed_time} minutes')
+        # Generate CatFIM mapping
+        print('Begin mapping')
+        start = time.time()
+        manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, 
+                          job_number_huc, job_number_inundate, overwrite, depthtif=False)
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished mapping in {elapsed_time} minutes')
+
+        # Updating mapping status
+        print('Updating mapping status')
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+    
+    # Create CSV versions of the final shapefiles.
+    print('Creating CSVs')
+    reformatted_catfim_method = catfim_method.lower().replace('-', '_')
+    create_csvs(output_mapping_dir, reformatted_catfim_method)
+
+    
+
+
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
     '''
     Produces CSV versions of any shapefile in the output_mapping_dir.
@@ -472,80 +557,23 @@ if __name__ == '__main__':
 
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
-    parser.add_argument('-f','--fim_version',help='Path to directory containing outputs of fim_run.sh',required=True)
-    parser.add_argument('-j','--number_of_jobs',help='Number of processes to use. Default is 1.',required=False, default="1",type=int)
-    parser.add_argument('-a', '--stage_based', help = 'Run stage-based CatFIM instead of flow-based? NOTE: flow-based CatFIM is the default.', required=False, default=False, action='store_true')
+    
+    # Parse arguments
+    parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
+    parser.add_argument('-f', '--fim_version', help='Path to directory containing outputs of fim_run.sh',
+                        required=True)
+    parser.add_argument('-jh','--job_number_huc',help='Number of processes to use for HUC scale operations.'\
+        ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'\
+        ' machine.', required=False, default=1, type=int)
+    parser.add_argument('-jn','--job_number_inundate', help='Number of processes to use for inundating'\
+        ' HUC and inundation job numbers should multiply to no more than one less than the CPU count'\
+        ' of the machine.', required=False, default=1, type=int)    
+    parser.add_argument('-a', '--stage_based', help = 'Run stage-based CatFIM instead of flow-based?'\
+        ' NOTE: flow-based CatFIM is the default.', required=False, default=False, action='store_true')
+    parser.add_argument('-t', '--output_folder', help = 'Target: Where the output folder will be',
+                        required = False, default = '/data/catfim/')
+    parser.add_argument('-o','--overwrite', help='Overwrite files', required=False, action="store_true")
+    
     args = vars(parser.parse_args())
+    process_generate_categorical_fim(**args)
 
-    # Get arguments
-    fim_version = args['fim_version']
-    number_of_jobs = args['number_of_jobs']
-
-    # Define default arguments. Modify these if necessary
-    fim_run_dir = Path(f'{fim_version}')
-    fim_version_folder = os.path.basename(fim_version)
-    
-    # Append option configuration (flow_based or stage_based) to output folder name.
-    if args['stage_based']:
-        fim_version_folder += "_stage_based"
-        catfim_method = "STAGE-BASED"
-    else:
-        fim_version_folder += "_flow_based"
-        catfim_method = "FLOW-BASED"
-    
-    output_catfim_dir_parent = Path(f'/data/catfim/{fim_version_folder}')
-    output_flows_dir = Path(f'/data/catfim/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim/{fim_version_folder}/mapping')
-    nwm_us_search = '5'
-    nwm_ds_search = '5'
-    write_depth_tiff = False
-    fim_dir = args['fim_version']
-    
-    # Create log directory
-    log_dir = os.path.join(output_catfim_dir_parent, 'logs')
-    # Create error log path
-    log_file = os.path.join(log_dir, 'errors.log')
-    
-    fim_version = os.path.split(fim_version)[1]
-    
-    if args['stage_based']:
-        stage_based = True
-        # Generate Stage-Based CatFIM mapping
-        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs)
-    
-        print("Post-processing TIFs...")
-        print(fim_version)
-        post_process_cat_fim_for_viz(number_of_jobs, output_mapping_dir, nws_lid_attributes_filename="", log_file=log_file, fim_version=fim_version)
-    
-        # Updating mapping status
-        print('Updating mapping status')
-        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
-
-
-    ## Run CatFIM scripts in sequence
-    # Generate CatFIM flow files
-    else:
-        fim_dir = ""
-        stage_based = False
-        print('Creating flow files using the ' + catfim_method + ' technique...')
-        start = time.time()
-        generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
-        end = time.time()
-        elapsed_time = (end-start)/60
-        print(f'Finished creating flow files in {elapsed_time} minutes')
-        # Generate CatFIM mapping
-        print('Begin mapping')
-        start = time.time()
-        manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, number_of_jobs, depthtif=False)
-        end = time.time()
-        elapsed_time = (end-start)/60
-        print(f'Finished mapping in {elapsed_time} minutes')
-
-        # Updating mapping status
-        print('Updating mapping status')
-        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
-    
-    # Create CSV versions of the final shapefiles.
-    print('Creating CSVs')
-    reformatted_catfim_method = catfim_method.lower().replace('-', '_')
-    create_csvs(output_mapping_dir, reformatted_catfim_method)
