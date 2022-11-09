@@ -187,7 +187,10 @@ if __name__ == "__main__":
     csv_output = csv_output.to_crs('EPSG:3857')
 
     print('writing_to_csv')
-    csv_output.to_csv('/data/temp/caleb/master_data/pull_test.csv') # Save to CSV
+    csv_path_list = csv.split(".")
+    csv_path = csv_path_list[0]
+    csv_path_dot = csv_path + ".csv"
+    csv_output.to_csv(csv) # Save to CSV
     
     print('writing_to_gpkg')
     csv_output.to_file(csv, driver="GPKG")
