@@ -377,7 +377,6 @@ class test_case(benchmark):
     def get_current_agreements(self, get_composites=False):
         '''Returns a list of all agreement rasters currently existing for the test_case.'''
         agreement_dict = {}
-<<<<<<< HEAD
         # Switch to composite directory if flag is used
         if get_composites:
             test_case_dir = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', self.dir, count=1)
@@ -386,10 +385,6 @@ class test_case(benchmark):
             test_case_dir = self.dir
         for mag in os.listdir(test_case_dir):
             mag_dir = os.path.join(test_case_dir, mag)
-=======
-        for mag in os.listdir(self.dir):
-            mag_dir = os.path.join(self.dir, mag)
->>>>>>> dev-fim3
             if not os.path.isdir(mag_dir): continue
             agreement_list =[]
 
