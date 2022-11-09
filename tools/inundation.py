@@ -3,13 +3,13 @@
 import numpy as np
 import pandas as pd
 from numba import njit, typed, types
-from concurrent.futures import ThreadPoolExecutor,as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from os.path import splitext
 import rasterio
 import fiona
 from shapely.geometry import shape
 from rasterio.mask import mask
-from rasterio.io import DatasetReader,DatasetWriter
+from rasterio.io import DatasetReader, DatasetWriter
 from collections import OrderedDict
 import argparse
 from warnings import warn
@@ -19,7 +19,7 @@ import rioxarray
 import dask
 
 
-class RelativeElevationModel(object):
+class Inundation(object):
     """ 
     Class for working with HAND raster and Synthetic Rating Curve (SRC) outputs.
     
@@ -32,12 +32,13 @@ class RelativeElevationModel(object):
     hydroTable_path : str
         Full path to the hydroTable CSV.
     """
-    NODATA = -9999.
-    def __init__(self, rem_path:str, catch_path:str, hydroTable_path:str):
+    def __init__(self, rem_path:str, catch_path:str, hydroTable_path:str, nodata:float):
         self.rem_path = rem_path
         self.catch_path = catch_path
         self.hydroTable_path = hydroTable_path
+        self.NODATA = nodata
         self.loaded = False
+        self.load()
         
     def load(self):
         """ 
@@ -112,12 +113,18 @@ class RelativeElevationModel(object):
             
         self.ds[inundate_var] = self.ds.stage - self.ds.rem
         self.ds[inundate_var] = xr.where(self.ds[inundate_var] >= 0.0, 
-                                self.ds[inundate_var] if depth else 1, 
-                                np.nan)
+                                         self.ds[inundate_var] if depth else 1, 
+                                         0)
+        # Encode NODATA value
+        self.ds[inundate_var].rio.write_nodata(self.NODATA, encoded=True, inplace=True)
+        # print(f"nodata: {self.ds[inundate_var].rio.nodata}")
+        # print(f"encoded_nodata: {self.ds[inundate_var].rio.encoded_nodata}")
+
         return inundate_var
 
+
     @classmethod
-    def inundate_with_flows(cls, rem_path, catch_path, hydroTable_path, flow_file, units='cms', depth=False):
+    def inundate_with_flows(cls, rem_path, catch_path, hydroTable_path, flow_file, nodata=-9999., units='cms', depth=False):
         """ 
         Class method for the full inundation workflow.
 
@@ -139,14 +146,14 @@ class RelativeElevationModel(object):
         hydroid_stage_dict : dict
             Dictionary with HydroIDs as keys and stages as values. This dict can be fed directly into the hydroid2stage() method.
         """
-        rem = cls(rem_path, catch_path, hydroTable_path)
+        rem = cls(rem_path, catch_path, hydroTable_path, nodata)
         
         # Load HAND datasets
-        if not rem.loaded: rem.load()
+        # if not rem.loaded: rem.load()
          
         # Load in flow file to a dataframe
         if not isinstance(flow_file, pd.DataFrame):
-            flow_df = pd.read_csv(flow_file, dtype={'discharge':float,'feature_id':int})
+            flow_df = pd.read_csv(flow_file, dtype={'discharge':float, 'feature_id':int})
         else:
             flow_df = flow_file
         
@@ -159,7 +166,8 @@ class RelativeElevationModel(object):
         # Calc Depth
         inundate_var = rem.inundate(depth=depth)
         dask.compute(rem.ds[inundate_var])
-        return rem.ds
+
+        return rem.ds[inundate_var]
         
     @staticmethod
     def interp_stage(cms, SRC):
@@ -168,28 +176,25 @@ class RelativeElevationModel(object):
     
     @staticmethod
     def _assign_stages(catch, map_dict):
-        return xr.apply_ufunc(RelativeElevationModel._translate, catch, kwargs=dict(mapping=map_dict), dask="parallelized", output_dtypes=[np.ndarray])
+        return xr.apply_ufunc(Inundation._translate, catch, kwargs=dict(mapping=map_dict), dask="parallelized", output_dtypes=[np.ndarray])
     
     @staticmethod
     def _translate(array, mapping):
         orig_shape = array.shape
-        a,inv = np.unique(np.nan_to_num(array),return_inverse = True)
-        return np.array([mapping[k] for k in a])[inv].reshape(orig_shape)  
+        a,inv = np.unique(np.nan_to_num(array), return_inverse = True)
+        return np.array([mapping[k] for k in a])[inv].reshape(orig_shape)
+
+
+    def to_file(self, inundation_raster):
+        if self.name == 'depth':
+            self.rio.to_raster(inundation_raster, tiled=True, compress='lzw', dtype=rasterio.float32)
+        elif self.name == 'bool':
+            self.rio.to_raster(inundation_raster, tiled=True, compress='lzw', dtype=rasterio.int32)
 
 
 class hydroTableHasOnlyLakes(Exception): 
     """ Raised when a Hydro-Table only has lakes """
     pass
-
-
-class NoForecastFound(Exception):
-    """ Raised when no forecast is available for a given Hydro-Table """
-    pass
-
-class hydroTableHasOnlyLakes(Exception): 
-    """ Raised when a Hydro-Table only has lakes """
-    pass
-
 
 class NoForecastFound(Exception):
     """ Raised when no forecast is available for a given Hydro-Table """
