@@ -32,7 +32,7 @@ def build_agreement_raster_data_dir(huc, resolution, year):
 resolutions = [20]
 years = [100,500]
 hucs = ['12020001','12020002','12020003','12020004','12020005','12020006','12020007']
-chunk_size = 10240
+chunk_size = 256*4
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -83,103 +83,32 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                              variable='agreement',
                                              default_name='agreement',
                                              lock=False
-                                            ).sel(band=1,drop=True) \
-                                             .astype(np.uint16)
+                                            ).sel(band=1,drop=True) 
 
         # avoid recomputing nwm_catchments_xr for same magnitude
         if (h != prev_h) & (r != prev_r):
+            
             # making xarray from catchment vectors
             print(f"Rasterizing NWM catchments for {h} at {r}m ...")
-            nwm_catchments_xr = make_geocube(nwm_catchments,['ID'],like=agreement_raster) \
-                                             .to_array(dim='band', name='nwm_catchments') \
-                                             .sel(band='ID') \
-                                             .drop('band') \
-                                             .astype(np.uint16) \
-                                             .chunk(agreement_raster.chunksizes)
-            
-            # this is for an alternative zonal method. grouping consumes too much RAM according to experiments.
-            # merge to dataset
-            #catchments_agreement_merged = xr.merge([nwm_catchments_xr,agreement_raster])
-            
-        # if nwm catchments are the same from last iteration in loop (only change in yr from 100 to 500)
-        #else:
-            #catchments_agreement_merged['agreement'] = agreement_raster
-
+            nwm_catchments_xr = make_geocube(nwm_catchments,['ID'],
+                                             like=agreement_raster,
+                                             fill=np.nan) \
+                                                .to_array(dim='band', name='nwm_catchments') \
+                                                 .sel(band='ID') \
+                                                 .drop('band') \
+                                                 .chunk(agreement_raster.chunksizes)
+        
         # assign previous h and r
         prev_h, prev_r = h, r
-        
 
-        breakpoint()
-        ct = crosstab(nwm_catchments_xr,agreement_raster)
-        ct.compute()
-        breakpoint()
+        # compute cross tabulation table for ct_dask_df
+        ct_dask_df = crosstab(nwm_catchments_xr,agreement_raster,nodata_values=np.nan)
+        #ct_pd_df = ct_dask_df.compute()
 
-
-        """
-        # remove old datasets
-        del nwm_catchments_xr, agreement_raster
-        
-        # grouping by catchment
-        # this grouping doesn't need to be done everytime. How do we avoid? Create a multi-index then join datasets on them?
-        start = time()
-        grouped_catchments_agreement_merged = catchments_agreement_merged \
-                                                   .drop("spatial_ref") \
-                                                   .groupby(catchments_agreement_merged.nwm_catchments)
-        grouping = time() - start
-        print(f'Grouping: {grouping}')
-
-        # zonal stats
+        ## NEXT: CONVERT CT INDICES TO STR OF PRIMARY METRICS AND COMPUTE SECONDARY METRICS PER ZONE WITH APPLY FUNCTIONALITY
         breakpoint()
-        start = time()
-        grid_mean_built_in = grouped_catchments_agreement_merged.mean().rename({"agreement": "agreement_mean"}) 
-        built_in_mean = time() - start
-        print(f'Grouping: {grouping} | Built In Method: {built_in_mean}')
-        
-        # compile zonal stats to df
-        # zonal_stats = xarray.merge([grid_mean, grid_min, grid_max, grid_std]).to_dataframe()
-        """
-        
-        # map function
-        breakpoint()
-        start = time()
-        primary_metrics_str = compute_primary_metrics(grouped_catchments_agreement_merged).rename({"agreement": "primary_metrics_strs"}) 
-        primary_metrics = time() - start
-        print(primary_metrics_str)
-        print(f'Grouping: {grouping} | Primary Metrics: {primary_metrics}')
 
 
-        """
-        start = time()
-        grouped_catchments_agreement_merged_df = catchments_agreement_merged \
-                                                      .drop('spatial_ref') \
-                                                      .to_dataframe().groupby('nwm_catchments')
-        pure_df_grouping = time() - start
-        print(f'Grouping: {grouping} | Built In Method: {built_in_mean} | Numpy: {numpy_mean} | Pure DF Grouping: {pure_df_grouping}')
-
-        start = time()
-        grid_mean_pure_df = grouped_catchments_agreement_merged_df.mean() 
-        pure_df_mean = time() - start
-        print(f'Grouping: {grouping} | Built In Method: {built_in_mean} | Numpy: {numpy_mean} | Pure DF Grouping: {pure_df_grouping} | Pure DF: {pure_df_mean}')
-        breakpoint()
-        """
-        
-        """
-        # zonal stats
-        breakpoint()
-        #try:
-        stats_by_catchment = stats(nwm_catchments_xr, agreement_raster,
-                               #stats_funcs={'primary_metrics': compute_primary_metrics}
-                               #stats_funcs={'mean':np.mean,'median':np.median,'max':np.max,'min':np.min,'std':np.std}
-                               stats_funcs=['mean','max','min','std'],
-                               return_type='xarray.DataArray'
-                              )
-        #except:
-        #    pass
-        breakpoint()
-        """
-        
-        
-        
 if __name__ == '__main__':
     
     # dask client
