@@ -10,10 +10,8 @@ import rioxarray as rxr
 import xarray as xr
 from geocube.api.core import make_geocube
 from tqdm import tqdm
-from memory_profiler import profile
-from xrspatial.zonal import stats
-from dask.diagnostics import ProgressBar
-from dask.distributed import Client, LocalCluster
+from xrspatial.zonal import stats, crosstab
+#from memory_profiler import profile
 
 from foss_fim.tools.tools_shared_functions import csi, tpr, far, mcc
 
@@ -45,15 +43,21 @@ def compute_primary_metrics(arr):
     agreement_encoding_digits_to_names = { 0: "TN",
                                            1: "FN",
                                            2: "FP",
-                                           3: "TP"
+                                           3: "TP",
+                                           4: "Water body"
                                           }
     
-    unique, counts = np.unique(arr,return_counts=True)
+    unique, counts = np.unique(arr['agreement'].values,
+                               return_counts=True)
 
-    # change unique to string
-    unique = [agreement_rasters_string_template[u] for u in unique]
+    # change unique to string then convert to dict
+    unique = zip( ((agreement_encoding_digits_to_names[u] , c) for u,c in zip(unique,counts)) )
 
-    primary_metrics = dict(zip(unique,counts))
+    # make dict
+    #primary_metrics = dict(zip(unique,counts))
+    
+    # pop water body
+    primary_metrics.pop("Water body")
 
     return primary_metrics
 
@@ -85,7 +89,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
         # avoid recomputing nwm_catchments_xr for same magnitude
         if (h != prev_h) & (r != prev_r):
             # making xarray from catchment vectors
-            print(f"Making geocube for {h} at {r}m ...")
+            print(f"Rasterizing NWM catchments for {h} at {r}m ...")
             nwm_catchments_xr = make_geocube(nwm_catchments,['ID'],like=agreement_raster) \
                                              .to_array(dim='band', name='nwm_catchments') \
                                              .sel(band='ID') \
@@ -95,23 +99,28 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             
             # this is for an alternative zonal method. grouping consumes too much RAM according to experiments.
             # merge to dataset
-            catchments_agreement_merged = xr.merge([nwm_catchments_xr,agreement_raster])
-        
-        # if nwm catchments are the same from last iteration in loop (only change in yr from 100 to 500)
-        else:
+            #catchments_agreement_merged = xr.merge([nwm_catchments_xr,agreement_raster])
             
-            catchments_agreement_merged['agreement'] = agreement_raster
+        # if nwm catchments are the same from last iteration in loop (only change in yr from 100 to 500)
+        #else:
+            #catchments_agreement_merged['agreement'] = agreement_raster
 
-        breakpoint()
         # assign previous h and r
         prev_h, prev_r = h, r
         
-        #"""
 
+        breakpoint()
+        ct = crosstab(nwm_catchments_xr,agreement_raster)
+        ct.compute()
+        breakpoint()
+
+
+        """
         # remove old datasets
         del nwm_catchments_xr, agreement_raster
         
         # grouping by catchment
+        # this grouping doesn't need to be done everytime. How do we avoid? Create a multi-index then join datasets on them?
         start = time()
         grouped_catchments_agreement_merged = catchments_agreement_merged \
                                                    .drop("spatial_ref") \
@@ -126,6 +135,19 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
         built_in_mean = time() - start
         print(f'Grouping: {grouping} | Built In Method: {built_in_mean}')
         
+        # compile zonal stats to df
+        # zonal_stats = xarray.merge([grid_mean, grid_min, grid_max, grid_std]).to_dataframe()
+        """
+        
+        # map function
+        breakpoint()
+        start = time()
+        primary_metrics_str = compute_primary_metrics(grouped_catchments_agreement_merged).rename({"agreement": "primary_metrics_strs"}) 
+        primary_metrics = time() - start
+        print(primary_metrics_str)
+        print(f'Grouping: {grouping} | Primary Metrics: {primary_metrics}')
+
+
         """
         start = time()
         grouped_catchments_agreement_merged_df = catchments_agreement_merged \
