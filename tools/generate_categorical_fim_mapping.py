@@ -147,15 +147,15 @@ def run_inundation(args):
             f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
 
 
-def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file):
+def post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file, fim_version):
 
     # Create workspace
     gpkg_dir = os.path.join(output_cat_fim_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
+    print(fim_version)
 
     # Find the FIM version
-    fim_version  = os.path.basename(output_cat_fim_dir)
     merged_layer = os.path.join(output_cat_fim_dir, 'catfim_library.shp')
 
     if not os.path.exists(merged_layer): # prevents appending to existing output
@@ -323,4 +323,6 @@ if __name__ == '__main__':
     generate_categorical_fim(fim_run_dir, source_flow_dir, output_cat_fim_dir, number_of_jobs, depthtif,log_file)
 
     print("Aggregating Categorical FIM")
-    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir,nws_lid_attributes_filename,log_file)
+    # Get fim_version.
+    fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_','').replace('_ms_c', '').replace('_', '.')
+    post_process_cat_fim_for_viz(number_of_jobs, output_cat_fim_dir, nws_lid_attributes_filename, log_file, fim_version)

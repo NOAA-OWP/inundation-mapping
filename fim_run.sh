@@ -99,6 +99,12 @@ fi
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
+if [ $SENSITIVE_ENV_PATH = "" ]
+then
+    echo 'WARNING! - .env file with sensitive paths not provided'
+else
+    source $SENSITIVE_ENV_PATH
+fi
 
 # default values
 if [ "$jobLimit" = "" ] ; then
@@ -180,16 +186,22 @@ fi
 echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
 if [ "$src_adjust_usgs" = "True" ]; then
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    time python3 foss_fim/src/src_adjust_usgs_rating.py -fim_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -debug False -j $jobLimit
+    time python3 foss_fim/src/src_adjust_usgs_rating.py -fim_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
 fi
 
-echo -e $startDiv"Performing SRC adjustments using obs FIM/flow point database"$stopDiv
 if [ "$src_adjust_spatial" = "True" ]; then
-    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    time python3 foss_fim/src/src_adjust_spatial_obs.py -db $fim_obs_pnt_data -fim_dir $outputRunDataDir -wbd $input_WBD_gdb -debug False -j $jobLimit
+    # Run SRC Optimization routine using PostgrSQL data base with benchmark FIM extent points
+    echo "Loading HUC Data"
+    time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $input_WBD_gdb WBDHU8
+
+    echo "Loading Point Data"
+    time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=calibration user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg usgs_nws_benchmark_points -nln points
+
+    echo -e $startDiv"Performing SRC adjustments using obs FIM/flow point database"$stopDiv
+    time python3 foss_fim/src/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j 1
 fi
 
-echo "$viz"
+echo -e $startDiv"$viz"
 if [[ "$viz" -eq 1 ]]; then
     # aggregate outputs
     time python3 /foss_fim/src/aggregate_fim_outputs.py -d $outputRunDataDir -j 6
