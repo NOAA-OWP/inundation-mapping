@@ -13,6 +13,11 @@ from utils.reproject_dem import reproject_dem
 from utils.shared_functions import update_raster_profile
 from utils.shared_variables import PREP_PROJECTION, PREP_PROJECTION_CM
 
+##################################
+##
+#### Deprecated (will be replaced with new files and new logic):  Nov 8, 2022 ####
+##
+##################################
 
 if __name__ == '__main__':
 
