@@ -208,6 +208,26 @@ class Inundation(object):
 
         return y_dict, hucs, inundated_rasters
 
+    @classmethod
+    def composite_alt(cls, huc_dir, flow_file, nodata=-9999., units='cms', depth=False):
+        
+        composite_inundation = None
+        flow_df = pd.read_csv(flow_file, dtype={'discharge':float, 'feature_id':int})
+        branches_dir = os.path.join(huc_dir, 'branches')
+        branches = os.listdir(branches_dir)
+                
+        for branch in branches:
+            rem_path = os.path.join(branches_dir, branch, f'rem_zeroed_masked_{branch}.tif')
+            catch_path = os.path.join(branches_dir, branch, f'gw_catchments_reaches_filtered_addedAttributes_{branch}.tif')
+            hydroTable_path = os.path.join(branches_dir, branch, f'hydroTable_{branch}.csv')
+            branch_inundation = cls.inundate_with_flows(rem_path, catch_path, hydroTable_path, flow_df, nodata, units, depth)
+            if composite_inundation is None:
+                composite_inundation = branch_inundation
+            else:
+                composite_inundation, branch_inundation = xr.broadcast(composite_inundation, branch_inundation)
+                composite_inundation = xr.ufuncs.fmax(composite_inundation, branch_inundation)
+                
+        return composite_inundation
        
     @staticmethod
     def interp_stage(cms, SRC):
