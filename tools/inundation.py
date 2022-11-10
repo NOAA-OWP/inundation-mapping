@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import numpy as np
 import pandas as pd
 from numba import njit, typed, types
@@ -16,7 +17,7 @@ from warnings import warn
 import geopandas as gpd
 import xarray as xr
 import rioxarray
-import dask
+# import dask
 
 
 class Inundation(object):
@@ -32,6 +33,7 @@ class Inundation(object):
     hydroTable_path : str
         Full path to the hydroTable CSV.
     """
+    chunks=3000
     def __init__(self, rem_path:str, catch_path:str, hydroTable_path:str, nodata:float):
         self.rem_path = rem_path
         self.catch_path = catch_path
@@ -49,16 +51,12 @@ class Inundation(object):
         self.ds : xarray.Dataset
             Xarray Dataset containing the REM and catchments as variables (rem and catch respectively)
         """
-        self.ds = xr.Dataset(data_vars=dict(rem=rioxarray.open_rasterio(self.rem_path, 
-                                                                        chunks=True, 
-                                                                        nodata=self.NODATA, 
-                                                                        masked=True, 
-                                                                        lock=False).sel(band=1).drop('band'),
-                                            catch=rioxarray.open_rasterio(self.catch_path, 
-                                                                        chunks=True, 
+        self.ds = xr.Dataset(data_vars=dict(catch=rioxarray.open_rasterio(self.catch_path, 
+                                                                        chunks=self.chunks, 
                                                                         nodata=0.0, 
                                                                         masked=True, 
-                                                                        lock=False).sel(band=1).drop('band')))
+                                                                        lock=False,
+                                                                        dtype=rasterio.int32).sel(band=1).drop('band')))
         self.hydroTable = pd.read_csv(self.hydroTable_path, dtype={'huc8':str,'feature_id':int,'HydroID':int})
         self.loaded = True
         return self.ds
@@ -115,10 +113,9 @@ class Inundation(object):
         self.ds[inundate_var] = xr.where(self.ds[inundate_var] >= 0.0, 
                                          self.ds[inundate_var] if depth else 1, 
                                          0)
+
         # Encode NODATA value
         self.ds[inundate_var].rio.write_nodata(self.NODATA, encoded=True, inplace=True)
-        # print(f"nodata: {self.ds[inundate_var].rio.nodata}")
-        # print(f"encoded_nodata: {self.ds[inundate_var].rio.encoded_nodata}")
 
         return inundate_var
 
@@ -162,13 +159,56 @@ class Inundation(object):
         
         # Convert catchments to stage
         rem.hydroid2stage(stage_dict)
+
+        rem.ds = rem.ds.drop_vars('catch')
+        rem.ds = rem.ds.assign(rem=rioxarray.open_rasterio(rem.rem_path, 
+                                                            chunks=rem.chunks, 
+                                                            nodata=rem.NODATA, 
+                                                            masked=True, 
+                                                            lock=False,
+                                                            dtype=rasterio.float32).sel(band=1).drop('band'))
         
         # Calc Depth
         inundate_var = rem.inundate(depth=depth)
-        dask.compute(rem.ds[inundate_var])
 
         return rem.ds[inundate_var]
+
+
+    def composite_with_flows(hydrofabric_dir, hucs=None, nodata=-9999., units='cms', depth=False):
+        """
+        Generate inundation for all branches of a HUC
+        """
         
+        inundated_rasters = {}
+        y_dict = {}
+
+        # Get branches in HUC
+        gms_inputs = pd.read_csv(os.path.join(hydrofabric_dir, 'gms_inputs.csv'), dtype={0:str,1:int}, names=['huc8', 'branch'])
+        if not hucs:
+            hucs = list(gms_inputs['huc8'].unique())
+
+        for huc in hucs:
+            inundated_rasters[huc] = []
+            flow_file = f'/data/test_cases/ble_test_cases/validation_data_ble/{huc}/500yr/ble_huc_{huc}_flows_500yr.csv'            
+            for branch in list(gms_inputs[gms_inputs['huc8']==huc]['branch'].unique()):
+                rem_path = os.path.join(hydrofabric_dir, f'{huc}/branches/{branch}/rem_zeroed_masked_{branch}.tif')
+                catch_path = os.path.join(hydrofabric_dir, f'{huc}/branches/{branch}/gw_catchments_reaches_filtered_addedAttributes_{branch}.tif')
+                hydroTable_path = os.path.join(hydrofabric_dir, f'{huc}/branches/{branch}/hydroTable_{branch}.csv')
+
+                i = Inundation.inundate_with_flows(rem_path, catch_path, hydroTable_path, flow_file, nodata=nodata, units=units, depth=depth)
+
+                # Save raw inundation arrays
+                inundated_rasters[huc].append(i)
+
+            # Expand inundation arrays to maximum extent
+            temp_y = xr.align(*inundated_rasters[huc], join="outer", fill_value=0.)
+
+            # Save expanded inundation arrays
+            y_dict[huc] = temp_y
+
+        return y_dict, hucs, inundated_rasters
+
+       
     @staticmethod
     def interp_stage(cms, SRC):
         interpolated_stage = np.interp(cms, SRC.loc[:,'discharge_cms'], SRC.loc[:,'stage'])
@@ -183,13 +223,6 @@ class Inundation(object):
         orig_shape = array.shape
         a,inv = np.unique(np.nan_to_num(array), return_inverse = True)
         return np.array([mapping[k] for k in a])[inv].reshape(orig_shape)
-
-
-    def to_file(self, inundation_raster):
-        if self.name == 'depth':
-            self.rio.to_raster(inundation_raster, tiled=True, compress='lzw', dtype=rasterio.float32)
-        elif self.name == 'bool':
-            self.rio.to_raster(inundation_raster, tiled=True, compress='lzw', dtype=rasterio.int32)
 
 
 class hydroTableHasOnlyLakes(Exception): 
