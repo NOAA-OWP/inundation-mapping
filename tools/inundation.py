@@ -17,7 +17,10 @@ from warnings import warn
 import geopandas as gpd
 import xarray as xr
 import rioxarray
-# import dask
+import dask
+import dask.distributed #import Client, as_completed
+dask.config.set({"array.slicing.split_large_chunks": True})
+
 
 
 class Inundation(object):
@@ -40,7 +43,7 @@ class Inundation(object):
         self.hydroTable_path = hydroTable_path
         self.NODATA = nodata
         self.loaded = False
-        self.load()
+        dask.config.set({"array.slicing.split_large_chunks": True})
         
     def load(self):
         """ 
@@ -108,11 +111,14 @@ class Inundation(object):
             inundate_var = "depth"
         else:
             inundate_var = "bool"
-            
+        
+        # Subtract REM from the stage to get the depth
         self.ds[inundate_var] = self.ds.stage - self.ds.rem
+        # Set all negative values to zero and keep NaNs as NaN
         self.ds[inundate_var] = xr.where(self.ds[inundate_var] >= 0.0, 
                                          self.ds[inundate_var] if depth else 1, 
-                                         0)
+                                         xr.where(self.ds[inundate_var].isnull(), np.nan, 0)) 
+#        self.ds[inundate_var].persist()
 
         # Encode NODATA value
         self.ds[inundate_var].rio.write_nodata(self.NODATA, encoded=True, inplace=True)
@@ -146,7 +152,7 @@ class Inundation(object):
         rem = cls(rem_path, catch_path, hydroTable_path, nodata)
         
         # Load HAND datasets
-        # if not rem.loaded: rem.load()
+        if not rem.loaded: rem.load()
          
         # Load in flow file to a dataframe
         if not isinstance(flow_file, pd.DataFrame):
@@ -228,9 +234,43 @@ class Inundation(object):
             else:
                 # All other branches get aligned and then composited by taking the max
                 composite_inundation = xr.ufuncs.fmax(*xr.align(composite_inundation, branch_inundation, join='outer'))
-                
+            del branch_inundation
+
         return composite_inundation
-       
+
+    @classmethod
+    def composite_multiproc(cls, huc_dir, flow_file, output_raster, nodata=-9999., units='cms', depth=False, job_number=1, lock=False):
+        
+        composite_inundation = None
+        flow_df = pd.read_csv(flow_file, dtype={'discharge':float, 'feature_id':int})
+        branches_dir = os.path.join(huc_dir, 'branches')
+        branches = os.listdir(branches_dir)
+        futures = []
+        
+        with dask.distributed.Client(processes=False, threads_per_worker=3, n_workers=job_number, memory_limit='5GB') as client:
+            print(client)
+        
+            for branch in branches:
+                rem_path = os.path.join(branches_dir, branch, f'rem_zeroed_masked_{branch}.tif')
+                catch_path = os.path.join(branches_dir, branch, f'gw_catchments_reaches_filtered_addedAttributes_{branch}.tif')
+                hydroTable_path = os.path.join(branches_dir, branch, f'hydroTable_{branch}.csv')
+                futures.append(client.submit(cls.inundate_with_flows, rem_path, catch_path, hydroTable_path, flow_df, nodata, units, depth,
+                                             key=f'{huc_dir[-8:]}-{branch}'))
+
+            for future in dask.distributed.as_completed(futures):
+                print(future)
+                branch_inundation = future.result()#.persist()
+                if composite_inundation is None:
+                    # First branch
+                    composite_inundation = branch_inundation
+                else:
+                    # All other branches get aligned and then composited by taking the max
+                    composite_inundation = xr.ufuncs.fmax(*xr.align(composite_inundation, branch_inundation, join='outer'))
+                del branch_inundation
+                future.cancel()
+                    
+        composite_inundation.rio.to_raster(output_raster, tiled=True, dtype=rasterio.float64 if depth else rasterio.int32, compress="lzw")
+                
     @staticmethod
     def interp_stage(cms, SRC):
         interpolated_stage = np.interp(cms, SRC.loc[:,'discharge_cms'], SRC.loc[:,'stage'])
@@ -238,7 +278,7 @@ class Inundation(object):
     
     @staticmethod
     def _assign_stages(catch, map_dict):
-        return xr.apply_ufunc(Inundation._translate, catch, kwargs=dict(mapping=map_dict), dask="parallelized", output_dtypes=[np.ndarray])
+        return xr.apply_ufunc(Inundation._translate, catch, kwargs=dict(mapping=map_dict), dask="parallelized", output_dtypes=[np.ndarray]).astype(np.int32)
     
     @staticmethod
     def _translate(array, mapping):
