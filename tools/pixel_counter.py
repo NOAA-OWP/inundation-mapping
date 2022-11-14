@@ -141,9 +141,13 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
             print('No vector path provided. Continuing to next layer.')
             continue
         # Opens vector file and sets path
-        vds = ogr.Open(vector_path)
-        vlyr = vds.GetLayer(0)
-
+        
+        try:
+            vds = ogr.Open(vector_path)
+            vlyr = vds.GetLayer(0)
+        except:
+            continue
+        
         # Creates an in-memory numpy array of the source raster data covering the whole extent of the vector layer
         if global_src_extent:
             # use global source extent
