@@ -183,32 +183,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def merge_stream_branches(self,stream_branch_dataset,on='NHDPlusID',branch_id_attribute='LevelPathI',attributes='StreamOrde',stream_branch_layer_name=None):
-
-        """ Merges stream branch id attribute from another vector file """
-
-        # load vaas
-        if isinstance(stream_branch_dataset,str):
-            stream_branch_dataset = gpd.read_file(stream_branch_dataset,layer=stream_branch_layer_name)
-        elif isinstance(stream_branch_dataset,gpd.GeoDataFrame):
-            pass
-        else:
-            raise TypeError('Pass stream_branch_dataset argument as filepath or GeoDataframe')
-    
-        # merge and drop duplicate columns
-        if isinstance(attributes,list):
-            what = [on] + [branch_id_attribute] + attributes 
-        elif isinstance(attributes,str):
-            what = [on] + [branch_id_attribute] +[attributes]
-
-        self = self.merge(stream_branch_dataset[what],on=on, how='inner')
-        
-        # make sure it's the correct object type
-        self = StreamNetwork(self,branch_id_attribute=branch_id_attribute)
-
-        return(self)
-
-
     @staticmethod
     def flip_inlet_outlet_linestring_index(linestring_index):
 
@@ -220,8 +194,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         except KeyError:
             raise ValueError('Linestring index should be 0 or -1')
 
-
-    def derive_nodes(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',reach_id_attribute='NHDPlusID',
+    def derive_nodes(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',reach_id_attribute='ID',
                      outlet_linestring_index=0,node_prefix=None,max_node_digits=8,verbose=False):
         
         if verbose:
@@ -387,37 +360,11 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def remove_stream_segments_without_catchments( self,
-                                                   catchments,
-                                                   reach_id_attribute='NHDPlusID',
-                                                   reach_id_attribute_in_catchments='NHDPlusID',
-                                                   verbose=False
-                                                 ):
-
-        if verbose:
-            print("Removing stream segments without catchments ...")
-
-        # load catchments
-        if isinstance(catchments,gpd.GeoDataFrame):
-            pass
-        elif isinstance(catchments,str):
-            catchments = gpd.read_file(catchments)
-        else:
-            raise TypeError("Catchments needs to be GeoDataFame or path to vector file")
-        
-        self = self.merge(catchments.loc[:,reach_id_attribute_in_catchments],
-                          left_on=reach_id_attribute,
-                          right_on=reach_id_attribute_in_catchments,
-                          how='inner')
-
-        return(self)
-
-
     def remove_branches_without_catchments(self,
                                            catchments,
-                                           reach_id_attribute='NHDPlusID',
+                                           reach_id_attribute='ID',
                                            branch_id_attribute='branchID',
-                                           reach_id_attribute_in_catchments='NHDPlusID',
+                                           reach_id_attribute_in_catchments='ID',
                                            verbose=False
                                            ):
 
@@ -562,7 +509,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                                upstreams=None,
                                outlet_attribute='outlet_id',
                                branch_id_attribute='branchID',
-                               reach_id_attribute='NHDPlusID',
+                               reach_id_attribute='ID',
                                comparison_attributes='StreamOrde',
                                comparison_function=max,
                                max_branch_id_digits=6,
@@ -683,7 +630,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def make_up_and_downstream_dictionaries(self,reach_id_attribute='NHDPlusID',
+    def make_up_and_downstream_dictionaries(self,reach_id_attribute='ID',
                                             toNode_attribute='ToNode',
                                             fromNode_attribute='FromNode',
                                             verbose=False):
@@ -706,7 +653,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
 
     def get_arbolate_sum(self,arbolate_sum_attribute='arbolate_sum',inlets_attribute='inlet_id',
-                         reach_id_attribute='NHDPlusID',length_conversion_factor_to_km = 0.001,
+                         reach_id_attribute='ID',length_conversion_factor_to_km = 0.001,
                          upstreams=None, downstreams=None,
                          toNode_attribute='ToNode',
                          fromNode_attribute='FromNode',
@@ -812,7 +759,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     self.loc[lpid,'geometry'] = merged_line
         
         #self[branch_id_attribute] = bids
-        self = StreamNetwork(self,branch_id_attribute=branch_id_attribute,
+        self = StreamNetwork(self, branch_id_attribute=branch_id_attribute,
                              attribute_excluded=attribute_excluded,
                              values_excluded=values_excluded)
 
@@ -834,53 +781,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return(self)
 
-
-    def derive_segments(self,inlets_attribute='inlet_id', reach_id_attribute='NHDPlusID'):
-        pass
-
-
-    def conflate_branches(self,target_stream_network,branch_id_attribute_left='branch_id',
-                          branch_id_attribute_right='branch_id', left_order_attribute='order_',
-                          right_order_attribute='order_',
-                          crosswalk_attribute='crosswalk_id', verbose=False):
-        
-        # get unique stream orders
-        orders = self.loc[:,right_order_attribute].unique()
-
-        # make a dictionary of STR trees for every stream order
-        trees = { o:STRtree(target_stream_network.geometry.tolist()) for o in orders }
-
-        # make the crosswalk id attribute and set index
-        self.loc[:,crosswalk_attribute] = [None] * len(self)
-        self.set_index(branch_id_attribute_left,inplace=True)
-
-        # loop through rows of self
-        for idx,row in tqdm(self.iterrows(),total=len(self),disable=(not verbose),desc="Conflating branches"):
-
-            g = row['geometry']
-            o = row[left_order_attribute]
-            
-            tree = trees[o]
-
-            # find nearest geom in target and its index
-            matching_geom = tree.nearest(g)
-            match_idx = target_stream_network.geometry == matching_geom
-            
-            # get the branch ids
-            right_branch_id = int(target_stream_network.loc[match_idx,branch_id_attribute_left])
-            left_branch_id = idx
-
-            # save the target matching branch id 
-            self.loc[left_branch_id,crosswalk_attribute] = right_branch_id
-
-        # reset indices
-        self.reset_index(inplace=True,drop=False)
-
-        return(self)
-        
-
-    def explode_to_points(self,reach_id_attribute='NHDPlusID', sampling_size=None,
-                          verbose=False):
+    def explode_to_points(self, sampling_size=None, verbose=False):
         
         points_gdf = self.copy()
         points_gdf.reset_index(inplace=True,drop=True)
@@ -908,7 +809,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         points_gdf.reset_index(inplace=True,drop=True)
 
         return(points_gdf)
-
 
     @staticmethod
     def conflate_points(source_points,target_points,source_reach_id_attribute,target_reach_id_attribute,verbose=False):

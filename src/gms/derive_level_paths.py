@@ -56,11 +56,11 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
 
     # derive nodes
     stream_network = stream_network.derive_nodes(toNode_attribute=toNode_attribute,
-                                                  fromNode_attribute=fromNode_attribute,
-                                                  reach_id_attribute=reach_id_attribute,
-                                                  outlet_linestring_index=outlet_linestring_index,
-                                                  node_prefix=None,
-                                                  verbose=verbose)
+                                                 fromNode_attribute=fromNode_attribute,
+                                                 reach_id_attribute=reach_id_attribute,
+                                                 outlet_linestring_index=outlet_linestring_index,
+                                                 node_prefix=None,
+                                                 verbose=verbose)
     
     # derive outlets and inlets
     stream_network = stream_network.derive_outlets(toNode_attribute,
@@ -93,15 +93,15 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                     )
 
     # derive stream branches
-    stream_network = stream_network.derive_stream_branches( toNode_attribute=toNode_attribute,
-                                                            fromNode_attribute=fromNode_attribute,
-                                                            upstreams=upstreams,
-                                                            branch_id_attribute=branch_id_attribute,
-                                                            reach_id_attribute=reach_id_attribute,
-                                                            comparison_attributes=['arbolate_sum', 'order_'],
-                                                            comparison_function=max,
-                                                            verbose=verbose
-                                                           )
+    stream_network = stream_network.derive_stream_branches(toNode_attribute=toNode_attribute,
+                                                           fromNode_attribute=fromNode_attribute,
+                                                           upstreams=upstreams,
+                                                           branch_id_attribute=branch_id_attribute,
+                                                           reach_id_attribute=reach_id_attribute,
+                                                           comparison_attributes=['arbolate_sum', 'order_'],
+                                                           comparison_function=max,
+                                                           verbose=verbose
+                                                          )
     
     # filter out streams without catchments
     if (catchments is not None) & (catchments_outfile is not None):
@@ -116,8 +116,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                                               )
 
         # subset which columns to merge
-        stream_network_to_merge = stream_network.filter(
-                                                        items = [reach_id_attribute,inlets_attribute,
+        stream_network_to_merge = stream_network.filter(items = [reach_id_attribute,inlets_attribute,
                                                                  outlets_attribute,branch_id_attribute]
                                                        )
 
@@ -126,9 +125,9 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                       right_on=reach_id_attribute
                                      )
 
-        catchments.reset_index(drop=True,inplace=True)
+        catchments.reset_index(drop=True, inplace=True)
 
-        catchments.to_file(catchments_outfile,index=False,driver='GPKG')
+        catchments.to_file(catchments_outfile, index=False, driver='GPKG')
 
     # derive headwaters
     if (headwaters_outfile is not None):
@@ -162,12 +161,12 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                                        verbose=False
                                                                       )
                                        
+    if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(feature_attribute=branch_id_attribute,
-                                                                      outlet_linestring_index=outlet_linestring_index
-                                                                     )
-   
-        if branch_inlets_outfile is not None:
-            branch_inlets.to_file(branch_inlets_outfile,index=False,driver='GPKG')
+                                                                        outlet_linestring_index=outlet_linestring_index
+                                                                        )
+
+        branch_inlets.to_file(branch_inlets_outfile, index=False, driver='GPKG')
 
     return(stream_network)
     

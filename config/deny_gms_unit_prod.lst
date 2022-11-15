@@ -1,6 +1,5 @@
 # List of files for gms branches to delete
 # Use comment to allow list the file
-NHDPlusBurnLineEvent_subset.gpkg
 #branch_id.lst
 #branch_polygons.gpkg
 #LandSea_subset.gpkg

@@ -76,9 +76,8 @@ Tstart
 
 cmd_args=" -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg"
 cmd_args+=" -b $outputHucDataDir/nwm_subset_streams.gpkg"
-cmd_args+=" -c $outputHucDataDir/NHPlusBurnLineEvent_subset.gpkg"
 cmd_args+=" -d $hucNumber"
-cmd_args+=" -e $outputHucDataDir/nhd_headwater_points_subset.gpkg"
+# cmd_args+=" -e $outputHucDataDir/nhd_headwater_points_subset.gpkg"
 cmd_args+=" -f $outputHucDataDir/wbd_buffered.gpkg"
 cmd_args+=" -g $outputHucDataDir/wbd.gpkg"
 cmd_args+=" -i $input_DEM"
@@ -86,11 +85,10 @@ cmd_args+=" -l $input_nwm_lakes"
 cmd_args+=" -m $input_nwm_catchments"
 cmd_args+=" -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg"
 cmd_args+=" -r $input_NLD"
-cmd_args+=" -s $input_nhd_flowlines"
 cmd_args+=" -v $input_LANDSEA"
 cmd_args+=" -w $input_nwm_flows"
 cmd_args+=" -x $outputHucDataDir/LandSea_subset.gpkg"
-cmd_args+=" -y $input_nhd_headwaters"
+# cmd_args+=" -y $input_nhd_headwaters"
 cmd_args+=" -z $outputHucDataDir/nld_subset_levees.gpkg"
 cmd_args+=" -gl $input_GL_boundaries"
 cmd_args+=" -lb $lakes_buffer_dist_meters"
@@ -103,7 +101,7 @@ Tcount
 python3 $srcDir/clip_vectors_to_wbd.py $cmd_args
 
 : '
-python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -s $input_nhd_flowlines -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nhd_headwaters -v $input_LANDSEA -lpf $input_nld_levee_protected_areas -c $outputHucDataDir/NHDPlusBurnLineEvent_subset.gpkg -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -gl $input_GL_boundaries -lb $lakes_buffer_dist_meters -wb $wbd_buffer -i $input_DEM
+python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nhd_headwaters -v $input_LANDSEA -lpf $input_nld_levee_protected_areas -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nhd_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -gl $input_GL_boundaries -lb $lakes_buffer_dist_meters -wb $wbd_buffer -i $input_DEM
 '
 
 ## Clip WBD8 ##
@@ -117,7 +115,7 @@ Tcount
 echo -e $startDiv"Generating Level Paths for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $outputHucDataDir/nwm_headwaters.gpkg -c $outputHucDataDir/nwm_catchments_proj_subset.gpkg -t $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -v -s $dropLowStreamOrders -w $outputHucDataDir/nwm_lakes_proj_subset.gpkg
+$srcDir/gms/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -c $outputHucDataDir/nwm_catchments_proj_subset.gpkg -t $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -v -s $dropLowStreamOrders -w $outputHucDataDir/nwm_lakes_proj_subset.gpkg
 
 # test if we received a non-zero code back from derive_level_paths.py
 subscript_exit_code=$?
@@ -205,7 +203,7 @@ Tcount
 echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nhd_headwater_points_subset.gpkg $outputCurrentBranchDataDir/headwaters_$branch_zero_id.tif
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg $outputCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
 
 ## DEM Reconditioning ##
