@@ -1488,25 +1488,16 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
 # evaluation metric fucntions
 
 def csi(TP,FP,FN,TN=None):
-
     ''' Critical Success Index '''
-
     return TP / (FP + FN + TP)
 
-    
 def tpr(TP,FP,FN,TN=None):
-
     ''' True Positive Rate '''
-    
     return TP / (TP + FN)
 
-
 def far(TP,FP,FN,TN=None):
-
     ''' False Alarm Rate '''
-
     return FP / (TP + FP)
-
 
 def mcc(TP,FP,FN,TN=None):
 
