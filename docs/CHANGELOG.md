@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.[to be assigned] - 2022-11-16 - [PR #]
+## v4.[to be assigned] - 2022-11-16 - [PR #744](https://github.com/NOAA-OWP/inundation-mapping/pull/744)
 
 Changes branch 0 headwaters data source from NHD to NWS to be consistent with branches. Removes references to NHD flowlines and headwater data.
 
