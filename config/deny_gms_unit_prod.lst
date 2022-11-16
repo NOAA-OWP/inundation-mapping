@@ -4,7 +4,6 @@
 #branch_polygons.gpkg
 #LandSea_subset.gpkg
 #LeveeProtectedAreas_subset.gpkg
-nhd_headwater_points_subset.gpkg
 #nld_subset_levees.gpkg
 #nwm_catchments_proj_subset.gpkg
 #nwm_catchments_proj_subset_levelPaths.gpkg

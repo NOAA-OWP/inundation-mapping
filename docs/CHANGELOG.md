@@ -2,6 +2,20 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.[to be assigned] - 2022-11-16 - [PR #]
+
+Changes branch 0 headwaters data source from NHD to NWS to be consistent with branches. Removes references to NHD flowlines and headwater data.
+
+### Changes
+
+- `src/gms/derive_level_paths.py`: Generates headwaters before stream branch filtering
+
+### Removals
+
+- Removes NHD flowlines and headwater references from `gms_run_unit.sh`, `config/deny_gms_unit_prod.lst`, `src/clip_vectors_to_wbd.py`, `src/gms/run_by_unit.sh`, `unit_tests/__template_unittests.py`, `unit_tests/clip_vectors_to_wbd_params.json`, and `unit_tests/clip_vectors_to_wbd_unittests.py`
+
+<br/><br/>
+
 ## v4.0.11.1 - 2022-11-01 - [PR #732](https://github.com/NOAA-OWP/inundation-mapping/pull/732)
 
 Due to a recent IT security scan, it was determined that Jupyter-core needed to be upgraded.
