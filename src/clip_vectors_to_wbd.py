@@ -111,17 +111,6 @@ def subset_vector_layers(subset_nwm_lakes,
         nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False)
     del nld_lines
 
-    # # Subset nhd headwaters
-    # print("Subsetting NHD Headwater Points for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
-    # nhd_headwaters = gpd.read_file(nhd_headwaters, mask=wbd_streams_buffer)
-
-    # if len(nhd_headwaters) > 0:
-    #     nhd_headwaters.to_file(subset_nhd_headwaters, driver=getDriver(subset_nhd_headwaters), index=False)
-    # else:
-    #     print ("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
-    #     sys.exit(0)
-    # del nhd_headwaters
-
     # Find intersecting nwm_catchments
     print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
     nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer)
@@ -137,13 +126,14 @@ def subset_vector_layers(subset_nwm_lakes,
     print("Subsetting NWM Streams for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
 
     nwm_streams = gpd.read_file(nwm_streams, mask = wbd)
+    nwm_streams = gpd.clip(nwm_streams, wbd)
 
      # NWM can have duplicate records, but appear to always be identical duplicates
     nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
 
-    nwm_streams = gpd.clip(nwm_streams, wbd_streams_buffer)
-
     if len(nwm_streams) > 0:
+        nwm_streams = gpd.clip(nwm_streams, wbd_streams_buffer)
+
         nwm_streams.to_file(subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False)
     else:
         print ("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
