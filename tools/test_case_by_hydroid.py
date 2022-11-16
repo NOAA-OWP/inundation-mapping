@@ -128,7 +128,7 @@ if __name__ == "__main__":
                         help='The fim version to use. Should be similar to fim_3_0_24_14_ms',
                         required=True)
     parser.add_argument('-c', '--csv',
-                        help='Path to folder to hold exported csv file.',
+                        help='Path to output gpkg file to be created. Process will also produce a csv. Inut a gpkg as the output file.',
                         required=True)
     parser.add_argument('-comp','--composite',
                         help='If used, composite metrics will be pulled instead',
@@ -190,7 +190,7 @@ if __name__ == "__main__":
     csv_path_list = csv.split(".")
     csv_path = csv_path_list[0]
     csv_path_dot = csv_path + ".csv"
-    csv_output.to_csv(csv) # Save to CSV
+    csv_output.to_csv(csv_path_dot) # Save to CSV
     
     print('writing_to_gpkg')
     csv_output.to_file(csv, driver="GPKG")
