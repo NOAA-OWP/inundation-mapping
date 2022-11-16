@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import sys
 import geopandas as gpd
 import argparse
@@ -13,7 +12,6 @@ from utils.shared_functions import getDriver, mem_profile
 def subset_vector_layers(subset_nwm_lakes, 
                          subset_nwm_streams,
                          hucCode,
-                        #  subset_nhd_headwaters,
                          wbd_buffer_filename,
                          wbd_filename,
                          dem_filename,
@@ -24,7 +22,6 @@ def subset_vector_layers(subset_nwm_lakes,
                          landsea,
                          nwm_streams,
                          subset_landsea,
-                        #  nhd_headwaters,
                          subset_nld_lines,
                          great_lakes,
                          lake_buffer_distance,
@@ -43,12 +40,8 @@ def subset_vector_layers(subset_nwm_lakes,
     wbd_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance, resolution=32)
 
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
-    wbd_buffer_filename_split = os.path.splitext(wbd_buffer_filename)
-    # wbd_streams_buffer_filename = wbd_buffer_filename_split[0] + '_streams' + wbd_buffer_filename_split[1]
     wbd_streams_buffer = wbd.copy()
     wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-3*dem_cellsize, resolution=32)
-
-    # projection = wbd_buffer.crs
 
     great_lakes = gpd.read_file(great_lakes, mask=wbd_buffer).reset_index(drop=True)
 
@@ -70,7 +63,6 @@ def subset_vector_layers(subset_nwm_lakes,
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
     wbd_buffer.to_file(wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False)
-    # wbd_streams_buffer.to_file(wbd_streams_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False)
 
     del great_lakes
 
@@ -126,7 +118,6 @@ def subset_vector_layers(subset_nwm_lakes,
     print("Subsetting NWM Streams for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
 
     nwm_streams = gpd.read_file(nwm_streams, mask = wbd)
-    nwm_streams = gpd.clip(nwm_streams, wbd)
 
      # NWM can have duplicate records, but appear to always be identical duplicates
     nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
@@ -152,8 +143,6 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('-d','--hucCode', help='HUC boundary ID', required=True,
                         type=str)
-    # parser.add_argument('-e','--subset-nhd-headwaters', help='NHD headwaters subset', 
-    #                     required=True, default=None)
     parser.add_argument('-f','--wbd_buffer_filename', help='Buffered HUC boundary', 
                         required=True)
     parser.add_argument('-g','--wbd-filename', help='HUC boundary', required=True)
@@ -171,8 +160,6 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('-x','--subset-landsea', help='LandSea subset', 
                         required=True)
-    # parser.add_argument('-y','--nhd-headwaters', help='NHD headwaters',
-    #                     required=True)	 
     parser.add_argument('-z','--subset-nld-lines', help='Subset of NLD levee vectors for HUC',
                         required=True)
     parser.add_argument('-gl','--great-lakes', help='Great Lakes layer', 
