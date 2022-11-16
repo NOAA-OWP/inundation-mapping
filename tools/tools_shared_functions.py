@@ -684,6 +684,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         GeoDataFrame of all NWS_LID sites.
 
     '''
+    print("HEY")
     #Import huc8 layer as geodataframe and retain necessary columns
     huc8 = gpd.read_file(wbd_huc8_path, layer = 'WBDHU8')
     huc8 = huc8[['HUC8','name','states', 'geometry']]
@@ -692,7 +693,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     #Create empty geodataframe and define CRS for potential horizontal datums
     metadata_gdf = gpd.GeoDataFrame()
     #Iterate through each site
+    
     for metadata in metadata_list:
+#        print(type(metadata))
         #Convert metadata to json
         df = pd.json_normalize(metadata)
         #Columns have periods due to nested dictionaries
@@ -701,6 +704,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         df.dropna(subset = ['identifiers_nws_lid','usgs_preferred_latitude', 'usgs_preferred_longitude'], inplace = True)
         #If dataframe still has data
         if not df.empty:
+#            print(df[:5])
             #Get horizontal datum
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
             #Look up EPSG code, if not returned Assume NAD83 as default. 
@@ -716,13 +720,17 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
             metadata_gdf = metadata_gdf.append(site_gdf, ignore_index = True)
-
+    
+    # TEMP
+    print(metadata_gdf.columns)
+    print(metadata_gdf[:10])
+    
     #Trim metadata to only have certain fields.
     if not retain_attributes:
         metadata_gdf = metadata_gdf[['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'identifiers_usgs_site_code', 'geometry']]
     #If a list of attributes is supplied then use that list.
-    elif isinstance(retain_attributes,list):
-        metadata_gdf = metadata_gdf[retain_attributes]
+#    elif isinstance(retain_attributes,list):
+#        metadata_gdf = metadata_gdf[retain_attributes]
 
     #Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
     joined_gdf = gpd.sjoin(metadata_gdf, huc8, how = 'inner', op = 'intersects', lsuffix = 'ahps', rsuffix = 'wbd')
@@ -1121,6 +1129,7 @@ def get_rating_curve(rating_curve_url, location_ids):
     #Define DataFrame to contain all returned curves.
     all_curves = pd.DataFrame()
     
+    print(location_ids)
     #Define call to retrieve all rating curve information from WRDS.
     joined_location_ids = '%2C'.join(location_ids)
     url = f'{rating_curve_url}/{joined_location_ids}'
