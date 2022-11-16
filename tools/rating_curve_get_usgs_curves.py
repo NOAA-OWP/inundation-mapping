@@ -67,36 +67,35 @@ def get_all_active_usgs_sites():
     #Cycle through each site and filter out if site doesn't meet criteria.
     acceptable_sites_metadata = []
         
-    for metadata in metadata_list:
-        #Get the usgs info from each site
-        usgs_data = metadata['usgs_data']
-                
-        #Get site quality attributes      
-        coord_accuracy_code = usgs_data.get('coord_accuracy_code')        
-        coord_method_code =   usgs_data.get('coord_method_code')
-        alt_accuracy_code =   usgs_data.get('alt_accuracy_code')
-        alt_method_code =     usgs_data.get('alt_method_code')
-        site_type =           usgs_data.get('site_type')
+#    for metadata in metadata_list:
+#        #Get the usgs info from each site
+#        usgs_data = metadata['usgs_data']
+#                
+#        #Get site quality attributes      
+#        coord_accuracy_code = usgs_data.get('coord_accuracy_code')        
+#        coord_method_code =   usgs_data.get('coord_method_code')
+#        alt_accuracy_code =   usgs_data.get('alt_accuracy_code')
+#        alt_method_code =     usgs_data.get('alt_method_code')
+#        site_type =           usgs_data.get('site_type')
+#        
+#        #Check to make sure that none of the codes were null, if null values are found, skip to next.
+#        if not all([coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type]):
+#            continue
+#        
+#        #Test if site meets criteria.
+#        if (coord_accuracy_code in acceptable_coord_acc_code and 
+#            coord_method_code in acceptable_coord_method_code and
+#            alt_accuracy_code <= acceptable_alt_acc_thresh and 
+#            alt_method_code in acceptable_alt_meth_code and
+#            site_type in acceptable_site_type):
+#            
+#            #If nws_lid is not populated then add a dummy ID so that 'aggregate_wbd_hucs' works correctly.
+#            if not metadata.get('identifiers').get('nws_lid'):
+#                metadata['identifiers']['nws_lid'] = 'Bogus_ID' 
+#            
+#            #Append metadata of acceptable site to acceptable_sites list.
+#            acceptable_sites_metadata.append(metadata)  
         
-        #Check to make sure that none of the codes were null, if null values are found, skip to next.
-        if not all([coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type]):
-            continue
-        
-        #Test if site meets criteria.
-        if (coord_accuracy_code in acceptable_coord_acc_code and 
-            coord_method_code in acceptable_coord_method_code and
-            alt_accuracy_code <= acceptable_alt_acc_thresh and 
-            alt_method_code in acceptable_alt_meth_code and
-            site_type in acceptable_site_type):
-            
-            #If nws_lid is not populated then add a dummy ID so that 'aggregate_wbd_hucs' works correctly.
-            if not metadata.get('identifiers').get('nws_lid'):
-                metadata['identifiers']['nws_lid'] = 'Bogus_ID' 
-            
-            #Append metadata of acceptable site to acceptable_sites list.
-            acceptable_sites_metadata.append(metadata)  
-        
-    
     #Get a geospatial layer (gdf) for all acceptable sites
     print("Aggregating WBD HUCs...")
     dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
@@ -261,7 +260,6 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     api_failure_messages=[]
     #For each site in metadata_list
     for metadata in metadata_list:
-#        print(metadata)
         
         print("get_datum")
         #Get datum information for site (only need usgs_data)
@@ -270,7 +268,6 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         #Filter out sites that are not in contiguous US. If this section is removed be sure to test with datum adjustment section (region will need changed)
         if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
             continue        
-#        print(metadata)
         #Get rating curve for site
         location_ids = usgs['usgs_site_code']
         if location_ids == None:  # Some sites don't have a value for usgs_site_code, skip them
