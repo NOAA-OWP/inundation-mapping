@@ -128,10 +128,10 @@ if __name__ == "__main__":
                         help='The fim version to use. Should be similar to fim_3_0_24_14_ms',
                         required=True)
     parser.add_argument('-c', '--csv',
-                        help='Path to folder to hold exported csv file.',
+                        help='filepath and filename to hold exported gpkg (and csv) file. Similar to /data/path/output.gpkg Need to use gpkg as output. ',
                         required=True)
     parser.add_argument('-comp','--composite',
-                        help='If used, composite metrics will be pulled instead',
+                        help='If used, composite metrics will be pulled instead, with comp glag off, will use the version provided from which to pull metrics.',
                         required=False,default=None,action='store_true')
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     # This funtion, relies on the test_case class defined in run_test_case.py to list all available test cases
     print('listing_test_cases_with_updates')
     all_test_cases = test_case.list_all_test_cases(version=version, archive=True, benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
-
+    x=0
     for test_case_class in all_test_cases:
 
         if not os.path.exists(test_case_class.fim_dir):
@@ -170,7 +170,9 @@ if __name__ == "__main__":
            
 
             for agree_rast in agreement_dict:
-                    
+                    # x = x+1
+                    # if x > 2:
+                    #     break
                     print('performing_zonal_stats')
 
                     branches_dir = os.path.join(test_case_class.fim_dir,'branches')
@@ -223,10 +225,12 @@ if __name__ == "__main__":
     csv_path_list = csv.split(".")
     csv_path = csv_path_list[0]
     csv_path_dot = csv_path + ".csv"
-    csv_output.to_csv(csv) # Save to CSV
+    
     
     print('writing_to_gpkg')
     csv_output.to_file(csv, driver="GPKG")
+
+    csv_output.to_csv(csv_path_dot) # Save to CSV
 
 
     
