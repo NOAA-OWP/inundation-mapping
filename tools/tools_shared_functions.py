@@ -684,7 +684,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         GeoDataFrame of all NWS_LID sites.
 
     '''
-    print("HEY")
     #Import huc8 layer as geodataframe and retain necessary columns
     huc8 = gpd.read_file(wbd_huc8_path, layer = 'WBDHU8')
     huc8 = huc8[['HUC8','name','states', 'geometry']]
@@ -720,10 +719,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
             metadata_gdf = metadata_gdf.append(site_gdf, ignore_index = True)
-    
-    # TEMP
-    print(metadata_gdf.columns)
-    print(metadata_gdf[:10])
     
     #Trim metadata to only have certain fields.
     if not retain_attributes:
