@@ -127,28 +127,27 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--version',
                         help='The fim version to use. Should be similar to fim_3_0_24_14_ms',
                         required=True)
-    parser.add_argument('-c', '--csv',
+    parser.add_argument('-g', '--gpkg',
                         help='filepath and filename to hold exported gpkg (and csv) file. Similar to /data/path/output.gpkg Need to use gpkg as output. ',
                         required=True)
-    parser.add_argument('-comp','--composite',
-                        help='If used, composite metrics will be pulled instead, with comp glag off, will use the version provided from which to pull metrics.',
-                        required=False,default=None,action='store_true')
+
+
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     benchmark_category = args['benchmark_category']
     version = args['version']
-    csv = args['csv']
-    composite = bool(args['composite'])
-    
+    csv = args['gpkg']
+        
     # Execution code
     csv_output = gpd.GeoDataFrame(columns=['HydroID', 'huc8','contingency_tot_area_km2',
                                     'CSI', 'FAR', 'TPR', 'TNR',  'PPV', 'NPV', 'Bal_ACC',
                                     'MCC', 'EQUITABLE_THREAT_SCORE', 'PREVALENCE', 'BIAS', 'F1_SCORE',
                                     'masked_perc', 'MAG','BENCH','geometry'], geometry = 'geometry')
+
     # This funtion, relies on the test_case class defined in run_test_case.py to list all available test cases
     print('listing_test_cases_with_updates')
     all_test_cases = test_case.list_all_test_cases(version=version, archive=True, benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
-    x=0
+    
     for test_case_class in all_test_cases:
 
         if not os.path.exists(test_case_class.fim_dir):
@@ -156,23 +155,16 @@ if __name__ == "__main__":
             continue
         else:
             
-            #print(test_case_class.test_id, end='\r')
-            print(test_case_class.fim_dir)
+            print(test_case_class.fim_dir, end='\r')
+            #print(test_case_class.fim_dir)
             # Define the catchment geopackage that contains the hydroid and geometry of each catchment. 
             #huc_gpkg = os.path.join(test_case_class.fim_dir,'branches', 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
 
             agreement_dict = test_case_class.get_current_agreements()
-            print(agreement_dict)
-            print(type(agreement_dict))
-            print('agreement_dict*****************')
-
-
-           
+                       
 
             for agree_rast in agreement_dict:
-                    # x = x+1
-                    # if x > 2:
-                    #     break
+                    
                     print('performing_zonal_stats')
 
                     branches_dir = os.path.join(test_case_class.fim_dir,'branches')
@@ -180,25 +172,17 @@ if __name__ == "__main__":
                         if branches != "0":
                             continue
                         huc_gpkg = os.path.join(branches_dir,branches,)
-                        print(huc_gpkg)
-                        print('huc_gpkg_$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
-                        
+                                                
                         string_manip = "gw_catchments_reaches_filtered_addedAttributes_crosswalked_" + branches + ".gpkg"
-                        print(string_manip)
-                        huc_gpkg = os.path.join(huc_gpkg, string_manip)
-                        print(huc_gpkg)
-
-
-                        define_mag = agree_rast.split(version)
-                        define_mag_1 = define_mag[1].split('/')
-                        print(define_mag_1)
-                        mag = define_mag_1[1]
-                        print(mag)
-                        print("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG")
                         
-#/data/test_cases/usgs_test_cases/01070006_usgs/official_versions/fim_4_0_11_0/moderate/nchn3_b0m_agreement.tif']
+                        huc_gpkg = os.path.join(huc_gpkg, string_manip)
+                        
+                        define_mag = agree_rast.split(version)
 
-
+                        define_mag_1 = define_mag[1].split('/')
+                        
+                        mag = define_mag_1[1]
+                   
                         stats = perform_zonal_stats(huc_gpkg,agree_rast)
                         
                         print('assembling_hydroalpha_for_single_huc')
@@ -207,7 +191,7 @@ if __name__ == "__main__":
                         get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
                                             
                         in_mem_df = assemble_hydro_alpha_for_single_huc(stats, test_case_class.huc, mag, test_case_class.benchmark_cat)
-                        print(in_mem_df)
+                        
                         hydro_geom_df = get_geom[["HydroID", "geometry"]]
                         
                         geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how ='inner')
@@ -215,13 +199,12 @@ if __name__ == "__main__":
                         concat_df_list = [geom_output, csv_output]
 
                         csv_output = pd.concat(concat_df_list, sort=False)
-                        print("csv_concat_has_occurred*****************************************")
-                    
+                                           
    
     print('projecting to 3857')
     csv_output = csv_output.to_crs('EPSG:3857')
 
-    print('writing_to_csv')
+    print('manipulating the input string to exclude gpkg and include csv')
     csv_path_list = csv.split(".")
     csv_path = csv_path_list[0]
     csv_path_dot = csv_path + ".csv"
@@ -230,6 +213,7 @@ if __name__ == "__main__":
     print('writing_to_gpkg')
     csv_output.to_file(csv, driver="GPKG")
 
+    print('writing_to_csv')
     csv_output.to_csv(csv_path_dot) # Save to CSV
 
 
