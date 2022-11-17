@@ -84,7 +84,25 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
             print("No branches exist but branch zero processing will continue. This could be due to stream order filtering.")
             return
                                                  
-    # derive up and downstream networks
+    # derive nodes
+    stream_network = stream_network.derive_nodes(toNode_attribute=toNode_attribute,
+                                                 fromNode_attribute=fromNode_attribute,
+                                                 reach_id_attribute=reach_id_attribute,
+                                                 outlet_linestring_index=outlet_linestring_index,
+                                                 node_prefix=None,
+                                                 verbose=verbose)
+    
+    # derive outlets and inlets
+    stream_network = stream_network.derive_outlets(toNode_attribute,
+                                                   fromNode_attribute,
+                                                   outlets_attribute=outlets_attribute,
+                                                   verbose=verbose
+                                                  )
+    stream_network = stream_network.derive_inlets(toNode_attribute,
+                                                  fromNode_attribute,
+                                                  inlets_attribute=inlets_attribute,
+                                                  verbose=verbose
+                                                 )    # derive up and downstream networks
     upstreams, downstreams = stream_network.make_up_and_downstream_dictionaries(
                                                                          reach_id_attribute=reach_id_attribute,
                                                                          toNode_attribute=toNode_attribute,
