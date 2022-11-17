@@ -250,11 +250,13 @@ else
 fi
 
 ## CREATE USGS GAGES FILE
-echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"$stopDiv
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputDataDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id -bzero $dropLowStreamOrders
-Tcount
+if [ -f $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
+    echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"$stopDiv
+    date -u
+    Tstart
+    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputDataDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id -bzero $dropLowStreamOrders
+    Tcount
+fi
 
 ## USGS CROSSWALK ##
 if [ -f $outputHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
