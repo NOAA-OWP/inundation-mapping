@@ -156,13 +156,9 @@ if __name__ == "__main__":
         else:
             
             print(test_case_class.fim_dir, end='\r')
-            #print(test_case_class.fim_dir)
-            # Define the catchment geopackage that contains the hydroid and geometry of each catchment. 
-            #huc_gpkg = os.path.join(test_case_class.fim_dir,'branches', 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
-
-            agreement_dict = test_case_class.get_current_agreements()
                        
-
+            agreement_dict = test_case_class.get_current_agreements()
+           
             for agree_rast in agreement_dict:
                     
                     print('performing_zonal_stats')
