@@ -294,7 +294,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
     
     #Filter out columns and write out to file
-    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
+#    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
     viz_out_gdf.to_file(workspace /'nws_lid_flows_sites.shp')
     
     #time operation
