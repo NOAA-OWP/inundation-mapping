@@ -550,7 +550,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
     
     #Filter out columns and write out to file
-    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','geometry'])
+#    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','geometry'])
     viz_out_gdf.to_file(workspace /'nws_lid_flows_sites.shp')
     
 
