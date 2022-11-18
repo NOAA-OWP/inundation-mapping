@@ -68,46 +68,44 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     print('Retrieving metadata...')
     #Get metadata for 'CONUS'
     print(metadata_url)
-#    conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
-
+    conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['bwdt2'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
+    print(len(conus_list))
     #Get metadata for Islands
 #    islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
-
+#    print(len(islands_list))
     #Append the dataframes and lists
 #    all_lists = conus_list + islands_list
+    all_lists = conus_list
     
-    import pickle
-    with open('/data/temp/brad/alternate_catfim_temp_files/all_lists.pkl','rb') as f:
-        all_lists = pickle.load(f)
+#    import pickle
+#    with open('/data/temp/brad/alternate_catfim_temp_files/all_lists.pkl','rb') as f:
+#        all_lists = pickle.load(f)
     
     print('Determining HUC using WBD layer...')
     #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
     #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     #of all sites used later in script.
-#    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER)
-    import json
-    f = open('/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json')
-    huc_dictionary = json.load(f)
-    out_gdf = ''  # TEMP TODO
+    huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER, retain_attributes=True)
+    out_gdf.to_csv(os.path.join(workspace, 'out_gdf.csv'))
+    # Drop list fields if invalid
+    out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
+    out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    out_gdf.to_csv(os.path.join(workspace, 'out_gdf2.csv'))
+    print("Recasting...")
+    out_gdf = out_gdf.astype({'metadata_sources': str})
+#    import json
+#    f = open('/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json')
+#    huc_dictionary = json.load(f)
+#    out_gdf = ''  # TEMP TODO
 
-    #Get all possible mainstem segments
-    print('Getting list of mainstem segments')
     #Import list of evaluated sites
-    list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
-    #The entire routine to get mainstems is hardcoded in this function.
-#    ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
-        
-    import ast
-    with open('/data/temp/brad/alternate_catfim_temp_files/ms_segs.txt','r') as f:
-       ms_segs = ast.literal_eval(f.read())
-      
-    missing_huc_files = []
+#    missing_huc_files = []
     #Loop through each huc unit, first define message variable and flood categories.
     all_messages = []
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
         
     if stage_based:
-        return huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists
+        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists
     
     for huc in huc_dictionary:
         print(f'Iterating through {huc}')
@@ -190,9 +188,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             ### -- Concluded Datum Offset --- ###
             
             #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
-            segments = get_nwm_segs(metadata)        
-            site_ms_segs = set(segments).intersection(ms_segs)
-            segments = list(site_ms_segs)       
+            segments = list(set(get_nwm_segs(metadata)))
+            print("SEGMENTS")
+            print(segments)
 
             #if no segments, write message and exit out
             if not segments:
@@ -295,13 +293,15 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     
     #Filter out columns and write out to file
 #    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
-    viz_out_gdf.to_file(workspace /'nws_lid_flows_sites.shp')
+    nws_lid_layer = os.path.join(workspace, 'nws_lid_flows_sites.gpkg')
+    viz_out_gdf.to_file(nws_lid_layer)
     
     #time operation
     all_end = time.time()
     print(f'total time is {round((all_end - all_start)/60),1} minutes')
     
-    
+    return nws_lid_layer
+
     
 if __name__ == '__main__':
     #Parse arguments

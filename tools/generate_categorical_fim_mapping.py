@@ -167,7 +167,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
         os.mkdir(gpkg_dir)
 
     # Find the FIM version
-    merged_layer = os.path.join(output_catfim_dir, 'catfim_library.shp')
+    merged_layer = os.path.join(output_catfim_dir, 'catfim_library.gpkg')
 
     if not os.path.exists(merged_layer): # prevents appending to existing output
 
@@ -333,8 +333,8 @@ def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir,
                                  output_catfim_dir, 
                                  nws_lid_attributes_filename, 
                                  log_file, 
-                                 fim_version,
-                                 overwrite)
+                                 fim_version)
+
 
 if __name__ == '__main__':
 

@@ -43,9 +43,9 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
     
-    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata/{fim_version_folder}')
-    output_flows_dir = Path(f'/data/catfim_brad_metadata/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim_brad_metadata{fim_version_folder}/mapping')
+    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata2/{fim_version_folder}')
+    output_flows_dir = Path(f'/data/catfim_brad_metadata2/{fim_version_folder}/flows')
+    output_mapping_dir = Path(f'/data/catfim_brad_metadata2/{fim_version_folder}/mapping')
     nwm_us_search = '5'
     nwm_ds_search = '5'
     write_depth_tiff = False
@@ -61,7 +61,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     if args['stage_based']:
         stage_based = True
         # Generate Stage-Based CatFIM mapping
-        generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate)
+        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate)
     
         print("Post-processing TIFs...")
         print(fim_version)
@@ -69,7 +69,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     
         # Updating mapping status
         print('Updating mapping status')
-        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
 
     ## Run CatFIM scripts in sequence
     # Generate CatFIM flow files
@@ -78,7 +78,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         stage_based = False
         print('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
-        generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
+        nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
         end = time.time()
         elapsed_time = (end-start)/60
         print(f'Finished creating flow files in {elapsed_time} minutes')
@@ -93,9 +93,9 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
 
         # Updating mapping status
         print('Updating mapping status')
-        update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
     
-    # Create CSV versions of the final shapefiles.
+    # Create CSV versions of the final geopackages.
     print('Creating CSVs')
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
@@ -103,7 +103,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
     '''
-    Produces CSV versions of any shapefile in the output_mapping_dir.
+    Produces CSV versions of desired geopackage in the output_mapping_dir.
 
     Parameters
     ----------
@@ -118,21 +118,21 @@ def create_csvs(output_mapping_dir, reformatted_catfim_method):
 
     '''
     
-    # Convert any shapefile in the root level of output_mapping_dir to CSV and rename.
-    shapefile_list = glob.glob(os.path.join(output_mapping_dir, '*.shp'))
-    for shapefile in shapefile_list:
-        gdf = gpd.read_file(shapefile)
-        parent_directory = os.path.split(shapefile)[0]
-        if 'catfim_library' in shapefile:
+    # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
+    gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
+    for gpkg in gpkg_list:
+        gdf = gpd.read_file(gpkg)
+        parent_directory = os.path.split(gpkg)[0]
+        if 'catfim_library' in gpkg:
             file_name = reformatted_catfim_method + '_catfim.csv'
-        if 'nws_lid_sites' in shapefile:
+        if 'nws_lid_sites' in gpkg:
             file_name = reformatted_catfim_method + '_catfim_sites.csv'
         
         csv_output_path = os.path.join(parent_directory, file_name)
         gdf.to_csv(csv_output_path)
 
 
-def update_mapping_status(output_mapping_dir, output_flows_dir):
+def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer, stage_based):
     '''
     Updates the status for nws_lids from the flows subdirectory. Status
     is updated for sites where the inundation.py routine was not able to
@@ -161,28 +161,37 @@ def update_mapping_status(output_mapping_dir, output_flows_dir):
     mapping_df['did_it_map'] = 'no'
     mapping_df['map_status'] = ' and all categories failed to map'
 
-    # Import shapefile output from flows creation
-    shapefile = Path(output_flows_dir)/'nws_lid_flows_sites.shp'
-    flows_df = gpd.read_file(shapefile)
+    # Import geopackage output from flows creation
+    print(nws_sites_layer)
+    flows_df = gpd.read_file(nws_sites_layer)
 
     # Join failed sites to flows df
     flows_df = flows_df.merge(mapping_df, how = 'left', on = 'nws_lid')
 
+    print(flows_df)
+    print(flows_df.columns)
     # Switch mapped column to no for failed sites and update status
     flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
     flows_df.loc[flows_df['did_it_map']=='no','status'] = flows_df['status'] + flows_df['map_status']
     
-    # Update status for nws_lid in missing hucs and change mapped attribute to 'no'
-    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
-    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
+#    # Perform pass for HUCs where mapping was skipped due to missing data  #TODO check with Brian
+#    if stage_based:
+#        missing_mapping_hucs = 
+#    else:
+#        flows_hucs = [i.stem for i in Path(output_flows_dir).iterdir() if i.is_dir()]
+#        mapping_hucs = [i.stem for i in Path(output_mapping_dir).iterdir() if i.is_dir()]
+#        missing_mapping_hucs = list(set(flows_hucs) - set(mapping_hucs))
+#    
+#    # Update status for nws_lid in missing hucs and change mapped attribute to 'no'
+#    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
+#    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
 
     # Clean up GeoDataFrame and rename columns for consistency
     flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
     flows_df = flows_df.rename(columns = {'nws_lid':'ahps_lid'})
 
     # Write out to file
-    nws_lid_path = Path(output_mapping_dir) / 'nws_lid_sites.shp'
-    flows_df.to_file(nws_lid_path)
+    flows_df.to_file(nws_sites_layer)
 
 
 def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch):
@@ -218,16 +227,15 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     missing_huc_files = []
     all_messages = []  # TODO
-    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
+#    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']  # TODO
+    flood_categories = ['action', 'minor']
     stage_based_att_dict = {}
 
-    huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
+    huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
                     
+    print(out_gdf.columns)
+    print(out_gdf[:3])
     for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
-        if '1209' not in huc[:4]:
-            continue
-        print("1209 HUC!!!")
-        print(huc)
         # Make output directory for huc.
         huc_directory = os.path.join(workspace, huc)
         if not os.path.exists(huc_directory):
@@ -247,7 +255,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             with open(os.path.join(workspace, "missing_files.txt"),"a") as f:
                 f.write(branch_dir + "\n")
             continue  
-        print("HERE")
         # Read usgs_elev_df
         usgs_elev_df = pd.read_csv(usgs_elev_table)
             
@@ -255,11 +262,8 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
         #Get list of nws_lids
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in nws_lids list
-        for lid in nws_lids:
-            print(lid)
-            
-            #Convert lid to lower case
-            lid = lid.lower()
+        for lid in nws_lids:            
+            lid = lid.lower() # Convert lid to lower case
             
             # Make lid_directory.
             lid_directory = os.path.join(huc_directory, lid)
@@ -273,8 +277,14 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 message = f'{lid}:missing threshold stages'
                 all_messages.append(message)
                 continue
+            
+            # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
             try:
-                lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]  # Assuming DEM datums are consistent across all DEMs
+                matching_rows = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
+                if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
+                    lid_usgs_elev = usgs_elev_df.loc[(usgs_elev_df['nws_lid'] == lid.upper()) & ('levpa_id' != 0), 'dem_adj_elevation'].values[0]
+                else:
+                    lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
             except IndexError:  # Occurs when LID is missing from table
                 continue
             
@@ -341,8 +351,10 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             
             # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             segments = get_nwm_segs(metadata)
-            site_ms_segs = set(segments).intersection(ms_segs)
-            site_ms_segments = list(site_ms_segs)    
+            print("SEGMENTS")
+            print(segments)
+#            site_ms_segs = set(segments).intersection(ms_segs)
+#            site_ms_segments = list(site_ms_segs)    
             
             # For each flood category
             for category in flood_categories:
@@ -377,7 +389,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                             hydroid_list = []
                             
                             # Determine hydroids at which to perform inundation
-                            for feature_id in site_ms_segments:
+                            for feature_id in segments:
                                 try:
                                     subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
                                     hydroid_list += list(subset_hydrotable_df.HydroID.unique())
@@ -477,7 +489,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             nrldb_timestamp = metadata['nrldb_timestamp']
             nwis_timestamp = metadata['nwis_timestamp']
                         
-            #Create a csv with same information as shapefile but with each threshold as new record.
+            #Create a csv with same information as geopackage but with each threshold as new record.
             csv_df = pd.DataFrame()
             for threshold in flood_categories:
                 try:
@@ -498,8 +510,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 except Exception as e:
                     print("Exception")
                     print(e)
-                    print(stage_based_att_dict)
-                    print()
               
             #Round flow and stage columns to 2 decimal places.
             csv_df = csv_df.round({'q':2,'stage':2})
@@ -522,40 +532,44 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     for csv in csv_files:
         #Huc has to be read in as string to preserve leading zeros.
         try:
-            print("Opening temp_df")
             temp_df = pd.read_csv(csv, dtype={'huc':str})
             all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
             refined_csv_files_list.append(csv)
         except Exception:  # Happens if a file is empty (i.e. no mapping)
             print("Empty")
             pass
-    #Write to file
+    # Write to file
     all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
    
-    #This section populates a shapefile of all potential sites and details
-    #whether it was mapped or not (mapped field) and if not, why (status field).
+    # This section populates a geopackage of all potential sites and details
+    # whether it was mapped or not (mapped field) and if not, why (status field).
     
-    #Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
+    # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
     viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
     print(viz_out_gdf.columns)
     viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
     print(viz_out_gdf.columns)
     viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
     
-    #Using list of csv_files, populate DataFrame of all nws_lids that had
-    #a flow file produced and denote with "mapped" column.
+    # Using list of csv_files, populate DataFrame of all nws_lids that had
+    # a flow file produced and denote with "mapped" column.
     nws_lids = [file.stem.split('_attributes')[0] for file in refined_csv_files_list]  # Use the refined list to omit sites with missing mapping
     lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
     lids_df['mapped'] = 'yes'
     
-    #Identify what lids were mapped by merging with lids_df. Populate 
+    # Identify what lids were mapped by merging with lids_df. Populate 
     #'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
+    viz_out_gdf['status'] = 'coming soon'
     
-    #Filter out columns and write out to file
-#    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','geometry'])
-    viz_out_gdf.to_file(workspace /'nws_lid_flows_sites.shp')
+    # Filter out columns and write out to file
+ #   viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','geometry'])
+    nws_sites_layer = os.path.join(workspace, 'nws_lid_sites.gpkg')
+    viz_out_gdf.to_csv(os.path.join(workspace, 'viz_out_gdf3.csv'))
+    viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
+    
+    return nws_sites_layer
     
 
 if __name__ == '__main__':
