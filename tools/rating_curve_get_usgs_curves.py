@@ -42,12 +42,12 @@ def get_all_active_usgs_sites():
     select_by = 'usgs_site_code'
     selector = ['all']
     must_include = 'usgs_data.active'
-#    metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
+    metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
     
-    import pickle
-    print("Opening temp metadata file...")
-    with open('/data/temp/brad/alternate_catfim_temp_files/all_lists.pkl','rb') as f:
-        metadata_list = pickle.load(f)
+#    import pickle
+#    print("Opening temp metadata file...")
+#    with open('/data/temp/brad/alternate_catfim_temp_files/all_lists.pkl','rb') as f:
+#        metadata_list = pickle.load(f)
 #    print(metadata_list)
     #Filter out sites based quality of site. These acceptable codes were initially
     #decided upon and may need fine tuning. A link where more information
@@ -332,14 +332,14 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     #Populate mainstems attribute field
     acceptable_sites_gdf['mainstem'] = 'no'
     acceptable_sites_gdf.loc[acceptable_sites_gdf.eval('feature_id in @ms_segs'),'mainstem'] = 'yes' 
+    acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_pre.csv'))
     
-    acceptable_sites_gdf = acceptable_sites_gdf.drop(['upstream_nwm_features'], axis=1)
-    acceptable_sites_gdf = acceptable_sites_gdf.drop(['downstream_nwm_features'], axis=1)
+    acceptable_sites_gdf = acceptable_sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    acceptable_sites_gdf = acceptable_sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     
     print("Recasting...")
     acceptable_sites_gdf = acceptable_sites_gdf.astype({'metadata_sources': str})
-
-    acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites.csv'))
+    acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_post.csv'))
 
     #If workspace is specified, write data to file.
     if workspace:

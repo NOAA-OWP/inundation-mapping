@@ -99,7 +99,7 @@ class GageCrosswalk(object):
         elev_table = self.gages.copy()
         # Elev table cleanup  # This is where you should ensure no metadata fields are dropped
         elev_table.loc[elev_table['location_id'] == elev_table['nws_lid'], 'location_id'] = None # set location_id to None where there isn't a gage
-        elev_table = elev_table[['location_id', 'nws_lid', 'feature_id', 'HydroID', 'levpa_id', 'dem_elevation', 'dem_adj_elevation', 'order_', 'LakeID', 'HUC8', 'snap_distance']]
+#        elev_table = elev_table[['location_id', 'nws_lid', 'feature_id', 'HydroID', 'levpa_id', 'dem_elevation', 'dem_adj_elevation', 'order_', 'LakeID', 'HUC8', 'snap_distance']]
 
         if not elev_table.empty:
             elev_table.to_csv(output_table_filename, index=False)

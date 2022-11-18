@@ -106,6 +106,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     all_messages = []
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
     
+    print(stage_based)
+    
     if stage_based:
         return huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists
     

@@ -42,9 +42,9 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
     
-    output_catfim_dir_parent = Path(f'/data/catfim_brad_testing/{fim_version_folder}')
-    output_flows_dir = Path(f'/data/catfim_brad_testing/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim_brad_testing/{fim_version_folder}/mapping')
+    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata/{fim_version_folder}')
+    output_flows_dir = Path(f'/data/catfim_brad_metadata/{fim_version_folder}/flows')
+    output_mapping_dir = Path(f'/data/catfim_brad_metadata{fim_version_folder}/mapping')
     nwm_us_search = '5'
     nwm_ds_search = '5'
     write_depth_tiff = False
@@ -78,7 +78,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         stage_based = False
         print('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
-#        generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
+        generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
         end = time.time()
         elapsed_time = (end-start)/60
         print(f'Finished creating flow files in {elapsed_time} minutes')
@@ -99,8 +99,6 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     print('Creating CSVs')
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
-
-    
 
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
@@ -216,16 +214,19 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
                 dst.write(masked_reclass_rem_array, 1)
     
     
-def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, number_of_jobs):
+def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs):
     
     missing_huc_files = []
     all_messages = []  # TODO
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
     stage_based_att_dict = {}
 
-    huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
+    huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
                     
     for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
+        if huc != "07080101":
+            continue
+        
         # Make output directory for huc.
         huc_directory = os.path.join(workspace, huc)
         if not os.path.exists(huc_directory):
@@ -493,7 +494,10 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
                     csv_df = csv_df.append(line_df)
                     
                 except Exception as e:
+                    print("Exception")
                     print(e)
+                    print(stage_based_att_dict)
+                    print()
               
             #Round flow and stage columns to 2 decimal places.
             csv_df = csv_df.round({'q':2,'stage':2})
@@ -512,13 +516,16 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
     csv_files = list(workspace.rglob('*_attributes.csv'))
     all_csv_df = pd.DataFrame()
     
+    refined_csv_files_list = []
     for csv in csv_files:
         #Huc has to be read in as string to preserve leading zeros.
         try:
             print("Opening temp_df")
             temp_df = pd.read_csv(csv, dtype={'huc':str})
             all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
+            refined_csv_files_list.append(csv)
         except Exception:  # Happens if a file is empty (i.e. no mapping)
+            print("Empty")
             pass
     #Write to file
     all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
@@ -526,8 +533,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
     #This section populates a shapefile of all potential sites and details
     #whether it was mapped or not (mapped field) and if not, why (status field).
     
-    print("HERE!@")
-    print(out_gdf)
     #Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
     viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
     print(viz_out_gdf.columns)
@@ -537,11 +542,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_run_dir, nw
     
     #Using list of csv_files, populate DataFrame of all nws_lids that had
     #a flow file produced and denote with "mapped" column.
-    nws_lids = [file.stem.split('_attributes')[0] for file in csv_files]
+    nws_lids = [file.stem.split('_attributes')[0] for file in refined_csv_files_list]  # Use the refined list to omit sites with missing mapping
     lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
     lids_df['mapped'] = 'yes'
-    print("Right here now")
-    
     
     #Identify what lids were mapped by merging with lids_df. Populate 
     #'mapped' column with 'No' if sites did not map.
