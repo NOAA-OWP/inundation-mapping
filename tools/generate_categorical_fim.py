@@ -42,9 +42,9 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
     
-    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata/{fim_version_folder}')
-    output_flows_dir = Path(f'/data/catfim_brad_metadata/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim_brad_metadata{fim_version_folder}/mapping')
+    output_catfim_dir_parent = Path(f'/data/catfim_ucs_metadata/{fim_version_folder}')
+    output_flows_dir = Path(f'/data/catfim_ucs_metadata/{fim_version_folder}/flows')
+    output_mapping_dir = Path(f'/data/catfim_ucs_metadata{fim_version_folder}/mapping')
     nwm_us_search = '5'
     nwm_ds_search = '5'
     write_depth_tiff = False
@@ -224,8 +224,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
                     
     for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
-        if huc != "07080101":
-            continue
         
         # Make output directory for huc.
         huc_directory = os.path.join(workspace, huc)
