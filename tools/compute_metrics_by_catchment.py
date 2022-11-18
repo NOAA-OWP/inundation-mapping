@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-from itertools import product
+from itertools import product, combinations
 from time import time
 import warnings
 from functools import partial
@@ -21,6 +21,10 @@ from tqdm.dask import TqdmCallback
 import statsmodels.formula.api as smf
 from statsmodels.formula.api import ols
 import statsmodels.api as sm
+from sklearn.linear_model import LinearRegression
+from sklearn.feature_selection import SequentialFeatureSelector as SFS
+from sklearn_pandas import DataFrameMapper
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from foss_fim.tools.tools_shared_functions import csi, tpr, far, mcc
 
@@ -38,11 +42,20 @@ nwm_streams_fn = os.path.join(data_dir,'nwm_flows_1202.gpkg')
 huc8s_vector_fn = os.path.join(data_dir,'huc8s_1202.gpkg')
 
 # agreement raster function
-def build_agreement_raster_data_dir(huc, resolution, year):
-    return os.path.join(root_dir,'data','test_cases','ble_test_cases',
-                        f'{huc}_ble','testing_versions',
-                        f'3dep_test_1202_{resolution}m_GMS_n_12',
-                        f'{year}yr','total_area_agreement.tif')
+def build_agreement_raster_data_dir(huc, resolution, year, source):
+    
+    if source == '3dep':
+
+        return os.path.join(root_dir,'data','test_cases','ble_test_cases',
+                            f'{huc}_ble','testing_versions',
+                            f'3dep_test_1202_{resolution}m_GMS_n_12',
+                            f'{year}yr','total_area_agreement.tif')
+    elif source == 'nhd':
+        
+        return os.path.join(root_dir,'data','test_cases','ble_test_cases',
+                            f'{huc}_ble','testing_versions',
+                            '20210902_C892f8075_allBle_GMS_n_12',
+                            f'{year}yr','total_area_agreement.tif')
 
 # agreement factors
 resolutions = [3,5,10,15,20]
@@ -56,6 +69,20 @@ save_filename = os.path.join(data_dir,'experiment_data.h5')
 hdf_key = 'data'
 from_file = None
 #from_file = save_filename
+#feature_cols = ['huc8','spatial_resolution','magnitude','mainstem','order_','Lake','gages','Length']
+feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope']
+# encoded_features = ['order_','Lake','magnitude']
+#target_cols = ['CSI']
+#target_cols = ['MCC']
+#target_cols = ['TPR']
+target_cols = ['FAR']
+nhd_to_3dep_plot_fn = os.path.join(data_dir,'nhd_to_3dep_plot.png')
+
+# pipeline switches 
+add_two_way_interactions = True
+run_anova = True
+make_nhd_plot = True
+
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -135,19 +162,25 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
         
         # prepare combinations of resolutions, hucs, and years
         combos = list(product(hucs,resolutions,years))
-        num_of_combos = len(combos)
         
+        # append source
+        combos = [(h,r,y,'3dep') for h,r,y in combos]
+        nhd_combos = [(h,10,y,'nhd') for h,y in product(hucs,years)] 
+        combos = nhd_combos + combos
+
         # prepare outputs
+        num_of_combos = len(combos)
         list_of_secondary_metrics_df = [None] * num_of_combos
     
         print('Agreement By Catchment')
         # loop over every combination of resolutions and magnitude years
-        for idx,(h,r,y) in tqdm(enumerate(combos),
+        for idx,(h,r,y,s) in tqdm(enumerate(combos),
                                 desc='Rasterizing Catchments & Crosstabbing',
                                 total=num_of_combos):
             
             # load agreement raster
-            agreement_raster_fn = build_agreement_raster_data_dir(h,r,y)
+            agreement_raster_fn = build_agreement_raster_data_dir(h,r,y,s)
+            print(agreement_raster_fn);exit()
             agreement_raster = rxr.open_rasterio(
                                                  agreement_raster_fn,
                                                  #chunks=True,
@@ -197,16 +230,17 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
 
             #### calculate metrics ###
             # provides framework for computed secondary metrics df
-            meta = pd.DataFrame(columns=('CSI' ,'TPR', 'FAR', 'MCC', 'Total Samples', 'Frequency'), dtype='f8')
+            meta = pd.DataFrame(columns=('CSI' ,'TPR', 'FAR', 'MCC', 'Cohens Kappa','Total Samples', 'Frequency'), dtype='f8')
             
             # applies function to calc secondary metrics across rows. Uses expand to accomodate multiple columns
             # drops rows that are all na
-            # adds resolution, year, and huc and converts to category data types
+            # adds resolution, year, and huc. renames index to ID, and converts datatypes
             secondary_metrics_df = ct_dask_df.apply(calc_all_metrics,axis=1, meta=meta, result_type='expand') \
                                              .dropna(how='all') \
                                              .assign(huc8=lambda x : h) \
                                              .assign(spatial_resolution=lambda x : r) \
                                              .assign(magnitude=lambda x : y) \
+                                             .assign(dem_source=lambda x : s) \
                                              .reset_index(drop=False) \
                                              .rename(columns={'index':'ID'}) \
                                              .astype({'ID' : np.int64,'huc8' : np.int64})
@@ -235,6 +269,9 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     
     # what about repeat ID's
     # should we group by all factors and sum to aggregate???
+    # checking for duplicated IDs within resolution and magnitude
+    #print("Number of duplicate ID's within resolution and magnitude factor-level combinations", 
+    #    secondary_metrics_df.set_index(['spatial_resolution', 'magnitude','ID']).index.duplicated().sum())
     
     # join with nwm streams and convert datatypes
     secondary_metrics_df = secondary_metrics_df.merge(nwm_streams.loc[:,['ID','mainstem','order_',
@@ -242,14 +279,24 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                                                                'Slope', 'Length']],
                                                             on='ID') \
                                                      .drop(columns='index') \
+                                                     .astype({'huc8': np.int64,
+                                                              'spatial_resolution':np.float64,
+                                                              'magnitude': np.int64,
+                                                              'ID' : np.int64,
+                                                              'mainstem' : np.int64,
+                                                              'order_' : np.float64,
+                                                              'Lake' : np.int64,
+                                                              'gages' : np.int64})
+    """
                                                      .astype({'huc8':'category',
-                                                              'spatial_resolution':'category',
+                                                              'spatial_resolution':np.float64,
                                                               'magnitude':'category',
                                                               'ID' : 'category',
                                                               'mainstem' : 'category',
-                                                              'order_' : 'category',
+                                                              'order_' : np.float64,
                                                               'Lake' : 'category',
                                                               'gages' : 'category'})
+    """
     
     # save file
     if isinstance(save_filename,str) & isinstance(hdf_key,str):
@@ -262,7 +309,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     return(secondary_metrics_df)
 
 
-def analysis(secondary_metrics_df):
+def anova(secondary_metrics_df):
     
     """
     Index(['ID', 'CSI', 'TPR', 'FAR', 'MCC', 'huc8', 'spatial_resolution',
@@ -270,7 +317,7 @@ def analysis(secondary_metrics_df):
        'Lake', 'gages', 'Slope', 'Length'],
       dtype='object')
     """
-
+    """
     # build linear model
     linear_model = ols("MCC ~ C(huc8) + C(spatial_resolution) +" 
                   "C(magnitude) + C(mainstem) + C(order_) +"
@@ -282,12 +329,128 @@ def analysis(secondary_metrics_df):
 
     print(linear_model.summary())
     print(anova_table)
-
-    breakpoint()
     
-    return linear_model, anova_table
+    sm_df_for_model = secondary_metrics_df.dropna(how='any',subset=target_cols) \
+                                          .loc[:,feature_cols+target_cols] \
 
-def plotting():
+    nonencoded_features = list(set(feature_cols) - set(encoded_features))
+    mapper = DataFrameMapper([([ef],OrdinalEncoder()) for ef in encoded_features] + \
+                               [([nef], None) for nef in nonencoded_features],
+                             input_df=True,
+                             df_out=True)
+    feature_df = mapper.fit_transform(sm_df_for_model.loc[:,feature_cols])
+
+    sfs=SFS(LinearRegression(),n_features_to_select='auto',tol=0.0001,direction='backward',scoring='r2')
+    
+    sfs.fit(X=feature_df,
+            y=sm_df_for_model.loc[:,target_cols])
+    
+    selected_features = list(sfs.get_feature_names_out()) #+ ['Lake*order_']
+
+    """
+    selected_features = feature_cols
+
+    def __forward_model_selection(selected_features,tol=0.001,formula=None,prev_metric_val=None):
+
+        remaining_features = set(selected_features)
+
+        while remaining_features:
+            
+            results = []
+            for sf in remaining_features:
+                
+                if formula == None:
+                    formula_try = f"{target_cols[0]} ~ {sf}"
+                else:
+                    formula_try = formula + f" + {sf}"
+                
+                linear_model = ols(formula_try, 
+                                   data=secondary_metrics_df).fit()
+                print(f"R2 for {formula_try}: {linear_model.rsquared_adj}")
+                results += [(sf,linear_model.rsquared)]
+
+            results = sorted(results,key=lambda a: a[1],reverse=True)
+            
+            try:
+                lead_factor = results.pop(0)[0]
+            except IndexError:
+                break
+            
+            if formula == None:
+                prop_formula = f"{target_cols[0]} ~ {lead_factor}"
+            else:
+                prop_formula = formula + f" + {lead_factor}"
+            
+            prop_linear_model = ols(prop_formula, 
+                                    data=secondary_metrics_df).fit()
+            
+            if prev_metric_val == None:
+                prev_metric_val = 0
+
+            delta = prop_linear_model.rsquared_adj - prev_metric_val
+            
+            prev_metric_val = linear_model.rsquared_adj
+
+            if delta < tol:
+                print(f"BROKEN: R2 for {formula}: {linear_model.rsquared_adj} | delta: {delta}")
+                return(linear_model)
+            else:
+                linear_model = prop_linear_model
+                formula = prop_formula
+                print(f"Locked in Change R2 for {formula}: {linear_model.rsquared_adj} | delta: {delta}")
+
+
+            remaining_features.remove(lead_factor)
+
+        return(linear_model)
+    
+    linear_models = __forward_model_selection(selected_features)
+    
+    # make two way interactions
+    if add_two_way_interactions:
+        two_way = [f"{i}:{ii}" for i,ii in combinations(selected_features,2)]
+        linear_models = __forward_model_selection(two_way,formula=linear_models.model.formula,prev_metric_val=linear_models.rsquared_adj)
+
+    print(f"Final Formula: {linear_models.model.formula} | Adj-R2: {linear_models.rsquared_adj}")
+    breakpoint()
+    # CSI ~ Lake + order_ + Slope + spatial_resolution + Length + magnitude + order_:Slope + order_:Lake + spatial_resolution:Lake + magnitude:Length | Adj-R2: 0.43326573000631363
+    # MCC ~ Lake + order_ + spatial_resolution + Slope + magnitude + Length + order_:Slope + order_:Lake + spatial_resolution:Lake + Lake:Slope + Length:Slope + order_:Length + spatial_resolution:order_ + spatial_resolution:magnitude | Adj-R2: 0.27142143145244746
+    # TPR ~ Lake + spatial_resolution + order_ + Length + Slope + magnitude + order_:Lake + spatial_resolution:Lake + order_:Slope + spatial_resolution:order_ + spatial_resolution:Length + Lake:Length + magnitude:Length | Adj-R2: 0.4575340086432875
+    # FAR ~ Slope + order_ + Lake + spatial_resolution + Length + magnitude + order_:Slope + order_:Lake + Length:Slope + Lake:Length + spatial_resolution:Slope | Adj-R2: 0.2752411117288007
+
+
+    #return linear_model, anova_table
+
+def nhd_to_3dep_plot():
+    
+    """
+    histogram of differences (3dep 10m - nhd 10m) by catchment sorted and centered at zero and vertically oriented
+    two columns by magnitude (100, 500yr), three rows by metric (CSI, TPR, FAR)
+    """
+    pass
+
+def resolution_plot():
+    
+    """
+    violin plots of metric values oriented horizontally for 3dep data by resolution (3,5,10,15,20m)
+    split magnitudes by half along magnitude
+    make three subplots along one row one for each metric
+    """
+    pass
+
+
+def lake_plot():  
+    """
+    Illustrate issue with lakes????
+    Investigate why we are getting scores in lake catchments first. They should be masked out.
+    Maybe this is best presented with geospatial maps only for presentation?
+    """
+    pass
+
+def slope_plot():
+    pass
+
+def channel_length_plot():
     pass
 
 if __name__ == '__main__':
@@ -299,6 +462,11 @@ if __name__ == '__main__':
         secondary_metrics_df = compute_metrics_by_catchment(nwm_catchments_fn,nwm_streams_fn, huc8s_vector_fn,
                                                                resolutions,years,hucs, chunk_size,
                                                                save_filename,hdf_key)
+    if run_anova:
+        anova(secondary_metrics_df)
 
-    breakpoint()
-    linear_model, anova_table = analysis(secondary_metrics_df)
+    if make_nhd_plot:
+        nhd_to_3dep_plot(secondary_metrics_df,nhd_to_3dep_plot_fn)
+
+    # RUN THIS TO GET CATCHMENTS WITH LAKE METRICS
+    # secondary_metrics_df.loc[secondary_metrics_df.loc[:,'Lake'] != -9999,'MCC'].dropna()
