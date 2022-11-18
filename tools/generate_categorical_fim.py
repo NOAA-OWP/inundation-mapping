@@ -9,6 +9,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import rasterio
+from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
 from generate_categorical_fim_flows import generate_catfim_flows
 from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
@@ -42,9 +43,9 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
     
-    output_catfim_dir_parent = Path(f'/data/catfim_ucs_metadata/{fim_version_folder}')
-    output_flows_dir = Path(f'/data/catfim_ucs_metadata/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim_ucs_metadata{fim_version_folder}/mapping')
+    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata/{fim_version_folder}')
+    output_flows_dir = Path(f'/data/catfim_brad_metadata/{fim_version_folder}/flows')
+    output_mapping_dir = Path(f'/data/catfim_brad_metadata{fim_version_folder}/mapping')
     nwm_us_search = '5'
     nwm_ds_search = '5'
     write_depth_tiff = False
@@ -69,7 +70,6 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         # Updating mapping status
         print('Updating mapping status')
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir))
-
 
     ## Run CatFIM scripts in sequence
     # Generate CatFIM flow files
@@ -224,7 +224,10 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     huc_dictionary, out_gdf, ms_segs, list_of_sites, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
                     
     for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
-        
+        if '1209' not in huc[:4]:
+            continue
+        print("1209 HUC!!!")
+        print(huc)
         # Make output directory for huc.
         huc_directory = os.path.join(workspace, huc)
         if not os.path.exists(huc_directory):
@@ -243,7 +246,8 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
         if not os.path.exists(branch_dir):
             with open(os.path.join(workspace, "missing_files.txt"),"a") as f:
                 f.write(branch_dir + "\n")
-            continue        
+            continue  
+        print("HERE")
         # Read usgs_elev_df
         usgs_elev_df = pd.read_csv(usgs_elev_table)
             
