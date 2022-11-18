@@ -696,13 +696,11 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     #Iterate through each site
     print("Iterating through metadata list...")
     for metadata in metadata_list:
-        print(metadata)
         #Convert metadata to json
         print("Normalizing metadata...")
         df = pd.json_normalize(metadata)
         #Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
-        print(df.columns)
         #Drop any metadata sites that don't have lat/lon populated
         df.dropna(subset = ['identifiers_nws_lid','usgs_preferred_latitude', 'usgs_preferred_longitude'], inplace = True)
         #If dataframe still has data

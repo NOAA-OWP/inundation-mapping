@@ -131,7 +131,7 @@ def run_inundation(args):
                                          verbose = False,
                                          log_file = None,
                                          output_fileNames = None )
-        
+        print("Mosaicking for " + huc)
         Mosaic_inundation( map_file,
                             mosaic_attribute = 'inundation_rasters',
                             mosaic_output = output_extent_grid,
@@ -160,6 +160,9 @@ def run_inundation(args):
 
 
 def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attributes_filename="", log_file="", fim_version=""):
+    print("In post processing...")
+    
+    print(output_catfim_dir)
     
     # Create workspace
     gpkg_dir = os.path.join(output_catfim_dir, 'gpkg')
@@ -188,22 +191,23 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
     
                         # Loop through ahps sites
                         for ahps_lid in ahps_dir_list:
-                            print("1")
                             print(ahps_lid)
-                            print("")
                             ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
     
                             extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent' + '.tif')
-                            print("extent_grid")
-                            print(extent_grid)
                             # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
                             nws_lid_attributes_filename = os.path.join(ahps_lid_dir, ahps_lid + '_attributes.csv')
+                            
+                            # Attributes are put into 'flows' during Flow-Based
+                            if not os.path.exists(nws_lid_attributes_filename):
+                                nws_lid_attributes_filename = nws_lid_attributes_filename.replace('mapping', 'flows')
                             
                             if os.path.exists(extent_grid):
                                 try:
 #                                    reformat_inundation_maps([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
                                     executor.submit(reformat_inundation_maps, [ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
                                 except Exception as ex:
+                                    print("EXCEPTION")
                                     print(f"*** {ex}")
                                     traceback.print_exc() 
                                     f = open(log_file, 'a+')
@@ -245,6 +249,7 @@ def reformat_inundation_maps(args):
         huc = args[4]
         magnitude = args[5]
         nws_lid_attributes_filename = args[6]
+        print(nws_lid_attributes_filename)
 
         # Convert raster to to shapes
         with rasterio.open(grid_path) as src:
@@ -285,12 +290,14 @@ def reformat_inundation_maps(args):
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
 
         if not extent_poly_diss.empty:
-
+            print("NOT EMPTY")
             extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
     except Exception as e:
         # Log and clean out the gdb so it's not merged in later
         try:
+            print("EXCEPTION HERE")
+            print(e)
             f = open(log_file, 'a+')
             f.write(str(diss_extent_filename) + " - dissolve error: " + str(e))
             f.close()

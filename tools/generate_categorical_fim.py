@@ -21,8 +21,7 @@ from utils.shared_variables import VIZ_PROJECTION
 
 def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inundate, 
                                  stage_based, output_folder, overwrite):
-
-    # check job numbers
+    # Check job numbers
     total_cpus_requested = job_number_huc * job_number_inundate
     total_cpus_available = os.cpu_count() - 1
     if total_cpus_requested > total_cpus_available:
@@ -34,6 +33,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     # Define default arguments. Modify these if necessary
     fim_run_dir = Path(f'{fim_version}')
     fim_version_folder = os.path.basename(fim_version)
+    fim_version = os.path.split(fim_version)[1]
     
     # Append option configuration (flow_based or stage_based) to output folder name.
     if args['stage_based']:
@@ -43,36 +43,37 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
         fim_version_folder += "_flow_based"
         catfim_method = "FLOW-BASED"
     
-    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata2/{fim_version_folder}')
-    output_flows_dir = Path(f'/data/catfim_brad_metadata2/{fim_version_folder}/flows')
-    output_mapping_dir = Path(f'/data/catfim_brad_metadata2/{fim_version_folder}/mapping')
-    nwm_us_search = '5'
-    nwm_ds_search = '5'
-    write_depth_tiff = False
+    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3')
+    output_flows_dir = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3/flows')
+    output_mapping_dir = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3/mapping')
+    
+    if not os.path.exists(output_catfim_dir_parent):
+        os.mkdir(output_catfim_dir_parent)
+    if not os.path.exists(output_flows_dir):
+        os.mkdir(output_flows_dir)
+    if not os.path.exists(output_mapping_dir):
+        os.mkdir(output_mapping_dir)
+    nwm_us_search, nwm_ds_search = '5', '5'
     fim_dir = args['fim_version']
     
-    # Create log directory
+    # Set up logging
     log_dir = os.path.join(output_catfim_dir_parent, 'logs')
-    # Create error log path
     log_file = os.path.join(log_dir, 'errors.log')
     
-    fim_version = os.path.split(fim_version)[1]
-    
+    # STAGE-BASED
     if args['stage_based']:
         stage_based = True
         # Generate Stage-Based CatFIM mapping
         nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate)
     
         print("Post-processing TIFs...")
-        print(fim_version)
         post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, nws_lid_attributes_filename="", log_file=log_file, fim_version=fim_version)
     
         # Updating mapping status
         print('Updating mapping status')
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
 
-    ## Run CatFIM scripts in sequence
-    # Generate CatFIM flow files
+    # FLOW-BASED
     else:
         fim_dir = ""
         stage_based = False
@@ -162,14 +163,11 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
     mapping_df['map_status'] = ' and all categories failed to map'
 
     # Import geopackage output from flows creation
-    print(nws_sites_layer)
     flows_df = gpd.read_file(nws_sites_layer)
 
     # Join failed sites to flows df
     flows_df = flows_df.merge(mapping_df, how = 'left', on = 'nws_lid')
 
-    print(flows_df)
-    print(flows_df.columns)
     # Switch mapped column to no for failed sites and update status
     flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
     flows_df.loc[flows_df['did_it_map']=='no','status'] = flows_df['status'] + flows_df['map_status']
@@ -233,8 +231,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
 
     huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
                     
-    print(out_gdf.columns)
-    print(out_gdf[:3])
     for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
         # Make output directory for huc.
         huc_directory = os.path.join(workspace, huc)
@@ -536,7 +532,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
             refined_csv_files_list.append(csv)
         except Exception:  # Happens if a file is empty (i.e. no mapping)
-            print("Empty")
             pass
     # Write to file
     all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
@@ -546,9 +541,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
     viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
-    print(viz_out_gdf.columns)
     viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
-    print(viz_out_gdf.columns)
     viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
     
     # Using list of csv_files, populate DataFrame of all nws_lids that had
@@ -566,7 +559,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     # Filter out columns and write out to file
  #   viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','geometry'])
     nws_sites_layer = os.path.join(workspace, 'nws_lid_sites.gpkg')
-    viz_out_gdf.to_csv(os.path.join(workspace, 'viz_out_gdf3.csv'))
     viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
     
     return nws_sites_layer

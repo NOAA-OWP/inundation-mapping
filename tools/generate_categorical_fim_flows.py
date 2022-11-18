@@ -53,7 +53,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         
     all_start = time.time()
     API_BASE_URL, WBD_LAYER = get_env_paths()
-
+    print(workspace)
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
@@ -69,7 +69,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     #Get metadata for 'CONUS'
     print(metadata_url)
     conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['bwdt2'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
-    print(len(conus_list))
     #Get metadata for Islands
 #    islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
 #    print(len(islands_list))
@@ -86,11 +85,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     #of all sites used later in script.
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER, retain_attributes=True)
-    out_gdf.to_csv(os.path.join(workspace, 'out_gdf.csv'))
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-    out_gdf.to_csv(os.path.join(workspace, 'out_gdf2.csv'))
     print("Recasting...")
     out_gdf = out_gdf.astype({'metadata_sources': str})
 #    import json
@@ -256,7 +253,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
         #Huc has to be read in as string to preserve leading zeros.
-        print(csv)
         temp_df = pd.read_csv(csv, dtype={'huc':str})
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write to file
@@ -293,8 +289,10 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     
     #Filter out columns and write out to file
 #    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
-    nws_lid_layer = os.path.join(workspace, 'nws_lid_flows_sites.gpkg')
-    viz_out_gdf.to_file(nws_lid_layer)
+    nws_lid_layer = os.path.join(workspace, 'nws_lid_sites.gpkg').replace('flows', 'mapping')
+    print(nws_lid_layer)
+
+    viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')
     
     #time operation
     all_end = time.time()
