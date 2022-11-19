@@ -19,9 +19,9 @@ import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
-def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inundate, 
-                                 stage_based, output_folder, overwrite):
-    # Check job numbers
+def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite):
+        
+    # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate
     total_cpus_available = os.cpu_count() - 1
     if total_cpus_requested > total_cpus_available:
@@ -36,7 +36,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     fim_version = os.path.split(fim_version)[1]
     
     # Append option configuration (flow_based or stage_based) to output folder name.
-    if args['stage_based']:
+    if stage_based:
         fim_version_folder += "_stage_based"
         catfim_method = "STAGE-BASED"
     else:
@@ -47,22 +47,21 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     output_flows_dir = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3/flows')
     output_mapping_dir = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3/mapping')
     
-    if not os.path.exists(output_catfim_dir_parent):
-        os.mkdir(output_catfim_dir_parent)
-    if not os.path.exists(output_flows_dir):
-        os.mkdir(output_flows_dir)
-    if not os.path.exists(output_mapping_dir):
-        os.mkdir(output_mapping_dir)
+    # Create output directories
+    if not os.path.exists(output_catfim_dir_parent): os.mkdir(output_catfim_dir_parent)
+    if not os.path.exists(output_flows_dir): os.mkdir(output_flows_dir)
+    if not os.path.exists(output_mapping_dir): os.mkdir(output_mapping_dir)
+    
+    # Define upstream and downstream search in miles
     nwm_us_search, nwm_ds_search = '5', '5'
-    fim_dir = args['fim_version']
+    fim_dir = fim_version
     
     # Set up logging
     log_dir = os.path.join(output_catfim_dir_parent, 'logs')
     log_file = os.path.join(log_dir, 'errors.log')
     
     # STAGE-BASED
-    if args['stage_based']:
-        stage_based = True
+    if stage_based:
         # Generate Stage-Based CatFIM mapping
         nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate)
     
@@ -76,7 +75,6 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     # FLOW-BASED
     else:
         fim_dir = ""
-        stage_based = False
         print('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
         nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
@@ -232,6 +230,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
                     
     for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
+        print(f'Iterating through {huc}...') 
         # Make output directory for huc.
         huc_directory = os.path.join(workspace, huc)
         if not os.path.exists(huc_directory):
@@ -239,7 +238,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
         
         # Open necessary HAND and HAND-related files.
         usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
-        # If usgs_elev_table doesn't exist for a HUC, append HUC to list for logging
+        # If usgs_elev_table doesn't exist for a HUC, append HUC to list for logging - METADATA
         if not os.path.exists(usgs_elev_table):
             if huc not in missing_huc_files:
                 missing_huc_files.append(huc)
@@ -247,31 +246,31 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 f.write(usgs_elev_table + "\n")
             continue
         branch_dir = os.path.join(fim_dir, huc, 'branches')
-        if not os.path.exists(branch_dir):
+        if not os.path.exists(branch_dir):  # METADATA
             with open(os.path.join(workspace, "missing_files.txt"),"a") as f:
                 f.write(branch_dir + "\n")
-            continue  
+            continue
+        
+        # -- If necessary files exist, continue -- #
+        
         # Read usgs_elev_df
         usgs_elev_df = pd.read_csv(usgs_elev_table)
             
-        print(f'Iterating through {huc}')
-        #Get list of nws_lids
+        # Loop through each lid in nws_lids list
         nws_lids = huc_dictionary[huc]
-        #Loop through each lid in nws_lids list
         for lid in nws_lids:            
-            lid = lid.lower() # Convert lid to lower case
-            
             # Make lid_directory.
+            lid = lid.lower() # Convert lid to lower case
             lid_directory = os.path.join(huc_directory, lid)
             if not os.path.exists(lid_directory):
                 os.mkdir(lid_directory)
 
-            #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
+            # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
-            #Check if stages are supplied, if not write message and exit. 
+            
+            # Check if stages are supplied, if not write message and exit. 
             if all(stages.get(category, None)==None for category in flood_categories):
-                message = f'{lid}:missing threshold stages'
-                all_messages.append(message)
+                all_messages.append(f'{lid}:missing threshold stages')
                 continue
             
             # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
@@ -282,12 +281,13 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 else:
                     lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
             except IndexError:  # Occurs when LID is missing from table
+                all_messages.append(f'{lid}:missing from usgs_elev_table')
                 continue
             
             # Initialize nested dict for lid attributes
             stage_based_att_dict.update({lid:{}})
                 
-            #find lid metadata from master list of metadata dictionaries.
+            # Find lid metadata from master list of metadata dictionaries.
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
             lid_altitude = metadata['usgs_data']['altitude']
        
@@ -296,68 +296,67 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             rating_curve_source = flows.get('source')
             if rating_curve_source is None:
                 continue
+            
+            # Get the datum and adjust to NAVD if necessary.
+            nws_datum_info, usgs_datum_info = get_datum(metadata)
+            if rating_curve_source == 'USGS Rating Depot':
+                datum_data = usgs_datum_info
+            elif rating_curve_source == 'NRLDB':
+                datum_data = nws_datum_info
                         
-            #Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
+            # If datum not supplied, skip to new site
+            datum = datum_data.get('datum', None)
+            if datum is None:
+                all_messages.append(f'{lid}:missing datum in metadata')
+                continue      
+            
+            # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). 
+            # Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
             if lid == 'bmbp1':
                 rating_curve_source = 'NRLDB'
             
-            #Get the datum and adjust to NAVD if necessary.
-            nws, usgs = get_datum(metadata)
-            datum_data = {}
-            if rating_curve_source == 'USGS Rating Depot':
-                datum_data = usgs
-            elif rating_curve_source == 'NRLDB':
-                datum_data = nws
-                        
-            #If datum not supplied, skip to new site
-            datum = datum_data.get('datum', None)
-            if datum is None:
-#                f.write(f'{lid} : skipping because site is missing datum\n')
-                continue      
-            
-            #Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
+            # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
             # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7 
             # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
             if lid in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
                 datum_data.update(crs = 'NAD83')
             
-            #Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
+            # SPECIAL CASE: Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. 
+            # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
             if lid == 'bmbp1':
                 datum_data.update(crs = 'NAD27')
             
-            #Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. If NGVD29 it is converted to NAVD88.
-            #bgwn7, eagi1 vertical datum unknown, assume navd88
-            #fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
-            #wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
+            # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. 
+            # If NGVD29 it is converted to NAVD88.
+            # bgwn7, eagi1 vertical datum unknown, assume navd88
+            # fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
+            # wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
             if lid in ['bgwn7','eagi1','fatw3']:
                 datum_data.update(vcs = 'NAVD88')
             elif lid == 'wlln7':
                 datum_data.update(vcs = 'NGVD29')
             
-            #Adjust datum to NAVD88 if needed
+            # Adjust datum to NAVD88 if needed
             # Default datum_adj_ft to 0.0
             datum_adj_ft = 0.0
             if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-                #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
+                # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
                 try:
                     datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
                 except Exception as e:
-                    all_messages.append(e)
+                    all_messages.append(f'{lid}:datum adjustment failed;' + str(e))
             ### -- Concluded Datum Offset --- ###
             
             # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             segments = get_nwm_segs(metadata)
             print("SEGMENTS")
             print(segments)
-#            site_ms_segs = set(segments).intersection(ms_segs)
-#            site_ms_segments = list(site_ms_segs)    
             
             # For each flood category
             for category in flood_categories:
-                if datum_adj_ft == None:
-                    datum_adj_ft = 0.0
-                stage = stages[category]
                 
+                # Pull stage value and confirm it's valid, then process
+                stage = stages[category]
                 if stage != None and datum_adj_ft != None and lid_altitude != None:
                     # Determine datum-offset water surface elevation (from above).
                     datum_adj_wse = stage + datum_adj_ft + lid_altitude
@@ -376,9 +375,15 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                             catchments_path = os.path.join(fim_dir, huc, full_branch_path, 'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif')
                             hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
                             
-                            if not os.path.exists(rem_path): continue
-                            if not os.path.exists(catchments_path): continue
-                            if not os.path.exists(hydrotable_path): continue
+                            if not os.path.exists(rem_path):
+                                all_messages.append(f"{lid}:rem doesn't exist")
+                                continue
+                            if not os.path.exists(catchments_path):
+                                all_messages.append(f"{lid}:catchments files doesn't exist")
+                                continue
+                            if not os.path.exists(hydrotable_path):
+                                all_messages.append(f"{lid}:hydrotable_path doesn't exist")
+                                continue
                             
                             # Use hydroTable to determine hydroid_list from site_ms_segments.
                             hydrotable_df = pd.read_csv(hydrotable_path)
@@ -391,28 +396,24 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                                     hydroid_list += list(subset_hydrotable_df.HydroID.unique())
                                 except IndexError:
                                     pass
+                                
                             if len(hydroid_list) == 0:
+                                all_messages.append(f"{lid}:no matching hydroids")
                                 continue
 
-                            #if no segments, write message and exit out
+                            # If no segments, write message and exit out
                             if not segments:
-                                print(f'{lid} no segments')
-                                message = f'{lid}:missing nwm segments'
-                                all_messages.append(message)
+                                all_messages.append(f'{lid}:missing nwm segments')
                                 continue
                             
-                            if not os.path.exists(hydrotable_path):
-                                print("hydrotable doesn't exist")
-                                continue
                             # Create inundation maps with branch and stage data
                             try:
                                 print("Running inundation for " + huc + " and branch " + branch)
                                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
-                            except Exception as ex:
-                                print(f"*** {ex}")
-                                traceback.print_exc()
-                                sys.exit(1)
-                                
+                            except Exception:
+                                all_messages.append(f'{lid}:inundation failed at {category}')
+                    
+                    # -- MOSAIC -- #
                     # Merge all rasters in lid_directory that have the same magnitude/category.
                     path_list = []
                     lid_dir_list = os.listdir(lid_directory)
@@ -477,9 +478,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             state = metadata['nws_data']['state']
             county = metadata['nws_data']['county']
             name = metadata['nws_data']['name']
-            flow_units = flows['units']
             flow_source = flows['source']
-            stage_units = stages['units']
             stage_source = stages['source']
             wrds_timestamp = stages['wrds_timestamp']
             nrldb_timestamp = metadata['nrldb_timestamp']
