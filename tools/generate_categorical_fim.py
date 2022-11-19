@@ -19,7 +19,7 @@ import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
-def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite):
+def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search):
         
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate
@@ -31,21 +31,18 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
                           'values accordingly.'.format(job_number_huc, job_number_inundate) )
 
     # Define default arguments. Modify these if necessary
-    fim_run_dir = Path(f'{fim_version}')
-    fim_version_folder = os.path.basename(fim_version)
-    fim_version = os.path.split(fim_version)[1]
+    fim_version = os.path.split(fim_run_dir)[1]
     
     # Append option configuration (flow_based or stage_based) to output folder name.
     if stage_based:
-        fim_version_folder += "_stage_based"
-        catfim_method = "STAGE-BASED"
+        file_handle_appendage, catfim_method = "_stage_based", "STAGE-BASED"
     else:
-        fim_version_folder += "_flow_based"
-        catfim_method = "FLOW-BASED"
+        file_handle_appendage, catfim_method = "_flow_based", "FLOW-BASED"
     
-    output_catfim_dir_parent = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3')
-    output_flows_dir = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3/flows')
-    output_mapping_dir = Path(f'/data/catfim_brad_metadata3/{fim_version_folder}_brad3/mapping')
+    # Define output directories
+    output_catfim_dir_parent = output_folder + file_handle_appendage
+    output_flows_dir = os.path.join(output_catfim_dir_parent, 'flows')
+    output_mapping_dir = os.path.join(output_catfim_dir_parent, 'mapping')
     
     # Create output directories
     if not os.path.exists(output_catfim_dir_parent): os.mkdir(output_catfim_dir_parent)
@@ -53,7 +50,7 @@ def process_generate_categorical_fim(fim_version, job_number_huc, job_number_inu
     if not os.path.exists(output_mapping_dir): os.mkdir(output_mapping_dir)
     
     # Define upstream and downstream search in miles
-    nwm_us_search, nwm_ds_search = '5', '5'
+    nwm_us_search, nwm_ds_search = search, search
     fim_dir = fim_version
     
     # Set up logging
@@ -570,7 +567,7 @@ if __name__ == '__main__':
     
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
-    parser.add_argument('-f', '--fim_version', help='Path to directory containing outputs of fim_run.sh',
+    parser.add_argument('-f', '--fim_run_dir', help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_0_9_2',
                         required=True)
     parser.add_argument('-jh','--job_number_huc',help='Number of processes to use for HUC scale operations.'\
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'\
@@ -583,6 +580,8 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--output_folder', help = 'Target: Where the output folder will be',
                         required = False, default = '/data/catfim/')
     parser.add_argument('-o','--overwrite', help='Overwrite files', required=False, action="store_true")
+    parser.add_argument('-s','--search', help='Upstream and downstream search in miles. How far up and downstream do you want to go?',
+                        required=False, default="5")
     
     args = vars(parser.parse_args())
     process_generate_categorical_fim(**args)
