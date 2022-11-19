@@ -19,7 +19,7 @@ import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
-def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search):
+def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run):
         
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate
@@ -43,11 +43,13 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     output_catfim_dir_parent = output_folder + file_handle_appendage
     output_flows_dir = os.path.join(output_catfim_dir_parent, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir_parent, 'mapping')
+    attributes_dir = os.path.join(output_catfim_dir_parent, 'attributes')
     
     # Create output directories
     if not os.path.exists(output_catfim_dir_parent): os.mkdir(output_catfim_dir_parent)
     if not os.path.exists(output_flows_dir): os.mkdir(output_flows_dir)
     if not os.path.exists(output_mapping_dir): os.mkdir(output_mapping_dir)
+    if not os.path.exists(attributes_dir): os.mkdir(attributes_dir)
     
     # Define upstream and downstream search in miles
     nwm_us_search, nwm_ds_search = search, search
@@ -60,7 +62,7 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     # STAGE-BASED
     if stage_based:
         # Generate Stage-Based CatFIM mapping
-        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate)
+        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir)
     
         print("Post-processing TIFs...")
         post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, nws_lid_attributes_filename="", log_file=log_file, fim_version=fim_version)
@@ -74,7 +76,7 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         fim_dir = ""
         print('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
-        nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir)
+        nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir)
         end = time.time()
         elapsed_time = (end-start)/60
         print(f'Finished creating flow files in {elapsed_time} minutes')
@@ -216,7 +218,7 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
                 dst.write(masked_reclass_rem_array, 1)
     
     
-def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs):
+def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs, lid_to_run, attributes_dir):
     
     missing_huc_files = []
     all_messages = []  # TODO
@@ -224,7 +226,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     flood_categories = ['action', 'minor']
     stage_based_att_dict = {}
 
-    huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir)
+    huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
                     
     for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
         print(f'Iterating through {huc}...') 
@@ -505,19 +507,22 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
               
             #Round flow and stage columns to 2 decimal places.
             csv_df = csv_df.round({'q':2,'stage':2})
-
+            print(workspace)
+            print(huc)
+            print(lid)
             #If a site folder exists (ie a flow file was written) save files containing site attributes.
-            output_dir = workspace / huc / lid
-            if output_dir.exists():
+            output_dir = os.path.join(workspace, huc, lid)
+            if os.path.exists(output_dir):
                 #Export DataFrame to csv containing attributes
-                csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
+                csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index = False)
             else:
-                message = f'{lid}:missing all calculated flows'
+                message = f'{lid}:missing all calculated flows'  # TODO METADATA
                 all_messages.append(message)
                 
     print('Wrapping up Stage-Based CatFIM...')
     #Recursively find all *_attributes csv files and append
-    csv_files = list(workspace.rglob('*_attributes.csv'))
+    
+    csv_files = os.listdir(attributes_dir)
     all_csv_df = pd.DataFrame()
     
     refined_csv_files_list = []
@@ -530,7 +535,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
         except Exception:  # Happens if a file is empty (i.e. no mapping)
             pass
     # Write to file
-    all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
+    all_csv_df.to_csv(os.path.join(workspace, 'nws_lid_attributes.csv'), index = False)
    
     # This section populates a geopackage of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).
@@ -542,7 +547,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     # Using list of csv_files, populate DataFrame of all nws_lids that had
     # a flow file produced and denote with "mapped" column.
-    nws_lids = [file.stem.split('_attributes')[0] for file in refined_csv_files_list]  # Use the refined list to omit sites with missing mapping
+    nws_lids = []
+    for csv_file in csv_files:
+        nws_lids.append(csv_file.split('_attributes')[0])
     lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
     lids_df['mapped'] = 'yes'
     
@@ -581,7 +588,9 @@ if __name__ == '__main__':
                         required = False, default = '/data/catfim/')
     parser.add_argument('-o','--overwrite', help='Overwrite files', required=False, action="store_true")
     parser.add_argument('-s','--search', help='Upstream and downstream search in miles. How far up and downstream do you want to go?',
-                        required=False, default="5")
+                        required=False, default='5')
+    parser.add_argument('-l','--lid_to_run', help='NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Default is all sites',
+                        required=False, default='all')
     
     args = vars(parser.parse_args())
     process_generate_categorical_fim(**args)

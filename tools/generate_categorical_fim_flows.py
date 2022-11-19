@@ -12,8 +12,6 @@ import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import VIZ_PROJECTION
 
-EVALUATED_SITES_CSV = r'/data/inputs/ahps_sites/evaluated_ahps_sites.csv'
-
 
 def get_env_paths():
     load_dotenv()
@@ -23,7 +21,7 @@ def get_env_paths():
     return API_BASE_URL, WBD_LAYER
 
 
-def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, fim_dir):
+def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir=""):
     '''
     This will create static flow files for all nws_lids and save to the 
     workspace directory with the following format:
@@ -65,35 +63,29 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     #Create workspace
     workspace.mkdir(parents=True,exist_ok = True)
 
-    print('Retrieving metadata...')
+    print(f'Retrieving metadata for site(s): {lid_to_run}...')
     #Get metadata for 'CONUS'
     print(metadata_url)
-    conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['bwdt2'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search )
-    #Get metadata for Islands
-#    islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
-#    print(len(islands_list))
-    #Append the dataframes and lists
-#    all_lists = conus_list + islands_list
-    all_lists = conus_list
-    
-#    import pickle
-#    with open('/data/temp/brad/alternate_catfim_temp_files/all_lists.pkl','rb') as f:
-#        all_lists = pickle.load(f)
+    if lid_to_run != 'all':
+        all_lists, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = [lid_to_run], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
+    else:
+        # Get CONUS metadata
+        conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = 'all', must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
+        # Get metadata for Islands
+        islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
+        print(len(islands_list))
+        # Append the dataframes and lists
+        all_lists = conus_list + islands_list
     
     print('Determining HUC using WBD layer...')
-    #Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
-    #Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
-    #of all sites used later in script.
+    # Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
+    # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
+    # of all sites used later in script.
     huc_dictionary, out_gdf = aggregate_wbd_hucs(metadata_list = all_lists, wbd_huc8_path = WBD_LAYER, retain_attributes=True)
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-    print("Recasting...")
     out_gdf = out_gdf.astype({'metadata_sources': str})
-#    import json
-#    f = open('/data/temp/brad/alternate_catfim_temp_files/huc_dictionary.json')
-#    huc_dictionary = json.load(f)
-#    out_gdf = ''  # TEMP TODO
 
     #Import list of evaluated sites
 #    missing_huc_files = []
@@ -243,20 +235,20 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             output_dir = workspace / huc / lid
             if output_dir.exists():
                 #Export DataFrame to csv containing attributes
-                csv_df.to_csv(output_dir / f'{lid}_attributes.csv', index = False)
+                csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index = False)
             else:
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
     print('wrapping up...')
     #Recursively find all *_attributes csv files and append
-    csv_files = list(workspace.rglob('*_attributes.csv'))
+    csv_files = os.listdir(attributes_dir)
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
         #Huc has to be read in as string to preserve leading zeros.
         temp_df = pd.read_csv(csv, dtype={'huc':str})
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write to file
-    all_csv_df.to_csv(workspace / 'nws_lid_attributes.csv', index = False)
+    all_csv_df.to_csv(os.path.join(workspace, 'nws_lid_attributes.csv'), index = False)
    
     #This section populates a shapefile of all potential sites and details
     #whether it was mapped or not (mapped field) and if not, why (status field).
@@ -268,7 +260,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     
     #Using list of csv_files, populate DataFrame of all nws_lids that had
     #a flow file produced and denote with "mapped" column.
-    nws_lids = [file.stem.split('_attributes')[0] for file in csv_files]
+    nws_lids = []
+    for csv_file in csv_files:
+        nws_lids.append(csv_file.split('_attributes')[0])
     lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
     lids_df['mapped'] = 'yes'
     
