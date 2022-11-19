@@ -69,7 +69,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         all_lists, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = [lid_to_run], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
     else:
         # Get CONUS metadata
-        conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = 'all', must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
+        conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
         # Get metadata for Islands
         islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
         print(len(islands_list))
@@ -86,9 +86,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.astype({'metadata_sources': str})
 
-    #Import list of evaluated sites
-#    missing_huc_files = []
-    #Loop through each huc unit, first define message variable and flood categories.
+    # Loop through each huc unit, first define message variable and flood categories.
     all_messages = []
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
         
@@ -119,64 +117,10 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
                 
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
-       
-            ### --- Do Datum Offset --- ###
-            #determine source of interpolated threshold flows, this will be the rating curve that will be used.
-            rating_curve_source = flows.get('source')
-            if rating_curve_source is None:
-                continue
-                        
-            #Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
-            if lid == 'bmbp1':
-                rating_curve_source = 'NRLDB'
-            
-            #Get the datum and adjust to NAVD if necessary.
-            nws, usgs = get_datum(metadata)
-            datum_data = {}
-            if rating_curve_source == 'USGS Rating Depot':
-                datum_data = usgs
-            elif rating_curve_source == 'NRLDB':
-                datum_data = nws
-                        
-            #If datum not supplied, skip to new site
-            datum = datum_data.get('datum', None)
-            if datum is None:
-#                f.write(f'{lid} : skipping because site is missing datum\n')
-                continue      
-            
-            #Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
-            # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7 
-            # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
-            if lid in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
-                datum_data.update(crs = 'NAD83')
-            
-            #Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
-            if lid == 'bmbp1':
-                datum_data.update(crs = 'NAD27')
-            
-            #Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. If NGVD29 it is converted to NAVD88.
-            #bgwn7, eagi1 vertical datum unknown, assume navd88
-            #fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
-            #wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
-            if lid in ['bgwn7','eagi1','fatw3']:
-                datum_data.update(vcs = 'NAVD88')
-            elif lid == 'wlln7':
-                datum_data.update(vcs = 'NGVD29')
-            
-            #Adjust datum to NAVD88 if needed
-            # Default datum_adj_ft to 0.0
-            datum_adj_ft = 0.0
-            if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-                #Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
-                try:
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
-                except Exception as e:
-                    all_messages.append(e)
-            
-            ### -- Concluded Datum Offset --- ###
-            
+                                      
             #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             unfiltered_segments = list(set(get_nwm_segs(metadata)))
+            print(lid)
             print("UNFILTERED SEGMENTS")
             print(unfiltered_segments)
             print(len(unfiltered_segments))

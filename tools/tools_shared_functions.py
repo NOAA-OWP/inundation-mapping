@@ -733,7 +733,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
     print("Iterating through metadata list...")
     for metadata in metadata_list:
         #Convert metadata to json
-        print("Normalizing metadata...")
         df = pd.json_normalize(metadata)
         #Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
@@ -743,20 +742,17 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         if not df.empty:
 #            print(df[:5])
             #Get horizontal datum
-            print("Doing datum operations...")
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
             #Look up EPSG code, if not returned Assume NAD83 as default. 
             dict_crs = crs_lookup.get(h_datum,'EPSG:4269_ Assumed')
             #We want to know what sites were assumed, hence the split.
             src_crs, *message = dict_crs.split('_')
-            print("Converting to geodataframe...")
             #Convert dataframe to geodataframe using lat/lon (USGS). Add attribute of assigned crs (label ones that are assumed)
             site_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['usgs_preferred_longitude'], df['usgs_preferred_latitude']), crs =  src_crs)
             #Field to indicate if a latlon datum was assumed
             site_gdf['assigned_crs'] = src_crs + ''.join(message)
             
             #Reproject to huc 8 crs
-            print("Reprojecting...")
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
             metadata_gdf = metadata_gdf.append(site_gdf, ignore_index = True)
