@@ -117,7 +117,7 @@ def run_inundation(magnitude_flows_csv, huc, output_extent_grid, ahps_site, magn
             f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc,ahps_site,magnitude))
 
 
-def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attributes_filename="", log_file="", fim_version=""):
+def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_dir, log_file="", fim_version=""):
     
     print("In post processing...")
     # Create workspace
@@ -151,11 +151,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
     
                             extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent' + '.tif')
                             # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
-                            nws_lid_attributes_filename = os.path.join(ahps_lid_dir, ahps_lid + '_attributes.csv')
-                            
-                            # Attributes are put into 'flows' during Flow-Based
-                            if not os.path.exists(nws_lid_attributes_filename):
-                                nws_lid_attributes_filename = nws_lid_attributes_filename.replace('mapping', 'flows')
+                            nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
                             
                             if os.path.exists(extent_grid):
                                 try:
@@ -246,8 +242,7 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
             pass
 
 
-def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir, 
-                          job_number_huc, job_number_inundate, overwrite, depthtif):
+def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir, attributes_dir, job_number_huc, job_number_inundate, overwrite, depthtif):
     
     # Create output directory
     if not os.path.exists(output_catfim_dir):
@@ -271,7 +266,7 @@ def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir,
     print("Aggregating Categorical FIM")
     # Get fim_version.
     fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_','').replace('_ms_c', '').replace('_', '.')
-    post_process_cat_fim_for_viz(total_number_jobs, output_catfim_dir, nws_lid_attributes_filename,  log_file, fim_version)
+    post_process_cat_fim_for_viz(total_number_jobs, output_catfim_dir, attributes_dir, log_file, fim_version)
 
 
 if __name__ == '__main__':

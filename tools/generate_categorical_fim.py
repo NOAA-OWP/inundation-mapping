@@ -13,7 +13,7 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
 from generate_categorical_fim_flows import generate_catfim_flows
 from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
-from tools_shared_functions import get_thresholds, get_nwm_segs, get_datum, ngvd_to_navd_ft
+from tools_shared_functions import get_thresholds, get_nwm_segs, get_datum, ngvd_to_navd_ft, filter_nwm_segments_by_stream_order
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
@@ -65,7 +65,7 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir)
     
         print("Post-processing TIFs...")
-        post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, nws_lid_attributes_filename="", log_file=log_file, fim_version=fim_version)
+        post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
     
         # Updating mapping status
         print('Updating mapping status')
@@ -83,8 +83,7 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         # Generate CatFIM mapping
         print('Begin mapping')
         start = time.time()
-        manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, 
-                          job_number_huc, job_number_inundate, overwrite, depthtif=False)
+        manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, attributes_dir, job_number_huc, job_number_inundate, overwrite, depthtif=False)
         end = time.time()
         elapsed_time = (end-start)/60
         print(f'Finished mapping in {elapsed_time} minutes')
@@ -347,9 +346,17 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             ### -- Concluded Datum Offset --- ###
             
             # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
-            segments = get_nwm_segs(metadata)
-            print("SEGMENTS")
+            unfiltered_segments = list(set(get_nwm_segs(metadata)))
+            print("UNFILTERED SEGMENTS")
+            print(unfiltered_segments)
+            print(len(unfiltered_segments))
+            
+            desired_order = metadata['nwm_feature_data']['stream_order']
+            # Filter segments to be of like stream order.
+            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
+            print("FILTERED_SEGMENTS")
             print(segments)
+            print(len(segments))
             
             # For each flood category
             for category in flood_categories:
@@ -527,9 +534,10 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     refined_csv_files_list = []
     for csv in csv_files:
+        full_csv_path = os.path.join(attributes_dir, csv)
         #Huc has to be read in as string to preserve leading zeros.
         try:
-            temp_df = pd.read_csv(csv, dtype={'huc':str})
+            temp_df = pd.read_csv(full_csv_path, dtype={'huc':str})
             all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
             refined_csv_files_list.append(csv)
         except Exception:  # Happens if a file is empty (i.e. no mapping)

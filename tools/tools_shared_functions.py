@@ -16,6 +16,42 @@ from rasterio import features
 from shapely.geometry import shape
 from shapely.geometry import Polygon
 from shapely.geometry import MultiPolygon
+from dotenv import load_dotenv
+
+
+def get_env_paths():
+    load_dotenv()
+    #import variables from .env file
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    return API_BASE_URL, WBD_LAYER
+
+
+def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order):
+    """
+    This function uses the WRDS API to filter out NWM segments from a list if their stream order is different than
+    the target stream order.
+    
+    Args:
+        unfiltered_segments (list):  A list of NWM feature_id strings.
+        desired_order (str): The desired stream order.
+    Returns:
+        filtered_segments (list): A list of NWM feature_id strings, paired down to only those that share the target order.        
+    
+    """
+    API_BASE_URL, WBD_LAYER = get_env_paths()
+    #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
+    metadata_url = f'{API_BASE_URL}/metadata'
+    
+    filtered_segments = []
+    for feature_id in unfiltered_segments:
+        all_lists = get_metadata(metadata_url, select_by = 'nwm_feature_id', selector = [feature_id])
+        feature_id_metadata = next(item for item in all_lists)[0]
+        stream_order = feature_id_metadata['nwm_feature_data']['stream_order']
+        if stream_order == desired_order:
+            filtered_segments.append(feature_id)
+
+    return filtered_segments
 
 
 def check_for_regression(stats_json_to_test, previous_version, previous_version_stats_json_path, regression_test_csv=None):

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import geopandas as gpd
 import time
-from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft
+from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft, filter_nwm_segments_by_stream_order
 import argparse
 from dotenv import load_dotenv
 import os
@@ -51,7 +51,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         
     all_start = time.time()
     API_BASE_URL, WBD_LAYER = get_env_paths()
-    print(workspace)
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
@@ -177,9 +176,17 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             ### -- Concluded Datum Offset --- ###
             
             #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
-            segments = list(set(get_nwm_segs(metadata)))
-            print("SEGMENTS")
+            unfiltered_segments = list(set(get_nwm_segs(metadata)))
+            print("UNFILTERED SEGMENTS")
+            print(unfiltered_segments)
+            print(len(unfiltered_segments))
+            
+            desired_order = metadata['nwm_feature_data']['stream_order']
+            # Filter segments to be of like stream order.
+            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
+            print("FILTERED_SEGMENTS")
             print(segments)
+            print(len(segments))
 
             #if no segments, write message and exit out
             if not segments:
@@ -239,13 +246,14 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             else:
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
-    print('wrapping up...')
+    print('Wrapping up...')
     #Recursively find all *_attributes csv files and append
     csv_files = os.listdir(attributes_dir)
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
+        full_csv_path = os.path.join(attributes_dir, csv)
         #Huc has to be read in as string to preserve leading zeros.
-        temp_df = pd.read_csv(csv, dtype={'huc':str})
+        temp_df = pd.read_csv(full_csv_path, dtype={'huc':str})
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
     #Write to file
     all_csv_df.to_csv(os.path.join(workspace, 'nws_lid_attributes.csv'), index = False)
