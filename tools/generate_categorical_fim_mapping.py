@@ -8,7 +8,6 @@ import traceback
 import rasterio
 import geopandas as gpd
 import pandas as pd
-import shutil
 from rasterio.features import shapes
 from shapely.geometry.polygon import Polygon
 from shapely.geometry.multipolygon import MultiPolygon
@@ -18,19 +17,9 @@ from utils.shared_functions import getDriver
 from gms_tools.mosaic_inundation import Mosaic_inundation
 from gms_tools.inundate_gms import Inundate_gms
 
-INPUTS_DIR = r'/data/inputs'
-magnitude_list = ['action', 'minor', 'moderate','major', 'record']
-
-# Define necessary variables for inundation()
-hucs, hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
-mask_type, catchment_poly = 'huc', ''
-
 
 def generate_categorical_fim(fim_run_dir, source_flow_dir, output_catfim_dir, 
                              job_number_huc, job_number_inundate, depthtif, log_file):
-
-    no_data_list = []
-    procs_list = []
 
     source_flow_dir_list = os.listdir(source_flow_dir)
     output_flow_dir_list = os.listdir(fim_run_dir)
@@ -55,9 +44,6 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_catfim_dir,
             ahps_site_dir = os.path.join(source_flow_dir, huc)
             ahps_site_dir_list = os.listdir(ahps_site_dir)
 
-            # Map paths to HAND files needed for inundation()
-            fim_run_huc_dir = os.path.join(fim_run_dir, huc)
-
             # Map path to huc directory inside out output_catfim_dir
             cat_fim_huc_dir = os.path.join(output_catfim_dir, huc)
             if not os.path.exists(cat_fim_huc_dir):
@@ -76,54 +62,26 @@ def generate_categorical_fim(fim_run_dir, source_flow_dir, output_catfim_dir,
 
                 # Loop through thresholds/magnitudes and define inundation output files paths
                 for magnitude in thresholds_dir_list:
-
-                    if "." not in magnitude:
-
-                        magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
-
-                        if os.path.exists(magnitude_flows_csv):
-
-                            output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
-
-                            if depthtif:
-                                output_depth_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_depth.tif')
-                            else:
-                                output_depth_grid = None
-
-                            try:
-                                executor.submit(run_inundation, [magnitude_flows_csv,
-                                                                        huc,
-                                                                        output_extent_grid,
-                                                                        output_depth_grid,
-                                                                        ahps_site, 
-                                                                        magnitude,
-                                                                        log_file,
-                                                                        fim_run_dir,
-                                                                        job_number_inundate])
-                            except Exception as ex:
-#                                    print(f"*** {ex}")
-                                traceback.print_exc()
-                                sys.exit(1)
+                    if "." in magnitude:
+                        continue
+                    magnitude_flows_csv = os.path.join(ahps_site_parent, magnitude, 'ahps_' + ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv')
+                    if os.path.exists(magnitude_flows_csv):
+                        output_extent_grid = os.path.join(cat_fim_huc_ahps_dir, ahps_site + '_' + magnitude + '_extent.tif')
+                        try:
+                            executor.submit(run_inundation, magnitude_flows_csv, huc, output_extent_grid, ahps_site, magnitude, log_file, fim_run_dir, job_number_inundate)
+                        except Exception:
+                            traceback.print_exc()
+                            sys.exit(1)
                                 
 
-def run_inundation(args):
-    
-    magnitude_flows_csv = args[0]
-    huc = args[1]
-    output_extent_grid = args[2]
-    output_depth_grid = args[3]
-    ahps_site = args[4]
-    magnitude = args[5]
-    log_file = args[6]
-    fim_run_dir = args[7]
-    number_of_jobs = args[8]
+def run_inundation(magnitude_flows_csv, huc, output_extent_grid, ahps_site, magnitude, log_file, fim_run_dir, job_number_inundate):
 
     huc_dir = os.path.join(fim_run_dir, huc)
     try:
         print("Running Inundate_gms for " + huc)
         map_file = Inundate_gms(  hydrofabric_dir = fim_run_dir, 
                                          forecast = magnitude_flows_csv, 
-                                         num_workers = number_of_jobs,
+                                         num_workers = job_number_inundate,
                                          hucs = huc,
                                          inundation_raster = output_extent_grid,
                                          inundation_polygon = None,
@@ -160,10 +118,8 @@ def run_inundation(args):
 
 
 def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attributes_filename="", log_file="", fim_version=""):
+    
     print("In post processing...")
-    
-    print(output_catfim_dir)
-    
     # Create workspace
     gpkg_dir = os.path.join(output_catfim_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):
@@ -173,15 +129,14 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
     merged_layer = os.path.join(output_catfim_dir, 'catfim_library.gpkg')
 
     if not os.path.exists(merged_layer): # prevents appending to existing output
-
+        
         with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
             huc_ahps_dir_list = os.listdir(output_catfim_dir)
             skip_list=['errors','logs','gpkg','missing_files.txt',merged_layer]
 
-            for magnitude in magnitude_list:
+            for magnitude in ['action', 'minor', 'moderate','major', 'record']:
                 # Loop through all categories
                 for huc in huc_ahps_dir_list:
-    
                     if huc not in skip_list:
                         huc_dir = os.path.join(output_catfim_dir, huc)
                         try:
@@ -204,8 +159,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
                             
                             if os.path.exists(extent_grid):
                                 try:
-#                                    reformat_inundation_maps([ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
-                                    executor.submit(reformat_inundation_maps, [ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename])
+                                    executor.submit(reformat_inundation_maps, ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename)
                                 except Exception as ex:
                                     print("EXCEPTION")
                                     print(f"*** {ex}")
@@ -216,12 +170,9 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
 
         # Merge all layers
         print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
-
         for layer in os.listdir(gpkg_dir):
-
+            # Open dissolved extent layers
             diss_extent_filename = os.path.join(gpkg_dir, layer)
-
-            # Open diss_extent
             diss_extent = gpd.read_file(diss_extent_filename)
             diss_extent['viz'] = 'yes'
 
@@ -230,29 +181,19 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, nws_lid_attr
                 diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False, mode='a')
             else:
                 diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False)
-
             del diss_extent
 
-        #shutil.rmtree(gpkg_dir)
+        #shutil.rmtree(gpkg_dir)  # TODO
 
     else:
         print(f"{merged_layer} already exists.")
 
 
-def reformat_inundation_maps(args):
+def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename):
 
     try:
-        lid = args[0]
-        grid_path = args[1]
-        gpkg_dir = args[2]
-        fim_version = args[3]
-        huc = args[4]
-        magnitude = args[5]
-        nws_lid_attributes_filename = args[6]
-        print(nws_lid_attributes_filename)
-
         # Convert raster to to shapes
-        with rasterio.open(grid_path) as src:
+        with rasterio.open(extent_grid) as src:
             image = src.read(1)
             mask = image > 0
 
@@ -267,7 +208,7 @@ def reformat_inundation_maps(args):
 
         # Update attributes
         extent_poly_diss = extent_poly_diss.reset_index(drop=True)
-        extent_poly_diss['ahps_lid'] = lid
+        extent_poly_diss['ahps_lid'] = ahps_lid
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
@@ -277,13 +218,13 @@ def reformat_inundation_maps(args):
 
         # Join attributes
         nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc':str})
-        nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==lid)]
+        nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==ahps_lid)]
 
         extent_poly_diss = extent_poly_diss.merge(nws_lid_attributes_table, left_on=['ahps_lid','magnitude','huc'], right_on=['nws_lid','magnitude','huc'])
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
 
         # Save dissolved multipolygon
-        handle = os.path.split(grid_path)[1].replace('.tif', '')
+        handle = os.path.split(extent_grid)[1].replace('.tif', '')
 
         diss_extent_filename = os.path.join(gpkg_dir, handle + "_dissolved.gpkg")
 
@@ -298,9 +239,9 @@ def reformat_inundation_maps(args):
         try:
             print("EXCEPTION HERE")
             print(e)
-            f = open(log_file, 'a+')
-            f.write(str(diss_extent_filename) + " - dissolve error: " + str(e))
-            f.close()
+#            f = open(log_file, 'a+')
+#            f.write(str(diss_extent_filename) + " - dissolve error: " + str(e))
+#            f.close()
         except:
             pass
 
@@ -325,22 +266,12 @@ def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir,
     total_number_jobs = job_number_huc * job_number_inundate
 
     print("Generating Categorical FIM")
-    generate_categorical_fim(fim_run_dir,
-                             source_flow_dir, 
-                             output_catfim_dir, 
-                             job_number_huc,
-                             job_number_inundate,
-                             depthtif,
-                             log_file)
+    generate_categorical_fim(fim_run_dir, source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, depthtif, log_file)
 
     print("Aggregating Categorical FIM")
     # Get fim_version.
     fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_','').replace('_ms_c', '').replace('_', '.')
-    post_process_cat_fim_for_viz(total_number_jobs, 
-                                 output_catfim_dir, 
-                                 nws_lid_attributes_filename, 
-                                 log_file, 
-                                 fim_version)
+    post_process_cat_fim_for_viz(total_number_jobs, output_catfim_dir, nws_lid_attributes_filename,  log_file, fim_version)
 
 
 if __name__ == '__main__':
