@@ -221,8 +221,8 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     missing_huc_files = []
     all_messages = []  # TODO
-#    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']  # TODO
-    flood_categories = ['action', 'minor']
+    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']  # TODO
+#    flood_categories = ['action', 'minor']
     stage_based_att_dict = {}
 
     huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
