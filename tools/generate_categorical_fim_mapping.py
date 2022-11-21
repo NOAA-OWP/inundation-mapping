@@ -134,50 +134,57 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
             huc_ahps_dir_list = os.listdir(output_catfim_dir)
             skip_list=['errors','logs','gpkg','missing_files.txt',merged_layer]
 
-            for magnitude in ['action', 'minor', 'moderate','major', 'record']:
-                # Loop through all categories
-                for huc in huc_ahps_dir_list:
-                    if huc not in skip_list:
-                        huc_dir = os.path.join(output_catfim_dir, huc)
-                        try:
-                            ahps_dir_list = os.listdir(huc_dir)
-                        except NotADirectoryError:
-                            continue
-    
-                        # Loop through ahps sites
-                        for ahps_lid in ahps_dir_list:
-                            print(ahps_lid)
-                            ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
-    
-                            extent_grid = os.path.join(ahps_lid_dir, ahps_lid + '_' + magnitude + '_extent' + '.tif')
-                            # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
-                            nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
-                            
-                            if os.path.exists(extent_grid):
-                                try:
-                                    executor.submit(reformat_inundation_maps, ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename)
-                                except Exception as ex:
-                                    print("EXCEPTION")
-                                    print(f"*** {ex}")
-                                    traceback.print_exc() 
-                                    f = open(log_file, 'a+')
-                                    f.write(f"Missing layers: {extent_grid}\n")
-                                    f.close()
+            # Loop through all categories
+            for huc in huc_ahps_dir_list:
+                if huc not in skip_list:
+                    huc_dir = os.path.join(output_catfim_dir, huc)
+                    try:
+                        ahps_dir_list = os.listdir(huc_dir)
+                    except NotADirectoryError:
+                        continue
 
-        # Merge all layers
-        print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
-        for layer in os.listdir(gpkg_dir):
-            # Open dissolved extent layers
-            diss_extent_filename = os.path.join(gpkg_dir, layer)
-            diss_extent = gpd.read_file(diss_extent_filename)
-            diss_extent['viz'] = 'yes'
+                    # Loop through ahps sites
+                    for ahps_lid in ahps_dir_list:
+                        print(ahps_lid)
+                        ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
 
-            # Write/append aggregate diss_extent
-            if os.path.isfile(merged_layer):
-                diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False, mode='a')
-            else:
-                diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False)
-            del diss_extent
+                        # Append desired filenames to list.
+                        tif_list = os.listdir(ahps_lid_dir)
+                        for tif in tif_list:
+                            if 'extent.tif' in tif:
+                                tif_list.append(os.path.join(ahps_lid_dir, tif))
+
+    
+    # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
+    nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
+    
+    for tif_to_process in tif_list:
+        if os.path.exists(tif_to_process):
+            try:
+                magnitude = os.path.split(tif_to_process)[1].split('_')[1]
+                executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename)
+            except Exception as ex:
+                print("EXCEPTION")
+                print(f"*** {ex}")
+                traceback.print_exc() 
+                f = open(log_file, 'a+')
+                f.write(f"Missing layers: {tif_to_process}\n")
+                f.close()
+    
+            # Merge all layers
+            print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
+            for layer in os.listdir(gpkg_dir):
+                # Open dissolved extent layers
+                diss_extent_filename = os.path.join(gpkg_dir, layer)
+                diss_extent = gpd.read_file(diss_extent_filename)
+                diss_extent['viz'] = 'yes'
+    
+                # Write/append aggregate diss_extent
+                if os.path.isfile(merged_layer):
+                    diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False, mode='a')
+                else:
+                    diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False)
+                del diss_extent
 
         #shutil.rmtree(gpkg_dir)  # TODO
 

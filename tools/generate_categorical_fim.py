@@ -398,13 +398,13 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
                     # Determine category the stage value belongs with.
                     if action_stage <= interval_stage < minor_stage:
-                        category = 'action' + str(interval_stage).replace('.', 'p') + 'ft'
+                        category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
                     if minor_stage <= interval_stage < moderate_stage:
-                        category = 'minor' + str(interval_stage).replace('.', 'p') + 'ft'
+                        category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
                     if moderate_stage <= interval_stage < major_stage:
-                        category = 'moderate' + str(interval_stage).replace('.', 'p') + 'ft'
+                        category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
                     if interval_stage >= major_stage:
-                        category = 'major' + str(interval_stage).replace('.', 'p') + 'ft'
+                        category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
                     executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
                         
                     
