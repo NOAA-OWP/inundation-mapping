@@ -5,23 +5,21 @@ import argparse
 import traceback
 import sys
 import time
+from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import rasterio
-import glob
-import numpy as np
-
-from datetime import datetime
-from pathlib import Path
 from rasterio.warp import calculate_default_transform, reproject, Resampling
+import glob
 from generate_categorical_fim_flows import generate_catfim_flows
 from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
 from tools_shared_functions import get_thresholds, get_nwm_segs, get_datum, ngvd_to_navd_ft, filter_nwm_segments_by_stream_order
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
-def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run):
+def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run, job_number_intervals):
         
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate
@@ -40,16 +38,6 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         file_handle_appendage, catfim_method = "_stage_based", "STAGE-BASED"
     else:
         file_handle_appendage, catfim_method = "_flow_based", "FLOW-BASED"
-
-    ## Run CatFIM scripts in sequence
-    # Generate CatFIM flow files
-    print("================================")
-    print("Start generate categorical fim")
-    start_overall_time = datetime.now()
-    print()    
-    print('Creating flow files using the ' + catfim_method + ' technique...')
-    start = time.time()
-
     
     # Define output directories
     output_catfim_dir_parent = output_folder + file_handle_appendage
@@ -74,67 +62,40 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     # STAGE-BASED
     if stage_based:
         # Generate Stage-Based CatFIM mapping
-        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir)
-        end = time.time()
-        elapsed_time = round((end-start)/60)
-        print(f'Finished creating flow files in {elapsed_time} minutes')
-       
+        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir, job_number_intervals)
+    
         print("Post-processing TIFs...")
-        start = time.time()
         post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
-        end = time.time()
-        elapsed_time = round((end-start)/60)
-        print(f'Post-processing TIFs in {elapsed_time} minutes')
     
         # Updating mapping status
-        start = time.time()        
         print('Updating mapping status')
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
-        end = time.time()
-        elapsed_time = round((end-start)/60)
-        print(f'Finished mapping in {elapsed_time} minutes')
-        
+
     # FLOW-BASED
     else:
         fim_dir = ""
+        print('Creating flow files using the ' + catfim_method + ' technique...')
+        start = time.time()
         nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir)
         end = time.time()
-        elapsed_time = round((end-start)/60)
+        elapsed_time = (end-start)/60
         print(f'Finished creating flow files in {elapsed_time} minutes')
         # Generate CatFIM mapping
-        
         print('Begin mapping')
         start = time.time()
         manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, attributes_dir, job_number_huc, job_number_inundate, overwrite, depthtif=False)
         end = time.time()
-        elapsed_time = round((end-start)/60)
+        elapsed_time = (end-start)/60
         print(f'Finished mapping in {elapsed_time} minutes')
 
         # Updating mapping status
-        start = time.time()        
         print('Updating mapping status')
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
-        end = time.time()
-        elapsed_time = round((end-start)/60)
-        print(f'Finished mapping in {elapsed_time} minutes')
-
     
     # Create CSV versions of the final geopackages.
     print('Creating CSVs')
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
-
-    print("================================")
-    print("End generate categorical fim")
-
-    end_overall_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print (f"ended: {dt_string}")
-
-    # calculate duration
-    time_duration = end_overall_time - start_overall_time
-    print(f"Duration: {str(time_duration).split('.')[0]}")
-    print()
 
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
@@ -256,7 +217,7 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
                 dst.write(masked_reclass_rem_array, 1)
     
     
-def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs, lid_to_run, attributes_dir):
+def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs, lid_to_run, attributes_dir, number_of_interval_jobs):
     
     missing_huc_files = []
     all_messages = []  # TODO
@@ -347,21 +308,25 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 all_messages.append(f'{lid}:missing datum in metadata')
                 continue      
             
+            # _________________________________________________________________________________________________________#
             # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). 
             # Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
             if lid == 'bmbp1':
                 rating_curve_source = 'NRLDB'
+            # ___________________________________________________________________#
             
             # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
             # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7 
             # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
             if lid in ['bgwn7', 'dlrt2','eagi1','eppt2','fatw3','jffw3','ldot2','mnvn4','nhpp1','pinn4','rgdt2','rgln4','rssk1','sign4','smfn7','stkn4','wlln7' ]:
                 datum_data.update(crs = 'NAD83')
+            # ___________________________________________________________________#
             
             # SPECIAL CASE: Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27. 
             # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
             if lid == 'bmbp1':
                 datum_data.update(crs = 'NAD27')
+            # ___________________________________________________________________#
             
             # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88. 
             # If NGVD29 it is converted to NAVD88.
@@ -372,6 +337,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 datum_data.update(vcs = 'NAVD88')
             elif lid == 'wlln7':
                 datum_data.update(vcs = 'NGVD29')
+            # _________________________________________________________________________________________________________#
             
             # Adjust datum to NAVD88 if needed
             # Default datum_adj_ft to 0.0
@@ -386,123 +352,35 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             
             # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             unfiltered_segments = list(set(get_nwm_segs(metadata)))
-            print("UNFILTERED SEGMENTS")
-            print(unfiltered_segments)
-            print(len(unfiltered_segments))
             
-            desired_order = metadata['nwm_feature_data']['stream_order']
             # Filter segments to be of like stream order.
+            desired_order = metadata['nwm_feature_data']['stream_order']
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
-            print("FILTERED_SEGMENTS")
-            print(segments)
-            print(len(segments))
+              
+            action_stage = stages['action']
+            minor_stage = stages['minor']
+            moderate_stage = stages['moderate']
+            major_stage = stages['major']
+            
+            stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
+            
+            # Create a list of stages, incrementing by 1 ft.
+            interval_list = np.arange(min(stage_list), max(stage_list) + 10.0, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
+            
+            print(stage_list)
+            print(interval_list)
             
             # For each flood category
             for category in flood_categories:
                 
                 # Pull stage value and confirm it's valid, then process
                 stage = stages[category]
+                
                 if stage != None and datum_adj_ft != None and lid_altitude != None:
-                    # Determine datum-offset water surface elevation (from above).
-                    datum_adj_wse = stage + datum_adj_ft + lid_altitude
-                    datum_adj_wse_m = datum_adj_wse*0.3048  # Convert ft to m
                     
-                    # Subtract HAND gage elevation from HAND WSE to get HAND stage.
-                    hand_stage = datum_adj_wse_m - lid_usgs_elev
-                    
-                    # Produce extent tif hand_stage. Multiprocess across branches.
-                    branches = os.listdir(branch_dir)
-                    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-                        for branch in branches:
-                            # Define paths to necessary files to produce inundation grids.
-                            full_branch_path = os.path.join(branch_dir, branch)
-                            rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
-                            catchments_path = os.path.join(fim_dir, huc, full_branch_path, 'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif')
-                            hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
-                            
-                            if not os.path.exists(rem_path):
-                                all_messages.append(f"{lid}:rem doesn't exist")
-                                continue
-                            if not os.path.exists(catchments_path):
-                                all_messages.append(f"{lid}:catchments files doesn't exist")
-                                continue
-                            if not os.path.exists(hydrotable_path):
-                                all_messages.append(f"{lid}:hydrotable_path doesn't exist")
-                                continue
-                            
-                            # Use hydroTable to determine hydroid_list from site_ms_segments.
-                            hydrotable_df = pd.read_csv(hydrotable_path)
-                            hydroid_list = []
-                            
-                            # Determine hydroids at which to perform inundation
-                            for feature_id in segments:
-                                try:
-                                    subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
-                                    hydroid_list += list(subset_hydrotable_df.HydroID.unique())
-                                except IndexError:
-                                    pass
-                                
-                            if len(hydroid_list) == 0:
-                                all_messages.append(f"{lid}:no matching hydroids")
-                                continue
-
-                            # If no segments, write message and exit out
-                            if not segments:
-                                all_messages.append(f'{lid}:missing nwm segments')
-                                continue
-                            
-                            # Create inundation maps with branch and stage data
-                            try:
-                                print("Running inundation for " + huc + " and branch " + branch)
-                                executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
-                            except Exception:
-                                all_messages.append(f'{lid}:inundation failed at {category}')
-                    
-                    # -- MOSAIC -- #
-                    # Merge all rasters in lid_directory that have the same magnitude/category.
-                    path_list = []
-                    lid_dir_list = os.listdir(lid_directory)
-                    print("Merging " + category)
-                    for f in lid_dir_list:
-                        if category in f:
-                            path_list.append(os.path.join(lid_directory, f))
-                    path_list.sort()  # To force branch 0 first in list, sort
-                    
-                    if len(path_list) > 0:
-                        zero_branch_grid = path_list[0]
-                        zero_branch_src = rasterio.open(zero_branch_grid)
-                        zero_branch_array = zero_branch_src.read(1)
-                        summed_array = zero_branch_array  # Initialize it as the branch zero array
-                        
-                        # Loop through remaining items in list and sum them with summed_array
-                        for remaining_raster in path_list[1:]:
-                            remaining_raster_src = rasterio.open(remaining_raster)
-                            remaining_raster_array_original = remaining_raster_src.read(1)
-                        
-                            # Reproject non-branch-zero grids so I can sum them with the branch zero grid
-                            remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
-                            reproject(remaining_raster_array_original,
-                                  destination = remaining_raster_array,
-                                  src_transform = remaining_raster_src.transform,
-                                  src_crs = remaining_raster_src.crs,
-                                  src_nodata = remaining_raster_src.nodata,
-                                  dst_transform = zero_branch_src.transform,
-                                  dst_crs = zero_branch_src.crs,
-                                  dst_nodata = -1,
-                                  dst_resolution = zero_branch_src.res,
-                                  resampling = Resampling.nearest)
-                            # Sum rasters
-                            summed_array = summed_array + remaining_raster_array
-                            
-                        del zero_branch_array  # Clean up
-                        
-                        # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
-                        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')  
-                        profile = zero_branch_src.profile
-                        summed_array = summed_array.astype('uint8')
-                        with rasterio.open(output_tif, 'w', **profile) as dst:
-                            dst.write(summed_array, 1)
-                        del summed_array
+                    # Call function to execute mapping of the TIFs.
+                    messages, hand_stage, datum_adj_wse, datum_adj_wse_m = produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
+                    all_messages += messages
                                                     
                     # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
                     stage_based_att_dict[lid].update({category: {'datum_adj_wse_ft': datum_adj_wse,
@@ -511,10 +389,24 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                                                                  'datum_adj_ft': datum_adj_ft,
                                                                  'lid_alt_ft': lid_altitude,
                                                                  'lid_alt_m': lid_altitude*0.3048}})
-                    
                 # If missing HUC file data, write message
                 if huc in missing_huc_files:
                     all_messages.append("Missing some HUC data")
+                    
+            # Now that the "official" category maps are made, produce the incremental maps.
+            for interval_stage in interval_list:
+                with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
+                    # Determine category the stage value belongs with.
+                    if action_stage <= interval_stage < minor_stage:
+                        category = 'action' + str(interval_stage).replace('.', 'p') + 'ft'
+                    if minor_stage <= interval_stage < moderate_stage:
+                        category = 'minor' + str(interval_stage).replace('.', 'p') + 'ft'
+                    if moderate_stage <= interval_stage < major_stage:
+                        category = 'moderate' + str(interval_stage).replace('.', 'p') + 'ft'
+                    if interval_stage >= major_stage:
+                        category = 'major' + str(interval_stage).replace('.', 'p') + 'ft'
+                    executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
+                        
                     
             lat = float(metadata['nws_preferred']['latitude'])
             lon = float(metadata['nws_preferred']['longitude'])
@@ -553,9 +445,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
               
             #Round flow and stage columns to 2 decimal places.
             csv_df = csv_df.round({'q':2,'stage':2})
-            print(workspace)
-            print(huc)
-            print(lid)
             #If a site folder exists (ie a flow file was written) save files containing site attributes.
             output_dir = os.path.join(workspace, huc, lid)
             if os.path.exists(output_dir):
@@ -614,6 +503,113 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     return nws_sites_layer
     
 
+def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs):
+    messages = []
+    
+    # Determine datum-offset water surface elevation (from above).
+    datum_adj_wse = stage + datum_adj_ft + lid_altitude
+    datum_adj_wse_m = datum_adj_wse*0.3048  # Convert ft to m
+    
+    # Subtract HAND gage elevation from HAND WSE to get HAND stage.
+    hand_stage = datum_adj_wse_m - lid_usgs_elev
+    
+    # Produce extent tif hand_stage. Multiprocess across branches.
+    branches = os.listdir(branch_dir)
+    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+        for branch in branches:
+            # Define paths to necessary files to produce inundation grids.
+            full_branch_path = os.path.join(branch_dir, branch)
+            rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
+            catchments_path = os.path.join(fim_dir, huc, full_branch_path, 'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif')
+            hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
+            
+            if not os.path.exists(rem_path):
+                messages.append(f"{lid}:rem doesn't exist")
+                continue
+            if not os.path.exists(catchments_path):
+                messages.append(f"{lid}:catchments files doesn't exist")
+                continue
+            if not os.path.exists(hydrotable_path):
+                messages.append(f"{lid}:hydrotable_path doesn't exist")
+                continue
+            
+            # Use hydroTable to determine hydroid_list from site_ms_segments.
+            hydrotable_df = pd.read_csv(hydrotable_path)
+            hydroid_list = []
+            
+            # Determine hydroids at which to perform inundation
+            for feature_id in segments:
+                try:
+                    subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
+                    hydroid_list += list(subset_hydrotable_df.HydroID.unique())
+                except IndexError:
+                    pass
+                
+            if len(hydroid_list) == 0:
+                messages.append(f"{lid}:no matching hydroids")
+                continue
+
+            # If no segments, write message and exit out
+            if not segments:
+                messages.append(f'{lid}:missing nwm segments')
+                continue
+            
+            # Create inundation maps with branch and stage data
+            try:
+                print("Running inundation for " + huc + " and branch " + branch)
+                executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
+            except Exception:
+                messages.append(f'{lid}:inundation failed at {category}')
+                
+    # -- MOSAIC -- #
+    # Merge all rasters in lid_directory that have the same magnitude/category.
+    path_list = []
+    lid_dir_list = os.listdir(lid_directory)
+    print("Merging " + category)
+    for f in lid_dir_list:
+        if category in f:
+            path_list.append(os.path.join(lid_directory, f))
+    path_list.sort()  # To force branch 0 first in list, sort
+    
+    if len(path_list) > 0:
+        zero_branch_grid = path_list[0]
+        zero_branch_src = rasterio.open(zero_branch_grid)
+        zero_branch_array = zero_branch_src.read(1)
+        summed_array = zero_branch_array  # Initialize it as the branch zero array
+        
+        # Loop through remaining items in list and sum them with summed_array
+        for remaining_raster in path_list[1:]:
+            remaining_raster_src = rasterio.open(remaining_raster)
+            remaining_raster_array_original = remaining_raster_src.read(1)
+        
+            # Reproject non-branch-zero grids so I can sum them with the branch zero grid
+            remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
+            reproject(remaining_raster_array_original,
+                  destination = remaining_raster_array,
+                  src_transform = remaining_raster_src.transform,
+                  src_crs = remaining_raster_src.crs,
+                  src_nodata = remaining_raster_src.nodata,
+                  dst_transform = zero_branch_src.transform,
+                  dst_crs = zero_branch_src.crs,
+                  dst_nodata = -1,
+                  dst_resolution = zero_branch_src.res,
+                  resampling = Resampling.nearest)
+            # Sum rasters
+            summed_array = summed_array + remaining_raster_array
+            
+        del zero_branch_array  # Clean up
+        
+        # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
+        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')  
+        profile = zero_branch_src.profile
+        summed_array = summed_array.astype('uint8')
+        with rasterio.open(output_tif, 'w', **profile) as dst:
+            dst.write(summed_array, 1)
+        del summed_array
+
+    return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+
+
 if __name__ == '__main__':
 
     # Parse arguments
@@ -638,6 +634,9 @@ if __name__ == '__main__':
                         required=False, default='5')
     parser.add_argument('-l','--lid_to_run', help='NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Default is all sites',
                         required=False, default='all')
+    parser.add_argument('-ji','--job_number_intervals', help='Number of processes to use for inundating multiple intervals in stage-based'\
+        ' inundation and interval job numbers should multiply to no more than one less than the CPU count'\
+        ' of the machine.', required=False, default=1, type=int)    
     
     args = vars(parser.parse_args())
     process_generate_categorical_fim(**args)
