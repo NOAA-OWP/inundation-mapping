@@ -17,6 +17,7 @@ from geocube.rasterize import rasterize_image
 from tqdm import tqdm
 from xrspatial.zonal import stats, crosstab
 from dask.dataframe.multi import concat
+from dask.distributed import Client, LocalCluster
 from tqdm.dask import TqdmCallback
 import statsmodels.formula.api as smf
 from statsmodels.formula.api import ols
@@ -25,6 +26,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.feature_selection import SequentialFeatureSelector as SFS
 from sklearn_pandas import DataFrameMapper
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
+import matplotlib.pyplot as plt
 
 from foss_fim.tools.tools_shared_functions import csi, tpr, far, mcc
 
@@ -60,29 +62,35 @@ def build_agreement_raster_data_dir(huc, resolution, year, source):
 # agreement factors
 resolutions = [3,5,10,15,20]
 #resolutions = [5,10,15,20]
-#resolutions = [20]
+#resolutions = [10,20]
 years = [100,500]
 hucs = ['12020001','12020002','12020003','12020004','12020005','12020006','12020007']
-#hucs = ['12020001', '12020002']
+#hucs = ['12020002', '12020003']
 chunk_size = 256*4
 save_filename = os.path.join(data_dir,'experiment_data.h5')
 hdf_key = 'data'
-from_file = None
-#from_file = save_filename
+save_nwm_catchments_file = os.path.join(data_dir,'nwm_catchments_with_metrics_1202.gpkg')
 #feature_cols = ['huc8','spatial_resolution','magnitude','mainstem','order_','Lake','gages','Length']
-feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope']
+#feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope']
+feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope','dem_source']
 # encoded_features = ['order_','Lake','magnitude']
 #target_cols = ['CSI']
-#target_cols = ['MCC']
+target_cols = ['MCC']
 #target_cols = ['TPR']
-target_cols = ['FAR']
+#target_cols = ['FAR']
+#target_cols = ['Cohens Kappa']
 nhd_to_3dep_plot_fn = os.path.join(data_dir,'nhd_to_3dep_plot.png')
+#nwm_catchments_raster_fn = None
+nwm_catchments_raster_fn = os.path.join(data_dir,'nwm_catchments','nwm_catchments_{}_{}_{}m_{}yr.tif')
 
 # pipeline switches 
+write_debugging_files = False
+#from_file = None
+from_file = save_filename
+nwm_catchments_from_file = False
 add_two_way_interactions = True
 run_anova = True
-make_nhd_plot = True
-
+make_nhd_plot = False
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -137,6 +145,7 @@ def all_metrics(TP,FP,FN,TN=None):
 
 # wrap functions to work with rows
 calc_all_metrics = compute_secondary_metrics_on_df(all_metrics)
+calc_total_samples = compute_secondary_metrics_on_df(total_samples)
 
 def compute_metrics_by_catchment( nwm_catchments_fn, 
                                   nwm_streams_fn,
@@ -145,12 +154,18 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                   chunk_size,
                                   save_filename=None,
                                   hdf_key=None,
-                                  write_debugging_files=False):
+                                  write_debugging_files=False,
+                                  save_nwm_catchments_file=None,
+                                  nwm_catchments_raster_fn=None,
+                                  nwm_catchments_from_file=False):
     
     # load catchments and streams
     nwm_streams = gpd.read_file(nwm_streams_fn)
     nwm_catchments = gpd.read_file(nwm_catchments_fn)
     huc8s_df = gpd.read_file(huc8s_vector_fn)
+
+    # compute catchment areas
+    nwm_catchments['area_sqkm'] = nwm_catchments.loc[:,'geometry'].area / (1000*1000)
 
     # spatial join with columns from huc8s_df to get catchment assignments by huc8
     nwm_catchments = nwm_catchments \
@@ -175,12 +190,11 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
         print('Agreement By Catchment')
         # loop over every combination of resolutions and magnitude years
         for idx,(h,r,y,s) in tqdm(enumerate(combos),
-                                desc='Rasterizing Catchments & Crosstabbing',
+                                desc='Rasterizing Catchments',
                                 total=num_of_combos):
             
             # load agreement raster
             agreement_raster_fn = build_agreement_raster_data_dir(h,r,y,s)
-            print(agreement_raster_fn);exit()
             agreement_raster = rxr.open_rasterio(
                                                  agreement_raster_fn,
                                                  #chunks=True,
@@ -196,26 +210,35 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                                         .reset_index(drop=True)
 
             # making xarray from catchment vectors
-            nwm_catchments_xr = make_geocube(nwm_catchments_current_huc8,['ID'],
-                                             like=agreement_raster,
-                                             fill=np.nan,
-                                             rasterize_function=partial(rasterize_image,
-                                                                        filter_nan=True,
-                                                                        all_touched=True)) \
-                                                 .to_array(dim='band', name='nwm_catchments') \
-                                                 .sel(band='ID') \
-                                                 .drop('band') \
-                                                 .chunk(agreement_raster.chunksizes) \
-                                                 .rio.set_nodata(np.nan) \
-                                                 .rio.write_nodata(-9999,encoded=True)
-            
+            if nwm_catchments_from_file:
+                nwm_catchments_xr = rxr.open_rasterio(nwm_catchments_raster_fn.format(s,h,r,y),
+                                                      chunks=chunk_size,
+                                                      mask_and_scale=True,
+                                                      variable='ID',
+                                                      default_name='nwm_catchments',
+                                                      lock=True
+                                                     ).sel(band=1,drop=True) 
+            else:
+                nwm_catchments_xr = make_geocube(nwm_catchments_current_huc8,['ID'],
+                                                 like=agreement_raster,
+                                                 fill=np.nan,
+                                                 rasterize_function=partial(rasterize_image,
+                                                                            filter_nan=True,
+                                                                            all_touched=True)) \
+                                                     .to_array(dim='band', name='nwm_catchments') \
+                                                     .sel(band='ID') \
+                                                     .drop('band') \
+                                                     .chunk(agreement_raster.chunksizes) \
+                                                     .rio.set_nodata(np.nan) \
+                                                     .rio.write_nodata(-9999,encoded=True)
+                
             if write_debugging_files:
                 # write rasterized nwm_catchments just for inspection
-                nwm_catchments_xr.rio.to_raster(os.path.join(data_dir,f'nwm_catchments_{h}_{r}m_{y}yr.tif'),
-                                                 tiled=True,windowed=True,lock=True,dtype=rasterio.int32,
-                                                 compress='lzw')
+                nwm_catchments_xr.rio.to_raster(nwm_catchments_raster_fn.format(s,h,r,y),
+                                                tiled=True,windowed=True,lock=True,dtype=rasterio.int32,
+                                                compress='lzw')
                 
-                nwm_catchments_current_huc8.to_file(os.path.join(data_dir,f'nwm_catchments_{h}_{r}m_{y}yr.gpkg'),
+                nwm_catchments_current_huc8.to_file(os.path.join(data_dir,'nwm_catchments',f'nwm_catchments_{s}_{h}_{r}m_{y}yr.gpkg'),
                                                     driver='GPKG',index=False)
             
             # compute cross tabulation table for ct_dask_df
@@ -223,8 +246,12 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                         .rename(columns=agreement_encoding_digits_to_names) \
                                         .astype(np.float64) \
                                         .rename(columns={'zone':'ID'}) \
-                                        .set_index('ID', drop=True, npartitions='auto') # set index on zone
-
+                                        .set_index('ID', drop=True, npartitions='auto') \
+            # drop zero samples
+            #meta = pd.Series(name='total_samples', dtype='i8')
+            #meta= '__no_default__'
+            #ct_dask_df = ct_dask_df.loc[ct_dask_df.apply(calc_total_samples,axis=1,meta=meta) != 0,:]
+            
             # remove files
             del agreement_raster, nwm_catchments_xr
 
@@ -265,7 +292,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
         secondary_metrics_df = secondary_metrics_df.compute()
 
     # reset index
-    secondary_metrics_df = secondary_metrics_df.reset_index(drop=False)
+    secondary_metrics_df = secondary_metrics_df.reset_index(drop=True)
     
     # what about repeat ID's
     # should we group by all factors and sum to aggregate???
@@ -273,30 +300,32 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     #print("Number of duplicate ID's within resolution and magnitude factor-level combinations", 
     #    secondary_metrics_df.set_index(['spatial_resolution', 'magnitude','ID']).index.duplicated().sum())
     
+    # merge back into nwm_catchments
+    nwm_catchments_with_metrics = nwm_catchments.merge(secondary_metrics_df.drop(columns='huc8'),on='ID') \
+                                                .merge(nwm_streams.loc[:,['ID','Slope','Lake',
+                                                                          'gages','Length']],
+                                                       on='ID')
+
     # join with nwm streams and convert datatypes
-    secondary_metrics_df = secondary_metrics_df.merge(nwm_streams.loc[:,['ID','mainstem','order_',
-                                                                               'Lake','gages',
-                                                                               'Slope', 'Length']],
+    secondary_metrics_df = secondary_metrics_df.merge(nwm_streams.loc[:,['ID','mainstem',
+                                                                         'order_','Lake','gages',
+                                                                         'Slope', 'Length']],
                                                             on='ID') \
-                                                     .drop(columns='index') \
-                                                     .astype({'huc8': np.int64,
-                                                              'spatial_resolution':np.float64,
-                                                              'magnitude': np.int64,
-                                                              'ID' : np.int64,
-                                                              'mainstem' : np.int64,
-                                                              'order_' : np.float64,
-                                                              'Lake' : np.int64,
-                                                              'gages' : np.int64})
-    """
-                                                     .astype({'huc8':'category',
-                                                              'spatial_resolution':np.float64,
-                                                              'magnitude':'category',
-                                                              'ID' : 'category',
-                                                              'mainstem' : 'category',
-                                                              'order_' : np.float64,
-                                                              'Lake' : 'category',
-                                                              'gages' : 'category'})
-    """
+                                               .merge(nwm_catchments.loc[:,['ID','area_sqkm']],on='ID') \
+                                               .astype({'huc8': 'category',
+                                                        'spatial_resolution': np.float64,
+                                                        'area_sqkm': np.float64,
+                                                        'magnitude': 'category',
+                                                        'ID' : 'category',
+                                                        'mainstem' : 'category',
+                                                        'order_' : np.float64,
+                                                        'Lake' : 'category',
+                                                        'gages' : 'category',
+                                                        'dem_source': 'category'})
+
+    # saving nwm catchments with metrics
+    if save_nwm_catchments_file:
+        nwm_catchments_with_metrics.to_file(save_nwm_catchments_file,index=False,driver='GPKG')
     
     # save file
     if isinstance(save_filename,str) & isinstance(hdf_key,str):
@@ -418,15 +447,141 @@ def anova(secondary_metrics_df):
     # TPR ~ Lake + spatial_resolution + order_ + Length + Slope + magnitude + order_:Lake + spatial_resolution:Lake + order_:Slope + spatial_resolution:order_ + spatial_resolution:Length + Lake:Length + magnitude:Length | Adj-R2: 0.4575340086432875
     # FAR ~ Slope + order_ + Lake + spatial_resolution + Length + magnitude + order_:Slope + order_:Lake + Length:Slope + Lake:Length + spatial_resolution:Slope | Adj-R2: 0.2752411117288007
 
+    ### INCLUDING DEM SOURCE
+    # CSI ~ Lake + Slope + order_ + Length + dem_source + magnitude + spatial_resolution + order_:Slope + order_:Lake + Lake:dem_source + spatial_resolution:Lake | Adj-R2: 0.4114255765775583
+    # MCC ~ Lake + Slope + dem_source + order_ + magnitude + spatial_resolution + order_:Slope + Lake:Length + Lake:Slope + order_:Lake + Length:Slope + order_:dem_source + Lake:dem_source + magnitude:Slope | Adj-R2: 0.22077364251725728 
+    # TPR ~ Lake + order_ + Length + dem_source + Slope + magnitude + spatial_resolution + order_:Lake + order_:Slope + Lake:Length + order_:dem_source + Length:Slope | Adj-R2: 0.437667461931467
+    # FAR ~ Slope + order_ + Lake + Length + dem_source + magnitude + order_:Slope + Length:Slope + order_:Lake + order_:dem_source + spatial_resolution:dem_source | Adj-R2: 0.24398916845724483
 
     #return linear_model, anova_table
 
-def nhd_to_3dep_plot():
+def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
     
     """
     histogram of differences (3dep 10m - nhd 10m) by catchment sorted and centered at zero and vertically oriented
     two columns by magnitude (100, 500yr), three rows by metric (CSI, TPR, FAR)
     """
+    
+    """
+    Index(['ID', 'CSI', 'TPR', 'FAR', 'MCC', 'huc8', 'spatial_resolution',
+       'magnitude', 'TN', 'FN', 'FP', 'TP', 'Waterbody', 'mainstem', 'order_',
+       'Lake', 'gages', 'Slope', 'Length','dem_source'],
+      dtype='object')
+    """
+    # prepare secondary metrics
+    metrics = ['MCC','CSI','TPR','FAR']
+    metric_dict = {'MCC': "Matthew's Correlation Coefficient",'CSI':"Critical Success Index",
+                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+    def get_terrain_label(metric):
+        label_dict = {'_diff':'Difference (3DEP-NHD)','_3dep': "3DEP",'_nhd':"NHD"}
+        metric.split('_')[1]
+    #metric = metrics[0]
+
+    prepared_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                           .set_index(['huc8','magnitude','spatial_resolution','dem_source','ID']) \
+                                           .sort_index() 
+    
+    metrics_3dep = prepared_metrics.xs('3dep',level="dem_source").loc[:,metrics]
+    metrics_nhd = prepared_metrics.xs('nhd',level="dem_source").loc[:,metrics]
+    #metrics_3dep = prepared_metrics.xs(500,level="magnitude").loc[:,metrics]
+    #metrics_nhd = prepared_metrics.xs(100,level="magnitude").loc[:,metrics]
+    
+    difference = (metrics_3dep - metrics_nhd).dropna(how='any') 
+    
+    all_metrics = difference.join(metrics_3dep,how='left',lsuffix='_diff',rsuffix='_3dep') \
+                            .join(metrics_nhd,how='left') \
+                            .rename(columns=dict(zip(metrics,[m+'_nhd' for m in metrics])))
+
+    for mag in [100,500]:
+        fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
+
+        for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
+
+            sorted_metrics = all_metrics.sort_values(metric+'_diff',ascending=False) \
+                                        .xs(mag,level='magnitude')
+            
+            if metric == 'FAR':
+                improved_indices = sorted_metrics.loc[:,metric+"_diff"]<=0
+            else:
+                improved_indices = sorted_metrics.loc[:,metric+"_diff"]>=0
+            
+            reduced_indices = ~improved_indices
+            
+            #y = range(len(sorted_metrics))
+            #x = sorted_metrics.loc[:,metric+'_diff'] + sorted_metrics.loc[:,[metric+'_nhd', metric+'_3dep']].min(axis=1)
+            
+            # errorbars
+            print(f"Metric employed: {metric}")
+            proportion_above_zero = ((sorted_metrics.loc[:,metric+'_3dep'] -sorted_metrics.loc[:,metric+'_nhd'])>0).sum()/len(sorted_metrics)
+            print(f"Proportion of catchments that perform better with 3dep: {proportion_above_zero}")
+            median_diff = sorted_metrics.loc[:,metric+'_diff'].median()
+            mean_diff = sorted_metrics.loc[:,metric+'_diff'].mean()
+            std_diff = sorted_metrics.loc[:,metric+'_diff'].std()
+            print(f"Median, mean, and std improvements: {median_diff} | {mean_diff} | {std_diff}")
+            
+            # TRY:
+            def assign_color(series,metric):
+                color_dict = {True:'green',False:'red'}
+                if metric == 'FAR': color_dict = {False:'green',True:'red'}
+
+                return (series >=0 ).apply(lambda x: color_dict[x])
+            
+            
+            improvement = ax.scatter(sorted_metrics.loc[improved_indices,metric+'_nhd'],
+                                     sorted_metrics.loc[improved_indices,metric+'_3dep'],
+                                     c='green',
+                                     s=1)
+            
+            reduction = ax.scatter(sorted_metrics.loc[reduced_indices,metric+'_nhd'],
+                                   sorted_metrics.loc[reduced_indices,metric+'_3dep'],
+                                   c='red',
+                                   s=1)
+            
+            ax.axline((0,0),slope=1,color='black')
+
+            metric_min = sorted_metrics.loc[:,[metric+'_3dep',metric+'_nhd']].min().min()
+            metric_max = sorted_metrics.loc[:,[metric+'_3dep',metric+'_nhd']].max().max()
+
+            ax.set_xlim(metric_min,metric_max)
+            ax.set_ylim(metric_min,metric_max)
+            ax.tick_params(axis='both', labelsize=12)
+            
+            ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15)
+            
+            if i in {2,3}: ax.set_xlabel("Metric Values"+"\n"+"NHDPlusHR DEM",fontsize=12)
+            if i in {0,2}: ax.set_ylabel("Metric Values"+"\n"+"3DEP DEM",fontsize=12)
+
+            ax.text(0.55,0.16,f'Mean: {np.round(mean_diff,3)}',transform=ax.transAxes,fontsize=12)
+            ax.text(0.55,0.1,f'Std: {np.round(std_diff,3)}',transform=ax.transAxes,fontsize=12)
+            ax.text(0.55,0.04,f'Perc.>0: {np.round(proportion_above_zero*100,1)}%',transform=ax.transAxes,fontsize=12)
+
+        lgd = fig.legend(handles=[improvement,reduction],
+                   labels=['Improvement or no change (difference >=0)','Reduction (difference<0)'],
+                   loc='lower center',
+                   frameon=True,
+                   framealpha=0,
+                   fontsize=12,
+                   title_fontsize=14,
+                   borderpad=0.25,
+                   markerscale=3,
+                   bbox_to_anchor=(0.5,-.1),
+                   borderaxespad=0,
+                   title="Metric Value Difference (3DEP - NHDPlusHR DEM)")
+        
+        """
+        axs.errorbar(x, y,
+                     xerr=sorted_metrics.loc[:,metric+'_diff'],
+                     elinewidth=0.05,
+                     capsize=0.1,
+                     capthick=0.01,
+                     mec='r',
+                     marker='o',
+                     mfc='r')
+        """
+
+        fig.savefig(os.path.join(data_dir,f'nhd_vs_3dep_{mag}yr.png'), bbox_extra_artists=(lgd,), bbox_inches='tight')
+        plt.close(fig)
+
     pass
 
 def resolution_plot():
@@ -436,7 +591,21 @@ def resolution_plot():
     split magnitudes by half along magnitude
     make three subplots along one row one for each metric
     """
-    pass
+    prepared_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                           .set_index(['huc8','magnitude','spatial_resolution','ID']) \
+                                           .sort_index() 
+                                           #.set_index(['huc8','magnitude','spatial_resolution','dem_source','ID']) \
+
+    #metrics_3dep = prepared_metrics.xs('3dep',level="dem_source").loc[:,metrics]
+    #metrics_nhd = prepared_metrics.xs('nhd',level="dem_source").loc[:,metrics]
+    metrics_3dep = prepared_metrics.xs(500,level="magnitude").loc[:,metrics]
+    metrics_nhd = prepared_metrics.xs(100,level="magnitude").loc[:,metrics]
+    
+    difference = (metrics_3dep - metrics_nhd).dropna(how='any') 
+    
+    all_metrics = difference.join(metrics_3dep,how='left',lsuffix='_diff',rsuffix='_3dep') \
+                            .join(metrics_nhd,how='left') \
+                            .rename(columns=dict(zip(metrics,[m+'_nhd' for m in metrics])))
 
 
 def lake_plot():  
@@ -445,7 +614,7 @@ def lake_plot():
     Investigate why we are getting scores in lake catchments first. They should be masked out.
     Maybe this is best presented with geospatial maps only for presentation?
     """
-    pass
+     
 
 def slope_plot():
     pass
@@ -455,13 +624,18 @@ def channel_length_plot():
 
 if __name__ == '__main__':
     
+    ## dask cluster and client
+    #cluster = LocalCluster(n_workers=1,threads_per_worker=3)
+    #client = Client(cluster)
+
     # computes 4 secondary contingency metrics by nwm catchment for year, huc, and resolution
     if isinstance(from_file,str):
         secondary_metrics_df = pd.read_hdf(from_file,hdf_key) # read hdf
     else: # compute
         secondary_metrics_df = compute_metrics_by_catchment(nwm_catchments_fn,nwm_streams_fn, huc8s_vector_fn,
                                                                resolutions,years,hucs, chunk_size,
-                                                               save_filename,hdf_key)
+                                                               save_filename,hdf_key, write_debugging_files, save_nwm_catchments_file,
+                                                               nwm_catchments_raster_fn,nwm_catchments_from_file)
     if run_anova:
         anova(secondary_metrics_df)
 
