@@ -5,17 +5,19 @@ import argparse
 import traceback
 import sys
 import time
-from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import rasterio
-from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
+import numpy as np
+
+from datetime import datetime
+from pathlib import Path
+from rasterio.warp import calculate_default_transform, reproject, Resampling
 from generate_categorical_fim_flows import generate_catfim_flows
 from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
 from tools_shared_functions import get_thresholds, get_nwm_segs, get_datum, ngvd_to_navd_ft, filter_nwm_segments_by_stream_order
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
@@ -38,6 +40,16 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         file_handle_appendage, catfim_method = "_stage_based", "STAGE-BASED"
     else:
         file_handle_appendage, catfim_method = "_flow_based", "FLOW-BASED"
+
+    ## Run CatFIM scripts in sequence
+    # Generate CatFIM flow files
+    print("================================")
+    print("Start generate categorical fim")
+    start_overall_time = datetime.now()
+    print()    
+    print('Creating flow files using the ' + catfim_method + ' technique...')
+    start = time.time()
+
     
     # Define output directories
     output_catfim_dir_parent = output_folder + file_handle_appendage
@@ -63,39 +75,66 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     if stage_based:
         # Generate Stage-Based CatFIM mapping
         nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir)
-    
+        end = time.time()
+        elapsed_time = round((end-start)/60)
+        print(f'Finished creating flow files in {elapsed_time} minutes')
+       
         print("Post-processing TIFs...")
+        start = time.time()
         post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
+        end = time.time()
+        elapsed_time = round((end-start)/60)
+        print(f'Post-processing TIFs in {elapsed_time} minutes')
     
         # Updating mapping status
+        start = time.time()        
         print('Updating mapping status')
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
-
+        end = time.time()
+        elapsed_time = round((end-start)/60)
+        print(f'Finished mapping in {elapsed_time} minutes')
+        
     # FLOW-BASED
     else:
         fim_dir = ""
-        print('Creating flow files using the ' + catfim_method + ' technique...')
-        start = time.time()
         nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir)
         end = time.time()
-        elapsed_time = (end-start)/60
+        elapsed_time = round((end-start)/60)
         print(f'Finished creating flow files in {elapsed_time} minutes')
         # Generate CatFIM mapping
+        
         print('Begin mapping')
         start = time.time()
         manage_catfim_mapping(fim_run_dir, output_flows_dir, output_mapping_dir, attributes_dir, job_number_huc, job_number_inundate, overwrite, depthtif=False)
         end = time.time()
-        elapsed_time = (end-start)/60
+        elapsed_time = round((end-start)/60)
         print(f'Finished mapping in {elapsed_time} minutes')
 
         # Updating mapping status
+        start = time.time()        
         print('Updating mapping status')
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
+        end = time.time()
+        elapsed_time = round((end-start)/60)
+        print(f'Finished mapping in {elapsed_time} minutes')
+
     
     # Create CSV versions of the final geopackages.
     print('Creating CSVs')
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
+
+    print("================================")
+    print("End generate categorical fim")
+
+    end_overall_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"ended: {dt_string}")
+
+    # calculate duration
+    time_duration = end_overall_time - start_overall_time
+    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print()
 
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
