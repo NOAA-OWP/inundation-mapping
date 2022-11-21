@@ -236,7 +236,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     #Filter out columns and write out to file
 #    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
     nws_lid_layer = os.path.join(workspace, 'nws_lid_sites.gpkg').replace('flows', 'mapping')
-    print(nws_lid_layer)
 
     viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')
     

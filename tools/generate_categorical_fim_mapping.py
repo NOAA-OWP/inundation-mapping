@@ -227,13 +227,11 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
 
         if not extent_poly_diss.empty:
-            print("NOT EMPTY")
             extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
     except Exception as e:
         # Log and clean out the gdb so it's not merged in later
         try:
-            print("EXCEPTION HERE")
             print(e)
 #            f = open(log_file, 'a+')
 #            f.write(str(diss_extent_filename) + " - dissolve error: " + str(e))
@@ -256,8 +254,6 @@ def manage_catfim_mapping(fim_run_dir, source_flow_dir, output_catfim_dir, attri
     # Create error log path
     log_file = os.path.join(log_dir, 'errors.log')
 
-    # Map path to points with attributes
-    nws_lid_attributes_filename = os.path.join(source_flow_dir, 'nws_lid_attributes.csv')
     total_number_jobs = job_number_huc * job_number_inundate
 
     print("Generating Categorical FIM")
