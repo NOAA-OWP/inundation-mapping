@@ -1111,7 +1111,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
         lon = datum_info['lon']
     
     #Define url for datum API
-    datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/tidal'     
+    datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/convert'     
     
     #Define parameters. Hard code most parameters to convert NGVD to NAVD.    
     params = {}
@@ -1127,16 +1127,18 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     
     #Call the API
     response = requests.get(datum_url, params = params)
+
     #If succesful get the navd adjustment
     if response:
         results = response.json()
         #Get adjustment in meters (NGVD29 to NAVD88)
-        adjustment = results['tar_height']
+        adjustment = results['t_z']
         #convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084,2)                
     else:
         adjustment_ft = None
-    return adjustment_ft       
+    return adjustment_ft    
+   
 #######################################################################
 #Function to download rating curve from API
 #######################################################################

@@ -262,7 +262,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             lid_directory = os.path.join(huc_directory, lid)
             if not os.path.exists(lid_directory):
                 os.mkdir(lid_directory)
-
             # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
             
@@ -294,7 +293,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             rating_curve_source = flows.get('source')
             if rating_curve_source is None:
                 continue
-            
             # Get the datum and adjust to NAVD if necessary.
             nws_datum_info, usgs_datum_info = get_datum(metadata)
             if rating_curve_source == 'USGS Rating Depot':
@@ -306,7 +304,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             datum = datum_data.get('datum', None)
             if datum is None:
                 all_messages.append(f'{lid}:missing datum in metadata')
-                continue      
+                continue
             
             # _________________________________________________________________________________________________________#
             # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). 
@@ -342,6 +340,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             # Adjust datum to NAVD88 if needed
             # Default datum_adj_ft to 0.0
             datum_adj_ft = 0.0
+            print(datum_data)
             if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
                 # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
                 try:
@@ -349,27 +348,21 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 except Exception as e:
                     all_messages.append(f'{lid}:datum adjustment failed;' + str(e))
             ### -- Concluded Datum Offset --- ###
-            
             # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             unfiltered_segments = list(set(get_nwm_segs(metadata)))
             
             # Filter segments to be of like stream order.
             desired_order = metadata['nwm_feature_data']['stream_order']
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
-              
             action_stage = stages['action']
             minor_stage = stages['minor']
             moderate_stage = stages['moderate']
             major_stage = stages['major']
-            
             stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
-            
             # Create a list of stages, incrementing by 1 ft.
+            
+
             interval_list = np.arange(min(stage_list), max(stage_list) + 10.0, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
-            
-            print(stage_list)
-            print(interval_list)
-            
             # For each flood category
             for category in flood_categories:
                 
@@ -395,18 +388,20 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                     
             # Now that the "official" category maps are made, produce the incremental maps.
             for interval_stage in interval_list:
-                with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
-                    # Determine category the stage value belongs with.
-                    if action_stage <= interval_stage < minor_stage:
-                        category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    if minor_stage <= interval_stage < moderate_stage:
-                        category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    if moderate_stage <= interval_stage < major_stage:
-                        category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    if interval_stage >= major_stage:
-                        category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
-                        
+                try:
+                    with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
+                        # Determine category the stage value belongs with.
+                        if action_stage <= interval_stage < minor_stage:
+                            category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        if minor_stage <= interval_stage < moderate_stage:
+                            category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        if moderate_stage <= interval_stage < major_stage:
+                            category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        if interval_stage >= major_stage:
+                            category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
+                except TypeError:  # sometimes the thresholds are Nonetypes
+                    pass
                     
             lat = float(metadata['nws_preferred']['latitude'])
             lon = float(metadata['nws_preferred']['longitude'])
@@ -422,9 +417,11 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             nwis_timestamp = metadata['nwis_timestamp']
                         
             #Create a csv with same information as geopackage but with each threshold as new record.
+            print(stage_based_att_dict)
             csv_df = pd.DataFrame()
             for threshold in flood_categories:
                 try:
+                    
                     datum_adj_ft = stage_based_att_dict[lid][threshold]['datum_adj_ft']
                     datum_adj_wse_ft = stage_based_att_dict[lid][threshold]['datum_adj_wse_ft']
                     datum_adj_wse_m = stage_based_att_dict[lid][threshold]['datum_adj_wse_m']

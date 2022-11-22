@@ -120,17 +120,10 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
                                       
             #Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
             unfiltered_segments = list(set(get_nwm_segs(metadata)))
-            print(lid)
-            print("UNFILTERED SEGMENTS")
-            print(unfiltered_segments)
-            print(len(unfiltered_segments))
             
             desired_order = metadata['nwm_feature_data']['stream_order']
             # Filter segments to be of like stream order.
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
-            print("FILTERED_SEGMENTS")
-            print(segments)
-            print(len(segments))
 
             #if no segments, write message and exit out
             if not segments:
