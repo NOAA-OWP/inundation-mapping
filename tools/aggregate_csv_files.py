@@ -32,6 +32,18 @@ def concat_files(files_to_merge):
     print('Concatenating all matching csv files...')
     df_concat = pd.concat(map(pd.read_csv, files_to_merge), ignore_index=True)
     
+def run_prep(fim_dir,file_search_str,head_row,output_file):
+    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
+
+    files_to_merge = [js for js in locate('*' + file_search_str + '*.csv', fim_dir)]
+    if len(files_to_merge) > 0:
+        print('Found files: ' + str(len(files_to_merge)))
+
+        aggreg_df = read_csvs_to_df(files_to_merge,head_row)
+        write_aggregate(aggreg_df,output_file)
+
+    else:
+        print('Did not find any files using tag: ' + '*' + file_search_str + '*.csv')
 
 if __name__ == '__main__':
 
@@ -47,15 +59,5 @@ if __name__ == '__main__':
     head_row = args['header_row']
     output_file = args['output_csv']
 
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
-
-    files_to_merge = [js for js in locate('*' + file_search_str + '*.csv', fim_dir)]
-    if len(files_to_merge) > 0:
-        print('Found files: ' + str(len(files_to_merge)))
-
-        aggreg_df = read_csvs_to_df(files_to_merge,head_row)
-        write_aggregate(aggreg_df,output_file)
-
-    else:
-        print('Did not find any files using tag: ' + '*' + file_search_str + '*.csv')
+    run_prep(fim_dir,file_search_str,head_row,output_file)
 
