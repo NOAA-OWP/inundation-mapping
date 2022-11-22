@@ -127,7 +127,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
 
     # Find the FIM version
     merged_layer = os.path.join(output_catfim_dir, 'catfim_library.gpkg')
-
+    tifs_to_reformat_list = []
     if not os.path.exists(merged_layer): # prevents appending to existing output        
         huc_ahps_dir_list = os.listdir(output_catfim_dir)
         skip_list=['errors','logs','gpkg','missing_files.txt',merged_layer]
@@ -135,7 +135,10 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
         # Loop through all categories
         print("Building list of TIFs to reformat...")
         for huc in huc_ahps_dir_list:
+            print(huc)
             if huc not in skip_list:
+                print("Not in skip_list")
+                print(skip_list)
                 huc_dir = os.path.join(output_catfim_dir, huc)
                 try:
                     ahps_dir_list = os.listdir(huc_dir)
@@ -146,31 +149,33 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
                 for ahps_lid in ahps_dir_list:
                     print(ahps_lid)
                     ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
+                    print(ahps_lid_dir)
 
                     # Append desired filenames to list.
                     tif_list = os.listdir(ahps_lid_dir)
+                    print(tif_list)
                     for tif in tif_list:
                         if 'extent.tif' in tif:
-                            tif_list.append(os.path.join(ahps_lid_dir, tif))
+                            print(tif)
+                            tifs_to_reformat_list.append(os.path.join(ahps_lid_dir, tif))
 
-    
-        # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
-        nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
-        
-        print("Reformatting TIFs...")
-        for tif_to_process in tif_list:
+            # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
+            nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
+            
+            print("Reformatting TIFs...")
             with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-                if os.path.exists(tif_to_process):
-                    try:
-                        magnitude = os.path.split(tif_to_process)[1].split('_')[1]
-                        executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename)
-                    except Exception as ex:
-                        print("EXCEPTION")
-                        print(f"*** {ex}")
-                        traceback.print_exc() 
-                        f = open(log_file, 'a+')
-                        f.write(f"Missing layers: {tif_to_process}\n")
-                        f.close()
+                for tif_to_process in tifs_to_reformat_list:
+                    if os.path.exists(tif_to_process):
+                        try:
+                            magnitude = os.path.split(tif_to_process)[1].split('_')[1]
+                            executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename)
+                        except Exception as ex:
+                            print("EXCEPTION")
+                            print(f"*** {ex}")
+                            traceback.print_exc() 
+                            f = open(log_file, 'a+')
+                            f.write(f"Missing layers: {tif_to_process}\n")
+                            f.close()
         
         # Merge all layers
         print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
@@ -197,16 +202,16 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
 
     try:
         # Convert raster to to shapes
+        print("Opening raster")
         with rasterio.open(extent_grid) as src:
             image = src.read(1)
             mask = image > 0
-
+            
         # Aggregate shapes
         results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
 
         # Convert list of shapes to polygon
-        extent_poly  = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
-
+        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
 
@@ -216,28 +221,26 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
-
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
         # Join attributes
         nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc':str})
         nws_lid_attributes_table = nws_lid_attributes_table.loc[(nws_lid_attributes_table.magnitude==magnitude) & (nws_lid_attributes_table.nws_lid==ahps_lid)]
-
         extent_poly_diss = extent_poly_diss.merge(nws_lid_attributes_table, left_on=['ahps_lid','magnitude','huc'], right_on=['nws_lid','magnitude','huc'])
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
-
         # Save dissolved multipolygon
         handle = os.path.split(extent_grid)[1].replace('.tif', '')
-
         diss_extent_filename = os.path.join(gpkg_dir, handle + "_dissolved.gpkg")
-
+        print(diss_extent_filename)
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
-
+        print(extent_poly_diss[:10])
         if not extent_poly_diss.empty:
             extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
     except Exception as e:
+        print("Exception")
+        print(e)
         # Log and clean out the gdb so it's not merged in later
         try:
             print(e)
