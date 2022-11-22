@@ -34,7 +34,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     mann_n_table : str
         Path to a csv file containing Manning's n values by feature_id (must contain variables "feature_id", "channel_n", "overbank_n")
     file_suffix : str
-        Suffix to append to the output log file
+        Optional: Suffix to append to the output log file
     number_of_jobs : str
         Number of jobs.
     src_plot_option : str
@@ -44,7 +44,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 def variable_mannings_calc(args):
 
     in_src_bankfull_filename    = args[0]
-    bankfull_proxy_column    = args[1]
+    bankfull_proxy_column       = args[1]
     df_mann                     = args[2]
     huc                         = args[3]
     branch_id                   = args[4]
