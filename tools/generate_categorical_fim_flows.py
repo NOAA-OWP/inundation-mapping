@@ -72,7 +72,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         conus_list, conus_dataframe = get_metadata(metadata_url, select_by = 'nws_lid', selector = ['all'], must_include = 'nws_data.rfc_forecast_point', upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
         # Get metadata for Islands
         islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
-        print(len(islands_list))
         # Append the dataframes and lists
         all_lists = conus_list + islands_list
     
@@ -98,9 +97,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         #Get list of nws_lids
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in list to create flow file
-        for lid in nws_lids:
-            print(lid)
-            
+        for lid in nws_lids:            
             #Convert lid to lower case
             lid = lid.lower()
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
@@ -115,7 +112,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
                 message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 continue
-            print("Here")
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
                                       
@@ -125,7 +121,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             desired_order = metadata['nwm_feature_data']['stream_order']
             # Filter segments to be of like stream order.
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
-            print("Right here")
             #if no segments, write message and exit out
             if not segments:
                 print(f'{lid} no segments')
@@ -134,7 +129,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
                 continue
             #For each flood category
             for category in flood_categories:
-                print(category)
                 #Get the flow
                 flow = flows[category]
                 #If there is a valid flow value, write a flow file.
@@ -219,11 +213,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     # 'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
-    print("MESSAGES")
-    print(all_messages)
     #Write messages to DataFrame, split into columns, aggregate messages.
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
-    print(messages_df)
     messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
     
