@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.(pending) - 2022-11-07 - [PR #737](https://github.com/NOAA-OWP/inundation-mapping/pull/737)
+## v4.0.11.2 - 2022-11-07 - [PR #737](https://github.com/NOAA-OWP/inundation-mapping/pull/737)
 
 Add an extra input args to the gms_**.sh files to allow for an override of the branch zero deny list, same as we can do with the unit and branch deny list overrides. This is needed for debugging purposes.
 
