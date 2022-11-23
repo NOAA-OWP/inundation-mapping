@@ -1,8 +1,26 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-<<<<<<< HEAD
-=======
+## v3.0.36.3 - 2022-11-16 - [PR # 615](https://github.com/NOAA-OWP/inundation-mapping/pull/615)
+
+This PR adds the functions and changes necessary to aggregate alpha metrics by catchment for the FIM3 product. The function `test_case_by_hydroid.py` performs this aggregation. It does so utilizing the ogr library.
+
+### Changes
+
+- `tools`
+   - `pixel_counter.py`
+          This script isolates the number of pixels per class of a raster within the outlines of
+           one or more polygons and displays them in a table. It accomplishes this by rasterizing the vector file,
+           masking out the desired areas of both rasters, and then summarizing them in a dataframe. It makes use
+           of the gdal, numpy, and pandas function libraries.
+    - `pixel_counter_wrapper.py`
+          This function sets up processing of the process_zonal_stats() function.   
+    - `pixel_counter_functions.py`
+          Contains functions for processing raster data, specifically the Land Use Land Cover dataset. It also contains a function `get_mask_value_counts` which is the main function used for this specific process of digesting Alpha metrics. This function processes the `agreement_raster` produced by the alpha test. 
+    - `test_case_by_hydroid.py` outputs both a CSV file and a Geopackage containing Alpha metrics. The `-comp` composite flag dictates whether the composite metrics are applied. If applied, the comp flag will apply the composite Alpha Metrics to the boundaries defined by the version input geopackages.
+
+<br/><br/>
+
 ## v3.0.36.2 - 2022-10-11 - [PR #707](https://github.com/NOAA-OWP/inundation-mapping/pull/707)
 
 Adds capability to produce single rating curve comparison plots for each gage.
@@ -124,7 +142,6 @@ These changes introduce a PostgreSQL database solution for storing, processing, 
 
 <br/><br/>
 
->>>>>>> dev-fim3
 ## v3.0.32.1 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
 
 This PR updates `tools` with `test_case_by_hydroid.py`, `pixel_counter.py`, `pixel_counter_functions.py`, `pixel_counter_wrapper.py`. `test_case_by_hydroid.py` assembles alpha stats on the catchment scale. Uses the class `test_case` from the file `run_test_case.py`. Outputs a csv to a specified location. 
@@ -138,12 +155,7 @@ This PR updates `tools` with `test_case_by_hydroid.py`, `pixel_counter.py`, `pix
 
 <br/><br/>
 
-<<<<<<< HEAD
-
-## v3.0.32.0 - 2022-05-26 - [PR #597](https://github.com/NOAA-OWP/cahaba/pull/588)
-=======
 ## v3.0.32.0 - 2022-05-26 - [PR #588](https://github.com/NOAA-OWP/cahaba/pull/588)
->>>>>>> dev-fim3
 
 This PR updates `synthesize_test_cases.py` with the ability to create MS, FR, and composite inundation agreement rasters and statistics all in one run. The new composited statistics are output in the same location within each test ID with the `_comp` suffix  replacing `_ms` for each dev or previous_fim run. Addresses #555.
 `run_test_case.py` has also been refactored to use a `test_case` python class. This workflow has shown decreased memory usage as compared to the previous version of `run_test_case.py`.
