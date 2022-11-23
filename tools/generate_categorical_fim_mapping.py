@@ -162,17 +162,22 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
                         if os.path.exists(tif_to_process):
                             try:
                                 magnitude = os.path.split(tif_to_process)[1].split('_')[1]
-                                stage = float((os.path.split(tif_to_process)[1].split('_')[2]).replace('p', '.'))
-                                if stage == 'extent':
-                                    stage = 'official'
-                                executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, stage)
+                                try:
+                                    interval_stage = float((os.path.split(tif_to_process)[1].split('_')[2]).replace('p', '.').replace("ft", ""))
+                                    if interval_stage == 'extent':
+                                        interval_stage = None
+                                except ValueError:
+                                    interval_stage = None
+                                print("INTERVAL STAGE")
+                                print(interval_stage)
+                                executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, interval_stage)
                             except Exception as ex:
                                 print("EXCEPTION")
                                 print(f"*** {ex}")
                                 traceback.print_exc() 
-                                f = open(log_file, 'a+')
-                                f.write(f"Missing layers: {tif_to_process}\n")
-                                f.close()
+#                                f = open(log_file, 'a+')
+#                                f.write(f"Missing layers: {tif_to_process}\n")
+#                                f.close()
         
         # Merge all layers
         print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
@@ -196,7 +201,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
         print(f"{merged_layer} already exists.")
 
 
-def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, stage):
+def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, interval_stage=None):
 
     try:
         # Convert raster to to shapes
@@ -219,7 +224,7 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
-        extent_poly_diss['stage'] = stage
+        extent_poly_diss['interval_stage'] = interval_stage
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
