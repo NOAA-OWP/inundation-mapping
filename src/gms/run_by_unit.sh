@@ -267,16 +267,14 @@ fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"$stopDiv
-date -u
-Tstart
-$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $srcDir/../config/deny_gms_branch_zero.lst -b 0
-Tcount
+$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list_for_units -b 0
+
 
 ## REMOVE FILES FROM DENY LIST ##
-if [ -f $deny_gms_unit_list ]; then
+if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"$stopDiv
     date -u
     Tstart
-    $srcDir/gms/outputs_cleanup.py -d $outputHucDataDir -l $deny_gms_unit_list -b $hucNumber
+    $srcDir/gms/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
     Tcount
 fi
