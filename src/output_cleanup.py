@@ -3,6 +3,12 @@ import os
 import argparse
 from utils.shared_functions import mem_profile
 
+##################################
+##
+#### Deprecated (as part of fim_run):  Oct 1, 2022 ####
+##
+##################################
+
 
 @mem_profile
 def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_production, is_viz_post_processing):
@@ -22,6 +28,14 @@ def output_cleanup(huc_number, output_folder_path, additional_whitelist, is_prod
     is_viz_post_processing : BOOL
         Determine whether or not to process outputs for Viz
     '''
+
+    ##################################
+    ##
+    #### Deprecated (as part of fim_run):  Oct 1, 2022 ####
+    print('#### Deprecated (as part of fim_run):  Oct 1, 2022 ####')
+    ##
+    ##################################
+
 
     # List of files that will be saved during a production run
     production_whitelist = [
