@@ -618,7 +618,7 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('-jh','--job_number_huc',help='Number of processes to use for HUC scale operations.'\
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'\
-        ' machine.', required=False, default=1, type=int)
+        ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be kept low (2-4)', required=False, default=1, type=int)
     parser.add_argument('-jn','--job_number_inundate', help='Number of processes to use for inundating'\
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count'\
         ' of the machine.', required=False, default=1, type=int)    
