@@ -2,6 +2,26 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.11.3 - 2022-11-10 - [PR #739](https://github.com/NOAA-OWP/inundation-mapping/pull/739)
+
+New tool with instructions of downloading levee protected areas and a tool to pre-process it, ready for FIM.
+
+### Additions
+
+- `data`
+    - `nld`
+         - `preprocess_levee_protected_areas.py`:  as described above
+
+### Changes
+
+- `data`
+     - `preprocess_rasters.py`: added deprecation note. It will eventually be replaced in it's entirety.
+- `src`
+    - `utils`
+        - `shared_functions.py`: a few styling adjustments.
+
+<br/><br/>
+
 ## v4.0.11.2 - 2022-11-07 - [PR #737](https://github.com/NOAA-OWP/inundation-mapping/pull/737)
 
 Add an extra input args to the gms_**.sh files to allow for an override of the branch zero deny list, same as we can do with the unit and branch deny list overrides. This is needed for debugging purposes.
@@ -22,7 +42,6 @@ Also, if there is no override for the deny branch zero list and is not using the
         - `run_by_unit.sh`: Add new param to allow for branch zero deny list override.
 
 <br/><br/>
-
 
 ## v4.0.11.1 - 2022-11-01 - [PR #732](https://github.com/NOAA-OWP/inundation-mapping/pull/732)
 
