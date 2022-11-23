@@ -37,43 +37,6 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
 
-    inlets_attribute = 'inlet_id'
-    outlets_attribute = 'outlet_id'
-    outlet_linestring_index = -1
-
-    # converts multi-linestrings to linestrings
-    stream_network = stream_network.multilinestrings_to_linestrings()
-
-    # derive nodes
-    stream_network = stream_network.derive_nodes(toNode_attribute=toNode_attribute,
-                                                 fromNode_attribute=fromNode_attribute,
-                                                 reach_id_attribute=reach_id_attribute,
-                                                 outlet_linestring_index=outlet_linestring_index,
-                                                 node_prefix=None,
-                                                 verbose=verbose)
-    
-    # derive outlets and inlets
-    stream_network = stream_network.derive_outlets(toNode_attribute,
-                                                   fromNode_attribute,
-                                                   outlets_attribute=outlets_attribute,
-                                                   verbose=verbose
-                                                  )
-    stream_network = stream_network.derive_inlets(toNode_attribute,
-                                                  fromNode_attribute,
-                                                  inlets_attribute=inlets_attribute,
-                                                  verbose=verbose
-                                                 )
-
-    # derive headwaters
-    if (headwaters_outfile is not None):
-        headwaters = stream_network.derive_headwater_points_with_inlets(
-                                                        fromNode_attribute=fromNode_attribute,
-                                                        inlets_attribute=inlets_attribute,
-                                                        outlet_linestring_index=outlet_linestring_index
-                                                       )
-        # headwaters write
-        headwaters.to_file(headwaters_outfile, index=False, driver='GPKG')
-
     if (drop_low_stream_orders):
         stream_network = stream_network.exclude_attribute_values(branch_id_attribute="order_",
                                                values_excluded=[1,2]
@@ -84,6 +47,13 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
             print("No branches exist but branch zero processing will continue. This could be due to stream order filtering.")
             return
                                                  
+    inlets_attribute = 'inlet_id'
+    outlets_attribute = 'outlet_id'
+    outlet_linestring_index = -1
+
+    # converts multi-linestrings to linestrings
+    stream_network = stream_network.multilinestrings_to_linestrings()
+
     # derive nodes
     stream_network = stream_network.derive_nodes(toNode_attribute=toNode_attribute,
                                                  fromNode_attribute=fromNode_attribute,
@@ -156,6 +126,16 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         catchments.reset_index(drop=True, inplace=True)
 
         catchments.to_file(catchments_outfile, index=False, driver='GPKG')
+
+    # derive headwaters
+    if (headwaters_outfile is not None):
+        headwaters = stream_network.derive_headwater_points_with_inlets(
+                                                        fromNode_attribute=fromNode_attribute,
+                                                        inlets_attribute=inlets_attribute,
+                                                        outlet_linestring_index=outlet_linestring_index
+                                                       )
+        # headwaters write
+        headwaters.to_file(headwaters_outfile, index=False, driver='GPKG')
 
     if out_stream_network is not None:
         if verbose:
