@@ -631,7 +631,7 @@ if __name__ == '__main__':
                         required=False, default='5')
     parser.add_argument('-l','--lid_to_run', help='NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Default is all sites',
                         required=False, default='all')
-    parser.add_argument('-ji','--job_number_intervals', help='Number of processes to use for inundating multiple intervals in stage-based'\
+    parser.add_argument('-ji','--job_number_intervals', help='Only use for Stage-Based (-a). Number of processes to use for inundating multiple intervals in stage-based'\
         ' inundation and interval job numbers should multiply to no more than one less than the CPU count'\
         ' of the machine.', required=False, default=1, type=int)    
     

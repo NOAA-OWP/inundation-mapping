@@ -99,6 +99,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         nws_lids = huc_dictionary[huc]
         #Loop through each lid in list to create flow file
         for lid in nws_lids:
+            print(lid)
             
             #Convert lid to lower case
             lid = lid.lower()
@@ -114,7 +115,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
                 message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 continue
-                
+            print("Here")
             #find lid metadata from master list of metadata dictionaries (line 66).
             metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
                                       
@@ -124,7 +125,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             desired_order = metadata['nwm_feature_data']['stream_order']
             # Filter segments to be of like stream order.
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
-
+            print("Right here")
             #if no segments, write message and exit out
             if not segments:
                 print(f'{lid} no segments')
@@ -133,6 +134,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
                 continue
             #For each flood category
             for category in flood_categories:
+                print(category)
                 #Get the flow
                 flow = flows[category]
                 #If there is a valid flow value, write a flow file.
@@ -180,6 +182,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             if output_dir.exists():
                 #Export DataFrame to csv containing attributes
                 csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index = False)
+                message = f'{lid}:flows available'
+                all_messages.append(message)
             else:
                 message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
@@ -189,35 +193,37 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
         full_csv_path = os.path.join(attributes_dir, csv)
-        #Huc has to be read in as string to preserve leading zeros.
+        # Huc has to be read in as string to preserve leading zeros.
         temp_df = pd.read_csv(full_csv_path, dtype={'huc':str})
         all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
-    #Write to file
+    # Write to file
     all_csv_df.to_csv(os.path.join(workspace, 'nws_lid_attributes.csv'), index = False)
    
-    #This section populates a shapefile of all potential sites and details
-    #whether it was mapped or not (mapped field) and if not, why (status field).
+    # This section populates a shapefile of all potential sites and details
+    # whether it was mapped or not (mapped field) and if not, why (status field).
     
-    #Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
+    # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
     viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)    
     viz_out_gdf.rename(columns = {'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_nws_lid':'nws_lid', 'identifiers_usgs_site_code':'usgs_gage'}, inplace = True)
     viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
     
-    #Using list of csv_files, populate DataFrame of all nws_lids that had
-    #a flow file produced and denote with "mapped" column.
+    # Using list of csv_files, populate DataFrame of all nws_lids that had
+    # a flow file produced and denote with "mapped" column.
     nws_lids = []
     for csv_file in csv_files:
         nws_lids.append(csv_file.split('_attributes')[0])
     lids_df = pd.DataFrame(nws_lids, columns = ['nws_lid'])
     lids_df['mapped'] = 'yes'
     
-    #Identify what lids were mapped by merging with lids_df. Populate 
-    #'mapped' column with 'No' if sites did not map.
+    # Identify what lids were mapped by merging with lids_df. Populate 
+    # 'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
-    
+    print("MESSAGES")
+    print(all_messages)
     #Write messages to DataFrame, split into columns, aggregate messages.
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
+    print(messages_df)
     messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
     
