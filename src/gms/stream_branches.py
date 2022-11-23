@@ -375,6 +375,18 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return(headwater_points_gdf)
 
+
+    def exclude_attribute_values(self, branch_id_attribute=None, values_excluded=None, verbose=False):
+                      
+        if (branch_id_attribute is not None) and (values_excluded is not None):
+            self = StreamNetwork(self[~self[branch_id_attribute].isin(values_excluded)], branch_id_attribute=branch_id_attribute)
+       
+        if verbose:         
+             print("Number of df rows = " + str(self.shape[0]))
+        
+        return(self)
+
+
     def remove_stream_segments_without_catchments( self,
                                                    catchments,
                                                    reach_id_attribute='NHDPlusID',
@@ -606,7 +618,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             progress.update(1)
 
             # get current reach stream order and branch id
-            #current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
+            # current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
             current_reach_branch_id = self.at[current_reach_id,branch_id_attribute]
 
             # get upstream ids
@@ -632,7 +644,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
                     # find 
                     upstream_reaches_compare_values = self.loc[not_visited_upstream_ids,comparison_attributes]
-                    matching_value = comparison_function(upstream_reaches_compare_values)
+                    # matching_value = comparison_function(upstream_reaches_compare_values)
 
                     #==================================================================================
                     # If the two stream orders aren't the same, then follow the highest order, otherwise use arbolate sum

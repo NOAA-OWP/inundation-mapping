@@ -43,8 +43,6 @@ def split_flows(max_length,
                 nwm_streams_filename,
                 drop_stream_orders=False):
 
-    wbd = gpd.read_file(wbd8_clp_filename)
-
     toMetersConversion = 1e-3
 
     print('Loading data ...')
