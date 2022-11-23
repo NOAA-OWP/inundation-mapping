@@ -9,7 +9,7 @@ from pixel_counter import zonal_stats
 
 def queue_zonal_stats(fim_run_dir, raster_path_dict, output_dir, job_number):
     """
-    This function sets up multiprocessing of the process_zonal_stats() function.
+    This function sets up processing of the zonal_stats() function.
     
     """
     

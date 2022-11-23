@@ -3,6 +3,7 @@ Written by:
 Anuska Narayanan (The University of Alabama Department of Geography, anarayanan1@crimson.ua.edu;
 Sophie Williams (The University of Alabama Department of Geography, scwilliams8@crimson.ua.edu; and
 Brad Bates (NOAA, Lynker, and the National Water Center, bradford.bates@noaa.gov)
+Caleb Oliven (NOAA, Lynker, and the National Water Center, caleb.oliven@noaa.gov)
 
 Derived from a Python version of a zonal statistics function written by Matthew Perry (@perrygeo).
 
@@ -170,6 +171,7 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
         # Creates new list to contain their stats
         stats = []
         feat = vlyr.GetNextFeature()
+        feat.geometry().MakeValid()
         while feat is not None:
 
             if not global_src_extent:
