@@ -12,6 +12,7 @@ from pathlib import Path
 from os.path import splitext
 
 import fiona
+import geopandas as gp
 import numpy as np
 import pandas as pd
 import rasterio
@@ -74,8 +75,6 @@ def run_system_command(args):
 
 
 def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
-
-    import geopandas as gp
 
 
     print("Subsetting " + wbd_gpkg + "...")
@@ -193,7 +192,12 @@ gdal bindings are not entirely compatible: https://rasterio.readthedocs.io/en/la
 
 '''
 
-def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_raster_name=None):
+def reproject_raster(input_raster_name,
+                     reprojection, 
+                     blocksize=None,
+                     reprojected_raster_name=None):
+
+    # TODO: Might be removed (Nov 8, 2022), not in use
 
     if blocksize is not None:
         if isinstance(blocksize, int):
@@ -253,6 +257,7 @@ def reproject_raster(input_raster_name,reprojection,blocksize=None,reprojected_r
                 del dst
         del src
 
+
 def mem_profile(func):
     def wrapper(*args, **kwargs):
         if (os.environ.get('mem') == "1"):
@@ -310,6 +315,7 @@ def concat_huc_csv(fim_dir,csv_name):
         return concat_df
 
 
+# -----------------------------------------------------------
 def progress_bar_handler(executor_dict, desc):
 
     for future in tqdm(as_completed(executor_dict),
