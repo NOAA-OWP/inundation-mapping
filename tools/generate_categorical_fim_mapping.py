@@ -162,7 +162,10 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
                         if os.path.exists(tif_to_process):
                             try:
                                 magnitude = os.path.split(tif_to_process)[1].split('_')[1]
-                                executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename)
+                                stage = float((os.path.split(tif_to_process)[1].split('_')[2]).replace('p', '.'))
+                                if stage == 'extent':
+                                    stage = 'official'
+                                executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, stage)
                             except Exception as ex:
                                 print("EXCEPTION")
                                 print(f"*** {ex}")
@@ -193,7 +196,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
         print(f"{merged_layer} already exists.")
 
 
-def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename):
+def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, stage):
 
     try:
         # Convert raster to to shapes
@@ -216,6 +219,7 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
+        extent_poly_diss['stage'] = stage
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
@@ -228,6 +232,7 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
         handle = os.path.split(extent_grid)[1].replace('.tif', '')
         diss_extent_filename = os.path.join(gpkg_dir, handle + "_dissolved.gpkg")
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
+        
         if not extent_poly_diss.empty:
             extent_poly_diss.to_file(diss_extent_filename,driver=getDriver(diss_extent_filename),index=False)
 
