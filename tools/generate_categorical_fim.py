@@ -340,7 +340,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             # Adjust datum to NAVD88 if needed
             # Default datum_adj_ft to 0.0
             datum_adj_ft = 0.0
-            print(datum_data)
             if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
                 # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
                 try:
@@ -361,7 +360,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
             # Create a list of stages, incrementing by 1 ft.
             
-
+            print(stage_list)
+            if stage_list == []:
+                continue  # TODO Log
             interval_list = np.arange(min(stage_list), max(stage_list) + 10.0, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
             # For each flood category
             for category in flood_categories:
@@ -417,7 +418,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             nwis_timestamp = metadata['nwis_timestamp']
                         
             #Create a csv with same information as geopackage but with each threshold as new record.
-            print(stage_based_att_dict)
             csv_df = pd.DataFrame()
             for threshold in flood_categories:
                 try:
