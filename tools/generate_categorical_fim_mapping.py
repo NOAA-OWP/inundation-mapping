@@ -168,8 +168,6 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
                                         interval_stage = None
                                 except ValueError:
                                     interval_stage = None
-                                print("INTERVAL STAGE")
-                                print(interval_stage)
                                 executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, interval_stage)
                             except Exception as ex:
                                 print("EXCEPTION")
