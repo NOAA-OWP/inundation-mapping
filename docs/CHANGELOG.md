@@ -2,6 +2,27 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.0.11.3 - 2022-11-10 - [PR #739](https://github.com/NOAA-OWP/inundation-mapping/pull/739)
+
+New tool with instructions of downloading levee protected areas and a tool to pre-process it, ready for FIM.
+
+### Additions
+
+- `data`
+    - `nld`
+         - `preprocess_levee_protected_areas.py`:  as described above
+
+### Changes
+
+- `data`
+     - `preprocess_rasters.py`: added deprecation note. It will eventually be replaced in it's entirety.
+- `src`
+    - `utils`
+        - shared_functions.py`: a few styling adjustments.
+        - 
+<br/><br/>
+
+
 ## v4.0.11.1 - 2022-11-01 - [PR #732](https://github.com/NOAA-OWP/inundation-mapping/pull/732)
 
 Due to a recent IT security scan, it was determined that Jupyter-core needed to be upgraded.
