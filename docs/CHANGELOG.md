@@ -18,10 +18,30 @@ New tool with instructions of downloading levee protected areas and a tool to pr
      - `preprocess_rasters.py`: added deprecation note. It will eventually be replaced in it's entirety.
 - `src`
     - `utils`
-        - shared_functions.py`: a few styling adjustments.
-        - 
+        - `shared_functions.py`: a few styling adjustments.
+
 <br/><br/>
 
+## v4.0.11.2 - 2022-11-07 - [PR #737](https://github.com/NOAA-OWP/inundation-mapping/pull/737)
+
+Add an extra input args to the gms_**.sh files to allow for an override of the branch zero deny list, same as we can do with the unit and branch deny list overrides. This is needed for debugging purposes.
+
+Also, if there is no override for the deny branch zero list and is not using the word "none", then use the default or overridden standard branch deny list.  This will keep the branch zero's and branch output folders similar but not identical for outputs.
+
+### Changes
+
+- `gms_pipeline.sh`:  Add new param to allow for branch zero deny list override. Plus added better logic for catching bad deny lists earlier.
+- `gms_run_branch.sh`:  Add new param to allow for branch zero deny list override.  Add logic to cleanup all branch zero output folders with the default branch deny list (not the branch zero list), UNLESS an override exists for the branch zero deny list.
+- `gms_run_unit.sh`: Add new param to allow for branch zero deny list override.
+- `config`
+    - `deny_gms_branch_zero.lst`: update to keep an additional file in the outputs.
+- `src`
+    - `output_cleanup.py`: added note saying it is deprecated.
+    - `gms`
+        - `run_by_branch.sh`: variable name change (matching new names in related files for deny lists)
+        - `run_by_unit.sh`: Add new param to allow for branch zero deny list override.
+
+<br/><br/>
 
 ## v4.0.11.1 - 2022-11-01 - [PR #732](https://github.com/NOAA-OWP/inundation-mapping/pull/732)
 
