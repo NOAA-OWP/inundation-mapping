@@ -238,9 +238,16 @@ class OverlapWindowMerge:
                               window[-1][0],
                               window[-1][1],
                               window[0][0],
-                              transform=self.depth_rsts[ds].transform,
+                              transform=self.depth_rsts[ds].transform)
+            """
+                              Causing the following warning:
+                              /usr/local/lib/python3.8/dist-packages/rasterio/windows.py:311:
+                              RasterioDeprecationWarning: The height, width, and precision parameters are 
+                              unused, deprecated, and will be removed in 2.0.0.  
+                              transform=meta['transform'],
                               height=window_height,
                               width=window_width)
+            """
 
             bnds.append(bnd)
 
@@ -250,14 +257,21 @@ class OverlapWindowMerge:
             read_data[read_data == np.float32(self.depth_rsts[ds].meta['nodata'])] = np.nan
             data.append(read_data)
             del bnd
-
+        
         final_bnds = from_bounds(window[0][1],
                                  window[-1][0],
                                  window[-1][1],
                                  window[0][0],
+                                 transform=meta['transform'])
+        """
+                                 Causing the following warning:
+                                 /usr/local/lib/python3.8/dist-packages/rasterio/windows.py:311:
+                                 RasterioDeprecationWarning: The height, width, and precision parameters are 
+                                 unused, deprecated, and will be removed in 2.0.0.  
                                  transform=meta['transform'],
                                  height=window_height,
                                  width=window_width)
+        """
 
         return [final_bnds, bnds, data]
 

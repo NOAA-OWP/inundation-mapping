@@ -27,6 +27,7 @@ from sklearn.feature_selection import SequentialFeatureSelector as SFS
 from sklearn_pandas import DataFrameMapper
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 import matplotlib.pyplot as plt
+import ptitprince as pt
 
 from foss_fim.tools.tools_shared_functions import csi, tpr, far, mcc
 
@@ -82,15 +83,17 @@ target_cols = ['MCC']
 nhd_to_3dep_plot_fn = os.path.join(data_dir,'nhd_to_3dep_plot.png')
 #nwm_catchments_raster_fn = None
 nwm_catchments_raster_fn = os.path.join(data_dir,'nwm_catchments','nwm_catchments_{}_{}_{}m_{}yr.tif')
+dem_resolution_plot_fn = os.path.join(data_dir,'dem_resolution_3dep_plot.png')
 
 # pipeline switches 
 write_debugging_files = False
-#from_file = None
-from_file = save_filename
+from_file = None
+#from_file = save_filename
 nwm_catchments_from_file = False
 add_two_way_interactions = True
-run_anova = True
+run_anova = False
 make_nhd_plot = False
+make_dem_resolution_plot = False
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -584,28 +587,50 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
 
     pass
 
-def resolution_plot():
+def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn):
     
     """
     violin plots of metric values oriented horizontally for 3dep data by resolution (3,5,10,15,20m)
     split magnitudes by half along magnitude
     make three subplots along one row one for each metric
     """
-    prepared_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
-                                           .set_index(['huc8','magnitude','spatial_resolution','ID']) \
-                                           .sort_index() 
+    # prepare secondary metrics
+    metrics = ['MCC','CSI','TPR','FAR']
+    metric_dict = {'MCC': "Matthew's Correlation Coefficient",'CSI':"Critical Success Index",
+                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+    
+    #prepared_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+    #                                       .set_index(['huc8','magnitude','spatial_resolution','ID']) \
+    #                                       .sort_index() 
                                            #.set_index(['huc8','magnitude','spatial_resolution','dem_source','ID']) \
 
     #metrics_3dep = prepared_metrics.xs('3dep',level="dem_source").loc[:,metrics]
     #metrics_nhd = prepared_metrics.xs('nhd',level="dem_source").loc[:,metrics]
-    metrics_3dep = prepared_metrics.xs(500,level="magnitude").loc[:,metrics]
-    metrics_nhd = prepared_metrics.xs(100,level="magnitude").loc[:,metrics]
+    #metrics_500yr = prepared_metrics.xs(500,level="magnitude").loc[:,metrics]
+    #metrics_100yr = prepared_metrics.xs(100,level="magnitude").loc[:,metrics]
     
-    difference = (metrics_3dep - metrics_nhd).dropna(how='any') 
+    #difference = (metrics_500yr - metrics_100yr).dropna(how='any') 
     
-    all_metrics = difference.join(metrics_3dep,how='left',lsuffix='_diff',rsuffix='_3dep') \
-                            .join(metrics_nhd,how='left') \
-                            .rename(columns=dict(zip(metrics,[m+'_nhd' for m in metrics])))
+    #all_metrics = difference.join(metrics_500yr,how='left',lsuffix='_diff',rsuffix='_500yr') \
+    #                        .join(metrics_100yr,how='left') \
+    #                        .rename(columns=dict(zip(metrics,[m+'_100yr' for m in metrics])))
+    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any')
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    metric = metrics[0]
+
+    ax=pt.RainCloud(x = 'spatial_resolution', y = metric,
+                    hue = 'magnitude', data = all_metrics, 
+                    palette = "Set2", bw = 0.2,
+                    width_viol = .6, ax = ax, orient = "h", move = .2,
+                    alpha=0.5, dodge =True, pointplot=True)
+    
+    ax.set_xlim([0.4,1])
+    ax.tick_params(axis='both', labelsize=12)
+
+    fig.savefig(dem_resolution_plot_fn, bbox_inches='tight')
+    plt.close(fig)
 
 
 def lake_plot():  
@@ -644,3 +669,5 @@ if __name__ == '__main__':
 
     # RUN THIS TO GET CATCHMENTS WITH LAKE METRICS
     # secondary_metrics_df.loc[secondary_metrics_df.loc[:,'Lake'] != -9999,'MCC'].dropna()
+    if make_dem_resolution_plot:
+        resolution_plot(secondary_metrics_df,dem_resolution_plot_fn)

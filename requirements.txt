@@ -137,7 +137,9 @@ rioxarray==0.12.2
 rsa==4.7.2
 s3transfer==0.6.0
 scipy==1.9.3
-seaborn==0.12.1
+#seaborn==0.12.1
+ptitprince==0.2.6
+seaborn==0.11.0
 SecretStorage==2.3.1
 Shapely==1.8.5.post1
 simplejson==3.16.0
