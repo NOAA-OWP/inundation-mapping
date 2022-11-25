@@ -28,6 +28,7 @@ from sklearn_pandas import DataFrameMapper
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 import matplotlib.pyplot as plt
 import ptitprince as pt
+import seaborn as sns
 
 from foss_fim.tools.tools_shared_functions import csi, tpr, far, mcc
 
@@ -87,13 +88,13 @@ dem_resolution_plot_fn = os.path.join(data_dir,'dem_resolution_3dep_plot.png')
 
 # pipeline switches 
 write_debugging_files = False
-from_file = None
-#from_file = save_filename
+#from_file = None
+from_file = save_filename
 nwm_catchments_from_file = False
 add_two_way_interactions = True
 run_anova = False
 make_nhd_plot = False
-make_dem_resolution_plot = False
+make_dem_resolution_plot = True
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -456,6 +457,27 @@ def anova(secondary_metrics_df):
     # TPR ~ Lake + order_ + Length + dem_source + Slope + magnitude + spatial_resolution + order_:Lake + order_:Slope + Lake:Length + order_:dem_source + Length:Slope | Adj-R2: 0.437667461931467
     # FAR ~ Slope + order_ + Lake + Length + dem_source + magnitude + order_:Slope + Length:Slope + order_:Lake + order_:dem_source + spatial_resolution:dem_source | Adj-R2: 0.24398916845724483
 
+    """
+    # code on how to plot significant linear model parameters by normalized values
+    # adopted from: https://stats.stackexchange.com/questions/89747/how-to-describe-or-visualize-a-multiple-linear-regression-model
+    X_norm = X4.copy() # This is a pd.Dataframe of the independent variables
+    X_norm = (X_norm - X_norm.mean()) / X_norm.std()
+    res_norm = sm.OLS(y_log, sm.add_constant(X_norm)).fit()
+
+    to_include = res_norm.params[res_norm.pvalues < 0.05][1:].sort_values() # get only those with significant pvalues
+    fig, ax = plt.subplots(figsize=(5,6), dpi=100)
+    ax.scatter(to_include, range(len(to_include)), color="#1a9988", zorder=2)
+    ax.set_yticks(range(len(to_include)), to_include.index) # label the y axis with the ind. variable names
+    ax.set_xlabel("Proportional Effect")
+    ax.set_title("Strength of Relationships")
+
+    # add the confidence interval error bars
+    for idx, ci in enumerate(res_norm.conf_int().loc[to_include.index].iterrows()):
+        ax.hlines(idx, ci[1][0], ci[1][1], color="#eb5600", zorder=1, linewidth=3)
+
+    plt.axline((0,0), (0,1), color="#eb5600", linestyle="--")
+    """
+
     #return linear_model, anova_table
 
 def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
@@ -557,19 +579,21 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
             ax.text(0.55,0.16,f'Mean: {np.round(mean_diff,3)}',transform=ax.transAxes,fontsize=12)
             ax.text(0.55,0.1,f'Std: {np.round(std_diff,3)}',transform=ax.transAxes,fontsize=12)
             ax.text(0.55,0.04,f'Perc.>0: {np.round(proportion_above_zero*100,1)}%',transform=ax.transAxes,fontsize=12)
+    # code on how to plot significant linear model parameters by normalized values
 
         lgd = fig.legend(handles=[improvement,reduction],
-                   labels=['Improvement or no change (difference >=0)','Reduction (difference<0)'],
-                   loc='lower center',
-                   frameon=True,
-                   framealpha=0,
-                   fontsize=12,
-                   title_fontsize=14,
-                   borderpad=0.25,
-                   markerscale=3,
-                   bbox_to_anchor=(0.5,-.1),
-                   borderaxespad=0,
-                   title="Metric Value Difference (3DEP - NHDPlusHR DEM)")
+                       labels=['Improvement or no change (difference >=0)','Reduction (difference<0)'],
+                       loc='lower center',
+                       frameon=True,
+                       framealpha=0.75,
+                       fontsize=12,
+                       title_fontsize=14,
+                       borderpad=0.25,
+                       markerscale=3,
+                       bbox_to_anchor=(0.5,-.1),
+                       borderaxespad=0,
+                       title="Metric Value Difference (3DEP - NHDPlusHR DEM)"
+                       )
         
         """
         axs.errorbar(x, y,
@@ -587,7 +611,7 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
 
     pass
 
-def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn):
+def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
     
     """
     violin plots of metric values oriented horizontally for 3dep data by resolution (3,5,10,15,20m)
@@ -616,20 +640,87 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn):
     #                        .rename(columns=dict(zip(metrics,[m+'_100yr' for m in metrics])))
     all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any')
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    
-    metric = metrics[0]
+    fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
 
-    ax=pt.RainCloud(x = 'spatial_resolution', y = metric,
-                    hue = 'magnitude', data = all_metrics, 
-                    palette = "Set2", bw = 0.2,
-                    width_viol = .6, ax = ax, orient = "h", move = .2,
-                    alpha=0.5, dodge =True, pointplot=True)
-    
-    ax.set_xlim([0.4,1])
-    ax.tick_params(axis='both', labelsize=12)
+    for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
 
-    fig.savefig(dem_resolution_plot_fn, bbox_inches='tight')
+        ax = sns.violinplot(data=all_metrics,
+                            x='spatial_resolution',
+                            y=metric,
+                            hue='magnitude',
+                            hue_order=[100,500],
+                            order=[3,5,10,15,20],
+                            bw='scott',
+                            ax=ax, split=True,
+                            inner='quartile',
+                            cut=True,
+                            palette=['blue','green'],
+                            linewidth=2,
+                            saturation=0.75,
+                            alpha=0.5
+                           )
+        
+        ax = sns.regplot(data = all_metrics,
+                         x='spatial_resolution',
+                         y=metric,
+                         seed=1, robust=False, ax=ax,
+                         truncate=False,
+                         n_boot=10,
+                         line_kws= {'linewidth' : 2},
+                         label='Trend Line',
+                         ci=None
+                         )
+        
+        """
+        ax=pt.RainCloud(x = 'spatial_resolution', y = metric,
+                        hue = 'magnitude', data = all_metrics, 
+                        palette = "Paired", bw = 0.2,
+                        width_viol = .6, ax = ax, orient = "h", move = .2,
+                        alpha=0.35, dodge =True, pointplot=True)
+        """
+        
+        if metric == 'FAR':
+            ax.set_ylim([0,0.15])
+        elif metric == 'TPR':
+            ax.set_ylim([0.6,1])
+        else:
+            ax.set_ylim([0.4,1])
+
+        ax.tick_params(axis='both', labelsize=12)
+
+        if i in {2,3}:
+            ax.set_xlabel('Spatial Resolution (m)',fontsize=12)
+        else:
+            ax.set_xlabel(None)
+
+        if i in {0,2}:
+            ax.set_ylabel('Metric Value',fontsize=12)
+        else:
+            ax.set_ylabel(None)
+        
+        ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15)
+
+        # magnitude
+        #ax.legend_.set_title('Magnitude (yr)')
+        ax.legend_ = None
+
+    h,l = ax.get_legend_handles_labels()
+    lgd = fig.legend(h,l,
+           loc='lower center',
+           ncols=2,
+           frameon=True,
+           framealpha=0.75,
+           fontsize=12,
+           title_fontsize=14,
+           borderpad=0.25,
+           markerscale=3,
+           bbox_to_anchor=(0.55,-.06),
+           borderaxespad=0,
+           title="Magnitude (yr)")
+    
+    if dem_resolution_plot_fn != None:
+        fig.savefig(dem_resolution_plot_fn, bbox_inches='tight')
+    
     plt.close(fig)
 
 
@@ -661,6 +752,7 @@ if __name__ == '__main__':
                                                                resolutions,years,hucs, chunk_size,
                                                                save_filename,hdf_key, write_debugging_files, save_nwm_catchments_file,
                                                                nwm_catchments_raster_fn,nwm_catchments_from_file)
+
     if run_anova:
         anova(secondary_metrics_df)
 
