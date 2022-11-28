@@ -953,7 +953,10 @@ def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
                 flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
                 stages['units'] = threshold_data.get('metadata').get('stage_units')
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-    return stages, flows
+        return stages, flows
+    else:
+        print("WRDS response error: ")
+        print(response)
 
 ########################################################################
 # Function to write flow file

@@ -19,7 +19,7 @@ import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
-def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run, job_number_intervals):
+def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run, job_number_intervals, past_major_interval_cap):
         
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate
@@ -62,8 +62,8 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     # STAGE-BASED
     if stage_based:
         # Generate Stage-Based CatFIM mapping
-        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir, job_number_intervals)
-    
+        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir, job_number_intervals, past_major_interval_cap)
+        
         print("Post-processing TIFs...")
         post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
     
@@ -217,7 +217,7 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
                 dst.write(masked_reclass_rem_array, 1)
     
     
-def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs, lid_to_run, attributes_dir, number_of_interval_jobs):
+def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs, lid_to_run, attributes_dir, number_of_interval_jobs, past_major_interval_cap):
     
     missing_huc_files = []
     all_messages = []  # TODO
@@ -250,13 +250,13 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             continue
         
         # -- If necessary files exist, continue -- #
-        
         # Read usgs_elev_df
         usgs_elev_df = pd.read_csv(usgs_elev_table)
             
         # Loop through each lid in nws_lids list
         nws_lids = huc_dictionary[huc]
-        for lid in nws_lids:            
+        for lid in nws_lids:
+            print(lid)
             # Make lid_directory.
             lid = lid.lower() # Convert lid to lower case
             lid_directory = os.path.join(huc_directory, lid)
@@ -264,12 +264,13 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 os.mkdir(lid_directory)
             # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
-            
+            if stages == None or flows == None:
+                print("Likely WRDS error")
+                continue
             # Check if stages are supplied, if not write message and exit. 
             if all(stages.get(category, None)==None for category in flood_categories):
                 all_messages.append(f'{lid}:missing threshold stages')
                 continue
-            
             # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
             try:
                 matching_rows = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
@@ -280,7 +281,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             except IndexError:  # Occurs when LID is missing from table
                 all_messages.append(f'{lid}:missing from usgs_elev_table')
                 continue
-            
             # Initialize nested dict for lid attributes
             stage_based_att_dict.update({lid:{}})
                 
@@ -305,7 +305,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             if datum is None:
                 all_messages.append(f'{lid}:missing datum in metadata')
                 continue
-            
             # _________________________________________________________________________________________________________#
             # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). 
             # Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
@@ -359,11 +358,9 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             major_stage = stages['major']
             stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
             # Create a list of stages, incrementing by 1 ft.
-            
-            print(stage_list)
             if stage_list == []:
                 continue  # TODO Log
-            interval_list = np.arange(min(stage_list), max(stage_list) + 10.0, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
+            interval_list = np.arange(min(stage_list), max(stage_list) + past_major_interval_cap, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
             # For each flood category
             for category in flood_categories:
                 
@@ -452,7 +449,6 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 all_messages.append(message)
                 
     print('Wrapping up Stage-Based CatFIM...')
-    #Recursively find all *_attributes csv files and append
     
     csv_files = os.listdir(attributes_dir)
     all_csv_df = pd.DataFrame()
@@ -633,7 +629,9 @@ if __name__ == '__main__':
                         required=False, default='all')
     parser.add_argument('-ji','--job_number_intervals', help='Number of processes to use for inundating multiple intervals in stage-based'\
         ' inundation and interval job numbers should multiply to no more than one less than the CPU count'\
-        ' of the machine.', required=False, default=1, type=int)    
+        ' of the machine.', required=False, default=1, type=int)
+    parser.add_argument('-mc','--past_major_interval_cap', help='Stage-Based Only. How many feet past major do you want to go for the interval FIMs?'\
+        ' of the machine.', required=False, default=5.0, type=float)    
     
     args = vars(parser.parse_args())
     process_generate_categorical_fim(**args)

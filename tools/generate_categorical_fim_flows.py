@@ -102,6 +102,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
             lid = lid.lower()
             #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
+            if stages == None or flows == None:
+                print("Likely WRDS error")
+                continue
             #Check if stages are supplied, if not write message and exit. 
             if all(stages.get(category, None)==None for category in flood_categories):
                 message = f'{lid}:missing threshold stages'
