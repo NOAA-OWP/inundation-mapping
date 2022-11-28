@@ -456,7 +456,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     refined_csv_files_list = []
     for csv in csv_files:
         full_csv_path = os.path.join(attributes_dir, csv)
-        #Huc has to be read in as string to preserve leading zeros.
+        # HUC has to be read in as string to preserve leading zeros.
         try:
             temp_df = pd.read_csv(full_csv_path, dtype={'huc':str})
             all_csv_df = all_csv_df.append(temp_df, ignore_index = True)

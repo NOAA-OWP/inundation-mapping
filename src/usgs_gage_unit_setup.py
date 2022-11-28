@@ -25,6 +25,34 @@ class Gage2Branch(object):
         usgs_gages = gpd.read_file(self.usgs_gage_filename)
         self.gages = usgs_gages[(usgs_gages.HUC8 == self.huc8) & (usgs_gages.curve == 'yes')]
         
+        # Filter USGS gages by attribute codes
+         #https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
+        acceptable_coord_acc_code_list = ['H','1','5','S','R','B','C','D','E']
+        #https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
+        acceptable_coord_method_code_list = ['C','D','W','X','Y','Z','N','M','L','G','R','F','S']
+        #https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
+        acceptable_alt_acc_thresh = 1.0
+        #https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
+        acceptable_alt_meth_code_list = ['A','D','F','I','J','L','N','R','W','X','Y','Z']
+        #https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
+        acceptable_site_type_list = ['ST']
+        
+        self.gages = self.gages.astype({'usgs_data_alt_accuracy_code': 'float'})  # Recast to float
+        
+        # Filter gages by accuracy codes
+        self.gages = self.gages[self.gages['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)]
+        self.gages = self.gages[self.gages['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)]
+        self.gages = self.gages[self.gages['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh]
+        self.gages = self.gages[self.gages['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)]
+        self.gages = self.gages[self.gages['usgs_data_site_type'].isin(acceptable_site_type_list)]
+        
+        # Add accuracy tolerance codes as extra fields so users can know what was used to filter
+        self.gages['acceptable_coord_acc_codes'] = str(acceptable_coord_acc_code_list)
+        self.gages['acceptable_coord_method_codes'] = str(acceptable_coord_method_code_list)
+        self.gages['acceptable_alt_acc_threshold'] = acceptable_alt_acc_thresh
+        self.gages['acceptable_alt_meth_codes'] = str(acceptable_alt_meth_code_list)
+        self.gages['acceptable_site_types'] = str(acceptable_site_type_list)
+        
         # Get AHPS sites within the HUC and add them to the USGS dataset
         if self.ahps_filename:
             ahps_sites = gpd.read_file(self.ahps_filename)
