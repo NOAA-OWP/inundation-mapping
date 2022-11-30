@@ -124,13 +124,13 @@ def variable_mannings_calc(args):
 def subdiv_geometry(df_src, bankfull_proxy_column):
 
     ## Calculate in-channel volume & bed area
-    df_src['Volume_chan (m3)'] = np.where(df_src[bankfull_proxy_column]=='channel', df_src['Volume (m3)'], (df_src['Volume_bankfull'] + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])))
-    df_src['BedArea_chan (m2)'] = np.where(df_src[bankfull_proxy_column]=='channel', df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
-    df_src['WettedPerimeter_chan (m)'] = np.where(df_src[bankfull_proxy_column]=='channel', (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2))
+    df_src['Volume_chan (m3)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], df_src['Volume (m3)'], (df_src['Volume_bankfull'] + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])))
+    df_src['BedArea_chan (m2)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
+    df_src['WettedPerimeter_chan (m)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2))
 
     ## Calculate overbank volume & bed area
-    df_src['Volume_obank (m3)'] = np.where(df_src[bankfull_proxy_column]=='floodplain', (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0)
-    df_src['BedArea_obank (m2)'] = np.where(df_src[bankfull_proxy_column]=='floodplain', (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']), 0.0)
+    df_src['Volume_obank (m3)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0)
+    df_src['BedArea_obank (m2)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']), 0.0)
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)']/df_src['LENGTHKM']/1000
     return(df_src)
 
