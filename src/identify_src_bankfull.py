@@ -92,28 +92,29 @@ def src_bankfull_lookup(args):
         df_src = df_src.merge(df_bankfull_calc[['Stage_bankfull','HydroID','BedArea_bankfull','Volume_bankfull','HRadius_bankfull','SurfArea_bankfull']],how='left',on='HydroID')
         df_src.drop(['Q_bfull_find'], axis=1, inplace=True)
 
-        ## Calculate the channel portion of bankfull Volume
-        df_src['chann_volume_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-        df_src['chann_volume_ratio'].where(df_src['Stage'] == 0, df_src['Volume_bankfull'] / (df_src[volume_var]),inplace=True)
-        #df_src['chann_volume_ratio'] = df_src['chann_volume_ratio'].clip_upper(1.0)
-        df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-        df_src['chann_volume_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
-        #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
+        ## The bankfull ratio variables below were previously used for the composite variable roughness routine (not currently implimented)
+        # ## Calculate the channel portion of bankfull Volume
+        # df_src['chann_volume_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+        # df_src['chann_volume_ratio'].where(df_src['Stage'] == 0, df_src['Volume_bankfull'] / (df_src[volume_var]),inplace=True)
+        # #df_src['chann_volume_ratio'] = df_src['chann_volume_ratio'].clip_upper(1.0)
+        # df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+        # df_src['chann_volume_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
 
-        ## Calculate the channel portion of bankfull Hydraulic Radius
-        df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-        df_src['chann_hradius_ratio'].where(df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]),inplace=True)
-        #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # old adding 0.01 to avoid dividing by 0 at stage=0
-        df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-        df_src['chann_hradius_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
-        #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
+        # ## Calculate the channel portion of bankfull Hydraulic Radius
+        # df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+        # df_src['chann_hradius_ratio'].where(df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]),inplace=True)
+        # #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # old adding 0.01 to avoid dividing by 0 at stage=0
+        # df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+        # df_src['chann_hradius_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
 
-        ## Calculate the channel portion of bankfull Surface Area
-        df_src['chann_surfarea_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-        df_src['chann_surfarea_ratio'].where(df_src['Stage'] == 0, df_src['SurfArea_bankfull'] / (df_src[surface_area_var]),inplace=True)
-        df_src['chann_surfarea_ratio'].where(df_src['chann_surfarea_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-        df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
-        #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
+        # ## Calculate the channel portion of bankfull Surface Area
+        # df_src['chann_surfarea_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
+        # df_src['chann_surfarea_ratio'].where(df_src['Stage'] == 0, df_src['SurfArea_bankfull'] / (df_src[surface_area_var]),inplace=True)
+        # df_src['chann_surfarea_ratio'].where(df_src['chann_surfarea_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
+        # df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
 
         ## mask bankfull variables when the bankfull estimated flow value is <= 0
         df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0,inplace=True)

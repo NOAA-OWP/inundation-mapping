@@ -242,7 +242,7 @@ if [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC channel/overbank subdivision routine"$stopDiv
     # Run SRC Subdivision & Variable Roughness routine
     Tstart
-    time python3 /foss_fim/src/subdiv_chan_obank_src.py -fim_dir $outputRunDataDir -bfull $bankfull_attribute -mann $vmann_input_file -j $jobLimit
+    time python3 /foss_fim/src/subdiv_chan_obank_src.py -fim_dir $outputRunDataDir -mann $vmann_input_file -j $jobLimit
     Tcount
 fi
 
