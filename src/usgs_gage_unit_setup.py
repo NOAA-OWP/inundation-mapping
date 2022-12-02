@@ -47,11 +47,11 @@ class Gage2Branch(object):
         self.gages = self.gages[self.gages['usgs_data_site_type'].isin(acceptable_site_type_list)]
         
         # Add accuracy tolerance codes as extra fields so users can know what was used to filter
-        self.gages['acceptable_coord_acc_codes'] = str(acceptable_coord_acc_code_list)
-        self.gages['acceptable_coord_method_codes'] = str(acceptable_coord_method_code_list)
-        self.gages['acceptable_alt_acc_threshold'] = acceptable_alt_acc_thresh
-        self.gages['acceptable_alt_meth_codes'] = str(acceptable_alt_meth_code_list)
-        self.gages['acceptable_site_types'] = str(acceptable_site_type_list)
+        self.gages['accepted_usgs_data_coord_accuracy_codes'] = str(acceptable_coord_acc_code_list)
+        self.gages['accepted_usgs_data_coord_method_codes'] = str(acceptable_coord_method_code_list)
+        self.gages['accepted_usgs_data_alt_accuracy_threshold'] = acceptable_alt_acc_thresh
+        self.gages['accepted_usgs_data_alt_meth_codes'] = str(acceptable_alt_meth_code_list)
+        self.gages['accepted_usgs_data_site_types'] = str(acceptable_site_type_list)
         
         # Get AHPS sites within the HUC and add them to the USGS dataset
         if self.ahps_filename:
