@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.12.1 - 2022-11-30 - [PR #751](https://github.com/NOAA-OWP/inundation-mapping/pull/751)
+
+Updating a few deny list files.
+
+### Changes
+
+- `config`:
+    - `deny_gms_branches_dev.lst`, `deny_gms_branches_prod.lst`, and `deny_gms_unit_prod.lst`
+
+<br/><br/>
+
 
 ## v4.0.12.0 - 2022-11-28 - [PR #736](https://github.com/NOAA-OWP/inundation-mapping/pull/736)
 
