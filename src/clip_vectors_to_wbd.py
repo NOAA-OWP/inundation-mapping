@@ -19,6 +19,7 @@ def subset_vector_layers(subset_nwm_lakes,
                          wbd_buffer_filename,
                          wbd_filename,
                          dem_filename,
+                         dem_domain,
                          nwm_lakes,
                          nwm_catchments,
                          subset_nwm_catchments,
@@ -45,11 +46,15 @@ def subset_vector_layers(subset_nwm_lakes,
     wbd_buffer = wbd.copy()
     wbd_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance, resolution=32)
 
+    # Erase area outside 3DEP domain
+    dem_domain = gpd.read_file(dem_domain)
+    wbd_buffer = gpd.clip(wbd_buffer, dem_domain)
+
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
     wbd_buffer_filename_split = os.path.splitext(wbd_buffer_filename)
     wbd_streams_buffer_filename = wbd_buffer_filename_split[0] + '_streams' + wbd_buffer_filename_split[1]
-    wbd_streams_buffer = wbd.copy()
-    wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-3*dem_cellsize, resolution=32)
+    wbd_streams_buffer = wbd_buffer.copy()
+    wbd_streams_buffer.geometry = wbd_buffer.geometry.buffer(-3*dem_cellsize, resolution=32)
 
     # projection = wbd_buffer.crs
 
@@ -190,6 +195,7 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('-g','--wbd-filename', help='HUC boundary', required=True)
     parser.add_argument('-i','--dem-filename', help='DEM filename', required=True)
+    parser.add_argument('-j','--dem-domain', help='DEM domain polygon', required=True)
     parser.add_argument('-l','--nwm-lakes', help='NWM Lakes', required=True)    
     parser.add_argument('-m','--nwm-catchments', help='NWM catchments',
                         required=True)	 

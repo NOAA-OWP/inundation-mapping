@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import traceback
+import geopandas as gpd
 
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime
@@ -104,6 +105,8 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
    
     # download dems, setting projection, block size, etc
     __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
+
+    polygonize(target_output_folder_path)
     
     end_time = datetime.now()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
@@ -271,6 +274,37 @@ def download_usgs_dem_file(extent_file,
         msg = f" - Downloading -- {target_file_name_raw} - Complete"
         print(msg)
         logging.info(msg)
+
+
+def polygonize(target_output_folder_path):
+    dem_files = glob.glob(os.path.join(target_output_folder_path, '_dem.tif'))
+    dem_gpkgs = gpd.GeoDataFrame()
+
+    for n, dem_file in enumerate(dem_files):
+        print(f'{n+1}/{len(dem_files)}: {dem_file}')
+
+        edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
+        edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
+
+        # Calculate a constant valued raster from valid DEM cells
+        if not os.path.exists(edge_tif):
+            subprocess.run(['gdal_calc.py', '-A', dem_file, f'--outfile={edge_tif}', '--calc=where(A > -900, 1, 0)', '--co', 'BIGTIFF=YES', '--co', 'NUM_THREADS=ALL_CPUS', '--co', 'TILED=YES', '--co', 'COMPRESS=LZW', '--co', 'SPARSE_OK=TRUE', '--type=Byte', '--quiet'])
+
+        # Polygonize constant valued raster
+        subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+
+        gdf = gpd.read_file(edge_gpkg)
+
+        if n == 0:
+            dem_gpkgs = gdf
+        else:
+            dem_gpkgs = dem_gpkgs.append(gdf)
+
+        os.remove(edge_tif)
+        
+    dem_gpkgs['DN'] = 1
+    dem_dissolved = dem_gpkgs.dissolve(by='DN')
+    dem_dissolved.to_file('/data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg', driver='GPKG')
 
 
 def __setup_logger(output_folder_path):
