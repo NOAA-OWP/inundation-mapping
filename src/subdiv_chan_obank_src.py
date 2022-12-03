@@ -55,13 +55,13 @@ def variable_mannings_calc(args):
     try:
         df_src_orig = pd.read_csv(in_src_bankfull_filename,dtype={'feature_id': 'int64'})
 
-        ## Check that the channel ratio column the user specified exists in the def
+        ## Check that the 'Stage_bankfull' variable exists in the df
         if 'Stage_bankfull' not in df_src_orig.columns:
             print('WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified bankfull column: ' + 'Stage_bankfull')
             print('Skipping --> ' + str(huc) + '  branch id: ' + str(branch_id))
             log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified bankfull column: ' + 'Stage_bankfull'  + '\n'
         else:
-            df_src_orig.drop(['channel_n','overbank_n','subdiv_applied','Discharge (m3s-1)_subdiv','Volume_chan (m3)','Volume_obank (m3)','BedArea_chan (m2)','BedArea_obank (m2)','WettedPerimeter_chan (m)','WettedPerimeter_obank (m)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
+            df_src_orig.drop(['in_channel_n','abv_channel_n','overbank_n','subdiv_applied','Discharge (m3s-1)_subdiv','Volume_in_chan (m3)','Volume_abv_chan (m3)','Volume_obank (m3)','BedArea_in_chan (m2)','BedArea_abv_chan (m2)','BedArea_obank (m2)','WettedPerimeter_in_chan (m)','WettedPerimeter_abv_chan (m)','WettedPerimeter_obank (m)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
             
             ## Calculate subdiv geometry variables
             print('Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id))
@@ -70,12 +70,12 @@ def variable_mannings_calc(args):
             
             ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the 'Stage_bankfull')
             df_src = df_src.merge(df_mann,  how='left', on='feature_id')
-            check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
+            check_null = df_src['in_channel_n'].isnull().sum() + df_src['abv_channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
             if check_null > 0:
                 log_text += str(huc) + '  branch id: ' + str(branch_id) + ' --> ' + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe' + ' --> missing entries= ' + str(check_null/84)  + '\n'
 
             ## Check if there are any missing data in the 'Stage_bankfull' column (these are locations where subdiv will not be applied)
-            df_src['subdiv_applied'] = np.where(df_src['Stage_bankfull'].isnull(), False, True) # create field to identify where vmann is applied (True=yes; False=no)        
+            df_src['subdiv_applied'] = np.where(df_src['Stage_bankfull'].isnull(), False, True) # create field to identify where subdiv is applied (True=yes; False=no)        
 
             ## Calculate Manning's equation discharge for channel, overbank, and total
             df_src = subdiv_mannings_eq(df_src)
@@ -87,13 +87,13 @@ def variable_mannings_calc(args):
             df_src.to_csv(in_src_bankfull_filename,index=False)
 
             ## Output new hydroTable with updated discharge and ManningN column
-            df_src_trim = df_src[['HydroID','Stage','subdiv_applied','channel_n','overbank_n','Discharge (m3s-1)_subdiv']]
+            df_src_trim = df_src[['HydroID','Stage','subdiv_applied','in_channel_n','abv_channel_n','overbank_n','Discharge (m3s-1)_subdiv']]
             df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_subdiv': 'subdiv_discharge_cms'})
             df_src_trim['discharge_cms'] = df_src_trim['subdiv_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
             df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
 
             ## drop the previously modified discharge column to be replaced with updated version
-            df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
+            df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','in_channel_n','abv_channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
             df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
 
             ## Output new hydroTable csv
@@ -121,27 +121,43 @@ def variable_mannings_calc(args):
 def subdiv_geometry(df_src):
 
     ## Calculate in-channel volume & bed area
-    df_src['Volume_chan (m3)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], df_src['Volume (m3)'], (df_src['Volume_bankfull'] + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])))
-    df_src['BedArea_chan (m2)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
-    df_src['WettedPerimeter_chan (m)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2))
+    df_src['Volume_in_chan (m3)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], df_src['Volume (m3)'], df_src['Volume_bankfull'])
+    df_src['BedArea_in_chan (m2)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
+    df_src['WettedPerimeter_in_chan (m)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], (df_src['BedArea_in_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_bankfull']/df_src['LENGTHKM']/1000))
+
+    ## Calculate abv-channel volume & bed area
+    df_src['Volume_abv_chan (m3)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull']), 0.0)
+    df_src['BedArea_abv_chan (m2)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], df_src['SurfArea_bankfull'], 0.0)
+    df_src['WettedPerimeter_abv_chan (m)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['BedArea_abv_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2), 0.0)
 
     ## Calculate overbank volume & bed area
-    df_src['Volume_obank (m3)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0)
-    df_src['BedArea_obank (m2)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']), 0.0)
+    df_src['Volume_obank (m3)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['Volume (m3)'] - (df_src['Volume_in_chan (m3)'] + df_src['Volume_abv_chan (m3)'])), 0.0)
+    df_src['BedArea_obank (m2)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['BedArea (m2)'] - df_src['BedArea_in_chan (m2)']), 0.0)
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)']/df_src['LENGTHKM']/1000
     return(df_src)
 
 def subdiv_mannings_eq(df_src):
-    ## Calculate discharge (channel) using Manning's equation
-    df_src.drop(['WetArea_chan (m2)','HydraulicRadius_chan (m)','Discharge_chan (m3s-1)','Velocity_chan (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
-    df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)']/df_src['LENGTHKM']/1000
-    df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)']/df_src['WettedPerimeter_chan (m)']
-    df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
-    df_src['Discharge_chan (m3s-1)'] = df_src['WetArea_chan (m2)']* \
-    pow(df_src['HydraulicRadius_chan (m)'],2.0/3)* \
+    ## Calculate discharge (in-channel) using Manning's equation
+    df_src.drop(['WetArea_in_chan (m2)','HydraulicRadius_in_chan (m)','Discharge_in_chan (m3s-1)','Velocity_in_chan (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_in_chan (m2)'] = df_src['Volume_chan (m3)']/df_src['LENGTHKM']/1000
+    df_src['HydraulicRadius_in_chan (m)'] = df_src['WetArea_in_chan (m2)']/df_src['WettedPerimeter_chan (m)']
+    df_src['HydraulicRadius_in_chan (m)'].fillna(0, inplace=True)
+    df_src['Discharge_in_chan (m3s-1)'] = df_src['WetArea_in_chan (m2)']* \
+    pow(df_src['HydraulicRadius_in_chan (m)'],2.0/3)* \
     pow(df_src['SLOPE'],0.5)/df_src['channel_n']
-    df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)']/df_src['WetArea_chan (m2)']
-    df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
+    df_src['Velocity_in_chan (m/s)'] = df_src['Discharge_in_chan (m3s-1)']/df_src['WetArea_in_chan (m2)']
+    df_src['Velocity_in_chan (m/s)'].fillna(0, inplace=True)
+
+    ## Calculate discharge (above-channel) using Manning's equation
+    df_src.drop(['WetArea_abv_chan (m2)','HydraulicRadius_abv_chan (m)','Discharge_abv_chan (m3s-1)','Velocity_abv_chan (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_abv_chan (m2)'] = df_src['Volume_abv_chan (m3)']/df_src['LENGTHKM']/1000
+    df_src['HydraulicRadius_abv_chan (m)'] = df_src['WetArea_abv_chan (m2)']/df_src['WettedPerimeter_abv_chan (m)']
+    df_src['HydraulicRadius_abv_chan (m)'].fillna(0, inplace=True)
+    df_src['Discharge_abv_chan (m3s-1)'] = df_src['WetArea_abv_chan (m2)']* \
+    pow(df_src['HydraulicRadius_abv_chan (m)'],2.0/3)* \
+    pow(df_src['SLOPE'],0.5)/df_src['channel_n']
+    df_src['Velocity_abv_chan (m/s)'] = df_src['Discharge_abv_chan (m3s-1)']/df_src['WetArea_abv_chan (m2)']
+    df_src['Velocity_abv_chan (m/s)'].fillna(0, inplace=True)
 
     ## Calculate discharge (overbank) using Manning's equation
     df_src.drop(['WetArea_obank (m2)','HydraulicRadius_obank (m)','Discharge_obank (m3s-1)','Velocity_obank (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
@@ -157,7 +173,7 @@ def subdiv_mannings_eq(df_src):
 
     ## Calcuate the total of the subdivided discharge (channel + overbank)
     df_src.drop(['Discharge (m3s-1)_subdiv'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
-    df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
+    df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_in_chan (m3s-1)'] + df_src['Discharge_abv_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
     return(df_src)
 
 def generate_src_plot(df_src, plt_out_dir):
@@ -221,8 +237,9 @@ def run_prep(fim_dir,mann_n_table,output_suffix,number_of_jobs,verbose,src_plot_
     ## Read the Manning's n csv (ensure that it contains feature_id, channel mannings, floodplain mannings)
     print('Importing the Manning roughness data file: ' + mann_n_table)
     df_mann = pd.read_csv(mann_n_table,dtype={'feature_id': 'int64'})
-    if 'channel_n' not in df_mann.columns or 'overbank_n' not in df_mann.columns or 'feature_id' not in df_mann.columns:
-        print('Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann)
+    req_vars = ['in_channel_n','abv_channel_n','overbank_n','feature_id']
+    if not df_mann.columns.isin(req_vars).all():
+        print(str(mann_n_table) + ' --> missing required data column(s): ' + str(req_vars))
     else:
         print('Running the variable_mannings_calc function...')
 
