@@ -339,11 +339,6 @@ if __name__ == '__main__':
                         if not fim_run_dir:
                             continue
                         
-                        ### TEMP RERUN
-                        if current_huc not in {"12020002","12020005"}:
-                            print(f'Skipping {current_huc}')
-                            continue
-
                         # For previous versions of HAND computed at HUC6 scale
                         """
                         if not os.path.exists(fim_run_dir):
