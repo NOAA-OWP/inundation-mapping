@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import os
 import sys
-import pandas as pd
 import geopandas as gpd
 import argparse
 import rasterio as rio
@@ -44,12 +42,8 @@ def subset_vector_layers(subset_nwm_lakes,
     wbd_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance, resolution=32)
 
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
-    wbd_buffer_filename_split = os.path.splitext(wbd_buffer_filename)
-    wbd_streams_buffer_filename = wbd_buffer_filename_split[0] + '_streams' + wbd_buffer_filename_split[1]
     wbd_streams_buffer = wbd.copy()
     wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-3*dem_cellsize, resolution=32)
-
-    # projection = wbd_buffer.crs
 
     great_lakes = gpd.read_file(great_lakes, mask=wbd_buffer).reset_index(drop=True)
 
@@ -71,7 +65,6 @@ def subset_vector_layers(subset_nwm_lakes,
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
     wbd_buffer.to_file(wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False)
-    wbd_streams_buffer.to_file(wbd_streams_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False)
 
     del great_lakes
 
@@ -135,15 +128,12 @@ def subset_vector_layers(subset_nwm_lakes,
     del nwm_catchments
 
     # Subset nwm streams
-
-    print("Subsetting NWM Streams and deriving headwaters for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    print("Subsetting NWM Streams for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
 
     nwm_streams = gpd.read_file(nwm_streams, mask = wbd)
-    nwm_streams = gpd.clip(nwm_streams, wbd)
 
      # NWM can have duplicate records, but appear to always be identical duplicates
     nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
-
 
     if len(nwm_streams) > 0:
         nwm_streams = gpd.clip(nwm_streams, wbd_streams_buffer)
