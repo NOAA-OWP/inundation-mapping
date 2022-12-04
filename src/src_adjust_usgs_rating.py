@@ -138,8 +138,6 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     return(final_df)
 
 def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
-    huc_list = usgs_df['huc'].tolist()
-    huc_list = list(set(huc_list))
     procs_list = []  # Initialize list for mulitprocessing.
 
     # loop through all unique level paths that have a USGS gage
@@ -147,7 +145,7 @@ def branch_proc_list(usgs_df,run_dir,debug_outputs_option,log_file):
     #branch_huc_dict = usgs_df.set_index('huc').T.to_dict('list')
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
 
-    for huc in huc_branch_dict:
+    for huc in sorted(huc_branch_dict.keys()): # sort huc_list for helping track progress in future print statments
         branch_set = huc_branch_dict[huc]
         for branch_id in branch_set: 
             # Define paths to branch HAND data.
