@@ -11,7 +11,7 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 # FIM Version 4 
 
 ## Accessing Data through ESIP S3 Bucket
-The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.
+The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.  You will need permission from ESIP to access this data. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) for assistance.
 
 AWS Region: `US East (N. Virginia) us-east-1`
 
@@ -62,6 +62,8 @@ Make sure to set the config folder group to 'fim' recursively using the chown co
 - `params_template.env`
 - `mannings_default.json`
     - must change filepath in `params_template.env` in `manning_n` variable name
+
+This system has an optional tool called the `calibration database tool`. In order to use this system, you will need to install the calibration database service or disable it in the `params_template.env` file. See [calibration tool README](https://github.com/NOAA-OWP/inundation-mapping/blob/dev/tools/calibration-db/README.md) for more details.
 
 ### Produce HAND Hydrofabric
 ```

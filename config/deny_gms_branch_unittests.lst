@@ -16,7 +16,7 @@ crosswalk_table_{}.csv
 #demDerived_reaches_{}.shx
 #demDerived_reaches_split_{}.gpkg
 #demDerived_reaches_split_filtered_{}.gpkg
-demDerived_reaches_split_filtered_addedAttributes_crosswalked_{}.gpkg
+#demDerived_reaches_split_filtered_addedAttributes_crosswalked_{}.gpkg
 demDerived_reaches_split_points_{}.gpkg
 demDerived_streamPixels_{}.tif
 demDerived_streamPixels_ids_{}.tif
@@ -37,10 +37,11 @@ gw_catchments_pixels_{}.tif
 gw_catchments_reaches_{}.tif
 #gw_catchments_reaches_filtered_addedAttributes_{}.gpkg
 #gw_catchments_reaches_filtered_addedAttributes_{}.tif
-gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg
+#gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg
 headwaters_{}.tif
 #hydroTable_{}.csv
 idFile_{}.txt
+LandSea_subset_{}.tif
 nld_rasterized_elev_{}.tif
 nwm_catchments_proj_subset_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_{}.gpkg

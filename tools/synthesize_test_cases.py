@@ -99,6 +99,9 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
+                            # add in composite of versions
+                            composite_versions = [v.replace('_ms', '_comp') for v in versions_to_aggregate if '_ms' in v]
+                            versions_to_aggregate += composite_versions
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             versions_to_aggregate = dev_versions_to_include_list
@@ -154,6 +157,9 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                         if iteration == "official":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
+                            # add in composite of versions
+                            composite_versions = [v.replace('_ms', '_comp') for v in versions_to_aggregate if '_ms' in v]
+                            versions_to_aggregate += composite_versions
                         if iteration == "comparison":
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             versions_to_aggregate = dev_versions_to_include_list
@@ -421,13 +427,10 @@ if __name__ == '__main__':
             # Send the executor to the progress bar
             progress_bar_handler(executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers")
 
-    if config == 'DEV':
-        if dev_versions_to_compare != None:
-            dev_versions_to_include_list = dev_versions_to_compare + previous_fim_list
-        else:
-            dev_versions_to_include_list = previous_fim_list
-    if config == 'PREV':
-        dev_versions_to_include_list = []
+    if dev_versions_to_compare != None:
+        dev_versions_to_include_list = dev_versions_to_compare + previous_fim_list
+    else:
+        dev_versions_to_include_list = previous_fim_list
 
     if master_metrics_csv is not None:
         # Do aggregate_metrics.

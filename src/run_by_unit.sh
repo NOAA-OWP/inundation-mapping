@@ -3,6 +3,15 @@
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+##################################
+##
+#### Deprecated:  Oct 1, 2022 ####
+echo "Deprecated: Oct 1, 2022"
+##
+##################################
+
+
+
 echo -e $startDiv"Parameter Values"
 echo -e "extent=$extent"
 echo -e "agree_DEM_buffer=$agree_DEM_buffer"

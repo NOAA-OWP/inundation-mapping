@@ -9,7 +9,7 @@ from utils.fim_enums import FIM_exit_codes
 
 def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribute,
                        out_stream_network_dissolved=None, huc_id=None,
-                       headwaters_outfile=None, catchments=None,
+                       headwaters_outfile=None, catchments=None, waterbodies=None,
                        catchments_outfile=None,
                        branch_inlets_outfile=None,
                        toNode_attribute='To_Node', fromNode_attribute='From_Node',
@@ -24,27 +24,29 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     if verbose:
         print("Loading stream network ...")
         
-    if (drop_low_stream_orders):
-        stream_network = StreamNetwork.from_file(filename=in_stream_network,
-                                                 branch_id_attribute="order_",
-                                                 values_excluded=[1,2]
-                                                 )
-                                                 
-                                                 
-    else:
-        stream_network = StreamNetwork.from_file(filename=in_stream_network)
+    stream_network = StreamNetwork.from_file(filename=in_stream_network)
 
-    # if there are no reaches at this point (due to filtering if applicable)
-    if (len(stream_network) == 0) and (drop_low_stream_orders):
+    # if there are no reaches at this point
+    if (len(stream_network) == 0):
         # This is technically not an error but we need to have it logged so the user know what
         # happened to it and we need the huc to not be included in future processing. 
         # We need it to be not included in the gms_input.csv at the end of the unit processing.
         # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
         # Later, we can look at creating custom sys exit codes 
-        # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
-        print("Sorry, no branches exist and processing can not continue. This could be an empty file or stream order filtering.")
+        # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file.")
+        print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
+                                                 
+    elif (drop_low_stream_orders):
+        stream_network = stream_network.exclude_attribute_values(branch_id_attribute="order_",
+                                               values_excluded=[1,2]
+                                              )
 
+        # if there are no reaches at this point (due to filtering)
+        if (len(stream_network) == 0):
+            print("No branches exist but branch zero processing will continue. This could be due to stream order filtering.")
+            return
+                                                 
     inlets_attribute = 'inlet_id'
     outlets_attribute = 'outlet_id'
     outlet_linestring_index = -1
@@ -96,14 +98,13 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                             upstreams=upstreams,
                                                             branch_id_attribute=branch_id_attribute,
                                                             reach_id_attribute=reach_id_attribute,
-                                                            comparison_attributes='arbolate_sum',
+                                                            comparison_attributes=['arbolate_sum', 'order_'],
                                                             comparison_function=max,
                                                             verbose=verbose
                                                            )
     
-    # filter out streams with out catchments
+    # filter out streams without catchments
     if (catchments is not None) & (catchments_outfile is not None):
-
         catchments = gpd.read_file(catchments)
 
         stream_network = stream_network.remove_branches_without_catchments( 
@@ -137,16 +138,18 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                         outlet_linestring_index=outlet_linestring_index
                                                        )
         # headwaters write
-        headwaters.to_file(headwaters_outfile,index=False,driver='GPKG')
+        headwaters.to_file(headwaters_outfile, index=False, driver='GPKG')
 
-    
     if out_stream_network is not None:
         if verbose:
             print("Writing stream branches ...")
-        stream_network.write(out_stream_network,index=True)
+        stream_network.write(out_stream_network, index=True)
     
     if out_stream_network_dissolved is not None:
-    
+        stream_network = stream_network.trim_branches_in_waterbodies(branch_id_attribute=branch_id_attribute,
+                                                    verbose=verbose
+                                                                    )
+
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(branch_id_attribute=branch_id_attribute,
                                                            attribute_excluded=None, #'order_',
@@ -154,8 +157,13 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                            out_vector_files=out_stream_network_dissolved,
                                                            verbose=verbose)
 
-        branch_inlets = stream_network.derive_inlet_points_by_feature( feature_attribute=branch_id_attribute,
-                                                                       outlet_linestring_index=outlet_linestring_index
+        stream_network = stream_network.remove_branches_in_waterbodies(waterbodies=waterbodies,
+                                                                       out_vector_files=out_stream_network_dissolved,
+                                                                       verbose=False
+                                                                      )
+                                       
+        branch_inlets = stream_network.derive_inlet_points_by_feature(feature_attribute=branch_id_attribute,
+                                                                      outlet_linestring_index=outlet_linestring_index
                                                                      )
    
         if branch_inlets_outfile is not None:
@@ -174,6 +182,7 @@ if __name__ == '__main__':
     parser.add_argument('-r','--reach-id-attribute', help='Reach ID attribute to use in source file', required=False, default='HydroID')
     parser.add_argument('-c','--catchments', help='NWM catchments to append level path data to', required=False, default=None)
     parser.add_argument('-t','--catchments-outfile', help='NWM catchments outfile with appended level path data', required=False, default=None)
+    parser.add_argument('-w','--waterbodies', help='NWM waterbodies to eliminate branches from', required=False, default=None)
     parser.add_argument('-n','--branch_inlets_outfile', help='Output level paths inlets', required=False, default=None)
     parser.add_argument('-o','--out-stream-network', help='Output stream network', required=False, default=None)
     parser.add_argument('-e','--headwaters-outfile', help='Output stream network headwater points', required=False, default=None)
