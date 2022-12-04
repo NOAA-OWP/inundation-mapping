@@ -27,7 +27,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                 compare_to_previous=False, archive_results=False, 
                 mask_type='filter', inclusion_area='', 
                 inclusion_area_buffer=0, light_run=False, 
-                overwrite=True, fr_run_dir=None, 
+                overwrite=False, fr_run_dir=None, 
                 gms_workers=1,verbose=False,
                 keep_gms=False,
                 gms_verbose=False

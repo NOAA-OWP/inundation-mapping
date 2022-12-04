@@ -331,12 +331,21 @@ if __name__ == '__main__':
                             fim_run_dir = os.path.join(OUTPUTS_DIR, version, current_huc)
                         elif config == 'PREV':
                             fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc)
-                        
-                        # check if fim_run_dir exists and skips otherwise
+                       
+                        # check for huc12 scale data
                         if not os.path.exists(fim_run_dir):
+                            fim_run_dir = glob(os.path.join(OUTPUTS_DIR, version, current_huc+'*'))
+                        
+                        if not fim_run_dir:
                             continue
                         
+                        ### TEMP RERUN
+                        if current_huc not in {"12020002","12020005"}:
+                            print(f'Skipping {current_huc}')
+                            continue
+
                         # For previous versions of HAND computed at HUC6 scale
+                        """
                         if not os.path.exists(fim_run_dir):
                             if config == 'DEV':
                                 if os.path.exists(os.path.join(OUTPUTS_DIR, version, current_huc[:6])):
@@ -344,13 +353,20 @@ if __name__ == '__main__':
                             elif config == 'PREV':
                                 if os.path.exists(os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])):
                                     fim_run_dir = os.path.join(PREVIOUS_FIM_DIR, version, current_huc[:6])
+                        """
                         
                         # For current versions of HAND computed at HUC12 scale
-                        if (not os.path.exists(fim_run_dir)) & (len(current_huc) == 12):
-                            if config == 'DEV':
-                                fim_run_dir = glob(os.path.join(OUTPUTS_DIR, version, current_huc+'*'))
-                            elif config == 'PREV':
-                                fim_run_dir = glob(os.path.join(PREVIOUS_FIM_DIR, version, current_huc+'*'))
+                        """
+                        print(fim_run_dir)
+                        breakpoint()
+                        #if (not os.path.exists(fim_run_dir)) & (len(current_huc) == 12):
+                        if config == 'DEV':
+                            fim_run_dir = glob(os.path.join(OUTPUTS_DIR, version, current_huc+'*'))
+                        elif config == 'PREV':
+                            fim_run_dir = glob(os.path.join(PREVIOUS_FIM_DIR, version, current_huc+'*'))
+                        else:
+                            continue
+                        """
                         
                         try:
                             if os.path.exists(fim_run_dir):
@@ -448,7 +464,7 @@ if __name__ == '__main__':
         
         number_of_hucs = len(procs_dict)
         verbose_by_huc = not number_of_hucs == 1
-
+        
         for current_huc, alpha_test_args in tqdm(procs_dict.items(),total=number_of_hucs,disable=(not verbose_by_huc)):
             alpha_test_args.update({'gms_verbose': not verbose_by_huc})
 

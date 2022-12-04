@@ -5,6 +5,7 @@ from itertools import product, combinations
 from time import time
 import warnings
 from functools import partial
+from textwrap import wrap
 
 import numpy as np
 import geopandas as gpd
@@ -16,7 +17,7 @@ from geocube.api.core import make_geocube
 from geocube.rasterize import rasterize_image
 from tqdm import tqdm
 from xrspatial.zonal import stats, crosstab
-from dask.dataframe.multi import concat
+from dask.dataframe.multi import concat, merge
 from dask.distributed import Client, LocalCluster
 from tqdm.dask import TqdmCallback
 import statsmodels.formula.api as smf
@@ -27,7 +28,8 @@ from sklearn.feature_selection import SequentialFeatureSelector as SFS
 from sklearn_pandas import DataFrameMapper
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 import matplotlib.pyplot as plt
-import ptitprince as pt
+import matplotlib.colors as mcolors
+#import ptitprince as pt
 import seaborn as sns
 
 from foss_fim.tools.tools_shared_functions import csi, tpr, far, mcc
@@ -63,18 +65,18 @@ def build_agreement_raster_data_dir(huc, resolution, year, source):
 
 # agreement factors
 resolutions = [3,5,10,15,20]
-#resolutions = [5,10,15,20]
-#resolutions = [10,20]
+#resolutions = [20]
 years = [100,500]
+#years = [100]
 hucs = ['12020001','12020002','12020003','12020004','12020005','12020006','12020007']
-#hucs = ['12020002', '12020003']
+#hucs = ['12020002']
 chunk_size = 256*4
 save_filename = os.path.join(data_dir,'experiment_data.h5')
 hdf_key = 'data'
 save_nwm_catchments_file = os.path.join(data_dir,'nwm_catchments_with_metrics_1202.gpkg')
 #feature_cols = ['huc8','spatial_resolution','magnitude','mainstem','order_','Lake','gages','Length']
 #feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope']
-feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope','dem_source']
+feature_cols = ['spatial_resolution','dominant_lulc','magnitude','order_','Lake','Length','Slope','dem_source']
 # encoded_features = ['order_','Lake','magnitude']
 #target_cols = ['CSI']
 target_cols = ['MCC']
@@ -85,6 +87,10 @@ nhd_to_3dep_plot_fn = os.path.join(data_dir,'nhd_to_3dep_plot.png')
 #nwm_catchments_raster_fn = None
 nwm_catchments_raster_fn = os.path.join(data_dir,'nwm_catchments','nwm_catchments_{}_{}_{}m_{}yr.tif')
 dem_resolution_plot_fn = os.path.join(data_dir,'dem_resolution_3dep_plot.png')
+reservoir_plot_fn = os.path.join(data_dir,'reservoir_plot.png')
+slope_plot_fn = os.path.join(data_dir,'slope_plot.png')
+land_cover_fn = os.path.join(data_dir,'cover2019_lulc_1202.tif')
+landcover_plot_fn = os.path.join(data_dir,'lulc_metrics_plot.png')
 
 # pipeline switches 
 write_debugging_files = False
@@ -94,7 +100,10 @@ nwm_catchments_from_file = False
 add_two_way_interactions = True
 run_anova = False
 make_nhd_plot = False
-make_dem_resolution_plot = True
+make_dem_resolution_plot = False
+make_reservoir_plot = False
+make_slope_plot = False
+make_landcover_plot = True
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -104,6 +113,30 @@ agreement_encoding_digits_to_names = { 0: "TN", 1: "FN",
                                        2: "FP", 3: "TP",
                                        4: "Waterbody"
                                      }
+
+landcover_encoding_digits_to_names = {  11 : "Water",
+                                        12 : "Perennial Ice Snow",
+                                        21 : "Developed, Open Space",
+                                        22 : "Developed, Low Intensity",
+                                        23 : "Developed, Medium Intensity",
+                                        24 : "Developed High Intensity",
+                                        31 : "Bare Rock/Sand/Clay",
+                                        41 : "Deciduous Forest",
+                                        42 : "Evergreen Forest",
+                                        43 : "Mixed Forest",
+                                        52 : "Shrub/Scrub",
+                                        71 : "Grasslands/Herbaceous",
+                                        81 : "Pasture/Hay",
+                                        82 : "Cultivated Crops",
+                                        90 : "Woody Wetlands",
+                                        95 : "Emergent Herbaceous Wetlands",
+                                        45 : "Other_45",
+                                        46 : "Other_46"
+                                      }
+
+flip_dict = lambda d : { v:k for k,v in d.items() }
+
+landcover_encoding_names_to_digits = flip_dict(landcover_encoding_digits_to_names)
 
 # metrics
 def make_input_dict(row):
@@ -161,16 +194,25 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                   write_debugging_files=False,
                                   save_nwm_catchments_file=None,
                                   nwm_catchments_raster_fn=None,
-                                  nwm_catchments_from_file=False):
+                                  nwm_catchments_from_file=False,
+                                  land_cover_fn=None):
     
     # load catchments and streams
     nwm_streams = gpd.read_file(nwm_streams_fn)
     nwm_catchments = gpd.read_file(nwm_catchments_fn)
     huc8s_df = gpd.read_file(huc8s_vector_fn)
+    land_cover = rxr.open_rasterio(
+                                     land_cover_fn,
+                                     chunks=chunk_size,
+                                     mask_and_scale=True,
+                                     variable='landcover',
+                                     default_name='landcover',
+                                     lock=False
+                                    ).sel(band=1,drop=True) 
 
     # compute catchment areas
     nwm_catchments['area_sqkm'] = nwm_catchments.loc[:,'geometry'].area / (1000*1000)
-
+    
     # spatial join with columns from huc8s_df to get catchment assignments by huc8
     nwm_catchments = nwm_catchments \
                              .sjoin(huc8s_df.loc[:,['huc8','geometry']],how='inner',predicate='intersects') \
@@ -199,15 +241,18 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             
             # load agreement raster
             agreement_raster_fn = build_agreement_raster_data_dir(h,r,y,s)
-            agreement_raster = rxr.open_rasterio(
-                                                 agreement_raster_fn,
-                                                 #chunks=True,
-                                                 chunks=chunk_size,
-                                                 mask_and_scale=True,
-                                                 variable='agreement',
-                                                 default_name='agreement',
-                                                 lock=False
-                                                ).sel(band=1,drop=True) 
+            try:
+                agreement_raster = rxr.open_rasterio(
+                                                     agreement_raster_fn,
+                                                     #chunks=True,
+                                                     chunks=chunk_size,
+                                                     mask_and_scale=True,
+                                                     variable='agreement',
+                                                     default_name='agreement',
+                                                     lock=False
+                                                    ).sel(band=1,drop=True) 
+            except rasterio.errors.RasterioIOError:
+                print(f'No agreement raster for {h} found. Skipping.')
 
             # filter out for current huc
             nwm_catchments_current_huc8 = nwm_catchments.loc[nwm_catchments.loc[:,'huc8'] == h,:] \
@@ -220,7 +265,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                                       mask_and_scale=True,
                                                       variable='ID',
                                                       default_name='nwm_catchments',
-                                                      lock=True
+                                                      lock=False
                                                      ).sel(band=1,drop=True) 
             else:
                 nwm_catchments_xr = make_geocube(nwm_catchments_current_huc8,['ID'],
@@ -245,16 +290,50 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                 nwm_catchments_current_huc8.to_file(os.path.join(data_dir,'nwm_catchments',f'nwm_catchments_{s}_{h}_{r}m_{y}yr.gpkg'),
                                                     driver='GPKG',index=False)
             
+
             # compute cross tabulation table for ct_dask_df
             ct_dask_df = crosstab(nwm_catchments_xr,agreement_raster,nodata_values=np.nan) \
                                         .rename(columns=agreement_encoding_digits_to_names) \
                                         .astype(np.float64) \
                                         .rename(columns={'zone':'ID'}) \
-                                        .set_index('ID', drop=True, npartitions='auto') \
+                                        .set_index('ID', drop=True, npartitions='auto') 
             # drop zero samples
             #meta = pd.Series(name='total_samples', dtype='i8')
             #meta= '__no_default__'
             #ct_dask_df = ct_dask_df.loc[ct_dask_df.apply(calc_total_samples,axis=1,meta=meta) != 0,:]
+            
+            # remove files
+
+            # project landcover
+            if land_cover_fn:
+                landcover_reprojected = land_cover.rio.reproject_match(agreement_raster)
+
+                def determine_dominant_inundated_landcover(nwm_catchments_xr, landcover,
+                                                             agreement_raster, 
+                                                             predicted_inundated_encodings=[2,3]): 
+                    # masking out dry aras
+                    nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
+                    landcover = xr.where(agreement_raster.isin(predicted_inundated_encodings),landcover,np.nan)
+                                
+                    ct_dask_df_catchment_lc = crosstab(nwm_catchments_xr,landcover,nodata_values=np.nan) \
+                                                           .astype(np.float64) \
+                                                           .rename(columns={'zone':'ID'}) \
+                                                           .set_index('ID', drop=True, npartitions='auto') \
+                                                           .rename(columns=landcover_encoding_digits_to_names) 
+                                                           
+                    # remove catchments with no inundation and then find max landcover count. Returns that landcover
+                    ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.loc[(ct_dask_df_catchment_lc!=0).any(axis=1)] \
+                                                                     .idxmax(1) \
+                                                                     .rename('dominant_lulc') \
+                                                                     .fillna('None') \
+                                                                     .astype({'dominant_lulc':str})
+                    
+                    return ct_dask_df_catchment_lc
+            
+                ct_dask_df_catchment_lc = determine_dominant_inundated_landcover(nwm_catchments_xr,
+                                                                                 landcover_reprojected,
+                                                                                 agreement_raster,
+                                                                                 predicted_inundated_encodings=[2,3])
             
             # remove files
             del agreement_raster, nwm_catchments_xr
@@ -278,6 +357,11 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             
             # merge in primary metrics
             secondary_metrics_df = secondary_metrics_df.merge(ct_dask_df, left_on='ID', right_index=True)
+
+            # merge in landcovers
+            if land_cover_fn:
+                secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_catchment_lc,
+                                             how='left', left_on='ID',right_index=True)
 
             # aggregate to list
             list_of_secondary_metrics_df[idx] = secondary_metrics_df
@@ -331,6 +415,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     if save_nwm_catchments_file:
         nwm_catchments_with_metrics.to_file(save_nwm_catchments_file,index=False,driver='GPKG')
     
+
     # save file
     if isinstance(save_filename,str) & isinstance(hdf_key,str):
         print(f'Writing to {save_filename}')
@@ -457,6 +542,9 @@ def anova(secondary_metrics_df):
     # TPR ~ Lake + order_ + Length + dem_source + Slope + magnitude + spatial_resolution + order_:Lake + order_:Slope + Lake:Length + order_:dem_source + Length:Slope | Adj-R2: 0.437667461931467
     # FAR ~ Slope + order_ + Lake + Length + dem_source + magnitude + order_:Slope + Length:Slope + order_:Lake + order_:dem_source + spatial_resolution:dem_source | Adj-R2: 0.24398916845724483
 
+    ## INCLUDING LULC
+    # MCC ~ Lake + dominant_lulc + dem_source + order_ + Slope + magnitude + Length + spatial_resolution + dominant_lulc:order_ + dominant_lulc:Slope + dominant_lulc:Lake + dominant_lulc:Length + order_:Slope + Length:Slope + Lake:Length + order_:Length + dominant_lulc:dem_source + Lake:Slope | Adj-R2: 0.2861678682847394
+
     """
     # code on how to plot significant linear model parameters by normalized values
     # adopted from: https://stats.stackexchange.com/questions/89747/how-to-describe-or-visualize-a-multiple-linear-regression-model
@@ -495,7 +583,7 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
     """
     # prepare secondary metrics
     metrics = ['MCC','CSI','TPR','FAR']
-    metric_dict = {'MCC': "Matthew's Correlation Coefficient",'CSI':"Critical Success Index",
+    metric_dict = {'MCC': "Matthew's Corr. Coeff.",'CSI':"Critical Success Index",
                    'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
     def get_terrain_label(metric):
         label_dict = {'_diff':'Difference (3DEP-NHD)','_3dep': "3DEP",'_nhd':"NHD"}
@@ -571,7 +659,8 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
             ax.set_ylim(metric_min,metric_max)
             ax.tick_params(axis='both', labelsize=12)
             
-            ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15)
+            #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15)
+            ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15)
             
             if i in {2,3}: ax.set_xlabel("Metric Values"+"\n"+"NHDPlusHR DEM",fontsize=12)
             if i in {0,2}: ax.set_ylabel("Metric Values"+"\n"+"3DEP DEM",fontsize=12)
@@ -620,25 +709,12 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
     """
     # prepare secondary metrics
     metrics = ['MCC','CSI','TPR','FAR']
-    metric_dict = {'MCC': "Matthew's Correlation Coefficient",'CSI':"Critical Success Index",
+    metric_dict = {'MCC': "Matthew's Correlation Coeff.",'CSI':"Critical Success Index",
                    'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
     
-    #prepared_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
-    #                                       .set_index(['huc8','magnitude','spatial_resolution','ID']) \
-    #                                       .sort_index() 
-                                           #.set_index(['huc8','magnitude','spatial_resolution','dem_source','ID']) \
-
-    #metrics_3dep = prepared_metrics.xs('3dep',level="dem_source").loc[:,metrics]
-    #metrics_nhd = prepared_metrics.xs('nhd',level="dem_source").loc[:,metrics]
-    #metrics_500yr = prepared_metrics.xs(500,level="magnitude").loc[:,metrics]
-    #metrics_100yr = prepared_metrics.xs(100,level="magnitude").loc[:,metrics]
-    
-    #difference = (metrics_500yr - metrics_100yr).dropna(how='any') 
-    
-    #all_metrics = difference.join(metrics_500yr,how='left',lsuffix='_diff',rsuffix='_500yr') \
-    #                        .join(metrics_100yr,how='left') \
-    #                        .rename(columns=dict(zip(metrics,[m+'_100yr' for m in metrics])))
-    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any')
+    # drop NAs and only use 3dep source
+    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .query('dem_source == "3dep"')
 
     fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
 
@@ -654,37 +730,46 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
                             ax=ax, split=True,
                             inner='quartile',
                             cut=True,
-                            palette=['blue','green'],
+                            palette=[mcolors.CSS4_COLORS["cornflowerblue"],
+                                     mcolors.CSS4_COLORS["palegoldenrod"]],
                             linewidth=2,
                             saturation=0.75,
-                            alpha=0.5
+                            alpha=0.75
                            )
         
-        ax = sns.regplot(data = all_metrics,
-                         x='spatial_resolution',
-                         y=metric,
-                         seed=1, robust=False, ax=ax,
-                         truncate=False,
-                         n_boot=10,
-                         line_kws= {'linewidth' : 2},
-                         label='Trend Line',
-                         ci=None
-                         )
+        # fit model
+        bool_100yr = all_metrics.loc[:,'magnitude'] == 100
+        linear_model_100yr = ols(f"{metric} ~ spatial_resolution", 
+                                 data=all_metrics.loc[bool_100yr,:]).fit()
+        bool_500yr = all_metrics.loc[:,'magnitude'] == 500
+        linear_model_500yr = ols(f"{metric} ~ spatial_resolution", 
+                                 data=all_metrics.loc[bool_500yr,:]).fit()
+        reg_func = lambda x,lm: lm.params.Intercept + (lm.params.spatial_resolution * x)
+        compute_y = lambda x, lm: list(map(partial(reg_func,lm=lm),x))
         
-        """
-        ax=pt.RainCloud(x = 'spatial_resolution', y = metric,
-                        hue = 'magnitude', data = all_metrics, 
-                        palette = "Paired", bw = 0.2,
-                        width_viol = .6, ax = ax, orient = "h", move = .2,
-                        alpha=0.35, dodge =True, pointplot=True)
-        """
+        trendline_100yr_color = mcolors.CSS4_COLORS["green"]
+        trendline_500yr_color = mcolors.CSS4_COLORS["red"]
+
+        # plot 100yr
+        x = list(ax.get_xlim())
+        y = compute_y(x,linear_model_100yr)
+        trendline_100yr = ax.plot(x,y,color=trendline_100yr_color,
+                                  linewidth=3,label='Trendline: 100yr')
         
+        # plot 500yr
+        y = compute_y(x,linear_model_500yr)
+        trendline_500yr = ax.plot(x,y,color=trendline_500yr_color,
+                                  linewidth=3,linestyle='dashed',label='Trendline: 500yr')
+
         if metric == 'FAR':
-            ax.set_ylim([0,0.15])
+            ax.set_ylim([0,0.30])
         elif metric == 'TPR':
             ax.set_ylim([0.6,1])
         else:
             ax.set_ylim([0.4,1])
+
+        # used to normalize all y limits to same for better comparison
+        ax.set_ylim([0,1])
 
         ax.tick_params(axis='both', labelsize=12)
 
@@ -698,13 +783,38 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
         else:
             ax.set_ylabel(None)
         
-        ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15)
+        #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15,y=1.15)
+        ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15,y=1.12)
+
+        # parameter labels
+        ax.text(0.1+.4,1.08,'slope:',fontsize=12,color='black')
+        ax.text(-0.2+.4,1.02,'p-value:',fontsize=12,color='black')
+        
+        # 100yr
+        ax.text(1+.4,1.08,
+                '{:.1E}'.format(linear_model_100yr.params.spatial_resolution),
+                fontsize=12, color=trendline_100yr_color)
+        ax.text(1+.4,1.02,
+                '{:.1E}'.format(linear_model_100yr.pvalues.spatial_resolution),
+                fontsize=12, color=trendline_100yr_color)
+        
+        # 500yr
+        ax.text(2.6,1.08,
+                '{:.1E}'.format(linear_model_500yr.params.spatial_resolution),
+                fontsize=12, color=trendline_500yr_color)
+        ax.text(2.6,1.02,
+                '{:.1E}'.format(linear_model_500yr.pvalues.spatial_resolution),
+                fontsize=12, color=trendline_500yr_color)
+        
+        #ax.text(2.5,1.02,'p-value: {:.1E}'.format(linear_model_100yr.pvalues.spatial_resolution),
+        #        fontsize=12, color=trendline_500yr_color)
 
         # magnitude
         #ax.legend_.set_title('Magnitude (yr)')
         ax.legend_ = None
 
     h,l = ax.get_legend_handles_labels()
+    l[:2] = ['KDE: 100yr','KDE: 500yr']
     lgd = fig.legend(h,l,
            loc='lower center',
            ncols=2,
@@ -716,7 +826,7 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
            markerscale=3,
            bbox_to_anchor=(0.55,-.06),
            borderaxespad=0,
-           title="Magnitude (yr)")
+           title=None)
     
     if dem_resolution_plot_fn != None:
         fig.savefig(dem_resolution_plot_fn, bbox_inches='tight')
@@ -724,16 +834,453 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
     plt.close(fig)
 
 
-def lake_plot():  
+def reservoir_plot(secondary_metrics_df,reservoir_plot_fn):  
     """
-    Illustrate issue with lakes????
-    Investigate why we are getting scores in lake catchments first. They should be masked out.
-    Maybe this is best presented with geospatial maps only for presentation?
+    Illustrate issue with lakes
     """
-     
+    
+    # prepare secondary metrics
+    metrics = ['MCC','CSI','TPR','FAR']
+    metric_dict = {'MCC': "Matthew's Correlation Coeff.",'CSI':"Critical Success Index",
+                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+    
+    # drop NAs and only use 3dep source
+    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .query('dem_source == "3dep"')
 
-def slope_plot():
-    pass
+    # threshold Lake
+    all_metrics_thresholded_lakes = all_metrics.copy()
+    lake_bool = all_metrics_thresholded_lakes.loc[:,'Lake'] != -9999
+    all_metrics_thresholded_lakes.loc[:,'Lake'] = all_metrics_thresholded_lakes.loc[:,'Lake'].astype(bool)
+    all_metrics_thresholded_lakes.loc[lake_bool,'Lake'] = True
+    all_metrics_thresholded_lakes.loc[~lake_bool,'Lake'] = False
+    #all_metrics_thresholded_lakes.loc[:,"Lake"] = all_metrics_thresholded_lakes.loc[:,"Lake"].astype("Category")
+
+    fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
+
+    for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
+
+        ax = sns.violinplot(data=all_metrics_thresholded_lakes,
+                            x='spatial_resolution',
+                            y=metric,
+                            hue='Lake',
+                            hue_order=[True,False],
+                            order=[3,5,10,15,20],
+                            bw='scott',
+                            ax=ax, split=True,
+                            inner='quartile',
+                            cut=True,
+                            palette=[mcolors.CSS4_COLORS["cornflowerblue"],
+                                     mcolors.CSS4_COLORS["palegoldenrod"]],
+                            linewidth=2,
+                            saturation=0.75,
+                            alpha=0.75
+                           )
+        
+        # fit model
+        bool_noreservoir = all_metrics_thresholded_lakes.loc[:,'Lake'] == False
+        linear_model_noreservoir = ols(f"{metric} ~ spatial_resolution", 
+                                 data=all_metrics_thresholded_lakes.loc[bool_noreservoir,:]).fit()
+        bool_reservoir = all_metrics_thresholded_lakes.loc[:,'Lake'] == True
+        linear_model_reservoir = ols(f"{metric} ~ spatial_resolution", 
+                                 data=all_metrics_thresholded_lakes.loc[bool_reservoir,:]).fit()
+        reg_func = lambda x,lm: lm.params.Intercept + (lm.params.spatial_resolution * x)
+        compute_y = lambda x, lm: list(map(partial(reg_func,lm=lm),x))
+        
+        trendline_noreservoir_color = mcolors.CSS4_COLORS["green"]
+        trendline_reservoir_color = mcolors.CSS4_COLORS["red"]
+
+        # plot 100yr
+        x = list(ax.get_xlim())
+        y = compute_y(x,linear_model_noreservoir)
+        trendline_noreservoir = ax.plot(x,y,color=trendline_noreservoir_color,
+                                  linewidth=3,label='Trendline: No Reservoir')
+        
+        # plot 500yr
+        y = compute_y(x,linear_model_reservoir)
+        trendline_reservoir = ax.plot(x,y,color=trendline_reservoir_color,
+                                  linewidth=3,linestyle='dashed',label='Trendline: Reservoir')
+
+        if metric == 'FAR':
+            ax.set_ylim([0,0.30])
+        elif metric == 'TPR':
+            ax.set_ylim([0.6,1])
+        else:
+            ax.set_ylim([0.4,1])
+
+        # used to normalize all y limits to same for better comparison
+        ax.set_ylim([0,1])
+
+        ax.tick_params(axis='both', labelsize=12)
+
+        if i in {2,3}:
+            ax.set_xlabel('Spatial Resolution (m)',fontsize=12)
+        else:
+            ax.set_xlabel(None)
+
+        if i in {0,2}:
+            ax.set_ylabel('Metric Value',fontsize=12)
+        else:
+            ax.set_ylabel(None)
+        
+        #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15,y=1.15)
+        ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15,y=1.12)
+        #ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15)
+
+        # parameter labels
+        ax.text(0.1+.4,1.08,'slope:',fontsize=12,color='black')
+        ax.text(-0.2+.4,1.02,'p-value:',fontsize=12,color='black')
+        
+        # No Reservoir
+        ax.text(1+.4,1.08,
+                '{:.1E}'.format(linear_model_noreservoir.params.spatial_resolution),
+                fontsize=12, color=trendline_noreservoir_color)
+        ax.text(1+.4,1.02,
+                '{:.1E}'.format(linear_model_noreservoir.pvalues.spatial_resolution),
+                fontsize=12, color=trendline_noreservoir_color)
+        
+        # Reservoir
+        ax.text(2.60,1.08,
+                '{:.1E}'.format(linear_model_reservoir.params.spatial_resolution),
+                fontsize=12, color=trendline_reservoir_color)
+        ax.text(2.60,1.02,
+                '{:.1E}'.format(linear_model_reservoir.pvalues.spatial_resolution),
+                fontsize=12, color=trendline_reservoir_color)
+        
+        #ax.text(2.5,1.02,'p-value: {:.1E}'.format(linear_model_noreservoir.pvalues.spatial_resolution),
+        #        fontsize=12, color=trendline_reservoir_color)
+
+        # magnitude
+        #ax.legend_.set_title('Magnitude (yr)')
+        ax.legend_ = None
+
+    h,l = ax.get_legend_handles_labels()
+    l[:2] = ['KDE: Reservoir','KDE: No Reservoir']
+    lgd = fig.legend(h,l,
+           loc='lower center',
+           ncols=2,
+           frameon=True,
+           framealpha=0.75,
+           fontsize=12,
+           title_fontsize=14,
+           borderpad=0.25,
+           markerscale=3,
+           bbox_to_anchor=(0.55,-.06),
+           borderaxespad=0,
+           title=None)
+    
+    fig.savefig(reservoir_plot_fn, bbox_inches='tight')
+    
+    plt.close(fig)
+    
+
+def slope_plot(secondary_metrics_df,slope_plot_fn):
+    
+    metrics = ['MCC','CSI','TPR','FAR']
+    metric_dict = {'MCC': "Matthew's Corr. Coeff.",'CSI':"Critical Success Index",
+                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+    
+    # drop NAs and only use 3dep source
+    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .query('dem_source == "3dep"') \
+                                      .query('Lake == -9999')
+    
+    # convert to percentage
+    all_metrics.loc[:,'Slope'] = all_metrics.loc[:,'Slope'] * 100
+
+    bool_100yr = all_metrics.loc[:,'magnitude'] == 100
+    bool_500yr = all_metrics.loc[:,'magnitude'] == 500
+
+    fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
+
+    for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
+        
+        xlim=(0,0.01)
+        xlim=(0,1)
+        
+        if metric == 'FAR':
+            ylim = (0,0.25)
+        else:
+            ylim = (0.5,1)
+
+        """
+        hist = ax.hist2d(all_metrics.loc[:,'Slope'],
+                   all_metrics.loc[:,metric],
+                   range=[xlim,ylim],
+                   density=True,
+                   bins=50,
+                   cmap='Blues',
+                   cmin=0.1
+                   #cmax=0.8
+                   )
+        """
+        pts_100yr = ax.scatter(all_metrics.loc[bool_100yr,'Slope'],
+                               all_metrics.loc[bool_100yr,metric],
+                               alpha=0.3,s=0.08,c='red',
+                               label='Catchments: 100yr'
+                              )
+        
+        pts_500yr = ax.scatter(all_metrics.loc[bool_500yr,'Slope'],
+                               all_metrics.loc[bool_500yr,metric],
+                               alpha=0.2,s=0.08,c='blue',
+                               label='Catchments: 500yr'
+                              )
+        
+        # fit model
+        linear_model_100yr = sm.RLM(all_metrics.loc[bool_100yr,metric],
+                                    sm.add_constant(all_metrics.loc[bool_100yr,"Slope"]),
+                                    M=sm.robust.norms.TrimmedMean()
+                                   ).fit()
+        linear_model_500yr = sm.RLM(all_metrics.loc[bool_500yr,metric],
+                                    sm.add_constant(all_metrics.loc[bool_500yr,"Slope"]),
+                                    M=sm.robust.norms.TrimmedMean()
+                                   ).fit()
+
+        reg_func = lambda x,lm: lm.params.const + (lm.params.Slope * x)
+        compute_y = lambda x, lm: list(map(partial(reg_func,lm=lm),x))
+        
+        """
+        lci_reg_func = lambda x,lm: lm.conf_int().loc['const',0] + (lm.conf_int().loc['Slope',0] * x)
+        compute_lci = lambda x, lm: list(map(partial(lci_reg_func,lm=lm),x))
+        
+        uci_reg_func = lambda x,lm: lm.conf_int().loc['const',1] + (lm.conf_int().loc['Slope',1] * x)
+        compute_uci = lambda x, lm: list(map(partial(uci_reg_func,lm=lm),x))
+        """
+        
+        trendline_100yr_color = mcolors.CSS4_COLORS["red"]
+        trendline_500yr_color = mcolors.CSS4_COLORS["blue"]
+
+        # plot 100yr
+        x = list(ax.get_xlim())
+        y = compute_y(x,linear_model_100yr)
+        trendline_100yr = ax.plot(x,y,color=trendline_100yr_color,
+                                  linewidth=3,label='Trendline: 100yr')
+        
+        """
+        y = compute_lci(x,linear_model_100yr)
+        trendline_lci_100yr = ax.plot(x,y,color=trendline_100yr_color,
+                                      linewidth=1,label='Lower 95% CI: 100yr')
+        
+        y = compute_uci(x,linear_model_100yr)
+        trendline_uci_100yr = ax.plot(x,y,color=trendline_100yr_color,
+                                      linewidth=1,label='Upper 95% CI: 100yr')
+        """
+        
+        # plot 500yr
+        y = compute_y(x,linear_model_500yr)
+        trendline_500yr = ax.plot(x,y,color=trendline_500yr_color,
+                                  linewidth=3,
+                                  label='Trendline: 500yr')
+        
+        """
+        y = compute_lci(x,linear_model_500yr)
+        trendline_lci_500yr = ax.plot(x,y,color=trendline_500yr_color,
+                                      linewidth=1,linestyle='dashed',
+                                      label='Lower 95% CI: 500yr')
+        
+        y = compute_uci(x,linear_model_500yr)
+        trendline_uci_500yr = ax.plot(x,y,color=trendline_500yr_color,
+                                      linewidth=1,linestyle='dashed',
+                                      label='Upper 95% CI: 500yr')
+        """
+        
+        # parameter labels
+        if metric != 'FAR':
+            y_slope_loc = ylim[1] + 0.04
+            y_pval_loc = ylim[1] + 0.01
+        else:
+            y_slope_loc = ylim[1] + 0.02
+            y_pval_loc = ylim[1] + 0.005
+        
+        ax.text(0.20,y_slope_loc,'slope:',fontsize=12,color='black')
+        ax.text(0.15,y_pval_loc,'p-value:',fontsize=12,color='black')
+        
+        # 100yr
+        ax.text(.40,y_slope_loc,
+                '{:.1E}'.format(linear_model_100yr.params.Slope),
+                fontsize=12, color=trendline_100yr_color)
+        ax.text(.40,y_pval_loc,
+                '{:.1E}'.format(linear_model_100yr.pvalues.Slope),
+                fontsize=12, color=trendline_100yr_color)
+        
+        coef_of_deter_100yr = (np.corrcoef(all_metrics.loc[bool_100yr,"Slope"],all_metrics.loc[bool_100yr,metric])**2)[0,1]
+        ax.text(0.6,ylim[0]+((ylim[1]-ylim[0])/8),
+                'R2: {:.4f}'.format(coef_of_deter_100yr),
+                fontsize=12, color=trendline_100yr_color)
+
+        
+        # 500yr
+        ax.text(.65,y_slope_loc,
+                '{:.1E}'.format(linear_model_500yr.params.Slope),
+                fontsize=12, color=trendline_500yr_color)
+        ax.text(.65,y_pval_loc,
+                '{:.1E}'.format(linear_model_500yr.pvalues.Slope),
+                fontsize=12, color=trendline_500yr_color)
+        
+        coef_of_deter_500yr = (np.corrcoef(all_metrics.loc[bool_500yr,"Slope"],all_metrics.loc[bool_500yr,metric])**2)[0,1]
+        ax.text(0.6,ylim[0]+((ylim[1]-ylim[0])/14),
+                'R2: {:.4f}'.format(coef_of_deter_500yr),
+                fontsize=12, color=trendline_500yr_color)
+        
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        
+        ax.tick_params(axis='both', labelsize=12)
+        #ax.tick_params(axis='x', rotation=45)
+        #ax.ticklabel_format(axis='xx',style='scientific',scilimits=(0,0))
+
+        if i in {2,3}:
+            ax.set_xlabel("Channel Slope"+"\n"+"(vertical/horizontal)",fontsize=12)
+            ax.set_xlabel("Channel Slope (%)",fontsize=12)
+        else:
+            ax.set_xlabel(None)
+
+        if i in {0,2}:
+            ax.set_ylabel('Metric Value',fontsize=12)
+        else:
+            ax.set_ylabel(None)
+        
+        #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15,y=1.15)
+        ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15,y=1.12)
+
+    h,l = ax.get_legend_handles_labels()
+    lgd = fig.legend(h,l,
+           loc='lower center',
+           ncols=2,
+           frameon=True,
+           framealpha=0.75,
+           fontsize=12,
+           title_fontsize=14,
+           borderpad=0.25,
+           markerscale=15,
+           bbox_to_anchor=(0.55,-.06),
+           borderaxespad=0,
+           title=None)
+
+
+    fig.savefig(slope_plot_fn, bbox_inches='tight')
+    plt.close()
+
+def landcover_plot(secondary_metrics_df,landcover_plot_fn):
+    
+    metrics = ['MCC','CSI','TPR','FAR']
+    metrics = ['FAR','TPR','CSI','MCC']
+    metric_dict = {'MCC': "Matthew's Correlation Coeff.",'CSI':"Critical Success Index",
+                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+    
+    # drop NAs and only use 3dep source
+    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .query('dem_source == "3dep"') \
+                                      .query('dominant_lulc != "Other_45"') \
+                                      .query('dominant_lulc != "Other_46"') 
+
+    # dropping low occurrences
+    if False:
+        drops = all_metrics.groupby('dominant_lulc').count().loc[:,'ID'] > 26
+        all_metrics = all_metrics.set_index('dominant_lulc',drop=True) \
+                                 .loc[drops,:] \
+                                 .reset_index(drop=False)
+    
+    order_strs = all_metrics.loc[:,'dominant_lulc'] \
+                            .unique() \
+                            .tolist()
+    order_digits = [landcover_encoding_names_to_digits[s] for s in order_strs]
+
+    def sort_two_lists(list1,list2):
+        return (list(x) for x in zip(*sorted(zip(list1,list2), key=lambda pair:pair[0])))
+
+    order_digits,order_strs = sort_two_lists(order_digits,order_strs)
+    
+    #all_metrics.loc[:,'dominant_lulc_digit'] =  all_metrics.loc[:,'dominant_lulc'] \
+    #                                                       .apply(lambda s : landcover_encoding_names_to_digits[s])
+
+    #breakpoint()
+    #all_metrics.loc[:,'dominant_lulc_digit'] = order_digits
+
+    #breakpoint()
+    #all_metrics = all_metrics.sort_values('dominant_lulc_digit',ascending=True)
+    #breakpoint()
+
+    fig,axs = plt.subplots(4,1,dpi=300,figsize=(8.5,11),layout='tight')
+
+    for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
+        
+        """
+        if metric == 'FAR':
+            ascending=True
+        else:
+            ascending=False
+
+        # determine order for strings and digits lulc encodings
+        order_strs = all_metrics.groupby('dominant_lulc') \
+                                .median(numeric_only=True) \
+                                .loc[drops,:] \
+                                .sort_values(metric,ascending=ascending) \
+                                .index \
+                                .tolist()
+        order_digits = [landcover_encoding_names_to_digits[s] for s in order_strs]
+        """
+
+        ax = sns.boxplot(data=all_metrics,
+                            x='dominant_lulc',
+                            y=metric,
+                            hue='magnitude',
+                            hue_order=[100,500],
+                            order=order_strs,
+                            ax=ax, 
+                            palette=[mcolors.CSS4_COLORS["cornflowerblue"],
+                                     mcolors.CSS4_COLORS["palegoldenrod"]],
+                            linewidth=2,
+                            saturation=0.75,
+                           )
+        
+        ax.tick_params(axis='y', labelsize=12)
+        ax.set_ylabel(metric_dict[metric]+"\n("+metric+")",fontsize=12)
+
+        if i == 3:
+            #ax.set_xlabel("Channel Slope"+"\n"+"(vertical/horizontal)",fontsize=12)
+            ax.set_xlabel("Landcover / Landuse Categories",fontsize=12)
+            wrapped_order_strs = [ '\n'.join(wrap(l, 17)) for l in order_strs]
+            ax.set_xticklabels([f'{s} ({d})' for s,d in zip(wrapped_order_strs,order_digits)])
+            #ax.tick_params(axis='x', rotation=70)
+            plt.setp( ax.xaxis.get_majorticklabels(), rotation=45, ha="right", rotation_mode='anchor' )
+            ax.tick_params(axis='x', labelsize=10)
+        else:
+            ax.set_xticklabels(order_digits)
+            ax.tick_params(axis='x', labelsize=12)
+            ax.set_xlabel(None)
+
+        #ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=12)
+        
+        #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15,y=1.15)
+        #ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15,y=1.12)
+        
+        ax.set_ylim([0,1])
+
+        ax.legend_ = None
+    
+    h,l = ax.get_legend_handles_labels()
+    l[:2] = ['100yr','500yr']
+    lgd = fig.legend(h,l,
+           loc='lower center',
+           ncols=2,
+           frameon=True,
+           framealpha=0.75,
+           fontsize=12,
+           title_fontsize=14,
+           borderpad=0.25,
+           markerscale=3,
+           bbox_to_anchor=(0.2,-.02),
+           borderaxespad=0,
+           title='Magnitude'
+           #title=None
+           )
+
+    if landcover_plot_fn != None:
+        fig.savefig(landcover_plot_fn, bbox_inches='tight')
+    
+    plt.close(fig)
+
 
 def channel_length_plot():
     pass
@@ -744,14 +1291,16 @@ if __name__ == '__main__':
     #cluster = LocalCluster(n_workers=1,threads_per_worker=3)
     #client = Client(cluster)
 
-    # computes 4 secondary contingency metrics by nwm catchment for year, huc, and resolution
     if isinstance(from_file,str):
         secondary_metrics_df = pd.read_hdf(from_file,hdf_key) # read hdf
     else: # compute
         secondary_metrics_df = compute_metrics_by_catchment(nwm_catchments_fn,nwm_streams_fn, huc8s_vector_fn,
                                                                resolutions,years,hucs, chunk_size,
-                                                               save_filename,hdf_key, write_debugging_files, save_nwm_catchments_file,
-                                                               nwm_catchments_raster_fn,nwm_catchments_from_file)
+                                                               save_filename,hdf_key, write_debugging_files,
+                                                               save_nwm_catchments_file,
+                                                               nwm_catchments_raster_fn,
+                                                               nwm_catchments_from_file,
+                                                               land_cover_fn)
 
     if run_anova:
         anova(secondary_metrics_df)
@@ -763,3 +1312,12 @@ if __name__ == '__main__':
     # secondary_metrics_df.loc[secondary_metrics_df.loc[:,'Lake'] != -9999,'MCC'].dropna()
     if make_dem_resolution_plot:
         resolution_plot(secondary_metrics_df,dem_resolution_plot_fn)
+
+    if make_reservoir_plot:
+        reservoir_plot(secondary_metrics_df,reservoir_plot_fn)
+
+    if make_slope_plot:
+        slope_plot(secondary_metrics_df,slope_plot_fn)
+
+    if make_landcover_plot:
+        landcover_plot(secondary_metrics_df,landcover_plot_fn)

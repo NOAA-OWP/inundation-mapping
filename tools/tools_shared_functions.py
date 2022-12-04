@@ -376,7 +376,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     predicted_array = predicted_src.read(1)
 
     benchmark_array_original = benchmark_src.read(1)
-
+    
     if benchmark_array_original.shape != predicted_array.shape:
         benchmark_array = np.empty(predicted_array.shape, dtype=np.int8)
 
@@ -390,6 +390,8 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
               dst_nodata = benchmark_src.nodata,
               dst_resolution = predicted_src.res,
               resampling = Resampling.nearest)
+    else:
+        benchmark_array = benchmark_array_original.copy()
 
     predicted_array_raw = predicted_src.read(1)
 
