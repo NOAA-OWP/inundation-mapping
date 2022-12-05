@@ -23,13 +23,13 @@ from utils.shared_variables import VIZ_PROJECTION
 def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run, job_number_intervals, past_major_interval_cap):
         
     # Check job numbers and raise error if necessary
-#    total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
-#    total_cpus_available = os.cpu_count() - 1
-#    if total_cpus_requested > total_cpus_available:
-#        raise ValueError('The HUC job number, {}, multiplied by the inundate job number, {}, '\
-#                          'exceeds your machine\'s available CPU count minus one. '\
-#                          'Please lower the job_number_huc or job_number_inundate '\
-#                          'values accordingly.'.format(job_number_huc, job_number_inundate) )
+    total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
+    total_cpus_available = os.cpu_count() - 1
+    if total_cpus_requested > total_cpus_available:
+        raise ValueError('The HUC job number, {}, multiplied by the inundate job number, {}, '\
+                          'exceeds your machine\'s available CPU count minus one. '\
+                          'Please lower the job_number_huc or job_number_inundate '\
+                          'values accordingly.'.format(job_number_huc, job_number_inundate) )
 
     # Define default arguments. Modify these if necessary
     fim_version = os.path.split(fim_run_dir)[1]
