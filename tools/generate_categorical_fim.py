@@ -462,7 +462,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
 
     huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-        for huc in huc_dictionary:  # TODO should multiprocess at HUC level?
+        for huc in huc_dictionary:
             print(huc)
             executor.submit(iterate_through_huc_stage_based, workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir)
                 
