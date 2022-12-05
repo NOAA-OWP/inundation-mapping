@@ -23,13 +23,13 @@ from utils.shared_variables import VIZ_PROJECTION
 def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run, job_number_intervals, past_major_interval_cap):
         
     # Check job numbers and raise error if necessary
-    total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
-    total_cpus_available = os.cpu_count() - 1
-    if total_cpus_requested > total_cpus_available:
-        raise ValueError('The HUC job number, {}, multiplied by the inundate job number, {}, '\
-                          'exceeds your machine\'s available CPU count minus one. '\
-                          'Please lower the job_number_huc or job_number_inundate '\
-                          'values accordingly.'.format(job_number_huc, job_number_inundate) )
+#    total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
+#    total_cpus_available = os.cpu_count() - 1
+#    if total_cpus_requested > total_cpus_available:
+#        raise ValueError('The HUC job number, {}, multiplied by the inundate job number, {}, '\
+#                          'exceeds your machine\'s available CPU count minus one. '\
+#                          'Please lower the job_number_huc or job_number_inundate '\
+#                          'values accordingly.'.format(job_number_huc, job_number_inundate) )
 
     # Define default arguments. Modify these if necessary
     fim_version = os.path.split(fim_run_dir)[1]
@@ -377,22 +377,22 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             if huc in missing_huc_files:
                 all_messages.append([f'{lid}:missing some HUC data'])
                 
-#        # Now that the "official" category maps are made, produce the incremental maps.
-#        for interval_stage in interval_list:
-#            try:
-#                with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
-#                    # Determine category the stage value belongs with.
-#                    if action_stage <= interval_stage < minor_stage:
-#                        category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
-#                    if minor_stage <= interval_stage < moderate_stage:
-#                        category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
-#                    if moderate_stage <= interval_stage < major_stage:
-#                        category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
-#                    if interval_stage >= major_stage:
-#                        category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-#                    executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
-#            except TypeError:  # sometimes the thresholds are Nonetypes
-#                pass
+        # Now that the "official" category maps are made, produce the incremental maps.
+        for interval_stage in interval_list:
+            try:
+                with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
+                    # Determine category the stage value belongs with.
+                    if action_stage <= interval_stage < minor_stage:
+                        category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
+                    if minor_stage <= interval_stage < moderate_stage:
+                        category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
+                    if moderate_stage <= interval_stage < major_stage:
+                        category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
+                    if interval_stage >= major_stage:
+                        category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
+                    executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
+            except TypeError:  # sometimes the thresholds are Nonetypes
+                pass
                 
         lat = float(metadata['nws_preferred']['latitude'])
         lon = float(metadata['nws_preferred']['longitude'])
@@ -554,13 +554,13 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
             hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
             
             if not os.path.exists(rem_path):
-                messages.append(f"{lid}:rem doesn't exist")
+                messages.append([f"{lid}:rem doesn't exist"])
                 continue
             if not os.path.exists(catchments_path):
-                messages.append(f"{lid}:catchments files doesn't exist")
+                messages.append([f"{lid}:catchments files don't exist"])
                 continue
             if not os.path.exists(hydrotable_path):
-                messages.append(f"{lid}:hydrotable_path doesn't exist")
+                messages.append([f"{lid}:hydrotable doesn't exist"])
                 continue
             
             # Use hydroTable to determine hydroid_list from site_ms_segments.
@@ -581,7 +581,7 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
 
             # If no segments, write message and exit out
             if not segments:
-                messages.append(f'{lid}:missing nwm segments')
+                messages.append([f'{lid}:missing nwm segments'])
                 continue
             
             # Create inundation maps with branch and stage data
@@ -589,7 +589,7 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
                 print("Running inundation for " + huc + " and branch " + branch)
                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
             except Exception:
-                messages.append(f'{lid}:inundation failed at {category}')
+                messages.append([f'{lid}:inundation failed at {category}'])
                 
     # -- MOSAIC -- #
     # Merge all rasters in lid_directory that have the same magnitude/category.
