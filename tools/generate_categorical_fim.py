@@ -221,8 +221,8 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     missing_huc_files = []
     all_messages = []  # TODO
-    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']  # TODO
-#    flood_categories = ['action', 'minor']
+#    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']  # TODO
+    flood_categories = ['minor']
     stage_based_att_dict = {}
 
     huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
@@ -265,8 +265,8 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                     os.mkdir(lid_directory)
                 # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
                 stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
-                if stages == None or flows == None:
-                    print("Likely WRDS error")
+                if stages == None:
+                    all_messages.append(f'{lid}:error getting thresholds from WRDS API')
                     continue
                 # Check if stages are supplied, if not write message and exit. 
                 if all(stages.get(category, None)==None for category in flood_categories):
@@ -360,6 +360,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
                 # Create a list of stages, incrementing by 1 ft.
                 if stage_list == []:
+                    all_messages.append(f'{lid}:error generating interval stage list')
                     continue  # TODO Log
                 interval_list = np.arange(min(stage_list), max(stage_list) + past_major_interval_cap, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
                 # For each flood category
@@ -383,7 +384,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                                                                      'lid_alt_m': lid_altitude*0.3048}})
                     # If missing HUC file data, write message
                     if huc in missing_huc_files:
-                        all_messages.append("Missing some HUC data")
+                        all_messages.append(f'{lid}:missing some HUC data')
                         
                 # Now that the "official" category maps are made, produce the incremental maps.
                 for interval_stage in interval_list:
@@ -448,6 +449,11 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
                 else:
                     message = f'{lid}:missing all calculated flows'  # TODO METADATA
                     all_messages.append(message)
+                    
+                # If it made it to this point, there were no major preventers of mapping
+                all_messages.append(f'{lid}:OK')
+                    
+    print(all_messages)
                 
     print('Wrapping up Stage-Based CatFIM...')
     
@@ -487,7 +493,17 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     #'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
-    viz_out_gdf['status'] = 'coming soon'
+    
+    #Write messages to DataFrame, split into columns, aggregate messages.
+    messages_df  = pd.DataFrame(all_messages, columns = ['message'])
+    messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
+    status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+    
+    #Join messages to populate status field to candidate sites. Assign 
+    #status for null fields.
+    viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
+    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+#    viz_out_gdf['status'] = 'coming soon'
     
     # Filter out columns and write out to file
     nws_sites_layer = os.path.join(workspace, 'nws_lid_sites.gpkg')
@@ -539,7 +555,7 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
                     pass
                 
             if len(hydroid_list) == 0:
-                messages.append(f"{lid}:no matching hydroids")
+#                messages.append(f"{lid}:no matching hydroids")  # Some branches don't have matching hydroids
                 continue
 
             # If no segments, write message and exit out
