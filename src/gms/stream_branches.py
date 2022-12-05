@@ -220,10 +220,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         except KeyError:
             raise ValueError('Linestring index should be 0 or -1')
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 85c3fef40023b111d7265bfc880a7090a6b2704a
     def derive_nodes(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',reach_id_attribute='ID',
                      outlet_linestring_index=0,node_prefix=None,max_node_digits=8,verbose=False):
         
