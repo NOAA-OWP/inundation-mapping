@@ -130,7 +130,7 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
     tifs_to_reformat_list = []
     if not os.path.exists(merged_layer): # prevents appending to existing output        
         huc_ahps_dir_list = os.listdir(output_catfim_dir)
-        skip_list=['errors','logs','gpkg','missing_files.txt',merged_layer]
+        skip_list=['errors','logs','gpkg','missing_files.txt','messages',merged_layer]
 
         # Loop through all categories
         print("Building list of TIFs to reformat...")
