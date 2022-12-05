@@ -16,7 +16,7 @@ demDerived_reaches_{}.shp
 demDerived_reaches_{}.shx
 demDerived_reaches_split_{}.gpkg
 demDerived_reaches_split_filtered_{}.gpkg
-demDerived_reaches_split_filtered_addedAttributes_crosswalked_{}.gpkg
+#demDerived_reaches_split_filtered_addedAttributes_crosswalked_{}.gpkg
 demDerived_reaches_split_points_{}.gpkg
 demDerived_streamPixels_{}.tif
 demDerived_streamPixels_ids_{}.tif

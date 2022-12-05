@@ -250,11 +250,13 @@ else
 fi
 
 ## CREATE USGS GAGES FILE
-echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"$stopDiv
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputDataDir/usgs_gages/usgs_gages_all_metadata.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputDataDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id -bzero $dropLowStreamOrders
-Tcount
+if [ -f $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
+    echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"$stopDiv
+    date -u
+    Tstart
+    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputDataDir/usgs_gages/usgs_gages_all_metadata.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputDataDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id -bzero $dropLowStreamOrders
+    Tcount
+fi
 
 ## USGS CROSSWALK ##
 if [ -f $outputHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
@@ -268,16 +270,14 @@ fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"$stopDiv
-date -u
-Tstart
-$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $srcDir/../config/deny_gms_branch_zero.lst -b 0
-Tcount
+$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list_for_units -b 0
+
 
 ## REMOVE FILES FROM DENY LIST ##
-if [ -f $deny_gms_unit_list ]; then
+if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"$stopDiv
     date -u
     Tstart
-    $srcDir/gms/outputs_cleanup.py -d $outputHucDataDir -l $deny_gms_unit_list -b $hucNumber
+    $srcDir/gms/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
     Tcount
 fi

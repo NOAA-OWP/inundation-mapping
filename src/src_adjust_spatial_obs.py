@@ -250,6 +250,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
 
     #huc_list = ['12040103']
     ## Define paths to relevant HUC HAND data.
+    huc_list.sort() # sort huc_list for helping track progress in future print statments
     for huc in huc_list:
         huc_branches_dir = os.path.join(fim_directory, huc,'branches')
         water_edge_df = find_points_in_huc(huc, conn).reset_index()
