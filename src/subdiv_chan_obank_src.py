@@ -120,15 +120,26 @@ def variable_mannings_calc(args):
 
 def subdiv_geometry(df_src):
     ## 1ft in-channel method
+    df_src_1ft = df_src[df_src.Stage == 0.3048]
+    df_src_1ft = df_src_1ft[['HydroID','Volume (m3)','BedArea (m2)','SurfaceArea (m2)']]
+    df_src_1ft = df_src_1ft.rename(columns={'Volume (m3)':'Volume_1ft (m3)','BedArea (m2)':'BedArea_1ft (m2)','SurfaceArea (m2)':'SurfaceArea_1ft (m2)'})
+    df_src.drop(['Volume_1ft (m3)','BedArea_1ft (m2)','SurfaceArea_1ft (m2)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src = df_src.merge(df_src_1ft,how='left',on='HydroID')
+    
     ## Calculate in-channel volume & bed area
-    df_src['Volume_in_chan (m3)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']<=0.3048), df_src['Volume (m3)'], df_src['Volume_bankfull'])
-    df_src['BedArea_in_chan (m2)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']<=0.3048), df_src['BedArea (m2)'], df_src['BedArea_bankfull'])
-    df_src['WettedPerimeter_in_chan (m)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']<=0.3048), (df_src['BedArea_in_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_bankfull']/df_src['LENGTHKM']/1000))
+    df_src['Volume_in_chan (m3)'] = np.where((df_src['Stage']<=0.3048), df_src['Volume (m3)'], df_src['Volume_1ft (m3)'])
+    df_src['BedArea_in_chan (m2)'] = np.where((df_src['Stage']<=0.3048), df_src['BedArea (m2)'], df_src['BedArea_1ft (m2)'])
+    df_src['WettedPerimeter_in_chan (m)'] = np.where((df_src['Stage']<=0.3048), (df_src['BedArea_in_chan (m2)']/df_src['LENGTHKM']/1000), (df_src['BedArea_1ft (m2)']/df_src['LENGTHKM']/1000))
 
     ## Calculate abv-channel volume & bed area
-    df_src['Volume_abv_chan (m3)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']>0.3048), ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull']), 0.0)
-    df_src['BedArea_abv_chan (m2)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']>0.3048), df_src['SurfArea_bankfull'], 0.0)
-    df_src['WettedPerimeter_abv_chan (m)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']>0.3048), (df_src['BedArea_abv_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2), 0.0)
+    df_src['Volume_abv_chan (m3)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']>0.3048), (df_src['Volume (m3)']-df_src['Volume_1ft (m3)']), np.where((df_src['Stage']>df_src['Stage_bankfull']),(df_src['Volume_bankfull']-df_src['Volume_1ft (m3)']) + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull']),0.0))
+    df_src['BedArea_abv_chan (m2)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']>0.3048), df_src['BedArea (m2)'], np.where((df_src['Stage']>df_src['Stage_bankfull']), df_src['BedArea_bankfull'], 0.0))
+    df_src['WettedPerimeter_abv_chan (m)'] = np.where((df_src['Stage']<=df_src['Stage_bankfull']) & (df_src['Stage']>0.3048), (df_src['BedArea_abv_chan (m2)']/df_src['LENGTHKM']/1000), np.where((df_src['Stage']>df_src['Stage_bankfull']), (df_src['BedArea_abv_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2), 0.0))
+
+    ## Calculate overbank volume & bed area
+    df_src['Volume_obank (m3)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['Volume (m3)'] - (df_src['Volume_in_chan (m3)'] + df_src['Volume_abv_chan (m3)'])), 0.0)
+    df_src['BedArea_obank (m2)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['BedArea (m2)'] - df_src['BedArea_bankfull']), 0.0)
+    df_src['WettedPerimeter_obank (m)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], df_src['BedArea_obank (m2)']/df_src['LENGTHKM']/1000, 0.0)
     '''
     ## Calculate in-channel volume & bed area
     df_src['Volume_in_chan (m3)'] = np.where(df_src['Stage']<=df_src['Stage_bankfull'], df_src['Volume (m3)'], df_src['Volume_bankfull'])
@@ -139,12 +150,14 @@ def subdiv_geometry(df_src):
     df_src['Volume_abv_chan (m3)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull']), 0.0)
     df_src['BedArea_abv_chan (m2)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], df_src['SurfArea_bankfull'], 0.0)
     df_src['WettedPerimeter_abv_chan (m)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['BedArea_abv_chan (m2)']/df_src['LENGTHKM']/1000) + ((df_src['Stage'] - df_src['Stage_bankfull'])*2), 0.0)
-    '''
+    
     ## Calculate overbank volume & bed area
     df_src['Volume_obank (m3)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['Volume (m3)'] - (df_src['Volume_in_chan (m3)'] + df_src['Volume_abv_chan (m3)'])), 0.0)
     df_src['BedArea_obank (m2)'] = np.where(df_src['Stage']>df_src['Stage_bankfull'], (df_src['BedArea (m2)'] - df_src['BedArea_in_chan (m2)']), 0.0)
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)']/df_src['LENGTHKM']/1000
+    '''
     return(df_src)
+
 
 def subdiv_mannings_eq(df_src):
     ## Calculate discharge (in-channel) using Manning's equation
