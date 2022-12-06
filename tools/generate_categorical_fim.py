@@ -517,18 +517,14 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     #Write messages to DataFrame, split into columns, aggregate messages.
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
-    print(viz_out_gdf)
-    print(messages_df)
 
     messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
-    print(status_df)
     
     #Join messages to populate status field to candidate sites. Assign 
     # status for null fields.
     viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
     
-    print(viz_out_gdf)
 #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
     
     # Filter out columns and write out to file
