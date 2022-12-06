@@ -236,20 +236,20 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
 
     # -- If necessary files exist, continue -- #
     # Read usgs_elev_df
-    usgs_elev_df = pd.read_csv(usgs_elev_table)
-        
+    
     # Loop through each lid in nws_lids list
     nws_lids = huc_dictionary[huc]
     for lid in nws_lids:
+        lid = lid.lower() # Convert lid to lower case
         if not os.path.exists(usgs_elev_table):
             all_messages.append([f'{lid}:usgs_elev_table missing'])
             continue
         if not os.path.exists(branch_dir):
             all_messages.append([f'{lid}:branch directory missing'])
             continue
-        print(lid)
+        usgs_elev_df = pd.read_csv(usgs_elev_table)
         # Make lid_directory.
-        lid = lid.lower() # Convert lid to lower case
+        
         lid_directory = os.path.join(huc_directory, lid)
         if not os.path.exists(lid_directory):
             os.mkdir(lid_directory)
@@ -517,13 +517,19 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     #Write messages to DataFrame, split into columns, aggregate messages.
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
+    print(viz_out_gdf)
+    print(messages_df)
+
     messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+    print(status_df)
     
     #Join messages to populate status field to candidate sites. Assign 
-    #status for null fields.
+    # status for null fields.
     viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
-    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+    
+    print(viz_out_gdf)
+#    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
     
     # Filter out columns and write out to file
     nws_sites_layer = os.path.join(workspace, 'nws_lid_sites.gpkg')

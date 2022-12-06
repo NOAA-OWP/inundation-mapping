@@ -74,7 +74,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         islands_list, islands_dataframe = get_metadata(metadata_url, select_by = 'state', selector = ['HI','PR'] , must_include = None, upstream_trace_distance = nwm_us_search, downstream_trace_distance = nwm_ds_search)
         # Append the dataframes and lists
         all_lists = conus_list + islands_list
-    
+    print(len(all_lists))
     print('Determining HUC using WBD layer...')
     # Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
