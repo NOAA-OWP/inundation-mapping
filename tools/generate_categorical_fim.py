@@ -233,14 +233,13 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
     # Define paths to necessary HAND and HAND-related files.
     usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
     branch_dir = os.path.join(fim_dir, huc, 'branches')
-
-    # -- If necessary files exist, continue -- #
-    # Read usgs_elev_df
     
     # Loop through each lid in nws_lids list
     nws_lids = huc_dictionary[huc]
+    print(huc_dictionary)
     for lid in nws_lids:
         lid = lid.lower() # Convert lid to lower case
+        # -- If necessary files exist, continue -- #
         if not os.path.exists(usgs_elev_table):
             all_messages.append([f'{lid}:usgs_elev_table missing'])
             continue
@@ -255,6 +254,8 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             os.mkdir(lid_directory)
         # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
         stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
+        print(stages)
+        print(flows)
         if stages == None:
             all_messages.append([f'{lid}:error getting thresholds from WRDS API'])
             continue
@@ -262,6 +263,9 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         if all(stages.get(category, None)==None for category in flood_categories):
             all_messages.append([f'{lid}:missing threshold stages'])
             continue
+        
+        # Right here you can read the metadata from the usgs_elev_table (all of its accurcy info) and remove based on imported criteria
+        
         # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
         try:
             matching_rows = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
@@ -393,49 +397,48 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                     executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
             except TypeError:  # sometimes the thresholds are Nonetypes
                 pass
-                
-        lat = float(metadata['nws_preferred']['latitude'])
-        lon = float(metadata['nws_preferred']['longitude'])
-        wfo = metadata['nws_data']['wfo']
-        rfc = metadata['nws_data']['rfc']
-        state = metadata['nws_data']['state']
-        county = metadata['nws_data']['county']
-        name = metadata['nws_data']['name']
-        flow_source = flows['source']
-        stage_source = stages['source']
-        wrds_timestamp = stages['wrds_timestamp']
-        nrldb_timestamp = metadata['nrldb_timestamp']
-        nwis_timestamp = metadata['nwis_timestamp']
                     
-        #Create a csv with same information as geopackage but with each threshold as new record.
+        # Create a csv with same information as geopackage but with each threshold as new record.
+        # Probably a less verbose way.
         csv_df = pd.DataFrame()
         for threshold in flood_categories:
             try:
-                
-                datum_adj_ft = stage_based_att_dict[lid][threshold]['datum_adj_ft']
-                datum_adj_wse_ft = stage_based_att_dict[lid][threshold]['datum_adj_wse_ft']
-                datum_adj_wse_m = stage_based_att_dict[lid][threshold]['datum_adj_wse_m']
-                lid_alt_ft = stage_based_att_dict[lid][threshold]['lid_alt_ft']
-                lid_alt_m = stage_based_att_dict[lid][threshold]['lid_alt_m']
-
-                line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon],
-                                    'dtm_adj_ft': datum_adj_ft,
-                                    'dadj_w_ft': datum_adj_wse_ft,
-                                    'dadj_w_m': datum_adj_wse_m,
-                                    'lid_alt_ft': lid_alt_ft,
-                                    'lid_alt_m': lid_alt_m})
+                line_df = pd.DataFrame({'nws_lid': [lid], 
+                                        'name':metadata['nws_data']['name'], 
+                                        'WFO': metadata['nws_data']['wfo'], 
+                                        'rfc':metadata['nws_data']['rfc'], 
+                                        'huc':[huc], 
+                                        'state':metadata['nws_data']['state'], 
+                                        'county':metadata['nws_data']['county'], 
+                                        'magnitude': threshold, 
+                                        'q':flows[threshold], 
+                                        'q_uni':flows['units'], 
+                                        'q_src':flows['source'], 
+                                        'stage':stages[threshold], 
+                                        'stage_uni':stages['units'], 
+                                        's_src':stages['source'], 
+                                        'wrds_time':stages['wrds_timestamp'], 
+                                        'nrldb_time':metadata['nrldb_timestamp'],
+                                        'nwis_time':metadata['nwis_timestamp'], 
+                                        'lat':[float(metadata['nws_preferred']['latitude'])], 
+                                        'lon':[float(metadata['nws_preferred']['longitude'])],
+                                        'dtm_adj_ft': stage_based_att_dict[lid][threshold]['datum_adj_ft'],
+                                        'dadj_w_ft': stage_based_att_dict[lid][threshold]['datum_adj_wse_ft'],
+                                        'dadj_w_m': stage_based_att_dict[lid][threshold]['datum_adj_wse_m'],
+                                        'lid_alt_ft': stage_based_att_dict[lid][threshold]['lid_alt_ft'],
+                                        'lid_alt_m': stage_based_att_dict[lid][threshold]['lid_alt_m']})
                 csv_df = csv_df.append(line_df)
                 
             except Exception as e:
                 print("Exception")
                 print(e)
           
-        #Round flow and stage columns to 2 decimal places.
+        # Round flow and stage columns to 2 decimal places.
         csv_df = csv_df.round({'q':2,'stage':2})
-        #If a site folder exists (ie a flow file was written) save files containing site attributes.
+        # If a site folder exists (ie a flow file was written) save files containing site attributes.
         output_dir = os.path.join(workspace, huc, lid)
         if os.path.exists(output_dir):
-            #Export DataFrame to csv containing attributes
+            # Export DataFrame to csv containing attributes
             csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index = False)
         else:
             all_messages.append([f'{lid}:missing all calculated flows'])
@@ -456,20 +459,16 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
     
 def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs, lid_to_run, attributes_dir, number_of_interval_jobs, past_major_interval_cap, job_number_huc):
     
-    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']  # TODO
-#    flood_categories = ['minor']
+    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
     huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            print(huc)
             executor.submit(iterate_through_huc_stage_based, workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir)
                 
     print('Wrapping up Stage-Based CatFIM...')
-    
     csv_files = os.listdir(attributes_dir)
     all_csv_df = pd.DataFrame()
-    
     refined_csv_files_list = []
     for csv_file in csv_files:
         full_csv_path = os.path.join(attributes_dir, csv_file)
@@ -500,7 +499,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     lids_df['mapped'] = 'yes'
     
     # Identify what lids were mapped by merging with lids_df. Populate 
-    #'mapped' column with 'No' if sites did not map.
+    # 'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how = 'left', on = 'nws_lid')    
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
     
@@ -515,14 +514,14 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             for row in reader:
                 all_messages.append(row)
     
-    #Write messages to DataFrame, split into columns, aggregate messages.
+    # Write messages to DataFrame, split into columns, aggregate messages.
     messages_df  = pd.DataFrame(all_messages, columns = ['message'])
 
     messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
     
-    #Join messages to populate status field to candidate sites. Assign 
-    # status for null fields.
+    # Join messages to populate status field to candidate sites. Assign 
+    # status for null fields.  # TODO revisit
     viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
     
 #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
