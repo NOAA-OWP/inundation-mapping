@@ -64,9 +64,9 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     if stage_based:
         # Generate Stage-Based CatFIM mapping
         nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir, job_number_intervals, past_major_interval_cap, job_number_huc)
-        
+        total_number_of_jobs = total_cpus_requested
         print("Post-processing TIFs...")
-        post_process_cat_fim_for_viz(job_number_inundate, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
+        post_process_cat_fim_for_viz(total_number_of_jobs, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
     
         # Updating mapping status
         print('Updating mapping status')

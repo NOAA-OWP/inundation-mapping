@@ -135,13 +135,18 @@ def post_process_cat_fim_for_viz(number_of_jobs, output_catfim_dir, attributes_d
         # Loop through all categories
         print("Building list of TIFs to reformat...")
         for huc in huc_ahps_dir_list:
+            print(huc)
             if huc not in skip_list:
                 huc_dir = os.path.join(output_catfim_dir, huc)
                 try:
                     ahps_dir_list = os.listdir(huc_dir)
                 except NotADirectoryError:
                     continue
-
+                # If there's no mapping for a HUC, delete the HUC directory.
+                if ahps_dir_list == []:
+                    os.rmdir(huc_dir)
+                    continue
+                print(ahps_dir_list)
                 # Loop through ahps sites
                 for ahps_lid in ahps_dir_list:
                     ahps_lid_dir = os.path.join(huc_dir, ahps_lid)

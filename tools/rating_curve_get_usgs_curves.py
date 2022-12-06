@@ -28,7 +28,7 @@ NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
 
 def get_all_active_usgs_sites():
     '''
-    Compile a list of all active usgs gage sites that meet certain criteria. 
+    Compile a list of all active usgs gage sites. 
     Return a GeoDataFrame of all sites.
 
     Returns
@@ -43,58 +43,6 @@ def get_all_active_usgs_sites():
     selector = ['all']
     must_include = 'usgs_data.active'
     metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
-    
-#    import pickle
-#    print("Opening temp metadata file...")
-#    with open('/data/temp/brad/alternate_catfim_temp_files/all_lists.pkl','rb') as f:
-#        metadata_list = pickle.load(f)
-#    print(metadata_list)
-    #Filter out sites based quality of site. These acceptable codes were initially
-    #decided upon and may need fine tuning. A link where more information
-    #regarding the USGS attributes is provided. 
-    
-    #https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
-    acceptable_coord_acc_code = ['H','1','5','S','R','B','C','D','E']
-    #https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
-    acceptable_coord_method_code = ['C','D','W','X','Y','Z','N','M','L','G','R','F','S']
-    #https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
-    acceptable_alt_acc_thresh = 1
-    #https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
-    acceptable_alt_meth_code = ['A','D','F','I','J','L','N','R','W','X','Y','Z']
-    #https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
-    acceptable_site_type = ['ST']
-    
-    #Cycle through each site and filter out if site doesn't meet criteria.
-    acceptable_sites_metadata = []
-        
-#    for metadata in metadata_list:
-#        #Get the usgs info from each site
-#        usgs_data = metadata['usgs_data']
-#                
-#        #Get site quality attributes      
-#        coord_accuracy_code = usgs_data.get('coord_accuracy_code')        
-#        coord_method_code =   usgs_data.get('coord_method_code')
-#        alt_accuracy_code =   usgs_data.get('alt_accuracy_code')
-#        alt_method_code =     usgs_data.get('alt_method_code')
-#        site_type =           usgs_data.get('site_type')
-#        
-#        #Check to make sure that none of the codes were null, if null values are found, skip to next.
-#        if not all([coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type]):
-#            continue
-#        
-#        #Test if site meets criteria.
-#        if (coord_accuracy_code in acceptable_coord_acc_code and 
-#            coord_method_code in acceptable_coord_method_code and
-#            alt_accuracy_code <= acceptable_alt_acc_thresh and 
-#            alt_method_code in acceptable_alt_meth_code and
-#            site_type in acceptable_site_type):
-#            
-#            #If nws_lid is not populated then add a dummy ID so that 'aggregate_wbd_hucs' works correctly.
-#            if not metadata.get('identifiers').get('nws_lid'):
-#                metadata['identifiers']['nws_lid'] = 'Bogus_ID' 
-#            
-#            #Append metadata of acceptable site to acceptable_sites list.
-#            acceptable_sites_metadata.append(metadata)  
         
     #Get a geospatial layer (gdf) for all acceptable sites
     print("Aggregating WBD HUCs...")
