@@ -277,6 +277,15 @@ def download_usgs_dem_file(extent_file,
 
 
 def polygonize(target_output_folder_path):
+    """
+    Create a polygon of 3DEP domain from individual HUC6 DEMS which are then dissolved into a single polygon
+    """
+    dem_domain_file = os.path.join(target_output_folder_path, 'HUC6_dem_domain.gpkg')
+
+    msg = f" - Creating polygon -- {dem_domain_file} - Started"
+    print(msg)
+    logging.info(msg)
+            
     dem_files = glob.glob(os.path.join(target_output_folder_path, '_dem.tif'))
     dem_gpkgs = gpd.GeoDataFrame()
 
@@ -304,7 +313,16 @@ def polygonize(target_output_folder_path):
         
     dem_gpkgs['DN'] = 1
     dem_dissolved = dem_gpkgs.dissolve(by='DN')
-    dem_dissolved.to_file('/data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg', driver='GPKG')
+    dem_dissolved.to_file(dem_domain_file, driver='GPKG')
+
+    if not os.path.exists(dem_domain_file):
+        msg = f" - Downloading -- {dem_domain_file} - Failed"
+        print(msg)
+        logging.error(msg)
+    else:
+        msg = f" - Downloading -- {dem_domain_file} - Complete"
+        print(msg)
+        logging.info(msg)
 
 
 def __setup_logger(output_folder_path):
