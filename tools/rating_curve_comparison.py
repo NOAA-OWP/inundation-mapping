@@ -22,6 +22,11 @@ import rasterio
 from rasterio import features as riofeatures
 from rasterio import plot as rioplot
 from shapely.geometry import Polygon
+from tools_shared_variables import (acceptable_coord_acc_code_list, 
+                                    acceptable_coord_method_code_list, 
+                                    acceptable_alt_acc_thresh, 
+                                    acceptable_alt_meth_code_list, 
+                                    acceptable_site_type_list)
 
 """
     Plot Rating Curves and Compare to USGS Gages
@@ -89,6 +94,21 @@ def generate_rating_curve_metrics(args):
 
     # Read in the USGS gages rating curve database csv
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object, 'feature_id':object})
+    
+    # -- Filter usgs_gages according to acceptance criteria -- #
+    # Filter gages by accuracy codes
+    usgs_gages = usgs_gages[usgs_gages['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)]
+    usgs_gages = usgs_gages[usgs_gages['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)]
+    usgs_gages = usgs_gages.astype({'usgs_data_alt_accuracy_code': 'float'})  # Recast to float
+    usgs_gages = usgs_gages[usgs_gages['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh]
+    usgs_gages = usgs_gages[usgs_gages['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)]
+    usgs_gages = usgs_gages[usgs_gages['usgs_data_site_type'].isin(acceptable_site_type_list)]
+    # Add accuracy tolerance codes as extra fields so users can know what was used to filter
+    usgs_gages['accepted_usgs_data_coord_accuracy_codes'] = str(acceptable_coord_acc_code_list)
+    usgs_gages['accepted_usgs_data_coord_method_codes'] = str(acceptable_coord_method_code_list)
+    usgs_gages['accepted_usgs_data_alt_accuracy_threshold'] = acceptable_alt_acc_thresh
+    usgs_gages['accepted_usgs_data_alt_meth_codes'] = str(acceptable_alt_meth_code_list)
+    usgs_gages['accepted_usgs_data_site_types'] = str(acceptable_site_type_list)
 
     # Aggregate FIM4 hydroTables
     if not elev_table.empty:

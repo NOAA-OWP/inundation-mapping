@@ -453,7 +453,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         writer = csv.writer(output_csv)
         writer.writerows(all_messages)
 
-
     
 def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us_search, nwm_ds_search, number_of_jobs, lid_to_run, attributes_dir, number_of_interval_jobs, past_major_interval_cap, job_number_huc):
     
