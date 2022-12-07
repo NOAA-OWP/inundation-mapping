@@ -78,7 +78,8 @@ RUN apt update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt install -y p7zip-full python3-pip time \
             mpich=3.3.2-2build1 parallel=20161222-1.1 \
             libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1 \
-            grass=7.8.2-1build3 grass-doc=7.8.2-1build3 && \
+            grass=7.8.2-1build3 grass-doc=7.8.2-1build3 \ 
+            graphviz=2.42.2-3build2 && \
     apt auto-remove && \
     rm -rf /var/lib/apt/lists/*
 

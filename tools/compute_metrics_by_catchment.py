@@ -7,6 +7,7 @@ import warnings
 from functools import partial
 from textwrap import wrap
 import gc
+from shutil import rmtree
 
 import numpy as np
 import geopandas as gpd
@@ -17,8 +18,9 @@ import xarray as xr
 from geocube.api.core import make_geocube
 from geocube.rasterize import rasterize_image
 from tqdm import tqdm
-from xrspatial.zonal import stats, crosstab
+from xrspatial.zonal import stats, crosstab, apply
 from dask.dataframe.multi import concat, merge
+from dask.dataframe import read_parquet
 from dask.distributed import Client, LocalCluster
 from tqdm.dask import TqdmCallback
 import statsmodels.formula.api as smf
@@ -27,7 +29,7 @@ import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
 from sklearn.feature_selection import SequentialFeatureSelector as SFS
 from sklearn_pandas import DataFrameMapper
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 #import ptitprince as pt
@@ -66,18 +68,22 @@ def build_agreement_raster_data_dir(huc, resolution, year, source):
 
 # agreement factors
 resolutions = [20,15,10,5,3]
-#resolutions = [20,15]
+#resolutions = [20]
 years = [100,500]
 #years = [100]
 hucs = ['12020001','12020002','12020003','12020004','12020005','12020006','12020007']
-#hucs = ['12020001','12020002']
+#hucs = ['12020001']
+dem_sources = ['3dep','nhd']
+#dem_sources = ['3dep']
 chunk_size = 256*8
-save_filename = os.path.join(data_dir,'experiment_data.h5')
+experiment_fn = os.path.join(data_dir,'experiment_data.h5')
+temp_experiment_fn = os.path.join(data_dir,'TEMP_experiment_data')
 hdf_key = 'data'
 save_nwm_catchments_file = os.path.join(data_dir,'nwm_catchments_with_metrics_1202.gpkg')
 #feature_cols = ['huc8','spatial_resolution','magnitude','mainstem','order_','Lake','gages','Length']
 #feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope']
 feature_cols = ['spatial_resolution','dominant_lulc','magnitude','order_','Lake','Length','Slope','dem_source','area_sqkm']
+one_way_interactions = ['spatial_resolution','']
 # encoded_features = ['order_','Lake','magnitude']
 #target_cols = ['CSI']
 target_cols = ['MCC']
@@ -89,13 +95,17 @@ nwm_catchments_raster_fn = os.path.join(data_dir,'nwm_catchments','nwm_catchment
 dem_resolution_plot_fn = os.path.join(data_dir,'dem_resolution_3dep_plot.png')
 reservoir_plot_fn = os.path.join(data_dir,'reservoir_plot.png')
 slope_plot_fn = os.path.join(data_dir,'slope_plot.png')
-land_cover_fn = os.path.join(data_dir,'cover2019_lulc_1202.tif')
+#land_cover_fn = os.path.join(data_dir,'cover2019_lulc_1202.tif')
+land_cover_fn = os.path.join(data_dir,'landcovers','land_cover_{}.tif')
 landcover_plot_fn = os.path.join(data_dir,'lulc_metrics_plot.png')
 
 # pipeline switches 
-burn_nwm_catchments = False
-write_debugging_files = False
 compute_secondary_metrics = True
+burn_nwm_catchments = False
+prepare_lulc = True
+write_debugging_files = False
+build_secondary_metrics = False
+finalize_metrics = False
 
 run_anova = False
 add_two_way_interactions = True
@@ -104,7 +114,7 @@ make_nhd_plot = False
 make_dem_resolution_plot = False
 make_reservoir_plot = False
 make_slope_plot = False
-make_landcover_plot = True
+make_landcover_plot = False
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -154,7 +164,9 @@ def compute_secondary_metrics_on_df(func):
         # makes input dict from row object when using pd/dask df apply
         input_dict = make_input_dict(row)
         
-        metric = func(**input_dict)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=RuntimeWarning)
+            metric = func(**input_dict)
         
         return metric
     
@@ -186,7 +198,10 @@ def all_metrics(TP,FP,FN,TN=None):
 # wrap functions to work with rows
 calc_all_metrics = compute_secondary_metrics_on_df(all_metrics)
 calc_total_samples = compute_secondary_metrics_on_df(total_samples)
-            
+
+
+def build_land_cover_raster_fn(h,r,y,s):
+    return os.path.join(data_dir,'landcovers',f'landcover_{r}m_{h}_{y}yr_{s}.tif')
 
 def load_agreement_raster(h,r,y,s):
     
@@ -213,17 +228,56 @@ def load_agreement_raster(h,r,y,s):
     return agreement_raster
 
 
-def determine_dominant_inundated_landcover(nwm_catchments_xr, landcover,
-                                             agreement_raster, 
+def determine_terrain_slope_by_catchment(nwm_catchments_xr, terrain_slope_fn,
+                                         huc, agg_func='mean'):
+    
+    #agg_func_dict = { 'median': np.median, 'mean' : np.mean}
+
+    terrain_slope_xr = rxr.open_rasterio(
+                                     terrain_slope_fn.format(huc),
+                                     chunks=chunk_size,
+                                     mask_and_scale=True,
+                                     variable='terrain_slope',
+                                     default_name='terrain_slope',
+                                     lock=True,
+                                     cache=False
+                                    ).sel(band=1,drop=True) \
+                                     .rio.reproject_match(nwm_catchments_xr)
+
+    ct_dask_slopes_df = stats(nwm_catchments_xr, terrain_slope_fn,
+                              stats_func=agg_func, nodata_values=np.nan,
+                              return_type='xarray.DataArray') \
+                               .astype(np.float64) \
+                               .rename(columns={'zone':'ID'}) \
+                               .set_index('ID', drop=True) \
+                               .repartition(partition_size='100MB')
+                               #.rename(columns=landcover_encoding_digits_to_names) \
+
+    breakpoint()
+    
+    return ct_dask_slopes_df
+
+
+def determine_dominant_inundated_landcover(nwm_catchments_xr, land_cover_fn,
+                                             agreement_raster,
                                              predicted_inundated_encodings=[2,3]): 
     
-    landcover = landcover.rio.reproject_match(agreement_raster)
+    land_cover_xr = rxr.open_rasterio(
+                                     land_cover_fn,
+                                     chunks=chunk_size,
+                                     mask_and_scale=True,
+                                     variable='landcover',
+                                     default_name='landcover',
+                                     lock=True,
+                                     cache=False
+                                    ).sel(band=1,drop=True) \
+                                     .rio.reproject_match(agreement_raster)
     
     # masking out dry aras
     nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
-    landcover = xr.where(agreement_raster.isin(predicted_inundated_encodings),landcover,np.nan)
+    land_cover_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),land_cover_xr,np.nan)
     
-    ct_dask_df_catchment_lc = crosstab(nwm_catchments_xr,landcover,nodata_values=np.nan) \
+    ct_dask_df_catchment_lc = crosstab(nwm_catchments_xr,land_cover_xr,nodata_values=np.nan) \
                                            .astype(np.float64) \
                                            .rename(columns={'zone':'ID'}) \
                                            .set_index('ID', drop=True) \
@@ -244,14 +298,17 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                   nwm_streams_fn,
                                   huc8s_vector_fn,
                                   resolutions, years, hucs,
+                                  dem_sources,
                                   chunk_size,
                                   full_secondary_metrics,
-                                  save_filename=None,
+                                  experiment_fn=None,
+                                  temp_experiment_fn=None,
                                   hdf_key=None,
                                   write_debugging_files=False,
                                   save_nwm_catchments_file=None,
                                   nwm_catchments_raster_fn=None,
                                   burn_nwm_catchments=False,
+                                  prepare_lulc=False,
                                   land_cover_fn=None):
     
     
@@ -284,24 +341,51 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             # write rasterized nwm_catchments just for inspection
             nwm_catchments_xr.rio.to_raster(nwm_catchments_raster_fn.format(s,h,r,y),
                                             tiled=True,windowed=True,
-                                            lock=False,dtype=rasterio.int32,
+                                            lock=True,dtype=rasterio.int32,
                                             compress='lzw')
                 
             if write_debugging_files:
                 nwm_catchments_current_huc8.to_file(
                                                 os.path.join(data_dir,'nwm_catchments',f'nwm_catchments_{s}_{h}_{r}m_{y}yr.gpkg'),
                                                 driver='GPKG',index=False)
+    
+    def __prepare_lulc():
             
+        # loop over every combination of resolutions and magnitude years
+        for idx,(h,r,y,s) in tqdm(enumerate(combos),
+                                desc='Preparing LULC',
+                                total=num_of_combos):
+            
+            agreement_raster = load_agreement_raster(h,r,y,s)
+        
+            land_cover_xr = rxr.open_rasterio(
+                                             land_cover_fn.format(h),
+                                             chunks=chunk_size,
+                                             mask_and_scale=True,
+                                             variable='landcover',
+                                             default_name='landcover',
+                                             lock=True,
+                                             cache=False
+                                            ).sel(band=1,drop=True) \
+                                         .rio.reproject_match(agreement_raster) \
+                                         .rio.to_raster(build_land_cover_raster_fn(h,r,y,s),
+                                                        tiled=True,windowed=True,
+                                                        lock=True,dtype=rasterio.int32,
+                                                        compress='lzw')
+
+
     # builds primary and lulc metrics and secondary metrics
     def __build_secondary_metrics():
         
         # provides framework for computed secondary metrics df
         meta = pd.DataFrame(columns=full_secondary_metrics, dtype='f8')
         
-            
+        # remove temp experiment file
+        rmtree(temp_experiment_fn,ignore_errors=True)
+
         # loop over every combination of resolutions and magnitude years
         for idx,(h,r,y,s) in tqdm(enumerate(combos),
-                                desc='Crosstabing Secondary Metrics',
+                                desc='Compute Metrics By Catchment',
                                 total=num_of_combos):
             
             nwm_catchments_xr = rxr.open_rasterio(nwm_catchments_raster_fn.format(s,h,r,y),
@@ -324,13 +408,17 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                         .set_index('ID', drop=True) \
                                         .repartition(partition_size='100MB')
             
+            #ct_dask_df.visualize(filename=os.path.join(data_dir,'dask_graph.png'),optimize_graph=True)
+            #breakpoint()
+            
             # determines dominant inundated landcover by catchment
             ct_dask_df_catchment_lc = determine_dominant_inundated_landcover(nwm_catchments_xr,
-                                                                             land_cover,
+                                                                             #land_cover_fn.format(h),
+                                                                             build_land_cover_raster_fn(h,r,y,s),
                                                                              agreement_raster,
                                                                              predicted_inundated_encodings=[2,3])
-            del agreement_raster, nwm_catchments_xr
-            gc.collect()
+            #del agreement_raster, nwm_catchments_xr
+            #gc.collect()
 
             #### calculate metrics ###
             # applies function to calc secondary metrics across rows. Uses expand to accomodate multiple columns
@@ -344,38 +432,100 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                              .assign(dem_source=lambda x : s) \
                                              .reset_index(drop=False) \
                                              .rename(columns={'index':'ID'}) \
-                                             .astype({'ID' : np.int64,'huc8' : np.int64})
+                                             .astype({'ID':np.int64,'huc8':str, 'dem_source':str})
             
             # merge in primary metrics
             secondary_metrics_df = secondary_metrics_df.merge(ct_dask_df, left_on='ID', right_index=True)
+            
+            # append waterbody column if not already there
+            if 'Waterbody' not in secondary_metrics_df.columns:
+                secondary_metrics_df = secondary_metrics_df.assign(Waterbody=lambda r: np.nan) \
+                                                           .astype({'Waterbody' : np.float64})
 
+            #del ct_dask_df
+            #gc.collect()
 
             # merge in landcovers
             secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_catchment_lc,
                                          how='left', left_on='ID',right_index=True)
 
-            # aggregate to list
-            list_of_secondary_metrics_df[idx] = secondary_metrics_df
+            # dropnas
+            secondary_metrics_df = secondary_metrics_df.dropna(subset=full_secondary_metrics,how='any') \
+                                                       .reset_index(drop=True)
             
-        # concat list of secondary metrics df
-        secondary_metrics_df = concat(list_of_secondary_metrics_df)
-            
-        return secondary_metrics_df
+            # write to parquet
+            secondary_metrics_df.to_parquet(temp_experiment_fn,
+                                            write_metadata_file=True,
+                                            append=True,
+                                            write_index=False,
+                                            compute=True,
+                                            engine='fastparquet')
 
+
+    def __finalize_files():
+
+        print("Finalizing files ...")
+        # read parquet file
+        secondary_metrics_df = read_parquet(temp_experiment_fn,
+                                            engine='fastparquet'
+                                            ).compute()
+        
+        # what about repeat ID's
+        # should we group by all factors and sum to aggregate???
+        # checking for duplicated IDs within resolution and magnitude
+        #print("Number of duplicate ID's within resolution and magnitude factor-level combinations", 
+        #    secondary_metrics_df.set_index(['spatial_resolution', 'magnitude','ID']).index.duplicated().sum())
+        
+        # read parquet file
+
+        # reset index
+        #secondary_metrics_df = secondary_metrics_df.dropna(subset=full_secondary_metrics,how='any') \
+        #                                           .reset_index(drop=True)
+        
+        # merge back into nwm_catchments
+        nwm_catchments_with_metrics = nwm_catchments.merge(secondary_metrics_df.drop(columns='huc8'),on='ID') \
+                                                    .merge(nwm_streams.loc[:,['ID','Slope','Lake',
+                                                                              'gages','Length']],
+                                                           on='ID')
+
+        # join with nwm streams and convert datatypes
+        secondary_metrics_df = secondary_metrics_df.merge(nwm_streams.loc[:,['ID','mainstem',
+                                                                             'order_','Lake','gages',
+                                                                             'Slope', 'Length']],
+                                                                on='ID') \
+                                                   .merge(nwm_catchments.loc[:,['ID','area_sqkm']],on='ID') \
+                                                   .astype({'huc8': 'category',
+                                                            'spatial_resolution': np.float64,
+                                                            'area_sqkm': np.float64,
+                                                            'magnitude': 'category',
+                                                            'ID' : 'category',
+                                                            'mainstem' : 'category',
+                                                            'order_' : np.float64,
+                                                            'Lake' : 'category',
+                                                            'gages' : 'category',
+                                                            'dem_source': 'category'})
+
+        # saving nwm catchments with metrics
+        if save_nwm_catchments_file:
+            nwm_catchments_with_metrics.to_file(save_nwm_catchments_file,index=False,driver='GPKG')
+        
+
+        # save file
+        if isinstance(experiment_fn,str) & isinstance(hdf_key,str):
+            print(f'Writing to {experiment_fn}')
+            secondary_metrics_df.to_hdf(experiment_fn,
+                                           key=hdf_key,
+                                           format='table',
+                                           index=False)
+        
+        return(secondary_metrics_df)
+
+    
     # load catchments and streams
     print("Loading and prepping files ...")
     nwm_streams = gpd.read_file(nwm_streams_fn)
     nwm_catchments = gpd.read_file(nwm_catchments_fn)
     huc8s_df = gpd.read_file(huc8s_vector_fn)
-    land_cover = rxr.open_rasterio(
-                                     land_cover_fn,
-                                     chunks=chunk_size,
-                                     mask_and_scale=True,
-                                     variable='landcover',
-                                     default_name='landcover',
-                                     lock=True,
-                                     cache=False
-                                    ).sel(band=1,drop=True) 
 
     # compute catchment areas
     nwm_catchments['area_sqkm'] = nwm_catchments.loc[:,'geometry'].area / (1000*1000)
@@ -391,8 +541,10 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     
     # append source
     combos = [(h,r,y,'3dep') for h,r,y in combos]
-    nhd_combos = [(h,10,y,'nhd') for h,y in product(hucs,years)] 
-    combos = nhd_combos + combos
+    
+    if 'nhd' in dem_sources:
+        nhd_combos = [(h,10,y,'nhd') for h,y in product(hucs,years)] 
+        combos = nhd_combos + combos
 
     # prepare outputs
     num_of_combos = len(combos)
@@ -402,63 +554,16 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     if burn_nwm_catchments:
         __burn_nwm_catchments()
 
-    print("Building secondary metrics ...")
-    secondary_metrics_df = __build_secondary_metrics()
-    
-    # compute to pandas
-    with TqdmCallback(desc='Computing Metrics'):
-        secondary_metrics_df = secondary_metrics_df.compute()
+    if prepare_lulc:
+        __prepare_lulc()
 
+    if build_secondary_metrics:
+        __build_secondary_metrics()
     
-    print("Finalizing files ...")
-    
-    # what about repeat ID's
-    # should we group by all factors and sum to aggregate???
-    # checking for duplicated IDs within resolution and magnitude
-    #print("Number of duplicate ID's within resolution and magnitude factor-level combinations", 
-    #    secondary_metrics_df.set_index(['spatial_resolution', 'magnitude','ID']).index.duplicated().sum())
-    
-    # reset index
-    secondary_metrics_df = secondary_metrics_df.dropna(subset=full_secondary_metrics,how='any') \
-                                               .reset_index(drop=True)
-    
-    # merge back into nwm_catchments
-    nwm_catchments_with_metrics = nwm_catchments.merge(secondary_metrics_df.drop(columns='huc8'),on='ID') \
-                                                .merge(nwm_streams.loc[:,['ID','Slope','Lake',
-                                                                          'gages','Length']],
-                                                       on='ID')
+    if finalize_metrics:
+        secondary_metrics_df = __finalize_files()
 
-    # join with nwm streams and convert datatypes
-    secondary_metrics_df = secondary_metrics_df.merge(nwm_streams.loc[:,['ID','mainstem',
-                                                                         'order_','Lake','gages',
-                                                                         'Slope', 'Length']],
-                                                            on='ID') \
-                                               .merge(nwm_catchments.loc[:,['ID','area_sqkm']],on='ID') \
-                                               .astype({'huc8': 'category',
-                                                        'spatial_resolution': np.float64,
-                                                        'area_sqkm': np.float64,
-                                                        'magnitude': 'category',
-                                                        'ID' : 'category',
-                                                        'mainstem' : 'category',
-                                                        'order_' : np.float64,
-                                                        'Lake' : 'category',
-                                                        'gages' : 'category',
-                                                        'dem_source': 'category'})
-
-    # saving nwm catchments with metrics
-    if save_nwm_catchments_file:
-        nwm_catchments_with_metrics.to_file(save_nwm_catchments_file,index=False,driver='GPKG')
-    
-
-    # save file
-    if isinstance(save_filename,str) & isinstance(hdf_key,str):
-        print(f'Writing to {save_filename}')
-        secondary_metrics_df.to_hdf(save_filename,
-                                       key=hdf_key,
-                                       format='table',
-                                       index=False)
-    breakpoint()
-    return(secondary_metrics_df)
+        return secondary_metrics_df
 
 
 def anova(secondary_metrics_df):
@@ -556,6 +661,15 @@ def anova(secondary_metrics_df):
 
         return(linear_model)
     
+    
+    # scale numerics
+    scaler = MinMaxScaler(copy=True)
+    secondary_metrics_df = pd.concat([ pd.DataFrame(scaler.fit_transform(secondary_metrics_df.select_dtypes(np.number).to_numpy()),
+                                         columns=secondary_metrics_df.select_dtypes(np.number).columns),
+                                       secondary_metrics_df.select_dtypes('category')],
+                                  axis=1)
+
+
     linear_models = __forward_model_selection(selected_features)
     
     # make two way interactions
@@ -565,19 +679,7 @@ def anova(secondary_metrics_df):
 
     print(f"Final Formula: {linear_models.model.formula} | Adj-R2: {linear_models.rsquared_adj}")
     breakpoint()
-    # CSI ~ Lake + order_ + Slope + spatial_resolution + Length + magnitude + order_:Slope + order_:Lake + spatial_resolution:Lake + magnitude:Length | Adj-R2: 0.43326573000631363
-    # MCC ~ Lake + order_ + spatial_resolution + Slope + magnitude + Length + order_:Slope + order_:Lake + spatial_resolution:Lake + Lake:Slope + Length:Slope + order_:Length + spatial_resolution:order_ + spatial_resolution:magnitude | Adj-R2: 0.27142143145244746
-    # TPR ~ Lake + spatial_resolution + order_ + Length + Slope + magnitude + order_:Lake + spatial_resolution:Lake + order_:Slope + spatial_resolution:order_ + spatial_resolution:Length + Lake:Length + magnitude:Length | Adj-R2: 0.4575340086432875
-    # FAR ~ Slope + order_ + Lake + spatial_resolution + Length + magnitude + order_:Slope + order_:Lake + Length:Slope + Lake:Length + spatial_resolution:Slope | Adj-R2: 0.2752411117288007
-
-    ### INCLUDING DEM SOURCE
-    # CSI ~ Lake + Slope + order_ + Length + dem_source + magnitude + spatial_resolution + order_:Slope + order_:Lake + Lake:dem_source + spatial_resolution:Lake | Adj-R2: 0.4114255765775583
-    # MCC ~ Lake + Slope + dem_source + order_ + magnitude + spatial_resolution + order_:Slope + Lake:Length + Lake:Slope + order_:Lake + Length:Slope + order_:dem_source + Lake:dem_source + magnitude:Slope | Adj-R2: 0.22077364251725728 
-    # TPR ~ Lake + order_ + Length + dem_source + Slope + magnitude + spatial_resolution + order_:Lake + order_:Slope + Lake:Length + order_:dem_source + Length:Slope | Adj-R2: 0.437667461931467
-    # FAR ~ Slope + order_ + Lake + Length + dem_source + magnitude + order_:Slope + Length:Slope + order_:Lake + order_:dem_source + spatial_resolution:dem_source | Adj-R2: 0.24398916845724483
-
-    ## INCLUDING LULC
-    # MCC ~ Lake + dominant_lulc + dem_source + order_ + Slope + magnitude + Length + spatial_resolution + dominant_lulc:order_ + dominant_lulc:Slope + dominant_lulc:Lake + dominant_lulc:Length + order_:Slope + Length:Slope + Lake:Length + order_:Length + dominant_lulc:dem_source + Lake:Slope | Adj-R2: 0.2861678682847394
+    # MCC ~ Lake + dominant_lulc + dem_source + order_ + Slope + area_sqkm + magnitude + Length + spatial_resolution + dominant_lulc:order_ + dominant_lulc:Slope + dominant_lulc:Lake + dominant_lulc:Length + order_:Slope + dominant_lulc:area_sqkm + Slope:area_sqkm + order_:area_sqkm + order_:Lake + Lake:dem_source + order_:dem_source + spatial_resolution:dominant_lulc + Lake:Length + Lake:Slope | Adj-R2: 0.29276087401948514
 
     """
     # code on how to plot significant linear model parameters by normalized values
@@ -628,10 +730,12 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
                                            .set_index(['huc8','magnitude','spatial_resolution','dem_source','ID']) \
                                            .sort_index() 
     
-    metrics_3dep = prepared_metrics.xs('3dep',level="dem_source").loc[:,metrics]
-    metrics_nhd = prepared_metrics.xs('nhd',level="dem_source").loc[:,metrics]
-    #metrics_3dep = prepared_metrics.xs(500,level="magnitude").loc[:,metrics]
-    #metrics_nhd = prepared_metrics.xs(100,level="magnitude").loc[:,metrics]
+    metrics_3dep = prepared_metrics.xs('3dep',level="dem_source") \
+                                   .xs(10,level='spatial_resolution') \
+                                   .loc[:,metrics]
+    metrics_nhd = prepared_metrics.xs('nhd',level="dem_source") \
+                                   .xs(10,level='spatial_resolution') \
+                                   .loc[:,metrics]
     
     difference = (metrics_3dep - metrics_nhd).dropna(how='any') 
     
@@ -1325,19 +1429,24 @@ if __name__ == '__main__':
     if compute_secondary_metrics:
         ## dask cluster and client
         with LocalCluster(n_workers=1,threads_per_worker=6,
-                          memory_limit="30GB"
+                          memory_limit="25GB"
             ) as cluster, Client(cluster) as client:
             
             secondary_metrics_df = compute_metrics_by_catchment(nwm_catchments_fn,nwm_streams_fn, huc8s_vector_fn,
-                                                                   resolutions,years,hucs, chunk_size,
+                                                                   resolutions,years,hucs,
+                                                                   dem_sources,
+                                                                   chunk_size,
                                                                    full_secondary_metrics,
-                                                                   save_filename,hdf_key, write_debugging_files,
+                                                                   experiment_fn,
+                                                                   temp_experiment_fn,
+                                                                   hdf_key, write_debugging_files,
                                                                    save_nwm_catchments_file,
                                                                    nwm_catchments_raster_fn,
                                                                    burn_nwm_catchments,
+                                                                   prepare_lulc,
                                                                    land_cover_fn)
     else: 
-        secondary_metrics_df = pd.read_hdf(from_file,hdf_key) # read hdf
+        secondary_metrics_df = pd.read_hdf(experiment_fn,hdf_key) # read hdf
 
     if run_anova:
         anova(secondary_metrics_df)
