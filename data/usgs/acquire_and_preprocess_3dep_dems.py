@@ -282,16 +282,14 @@ def polygonize(target_output_folder_path):
     """
     dem_domain_file = os.path.join(target_output_folder_path, 'HUC6_dem_domain.gpkg')
 
-    msg = f" - Creating polygon -- {dem_domain_file} - Started"
+    msg = f" - Polygonizing -- {dem_domain_file} - Started"
     print(msg)
     logging.info(msg)
             
-    dem_files = glob.glob(os.path.join(target_output_folder_path, '_dem.tif'))
+    dem_files = glob.glob(os.path.join(target_output_folder_path, '*_dem.tif'))
     dem_gpkgs = gpd.GeoDataFrame()
 
     for n, dem_file in enumerate(dem_files):
-        print(f'{n+1}/{len(dem_files)}: {dem_file}')
-
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
         edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
 
@@ -316,11 +314,11 @@ def polygonize(target_output_folder_path):
     dem_dissolved.to_file(dem_domain_file, driver='GPKG')
 
     if not os.path.exists(dem_domain_file):
-        msg = f" - Downloading -- {dem_domain_file} - Failed"
+        msg = f" - Polygonizing -- {dem_domain_file} - Failed"
         print(msg)
         logging.error(msg)
     else:
-        msg = f" - Downloading -- {dem_domain_file} - Complete"
+        msg = f" - Polygonizing -- {dem_domain_file} - Complete"
         print(msg)
         logging.info(msg)
 
