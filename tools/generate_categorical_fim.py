@@ -332,8 +332,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         # Adjust datum to NAVD88 if needed
         # Default datum_adj_ft to 0.0
         datum_adj_ft = 0.0
-        print("&&&&&&")
-        print(datum_data)
         crs = datum_data.get('crs')
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
             # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
@@ -351,7 +349,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                         all_messages.append([f'{lid}:NOAA VDatum adjustment error, possible API issue'])
                 if 'Invalid projection' in e:
                     all_messages.append([f'{lid}:NOAA VDatum adjustment error, invalid projection: crs={crs}'])
-                print(all_messages)   
                 continue
         
         ### -- Concluded Datum Offset --- ###
