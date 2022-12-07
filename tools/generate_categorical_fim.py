@@ -253,6 +253,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             os.mkdir(lid_directory)
         # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
         stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
+                
         if stages == None:
             all_messages.append([f'{lid}:error getting thresholds from WRDS API'])
             continue
@@ -295,7 +296,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         # If datum not supplied, skip to new site
         datum = datum_data.get('datum', None)
         if datum is None:
-            all_messages.append([f'{lid}:missing datum in metadata'])
+            all_messages.append([f'{lid}:datum info unavailable'])
             continue
         # _________________________________________________________________________________________________________#
         # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null). 
@@ -331,13 +332,28 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         # Adjust datum to NAVD88 if needed
         # Default datum_adj_ft to 0.0
         datum_adj_ft = 0.0
+        print("&&&&&&")
+        print(datum_data)
+        crs = datum_data.get('crs')
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
             # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
             try:
                 datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
             except Exception as e:
-                all_messages.append([f'{lid}:datum adjustment failed;' + str(e)])
+                e = str(e)
+                if crs == None:
+                    all_messages.append([f'{lid}:NOAA VDatum adjustment error, CRS is missing'])
+                if 'HTTPSConnectionPool' in e:
+                    time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
+                    try:
+                        datum_adj_ft = ngvd_to_navd_ft(datum_info = datum_data, region = 'contiguous')
+                    except Exception:
+                        all_messages.append([f'{lid}:NOAA VDatum adjustment error, possible API issue'])
+                if 'Invalid projection' in e:
+                    all_messages.append([f'{lid}:NOAA VDatum adjustment error, invalid projection: crs={crs}'])
+                print(all_messages)   
                 continue
+        
         ### -- Concluded Datum Offset --- ###
         # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
         unfiltered_segments = list(set(get_nwm_segs(metadata)))
@@ -352,7 +368,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
         # Create a list of stages, incrementing by 1 ft.
         if stage_list == []:
-            all_messages.append([f'{lid}:error generating interval stage list'])
+            all_messages.append([f'{lid}:no stage values available'])
             continue
         interval_list = np.arange(min(stage_list), max(stage_list) + past_major_interval_cap, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
         # For each flood category

@@ -1131,7 +1131,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     #Call the API
     response = requests.get(datum_url, params = params)
 
-    #If succesful get the navd adjustment
+    #If successful get the navd adjustment
     if response:
         results = response.json()
         #Get adjustment in meters (NGVD29 to NAVD88)
