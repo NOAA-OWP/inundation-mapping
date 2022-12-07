@@ -77,8 +77,8 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
        
-    print(hucCodes)
-    print(hucs)
+#    print(hucCodes)
+#    print(hucs)
     executor_generator = { 
                 executor.submit(inundate,**inp) : ids for inp,ids in inundate_input_generator 
                 }

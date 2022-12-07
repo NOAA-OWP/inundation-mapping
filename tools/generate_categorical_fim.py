@@ -64,12 +64,12 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     if stage_based:
         # Generate Stage-Based CatFIM mapping
         nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir, job_number_intervals, past_major_interval_cap, job_number_huc)
-        total_number_of_jobs = total_cpus_requested
+        job_number_tif = job_number_inundate * job_number_intervals
         print("Post-processing TIFs...")
-        post_process_cat_fim_for_viz(total_number_of_jobs, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
+        post_process_cat_fim_for_viz(job_number_huc, job_number_tif, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
     
         # Updating mapping status
-        print('Updating mapping status')
+        print('Updating mapping status...')
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
 
     # FLOW-BASED
@@ -223,7 +223,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
     all_messages = []
     stage_based_att_dict = {}
     
-    print(workspace)
     print(f'Iterating through {huc}...') 
     # Make output directory for huc.
     huc_directory = os.path.join(workspace, huc)
@@ -254,8 +253,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             os.mkdir(lid_directory)
         # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
         stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
-        print(stages)
-        print(flows)
         if stages == None:
             all_messages.append([f'{lid}:error getting thresholds from WRDS API'])
             continue
@@ -446,7 +443,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         # If it made it to this point (i.e. no continues), there were no major preventers of mapping
         all_messages.append([f'{lid}:OK'])
     
-    print(all_messages)
     # Write all_messages by HUC to be scraped later.
     messages_dir = os.path.join(workspace, 'messages')
     if not os.path.exists(messages_dir):
