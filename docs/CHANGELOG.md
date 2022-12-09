@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.13.0 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
+
+This merge adds the tools required to generate Alpha metrics by hydroid. It summarizes the Apha metrics by branch 0 catchment for use in the Hydrovis "FIM Performance" service.
+
+## Additions
+
+- `pixel_counter.py`:  A script to perform zonal statistics against raster data and geometries
+- `pixel_counter_functions.py`: Supporting functions
+- `pixel_counter_wrapper.py`: a script that wraps `pixel_counter.py` for batch processing
+- `test_case_by_hydroid.py`: the main script to orchestrate the generation of alpha metrics by catchment
+
+<br/><br/>
+
 ## v4.0.12.1 - 2022-11-30 - [PR #751](https://github.com/NOAA-OWP/inundation-mapping/pull/751)
 
 Updating a few deny list files.
