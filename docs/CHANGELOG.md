@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## V4.[to be assigned] - 2022-12-04 - [PR #754](https://github.com/NOAA-OWP/inundation-mapping/pull/754)
+## V4.0.12.2 - 2022-12-04 - [PR #754](https://github.com/NOAA-OWP/inundation-mapping/pull/754)
 
 Stop writing `gms_inputs_removed.csv` if no branches are removed with Error status 61.
 
