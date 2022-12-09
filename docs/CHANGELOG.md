@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## V4.0.12.2 - 2022-12-04 - [PR #754](https://github.com/NOAA-OWP/inundation-mapping/pull/754)
+
+Stop writing `gms_inputs_removed.csv` if no branches are removed with Error status 61.
+
+### Changes
+
+- `src/gms/remove_error_branches.py`: Checks if error branches is not empty before saving gms_inputs_removed.csv
+
+<br/><br/>
+
 ## v4.0.12.1 - 2022-11-30 - [PR #751](https://github.com/NOAA-OWP/inundation-mapping/pull/751)
 
 Updating a few deny list files.
