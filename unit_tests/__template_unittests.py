@@ -62,7 +62,6 @@ class test_<Your original source python file name>(unittest.TestCase):
         
         src.subset_vector_layers(hucCode = params["hucCode"],
                                     nwm_streams_filename = params["nwm_streams"],
-                                    nhd_streams_filename = params["nhd_streams"],
                                     etc, etc for each param)
        
        
@@ -85,7 +84,6 @@ class test_<Your original source python file name>(unittest.TestCase):
 
     #   clip_vectors_to_wbd.subset_vector_layers(hucCode = params["hucCode"],
     #                                            nwm_streams_filename = params["nwm_streams"],
-    #                                            nhd_streams_filename = params["nhd_streams"],
     #                                            etc, etc for each param)
     #   
        
