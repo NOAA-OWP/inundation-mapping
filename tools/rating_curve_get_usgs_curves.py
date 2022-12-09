@@ -10,6 +10,11 @@ import argparse
 import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION
+from tools_shared_variables import (acceptable_coord_acc_code_list, 
+                                    acceptable_coord_method_code_list, 
+                                    acceptable_alt_acc_thresh, 
+                                    acceptable_alt_meth_code_list, 
+                                    acceptable_site_type_list)
 
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
@@ -25,6 +30,7 @@ API_BASE_URL = os.getenv("API_BASE_URL")
 WBD_LAYER = os.getenv("WBD_LAYER")
 EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
 NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
+
 
 def get_all_active_usgs_sites():
     '''
@@ -43,7 +49,7 @@ def get_all_active_usgs_sites():
     selector = ['all']
     must_include = 'usgs_data.active'
     metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
-        
+    print(metadata_list)
     #Get a geospatial layer (gdf) for all acceptable sites
     print("Aggregating WBD HUCs...")
     dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
@@ -117,7 +123,7 @@ def write_categorical_flow_files(metadata, workspace):
     
     #Write CatFIM flows to file
     final_data = all_data[['feature_id','discharge_cms', 'recurr_interval']]
-    final_data.to_csv(workspace / f'catfim_flows_cms.csv', index = False)
+    final_data.to_csv(workspace / f'magnitude_flows_cms.csv', index = False)
     return all_data
 ###############################################################################
            
@@ -179,7 +185,9 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     #If 'all' option passed to list of gages sites, it retrieves all acceptable sites within CONUS.
     print('getting metadata for all sites')
     if list_of_gage_sites == ['all']:
+        print("Hello")
         acceptable_sites_gdf, acceptable_sites_list, metadata_list = get_all_active_usgs_sites()
+        print("Hey")
     #Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:        
         #Define arguments to retrieve metadata and then get metadata from WRDS
@@ -212,6 +220,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         print("get_datum")
         #Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)        
+        print(usgs)
         
         #Filter out sites that are not in contiguous US. If this section is removed be sure to test with datum adjustment section (region will need changed)
         if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
@@ -246,13 +255,11 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
             regular_messages.append(message)
 
         elif usgs['vcs'] == 'NAVD88':
-            print("Right here now")
             navd88_datum = usgs['datum']
             message = f'{location_ids}: already NAVD88'
             regular_messages.append(message)
 
         else:
-            print("And here")
             message = f"{location_ids}: datum unknown"
             regular_messages.append(message)
             continue
@@ -288,6 +295,9 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     print("Recasting...")
     acceptable_sites_gdf = acceptable_sites_gdf.astype({'metadata_sources': str})
     acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_post.csv'))
+
+    # Filter all_rating_curves to acceptable sites only.
+    
 
     #If workspace is specified, write data to file.
     if workspace:

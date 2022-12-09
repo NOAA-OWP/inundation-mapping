@@ -240,7 +240,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         lid = lid.lower() # Convert lid to lower case
         # -- If necessary files exist, continue -- #
         if not os.path.exists(usgs_elev_table):
-            all_messages.append([f'{lid}:usgs_elev_table missing'])
+            all_messages.append([f'{lid}:usgs_elev_table missing, likely unacceptable gage datum error--more details to come in future release'])
             continue
         if not os.path.exists(branch_dir):
             all_messages.append([f'{lid}:branch directory missing'])
@@ -272,7 +272,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             else:
                 lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
         except IndexError:  # Occurs when LID is missing from table
-            all_messages.append([f'{lid}:missing from usgs_elev_table'])
+            all_messages.append([f'{lid}:missing from usgs_elev_table, likely unacceptable gage datum error--more details to come in future release'])
             continue
         # Initialize nested dict for lid attributes
         stage_based_att_dict.update({lid:{}})
