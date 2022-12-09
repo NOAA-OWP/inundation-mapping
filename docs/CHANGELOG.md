@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.[to be assigned] - 2022-11-16 - [PR #744](https://github.com/NOAA-OWP/inundation-mapping/pull/744)
+## v4.0.13.0 - 2022-11-16 - [PR #744](https://github.com/NOAA-OWP/inundation-mapping/pull/744)
 
 Changes branch 0 headwaters data source from NHD to NWS to be consistent with branches. Removes references to NHD flowlines and headwater data.
 
@@ -12,6 +12,16 @@ Changes branch 0 headwaters data source from NHD to NWS to be consistent with br
 ### Removals
 
 - Removes NHD flowlines and headwater references from `gms_run_unit.sh`, `config/deny_gms_unit_prod.lst`, `src/clip_vectors_to_wbd.py`, `src/gms/run_by_unit.sh`, `unit_tests/__template_unittests.py`, `unit_tests/clip_vectors_to_wbd_params.json`, and `unit_tests/clip_vectors_to_wbd_unittests.py`
+
+<br/><br/>
+
+## V4.0.12.2 - 2022-12-04 - [PR #754](https://github.com/NOAA-OWP/inundation-mapping/pull/754)
+
+Stop writing `gms_inputs_removed.csv` if no branches are removed with Error status 61.
+
+### Changes
+
+- `src/gms/remove_error_branches.py`: Checks if error branches is not empty before saving gms_inputs_removed.csv
 
 <br/><br/>
 
