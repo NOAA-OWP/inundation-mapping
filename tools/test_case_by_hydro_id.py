@@ -117,6 +117,7 @@ def assemble_hydro_alpha_for_single_huc(stats,huc8,mag,bench):
         
     return in_mem_df
 
+
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Produces alpha metrics by hyrdoid.')
@@ -196,7 +197,6 @@ if __name__ == "__main__":
 
                         csv_output = pd.concat(concat_df_list, sort=False)
                                            
-   
     print('projecting to 3857')
     csv_output = csv_output.to_crs('EPSG:3857')
 
@@ -205,9 +205,11 @@ if __name__ == "__main__":
     csv_path = csv_path_list[0]
     csv_path_dot = csv_path + ".csv"
     
-    
     print('writing_to_gpkg')
     csv_output.to_file(csv, driver="GPKG")
+    
+    # Add version information to csv_output dataframe
+    csv_output['version'] = version
 
     print('writing_to_csv')
     csv_output.to_csv(csv_path_dot) # Save to CSV
