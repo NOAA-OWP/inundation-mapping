@@ -1,6 +1,116 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.12.1 - 2022-11-30 - [PR #751](https://github.com/NOAA-OWP/inundation-mapping/pull/751)
+
+Updating a few deny list files.
+
+### Changes
+
+- `config`:
+    - `deny_gms_branches_dev.lst`, `deny_gms_branches_prod.lst`, and `deny_gms_unit_prod.lst`
+
+<br/><br/>
+
+
+## v4.0.12.0 - 2022-11-28 - [PR #736](https://github.com/NOAA-OWP/inundation-mapping/pull/736)
+
+This feature branch introduces a new methodology for computing Manning's equation for the synthetic rating curves. The new subdivision approach 1) estimates bankfull stage by crosswalking "bankfull" proxy discharge data to the raw SRC discharge values 2) identifies in-channel vs. overbank geometry values 3) applies unique in-channel and overbank Manning's n value (user provided values) to compute Manning's equation separately for channel and overbank discharge and adds the two components together for total discharge 4) computes a calibration coefficient (where benchmark data exists) that applies to the  calibrated total discharge calculation.
+
+### Additions
+
+- `src/subdiv_chan_obank_src.py`: new script that performs all subdiv calculations and then produce a new (modified) `hydroTable.csv`. Inputs include `src_full_crosswalked.csv` for each huc/branch and a Manning's roughness csv file (containing: featureid, channel n, overbank n; file located in the `/inputs/rating_curve/variable_roughness/`). Note that the `identify_src_bankfull.py` script must be run prior to running the subdiv workflow.
+
+### Changes
+
+- `config/params_template.env`: removed BARC and composite roughness parameters; added new subdivision parameters; default Manning's n file set to `mannings_global_06_12.csv`
+- `gms_run_branch.sh`: moved the PostgreSQL database steps to occur immediately before the SRC calibration steps; added new subdivision step; added condition to SRC calibration to ensure subdivision routine is run
+- `src/add_crosswalk.py`: removed BARC function call; update placeholder value list (removed BARC and composite roughness variables) - these placeholder variables ensure that all hydrotables have the same dimensions
+- `src/identify_src_bankfull.py`: revised FIM3 starting code to work with FIM4 framework; stripped out unnecessary calculations; restricted bankfull identification to stage values > 0
+- `src/src_adjust_spatial_obs.py`: added huc sort function to help user track progress from console outputs
+- `src/src_adjust_usgs_rating.py`: added huc sort function to help user track progress from console outputs
+- `src/src_roughness_optimization.py`: reconfigured code to compute a calibration coefficient and apply adjustments using the subdivision variables; renamed numerous variables; simplified code where possible
+- `src/utils/shared_variables.py`: increased `ROUGHNESS_MAX_THRESH` from 0.6 to 0.8
+- `tools/vary_mannings_n_composite.py`: *moved this script from /src to /tools*; updated this code from FIM3 to work with FIM4 structure; however, it is not currently implemented (the subdivision routine replaces this)
+- `tools/aggregate_csv_files.py`: helper tool to search for csv files by name/wildcard and concatenate all found files into one csv (used for aggregating previous calibrated roughness values)
+- `tools/eval_plots.py`: updated list of metrics to plot to also include equitable threat score and mathews correlation coefficient (MCC)
+- `tools/synthesize_test_cases.py`: updated the list of FIM version metrics that the `PREV` flag will use to create the final aggregated metrics csv; this change will combine the dev versions provided with the `-dc` flag along with the existing `previous_fim_list` 
+
+<br/><br/>
+
+## v4.0.11.5 - 2022-11-18 - [PR #746](https://github.com/NOAA-OWP/inundation-mapping/pull/746)
+
+Skips `src/usgs_gage_unit_setup.py` if no level paths exist. This may happen if a HUC has no stream orders > 2. This is a bug fix for #723 for the case that the HUC also has USGS gages.
+
+### Changes
+
+- `src/gms/run_by_unit.sh`: Adds check for `nwm_subset_streams_levelPaths.gpkg` before running `usgs_gage_unit_setup.py`
+
+<br/><br/>
+
+## v4.0.11.4 - 2022-10-12 - [PR #709](https://github.com/NOAA-OWP/inundation-mapping/pull/709)
+
+Adds capability to produce single rating curve comparison plots for each gage.
+
+### Changes
+
+- `tools/rating_curve_comparison.py`
+    - Adds generate_single_plot() to make a single rating curve comparison plot for each gage in a given HUC
+    - Adds command line switch to generate single plots
+    
+<br/><br/>
+
+## v4.0.11.3 - 2022-11-10 - [PR #739](https://github.com/NOAA-OWP/inundation-mapping/pull/739)
+
+New tool with instructions of downloading levee protected areas and a tool to pre-process it, ready for FIM.
+
+### Additions
+
+- `data`
+    - `nld`
+         - `preprocess_levee_protected_areas.py`:  as described above
+
+### Changes
+
+- `data`
+     - `preprocess_rasters.py`: added deprecation note. It will eventually be replaced in it's entirety.
+- `src`
+    - `utils`
+        - `shared_functions.py`: a few styling adjustments.
+
+<br/><br/>
+
+## v4.0.11.2 - 2022-11-07 - [PR #737](https://github.com/NOAA-OWP/inundation-mapping/pull/737)
+
+Add an extra input args to the gms_**.sh files to allow for an override of the branch zero deny list, same as we can do with the unit and branch deny list overrides. This is needed for debugging purposes.
+
+Also, if there is no override for the deny branch zero list and is not using the word "none", then use the default or overridden standard branch deny list.  This will keep the branch zero's and branch output folders similar but not identical for outputs.
+
+### Changes
+
+- `gms_pipeline.sh`:  Add new param to allow for branch zero deny list override. Plus added better logic for catching bad deny lists earlier.
+- `gms_run_branch.sh`:  Add new param to allow for branch zero deny list override.  Add logic to cleanup all branch zero output folders with the default branch deny list (not the branch zero list), UNLESS an override exists for the branch zero deny list.
+- `gms_run_unit.sh`: Add new param to allow for branch zero deny list override.
+- `config`
+    - `deny_gms_branch_zero.lst`: update to keep an additional file in the outputs.
+- `src`
+    - `output_cleanup.py`: added note saying it is deprecated.
+    - `gms`
+        - `run_by_branch.sh`: variable name change (matching new names in related files for deny lists)
+        - `run_by_unit.sh`: Add new param to allow for branch zero deny list override.
+
+<br/><br/>
+
+## v4.0.11.1 - 2022-11-01 - [PR #732](https://github.com/NOAA-OWP/inundation-mapping/pull/732)
+
+Due to a recent IT security scan, it was determined that Jupyter-core needed to be upgraded.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`:  Added a specific version of Jupyter Core that is compliant with IT.
+
+<br/><br/>
+
 ## v4.0.11.0 - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
 
 Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold.
@@ -484,7 +594,6 @@ Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_br
 - Deletes branch from `gms_inputs.csv`
 
 <br/><br/>
-
 
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 

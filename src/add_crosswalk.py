@@ -8,7 +8,6 @@ from rasterstats import zonal_stats
 import json
 import argparse
 import sys
-from bathy_rc_adjust import bathy_rc_lookup
 from utils.shared_functions import getDriver
 # sys.path.append('/foss_fim/src')
 # sys.path.append('/foss_fim/config')
@@ -241,23 +240,26 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Number of Cells','SurfaceArea (m2)','BedArea (m2)','TopWidth (m)','LENGTHKM','AREASQKM','WettedPerimeter (m)','HydraulicRadius (m)','WetArea (m2)','Volume (m3)','SLOPE','ManningN','Stage','Discharge (m3s-1)']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
     ## Set placeholder variables to be replaced in post-processing (as needed). Create here to ensure consistent column vars
-    output_hydro_table['barc_on'] = False # set barc_on attribute to Fasle (default) --> will be overwritten if BARC module runs
-    output_hydro_table['raw_discharge_cms'] = output_src['Discharge (m3s-1)']
-    output_hydro_table['raw_Volume (m3)'] = output_src['Volume (m3)']
-    output_hydro_table['raw_WetArea (m2)'] = output_src['WetArea (m2)']
-    output_hydro_table['raw_HydraulicRadius (m)'] = output_src['HydraulicRadius (m)']
-    output_hydro_table['vmann_on'] = False # set vmann_on attribute to Fasle (default) --> will be overwritten if variable roughness module runs
-    output_hydro_table['raw_ManningN'] = output_src['ManningN']
-    output_hydro_table['vmann_discharge_cms'] = pd.NA
-    output_hydro_table['vmann_ManningN'] = pd.NA
-    output_hydro_table['adjust_src_on'] = False
+    ## These variables represent the original unmodified values
+    output_hydro_table['default_discharge_cms'] = output_src['Discharge (m3s-1)']
+    output_hydro_table['default_Volume (m3)'] = output_src['Volume (m3)']
+    output_hydro_table['default_WetArea (m2)'] = output_src['WetArea (m2)']
+    output_hydro_table['default_HydraulicRadius (m)'] = output_src['HydraulicRadius (m)']
+    output_hydro_table['default_ManningN'] = output_src['ManningN']
+    ## Placeholder vars for subdivision routine
+    output_hydro_table['subdiv_applied'] = False
+    output_hydro_table['overbank_n'] = pd.NA
+    output_hydro_table['channel_n'] = pd.NA
+    output_hydro_table['subdiv_discharge_cms'] = pd.NA
+    ## Placeholder vars for the calibration routine
+    output_hydro_table['calb_applied'] = pd.NA
     output_hydro_table['last_updated'] = pd.NA
     output_hydro_table['submitter'] = pd.NA
-    output_hydro_table['adjust_ManningN'] = pd.NA
     output_hydro_table['obs_source'] = pd.NA
-    output_hydro_table['default_discharge_cms'] = pd.NA
-    output_hydro_table['default_ManningN'] = pd.NA
-
+    output_hydro_table['precalb_discharge_cms'] = pd.NA
+    output_hydro_table['calb_coef_usgs'] = pd.NA
+    output_hydro_table['calb_coef_spatial'] = pd.NA
+    output_hydro_table['calb_coef_final'] = pd.NA
 
     if output_hydro_table.HydroID.dtype != 'str': output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
     output_hydro_table[FIM_ID] = output_hydro_table.loc[:,'HydroID'].apply(lambda x : str(x)[0:4])
