@@ -96,6 +96,8 @@ def make_flood_extent_polygon(flood_extent):
     print(type(fullpath))
 
     return fullpath
+
+
 # Function that transforms vector dataset to raster
 def bbox_to_pixel_offsets(gt, bbox):
     originX = gt[0]
@@ -239,7 +241,10 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
 
     vds = None
     rds = None
-    return stats
+    if stats != []:
+        return stats
+    else:
+        return []
 
 
 # Creates and prints dataframe containing desired statistics
