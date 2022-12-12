@@ -649,8 +649,8 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
     params['downstream_trace_distance'] = downstream_trace_distance
     #Request data from url
     response = requests.get(url, params = params)
-    print(response)
-    print(url)
+#    print(response)
+#    print(url)
     if response.ok:
         #Convert data response to a json
         metadata_json = response.json()
@@ -959,7 +959,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
         return stages, flows
     else:
         print("WRDS response error: ")
-        print(response)
+#        print(response)
 
 ########################################################################
 # Function to write flow file
