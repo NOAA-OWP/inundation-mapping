@@ -252,7 +252,7 @@ if [ "$src_adjust_spatial" = "True" ]; then
         echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
         exit 1
     else
-        source $CALB_DB_KEYS_FILEFper
+        source $CALB_DB_KEYS_FILEF
         : '
         This makes the local variables from the calb_db_keys files
         into global variables that can be used in other files, including python.
