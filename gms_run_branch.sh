@@ -252,7 +252,7 @@ if [ "$src_adjust_spatial" = "True" ]; then
         echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
         exit 1
     else
-        source $CALB_DB_KEYS_FILE
+        source $CALB_DB_KEYS_FILEFper
         : '
         This makes the local variables from the calb_db_keys files
         into global variables that can be used in other files, including python.
@@ -279,7 +279,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     Tstart
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves_2.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
     Tcount
     date -u
 fi
