@@ -15,7 +15,6 @@ import pandas as pd
 import rasterio
 import rioxarray as rxr
 import xarray as xr
-import pygeohydro as gh
 from geocube.api.core import make_geocube
 from geocube.rasterize import rasterize_image
 from tqdm import tqdm
@@ -69,15 +68,14 @@ def build_agreement_raster_data_dir(huc, resolution, year, source):
 
 # agreement factors
 resolutions = [20,15,10,5,3]
-#resolutions = [3]
+#resolutions = [20]
 years = [100,500]
-#years = [500]
+#years = [100]
 hucs = ['12020001','12020002','12020003','12020004','12020005','12020006','12020007']
 #hucs = ['12020001']
 dem_sources = ['3dep','nhd']
 #dem_sources = ['3dep']
-chunk_size = 256*2
-partition_size = "8MB"
+chunk_size = 256*8
 experiment_fn = os.path.join(data_dir,'experiment_data.h5')
 temp_experiment_fn = os.path.join(data_dir,'TEMP_experiment_data')
 hdf_key = 'data'
@@ -100,16 +98,13 @@ slope_plot_fn = os.path.join(data_dir,'slope_plot.png')
 #land_cover_fn = os.path.join(data_dir,'cover2019_lulc_1202.tif')
 land_cover_fn = os.path.join(data_dir,'landcovers','land_cover_{}.tif')
 terrain_slope_fn = os.path.join(data_dir,'slopes','slope_{}.tif')
-imperviousness_fn = os.path.join(data_dir,'impervious','impervious_{}.tif')
 landcover_plot_fn = os.path.join(data_dir,'lulc_metrics_plot.png')
-grouped_landcover_plot_fn = os.path.join(data_dir,'lulc_grouped_metrics_plot.png')
 
 # pipeline switches 
 compute_secondary_metrics = True
 burn_nwm_catchments = False
 prepare_lulc = False
 prepare_terrain_slope = False
-prepare_imperviousness = False
 write_debugging_files = False
 build_secondary_metrics = True
 finalize_metrics = True
@@ -122,7 +117,6 @@ make_dem_resolution_plot = False
 make_reservoir_plot = False
 make_slope_plot = False
 make_landcover_plot = False
-make_grouped_landcover_plot = False
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -144,23 +138,19 @@ landcover_encoding_digits_to_names = {  11 : "Water",
                                         41 : "Deciduous Forest",
                                         42 : "Evergreen Forest",
                                         43 : "Mixed Forest",
-                                        45 : "Shrub-Forest",
-                                        46 : "Herbaceous-Forest",
                                         52 : "Shrub/Scrub",
                                         71 : "Grasslands/Herbaceous",
                                         81 : "Pasture/Hay",
                                         82 : "Cultivated Crops",
                                         90 : "Woody Wetlands",
-                                        95 : "Emergent Herbaceous Wetlands"
+                                        95 : "Emergent Herbaceous Wetlands",
+                                        45 : "Shrub-Forest",
+                                        46 : "Herbaceous-Forest"
                                       }
 
 flip_dict = lambda d : { v:k for k,v in d.items() }
 
 landcover_encoding_names_to_digits = flip_dict(landcover_encoding_digits_to_names)
-
-more_anthropogenic = {21,22,23,24,82}
-low_anthropogenic = {11,31,41,42,43,45,46,71,81,90,95}
-
 
 # metrics
 def make_input_dict(row):
@@ -218,9 +208,6 @@ def build_land_cover_raster_fn(h,r,y,s):
 def build_terrain_slope_raster_fn(h,r,y,s):
     return os.path.join(data_dir,'slopes',f'slopes_{r}m_{h}_{y}yr_{s}.tif')
 
-def build_imperviousness_raster_fn(h,r,y,s):
-    return os.path.join(data_dir,'impervious',f'impervious_{r}m_{h}_{y}yr_{s}.tif')
-
 def load_agreement_raster(h,r,y,s):
     
     # load agreement raster
@@ -247,10 +234,8 @@ def load_agreement_raster(h,r,y,s):
 
 
 def determine_terrain_slope_by_catchment(nwm_catchments_xr,
-                                         agreement_raster,
                                          huc, resolution, year, dem_source,
-                                         agg_func=['mean'],
-                                         predicted_inundated_encodings=[2,3]): 
+                                         agg_func='mean'):
     
     terrain_slope_xr = rxr.open_rasterio(
                                      build_terrain_slope_raster_fn(huc,resolution,year,dem_source),
@@ -261,68 +246,24 @@ def determine_terrain_slope_by_catchment(nwm_catchments_xr,
                                      lock=True,
                                      cache=False
                                     ).sel(band=1,drop=True)
-    
-    # masking out dry areas
-    nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
-    terrain_slope_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),terrain_slope_xr,np.nan)
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore",category=UserWarning)
-        
-        ct_dask_df_slopes = stats(nwm_catchments_xr,
-                                  terrain_slope_xr,
-                                  stats_funcs=agg_func,
-                                  nodata_values=np.nan) \
-                                   .rename(columns={ f:"terrain_slope_{}".format(f) for f in agg_func}) \
-                                   .rename(columns={'zone':'ID'}) \
-                                   .astype({'ID' : np.int64,'terrain_slope_mean': np.float64}) \
-                                   .repartition(partition_size=partition_size)
+    ct_dask_df_slopes = stats(nwm_catchments_xr, terrain_slope_xr,
+                              stats_funcs=agg_func, nodata_values=np.nan,
+                              return_type='xarray.DataArray') \
+                               .astype(np.float64) \
+                               .rename(columns={'zone':'ID'}) \
+                               .set_index('ID', drop=True) \
+                               .repartition(partition_size='100MB')
+                               #.rename(columns=landcover_encoding_digits_to_names) \
+
+    breakpoint()
     
     return ct_dask_df_slopes
-
-
-def determine_impervious_by_catchment(nwm_catchments_xr,
-                                         agreement_raster,
-                                         huc, resolution, year, dem_source,
-                                         agg_func=['mean'],
-                                         predicted_inundated_encodings=[2,3]): 
-    
-    impervious_xr = rxr.open_rasterio(
-                                     build_imperviousness_raster_fn(huc,resolution,year,dem_source),
-                                     chunks=chunk_size,
-                                     mask_and_scale=True,
-                                     variable='impervious_2019',
-                                     default_name='impervious_2019',
-                                     lock=True,
-                                     cache=False
-                                    ).sel(band=1,drop=True)
-
-    # calculate as percent
-    impervious_xr = impervious_xr / 100
-
-    # masking out dry areas
-    nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
-    impervious_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),impervious_xr,np.nan)
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore",category=UserWarning)
-        
-        ct_dask_df_impervious = stats(nwm_catchments_xr,
-                                      impervious_xr,
-                                      stats_funcs=agg_func,
-                                      nodata_values=np.nan) \
-                                       .rename(columns={ f:"imperviousness_{}".format(f) for f in agg_func}) \
-                                       .rename(columns={'zone':'ID'}) \
-                                       .astype({'ID' : np.int64,'imperviousness_mean': np.float64}) \
-                                       .repartition(partition_size=partition_size) \
-
-    return ct_dask_df_impervious
 
 
 def determine_dominant_inundated_landcover(nwm_catchments_xr,
                                              agreement_raster,
                                              huc, resolution, year, dem_source,
-                                             agg_func=['mean'],
                                              predicted_inundated_encodings=[2,3]): 
     
     land_cover_xr = rxr.open_rasterio(
@@ -336,7 +277,7 @@ def determine_dominant_inundated_landcover(nwm_catchments_xr,
                                     ).sel(band=1,drop=True) \
                                      .rio.reproject_match(agreement_raster)
     
-    # masking out dry areas
+    # masking out dry aras
     nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
     land_cover_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),land_cover_xr,np.nan)
     
@@ -345,7 +286,7 @@ def determine_dominant_inundated_landcover(nwm_catchments_xr,
                                            .rename(columns={'zone':'ID'}) \
                                            .set_index('ID', drop=True) \
                                            .rename(columns=landcover_encoding_digits_to_names) \
-                                           .repartition(partition_size=partition_size)
+                                           .repartition(partition_size='100MB')
 
     # remove catchments with no inundation and then find max landcover count. Returns that landcover
     ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.loc[(ct_dask_df_catchment_lc!=0).any(axis=1)] \
@@ -353,52 +294,7 @@ def determine_dominant_inundated_landcover(nwm_catchments_xr,
                                                      .rename('dominant_lulc') \
                                                      .fillna('None') \
                                                      .astype({'dominant_lulc':str})
-                                                     
-    # converts names to digits
-    meta = pd.Series(name='dominant_lulc_digits', dtype=np.int64)
-    dominant_lulc_digits = ct_dask_df_catchment_lc.apply(lambda s: landcover_encoding_names_to_digits[s],meta=meta)
-    ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.to_frame() \
-                                                     .assign(dominant_lulc_digits=dominant_lulc_digits) \
-                                                     .astype({"dominant_lulc_digits": np.int64})
     
-    def assign_grouping(r):
-        d = r['dominant_lulc_digits']
-        if d in more_anthropogenic:
-            return 'More'
-        elif d in low_anthropogenic:
-            return 'Less'
-        else:
-            return ValueError(f"Landcover, {d}, not able to group")
-    
-    # create column
-    meta = pd.Series(name='dominant_lulc_anthropogenic_influence', dtype=str)
-    dominant_lulc_anthropogenic_influence = ct_dask_df_catchment_lc.apply(assign_grouping,axis=1,meta=meta)
-
-    ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.assign( 
-                                                 dominant_lulc_anthropogenic_influence=dominant_lulc_anthropogenic_influence) \
-                                                     .astype({'dominant_lulc_anthropogenic_influence':'category'})
-   
-    # compute catchment level mannings n value
-    overland_roughness_xr = gh.pygeohydro.overland_roughness(land_cover_xr) \
-                                                .chunk(chunk_size)
-    
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore",category=UserWarning)
-        
-        ct_dask_df_roughness = stats(nwm_catchments_xr,
-                                      overland_roughness_xr,
-                                      stats_funcs=agg_func,
-                                      nodata_values=np.nan) \
-                                       .rename(columns={ f:"overland_roughness_{}".format(f) for f in agg_func}) \
-                                       .rename(columns={'zone':'ID'}) \
-                                       .astype({'ID' : np.int64,'overland_roughness_mean': np.float64}) \
-                                       .repartition(partition_size=partition_size)
-    
-    # merge with catchments
-    ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.merge(ct_dask_df_roughness,
-                                                            left_index=True,
-                                                            right_on='ID')
-
     return ct_dask_df_catchment_lc
 
 
@@ -418,7 +314,6 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                   burn_nwm_catchments=False,
                                   prepare_lulc=False,
                                   prepare_terrain_slope=False,
-                                  prepare_imperviousness=False,
                                   land_cover_fn=None):
     
     
@@ -504,31 +399,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                              .rio.reproject_match(agreement_raster) \
                                              .rio.to_raster(build_terrain_slope_raster_fn(h,r,y,s),
                                                             tiled=True,windowed=True,
-                                                            lock=True,dtype=rasterio.float32,
-                                                            compress='lzw')
-
-    def __prepare_imperviousness():
-        
-        # loop over every combination of resolutions and magnitude years
-        for idx,(h,r,y,s) in tqdm(enumerate(combos),
-                                desc='Preparing Imperviousness',
-                                total=num_of_combos):
-            
-            agreement_raster = load_agreement_raster(h,r,y,s)
-            
-            imperviousness_xr = rxr.open_rasterio(
-                                             imperviousness_fn.format(h),
-                                             chunks=chunk_size,
-                                             mask_and_scale=True,
-                                             variable='impervious_2019',
-                                             default_name='impervious_2019',
-                                             lock=True,
-                                             cache=False
-                                            ).sel(band=1,drop=True) \
-                                             .rio.reproject_match(agreement_raster) \
-                                             .rio.to_raster(build_imperviousness_raster_fn(h,r,y,s),
-                                                            tiled=True,windowed=True,
-                                                            lock=True,dtype=rasterio.float32,
+                                                            lock=True,dtype=rasterio.int32,
                                                             compress='lzw')
 
 
@@ -564,7 +435,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                         .astype(np.float64) \
                                         .rename(columns={'zone':'ID'}) \
                                         .set_index('ID', drop=True) \
-                                        .repartition(partition_size=partition_size)
+                                        .repartition(partition_size='100MB')
             
             #ct_dask_df.visualize(filename=os.path.join(data_dir,'dask_graph.png'),optimize_graph=True)
             #breakpoint()
@@ -585,6 +456,8 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             
             # merge in primary metrics
             secondary_metrics_df = secondary_metrics_df.merge(ct_dask_df, left_on='ID', right_index=True)
+            del ct_dask_df
+            gc.collect()
             
             # append waterbody column if not already there
             if 'Waterbody' not in secondary_metrics_df.columns:
@@ -595,38 +468,28 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             ct_dask_df_catchment_lc = determine_dominant_inundated_landcover(nwm_catchments_xr,
                                                                              agreement_raster,
                                                                              h,r,y,s,
-                                                                             agg_func=['mean'],
                                                                              predicted_inundated_encodings=[2,3])
 
             # merge in landcovers
             secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_catchment_lc,
-                                         how='left', on='ID')
+                                         how='left', left_on='ID',right_index=True)
+            del ct_dask_df_catchment_lc
+            gc.collect()
             
             # aggregates slope by catchment
             ct_dask_df_slopes = determine_terrain_slope_by_catchment(nwm_catchments_xr,
-                                                                     agreement_raster,
                                                                      h,r,y,s,
-                                                                     agg_func=['mean'],
-                                                                     predicted_inundated_encodings=[2,3])
+                                                                     agg_func='mean')
 
-            # merge in slopes
+        # merge in slopes
             secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_slopes,
-                                         how='left', on='ID')
+                                         how='left', left_on='ID',right_index=True)
+            del ct_dask_df_slopes
+            gc.collect()
 
-            # aggregate imperviousness by catchment
-            ct_dask_df_impervious = determine_impervious_by_catchment(nwm_catchments_xr,
-                                                                      agreement_raster,
-                                                                      h,r,y,s,
-                                                                      agg_func=['mean'],
-                                                                      predicted_inundated_encodings=[2,3])
-            
-            # merge in impervious
-            secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_impervious,
-                                         how='left', on='ID')
-            
             # dropnas
             secondary_metrics_df = secondary_metrics_df.dropna(subset=full_secondary_metrics,how='any') \
-                                                       .reset_index(drop=True) \
+                                                       .reset_index(drop=True)
             
             # write to parquet
             secondary_metrics_df.to_parquet(temp_experiment_fn,
@@ -636,7 +499,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                             compute=True,
                                             engine='fastparquet')
 
-    def __finalize_files(nwm_streams):
+    def __finalize_files():
 
         print("Finalizing files ...")
         # read parquet file
@@ -655,21 +518,17 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
         # reset index
         #secondary_metrics_df = secondary_metrics_df.dropna(subset=full_secondary_metrics,how='any') \
         #                                           .reset_index(drop=True)
-        # make reservoir bool
-        nwm_streams = nwm_streams.assign(
-                                Reservoir=np.where(nwm_streams.loc[:,'Lake'] != -9999,'Reservoir', 'Not Reservoir')) 
         
         # merge back into nwm_catchments
         nwm_catchments_with_metrics = nwm_catchments.merge(secondary_metrics_df.drop(columns='huc8'),on='ID') \
                                                     .merge(nwm_streams.loc[:,['ID','Slope','Lake',
-                                                                              'gages','Length','Reservoir']],
+                                                                              'gages','Length']],
                                                            on='ID')
-
 
         # join with nwm streams and convert datatypes
         secondary_metrics_df = secondary_metrics_df.merge(nwm_streams.loc[:,['ID','mainstem',
                                                                              'order_','Lake','gages',
-                                                                             'Slope', 'Length','Reservoir']],
+                                                                             'Slope', 'Length']],
                                                                 on='ID') \
                                                    .merge(nwm_catchments.loc[:,['ID','area_sqkm']],on='ID') \
                                                    .astype({'huc8': 'category',
@@ -681,16 +540,11 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                                             'order_' : np.float64,
                                                             'Lake' : 'category',
                                                             'gages' : 'category',
-                                                            'dem_source': 'category',
-                                                            'dominant_lulc': 'category',
-                                                            'terrain_slope_mean': np.float64,
-                                                            'dominant_lulc_anthropogenic_influence': 'category',
-                                                            'Reservoir' : 'category'})
+                                                            'dem_source': 'category'})
 
         # saving nwm catchments with metrics
         if save_nwm_catchments_file:
-            nwm_catchments_with_metrics.astype({'dominant_lulc_anthropogenic_influence':str}) \
-                                       .to_file(save_nwm_catchments_file,index=False,driver='GPKG')
+            nwm_catchments_with_metrics.to_file(save_nwm_catchments_file,index=False,driver='GPKG')
         
 
         # save file
@@ -742,15 +596,12 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
 
     if prepare_terrain_slope:
         __prepare_terrain_slope()
-    
-    if prepare_imperviousness:
-        __prepare_imperviousness()
 
     if build_secondary_metrics:
         __build_secondary_metrics()
     
     if finalize_metrics:
-        secondary_metrics_df = __finalize_files(nwm_streams)
+        secondary_metrics_df = __finalize_files()
 
         return secondary_metrics_df
 
@@ -1506,7 +1357,6 @@ def slope_plot(secondary_metrics_df,slope_plot_fn):
     fig.savefig(slope_plot_fn, bbox_inches='tight')
     plt.close()
 
-
 def landcover_plot(secondary_metrics_df,landcover_plot_fn):
     
     metrics = ['MCC','CSI','TPR','FAR']
@@ -1628,149 +1478,6 @@ def landcover_plot(secondary_metrics_df,landcover_plot_fn):
     plt.close(fig)
 
 
-def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
-    
-    metrics = ['MCC','CSI','TPR','FAR']
-    metrics = ['FAR','TPR','CSI','MCC']
-    metric_dict = {'MCC': "Matthew's Correlation Coeff.",'CSI':"Critical Success Index",
-                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
-    
-    # drop NAs and only use 3dep source
-    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
-                                      .query('dem_source == "3dep"') 
-
-    # grouping
-    dominant_lulc_digits = [landcover_encoding_names_to_digits[s] for s in all_metrics.loc[:,'dominant_lulc'] ]
-    all_metrics = all_metrics.assign(dominant_lulc_digits=dominant_lulc_digits)
-    
-    def assign_grouping(r):
-        d = r['dominant_lulc_digits']
-        if d in more_anthropogenic:
-            return 'More'
-        elif d in low_anthropogenic:
-            return 'Less'
-        else:
-            return ValueError(f"Landcover, {d}, not able to group")
-    
-    all_metrics = all_metrics.assign(dominant_lulc_digits_grouped= all_metrics.apply(assign_grouping,axis=1)) \
-                             .astype({'dominant_lulc_digits_grouped':'category'})
-    
-    fig,axs = plt.subplots(4,1,dpi=300,figsize=(8.5,11),layout='tight')
-
-    for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
-        
-        ax = sns.boxplot(data=all_metrics,
-                            x='dominant_lulc_digits_grouped',
-                            y=metric,
-                            hue='magnitude',
-                            hue_order=[100,500],
-                            order=['Less','More'],
-                            ax=ax, 
-                            palette=[mcolors.CSS4_COLORS["cornflowerblue"],
-                                     mcolors.CSS4_COLORS["palegoldenrod"]],
-                            linewidth=2,
-                            saturation=0.75,
-                           )
-        
-        ax.tick_params(axis='y', labelsize=12)
-        ax.set_ylabel(metric_dict[metric]+"\n("+metric+")",fontsize=12)
-
-        if i == 3:
-            #ax.set_xlabel("Channel Slope"+"\n"+"(vertical/horizontal)",fontsize=12)
-            ax.set_xlabel("Land Cover / Land Use\nGrouped By Two Levels of Anthropogenic Influence",fontsize=12)
-            #wrapped_order_strs = [ '\n'.join(wrap(l, 17)) for l in order_strs]
-            #ax.set_xticklabels([f'{s} ({d})' for s,d in zip(wrapped_order_strs,order_digits)])
-            #ax.tick_params(axis='x', rotation=70)
-            #plt.setp( ax.xaxis.get_majorticklabels(), rotation=45, ha="right", rotation_mode='anchor' )
-            ax.tick_params(axis='x', labelsize=12)
-        else:
-            #ax.tick_params(axis='x', labelsize=12)
-            ax.set_xticklabels([])
-            ax.set_xlabel(None)
-
-        ax.set_ylim([0,1])
-        ax.legend_ = None
-
-        # linear models
-        # CONSIDER MAKING THESE LINE PLOTS AS AN INTERACTION PLOT USING STATSMODELS AND DETERMINING THE VALUES WITH LINEAR MODEL BELOW WITH TWO WAY INTERACTIONS OF GROUPED LULC AND MAGNITUDE
-        # fit model
-        bool_100yr = all_metrics.loc[:,'magnitude'] == 100
-        linear_model_100yr = ols(f"{metric} ~ dominant_lulc_digits_grouped", 
-                                 data=all_metrics.loc[bool_100yr,:]).fit()
-        bool_500yr = all_metrics.loc[:,'magnitude'] == 500
-        linear_model_500yr = ols(f"{metric} ~ dominant_lulc_digits_grouped", 
-                                 data=all_metrics.loc[bool_500yr,:]).fit()
-
-        reg_func = lambda x,lm: lm.params.Intercept + (lm.params.loc['dominant_lulc_digits_grouped[T.More]'] * x)
-        compute_y = lambda x, lm: list(map(partial(reg_func,lm=lm),x))
-        
-        trendline_100yr_color = mcolors.CSS4_COLORS["green"]
-        trendline_500yr_color = mcolors.CSS4_COLORS["red"]
-
-        # plot 100yr
-        x = list(ax.get_xlim())
-        y = compute_y(x,linear_model_100yr)
-        trendline_100yr = ax.plot(x,y,color=trendline_100yr_color,
-                                  linewidth=3,label='Trendline: 100yr')
-        
-        # plot 500yr
-        y = compute_y(x,linear_model_500yr)
-        trendline_500yr = ax.plot(x,y,color=trendline_500yr_color,
-                                  linewidth=3,linestyle='dashed',label='Trendline: 500yr')
-        
-        linear_model = ols(f"{metric} ~ dominant_lulc_digits_grouped * magnitude", 
-                                 data=all_metrics).fit()
-        
-        def print_formula_with_coefficients(model,round_digits=4):
-            
-            formula = ""
-            for i,p in model.params.items():
-                
-                pv = model.pvalues.loc[i]
-                if pv <= 0.001:
-                    sl = '$^{***}$'
-                elif pv <= 0.01:
-                    sl = '$^{**}$'
-                elif pv <= 0.05:
-                    sl = '$^{*}$'
-                else:
-                    sl = ''
-
-                if round_digits:
-                    p = np.round(p,round_digits)
-
-                if i == 'Intercept':
-                    formula += "{}{} ".format(p,sl)
-                else:
-                    formula += "+ {}{}({})".format(p,sl,i)
-            
-            return formula
-        
-        ax.text(0.2,1.02,print_formula_with_coefficients(linear_model),
-                fontsize=8,color='black', usetex=True, wrap = True)
-
-    h,l = ax.get_legend_handles_labels()
-    l[:2] = ['100yr','500yr']
-    lgd = fig.legend(h,l,
-           loc='lower center',
-           ncols=2,
-           frameon=True,
-           framealpha=0.75,
-           fontsize=12,
-           title_fontsize=14,
-           borderpad=0.25,
-           markerscale=3,
-           bbox_to_anchor=(0.5,-.06),
-           borderaxespad=0,
-           title='Magnitude'
-           #title=None
-           )
-
-    if grouped_landcover_plot_fn != None:
-        fig.savefig(grouped_landcover_plot_fn, bbox_inches='tight')
-    
-    plt.close(fig)
-
 def channel_length_plot():
     pass
 
@@ -1779,8 +1486,8 @@ if __name__ == '__main__':
 
     if compute_secondary_metrics:
         ## dask cluster and client
-        with LocalCluster(n_workers=6,threads_per_worker=1,
-                          memory_limit="15GB", processes=True
+        with LocalCluster(n_workers=1,threads_per_worker=6,
+                          memory_limit="25GB"
             ) as cluster, Client(cluster) as client:
             
             secondary_metrics_df = compute_metrics_by_catchment(nwm_catchments_fn,nwm_streams_fn, huc8s_vector_fn,
@@ -1796,18 +1503,18 @@ if __name__ == '__main__':
                                                                    burn_nwm_catchments,
                                                                    prepare_lulc,
                                                                    prepare_terrain_slope,
-                                                                   prepare_imperviousness,
                                                                    land_cover_fn)
     else: 
         secondary_metrics_df = pd.read_hdf(experiment_fn,hdf_key) # read hdf
 
-    breakpoint()
     if run_anova:
         anova(secondary_metrics_df)
 
     if make_nhd_plot:
         nhd_to_3dep_plot(secondary_metrics_df,nhd_to_3dep_plot_fn)
 
+    # RUN THIS TO GET CATCHMENTS WITH LAKE METRICS
+    # secondary_metrics_df.loc[secondary_metrics_df.loc[:,'Lake'] != -9999,'MCC'].dropna()
     if make_dem_resolution_plot:
         resolution_plot(secondary_metrics_df,dem_resolution_plot_fn)
 
@@ -1819,6 +1526,3 @@ if __name__ == '__main__':
 
     if make_landcover_plot:
         landcover_plot(secondary_metrics_df,landcover_plot_fn)
-
-    if make_grouped_landcover_plot:
-        grouped_landcover_plot(secondary_metrics_df,grouped_landcover_plot_fn)

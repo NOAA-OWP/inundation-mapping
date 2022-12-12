@@ -108,7 +108,7 @@ pycparser==2.21
 pyct==0.4.8
 pycups==1.9.73
 pydantic==1.10.2
-pygeohydro==0.13.6
+pygeohydro==0.13.7
 pygeoogc==0.13.6
 pygeos==0.13
 pygeoutils==0.13.6
