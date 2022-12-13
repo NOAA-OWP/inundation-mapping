@@ -9,6 +9,7 @@ Adds stacked bar eval plots.
 
 - `/tools/eval_plots_stackedbar.py`: produces stacked bar eval plots in the same manner as `eval_plots.py`.
 
+<br/><br/>
 
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
