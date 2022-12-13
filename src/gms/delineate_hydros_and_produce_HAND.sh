@@ -10,8 +10,8 @@ T_total_start
 echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"$stopDiv
 date -u
 Tstart
-[ -f $outputCurrentBranchDataDir/LeveeProtectedAreas_subset.gpkg ] && \
-python3 -m memory_profiler $srcDir/gms/mask_dem.py -dem $outputCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif -nld $outputCurrentBranchDataDir/LeveeProtectedAreas_subset.gpkg -out $outputCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
+[ -f $outputHucDataDir/LeveeProtectedAreas_subset.gpkg ] && \
+python3 -m memory_profiler $srcDir/gms/mask_dem.py -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif
 Tcount
 
 ## D8 FLOW ACCUMULATIONS ##
