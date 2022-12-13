@@ -61,7 +61,7 @@ def eval_plot_stack_indiv(metric_csv, versions, outfig, category):
     # Create the plot
     fig, ax = plt.subplots(num_subplots, 1, figsize=(8, len(data)*0.25), dpi=100, facecolor='white', subplot_kw={'axes_class':AA.Axes})
     # Create a subplot for every site (nws_lid)
-    for i, site in enumerate(data.nws_lid.unique()):
+    for i, site in enumerate(sorted(data.nws_lid.unique())):
         subplot_data = data.loc[(site)]
         subplot_data = subplot_data.sort_values(['magnitude_','plot_order'], ascending=False)
         new_y = [j*1.25 for j in range(len(subplot_data))]
