@@ -15,7 +15,7 @@ mag_dict = {'action':'1_act', 'minor':'2_min', 'moderate':'3_mod', 'major':'4_ma
             '10yr':10, '25yr':25, '50yr':50, '200yr':200}
 inverted_mag = dict((v, k) for k, v in mag_dict.items())
 
-def eval_plot_stack_data_prep(metric_csv, versions=[]): # must be one of ('nws','usgs','ble','ifc','ras2fim')
+def eval_plot_stack_data_prep(metric_csv, versions=[]):
     
     # Load in FIM 4 CSV and select the proper version metrics
     metrics = pd.read_csv(metric_csv, dtype={'huc':str})
@@ -26,8 +26,6 @@ def eval_plot_stack_data_prep(metric_csv, versions=[]): # must be one of ('nws',
             assert v in metrics.version.unique(), f"{v} is not included in {metric_csv}.\nThe available options are {sorted(metrics.version.unique())}"
         # Filter the metrics to the requested versions
         metrics = metrics.loc[metrics.version.isin(versions)]
-        assert not metrics.empty, f'''{versions} does not exist in {metric_csv}
-            \n The versions in the file are {metrics.version.unique()}'''
     # Change the magnitudes to make them more sort-friendly for the plot below
     metrics.magnitude = metrics.magnitude.apply(lambda m: mag_dict[m])
     # Fill the non-AHPS sites with values for nws_lid
@@ -54,36 +52,47 @@ def eval_plot_stack_indiv(metric_csv, versions, outfig, category):
     # Filter the plotting data to the selected category
     data = metrics_df.loc[(category)]
     num_subplots = len(data.nws_lid.unique())
-    num_mags = len(data.magnitude.unique())
     xmax = data['FP_norm'].max() + 1
+    # Save version input order for plotting
+    version_dict = {v:i for i,v in enumerate(versions)}
+    data = data.assign(plot_order=data['version'])
+    data['plot_order'] = data.plot_order.map(version_dict)
+    data['magnitude_'] = data.magnitude
     # Create the plot
-    fig, ax = plt.subplots(num_subplots, 1, figsize=(8, len(data)*0.18), dpi=100, facecolor='white')
+    fig, ax = plt.subplots(num_subplots, 1, figsize=(8, len(data)*0.25), dpi=100, facecolor='white', subplot_kw={'axes_class':AA.Axes})
     # Create a subplot for every site (nws_lid)
     for i, site in enumerate(data.nws_lid.unique()):
         subplot_data = data.loc[(site)]
-        ax[i].barh(y=np.arange(len(subplot_data)), width='TP_norm', left=0.0, color='#2c7bb6',
-                   linewidth=0.5, data=subplot_data, zorder=3)
-        ax[i].barh(y=np.arange(len(subplot_data)), width='FN_norm', left='TP_norm', color='#fdae61',
-                   linewidth=0.5, data=subplot_data, zorder=3)
-        ax[i].barh(y=np.arange(len(subplot_data)), width='FP_norm', left=1.0, color='#d7191c',
-                   linewidth=0.5, data=subplot_data, zorder=3)
-        ax[i].scatter(y=np.arange(len(subplot_data)), x=subplot_data['CSI'].array, c='k', s=15, marker=r'x', zorder=3, linewidth=0.5)
-        ax[i].set_yticks(np.arange(len(subplot_data)), labels=subplot_data.index)
-        ax[i].set_ylabel(site, rotation='horizontal', labelpad=50)
+        subplot_data = subplot_data.sort_values(['magnitude_','plot_order'], ascending=False)
+        new_y = [j*1.25 for j in range(len(subplot_data))]
+        # Stacked horizontal bar plots
+        ax[i].barh(y=new_y, width='TP_norm', left=0.0, color='#2c7bb6',
+                   linewidth=0.5, data=subplot_data)
+        ax[i].barh(y=new_y, width='FN_norm', left='TP_norm', color='#fdae61',
+                   linewidth=0.5, data=subplot_data)
+        ax[i].barh(y=new_y, width='FP_norm', left=1.0, color='#d7191c',
+                   linewidth=0.5, data=subplot_data)
+        # Plot the CSI and MCC scores
+        ax[i].scatter(y=new_y, x=subplot_data['CSI'].array, c='k', s=15, marker=r'x', zorder=3, linewidth=0.75)
+        ax[i].scatter(y=new_y, x=subplot_data['MCC'].array, s=15, marker=r'o', zorder=3, linewidths=.75, facecolor='None', edgecolors='k')
+        # Various axis customizations
+        ax[i].set_yticks(new_y, labels=subplot_data.version + ' ' + subplot_data.magnitude.map(inverted_mag).astype(str))
+        ax[i].axis["left"].label.set(visible=True, text=site, rotation=90, pad=10, ha='right')
+        ax[i].axis["left"].major_ticks.set(tick_out=True)
+        ax[i].axis["left"].major_ticklabels.set(ha='left')
         ax[i].set_xlim(0, xmax)
-        ax[i].set_ylim(-0.5, num_mags-0.25)
-        ax[i].grid(axis='x', color='0.8')
-        ax[i].spines['bottom'].set_color('0' if i == num_subplots-1 else 'None') 
-        ax[i].spines['top'].set_color('0' if i == 0 else '0.8') 
-        ax[i].set_facecolor('w' if i % 2 == 0 else '0.95')
-        ax[i].tick_params(axis='x', 
-                          bottom=True if i == num_subplots-1 else False, 
-                          top=True if i == 0 else False, 
-                          labelbottom=True if i == num_subplots-1 else False, 
-                          labeltop=True if i == 0 else False)
+        ax[i].set_ylim(-1, new_y[-1]+1)
+        num_mags = len(subplot_data.magnitude.unique())
+        hlines = [j for j in np.linspace(new_y[-1]/num_mags, new_y[-1], num_mags-1, endpoint=False)]
+        ax[i].hlines(hlines, xmin=0, xmax=xmax, colors=['0.9' if i % 2 == 0 else 'w']*(num_mags-1), linestyles='dotted', zorder=0)
+        ax[i].grid(axis='x', color='0.8', zorder=0)
+        ax[i].axis['bottom'].set_visible(True if i == num_subplots-1 else False)
+        ax[i].axis['top'].set_visible(True if i == 0 else False)
+        ax[i].axis['top'].major_ticklabels.set_visible(True if i == 0 else False)
+        ax[i].set_facecolor('w' if i % 2 == 0 else '0.9')
         # Label sites that have been identified as "Bad"
         if site and site in BAD_SITES:
-            ax[i].text(xmax/2, 1.5, '--BAD SITE--', horizontalalignment='center', verticalalignment='center')
+            ax[i].text(xmax/2, new_y[-1]/2, '--BAD SITE--', horizontalalignment='center', verticalalignment='center')
             ax[i].set_facecolor('0.67')
     plt.subplots_adjust(wspace=0, hspace=0)
     ax[0].set_title(f'{category.upper()} FIM Evaluation | Individual Sites', loc='center', pad=40)
@@ -91,10 +100,12 @@ def eval_plot_stack_indiv(metric_csv, versions, outfig, category):
     FN_patch = Patch(color='#fdae61', linewidth=0.5, label=f'False Negative')
     FP_patch = Patch(color='#d7191c', linewidth=0.5, label=f'False Positive')
     x_marker = Line2D([0], [0], marker='x', color='None', markeredgecolor='k', markerfacecolor='k', label='CSI Score', markersize=5, linewidth=0.5)
+    o_marker = Line2D([0], [0], marker='o', color='None', markeredgecolor='k', markerfacecolor='None', label='MCC Score', markersize=5, linewidth=10)
     # Get the height of the figure in pixels so we can put the legend in a consistent position
     ax_pixel_height = ax[0].get_window_extent().transformed(fig.dpi_scale_trans.inverted()).height
-    ax[0].legend(loc='center', ncol=4, handles=[TP_patch, FN_patch, FP_patch, x_marker], fontsize=8,
-                bbox_to_anchor=(0.5, (0.4+ax_pixel_height)/ax_pixel_height))
+    handles = [TP_patch, FN_patch, FP_patch, x_marker, o_marker]
+    ax[0].legend(loc='center', ncol=len(handles), handles=handles, fontsize=8, columnspacing=1,
+                bbox_to_anchor=(0.5, (0.3+ax_pixel_height)/ax_pixel_height))
     plt.savefig(outfig, bbox_inches='tight')
     
     return metrics_df
@@ -130,7 +141,8 @@ def eval_plot_stack(metric_csv, versions, category, outfig, show_iqr=False):
     for i, mag in enumerate(sorted(data.reset_index().magnitude.unique())):
         subplot_data = data.loc[(mag)]
         subplot_data = subplot_data.sort_values(['plot_order'], ascending=False)
-        new_y = [j*1.25 for j in range(len(versions))]
+        new_y = [j*1.25 for j in range(len(subplot_data))]
+        # Stacked horizontal bar plots
         ax[i].barh(y=new_y, width='TP_norm', left=0.0, color='#2c7bb6', 
                    linewidth=0.5, data=subplot_data,
                    xerr=[subplot_data['TP_norm_q1'], subplot_data['TP_norm_q3']] if show_iqr else None,
@@ -144,6 +156,7 @@ def eval_plot_stack(metric_csv, versions, category, outfig, show_iqr=False):
         # Plot the CSI and MCC scores
         ax[i].scatter(y=new_y, x=subplot_data['CSI'].array, c='k', s=15, marker=r'x', zorder=3, linewidth=0.75)
         ax[i].scatter(y=new_y, x=subplot_data['MCC'].array, s=15, marker=r'o', zorder=3, linewidths=.75, facecolor='None', edgecolors='k')
+        # Various axis customizations
         ax[i].set_yticks(new_y, labels=subplot_data.index)#, ha='left')
         ax[i].axis["left"].label.set(visible=True, text=inverted_mag[mag], rotation=90, pad=10, ha='right')
         ax[i].axis["left"].major_ticks.set(tick_out=True)
