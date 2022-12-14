@@ -208,12 +208,13 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
     metrics.set_index(['benchmark_source', 'nws_lid', 'magnitude'], inplace=True, drop=False)
 
     # Separate versions into 2 dataframes
-    metrics_base = metrics.loc[metrics.version == versions[0]]
-    metrics_new  = metrics.loc[metrics.version == versions[1]]
+    metrics_base = metrics.loc[metrics.version == versions[0]].copy()
+    metrics_new  = metrics.loc[metrics.version == versions[1]].copy()
     
     # Create a new column in the base dataframe and merge it into the comparison dataframe
     metrics_base[f'BASE_{stat}'] = metrics_base[stat]
-    fim_compare = metrics_base.merge(metrics_new[f'{stat}'],left_index=True, right_index=True, how='inner').sort_index(level=0,sort_remaining=True)
+    metrics_base.drop(columns=stat, inplace=True)
+    fim_compare = metrics_base.merge(metrics_new[stat], left_index=True, right_index=True, how='inner').sort_index(level=0,sort_remaining=True)
     fim_compare[f'{stat}_diff'] = fim_compare[stat] - fim_compare[f'BASE_{stat}']
     # Color the boxes according to improved vs regressed scores. See definition of `better_score` above for details.
     if better_score == 'positive':
@@ -233,9 +234,9 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
     for i, site in enumerate(data.nws_lid.unique()):
         subplot_data = data.loc[(site)]
         ax[i].barh(y=np.arange(len(subplot_data)), width=f'{stat}_diff', left=f'BASE_{stat}', color='color',
-                   edgecolor='edge_color', linewidth=0.5, data=subplot_data)
+                   edgecolor='edge_color', linewidth=0.5, data=subplot_data, zorder=3)
         ax[i].set_yticks(np.arange(len(subplot_data)), labels=subplot_data.index.map(inverted_mag).astype(str))
-        ax[i].set_xticks(np.linspace(0,1,10))
+        ax[i].set_xticks(np.linspace(0,1,11))
         ax[i].set_ylabel(site, rotation='horizontal', labelpad=40)
         ax[i].set_xlim(0, 1)
         ax[i].set_ylim(-0.5, num_mags-0.25)
@@ -253,7 +254,7 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
             ax[i].text(0.1, 1.5, '--BAD SITE--', horizontalalignment='center', verticalalignment='center')
             ax[i].set_facecolor('0.67')
     plt.subplots_adjust(wspace=0, hspace=0)
-    ax[0].set_title(f'{category.upper()} {stat} Comparison\n{versions[0]}  v  {versions[1]}', loc='center', pad=35)
+    ax[0].set_title(f'{category.upper()} {stat} Comparison\n{versions[0]}  v  {versions[1]}', loc='center', pad=45)
     g_patch = Patch(color='g', linewidth=0.5, label=f'{stat} Score Improvement')
     r_patch = Patch(facecolor='None', edgecolor='r', linewidth=0.5, label=f'{stat} Score Regression')
     # Get the height of the figure in pixels so we can put the legend in a consistent position
