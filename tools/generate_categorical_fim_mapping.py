@@ -131,26 +131,26 @@ def post_process_huc_level(job_number_tif, ahps_dir_list, huc_dir, attributes_di
             if 'extent.tif' in tif:
                 tifs_to_reformat_list.append(os.path.join(ahps_lid_dir, tif))
 
-    # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
-    nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
+        # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
+        nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
     
-    print("Reformatting TIFs...")
-    with ProcessPoolExecutor(max_workers=job_number_tif) as executor:
-        for tif_to_process in tifs_to_reformat_list:
-            if not os.path.exists(tif_to_process):
-                continue
-            try:
-                magnitude = os.path.split(tif_to_process)[1].split('_')[1]
+        print(f"Reformatting TIFs {ahps_lid} for {huc_dir}")
+        with ProcessPoolExecutor(max_workers=job_number_tif) as executor:
+            for tif_to_process in tifs_to_reformat_list:
+                if not os.path.exists(tif_to_process):
+                    continue
                 try:
-                    interval_stage = float((os.path.split(tif_to_process)[1].split('_')[2]).replace('p', '.').replace("ft", ""))
-                    if interval_stage == 'extent':
+                    magnitude = os.path.split(tif_to_process)[1].split('_')[1]
+                    try:
+                        interval_stage = float((os.path.split(tif_to_process)[1].split('_')[2]).replace('p', '.').replace("ft", ""))
+                        if interval_stage == 'extent':
+                            interval_stage = None
+                    except ValueError:
                         interval_stage = None
-                except ValueError:
-                    interval_stage = None
-                executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, interval_stage)
-            except Exception as ex:
-                print(f"*** {ex}")
-                traceback.print_exc()
+                    executor.submit(reformat_inundation_maps, ahps_lid, tif_to_process, gpkg_dir, fim_version, huc, magnitude, nws_lid_attributes_filename, interval_stage)
+                except Exception as ex:
+                    print(f"*** {ex}")
+                    traceback.print_exc()
                 
 
 def post_process_cat_fim_for_viz(job_number_huc, job_number_tif, output_catfim_dir, attributes_dir, log_file="", fim_version=""):
@@ -172,7 +172,7 @@ def post_process_cat_fim_for_viz(job_number_huc, job_number_tif, output_catfim_d
         with ProcessPoolExecutor(max_workers=job_number_huc) as huc_exector:
             
             for huc in huc_ahps_dir_list:
-                print(huc)
+
                 if huc in skip_list:
                     continue
                 huc_dir = os.path.join(output_catfim_dir, huc)
@@ -196,6 +196,7 @@ def post_process_cat_fim_for_viz(job_number_huc, job_number_tif, output_catfim_d
             diss_extent['viz'] = 'yes'
     
             # Write/append aggregate diss_extent
+            print(f"Merging layer: {layer}")
             if os.path.isfile(merged_layer):
                 diss_extent.to_file(merged_layer,driver=getDriver(merged_layer),index=False, mode='a')
             else:
@@ -241,7 +242,7 @@ def reformat_inundation_maps(ahps_lid, extent_grid, gpkg_dir, fim_version, huc, 
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
         # Save dissolved multipolygon
         handle = os.path.split(extent_grid)[1].replace('.tif', '')
-        diss_extent_filename = os.path.join(gpkg_dir, handle + "_dissolved.gpkg")
+        diss_extent_filename = os.path.join(gpkg_dir, f"{handle}_{huc}_dissolved.gpkg")
         extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
         
         if not extent_poly_diss.empty:

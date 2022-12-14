@@ -20,7 +20,9 @@ import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
 
 
-def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, stage_based, output_folder, overwrite, search, lid_to_run, job_number_intervals, past_major_interval_cap):
+def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, 
+                                     stage_based, output_folder, overwrite, search, 
+                                     lid_to_run, job_number_intervals, past_major_interval_cap):
         
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
@@ -63,7 +65,11 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     # STAGE-BASED
     if stage_based:
         # Generate Stage-Based CatFIM mapping
-        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir, nwm_us_search, nwm_ds_search, job_number_inundate, lid_to_run, attributes_dir, job_number_intervals, past_major_interval_cap, job_number_huc)
+        nws_sites_layer = generate_stage_based_categorical_fim(output_mapping_dir, fim_version, fim_run_dir,
+                                                               nwm_us_search, nwm_ds_search, job_number_inundate,
+                                                               lid_to_run, attributes_dir, job_number_intervals,
+                                                               past_major_interval_cap, job_number_huc)
+        
         job_number_tif = job_number_inundate * job_number_intervals
         print("Post-processing TIFs...")
         post_process_cat_fim_for_viz(job_number_huc, job_number_tif, output_mapping_dir, attributes_dir, log_file=log_file, fim_version=fim_version)
@@ -94,7 +100,7 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
     
     # Create CSV versions of the final geopackages.
-    print('Creating CSVs')
+    print('Creating CSVs... Be patient. This can take a while depending on size of the gkpg')
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
 
@@ -119,6 +125,7 @@ def create_csvs(output_mapping_dir, reformatted_catfim_method):
     # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
     gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
     for gpkg in gpkg_list:
+        print(f"creating csv's for {gpkg}")
         gdf = gpd.read_file(gpkg)
         parent_directory = os.path.split(gpkg)[0]
         if 'catfim_library' in gpkg:
@@ -471,9 +478,13 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
     huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
+    
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            executor.submit(iterate_through_huc_stage_based, workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir)
+            executor.submit(iterate_through_huc_stage_based, workspace, huc, 
+                            fim_dir, huc_dictionary, threshold_url, flood_categories,
+                            all_lists, past_major_interval_cap, number_of_jobs, 
+                            number_of_interval_jobs, attributes_dir)
                 
     print('Wrapping up Stage-Based CatFIM...')
     csv_files = os.listdir(attributes_dir)
