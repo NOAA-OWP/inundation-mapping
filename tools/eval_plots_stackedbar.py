@@ -186,7 +186,85 @@ def eval_plot_stack(metric_csv, versions, category, outfig, show_iqr=False):
     
     return data
 
-def iter_benchmarks(metric_csv, workspace, versions=[], individual_plots=False, show_iqr=False):
+def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'): 
+    
+    # Check inputs
+    assert category in ('nws','usgs','ble','ifc','ras2fim'), f"category must be one of ('nws','usgs','ble','ifc','ras2fim'), not {category}"
+    assert stat in ('CSI', 'MCC', 'TPR', 'PND', 'FAR'), f"stat must be one of ('CSI', 'MCC', 'TPR', 'PND', 'FAR'), not {stat}"
+    assert len(versions) == 2, f"You can only produce the comparison plots when comparing 2 fim versions. You have input {len(versions)}."
+    # CSI, MCC, and TPR scores are better when closer to 1, however PND and FAR scores are better when closer to 0
+    better_score = 'positive' if stat in ('CSI', 'MCC', 'TPR') else 'negative' 
+    
+    # Load in FIM 4 CSV and select the proper version metrics
+    metrics = pd.read_csv(metric_csv, dtype={'huc':str})
+    # Check to make sure requested versions are in the metrics file
+    for v in versions:
+        assert v in metrics.version.unique(), f"{v} is not included in {metric_csv}.\nThe available options are {sorted(metrics.version.unique())}"
+    # Change the magnitudes to make them more sort-friendly for the plot below
+    metrics.magnitude = metrics.magnitude.apply(lambda m: mag_dict[m])
+    # Fill the non-AHPS sites with values for nws_lid
+    metrics.nws_lid.fillna(metrics.huc +'_'+ metrics.benchmark_source, inplace=True)
+    # Create multi-index for easy merging and plotting
+    metrics.set_index(['benchmark_source', 'nws_lid', 'magnitude'], inplace=True, drop=False)
+
+    # Separate versions into 2 dataframes
+    metrics_base = metrics.loc[metrics.version == versions[0]]
+    metrics_new  = metrics.loc[metrics.version == versions[1]]
+    
+    # Create a new column in the base dataframe and merge it into the comparison dataframe
+    metrics_base[f'BASE_{stat}'] = metrics_base[stat]
+    fim_compare = metrics_base.merge(metrics_new[f'{stat}'],left_index=True, right_index=True, how='inner').sort_index(level=0,sort_remaining=True)
+    fim_compare[f'{stat}_diff'] = fim_compare[stat] - fim_compare[f'BASE_{stat}']
+    # Color the boxes according to improved vs regressed scores. See definition of `better_score` above for details.
+    if better_score == 'positive':
+        fim_compare['color'] = fim_compare.apply(lambda row: 'None' if row[f'{stat}_diff'] < 0 else 'g', axis=1)
+        fim_compare['edge_color'] = fim_compare.apply(lambda row: 'r' if row[f'{stat}_diff'] < 0 else 'g', axis=1)
+    elif better_score == 'negative':
+        fim_compare['color'] = fim_compare.apply(lambda row: 'None' if row[f'{stat}_diff'] > 0 else 'g', axis=1)
+        fim_compare['edge_color'] = fim_compare.apply(lambda row: 'r' if row[f'{stat}_diff'] > 0 else 'g', axis=1)
+    
+    # Filter the plotting data to the selected category
+    data = fim_compare.loc[(category)]
+    num_subplots = len(data.nws_lid.unique())
+    num_mags = len(data.magnitude.unique())
+    # Create the plot
+    fig, ax = plt.subplots(num_subplots, 1, figsize=(8, len(data)*0.18), dpi=100, facecolor='white')
+    # Create a subplot for every site (nws_lid)
+    for i, site in enumerate(data.nws_lid.unique()):
+        subplot_data = data.loc[(site)]
+        ax[i].barh(y=np.arange(len(subplot_data)), width=f'{stat}_diff', left=f'BASE_{stat}', color='color',
+                   edgecolor='edge_color', linewidth=0.5, data=subplot_data)
+        ax[i].set_yticks(np.arange(len(subplot_data)), labels=subplot_data.index.map(inverted_mag).astype(str))
+        ax[i].set_xticks(np.linspace(0,1,10))
+        ax[i].set_ylabel(site, rotation='horizontal', labelpad=40)
+        ax[i].set_xlim(0, 1)
+        ax[i].set_ylim(-0.5, num_mags-0.25)
+        ax[i].grid(axis='x', color='0.8', zorder=0)
+        ax[i].spines['bottom'].set_color('0' if i == num_subplots-1 else 'None') 
+        ax[i].spines['top'].set_color('0' if i == 0 else '0.8') 
+        ax[i].set_facecolor('w' if i % 2 == 0 else '0.9')
+        ax[i].tick_params(axis="x", 
+                          bottom=True if i == num_subplots-1 else False, 
+                          top=True if i == 0 else False, 
+                          labelbottom=True if i == num_subplots-1 else False, 
+                          labeltop=True if i == 0 else False)
+        # Label sites that have been identified as "Bad"
+        if site and site in BAD_SITES:
+            ax[i].text(0.1, 1.5, '--BAD SITE--', horizontalalignment='center', verticalalignment='center')
+            ax[i].set_facecolor('0.67')
+    plt.subplots_adjust(wspace=0, hspace=0)
+    ax[0].set_title(f'{category.upper()} {stat} Comparison\n{versions[0]}  v  {versions[1]}', loc='center', pad=35)
+    g_patch = Patch(color='g', linewidth=0.5, label=f'{stat} Score Improvement')
+    r_patch = Patch(facecolor='None', edgecolor='r', linewidth=0.5, label=f'{stat} Score Regression')
+    # Get the height of the figure in pixels so we can put the legend in a consistent position
+    ax_pixel_height = ax[0].get_window_extent().transformed(fig.dpi_scale_trans.inverted()).height
+    ax[0].legend(loc='center', ncol=2, handles=[g_patch, r_patch], fontsize=8,
+                bbox_to_anchor=(0.5, (0.4+ax_pixel_height)/ax_pixel_height))
+    plt.savefig(outfig, bbox_inches='tight')
+    
+    return fim_compare
+
+def iter_benchmarks(metric_csv, workspace, versions=[], individual_plots=False, show_iqr=False, diff_plot=False):
     
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metric_csv, dtype = {'huc':str})
@@ -206,9 +284,14 @@ def iter_benchmarks(metric_csv, workspace, versions=[], individual_plots=False, 
         output_workspace = Path(workspace) / benchmark_source / extent_configuration.lower()
         output_workspace.mkdir(parents = True, exist_ok = True)
         output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar{'_indiv'if individual_plots else ''}.png"
-        if individual_plots:
+        if diff_plot:
+            output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_diff_plot.png"
+            diff_bar_plots(versions, metric_csv, category=benchmark_source, outfig=output_png, stat=diff_plot)
+        elif individual_plots:
+            output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar_indiv.png"
             eval_plot_stack_indiv(metric_csv=metric_csv, versions=versions, category=benchmark_source, outfig=output_png)
         else:
+            output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar.png"
             eval_plot_stack(metric_csv=metric_csv, versions=versions, category=benchmark_source, show_iqr=show_iqr, outfig=output_png)
 
 
@@ -218,8 +301,10 @@ if __name__ == '__main__':
     parser.add_argument('-m','--metric_csv', help = 'Metrics csv created from synthesize test cases.', required = True)
     parser.add_argument('-w', '--workspace', help = 'Output workspace', required = True)
     parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
-    parser.add_argument('-i', '--site_plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
-    parser.add_argument('-iqr', '--show_iqr', help = 'If enabled, inter-quartile range error bars will be added.', action = 'store_true', required = False)
+    parser.add_argument('-i', '--site-plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
+    parser.add_argument('-iqr', '--show-iqr', help = 'If enabled, inter-quartile range error bars will be added.', action = 'store_true', required = False)
+    parser.add_argument('-d', '--diff-plots', help = 'Create diff plots instead of stacked bar plots. Only 2 versions can be used with this option. ' + \
+        "Input a statistic to be used for comparison ('CSI', 'MCC', 'TPR', 'PND', 'FAR').", default = False, required = True)
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
@@ -230,8 +315,9 @@ if __name__ == '__main__':
     v = args['versions']
     i = args['site_plots']
     iqr = args['show_iqr']
+    d = args['diff_plots']
 
     # Run eval_plots function
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
-    iter_benchmarks(m, w, v, i, iqr)
+    iter_benchmarks(m, w, v, i, iqr, d)
 
