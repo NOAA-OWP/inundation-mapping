@@ -23,7 +23,6 @@ class Gage2Branch(object):
 
         # Filter USGS gages to huc
         usgs_gages = gpd.read_file(self.usgs_gage_filename)
-#        self.gages = usgs_gages[(usgs_gages.HUC8 == self.huc8) & (usgs_gages.curve == 'yes')]  # Why filter to only sites with curves?
         self.gages = usgs_gages[(usgs_gages.HUC8 == self.huc8)]
         
         # Get AHPS sites within the HUC and add them to the USGS dataset
