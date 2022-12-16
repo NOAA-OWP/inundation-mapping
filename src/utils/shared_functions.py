@@ -23,10 +23,6 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from tqdm import tqdm
 
 
-def filter_usgs_gages():
-    pass
-
-
 def getDriver(fileName):
 
     driverDictionary = {'.gpkg' : 'GPKG','.geojson' : 'GeoJSON','.shp' : 'ESRI Shapefile'}
