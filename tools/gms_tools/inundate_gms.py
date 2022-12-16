@@ -80,7 +80,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     executor_generator = { 
                 executor.submit(inundate,**inp) : ids for inp,ids in inundate_input_generator 
                 }
-
     idx = 0
     for future in tqdm(as_completed(executor_generator),
                        total=len(executor_generator),
