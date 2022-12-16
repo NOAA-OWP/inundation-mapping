@@ -6,6 +6,7 @@ from pathlib import Path
 from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve, aggregate_wbd_hucs, get_thresholds, flow_data
 from dotenv import load_dotenv
 import os
+import numpy as np
 import argparse
 import sys
 sys.path.append('/foss_fim/src')
@@ -49,7 +50,6 @@ def get_all_active_usgs_sites():
     selector = ['all']
     must_include = 'usgs_data.active'
     metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
-    print(metadata_list)
     #Get a geospatial layer (gdf) for all acceptable sites
     print("Aggregating WBD HUCs...")
     dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
@@ -178,16 +178,19 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         all input sites. Additional metadata also contained in DataFrame
 
     '''
+    
     #Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
 
-    #If 'all' option passed to list of gages sites, it retrieves all acceptable sites within CONUS.
+    # Create workspace directory if it doesn't exist
+    if not os.path.exists(workspace):
+        os.mkdir(workspace)
+
+    #If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     print('getting metadata for all sites')
     if list_of_gage_sites == ['all']:
-        print("Hello")
-        acceptable_sites_gdf, acceptable_sites_list, metadata_list = get_all_active_usgs_sites()
-        print("Hey")
+        sites_gdf, sites_list, metadata_list = get_all_active_usgs_sites()
     #Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:        
         #Define arguments to retrieve metadata and then get metadata from WRDS
@@ -220,7 +223,6 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         print("get_datum")
         #Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)        
-        print(usgs)
         
         #Filter out sites that are not in contiguous US. If this section is removed be sure to test with datum adjustment section (region will need changed)
         if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
@@ -275,29 +277,58 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         all_rating_curves = all_rating_curves.append(curve)
 
     #Rename columns and add attribute indicating if rating curve exists
-    acceptable_sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
+    sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
     sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
-    acceptable_sites_gdf = acceptable_sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
-    acceptable_sites_gdf.fillna({'curve':'no'},inplace = True)    
+    sites_gdf = sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
+    sites_gdf.fillna({'curve':'no'},inplace = True)    
     #Add mainstems attribute to acceptable sites
     print('Attributing mainstems sites')
     #Import mainstems segments used in run_by_unit.sh
     ms_df = gpd.read_file(NWM_FLOWS_MS)
     ms_segs = ms_df.ID.astype(str).to_list()
     #Populate mainstems attribute field
-    acceptable_sites_gdf['mainstem'] = 'no'
-    acceptable_sites_gdf.loc[acceptable_sites_gdf.eval('feature_id in @ms_segs'),'mainstem'] = 'yes' 
-    acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_pre.csv'))
+    sites_gdf['mainstem'] = 'no'
+    sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'),'mainstem'] = 'yes' 
+    sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_pre.csv'))
     
-    acceptable_sites_gdf = acceptable_sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-    acceptable_sites_gdf = acceptable_sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
+    sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     
     print("Recasting...")
-    acceptable_sites_gdf = acceptable_sites_gdf.astype({'metadata_sources': str})
-    acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_post.csv'))
+    sites_gdf = sites_gdf.astype({'metadata_sources': str})
 
-    # Filter all_rating_curves to acceptable sites only.
+    # -- Filter all_rating_curves according to acceptance criteria -- #
+    # -- We only want acceptable gages in the rating curve CSV -- #
     
+    print("Reading old rating curves for temp testing")
+#    all_rating_curves = gpd.read_file(r'/data/temp/brad/get_rating_curves134/usgs_rating_curves_old.csv')
+#    sites_gdf = gpd.read_file(r'/data/temp/brad/get_rating_curves134/usgs_gages.gpkg')
+        
+    # Categorize sites as acceptable or unacceptable NEEDS TO BE MULTICONDITIONAL
+    sites_gdf['acceptable'] = sites_gdf.astype({'usgs_data_alt_accuracy_code': 'float'})  # Recast to float
+    sites_gdf['acceptable'] = np.where(sites_gdf['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+                                       & sites_gdf['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+                                       & sites_gdf['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+                                       & sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
+                                       & sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
+                                       
+                                       "yes", "no")
+            
+    # Save file with boolean added
+    sites_gdf.to_csv(os.path.join(workspace, 'sites_bool_flag.csv'))
+    sites_gdf.to_file(os.path.join(workspace, 'sites_bool_flag.gpkg'),driver='GPKG')
+
+    # Filter and save filtered file for viewing
+    acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable'] == 'yes']
+    acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
+    acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_for_rating_curves.csv'))
+    acceptable_sites_gdf.to_file(os.path.join(workspace, 'acceptable_sites_for_rating_curves.gpkg'),driver='GPKG')
+    
+    # Make list of acceptable sites
+    acceptable_sites_list = acceptable_sites_gdf['location_id'].tolist()
+        
+    # Filter out all_rating_curves by list
+    all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
     #If workspace is specified, write data to file.
     if workspace:
@@ -310,13 +341,13 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         regular_messages = api_failure_messages + regular_messages                
         all_messages = pd.DataFrame({'Messages':regular_messages})
         all_messages.to_csv(Path(workspace) / 'log.csv', index = False)
-        #If 'all' option specified, reproject then write out shapefile of acceptable sites.
+        # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:            
-            acceptable_sites_gdf = acceptable_sites_gdf.to_crs(PREP_PROJECTION)
-            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
+            sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
+            sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
         
         #Write out flow files for each threshold across all sites
-        all_data = write_categorical_flow_files(metadata_list, workspace)
+#        all_data = write_categorical_flow_files(metadata_list, workspace)
     
     return all_rating_curves
 
