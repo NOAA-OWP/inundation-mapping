@@ -82,6 +82,7 @@ def generate_rating_curve_metrics(args):
 
     logging.info("Generating rating curve metrics for huc: " + str(huc))
     elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object, 'feature_id':object,'HydroID':object, 'levpa_id':object})
+    
     # Filter out null and non-integer location_id entries (the crosswalk steps tries to fill AHPS only sites with the nws_lid)
     elev_table.dropna(subset=['location_id'], inplace=True)
     elev_table = elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
