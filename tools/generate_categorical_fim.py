@@ -18,6 +18,11 @@ from tools_shared_functions import get_thresholds, get_nwm_segs, get_datum, ngvd
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import numpy as np
 from utils.shared_variables import VIZ_PROJECTION
+from tools_shared_variables import (acceptable_coord_acc_code_list, 
+                                    acceptable_coord_method_code_list, 
+                                    acceptable_alt_acc_thresh, 
+                                    acceptable_alt_meth_code_list, 
+                                    acceptable_site_type_list)
 
 
 def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, 
@@ -100,7 +105,7 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
     
     # Create CSV versions of the final geopackages.
-    print('Creating CSVs... Be patient. This can take a while depending on size of the gkpg')
+    print('Creating CSVs. This may take several minutes.')
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
 
@@ -125,7 +130,7 @@ def create_csvs(output_mapping_dir, reformatted_catfim_method):
     # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
     gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
     for gpkg in gpkg_list:
-        print(f"creating csv's for {gpkg}")
+        print(f"creating CSV for {gpkg}")
         gdf = gpd.read_file(gpkg)
         parent_directory = os.path.split(gpkg)[0]
         if 'catfim_library' in gpkg:
@@ -242,7 +247,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
     
     # Loop through each lid in nws_lids list
     nws_lids = huc_dictionary[huc]
-    print(huc_dictionary)
     for lid in nws_lids:
         lid = lid.lower() # Convert lid to lower case
         # -- If necessary files exist, continue -- #
@@ -268,18 +272,27 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         if all(stages.get(category, None)==None for category in flood_categories):
             all_messages.append([f'{lid}:missing threshold stages'])
             continue
+
+        # Drop columns that offend acceptance criteria
+        usgs_elev_df['acceptable_codes'] = (usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+                                    & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+                                    & usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+                                    & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list))
         
-        # Right here you can read the metadata from the usgs_elev_table (all of its accurcy info) and remove based on imported criteria
+        usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
+        usgs_elev_df['acceptable_alt_error'] = np.where(usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False)
+        
+        acceptable_usgs_elev_df = usgs_elev_df[(usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)]
         
         # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
         try:
-            matching_rows = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
+            matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
             if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
-                lid_usgs_elev = usgs_elev_df.loc[(usgs_elev_df['nws_lid'] == lid.upper()) & ('levpa_id' != 0), 'dem_adj_elevation'].values[0]
+                lid_usgs_elev = acceptable_usgs_elev_df.loc[(acceptable_usgs_elev_df['nws_lid'] == lid.upper()) & ('levpa_id' != 0), 'dem_adj_elevation'].values[0]
             else:
-                lid_usgs_elev = usgs_elev_df.loc[usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
+                lid_usgs_elev = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
         except IndexError:  # Occurs when LID is missing from table
-            all_messages.append([f'{lid}:missing from usgs_elev_table, likely unacceptable gage datum error--more details to come in future release'])
+            all_messages.append([f'{lid}:likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'])
             continue
         # Initialize nested dict for lid attributes
         stage_based_att_dict.update({lid:{}})
@@ -292,6 +305,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         #determine source of interpolated threshold flows, this will be the rating curve that will be used.
         rating_curve_source = flows.get('source')
         if rating_curve_source is None:
+            all_messages.append([f'{lid}:No source for rating curve'])
             continue
         # Get the datum and adjust to NAVD if necessary.
         nws_datum_info, usgs_datum_info = get_datum(metadata)
@@ -462,7 +476,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             
         # If it made it to this point (i.e. no continues), there were no major preventers of mapping
         all_messages.append([f'{lid}:OK'])
-    
     # Write all_messages by HUC to be scraped later.
     messages_dir = os.path.join(workspace, 'messages')
     if not os.path.exists(messages_dir):
@@ -548,6 +561,14 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     # Filter out columns and write out to file
     nws_sites_layer = os.path.join(workspace, 'nws_lid_sites.gpkg')
+    
+    # Add acceptance criteria to viz_out_gdf before writing
+    viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
+    viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
+    viz_out_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
+    viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
+    viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
+
     viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
     
     return nws_sites_layer
