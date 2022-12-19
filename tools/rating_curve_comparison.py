@@ -87,28 +87,13 @@ def generate_rating_curve_metrics(args):
 
     logging.info("Generating rating curve metrics for huc: " + str(huc))
     elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object, 'feature_id':object,'HydroID':object, 'levpa_id':object})
-    
+
     # Filter out null and non-integer location_id entries (the crosswalk steps tries to fill AHPS only sites with the nws_lid)
     elev_table.dropna(subset=['location_id'], inplace=True)
     elev_table = elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
 
     # Read in the USGS gages rating curve database csv
     usgs_gages = pd.read_csv(usgs_gages_filename,dtype={'location_id': object, 'feature_id':object})
-    
-    # -- Filter usgs_gages according to acceptance criteria -- #
-    # Filter gages by accuracy codes
-    usgs_gages = usgs_gages[usgs_gages['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)]
-    usgs_gages = usgs_gages[usgs_gages['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)]
-    usgs_gages = usgs_gages.astype({'usgs_data_alt_accuracy_code': 'float'})  # Recast to float
-    usgs_gages = usgs_gages[usgs_gages['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh]
-    usgs_gages = usgs_gages[usgs_gages['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)]
-    usgs_gages = usgs_gages[usgs_gages['usgs_data_site_type'].isin(acceptable_site_type_list)]
-    # Add accuracy tolerance codes as extra fields so users can know what was used to filter
-    usgs_gages['accepted_usgs_data_coord_accuracy_codes'] = str(acceptable_coord_acc_code_list)
-    usgs_gages['accepted_usgs_data_coord_method_codes'] = str(acceptable_coord_method_code_list)
-    usgs_gages['accepted_usgs_data_alt_accuracy_threshold'] = acceptable_alt_acc_thresh
-    usgs_gages['accepted_usgs_data_alt_meth_codes'] = str(acceptable_alt_meth_code_list)
-    usgs_gages['accepted_usgs_data_site_types'] = str(acceptable_site_type_list)
 
     # Aggregate FIM4 hydroTables
     if not elev_table.empty:
