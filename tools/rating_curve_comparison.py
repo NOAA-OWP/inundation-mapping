@@ -22,11 +22,6 @@ import rasterio
 from rasterio import features as riofeatures
 from rasterio import plot as rioplot
 from shapely.geometry import Polygon
-from tools_shared_variables import (acceptable_coord_acc_code_list, 
-                                    acceptable_coord_method_code_list, 
-                                    acceptable_alt_acc_thresh, 
-                                    acceptable_alt_meth_code_list, 
-                                    acceptable_site_type_list)
 
 """
     Plot Rating Curves and Compare to USGS Gages
