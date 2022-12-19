@@ -178,7 +178,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         all input sites. Additional metadata also contained in DataFrame
 
     '''
-    
+
     #Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
@@ -296,28 +296,30 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     
     print("Recasting...")
     sites_gdf = sites_gdf.astype({'metadata_sources': str})
-
     # -- Filter all_rating_curves according to acceptance criteria -- #
     # -- We only want acceptable gages in the rating curve CSV -- #
     
     print("Reading old rating curves for temp testing")
-#    all_rating_curves = gpd.read_file(r'/data/temp/brad/get_rating_curves134/usgs_rating_curves_old.csv')
-#    sites_gdf = gpd.read_file(r'/data/temp/brad/get_rating_curves134/usgs_gages.gpkg')
         
-    # Categorize sites as acceptable or unacceptable NEEDS TO BE MULTICONDITIONAL
-    sites_gdf['acceptable'] = sites_gdf.astype({'usgs_data_alt_accuracy_code': 'float'})  # Recast to float
-    sites_gdf['acceptable'] = np.where(sites_gdf['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-                                       & sites_gdf['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-                                       & sites_gdf['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-                                       & sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
-                                       & sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
-                                       
-                                       "yes", "no")
-            
-    # Save file with boolean added
-    sites_gdf.to_csv(os.path.join(workspace, 'sites_bool_flag.csv'))
-    sites_gdf.to_file(os.path.join(workspace, 'sites_bool_flag.gpkg'),driver='GPKG')
+    # Categorize sites as acceptable or unacceptable.
+    # If a site is missing any of the codes, marks and unacceptable
 
+    # Drop rows if sites have null values for any of the criteria
+    sites_gdf = sites_gdf[sites_gdf['usgs_data_coord_accuracy_code'].notna()]
+    sites_gdf = sites_gdf[sites_gdf['usgs_data_coord_method_code'].notna()]
+    sites_gdf = sites_gdf[sites_gdf['usgs_data_alt_method_code'].notna()]
+    sites_gdf = sites_gdf[sites_gdf['usgs_data_site_type'].notna()]
+    sites_gdf = sites_gdf[sites_gdf['usgs_data_alt_accuracy_code'].notna()]
+    
+    sites_gdf['acceptable'] = np.where(
+            sites_gdf['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+          & sites_gdf['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+          & sites_gdf['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+          & sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
+          & sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
+                                       
+          "yes", "no")
+            
     # Filter and save filtered file for viewing
     acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable'] == 'yes']
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
@@ -347,9 +349,10 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
             sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
         
         #Write out flow files for each threshold across all sites
-#        all_data = write_categorical_flow_files(metadata_list, workspace)
+        all_data = write_categorical_flow_files(metadata_list, workspace)
     
     return all_rating_curves
+
 
 if __name__ == '__main__':
     #Parse arguments
