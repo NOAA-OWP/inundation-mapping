@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.(to be assigned) - 2022-12-20 - [PR #767](https://github.com/NOAA-OWP/inundation-mapping/pull/767)
+
+Fixes inundation of nodata areas of REM.
+
+### Changes
+
+- `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
+
+<br/><br/>
+
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
 This merge adds the tools required to generate Alpha metrics by hydroid. It summarizes the Apha metrics by branch 0 catchment for use in the Hydrovis "FIM Performance" service.
