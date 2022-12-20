@@ -66,7 +66,7 @@ Tcount
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg -ds $dropLowStreamOrders
+$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
@@ -136,7 +136,7 @@ Tcount
 echo -e $startDiv"Process catchments and model streams $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber -s $dropLowStreamOrders
+python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber
 Tcount
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##

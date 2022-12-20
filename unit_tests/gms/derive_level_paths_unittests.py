@@ -56,8 +56,7 @@ class test_Derive_level_paths(unittest.TestCase):
                                             catchments_outfile = params["catchments_outfile"],
                                             branch_inlets_outfile = params["branch_inlets_outfile"],
                                             reach_id_attribute = params["reach_id_attribute"],
-                                            verbose = params["verbose"],
-                                            drop_low_stream_orders=params["drop_low_stream_orders"])
+                                            verbose = params["verbose"])
 
         # -----------
         # test data type being return is as expected. Downstream code might to know that type
@@ -94,94 +93,6 @@ class test_Derive_level_paths(unittest.TestCase):
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        
 
-
-    def test_Derive_level_paths_success_drop_low_stream_orders_not_submitted(self):
-    
-        '''
-        This test includes most params but does not submit a drop_low_stream_orders param
-        and it should default to "false", meaning no filtering out of stream orders 1 and 2.
-        Note: Most path tests done in test_Derive_level_paths_success_all_params 
-        and are not repeated here.
-        '''
-       
-        params = self.params["valid_data"].copy()
-
-        # Function Notes:
-        # huc_ids no longer used, so it is not submitted
-        # other params such as toNode_attribute and fromNode_attribute are defaulted and not passed into __main__, so I will
-        # skip them here.
-        # returns GeoDataframe (the nwm_subset_streams_levelPaths_dissolved.gpkg)
-        actual_df = src.Derive_level_paths(in_stream_network = params["in_stream_network"],
-                                            out_stream_network = params["out_stream_network"],
-                                            branch_id_attribute = params["branch_id_attribute"],
-                                            out_stream_network_dissolved = params["out_stream_network_dissolved"],
-                                            headwaters_outfile = params["headwaters_outfile"],
-                                            catchments = params["catchments"],
-                                            catchments_outfile = params["catchments_outfile"],
-                                            branch_inlets_outfile = params["branch_inlets_outfile"],
-                                            reach_id_attribute = params["reach_id_attribute"],
-                                            verbose = params["verbose"])
-
-        # -----------
-        # test data type being return is as expected. Downstream code might to know that type
-        self.assertIsInstance(actual_df, stream_branches.StreamNetwork)
-        
-        # -----------
-        #**** NOTE: Based on 05030104         
-        # Test row count for dissolved level path GeoDataframe which is returned.
-        actual_row_count = len(actual_df) 
-        expected_row_count = 58    # should still be 58 with no filtering
-        self.assertEqual(actual_row_count, expected_row_count)
-        
-        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-        print("*************************************************************")        
-                
-
-    def test_Derive_level_paths_success_drop_low_stream_orders_is_true(self):
-    
-        '''
-        This test includes most params but does not submit a drop_low_stream_orders param
-        and it should default to "false", meaning no filtering out of stream orders 1 and 2.
-        Note: Most path tests done in test_Derive_level_paths_success_all_params 
-        and are not repeated here.
-        '''
-        
-        params = self.params["valid_data"].copy()
-
-        params["drop_low_stream_orders"] = True
-
-        # Function Notes:
-        # huc_ids no longer used, so it is not submitted
-        # other params such as toNode_attribute and fromNode_attribute are defaulted and not passed into __main__, so I will
-        # skip them here.
-        # returns GeoDataframe (the nwm_subset_streams_levelPaths_dissolved.gpkg)
-        actual_df = src.Derive_level_paths(in_stream_network = params["in_stream_network"],
-                                            out_stream_network = params["out_stream_network"],
-                                            branch_id_attribute = params["branch_id_attribute"],
-                                            out_stream_network_dissolved = params["out_stream_network_dissolved"],
-                                            headwaters_outfile = params["headwaters_outfile"],
-                                            catchments = params["catchments"],
-                                            catchments_outfile = params["catchments_outfile"],
-                                            branch_inlets_outfile = params["branch_inlets_outfile"],
-                                            reach_id_attribute = params["reach_id_attribute"],
-                                            verbose = params["verbose"],
-                                            drop_low_stream_orders=params["drop_low_stream_orders"])
-
-        # -----------
-        # test data type being return is as expected. Downstream code might to know that type
-        self.assertIsInstance(actual_df, stream_branches.StreamNetwork)
-        
-        # -----------
-        #**** NOTE: Based on 05030104         
-        # Test row count for dissolved level path GeoDataframe which is returned.
-        actual_row_count = len(actual_df) 
-        expected_row_count = 4
-        self.assertEqual(actual_row_count, expected_row_count)
-
-        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-        print("*************************************************************")        
-
-
     def test_Derive_level_paths_success_drop_low_stream_orders_no_branches_left(self):
     
         '''
@@ -205,8 +116,7 @@ class test_Derive_level_paths(unittest.TestCase):
                                     catchments_outfile = params["catchments_outfile"],
                                     branch_inlets_outfile = params["branch_inlets_outfile"],
                                     reach_id_attribute = params["reach_id_attribute"],
-                                    verbose = params["verbose"],
-                                    drop_low_stream_orders=params["drop_low_stream_orders"])
+                                    verbose = params["verbose"])
 
         self.assertEqual(se.exception.code, fec.GMS_UNIT_NO_BRANCHES.value)
 

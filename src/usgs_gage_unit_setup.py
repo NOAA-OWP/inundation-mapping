@@ -104,7 +104,6 @@ if __name__ == '__main__':
     parser.add_argument('-nwm','--input-nwm-filename', help='NWM stream subset', required=True)
     parser.add_argument('-o','--output-filename', help='Table to append data', required=True)
     parser.add_argument('-huc','--huc8-id', help='HUC8 ID (to verify gage location huc)', type=str, required=True)
-    parser.add_argument('-bzero','--branch-zero-check', help='Check for determining if branch zero is created', type=int, required=True)
     parser.add_argument('-bzero_id','--branch-zero-id', help='Branch zero ID value', type=str, required=True)
     parser.add_argument('-ff','--filter-gms-inputs', help='WARNING: only run this parameter if you know exactly what you are doing', required=False)
 
@@ -115,7 +114,6 @@ if __name__ == '__main__':
     input_nwm_filename = args['input_nwm_filename']
     output_filename = args['output_filename']
     huc8 = args['huc8_id']
-    bzero_check = args['branch_zero_check']
     bzero_id = args['branch_zero_id']
     filter_gms_inputs = args['filter_gms_inputs']
 
@@ -129,10 +127,9 @@ if __name__ == '__main__':
         usgs_gage_subset.write(output_filename)
 
         # Create seperate output for branch zero
-        if bzero_check != 0:
-            output_filename_zero = os.path.splitext(output_filename)[0] + '_' + bzero_id + os.path.splitext(output_filename)[-1]
-            usgs_gage_subset.branch_zero(bzero_id)
-            usgs_gage_subset.write(output_filename_zero)
+        output_filename_zero = os.path.splitext(output_filename)[0] + '_' + bzero_id + os.path.splitext(output_filename)[-1]
+        usgs_gage_subset.branch_zero(bzero_id)
+        usgs_gage_subset.write(output_filename_zero)
 
     else:
         ''' 
