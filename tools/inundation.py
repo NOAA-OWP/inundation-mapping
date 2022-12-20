@@ -459,7 +459,7 @@ def __make_windows_generator(rem,
         hucCode = None
        #window = Window(col_off=0,row_off=0,width=rem.width,height=rem.height)
 
-        yield (rem.read(1, masked=True),catchments.read(1),rem.crs.wkt,
+        yield (rem.read(1),catchments.read(1),rem.crs.wkt,
                rem.transform,rem.profile,catchments.profile,hucCode,
                catchmentStagesDict,depths,inundation_raster,
                inundation_polygon,out_raster_profile,out_vector_profile,quiet)
