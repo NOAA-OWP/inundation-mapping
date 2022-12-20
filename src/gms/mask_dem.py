@@ -3,17 +3,15 @@
 import fiona
 import rasterio as rio
 from rasterio.mask import mask
-# import numpy as np
 import argparse
-# from utils.shared_functions import mem_profile
+from utils.shared_functions import mem_profile
 
-# @mem_profile
-def mask_dem(dem_filename, nld_filename, out_dem_filename):# , flowdir_filename)
+@mem_profile
+def mask_dem(dem_filename, nld_filename, out_dem_filename):
     """
     Masks levee-protected areas from DEM
     """
-    with rio.open(dem_filename) as dem, fiona.open(nld_filename) as leveed:#, \
-        # rio.open(flowdir_filename) as fdir:
+    with rio.open(dem_filename) as dem, fiona.open(nld_filename) as leveed:
         dem_data = dem.read(1)
         dem_profile = dem.profile.copy()
 
@@ -31,7 +29,6 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Mask levee-protected areas from DEM')
     parser.add_argument('-dem','--dem-filename', help='DEM filename', required=True,type=str)
-    # parser.add_argument('-fd', '--flowdir-filename', help='Flow Direction filename', required=True, type=str)
     parser.add_argument('-nld','--nld-filename', help='NLD filename', required=True,type=str)
     parser.add_argument('-out','--out-dem-filename', help='out DEM filename', required=True,type=str)
 
