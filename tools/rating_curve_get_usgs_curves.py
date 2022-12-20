@@ -123,7 +123,7 @@ def write_categorical_flow_files(metadata, workspace):
     
     #Write CatFIM flows to file
     final_data = all_data[['feature_id','discharge_cms', 'recurr_interval']]
-    final_data.to_csv(workspace / f'magnitude_flows_cms.csv', index = False)
+    final_data.to_csv(workspace / f'catfim_flows_cms.csv', index = False)
     return all_data
 ###############################################################################
            
