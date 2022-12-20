@@ -1,11 +1,62 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.(pending) - 2022-12-20 - [PR #768](https://github.com/NOAA-OWP/inundation-mapping/pull/768)
+
+gms_run_branch was processing all of the branches iteratively, then continuing on to a large post processing portion of code. That has now be split to two files, one for branch iteration and the other file for just post processing.
+
+Other minor changes include:
+- Removing the system where a user could override `DropStreamOrders` where they could process streams with stream orders 1 and 2 independently like other GMS branches.  This option is now removed, so it will only allow stream orders 3 and higher as gms branches and SO 1 and 2 will always be in branch zero.
+
+-The `retry` flag on the three gms*.sh files has been removed. It did not work correctly and was not being used. Usage of it would have created un-reliable results. 
+
+### Additions
+
+- `gms_run_post_processing.sh`
+   - handles all tasks from after `gms_run_branch.sh` to this file, except for output cleanup, which stayed in `gms_run_branch.sh`.
+   - Can be run completely independent from `gms_run_unit.sh` or gms_run_branch.sh` as long as all of the files are in place. And can be re-run if desired.
+
+### Changes
+
+- `gms_pipeline.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer re-usable output date/time/duration system.
+   - Add call to new `gms_run_post_processing.sh` file.
+
+- `gms_run_branch.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer re-usable output date/time/duration system.
+   - Removed most code from below the branch iterator to the new `gms_run_post_processing.sh` file. However, it did keep the branch files output cleanup and non-zero exit code checking.
+
+- `gms_run_unit.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer re-usable output date/time/duration system.
+
+- `src`
+    - `bash_functions.env`:  Added a new method to make it easier / simpler to calculation and display duration time. 
+    - `filter_catchments_and_add_attributes.py`:  Remove "dropLowStreamOrders" system.
+    - `split_flows.py`: Remove "dropLowStreamOrders" system.
+    - `usgs_gage_unit_setup.py`:  Remove "dropLowStreamOrders" system.
+
+- `gms`  
+    - `delineate_hydros_and_produced_HAND.sh` : Remove "dropLowStreamOrders" system.
+    - `derive_level_paths.py`: Remove "dropLowStreamOrders" system and some small style updates.
+    - `run_by_unit.sh`: Remove "dropLowStreamOrders" system.
+
+- `unit_tests/gms`
+    - `derive_level_paths_params.json` and `derive_level_paths_unittests.py`: Remove "dropLowStreamOrders" system.
+
+<br/><br/>
+
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
 This merge adds the tools required to generate Alpha metrics by hydroid. It summarizes the Apha metrics by branch 0 catchment for use in the Hydrovis "FIM Performance" service.
 
-## Additions
+### Additions
 
 - `pixel_counter.py`:  A script to perform zonal statistics against raster data and geometries
 - `pixel_counter_functions.py`: Supporting functions
