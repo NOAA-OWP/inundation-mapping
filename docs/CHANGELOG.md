@@ -8,7 +8,6 @@ This merge addresses feedback received from field users regarding CatFIM. Users 
 
 
 ## Changes
-- `src/gms/run_by_unit`: TODO Revert changes after renaming file
 - `/src/gms/usgs_gage_crosswalk.py`: Removed filtering of extra attributes when writing table
 - `/src/gms/usgs_gage_unit_setup.py`: Removed filter of gages where `rating curve == yes`. The filtering happens later on now.
 - `/tools/eval_plots.py`: Added a post-processing step to produce CSVs of spatial data
