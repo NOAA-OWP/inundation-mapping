@@ -216,7 +216,7 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
     metrics_base.drop(columns=stat, inplace=True)
     fim_compare = metrics_base.merge(metrics_new[stat], left_index=True, right_index=True, how='inner').sort_index(level=0,sort_remaining=True)
     fim_compare[f'{stat}_diff'] = fim_compare[stat] - fim_compare[f'BASE_{stat}']
-    # Color the boxes according to improved vs regressed scores. See definition of `better_score` above for details.
+    # Color the boxes according to improved vs regressed scores. See definition of 'better_score' above for details.
     if better_score == 'positive':
         fim_compare['color'] = fim_compare.apply(lambda row: 'None' if row[f'{stat}_diff'] < 0 else 'g', axis=1)
         fim_compare['edge_color'] = fim_compare.apply(lambda row: 'r' if row[f'{stat}_diff'] < 0 else 'g', axis=1)
@@ -265,7 +265,7 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
     
     return fim_compare
 
-def iter_benchmarks(metric_csv, workspace, versions=[], individual_plots=False, show_iqr=False, diff_plot=False):
+def iter_benchmarks(metric_csv, workspace, versions=[], individual_plots=False, show_iqr=False, diff_stat=False):
     
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metric_csv, dtype = {'huc':str})
@@ -285,9 +285,9 @@ def iter_benchmarks(metric_csv, workspace, versions=[], individual_plots=False, 
         output_workspace = Path(workspace) / benchmark_source / extent_configuration.lower()
         output_workspace.mkdir(parents = True, exist_ok = True)
         output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar{'_indiv'if individual_plots else ''}.png"
-        if diff_plot:
-            output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_diff_plot.png"
-            diff_bar_plots(versions, metric_csv, category=benchmark_source, outfig=output_png, stat=diff_plot)
+        if diff_stat:
+            output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_diff_plot_{diff_stat}.png"
+            diff_bar_plots(versions, metric_csv, category=benchmark_source, outfig=output_png, stat=diff_stat)
         elif individual_plots:
             output_png = Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar_indiv.png"
             eval_plot_stack_indiv(metric_csv=metric_csv, versions=versions, category=benchmark_source, outfig=output_png)
@@ -304,8 +304,8 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--versions', help = 'List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.', nargs = '+', default = [])
     parser.add_argument('-i', '--site-plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
     parser.add_argument('-iqr', '--show-iqr', help = 'If enabled, inter-quartile range error bars will be added.', action = 'store_true', required = False)
-    parser.add_argument('-d', '--diff-plots', help = 'Create diff plots instead of stacked bar plots. Only 2 versions can be used with this option. ' + \
-        "Input a statistic to be used for comparison ('CSI', 'MCC', 'TPR', 'PND', 'FAR').", default = False, required = True)
+    parser.add_argument('-d', '--diff-stat', help = 'This option creates diff plots instead of stacked bar plots. Only 2 versions can be used with this option. ' + \
+        "Input one of the following statistics to be used for comparison: ('CSI', 'MCC', 'TPR', 'PND', 'FAR').", default = False, required = True)
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
@@ -316,7 +316,7 @@ if __name__ == '__main__':
     v = args['versions']
     i = args['site_plots']
     iqr = args['show_iqr']
-    d = args['diff_plots']
+    d = args['diff_stat']
 
     # Run eval_plots function
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
