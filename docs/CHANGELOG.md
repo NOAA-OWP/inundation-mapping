@@ -1,11 +1,9 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-
 ## v4.0.14.X - 2022-12-20 - [PR #758](https://github.com/NOAA-OWP/inundation-mapping/pull/758)
 
 This merge addresses feedback received from field users regarding CatFIM. Users wanted a Stage-Based version of CatFIM, they wanted maps created for multiple intervals between flood categories, and they wanted documentation as to why many sites are absent from the Stage-Based CatFIM service. This merge seeks to address this feedback. CatFIM will continue to evolve with more feedback over time.
-
 
 ## Changes
 - `/src/gms/usgs_gage_crosswalk.py`: Removed filtering of extra attributes when writing table
@@ -33,6 +31,16 @@ This merge addresses feedback received from field users regarding CatFIM. Users 
 - `/tools/test_case_by_hydroid.py`: reformatting code, recommend adding more comments/docstrings in future commit
 
 <br/><br/>
+
+## v4.0.13.2 - 2022-12-20 - [PR #767](https://github.com/NOAA-OWP/inundation-mapping/pull/767)
+
+Fixes inundation of nodata areas of REM.
+
+### Changes
+
+- `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
+
+
 
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
