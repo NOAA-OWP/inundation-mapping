@@ -11,6 +11,17 @@ Masks levee-protected areas from the DEM in branch 0 and in highest two stream o
     - `mask_dem.py`: Masks levee-protected areas from the DEM in branch 0 and in highest two stream order branches
     - `delineate_hydros_and_produce_HAND.sh`: Adds `src/gms/mask_dem.py`
 
+<br/><br/>
+
+## v4.0.13.2 - 2022-12-20 - [PR #767](https://github.com/NOAA-OWP/inundation-mapping/pull/767)
+
+Fixes inundation of nodata areas of REM.
+
+### Changes
+
+- `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
+
+<br/><br/>
 
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
