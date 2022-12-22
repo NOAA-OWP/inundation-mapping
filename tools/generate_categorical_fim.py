@@ -554,7 +554,7 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
     
     # Join messages to populate status field to candidate sites. Assign 
-    # status for null fields.  # TODO revisit
+    # status for null fields.
     viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
     
 #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
@@ -683,8 +683,6 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
 
 if __name__ == '__main__':
 
-    # Parse arguments
-    parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
     
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
