@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.0.14.2 - 2022-12-22 - [PR #772](https://github.com/NOAA-OWP/inundation-mapping/pull/772)
 
-Added usgs_elev_table.csv to hydrovis whitelist files.  Also updated the name to include the word "hydrovis" in them (anticipating more s3 whitelist files).
+Added `usgs_elev_table.csv` to hydrovis whitelist files.  Also updated the name to include the word "hydrovis" in them (anticipating more s3 whitelist files).
 
 ### Changes
 
