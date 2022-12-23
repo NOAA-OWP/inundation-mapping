@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
+import glob
 import os
 import sys
 sys.path.append('/foss_fim/src')
@@ -669,6 +670,19 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
             wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
         else:
             print('BLE/IFC/RAS2FIM FR datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a FR version')
+        
+def convert_shapes_to_csv(workspace):
+    
+    # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
+    shape_list = glob.glob(os.path.join(workspace, '*.shp'))
+    for shape in shape_list:
+        gdf = gpd.read_file(shape)
+        parent_directory = os.path.split(shape)[0]
+        file_name = shape.replace('.shp', '.csv')
+        csv_output_path = os.path.join(parent_directory, file_name)
+        gdf.to_csv(csv_output_path)
+    
+        
 #######################################################################
 if __name__ == '__main__':
     # Parse arguments
@@ -697,3 +711,7 @@ if __name__ == '__main__':
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
     eval_plots(metrics_csv = m, workspace = w, versions = v, stats = s, spatial = sp, fim_1_ms = f, site_barplots = i)
+    
+    # Convert output shapefiles to CSV
+    print("Converting to CSVs...")
+    convert_shapes_to_csv(w)

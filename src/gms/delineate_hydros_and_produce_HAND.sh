@@ -6,6 +6,15 @@ level=$1
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+## MASK LEVEE-PROTECTED AREAS FROM DEM ##
+if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $outputHucDataDir/LeveeProtectedAreas_subset.gpkg ]; then
+    echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"$stopDiv
+    date -u
+    Tstart
+    python3 -m memory_profiler $srcDir/gms/mask_dem.py -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif  -s $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -i $current_branch_id -b0 $branch_zero_id
+    Tcount
+fi
+
 ## D8 FLOW ACCUMULATIONS ##
 echo -e $startDiv"D8 Flow Accumulations $hucNumber $current_branch_id"$stopDiv
 date -u

@@ -16,6 +16,42 @@ from rasterio import features
 from shapely.geometry import shape
 from shapely.geometry import Polygon
 from shapely.geometry import MultiPolygon
+from dotenv import load_dotenv
+
+
+def get_env_paths():
+    load_dotenv()
+    #import variables from .env file
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    return API_BASE_URL, WBD_LAYER
+
+
+def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order):
+    """
+    This function uses the WRDS API to filter out NWM segments from a list if their stream order is different than
+    the target stream order.
+    
+    Args:
+        unfiltered_segments (list):  A list of NWM feature_id strings.
+        desired_order (str): The desired stream order.
+    Returns:
+        filtered_segments (list): A list of NWM feature_id strings, paired down to only those that share the target order.        
+    
+    """
+    API_BASE_URL, WBD_LAYER = get_env_paths()
+    #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
+    metadata_url = f'{API_BASE_URL}/metadata'
+    
+    filtered_segments = []
+    for feature_id in unfiltered_segments:
+        all_lists = get_metadata(metadata_url, select_by = 'nwm_feature_id', selector = [feature_id])
+        feature_id_metadata = next(item for item in all_lists)[0]
+        stream_order = feature_id_metadata['nwm_feature_data']['stream_order']
+        if stream_order == desired_order:
+            filtered_segments.append(feature_id)
+
+    return filtered_segments
 
 
 def check_for_regression(stats_json_to_test, previous_version, previous_version_stats_json_path, regression_test_csv=None):
@@ -613,6 +649,8 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
     params['downstream_trace_distance'] = downstream_trace_distance
     #Request data from url
     response = requests.get(url, params = params)
+#    print(response)
+#    print(url)
     if response.ok:
         #Convert data response to a json
         metadata_json = response.json()
@@ -685,13 +723,16 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
 
     '''
     #Import huc8 layer as geodataframe and retain necessary columns
+    print("Reading WBD...")
     huc8 = gpd.read_file(wbd_huc8_path, layer = 'WBDHU8')
+    print("WBD read.")
     huc8 = huc8[['HUC8','name','states', 'geometry']]
     #Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup ={'NAD27':'EPSG:4267', 'NAD83':'EPSG:4269', 'WGS84': 'EPSG:4326'}
     #Create empty geodataframe and define CRS for potential horizontal datums
     metadata_gdf = gpd.GeoDataFrame()
     #Iterate through each site
+    print("Iterating through metadata list...")
     for metadata in metadata_list:
         #Convert metadata to json
         df = pd.json_normalize(metadata)
@@ -701,6 +742,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
         df.dropna(subset = ['identifiers_nws_lid','usgs_preferred_latitude', 'usgs_preferred_longitude'], inplace = True)
         #If dataframe still has data
         if not df.empty:
+#            print(df[:5])
             #Get horizontal datum
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
             #Look up EPSG code, if not returned Assume NAD83 as default. 
@@ -716,15 +758,16 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
             metadata_gdf = metadata_gdf.append(site_gdf, ignore_index = True)
-
+    
     #Trim metadata to only have certain fields.
     if not retain_attributes:
         metadata_gdf = metadata_gdf[['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'identifiers_usgs_site_code', 'geometry']]
     #If a list of attributes is supplied then use that list.
-    elif isinstance(retain_attributes,list):
-        metadata_gdf = metadata_gdf[retain_attributes]
-
+#    elif isinstance(retain_attributes,list):
+#        metadata_gdf = metadata_gdf[retain_attributes]
+    print("Performing spatial and tabular operations on geodataframe...")
     #Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
+    print(metadata_gdf)
     joined_gdf = gpd.sjoin(metadata_gdf, huc8, how = 'inner', op = 'intersects', lsuffix = 'ahps', rsuffix = 'wbd')
     joined_gdf = joined_gdf.drop(columns = 'index_wbd')
 
@@ -913,7 +956,10 @@ def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
                 flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
                 stages['units'] = threshold_data.get('metadata').get('stage_units')
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-    return stages, flows
+        return stages, flows
+    else:
+        print("WRDS response error: ")
+#        print(response)
 
 ########################################################################
 # Function to write flow file
@@ -1071,7 +1117,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
         lon = datum_info['lon']
     
     #Define url for datum API
-    datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/tidal'     
+    datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/convert'     
     
     #Define parameters. Hard code most parameters to convert NGVD to NAVD.    
     params = {}
@@ -1087,16 +1133,18 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     
     #Call the API
     response = requests.get(datum_url, params = params)
-    #If succesful get the navd adjustment
+
+    #If successful get the navd adjustment
     if response:
         results = response.json()
         #Get adjustment in meters (NGVD29 to NAVD88)
-        adjustment = results['tar_height']
+        adjustment = results['t_z']
         #convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084,2)                
     else:
         adjustment_ft = None
-    return adjustment_ft       
+    return adjustment_ft    
+   
 #######################################################################
 #Function to download rating curve from API
 #######################################################################
@@ -1121,6 +1169,7 @@ def get_rating_curve(rating_curve_url, location_ids):
     #Define DataFrame to contain all returned curves.
     all_curves = pd.DataFrame()
     
+    print(location_ids)
     #Define call to retrieve all rating curve information from WRDS.
     joined_location_ids = '%2C'.join(location_ids)
     url = f'{rating_curve_url}/{joined_location_ids}'
