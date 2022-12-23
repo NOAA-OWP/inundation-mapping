@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.(to be assigned) - 2022-12-20 - [PR #769](https://github.com/NOAA-OWP/inundation-mapping/pull/769)
+## v4.0.14.0 - 2022-12-20 - [PR #769](https://github.com/NOAA-OWP/inundation-mapping/pull/769)
 
 Masks levee-protected areas from the DEM in branch 0 and in highest two stream order branches.
 
