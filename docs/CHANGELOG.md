@@ -1,6 +1,46 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.14.2 - 2022-12-22 - [PR #772](https://github.com/NOAA-OWP/inundation-mapping/pull/772)
+
+Added usgs_elev_table.csv to hydrovis whitelist files.  Also updated the name to include the word "hydrovis" in them (anticipating more s3 whitelist files).
+
+### Changes
+
+- `config`
+    - `aws_s3_put_fim4_hydrovis_whitelist.lst`:  File name updated and added usgs_elev_table.csv so it gets push up as well.
+    - `aws_s3_put_fim3_hydrovis_whitelist.lst`: File name updated
+
+- `data/aws`
+   - `s3.py`: added `/foss_fim/config/aws_s3_put_fim4_hydrovis_whitelist.lst` as a default to the -w param.
+
+<br/><br/>
+
+## v4.0.14.1 - 2022-12-03 - [PR #753](https://github.com/NOAA-OWP/inundation-mapping/pull/753)
+
+Creates a polygon of 3DEP DEM domain (to eliminate errors caused by stream networks with no DEM data in areas of HUCs that are outside of the U.S. border) and uses the polygon layer to clip the WBD and stream network (to a buffer inside the WBD).
+
+### Additions
+- `data/usgs/acquire_and_preprocess_3dep_dems.py`: Adds creation of 3DEP domain polygon by polygonizing all HUC6 3DEP DEMs and then dissolving them.
+- `src/gms/run_by_unit.sh`: Adds 3DEP domain polygon .gpkg as input to `src/clip_vectors_to_wbd.py`
+
+### Changes
+- `src/clip_vectors_to_wbd.py`: Clips WBD to 3DEP domain polygon and clips streams to a buffer inside the clipped WBD polygon.
+
+<br/><br/>
+
+## v4.0.14.0 - 2022-12-20 - [PR #769](https://github.com/NOAA-OWP/inundation-mapping/pull/769)
+
+Masks levee-protected areas from the DEM in branch 0 and in highest two stream order branches.
+
+### Additions
+
+- `src/gms/`
+    - `mask_dem.py`: Masks levee-protected areas from the DEM in branch 0 and in highest two stream order branches
+    - `delineate_hydros_and_produce_HAND.sh`: Adds `src/gms/mask_dem.py`
+
+<br/><br/>
+
 ## v4.0.13.2 - 2022-12-20 - [PR #767](https://github.com/NOAA-OWP/inundation-mapping/pull/767)
 
 Fixes inundation of nodata areas of REM.
