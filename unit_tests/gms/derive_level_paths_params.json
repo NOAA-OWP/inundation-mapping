@@ -10,8 +10,7 @@
 		"catchments_outfile": "/data/outputs/fim_unit_test_data_do_not_remove/05030104/nwm_catchments_proj_subset_levelPaths.gpkg",
 		"branch_inlets_outfile": "/data/outputs/fim_unit_test_data_do_not_remove/05030104/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg",
 		"reach_id_attribute": "ID",
-		"verbose": true,
-		"drop_low_stream_orders": false
+		"verbose": true
 	},
 	
 	"dropped_stream_orders_no_branches_remaining":
@@ -25,8 +24,7 @@
 		"catchments_outfile": "/data/outputs/fim_unit_test_data_do_not_remove/02030201/nwm_catchments_proj_subset_levelPaths.gpkg",
 		"branch_inlets_outfile": "/data/outputs/fim_unit_test_data_do_not_remove/02030201/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg",
 		"reach_id_attribute": "ID",
-		"verbose": true,
-		"drop_low_stream_orders": true
+		"verbose": true
 	}	
 }
 

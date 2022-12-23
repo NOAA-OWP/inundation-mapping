@@ -1,6 +1,102 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.16.0 - 2022-12-20 - [PR #768](https://github.com/NOAA-OWP/inundation-mapping/pull/768)
+
+`gms_run_branch.sh` was processing all of the branches iteratively, then continuing on to a large post processing portion of code. That has now be split to two files, one for branch iteration and the other file for just post processing.
+
+Other minor changes include:
+- Removing the system where a user could override `DropStreamOrders` where they could process streams with stream orders 1 and 2 independently like other GMS branches.  This option is now removed, so it will only allow stream orders 3 and higher as gms branches and SO 1 and 2 will always be in branch zero.
+
+- The `retry` flag on the three gms*.sh files has been removed. It did not work correctly and was not being used. Usage of it would have created unreliable results. 
+
+### Additions
+
+- `gms_run_post_processing.sh`
+   - handles all tasks from after `gms_run_branch.sh` to this file, except for output cleanup, which stayed in `gms_run_branch.sh`.
+   - Can be run completely independent from `gms_run_unit.sh` or gms_run_branch.sh` as long as all of the files are in place. And can be re-run if desired.
+
+### Changes
+
+- `gms_pipeline.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer reusable output date/time/duration system.
+   - Add call to new `gms_run_post_processing.sh` file.
+
+- `gms_run_branch.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer reusable output date/time/duration system.
+   - Removed most code from below the branch iterator to the new `gms_run_post_processing.sh` file. However, it did keep the branch files output cleanup and non-zero exit code checking.
+
+- `gms_run_unit.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer reusable output date/time/duration system.
+
+- `src`
+    - `bash_functions.env`:  Added a new method to make it easier / simpler to calculation and display duration time. 
+    - `filter_catchments_and_add_attributes.py`:  Remove "dropLowStreamOrders" system.
+    - `split_flows.py`: Remove "dropLowStreamOrders" system.
+    - `usgs_gage_unit_setup.py`:  Remove "dropLowStreamOrders" system.
+
+- `gms`  
+    - `delineate_hydros_and_produced_HAND.sh` : Remove "dropLowStreamOrders" system.
+    - `derive_level_paths.py`: Remove "dropLowStreamOrders" system and some small style updates.
+    - `run_by_unit.sh`: Remove "dropLowStreamOrders" system.
+
+- `unit_tests/gms`
+    - `derive_level_paths_params.json` and `derive_level_paths_unittests.py`: Remove "dropLowStreamOrders" system.
+
+<br/><br/>
+
+## v4.0.15.0 - 2022-12-20 - [PR #758](https://github.com/NOAA-OWP/inundation-mapping/pull/758)
+
+This merge addresses feedback received from field users regarding CatFIM. Users wanted a Stage-Based version of CatFIM, they wanted maps created for multiple intervals between flood categories, and they wanted documentation as to why many sites are absent from the Stage-Based CatFIM service. This merge seeks to address this feedback. CatFIM will continue to evolve with more feedback over time.
+
+## Changes
+- `/src/gms/usgs_gage_crosswalk.py`: Removed filtering of extra attributes when writing table
+- `/src/gms/usgs_gage_unit_setup.py`: Removed filter of gages where `rating curve == yes`. The filtering happens later on now.
+- `/tools/eval_plots.py`: Added a post-processing step to produce CSVs of spatial data
+- `/tools/generate_categorical_fim.py`:
+  - New arguments to support more advanced multiprocessing, support production of Stage-Based CatFIM, specific output directory pathing, upstream and downstream distance, controls on how high past "major" magnitude to go when producing interval maps for Stage-Based, the ability to run a single AHPS site.
+- `/tools/generate_categorical_fim_flows.py`:
+  - Allows for flows to be retrieved for only one site (useful for testing)
+  - More logging
+  - Filtering stream segments according to stream order
+- `/tools/generate_categorical_fim_mapping.py`:
+  - Support for Stage-Based CatFIM production
+  - Enhanced multiprocessing
+  - Improved post-processing
+- `/tools/pixel_counter.py`: fixed a bug where Nonetypes were being returned
+- `/tools/rating_curve_get_usgs_rating_curves.py`:
+  - Removed filtering when producing `usgs_gages.gpkg`, but adding attribute as to whether or not it meets acceptance criteria, as defined in `gms_tools/tools_shared_variables.py`.
+  - Creating a lookup list to filter out unacceptable gages before they're written to `usgs_rating_curves.csv`
+  - The `usgs_gages.gpkg` now includes two fields indicating whether or not gages pass acceptance criteria (defined in `tools_shared_variables.py`. The fields are `acceptable_codes` and `acceptable_alt_error`
+- `/tools/tools_shared_functions.py`:
+  - Added `get_env_paths()` function to retrieve environmental variable information used by CatFIM and rating curves scripts
+  - `Added `filter_nwm_segments_by_stream_order()` function that uses WRDS to filter out NWM feature_ids from a list if their stream order is different than a desired stream order.
+- `/tools/tools_shared_variables.py`: Added the acceptance criteria and URLS for gages as non-constant variables. These can be modified and tracked through version changes. These variables are imported by the CatFIM and USGS rating curve and gage generation scripts.
+- `/tools/test_case_by_hydroid.py`: reformatting code, recommend adding more comments/docstrings in future commit
+
+<br/><br/>
+
+## v4.0.14.2 - 2022-12-22 - [PR #772](https://github.com/NOAA-OWP/inundation-mapping/pull/772)
+
+Added `usgs_elev_table.csv` to hydrovis whitelist files.  Also updated the name to include the word "hydrovis" in them (anticipating more s3 whitelist files).
+
+### Changes
+
+- `config`
+    - `aws_s3_put_fim4_hydrovis_whitelist.lst`:  File name updated and added usgs_elev_table.csv so it gets push up as well.
+    - `aws_s3_put_fim3_hydrovis_whitelist.lst`: File name updated
+
+- `data/aws`
+   - `s3.py`: added `/foss_fim/config/aws_s3_put_fim4_hydrovis_whitelist.lst` as a default to the -w param.
+
+<br/><br/>
+
 ## v4.0.14.1 - 2022-12-03 - [PR #753](https://github.com/NOAA-OWP/inundation-mapping/pull/753)
 
 Creates a polygon of 3DEP DEM domain (to eliminate errors caused by stream networks with no DEM data in areas of HUCs that are outside of the U.S. border) and uses the polygon layer to clip the WBD and stream network (to a buffer inside the WBD).
@@ -34,13 +130,11 @@ Fixes inundation of nodata areas of REM.
 
 - `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
 
-<br/><br/>
-
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
 This merge adds the tools required to generate Alpha metrics by hydroid. It summarizes the Apha metrics by branch 0 catchment for use in the Hydrovis "FIM Performance" service.
 
-## Additions
+### Additions
 
 - `pixel_counter.py`:  A script to perform zonal statistics against raster data and geometries
 - `pixel_counter_functions.py`: Supporting functions
