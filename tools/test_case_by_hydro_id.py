@@ -21,6 +21,7 @@ def perform_zonal_stats(huc_gpkg,agree_rast):
     stats = zonal_stats(huc_gpkg,{"agreement_raster":agree_rast}, nodata_value=10)
     return stats
 
+
 #####################################################
 # Creates a pandas df containing Alpha stats by hydroid.
 # Stats input is the output of zonal_stats function.
@@ -154,48 +155,49 @@ if __name__ == "__main__":
         if not os.path.exists(test_case_class.fim_dir):
             print(f'{test_case_class.fim_dir} does not exist')
             continue
-        else:
             
-            print(test_case_class.fim_dir, end='\r')
-                       
-            agreement_dict = test_case_class.get_current_agreements()
-           
-            for agree_rast in agreement_dict:
-                    
-                    print('performing_zonal_stats')
-
-                    branches_dir = os.path.join(test_case_class.fim_dir,'branches')
-                    for branches in os.listdir(branches_dir):
-                        if branches != "0":
-                            continue
-                        huc_gpkg = os.path.join(branches_dir,branches,)
-                                                
-                        string_manip = "gw_catchments_reaches_filtered_addedAttributes_crosswalked_" + branches + ".gpkg"
-                        
-                        huc_gpkg = os.path.join(huc_gpkg, string_manip)
-                        
-                        define_mag = agree_rast.split(version)
-
-                        define_mag_1 = define_mag[1].split('/')
-                        
-                        mag = define_mag_1[1]
+        print(test_case_class.fim_dir, end='\r')
                    
-                        stats = perform_zonal_stats(huc_gpkg,agree_rast)
-                        
-                        print('assembling_hydroalpha_for_single_huc')
-                        get_geom = gpd.read_file(huc_gpkg)
-                        
-                        get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
-                                            
-                        in_mem_df = assemble_hydro_alpha_for_single_huc(stats, test_case_class.huc, mag, test_case_class.benchmark_cat)
-                        
-                        hydro_geom_df = get_geom[["HydroID", "geometry"]]
-                        
-                        geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how ='inner')
-                        
-                        concat_df_list = [geom_output, csv_output]
+        agreement_dict = test_case_class.get_current_agreements()
+       
+        for agree_rast in agreement_dict:
+                
+                print('performing_zonal_stats')
 
-                        csv_output = pd.concat(concat_df_list, sort=False)
+                branches_dir = os.path.join(test_case_class.fim_dir,'branches')
+                for branches in os.listdir(branches_dir):
+                    if branches != "0":
+                        continue
+                    huc_gpkg = os.path.join(branches_dir,branches,)
+                                            
+                    string_manip = "gw_catchments_reaches_filtered_addedAttributes_crosswalked_" + branches + ".gpkg"
+                    
+                    huc_gpkg = os.path.join(huc_gpkg, string_manip)
+                    
+                    define_mag = agree_rast.split(version)
+
+                    define_mag_1 = define_mag[1].split('/')
+                    
+                    mag = define_mag_1[1]
+               
+                    stats = perform_zonal_stats(huc_gpkg,agree_rast)
+                    if stats == []:
+                        continue
+                    
+                    print('assembling_hydroalpha_for_single_huc')
+                    get_geom = gpd.read_file(huc_gpkg)
+                    
+                    get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
+                                        
+                    in_mem_df = assemble_hydro_alpha_for_single_huc(stats, test_case_class.huc, mag, test_case_class.benchmark_cat)
+                    
+                    hydro_geom_df = get_geom[["HydroID", "geometry"]]
+                    
+                    geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how ='inner')
+                    
+                    concat_df_list = [geom_output, csv_output]
+
+                    csv_output = pd.concat(concat_df_list, sort=False)
                                            
     print('projecting to 3857')
     csv_output = csv_output.to_crs('EPSG:3857')
