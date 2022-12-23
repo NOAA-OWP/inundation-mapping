@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.-.14.1 - 2022-12-03 - [PR #753](https://github.com/NOAA-OWP/inundation-mapping/pull/753)
+## v4.0.14.1 - 2022-12-03 - [PR #753](https://github.com/NOAA-OWP/inundation-mapping/pull/753)
 
 Creates a polygon of 3DEP DEM domain (to eliminate errors caused by stream networks with no DEM data in areas of HUCs that are outside of the U.S. border) and uses the polygon layer to clip the WBD and stream network (to a buffer inside the WBD).
 
