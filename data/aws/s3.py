@@ -180,9 +180,10 @@ class S3(AWS_Base):
 if __name__ == '__main__':
 
     # Sample Usage
-    #python3 /foss_fim/data/aws/s3.py -a put -c /data/config/aws_creds.env -s /data/previous_fim/fim_4_0_7_0 -t "s3://example-us-east-1/fim_4_0_7_0" -w /foss_fim/config/aws_s3_put_whitelist.lst
+    #python3 /foss_fim/data/aws/s3.py -a put -c /data/config/aws_creds.env -s /data/previous_fim/fim_4_0_13_1 -t "s3://example-us-east-1/fim_4_0_13_1" 
     
     # You can leave the -w flag off to load all files/folders from a directory
+    # but default is to -w /foss_fim/config/aws_s3_put_fim4_hydrovis_whitelist.lst
     
     # this works for hydroviz but can work with other s3 sites as well (ie esip)
             
@@ -198,6 +199,7 @@ if __name__ == '__main__':
                         help='s3 bucket address and folder', required=True)
     parser.add_argument('-w','--whitelist_file_path', 
                         help='A file with the last of file names to be copied up (line delimited)',
+                        default='/foss_fim/config/aws_s3_put_fim4_hydrovis_whitelist.lst',
                         required=False)
     parser.add_argument('-v','--is_verbose', 
                         help='Adding this flag will give additional tracing output',
