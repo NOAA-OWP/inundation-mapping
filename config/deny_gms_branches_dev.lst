@@ -41,7 +41,6 @@ gw_catchments_reaches_filtered_addedAttributes_{}.gpkg
 headwaters_{}.tif
 #hydroTable_{}.csv
 idFile_{}.txt
-LeveeProtectedAreas_subset_{}.tif
 LandSea_subset_{}.tif
 nld_rasterized_elev_{}.tif
 nld_subset_levees_{}.tif

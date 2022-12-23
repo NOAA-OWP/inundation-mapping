@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.(pending) - 2022-12-23 - [PR#773](https://github.com/NOAA-OWP/inundation-mapping/pull/773)
+
+Cleans up REM masking of levee-protected areas and fixes associated error.
+
+### Removals
+
+- `src/gms/delineate_hydros_and_produce_HAND.sh`: removes rasterization and masking of levee-protected areas from the REM
+- `config`
+    - Removes `LeveeProtectedAreas_subset_{}.tif` from `deny_gms_branch_zero.lst`, `deny_gms_branches_dev.lst`, and `deny_gms_branches_prod.lst`
+
+### Changes
+
+- `src/gms/rem.py`: fixes an error where the nodata value of the DEM was overlooked
+
+<br/><br/>
+
 ## v4.0.16.0 - 2022-12-20 - [PR #768](https://github.com/NOAA-OWP/inundation-mapping/pull/768)
 
 `gms_run_branch.sh` was processing all of the branches iteratively, then continuing on to a large post processing portion of code. That has now be split to two files, one for branch iteration and the other file for just post processing.
