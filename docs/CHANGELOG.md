@@ -7,10 +7,10 @@ Cleans up REM masking of levee-protected areas and fixes associated error.
 
 ### Removals
 
-- `src/gms`
+- `src/gms/`
     - `delineate_hydros_and_produce_HAND.sh`: removes rasterization and masking of levee-protected areas from the REM
     - `rasterize_by_order`: removes this file
-- `config`
+- `config/`
     - `deny_gms_branch_zero.lst`, `deny_gms_branches_dev.lst`, and `deny_gms_branches_prod.lst`: removes `LeveeProtectedAreas_subset_{}.tif`
 
 ### Changes
