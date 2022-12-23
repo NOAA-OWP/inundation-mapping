@@ -8,7 +8,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Other minor changes include:
 - Removing the system where a user could override `DropStreamOrders` where they could process streams with stream orders 1 and 2 independently like other GMS branches.  This option is now removed, so it will only allow stream orders 3 and higher as gms branches and SO 1 and 2 will always be in branch zero.
 
--The `retry` flag on the three gms*.sh files has been removed. It did not work correctly and was not being used. Usage of it would have created un-reliable results. 
+- The `retry` flag on the three gms*.sh files has been removed. It did not work correctly and was not being used. Usage of it would have created unreliable results. 
 
 ### Additions
 
@@ -21,19 +21,19 @@ Other minor changes include:
 - `gms_pipeline.sh`
    - Remove "retry" system.
    - Remove "dropLowStreamOrders" system.
-   - Updated for newer re-usable output date/time/duration system.
+   - Updated for newer reusable output date/time/duration system.
    - Add call to new `gms_run_post_processing.sh` file.
 
 - `gms_run_branch.sh`
    - Remove "retry" system.
    - Remove "dropLowStreamOrders" system.
-   - Updated for newer re-usable output date/time/duration system.
+   - Updated for newer reusable output date/time/duration system.
    - Removed most code from below the branch iterator to the new `gms_run_post_processing.sh` file. However, it did keep the branch files output cleanup and non-zero exit code checking.
 
 - `gms_run_unit.sh`
    - Remove "retry" system.
    - Remove "dropLowStreamOrders" system.
-   - Updated for newer re-usable output date/time/duration system.
+   - Updated for newer reusable output date/time/duration system.
 
 - `src`
     - `bash_functions.env`:  Added a new method to make it easier / simpler to calculation and display duration time. 
@@ -51,7 +51,6 @@ Other minor changes include:
 
 <br/><br/>
 
-=======
 ## v4.0.15.0 - 2022-12-20 - [PR #758](https://github.com/NOAA-OWP/inundation-mapping/pull/758)
 
 This merge addresses feedback received from field users regarding CatFIM. Users wanted a Stage-Based version of CatFIM, they wanted maps created for multiple intervals between flood categories, and they wanted documentation as to why many sites are absent from the Stage-Based CatFIM service. This merge seeks to address this feedback. CatFIM will continue to evolve with more feedback over time.
