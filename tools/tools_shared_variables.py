@@ -61,3 +61,16 @@ TRED_BOLD = '\033[31;1m'
 TWHITE = '\033[37m'
 WHITE_BOLD = '\033[37;1m'
 CYAN_BOLD = '\033[36;1m'
+
+# USGS gages acceptance criteria. Likely not constants, so not using all caps.
+# ANY CHANGE TO THESE VALUES SHOULD WARRANT A CODE VERSION CHANGE
+# https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
+acceptable_coord_acc_code_list = ['H','1','5','S','R','B','C','D','E']
+# https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
+acceptable_coord_method_code_list = ['C','D','W','X','Y','Z','N','M','L','G','R','F','S']
+# https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
+acceptable_alt_acc_thresh = 1.0
+# https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
+acceptable_alt_meth_code_list = ['A','D','F','I','J','L','N','R','W','X','Y','Z']
+# https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
+acceptable_site_type_list = ['ST']

@@ -40,8 +40,7 @@ def split_flows(max_length,
                 split_points_filename, 
                 wbd8_clp_filename, 
                 lakes_filename,
-                nwm_streams_filename,
-                drop_stream_orders=False):
+                nwm_streams_filename):
 
     toMetersConversion = 1e-3
 
@@ -49,13 +48,9 @@ def split_flows(max_length,
     flows = gpd.read_file(flows_filename)
 
     if (len(flows) == 0):
-        if (drop_stream_orders):
-            # this is not an exception, but a custom exit code that can be trapped
-            print("No relevant streams within HUC boundaries.")
-            sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
-        else:
-            # if we are not dropping stream orders, then something is wrong
-            raise Exception("No flowlines exist.")
+        # this is not an exception, but a custom exit code that can be trapped
+        print("No relevant streams within HUC boundaries.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
     wbd8 = gpd.read_file(wbd8_clp_filename)
     dem = rasterio.open(dem_filename,'r')
@@ -256,13 +251,10 @@ def split_flows(max_length,
         remove(split_points_filename)
 
     if (len(split_flows_gdf) == 0):
-        if (drop_stream_orders):
-            # this is not an exception, but a custom exit code that can be trapped
-            print("There are no flowlines after stream order filtering.")
-            sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
-        else:
-            # if we are not dropping stream orders, then something is wrong
-            raise Exception("No flowlines exist.")
+        # this is not an exception, but a custom exit code that can be trapped
+        print("There are no flowlines after stream order filtering.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+
     split_flows_gdf.to_file(split_flows_filename,driver=getDriver(split_flows_filename),index=False)
 
     if len(split_points_gdf) == 0:
@@ -284,7 +276,6 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename',required=True)
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename',required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename',required=True)
-    parser.add_argument('-ds', '--drop-stream-orders', help='Drop stream orders 1 and 2', type=int, required=False, default=False)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
