@@ -143,6 +143,7 @@ def post_process_huc_level(job_number_tif, ahps_dir_list, huc_dir, attributes_di
                     magnitude = os.path.split(tif_to_process)[1].split('_')[1]
                     try:
                         interval_stage = float((os.path.split(tif_to_process)[1].split('_')[2]).replace('p', '.').replace("ft", ""))
+                        print(interval_stage)
                         if interval_stage == 'extent':
                             interval_stage = None
                     except ValueError:

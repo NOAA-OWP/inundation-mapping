@@ -425,7 +425,9 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                         category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
                     if interval_stage >= major_stage:
                         category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    executor.submit(produce_stage_based_catfim_tifs, stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
+                        print("STAGE")
+                    print(stage)
+                    executor.submit(produce_stage_based_catfim_tifs, interval_stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
             except TypeError:  # sometimes the thresholds are Nonetypes
                 pass
                     
@@ -628,6 +630,8 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
             # Create inundation maps with branch and stage data
             try:
                 print("Running inundation for " + huc + " and branch " + branch)
+                print("HAND STAGE")
+                print(hand_stage)
                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
             except Exception:
                 messages.append([f'{lid}:inundation failed at {category}'])
@@ -682,7 +686,6 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
 
 
 if __name__ == '__main__':
-
     
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
