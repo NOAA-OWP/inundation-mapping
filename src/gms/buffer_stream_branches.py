@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import geopandas as gpd
 from stream_branches import StreamNetwork
 from stream_branches import StreamBranchPolygons
 import argparse
@@ -12,6 +13,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generates branch polygons')
     parser.add_argument('-s','--streams', help='Streams file to branch', required=True)
     parser.add_argument('-i','--branch-id', help='Attribute with branch ids', required=True)
+    parser.add_argument('-j','--dem-domain', help='DEM domain polygon', required=True)
     parser.add_argument('-d','--buffer-distance', help='Distance to buffer branches to create branch polygons', required=True,type=int)
     parser.add_argument('-b','--branches', help='Branch polygons out file name', required=False,default=None)
     parser.add_argument('-v','--verbose', help='Verbose printing', required=False,default=None,action='store_true')
@@ -19,7 +21,7 @@ if __name__ == '__main__':
     # extract to dictionary
     args = vars(parser.parse_args())
 
-    streams_file, branch_id_attribute, buffer_distance, stream_polygons_file, verbose = args["streams"], args["branch_id"] , args["buffer_distance"], args["branches"] , args["verbose"]
+    streams_file, dem_domain, branch_id_attribute, buffer_distance, stream_polygons_file, verbose = args["streams"], args['dem_domain'], args["branch_id"] , args["buffer_distance"], args["branches"] , args["verbose"]
     
     if os.path.exists(streams_file):
         # load file
@@ -30,6 +32,8 @@ if __name__ == '__main__':
         stream_polys = StreamBranchPolygons.buffer_stream_branches( stream_network,
                                                                     buffer_distance=buffer_distance,
                                                                     verbose=verbose                  )
+
+        stream_polys = stream_polys.clip(dem_domain)
         
-        stream_polys.write(stream_polygons_file,verbose=verbose)
+        stream_polys[0].to_file(stream_polygons_file)
 

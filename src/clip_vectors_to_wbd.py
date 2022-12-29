@@ -37,18 +37,20 @@ def subset_vector_layers(subset_nwm_lakes,
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
 
-    # Get wbd buffer
+    # Erase area outside 3DEP domain
     wbd = gpd.read_file(wbd_filename)
+    dem_domain = gpd.read_file(dem_domain)
+    wbd = gpd.clip(wbd, dem_domain)
+    wbd.to_file(wbd_filename, layer='WBDHU8')
+
+    # Get wbd buffer
     wbd_buffer = wbd.copy()
     wbd_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance, resolution=32)
-
-    # Erase area outside 3DEP domain
-    dem_domain = gpd.read_file(dem_domain)
     wbd_buffer = gpd.clip(wbd_buffer, dem_domain)
 
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
-    wbd_streams_buffer = wbd.copy()
-    wbd_streams_buffer.geometry = wbd.geometry.buffer(wbd_buffer_distance-3*dem_cellsize, resolution=32)
+    wbd_streams_buffer = wbd_buffer.copy()
+    wbd_streams_buffer.geometry = wbd_buffer.geometry.buffer(-3*dem_cellsize, resolution=32)
 
     great_lakes = gpd.read_file(great_lakes, mask=wbd_buffer).reset_index(drop=True)
 
