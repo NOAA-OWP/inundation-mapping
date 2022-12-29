@@ -630,8 +630,6 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
             # Create inundation maps with branch and stage data
             try:
                 print("Running inundation for " + huc + " and branch " + branch)
-                print("HAND STAGE")
-                print(hand_stage)
                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
             except Exception:
                 messages.append([f'{lid}:inundation failed at {category}'])
