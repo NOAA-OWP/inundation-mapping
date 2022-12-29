@@ -1,6 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.17.1 - 2022-12-29 - [PR #778](https://github.com/NOAA-OWP/inundation-mapping/pull/778)
+
+This merge fixes a bug where all of the Stage-Based intervals were the same.
+
+### Changes
+- `/tools/generate_categorical_fim.py`: Changed `stage` variable to `interval_stage` variable in `produce_stage_based_catfim_tifs` function call.
+
+<br/><br/>
+
+## v4.0.17.0 - 2022-12-21 - [PR #771](https://github.com/NOAA-OWP/inundation-mapping/pull/771)
+
+Added rysnc to docker images. rysnc can now be used inside the images to move data around via docker mounts.
+
+### Changes
+
+- `Dockerfile` : added rsync 
+
+<br/><br/>
+
 ## v4.0.16.0 - 2022-12-20 - [PR #768](https://github.com/NOAA-OWP/inundation-mapping/pull/768)
 
 `gms_run_branch.sh` was processing all of the branches iteratively, then continuing on to a large post processing portion of code. That has now be split to two files, one for branch iteration and the other file for just post processing.
