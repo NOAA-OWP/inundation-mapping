@@ -425,8 +425,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                         category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
                     if interval_stage >= major_stage:
                         category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-                        print("STAGE")
-                    print(stage)
                     executor.submit(produce_stage_based_catfim_tifs, interval_stage, datum_adj_ft, branch_dir, lid_usgs_elev, lid_altitude, fim_dir, segments, lid, huc, lid_directory, category, number_of_jobs)
             except TypeError:  # sometimes the thresholds are Nonetypes
                 pass
