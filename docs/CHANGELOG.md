@@ -17,6 +17,8 @@ Cleans up REM masking of levee-protected areas and fixes associated error.
 
 - `src/gms/rem.py`: fixes an error where the nodata value of the DEM was overlooked
 
+<br/><br/>
+
 ## v4.0.17.2 - 2022-12-29 - [PR #779](https://github.com/NOAA-OWP/inundation-mapping/pull/779)
 
 Remove dependency on `other` folder in `test_cases`. Also updates ESRI and QGIS agreement raster symbology label to include the addition of levee-protected areas as a mask.
