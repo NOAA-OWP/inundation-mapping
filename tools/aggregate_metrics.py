@@ -204,7 +204,7 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
 
         for test_case in test_cases_dir_list:
 
-            if test_case not in ['other', 'validation_data_ble', 'validation_data_legacy', 'validation_data_ahps']:
+            if test_case not in ['validation_data_ble', 'validation_data_legacy', 'validation_data_ahps']:
                 branch_results_dir = os.path.join(TEST_CASES_DIR, test_case, 'performance_archive', config_version, branch)
 
                 huc = test_case.split('_')[0]
