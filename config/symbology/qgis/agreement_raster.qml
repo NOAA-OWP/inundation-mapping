@@ -27,7 +27,7 @@
         <paletteEntry label="FN" value="1" alpha="255" color="#fdae61"/>
         <paletteEntry label="FP" value="2" alpha="255" color="#d7191c"/>
         <paletteEntry label="TP" value="3" alpha="255" color="#2c7bb6"/>
-        <paletteEntry label="Waterbody mask" value="4" alpha="255" color="#b2b2b2"/>
+        <paletteEntry label="Masked" value="4" alpha="255" color="#b2b2b2"/>
       </colorPalette>
       <colorramp type="randomcolors" name="[source]"/>
     </rasterrenderer>
