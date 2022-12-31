@@ -73,7 +73,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
         rem_window = np.zeros(len(flat_dem),dtype=np.float32)
         for i,cm in enumerate(flat_catchments):
             if cm in catchmentMinDict:
-                if catchmentMinDict[cm] == ndv:
+                if catchmentMinDict[cm] == ndv or flat_dem[i] == ndv:
                     rem_window[i] = ndv
                 else:
                     rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
