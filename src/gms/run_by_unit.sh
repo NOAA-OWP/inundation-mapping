@@ -129,7 +129,7 @@ Tcount
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"$stopDiv
 date -u
 Tstart
-$srcDir/gms/buffer_stream_branches.py -s $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputHucDataDir/branch_polygons.gpkg -j $inputDataDir/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -v 
+$srcDir/gms/buffer_stream_branches.py -a $input_DEM_domain -s $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputHucDataDir/branch_polygons.gpkg -v
 Tcount
 
 ## CREATE BRANCHID LIST FILE
