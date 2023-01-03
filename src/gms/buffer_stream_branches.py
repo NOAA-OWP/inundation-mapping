@@ -33,7 +33,7 @@ if __name__ == '__main__':
                                                                     buffer_distance=buffer_distance,
                                                                     verbose=verbose                  )
 
-        # Clip to DEM domaind
+        # Clip to DEM domain
         if os.path.exists(dem_domain):
             dem_domain = gpd.read_file(dem_domain)
             stream_polys.geometry = gpd.clip(stream_polys, dem_domain).geometry

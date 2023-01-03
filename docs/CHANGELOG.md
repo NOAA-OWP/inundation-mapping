@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.(pending) - 2023-01-03 - [PR#780](https://github.com/NOAA-OWP/inundation-mapping/pull/780)
+
+Clips WBD and stream branch buffer polygons to DEM domain.
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Clips WBD polygon to DEM domain
+
+    - `gms/`
+        - `buffer_stream_branches.py`: Clips branch buffer polygons to DEM domain
+        - `derive_level_paths.py`: Stop processing if no branches exist
+        - `mask_dem.py`: Checks if stream file exists before continuing
+        - `remove_error_branches.py`: Checks if error_branches has data before continuing
+        - `run_by_unit.sh`: Adds DEM domain as bash variable and adds it as an argument to calling `clip_vectors_to_wbd.py` and `buffer_stream_branches.py`
+
 ## v4.0.17.3 - 2022-12-23 - [PR#773](https://github.com/NOAA-OWP/inundation-mapping/pull/773)
 
 Cleans up REM masking of levee-protected areas and fixes associated error.
