@@ -59,11 +59,9 @@ def subset_vector_layers(subset_nwm_lakes,
 
         # Clip excess lake area
         great_lakes = gpd.clip(great_lakes, wbd_buffer)
-        great_lakes_streams = gpd.clip(great_lakes, wbd_streams_buffer)
 
         # Buffer remaining lake area
         great_lakes.geometry = great_lakes.buffer(lake_buffer_distance)
-        great_lakes_streams.geometry = great_lakes_streams.buffer(lake_buffer_distance)
 
         # Removed buffered GL from WBD buffer
         wbd_buffer = gpd.overlay(wbd_buffer, great_lakes, how='difference')
