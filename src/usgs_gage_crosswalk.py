@@ -41,7 +41,7 @@ class GageCrosswalk(object):
         the dem-derived flows 3) sample both dems at the snapped points 4) write the crosswalked points
         to usgs_elev_table.csv
         '''
-
+        
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
@@ -96,10 +96,10 @@ class GageCrosswalk(object):
     def write(self, output_table_filename):
         '''Write to csv file'''
 
+        # Prep and write out file
         elev_table = self.gages.copy()
-        # Elev table cleanup
         elev_table.loc[elev_table['location_id'] == elev_table['nws_lid'], 'location_id'] = None # set location_id to None where there isn't a gage
-        elev_table = elev_table[['location_id', 'nws_lid', 'feature_id', 'HydroID', 'levpa_id', 'dem_elevation', 'dem_adj_elevation', 'order_', 'LakeID', 'HUC8', 'snap_distance']]
+        elev_table = elev_table[elev_table['location_id'].notna()]
 
         if not elev_table.empty:
             elev_table.to_csv(output_table_filename, index=False)
