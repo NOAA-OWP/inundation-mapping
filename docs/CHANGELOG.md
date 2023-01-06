@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.(pending) - 2023-01-06 - [PR#781](https://github.com/NOAA-OWP/inundation-mapping/pull/781)
+
+Added crosswalk_table.csv from the root output folder as being a file push up to Hydrovis s3 bucket after FIM BED runs.
+
+### Changes
+
+- `config`
+    - `aws_s3_put_fim4_hydrovis_whitelist.lst`:  Added crosswalk_table.csv to whitelist.
+
+
+<br/><br/>
+
 ## v4.0.17.3 - 2022-12-23 - [PR#773](https://github.com/NOAA-OWP/inundation-mapping/pull/773)
 
 Cleans up REM masking of levee-protected areas and fixes associated error.
