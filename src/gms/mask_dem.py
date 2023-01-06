@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import geopandas as gpd
 import fiona
 import rasterio as rio
@@ -12,22 +13,23 @@ def mask_dem(dem_filename, nld_filename, out_dem_filename, stream_layer, branch_
     """
     Masks levee-protected areas from DEM in branch 0 or if stream order is at least the minimum order (max - 1)
     """
-    streams_df = gpd.read_file(stream_layer, ignore_geometry=True)
+    if os.path.exists(stream_layer):
+        streams_df = gpd.read_file(stream_layer, ignore_geometry=True)
 
-    # Rasterize if branch zero or if stream order is at least the minimum order (max - 1)
-    if (branch_id == branch_zero_id) or (streams_df.loc[streams_df[branch_id_attribute].astype(int)==branch_id, order_attribute].max() >= streams_df[order_attribute].max() - 1):
+        # Rasterize if branch zero or if stream order is at least the minimum order (max - 1)
+        if (branch_id == branch_zero_id) or (streams_df.loc[streams_df[branch_id_attribute].astype(int)==branch_id, order_attribute].max() >= streams_df[order_attribute].max() - 1):
 
-        with rio.open(dem_filename) as dem, fiona.open(nld_filename) as leveed:
-            dem_data = dem.read(1)
-            dem_profile = dem.profile.copy()
+            with rio.open(dem_filename) as dem, fiona.open(nld_filename) as leveed:
+                dem_data = dem.read(1)
+                dem_profile = dem.profile.copy()
 
-            geoms = [feature["geometry"] for feature in leveed]
+                geoms = [feature["geometry"] for feature in leveed]
 
-            # Mask out levee-protected areas from DEM
-            out_dem_masked, _ = mask(dem, geoms, invert=True)
+                # Mask out levee-protected areas from DEM
+                out_dem_masked, _ = mask(dem, geoms, invert=True)
 
-            with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
-                dest.write(out_dem_masked[0,:,:], indexes=1)
+                with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
+                    dest.write(out_dem_masked[0,:,:], indexes=1)
 
 
 if __name__ == '__main__':
