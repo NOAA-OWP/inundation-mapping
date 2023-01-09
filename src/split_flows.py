@@ -108,9 +108,15 @@ def split_flows(max_length,
     # split at HUC8 boundaries
     print ('splitting stream segments at HUC8 boundaries')
     flows = gpd.overlay(flows, wbd8, how='union').explode().reset_index(drop=True)
+    flows = flows[~flows.is_empty]
+
+    if (len(flows) == 0):
+        # this is not an exception, but a custom exit code that can be trapped
+        print("No relevant streams within HUC boundaries.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
     # check for lake features
-    if lakes is not None:
+    if lakes is not None and len(flows) > 0 :
         if len(lakes) > 0:
           print ('splitting stream segments at ' + str(len(lakes)) + ' waterbodies')
           #create splits at lake boundaries
@@ -124,6 +130,11 @@ def split_flows(max_length,
 
     # remove empty geometries
     flows = flows.loc[~flows.is_empty,:]
+
+    if (len(flows) == 0):
+        # this is not an exception, but a custom exit code that can be trapped
+        print("No relevant streams within HUC boundaries.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
     for i,lineString in tqdm(enumerate(flows.geometry),total=len(flows.geometry)):
         # Reverse geometry order (necessary for BurnLines)
@@ -266,7 +277,7 @@ if __name__ == '__main__':
     max_length             = float(environ['max_split_distance_meters'])
     slope_min              = float(environ['slope_min'])
     lakes_buffer_input     = float(environ['lakes_buffer_dist_meters'])
-
+    
     # Parse arguments.
     parser = argparse.ArgumentParser(description='splitflows.py')
     parser.add_argument('-f', '--flows-filename', help='flows-filename',required=True)

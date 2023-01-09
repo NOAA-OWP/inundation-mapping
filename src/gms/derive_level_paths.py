@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import argparse
 import geopandas as gpd
 import sys
@@ -23,7 +24,11 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     if verbose:
         print("Loading stream network ...")
         
-    stream_network = StreamNetwork.from_file(filename=in_stream_network)
+    if os.path.exists(in_stream_network):
+        stream_network = StreamNetwork.from_file(filename=in_stream_network)
+    else:
+        print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
+        sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # if there are no reaches at this point
     if (len(stream_network) == 0):
@@ -38,8 +43,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
 
     # values_exluded of 1 and 2 mean where are dropping stream orders 1 and 2. We are leaving those
     # for branch zero.
-    stream_network = stream_network.exclude_attribute_values(branch_id_attribute="order_",
-                                            values_excluded=[1,2] )
+    stream_network = stream_network.exclude_attribute_values(branch_id_attribute="order_", values_excluded=[1,2] )
 
     # if there are no reaches at this point (due to filtering)
     if (len(stream_network) == 0):

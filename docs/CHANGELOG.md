@@ -11,7 +11,38 @@ Changes the projection of HAND processing to EPSG 5070.
     - `utils/shared_variables.py`: Changed the designated projection variables
     - `gms/`
         - `stream_branches.py`: Checks the projection of the input streams and changes if necessary
-        - `ren_by_unit.py`: Changed the default projection crs variable
+        - `run_by_unit.py`: Changed the default projection crs variable
+
+<br/><br/>
+
+## v4.0.18.0 - 2023-01-03 - [PR#780](https://github.com/NOAA-OWP/inundation-mapping/pull/780)
+
+Clips WBD and stream branch buffer polygons to DEM domain.
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Clips WBD polygon to DEM domain
+
+    - `gms/`
+        - `buffer_stream_branches.py`: Clips branch buffer polygons to DEM domain
+        - `derive_level_paths.py`: Stop processing if no branches exist
+        - `mask_dem.py`: Checks if stream file exists before continuing
+        - `remove_error_branches.py`: Checks if error_branches has data before continuing
+        - `run_by_unit.sh`: Adds DEM domain as bash variable and adds it as an argument to calling `clip_vectors_to_wbd.py` and `buffer_stream_branches.py`
+
+<br/><br/>
+
+
+## v4.0.17.4 - 2023-01-06 - [PR#781](https://github.com/NOAA-OWP/inundation-mapping/pull/781)
+
+Added crosswalk_table.csv from the root output folder as being a file push up to Hydrovis s3 bucket after FIM BED runs.
+
+### Changes
+
+- `config`
+    - `aws_s3_put_fim4_hydrovis_whitelist.lst`:  Added crosswalk_table.csv to whitelist.
+
 
 <br/><br/>
 
