@@ -16,7 +16,7 @@ from datetime import datetime
 from gms_tools.mosaic_inundation import Mosaic_inundation
 from gms_tools.inundate_gms import Inundate_gms
 from inundation import inundate
-from tools_shared_variables import elev_raster_ndv
+from utils.shared_variables import elev_raster_ndv, PREP_PROJECTION
 from utils.shared_functions import FIM_Helpers as fh
 
 
@@ -25,7 +25,7 @@ from utils.shared_functions import FIM_Helpers as fh
 #INPUTS_DIR = r'/data/inputs'
 #OUTPUT_BOOL_PARENT_DIR = '/data/inundation_review/inundate_nation/bool_temp/'
 #DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
-PREP_PROJECTION = 'PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.2572221010042,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4269"]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",29.5],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_center",23],PARAMETER["longitude_of_center",-96],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
+# PREP_PROJECTION = 'PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.2572221010042,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4269"]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",29.5],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_center",23],PARAMETER["longitude_of_center",-96],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
 
 
 def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosaic, job_number):

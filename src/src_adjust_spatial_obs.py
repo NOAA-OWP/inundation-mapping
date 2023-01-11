@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from geopandas.tools import sjoin
 from multiprocessing import Pool
 from src_roughness_optimization import update_rating_curve
-from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
+from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH, DEFAULT_FIM_PROJECTION_CRS
 
 #import variables from .env file
 load_dotenv()
@@ -52,7 +52,7 @@ Outputs
 def process_points(args):
 
     '''
-    The funciton ingests geodataframe and attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow
+    The function ingests geodataframe and attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow
 
     Processing
     - Extract x,y coordinates from geometry
@@ -74,21 +74,12 @@ def process_points(args):
     ## Define coords variable to be used in point raster value attribution.
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
 
+    water_edge_df.to_crs(DEFAULT_FIM_PROJECTION_CRS)
+    
     ## Use point geometry to determine HAND raster pixel values.
-    hand_src = rasterio.open(hand_path)
-    hand_crs = hand_src.crs
-    water_edge_df.to_crs(hand_crs)  # Reproject geodataframe to match hand_src. Should be the same, but this is a double check.
-    water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
-    hand_src.close()
-    del hand_src, hand_crs,
-
-    ## Use point geometry to determine catchment raster pixel values.
-    catchments_src = rasterio.open(catchments_path)
-    catchments_crs = catchments_src.crs
-    water_edge_df.to_crs(catchments_crs)
-    water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
-    catchments_src.close()
-    del catchments_src, catchments_crs
+    with rasterio.open(hand_path) as hand_src, rasterio.open(catchments_path) as catchments_src:
+        water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
+        water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
 
     water_edge_df = water_edge_df[(water_edge_df['hydroid'].notnull()) & (water_edge_df['hand'] > 0) & (water_edge_df['hydroid'] > 0)]
 
@@ -156,10 +147,10 @@ def find_points_in_huc(huc_id, conn):
     JOIN hucs H ON ST_Contains(H.geom, P.geom)
     WHERE H.huc8 = %s """
     
-    # Need to hard code the CRS to use EPSG:5070 instead of the default ESRI:102039 (gdal pyproj throws an error with crs 102039)
+    # Use EPSG:5070 instead of the default ESRI:102039 (gdal pyproj throws an error with crs 102039)
     # Appears that EPSG:5070 is functionally equivalent to ESRI:102039: https://gis.stackexchange.com/questions/329123/crs-interpretation-in-qgis
     water_edge_df = gpd.GeoDataFrame.from_postgis(huc_pt_query, con=conn, 
-                                                  params=[huc_id], crs="EPSG:5070",
+                                                  params=[huc_id], crs=DEFAULT_FIM_PROJECTION_CRS,
                                                   parse_dates=['coll_time'])
     water_edge_df = water_edge_df.drop(columns=['st_x','st_y'])
     
