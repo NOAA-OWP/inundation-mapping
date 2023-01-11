@@ -6,7 +6,6 @@ import argparse
 import rasterio as rio
 
 from shapely.geometry import MultiPolygon,Polygon
-from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 from utils.shared_functions import getDriver, mem_profile
 
 @mem_profile
@@ -84,7 +83,6 @@ def subset_vector_layers(subset_nwm_lakes,
     print("Subsetting Levee Protected Areas", flush=True)
     levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer)
     if not levee_protected_areas.empty:
-        # levee_protected_areas = levee_protected_areas.to_crs(DEFAULT_FIM_PROJECTION_CRS)
         levee_protected_areas.to_file(subset_levee_protected_areas, driver = getDriver
                                       (subset_levee_protected_areas), index=False)
     del levee_protected_areas

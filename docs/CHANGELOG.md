@@ -7,11 +7,15 @@ Changes the projection of HAND processing to EPSG 5070.
 
 ### Changes
 
+- `gms_run_post_processing.sh`: Adds target projection for `points`
+- `data/nld/preprocess_levee_protected_areas.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
 - `src/`
-    - `utils/shared_variables.py`: Changed the designated projection variables
+    - `src_adjust_spatial_obs.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+    - `utils/shared_variables.py`: Changes the designated projection variables
     - `gms/`
         - `stream_branches.py`: Checks the projection of the input streams and changes if necessary
-        - `run_by_unit.py`: Changed the default projection crs variable
+        - `run_by_unit.py`: Changes the default projection crs variable and added as HUC target projection
+- `tools/inundate_nation.py`: Changed to use `utils.shared_variables.PREP_PROJECTION`
 
 <br/><br/>
 
