@@ -10,6 +10,7 @@ Changes the projection of HAND processing to EPSG 5070.
 - `gms_run_post_processing.sh`: Adds target projection for `points`
 - `data/nld/preprocess_levee_protected_areas.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
 - `src/`
+    - `clip_vectors_to_wbd.py`: Save intermediate outputs in EPSG:5070
     - `src_adjust_spatial_obs.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
     - `utils/shared_variables.py`: Changes the designated projection variables
     - `gms/`
