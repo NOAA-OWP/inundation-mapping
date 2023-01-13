@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.18.1 - 2022-12-13 - [PR #760](https://github.com/NOAA-OWP/inundation-mapping/pull/760)
+
+Adds stacked bar eval plots.
+
+### Additions
+
+- `/tools/eval_plots_stackedbar.py`: produces stacked bar eval plots in the same manner as `eval_plots.py`.
+
+<br/><br/>
+
 ## v4.0.18.0 - 2023-01-03 - [PR#780](https://github.com/NOAA-OWP/inundation-mapping/pull/780)
 
 Clips WBD and stream branch buffer polygons to DEM domain.
@@ -215,6 +225,8 @@ Fixes inundation of nodata areas of REM.
 ### Changes
 
 - `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
+
+<br/><br/>
 
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
