@@ -4,19 +4,19 @@ usage ()
 {
     echo 'Produce GMS hydrofabric at levelpath/branch scale. Execute gms_run_unit.sh prior to.'
     echo 'Usage : gms_run_branch.sh [REQ: -n <run name> ]'
-    echo '  	 				    [OPT: -h -j <job limit> -o -r '
-    echo '  	 				    -bd <branch deny list file> -zd <branch zero deny list file>'
-    echo '                          -u <hucs> -a <use all stream orders>]'
+    echo '                          [OPT: -h -u <hucs> -c <config file> -j <job limit>] -o'
+    echo '  	 				    -bd <branch deny list file>'
+    echo '                          -zd <branch zero deny list file>]'
     echo ''
     echo 'REQUIRED:'
     echo '  -n/--runName    : A name to tag the output directories and log files as. could be a version tag.'
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : help file'
-    echo '  -c/--config     : configuration file with bash environment variables to export'    
-    echo '                    default (if arg not added) : /foss_fim/config/params_template.env'            
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited).'
     echo '                    A line delimited file also acceptable. HUCs must present in inputs directory.'
+    echo '  -c/--config     : configuration file with bash environment variables to export'    
+    echo '                    default (if arg not added) : /foss_fim/config/params_template.env'            
     echo '  -bd/--branchDenylist : A file with a line delimited list of files in BRANCHES directories to be removed' 
     echo '                    upon completion of branch processing.'
     echo '                    (see config/deny_gms_branches_prod.lst for a starting point)'
@@ -31,11 +31,7 @@ usage ()
     echo '                    use the word NONE as this value for this parameter.'    
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
-    echo '  -r/--retry      : retries failed jobs'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
-    echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
-    echo '                    at the initial load of the nwm_subset_streams.'
-    echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
     echo
     exit
 }
@@ -66,10 +62,6 @@ in
     -o|--overwrite)
         overwrite=1
         ;;
-    -r|--retry)
-        retry="--retry-failed"
-        overwrite=1
-        ;;
     -bd|--branchDenylist)
         shift
         deny_branches_list=$1
@@ -78,9 +70,6 @@ in
         shift
         deny_branch_zero_list_for_branches=$1
         ;;        
-    -a|--useAllStreamOrders)
-        useAllStreamOrders=1
-        ;;
     *) ;;
     esac
     shift
@@ -133,22 +122,6 @@ if [ "$overwrite" = "" ]
 then
     overwrite=0
 fi
-if [ -z "$retry" ]
-then
-    retry=""
-fi
-
-# invert useAllStreamOrders boolean (to make it historically compatiable
-# with other files like gms/run_unit.sh and gms/run_branch.sh).
-# Yet help user understand that the inclusion of the -a flag means
-# to include the stream order (and not get mixed up with older versions
-# where -s mean drop stream orders)
-# This will encourage leaving stream orders 1 and 2 out.
-if [ "$useAllStreamOrders" == "1" ]; then
-    export dropLowStreamOrders=0
-else
-    export dropLowStreamOrders=1
-fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
@@ -163,12 +136,11 @@ fi
 export outputRunDataDir=$outputDataDir/$runName
 export deny_branches_list=$deny_branches_list
 logFile=$outputRunDataDir/logs/branch/summary_gms_branch.log
-export extent=GMS
 export overwrite=$overwrite
+export extent=GMS
 
-
-## Check for run data directory ##
-if [ ! -d "$outputRunDataDir" ]; then 
+## Check for run data directory and the file. If gms_run_unit failed, the file will not be there ##
+if [ ! -f "$outputRunDataDir/gms_inputs.csv" ]; then 
     echo "Depends on output from gms_run_unit.sh. Please produce data with gms_run_unit.sh first."
     exit 1
 fi
@@ -181,11 +153,6 @@ else
     gms_inputs=$outputRunDataDir/gms_inputs_filtered.csv
 fi
 
-# Echo intent to retry
-if [ "$retry" = "--retry-failed" ]; then
-    echo "Retrying failed unit level jobs for $runName"
-fi 
-
 # make log dir
 if [ ! -d "$outputRunDataDir/logs/branch" ]; then
     mkdir -p $outputRunDataDir/logs/branch
@@ -195,6 +162,9 @@ elif [ $overwrite -eq 1 ]; then
     mkdir -p $outputRunDataDir/logs/branch
 fi
 
+# Note: Other parts of the program will check for the existance of the file
+# /branch_errors/non_zero_exit_codes.log. It has to be removed no matter
+# what on each run of gms_run_branch
 if [ ! -d "$outputRunDataDir/branch_errors" ]; then
     mkdir -p "$outputRunDataDir/branch_errors"
 elif [ $overwrite -eq 1 ]; then
@@ -202,96 +172,24 @@ elif [ $overwrite -eq 1 ]; then
     mkdir -p $outputRunDataDir/branch_errors
 fi
 
-## Track total time of the overall run
-T_total_start
-
 ## RUN GMS BY BRANCH ##
-echo "=========================================================================="
-echo "Start of branch processing"
-echo "Started: `date -u`" 
+echo
+echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+echo "---- Start of branch processing"
+echo "---- Started: `date -u`" 
+T_total_start
 Tstart
+all_branches_start_time=`date +%s`
 
 if [ "$jobLimit" -eq 1 ]; then
-    parallel $retry --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
+    parallel --verbose --timeout $branch_timeout --lb  -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 else
-    parallel $retry --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
+    parallel --eta --timeout $branch_timeout -j $jobLimit --joblog $logFile --colsep ',' -- $srcDir/gms/time_and_tee_run_by_branch.sh :::: $gms_inputs
 fi
 
 echo "Branch processing is complete"
 Tcount
 date -u
-
-## RUN AGGREGATE BRANCH ELEV TABLES ##
-# TODO: How do we skip aggregation if there is a branch error
-# maybe against the non_zero logs above
-echo 
-echo "Processing usgs gage aggregation"
-python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
-
-## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
-if [ "$src_bankfull_toggle" = "True" ]; then
-    echo -e $startDiv"Estimating bankfull stage in SRCs"$stopDiv
-    # Run SRC bankfull estimation routine routine
-    Tstart
-    time python3 /foss_fim/src/identify_src_bankfull.py -fim_dir $outputRunDataDir -flows $bankfull_flows_file -j $jobLimit
-    Tcount
-fi
-
-## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
-if [ "$src_subdiv_toggle" = "True" ]; then
-    echo -e $startDiv"Performing SRC channel/overbank subdivision routine"$stopDiv
-    # Run SRC Subdivision & Variable Roughness routine
-    Tstart
-    time python3 /foss_fim/src/subdiv_chan_obank_src.py -fim_dir $outputRunDataDir -mann $vmann_input_file -j $jobLimit
-    Tcount
-fi
-
-## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
-if [ "$src_adjust_spatial" = "True" ]; then
-    if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
-        exit 1
-    else
-        source $CALB_DB_KEYS_FILE
-        : '
-        This makes the local variables from the calb_db_keys files
-        into global variables that can be used in other files, including python.
-
-        Why not just leave the word export in front of each of the keys in the
-        calb_db_keys.env? Becuase that file is used against docker-compose
-        when we start up that part of the sytem and it does not like the word
-        export.
-        '
-        export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
-        export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
-        export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
-        export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
-        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
-        echo "Loading HUC Data"
-        time ogr2ogr -overwrite -nln hucs -a_srs ESRI:102039 -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
-        echo "Loading Point Data"
-        time ogr2ogr -overwrite -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
-    fi
-fi
-
-## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
-if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
-    Tstart
-    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"$stopDiv
-    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
-    Tcount
-    date -u
-fi
-
-## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
-if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
-    Tstart
-    echo -e $startDiv"Performing SRC adjustments using benchmark point database"$stopDiv
-    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
-    Tcount
-    date -u
-fi
 
 # -------------------
 ## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO (but using normal branch deny) ##
@@ -317,9 +215,13 @@ else
     $srcDir/gms/outputs_cleanup.py -d $outputRunDataDir -l $deny_branches_list -b 0
 fi
 
+
 # -------------------
 ## GET NON ZERO EXIT CODES ##
 # Needed in case aggregation fails, we will need the logs
+# Note: Other parts of the program (gms_run_post_processing.sh) check to see
+# if the branch_errors/non_zero_exit_codes.log exists. If it does not, it assumes
+# that gms_run_branch did not complete (or was not run)
 echo
 echo -e $startDiv"Start non-zero exit code checking"$stopDiv
 find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
@@ -335,15 +237,8 @@ Tcount
 date -u
 
 echo
-echo -e $startDiv"Combining crosswalk tables"$stopDiv
-# aggregate outputs
-Tstart
-python3 /foss_fim/tools/gms_tools/combine_crosswalk_tables.py -d $outputRunDataDir -o $outputRunDataDir/crosswalk_table.csv
-Tcount
-date -u
-
-echo "=========================================================================="
-echo "GMS_run_branch complete"
-Tcount
-echo "Ended: `date -u`"
+echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+echo "---- gms_run_branch complete"
+echo "---- Ended: `date -u`"
+Calc_Duration $all_branches_start_time
 echo

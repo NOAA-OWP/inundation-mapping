@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import argparse
 import geopandas as gpd
 import sys
@@ -13,8 +14,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                        catchments_outfile=None,
                        branch_inlets_outfile=None,
                        toNode_attribute='To_Node', fromNode_attribute='From_Node',
-                       reach_id_attribute='HydroID', verbose=False,
-                       drop_low_stream_orders=False ):
+                       reach_id_attribute='HydroID', verbose=False):
    
     
     if verbose:
@@ -24,7 +24,11 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     if verbose:
         print("Loading stream network ...")
         
-    stream_network = StreamNetwork.from_file(filename=in_stream_network)
+    if os.path.exists(in_stream_network):
+        stream_network = StreamNetwork.from_file(filename=in_stream_network)
+    else:
+        print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
+        sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # if there are no reaches at this point
     if (len(stream_network) == 0):
@@ -37,15 +41,14 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
 
-    if (drop_low_stream_orders):
-        stream_network = stream_network.exclude_attribute_values(branch_id_attribute="order_",
-                                               values_excluded=[1,2]
-                                              )
+    # values_exluded of 1 and 2 mean where are dropping stream orders 1 and 2. We are leaving those
+    # for branch zero.
+    stream_network = stream_network.exclude_attribute_values(branch_id_attribute="order_", values_excluded=[1,2] )
 
-        # if there are no reaches at this point (due to filtering)
-        if (len(stream_network) == 0):
-            print("No branches exist but branch zero processing will continue. This could be due to stream order filtering.")
-            return
+    # if there are no reaches at this point (due to filtering)
+    if (len(stream_network) == 0):
+        print("No branches exist but branch zero processing will continue. This could be due to stream order filtering.")
+        return
                                                  
     inlets_attribute = 'inlet_id'
     outlets_attribute = 'outlet_id'
@@ -66,19 +69,18 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     stream_network = stream_network.derive_outlets(toNode_attribute,
                                                    fromNode_attribute,
                                                    outlets_attribute=outlets_attribute,
-                                                   verbose=verbose
-                                                  )
+                                                   verbose=verbose)
+    
     stream_network = stream_network.derive_inlets(toNode_attribute,
                                                   fromNode_attribute,
                                                   inlets_attribute=inlets_attribute,
                                                   verbose=verbose
-                                                 )    # derive up and downstream networks
+                                                  )    # derive up and downstream networks
     upstreams, downstreams = stream_network.make_up_and_downstream_dictionaries(
                                                                          reach_id_attribute=reach_id_attribute,
                                                                          toNode_attribute=toNode_attribute,
                                                                          fromNode_attribute=fromNode_attribute,
-                                                                         verbose=True
-                                                                         )
+                                                                         verbose=True)
 
     # derive arbolate sum
     stream_network = stream_network.get_arbolate_sum(arbolate_sum_attribute='arbolate_sum',
@@ -87,8 +89,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                      upstreams=upstreams,
                                                      downstreams=downstreams,
                                                      length_conversion_factor_to_km = 0.001,
-                                                     verbose=verbose
-                                                    )
+                                                     verbose=verbose)
 
     # derive stream branches
     stream_network = stream_network.derive_stream_branches(toNode_attribute=toNode_attribute,
@@ -98,8 +99,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                            reach_id_attribute=reach_id_attribute,
                                                            comparison_attributes=['arbolate_sum', 'order_'],
                                                            comparison_function=max,
-                                                           verbose=verbose
-                                                          )
+                                                           verbose=verbose)
     
     # filter out streams without catchments
     if (catchments is not None) & (catchments_outfile is not None):
@@ -110,18 +110,15 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
                                                                 reach_id_attribute=reach_id_attribute,
                                                                 branch_id_attribute=branch_id_attribute,
                                                                 reach_id_attribute_in_catchments=reach_id_attribute,
-                                                                verbose=verbose
-                                                                              )
+                                                                verbose=verbose)
 
         # subset which columns to merge
         stream_network_to_merge = stream_network.filter(items = [reach_id_attribute,inlets_attribute,
-                                                                 outlets_attribute,branch_id_attribute]
-                                                       )
+                                                                 outlets_attribute,branch_id_attribute])
 
         catchments = catchments.merge(stream_network_to_merge,how='inner',
                                       left_on=reach_id_attribute,
-                                      right_on=reach_id_attribute
-                                     )
+                                      right_on=reach_id_attribute)
 
         catchments.reset_index(drop=True, inplace=True)
 
@@ -132,8 +129,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         headwaters = stream_network.derive_headwater_points_with_inlets(
                                                         fromNode_attribute=fromNode_attribute,
                                                         inlets_attribute=inlets_attribute,
-                                                        outlet_linestring_index=outlet_linestring_index
-                                                       )
+                                                        outlet_linestring_index=outlet_linestring_index)
         # headwaters write
         headwaters.to_file(headwaters_outfile, index=False, driver='GPKG')
 
@@ -144,8 +140,7 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     
     if out_stream_network_dissolved is not None:
         stream_network = stream_network.trim_branches_in_waterbodies(branch_id_attribute=branch_id_attribute,
-                                                    verbose=verbose
-                                                                    )
+                                                    verbose=verbose)
 
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(branch_id_attribute=branch_id_attribute,
@@ -156,13 +151,11 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
 
         stream_network = stream_network.remove_branches_in_waterbodies(waterbodies=waterbodies,
                                                                        out_vector_files=out_stream_network_dissolved,
-                                                                       verbose=False
-                                                                      )
+                                                                       verbose=False)
                                        
     if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(feature_attribute=branch_id_attribute,
-                                                                        outlet_linestring_index=outlet_linestring_index
-                                                                        )
+                                                                    outlet_linestring_index=outlet_linestring_index)
 
         branch_inlets.to_file(branch_inlets_outfile, index=False, driver='GPKG')
 
@@ -185,7 +178,6 @@ if __name__ == '__main__':
     parser.add_argument('-e','--headwaters-outfile', help='Output stream network headwater points', required=False, default=None)
     parser.add_argument('-d','--out-stream-network-dissolved', help='Dissolved output stream network', required=False, default=None)
     parser.add_argument('-v','--verbose', help='Verbose output', required=False, default=False, action='store_true')
-    parser.add_argument('-s','--drop-low-stream-orders', help='Drop stream orders 1 and 2', type=int, required=False, default=False)
     
     args = vars(parser.parse_args())
 

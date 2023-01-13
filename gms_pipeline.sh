@@ -4,10 +4,11 @@ usage ()
 {
     echo
     echo 'Produce GMS hydrofabric datasets for unit and branch scale.'
-    echo 'Usage : gms_pipeline.sh [REQ: -u <hucs> - -n <run name> ]'
-    echo '                        [OPT: -h -c <config file> -j <job limit>] -o -r'
-    echo '                         -ud <unit deny list file> -bd <branch deny list file>'
-    echo '                         -zd <branch zero deny list file> -a <use all stream orders> ]'
+    echo 'Usage : gms_pipeline.sh [REQ: -u <hucs> -n <run name> ]'
+    echo '                        [OPT: -h -c <config file> -j <job limit>] -o'
+    echo '                         -ud <unit deny list file>'
+    echo '                         -bd <branch deny list file>'
+    echo '                         -zd <branch zero deny list file>]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
@@ -38,10 +39,6 @@ usage ()
     echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time.'
     echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
     echo '  -o/--overwrite  : overwrite outputs if already exist'
-    echo '  -r/--retry      : retries failed jobs'
-	echo '  -a/--UseAllStreamOrders : If this flag is included, the system will INCLUDE stream orders 1 and 2'
-    echo '                    at the initial load of the nwm_subset_streams.'
-    echo '                    Default (if arg not added) is false and stream orders 1 and 2 will be dropped'    
     echo
     exit
 }
@@ -74,10 +71,6 @@ in
     -o|--overwrite)
         overwrite=1
         ;;
-    -r|--retry)
-        retry="--retry-failed"
-        overwrite=1
-        ;;
     -ud|--unitDenylist)
         shift
         deny_unit_list=$1
@@ -90,9 +83,6 @@ in
         shift
         deny_branch_zero_list=$1
         ;;        
-    -a|--useAllStreamOrders)
-        useAllStreamOrders=1
-        ;;
     *) ;;
     esac
     shift
@@ -119,10 +109,6 @@ if [ -z "$overwrite" ]
 then
     # default is false (0)
     overwrite=0
-fi
-if [ -z "$retry" ]
-then
-    retry=""
 fi
 
 # The tests for the deny lists are duplicated here on to help catch
@@ -152,18 +138,6 @@ if [ "$deny_branch_zero_list" != "" ] && \
 then
     echo "Error: The -zd <branch zero deny file> does not exist and is not the word NONE"
     usage
-fi
-
-# invert useAllStreamOrders boolean (to make it historically compatiable
-# with other files like gms/run_unit.sh and gms/run_branch.sh).
-# Yet help user understand that the inclusion of the -a flag means
-# to include the stream order (and not get mixed up with older versions
-# where -s mean drop stream orders)
-# This will encourage leaving stream orders 1 and 2 out.
-if [ "$useAllStreamOrders" == "1" ]; then
-    export dropLowStreamOrders=0
-else
-    export dropLowStreamOrders=1
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
@@ -202,8 +176,7 @@ run_cmd+=" -c $envFile"
 run_cmd+=" -j $jobLimit"
 
 if [ $overwrite -eq 1 ]; then run_cmd+=" -o" ; fi
-if [ "$retry" == "--retry-failed" ]; then run_cmd+=" -r" ; fi
-if [ $dropLowStreamOrders -eq 1 ]; then run_cmd+=" -s" ; fi
+
 #echo "$run_cmd"
 . /foss_fim/gms_run_unit.sh -u "$hucList" $run_cmd -ud "$deny_unit_list" -zd "$deny_branch_zero_list"
 
@@ -217,18 +190,19 @@ if [ $dropLowStreamOrders -eq 1 ]; then run_cmd+=" -s" ; fi
 
 # if this has too many errors, it will return a sys.exit code (like 62 as per fim_enums)
 # and we will stop the rest of the process. We have to catch stnerr as well.
+# This stops the run from continuing to run, drastically filing drive and killing disk space.
 python3 $srcDir/check_unit_errors.py -f $outputRunDataDir -n $num_hucs
-
 
 ## Produce level path or branch level datasets
 . /foss_fim/gms_run_branch.sh $run_cmd -bd "$deny_branches_list" -zd "$deny_branch_zero_list"
 
 
+## continue on to post processing
+. /foss_fim/gms_run_post_processing.sh $run_cmd
+
+echo
 echo "======================== End of gms_pipeline.sh =========================="
-pipeline_end_time=`date +%s`
-total_sec=$(expr $pipeline_end_time - $pipeline_start_time)
-dur_min=$((total_sec / 60))
-dur_remainder_sec=$((total_sec % 60))
-echo "Total Run Time = $dur_min min(s) and $dur_remainder_sec sec"
+date -u
+Calc_Duration $pipeline_start_time
 echo
 

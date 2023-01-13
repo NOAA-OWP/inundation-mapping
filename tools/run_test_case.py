@@ -103,14 +103,13 @@ class test_case(benchmark):
         self.benchmark_dir = os.path.join(self.validation_data, self.huc)
 
         # Create list of shapefile paths to use as exclusion areas.
-        zones_dir = os.path.join(TEST_CASES_DIR, 'other', 'zones')
         self.mask_dict = {'levees':
                         {'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
                         'buffer': None,
                         'operation': 'exclude'
                         },
                     'waterbodies':
-                        {'path': os.path.join(zones_dir, 'nwm_v2_reservoirs.shp'),
+                        {'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
                         'buffer': None,
                         'operation': 'exclude',
                         },
