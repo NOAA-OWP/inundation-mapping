@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.18.2 - 2023-01-11 - [PR#790](https://github.com/NOAA-OWP/inundation-mapping/pull/790)
+
+Remove Great Lakes clipping
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Removes Great Lakes clipping and references to Great Lakes polygons and lake buffer size
+
+    - `gms/run_by_unit.sh`: Removes Great Lakes polygon and lake buffer size arguments to `src/clip_vectors_to_wbd.py`
+
+<br/><br/>
+
 ## v4.0.18.1 - 2022-12-13 - [PR #760](https://github.com/NOAA-OWP/inundation-mapping/pull/760)
 
 Adds stacked bar eval plots.
