@@ -27,8 +27,6 @@ def subset_vector_layers(subset_nwm_lakes,
                          subset_landsea,
                          nwm_headwaters,
                          subset_nld_lines,
-                         great_lakes,
-                         lake_buffer_distance,
                          wbd_buffer_distance,
                          levee_protected_areas,
                          subset_levee_protected_areas):
@@ -53,26 +51,9 @@ def subset_vector_layers(subset_nwm_lakes,
     wbd_streams_buffer = wbd_buffer.copy()
     wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-3*dem_cellsize, resolution=32)
 
-    great_lakes = gpd.read_file(great_lakes, mask=wbd_buffer).reset_index(drop=True)
-
-    if not great_lakes.empty:
-        print("Masking Great Lakes for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
-
-        # Clip excess lake area
-        great_lakes = gpd.clip(great_lakes, wbd_buffer)
-
-        # Buffer remaining lake area
-        great_lakes.geometry = great_lakes.buffer(lake_buffer_distance)
-
-        # Removed buffered GL from WBD buffer
-        wbd_buffer = gpd.overlay(wbd_buffer, great_lakes, how='difference')
-        wbd_streams_buffer = gpd.overlay(wbd_streams_buffer, great_lakes, how='difference')
-
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
     wbd_buffer.to_file(wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
-
-    del great_lakes
 
     # Clip ocean water polygon for future masking ocean areas (where applicable)
     landsea = gpd.read_file(landsea, mask=wbd_buffer)
@@ -185,10 +166,6 @@ if __name__ == '__main__':
                         required=True)	 
     parser.add_argument('-z','--subset-nld-lines', help='Subset of NLD levee vectors for HUC',
                         required=True)
-    parser.add_argument('-gl','--great-lakes', help='Great Lakes layer', 
-                        required=True)
-    parser.add_argument('-lb','--lake-buffer-distance', help='Great Lakes Mask buffer distance',
-                        required=True, type=int)
     parser.add_argument('-wb','--wbd-buffer-distance', help='WBD Mask buffer distance', 
                         required=True, type=int)
     parser.add_argument('-lpf','--levee-protected-areas', 
