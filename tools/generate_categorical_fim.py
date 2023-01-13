@@ -5,6 +5,7 @@ import argparse
 import csv
 import traceback
 import sys
+sys.path.append("./src")
 import time
 from pathlib import Path
 import geopandas as gpd
@@ -264,7 +265,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             os.mkdir(lid_directory)
         # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
         stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
-                
+
         if stages == None:
             all_messages.append([f'{lid}:error getting thresholds from WRDS API'])
             continue
@@ -273,20 +274,26 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             all_messages.append([f'{lid}:missing threshold stages'])
             continue
 
-        # Drop columns that offend acceptance criteria
-        usgs_elev_df['acceptable_codes'] = (usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-                                    & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-                                    & usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-                                    & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list))
-        
-        usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
-        usgs_elev_df['acceptable_alt_error'] = np.where(usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False)
-        
-        acceptable_usgs_elev_df = usgs_elev_df[(usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)]
-        
+        try:
+            # Drop columns that offend acceptance criteria
+            usgs_elev_df['acceptable_codes'] = (usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+                                        & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+                                        & usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+                                        & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list))
+           
+            usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
+            usgs_elev_df['acceptable_alt_error'] = np.where(usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False)
+            
+            acceptable_usgs_elev_df = usgs_elev_df[(usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)]
+        except Exception as e:
+            print(e)
+            print("(Various columns related to USGS probably not here)")
+            acceptable_usgs_elev_df = usgs_elev_df
+
         # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
         try:
             matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
+
             if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
                 lid_usgs_elev = acceptable_usgs_elev_df.loc[(acceptable_usgs_elev_df['nws_lid'] == lid.upper()) & ('levpa_id' != 0), 'dem_adj_elevation'].values[0]
             else:
