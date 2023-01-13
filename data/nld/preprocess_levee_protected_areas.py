@@ -9,13 +9,14 @@ import sys
 from datetime import datetime
 
 sys.path.append('/foss_fim/src')
+from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 import utils.shared_functions as sf
 from utils.shared_functions import FIM_Helpers as fh
 
 def preprocess_levee_protected_areas(source_file_name_and_path,
                                      target_output_folder_path = '',
                                      target_output_filename = 'levee_protected_areas.gpkg',
-                                     projection_crs_id = 'EPSG:5070',
+                                     projection_crs_id = DEFAULT_FIM_PROJECTION_CRS,
                                      overwrite = False):
                                      
     '''
@@ -77,7 +78,7 @@ def preprocess_levee_protected_areas(source_file_name_and_path,
        
     # projection crs
     if (projection_crs_id is None) or (projection_crs_id == ''):
-        projection_crs_id = 'EPSG:5070'
+        projection_crs_id = DEFAULT_FIM_PROJECTION_CRS
 
     # -------------------
     # setup logs

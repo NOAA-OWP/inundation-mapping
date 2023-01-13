@@ -16,6 +16,7 @@ from shapely.geometry import MultiLineString, LineString, MultiPoint, Point
 from shapely.strtree import STRtree
 from random import sample
 from scipy.stats import mode
+from utils.shared_variables import PREP_CRS
 
 class StreamNetwork(gpd.GeoDataFrame):
 
@@ -73,6 +74,11 @@ class StreamNetwork(gpd.GeoDataFrame):
             print('Loading file')
             
         raw_df = gpd.read_file(filename,*args,**kwargs)
+
+        # Reproject
+        if raw_df.crs.to_authority() != PREP_CRS.to_authority():
+            raw_df.to_crs(PREP_CRS)
+
         filtered_df = gpd.GeoDataFrame()
                       
         if (branch_id_attribute is not None) and (values_excluded is not None):

@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.19.0 - 2023-01-06 - [PR#782](https://github.com/NOAA-OWP/inundation-mapping/pull/782)
+
+Changes the projection of HAND processing to EPSG 5070.
+
+### Changes
+
+- `gms_run_post_processing.sh`: Adds target projection for `points`
+- `data/nld/preprocess_levee_protected_areas.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+- `src/`
+    - `clip_vectors_to_wbd.py`: Save intermediate outputs in EPSG:5070
+    - `src_adjust_spatial_obs.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+    - `utils/shared_variables.py`: Changes the designated projection variables
+    - `gms/`
+        - `stream_branches.py`: Checks the projection of the input streams and changes if necessary
+        - `run_by_unit.py`: Changes the default projection crs variable and added as HUC target projection
+- `tools/inundate_nation.py`: Changed to use `utils.shared_variables.PREP_PROJECTION`
+
+<br/><br/>
 
 ## v4.0.18.2 - 2023-01-11 - [PR#790](https://github.com/NOAA-OWP/inundation-mapping/pull/790)
 

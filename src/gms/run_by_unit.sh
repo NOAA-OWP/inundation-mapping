@@ -46,7 +46,7 @@ huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 
-default_projection_crs="ESRI:102039"
+default_projection_crs="EPSG:5070"
 input_DEM=$inputDataDir/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt
 input_DEM_domain=$inputDataDir/3dep_dems/10m_5070/HUC6_dem_domain.gpkg
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
@@ -108,7 +108,7 @@ python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -l $inp
 echo -e $startDiv"Clip WBD8"$stopDiv
 date -u
 Tstart
-ogr2ogr -f GPKG -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+ogr2ogr -f GPKG -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8 -t_srs $default_projection_crs
 Tcount
 
 ## DERIVE LEVELPATH  ##
