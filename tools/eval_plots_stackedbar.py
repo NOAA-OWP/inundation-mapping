@@ -305,7 +305,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--site-plots', help = 'If enabled individual barplots for each site are created.', action = 'store_true', required = False)
     parser.add_argument('-iqr', '--show-iqr', help = 'If enabled, inter-quartile range error bars will be added.', action = 'store_true', required = False)
     parser.add_argument('-d', '--diff-stat', help = 'This option creates diff plots instead of stacked bar plots. Only 2 versions can be used with this option. ' + \
-        "Input one of the following statistics to be used for comparison: ('CSI', 'MCC', 'TPR', 'PND', 'FAR').", default = False, required = True)
+        "Input one of the following statistics to be used for comparison: ('CSI', 'MCC', 'TPR', 'PND', 'FAR').", default = False, required = False)
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
