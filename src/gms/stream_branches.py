@@ -16,6 +16,7 @@ from shapely.geometry import MultiLineString, LineString, MultiPoint, Point
 from shapely.strtree import STRtree
 from random import sample
 from scipy.stats import mode
+from utils.shared_variables import PREP_CRS
 
 class StreamNetwork(gpd.GeoDataFrame):
 
@@ -73,6 +74,11 @@ class StreamNetwork(gpd.GeoDataFrame):
             print('Loading file')
             
         raw_df = gpd.read_file(filename,*args,**kwargs)
+
+        # Reproject
+        if raw_df.crs.to_authority() != PREP_CRS.to_authority():
+            raw_df.to_crs(PREP_CRS)
+
         filtered_df = gpd.GeoDataFrame()
                       
         if (branch_id_attribute is not None) and (values_excluded is not None):
@@ -183,7 +189,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def merge_stream_branches(self,stream_branch_dataset,on='NHDPlusID',branch_id_attribute='LevelPathI',attributes='StreamOrde',stream_branch_layer_name=None):
+    def merge_stream_branches(self,stream_branch_dataset,on='ID',branch_id_attribute='LevelPathI',attributes='StreamOrde',stream_branch_layer_name=None):
 
         """ Merges stream branch id attribute from another vector file """
 
@@ -221,7 +227,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             raise ValueError('Linestring index should be 0 or -1')
 
 
-    def derive_nodes(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',reach_id_attribute='NHDPlusID',
+    def derive_nodes(self,toNode_attribute='ToNode',fromNode_attribute='FromNode',reach_id_attribute='ID',
                      outlet_linestring_index=0,node_prefix=None,max_node_digits=8,verbose=False):
         
         if verbose:
@@ -375,10 +381,22 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return(headwater_points_gdf)
 
+
+    def exclude_attribute_values(self, branch_id_attribute=None, values_excluded=None, verbose=False):
+                      
+        if (branch_id_attribute is not None) and (values_excluded is not None):
+            self = StreamNetwork(self[~self[branch_id_attribute].isin(values_excluded)], branch_id_attribute=branch_id_attribute)
+       
+        if verbose:         
+             print("Number of df rows = " + str(self.shape[0]))
+        
+        return(self)
+
+
     def remove_stream_segments_without_catchments( self,
                                                    catchments,
-                                                   reach_id_attribute='NHDPlusID',
-                                                   reach_id_attribute_in_catchments='NHDPlusID',
+                                                   reach_id_attribute='ID',
+                                                   reach_id_attribute_in_catchments='ID',
                                                    verbose=False
                                                  ):
 
@@ -403,9 +421,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
     def remove_branches_without_catchments(self,
                                            catchments,
-                                           reach_id_attribute='NHDPlusID',
+                                           reach_id_attribute='ID',
                                            branch_id_attribute='branchID',
-                                           reach_id_attribute_in_catchments='NHDPlusID',
+                                           reach_id_attribute_in_catchments='ID',
                                            verbose=False
                                            ):
 
@@ -550,7 +568,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                                upstreams=None,
                                outlet_attribute='outlet_id',
                                branch_id_attribute='branchID',
-                               reach_id_attribute='NHDPlusID',
+                               reach_id_attribute='ID',
                                comparison_attributes='StreamOrde',
                                comparison_function=max,
                                max_branch_id_digits=6,
@@ -606,7 +624,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             progress.update(1)
 
             # get current reach stream order and branch id
-            #current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
+            # current_reach_comparison_value = self.at[current_reach_id,comparison_attributes]
             current_reach_branch_id = self.at[current_reach_id,branch_id_attribute]
 
             # get upstream ids
@@ -632,7 +650,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
                     # find 
                     upstream_reaches_compare_values = self.loc[not_visited_upstream_ids,comparison_attributes]
-                    matching_value = comparison_function(upstream_reaches_compare_values)
+                    # matching_value = comparison_function(upstream_reaches_compare_values)
 
                     #==================================================================================
                     # If the two stream orders aren't the same, then follow the highest order, otherwise use arbolate sum
@@ -671,7 +689,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def make_up_and_downstream_dictionaries(self,reach_id_attribute='NHDPlusID',
+    def make_up_and_downstream_dictionaries(self,reach_id_attribute='ID',
                                             toNode_attribute='ToNode',
                                             fromNode_attribute='FromNode',
                                             verbose=False):
@@ -694,7 +712,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
 
     def get_arbolate_sum(self,arbolate_sum_attribute='arbolate_sum',inlets_attribute='inlet_id',
-                         reach_id_attribute='NHDPlusID',length_conversion_factor_to_km = 0.001,
+                         reach_id_attribute='ID',length_conversion_factor_to_km = 0.001,
                          upstreams=None, downstreams=None,
                          toNode_attribute='ToNode',
                          fromNode_attribute='FromNode',
@@ -800,7 +818,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     self.loc[lpid,'geometry'] = merged_line
         
         #self[branch_id_attribute] = bids
-        self = StreamNetwork(self,branch_id_attribute=branch_id_attribute,
+        self = StreamNetwork(self, branch_id_attribute=branch_id_attribute,
                              attribute_excluded=attribute_excluded,
                              values_excluded=values_excluded)
 
@@ -823,7 +841,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
-    def derive_segments(self,inlets_attribute='inlet_id', reach_id_attribute='NHDPlusID'):
+    def derive_segments(self,inlets_attribute='inlet_id', reach_id_attribute='ID'):
         pass
 
 
@@ -867,7 +885,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
         
 
-    def explode_to_points(self,reach_id_attribute='NHDPlusID', sampling_size=None,
+    def explode_to_points(self,reach_id_attribute='ID', sampling_size=None,
                           verbose=False):
         
         points_gdf = self.copy()
@@ -896,7 +914,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         points_gdf.reset_index(inplace=True,drop=True)
 
         return(points_gdf)
-
 
     @staticmethod
     def conflate_points(source_points,target_points,source_reach_id_attribute,target_reach_id_attribute,verbose=False):

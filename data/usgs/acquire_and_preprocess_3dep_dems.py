@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import traceback
+import geopandas as gpd
 
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime
@@ -78,7 +79,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
                           ' not set to a valid path')
     
     if (target_output_folder_path is None) or (target_output_folder_path == ""):
-        target_output_folder_path = sv.INPUT_DEMS_3DEP_10M_DIR
+        target_output_folder_path = os.environ['usgs_3dep_dems_10m']
     
     if (not os.path.exists(target_output_folder_path)):
         raise ValueError(f"Output folder path {target_output_folder_path} does not exist" )
@@ -88,7 +89,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     start_time = datetime.now()
     fh.print_start_header('Loading 3dep dems', start_time)
    
-    print(f"Downloading to {target_output_folder_path}")
+    #print(f"Downloading to {target_output_folder_path}")
     __setup_logger(target_output_folder_path)
     logging.info(f"Downloading to {target_output_folder_path}")
     
@@ -104,9 +105,12 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
    
     # download dems, setting projection, block size, etc
     __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
+
+    polygonize(target_output_folder_path)
     
     end_time = datetime.now()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
+    print(f'---- NOTE: Remember to scan the log file for any failures')
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
@@ -122,6 +126,14 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     ----------
         - fl (object of fim_logger (must have been created))
         - remaining params are defined in acquire_and_preprocess_3dep_dems
+        
+    Notes
+    ----------
+        - pixel size set to 10 x 10 (m)
+        - block size (256) (sometimes we use 512)
+        - cblend 6 add's a small buffer when pulling down the tif (ensuring seamless
+          overlap at the borders.)    
+    
     '''
 
     print(f"==========================================================")
@@ -130,8 +142,8 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     base_cmd =  'gdalwarp {0} {1}'
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
     base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"'
-    base_cmd += ' -t_srs EPSG:5070'
+    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
+    base_cmd += ' -t_srs {3} -cblend 6'
    
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
@@ -199,8 +211,8 @@ def download_usgs_dem_file(extent_file,
                 base_cmd =  'gdalwarp {0} {1}'
                 base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
                 base_cmd +=  ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-                base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"'
-                base_cmd +=  ' -t_srs EPSG:5070'
+                base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
+                base_cmd +=  ' -t_srs {3} -cblend 6'
         - retry (bool)
              If True, and the file exists (and is over 0k), downloading will be skipped.
         
@@ -234,7 +246,8 @@ def download_usgs_dem_file(extent_file,
             
     cmd = base_cmd.format(download_url,
                             target_path_raw,
-                            extent_file)
+                            extent_file,
+                            sv.DEFAULT_FIM_PROJECTION_CRS)
     #PREP_PROJECTION_EPSG
     #fh.vprint(f"cmd is {cmd}", self.is_verbose, True)
     #print(f"cmd is {cmd}")
@@ -264,6 +277,53 @@ def download_usgs_dem_file(extent_file,
         logging.info(msg)
 
 
+def polygonize(target_output_folder_path):
+    """
+    Create a polygon of 3DEP domain from individual HUC6 DEMS which are then dissolved into a single polygon
+    """
+    dem_domain_file = os.path.join(target_output_folder_path, 'HUC6_dem_domain.gpkg')
+
+    msg = f" - Polygonizing -- {dem_domain_file} - Started"
+    print(msg)
+    logging.info(msg)
+            
+    dem_files = glob.glob(os.path.join(target_output_folder_path, '*_dem.tif'))
+    dem_gpkgs = gpd.GeoDataFrame()
+
+    for n, dem_file in enumerate(dem_files):
+        edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
+        edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
+
+        # Calculate a constant valued raster from valid DEM cells
+        if not os.path.exists(edge_tif):
+            subprocess.run(['gdal_calc.py', '-A', dem_file, f'--outfile={edge_tif}', '--calc=where(A > -900, 1, 0)', '--co', 'BIGTIFF=YES', '--co', 'NUM_THREADS=ALL_CPUS', '--co', 'TILED=YES', '--co', 'COMPRESS=LZW', '--co', 'SPARSE_OK=TRUE', '--type=Byte', '--quiet'])
+
+        # Polygonize constant valued raster
+        subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+
+        gdf = gpd.read_file(edge_gpkg)
+
+        if n == 0:
+            dem_gpkgs = gdf
+        else:
+            dem_gpkgs = dem_gpkgs.append(gdf)
+
+        os.remove(edge_tif)
+        
+    dem_gpkgs['DN'] = 1
+    dem_dissolved = dem_gpkgs.dissolve(by='DN')
+    dem_dissolved.to_file(dem_domain_file, driver='GPKG')
+
+    if not os.path.exists(dem_domain_file):
+        msg = f" - Polygonizing -- {dem_domain_file} - Failed"
+        print(msg)
+        logging.error(msg)
+    else:
+        msg = f" - Polygonizing -- {dem_domain_file} - Complete"
+        print(msg)
+        logging.info(msg)
+
+
 def __setup_logger(output_folder_path):
 
     start_time = datetime.now()
@@ -279,7 +339,6 @@ def __setup_logger(output_folder_path):
 
     logger = logging.getLogger()
     logger.addHandler(file_handler)
-    # logger.addHandler(console_handler)
     logger.setLevel(logging.DEBUG)    
     
     logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
@@ -291,7 +350,7 @@ if __name__ == '__main__':
     # Parse arguments.
     
     # sample usage (min params):
-    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC4
+    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC6_ESPG_5070/ -t /data/inputs/3dep_dems/10m_5070/ -r -j 20
     
     # Notes:
     #   - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
@@ -309,7 +368,8 @@ if __name__ == '__main__':
         
         
     # IMPORTANT: 
-    # (Sept 2022): we do not process HUC2 of 19 (alaska) or 22 (misc US pacific islands).
+    # (Sept 2022): we do not process HUC2 of 22 (misc US pacific islands).
+    # We left in HUC2 of 19 (alaska) as we hope to get there in the semi near future
     # They need to be removed from the input src clip directory in the first place.
     # They can not be reliably removed in code.
        

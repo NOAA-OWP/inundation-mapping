@@ -15,8 +15,7 @@ def filter_catchments_and_add_attributes(input_catchments_filename,
                                          output_catchments_filename,
                                          output_flows_filename,
                                          wbd_filename,
-                                         huc_code,
-                                         drop_stream_orders=False):
+                                         huc_code):
 
     input_catchments = gpd.read_file(input_catchments_filename)
     wbd = gpd.read_file(wbd_filename)
@@ -56,21 +55,13 @@ def filter_catchments_and_add_attributes(input_catchments_filename,
             output_catchments.to_file(output_catchments_filename, driver="GPKG",index=False)
             output_flows.to_file(output_flows_filename, driver="GPKG", index=False)
         except ValueError:
-            if (drop_stream_orders):
-                # this is not an exception, but a custom exit code that can be trapped
-                print("There are no flowlines in the HUC after stream order filtering.")
-                sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
-            else:
-                # if we are not dropping stream orders, then something is wrong
-                raise Exception("There are no flowlines in the HUC.")
-    else:
-        if (drop_stream_orders):
             # this is not an exception, but a custom exit code that can be trapped
             print("There are no flowlines in the HUC after stream order filtering.")
             sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
-        else:
-            # if we are not dropping stream orders, then something is wrong
-            raise Exception("There are no flowlines in the HUC.")
+    else:
+        # this is not an exception, but a custom exit code that can be trapped
+        print("There are no flowlines in the HUC after stream order filtering.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
 
 if __name__ == '__main__':
@@ -83,8 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-flows-filename', help='output-flows-filename', required=True)
     parser.add_argument('-w', '--wbd-filename', help='wbd-filename', required=True)
     parser.add_argument('-u', '--huc-code', help='huc-code', required=True)
-    parser.add_argument('-s', '--drop-stream-orders', help='Drop stream orders 1 and 2', type=int, required=False, default=False)
-
+    
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 

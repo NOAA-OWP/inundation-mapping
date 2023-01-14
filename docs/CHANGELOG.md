@@ -1,6 +1,594 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.19.0 - 2023-01-06 - [PR#782](https://github.com/NOAA-OWP/inundation-mapping/pull/782)
+
+Changes the projection of HAND processing to EPSG 5070.
+
+### Changes
+
+- `gms_run_post_processing.sh`: Adds target projection for `points`
+- `data/nld/preprocess_levee_protected_areas.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+- `src/`
+    - `clip_vectors_to_wbd.py`: Save intermediate outputs in EPSG:5070
+    - `src_adjust_spatial_obs.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+    - `utils/shared_variables.py`: Changes the designated projection variables
+    - `gms/`
+        - `stream_branches.py`: Checks the projection of the input streams and changes if necessary
+        - `run_by_unit.py`: Changes the default projection crs variable and added as HUC target projection
+- `tools/inundate_nation.py`: Changed to use `utils.shared_variables.PREP_PROJECTION`
+
+<br/><br/>
+
+## v4.0.18.2 - 2023-01-11 - [PR#790](https://github.com/NOAA-OWP/inundation-mapping/pull/790)
+
+Remove Great Lakes clipping
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Removes Great Lakes clipping and references to Great Lakes polygons and lake buffer size
+
+    - `gms/run_by_unit.sh`: Removes Great Lakes polygon and lake buffer size arguments to `src/clip_vectors_to_wbd.py`
+
+<br/><br/>
+
+## v4.0.18.1 - 2022-12-13 - [PR #760](https://github.com/NOAA-OWP/inundation-mapping/pull/760)
+
+Adds stacked bar eval plots.
+
+### Additions
+
+- `/tools/eval_plots_stackedbar.py`: produces stacked bar eval plots in the same manner as `eval_plots.py`.
+
+<br/><br/>
+
+## v4.0.18.0 - 2023-01-03 - [PR#780](https://github.com/NOAA-OWP/inundation-mapping/pull/780)
+
+Clips WBD and stream branch buffer polygons to DEM domain.
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Clips WBD polygon to DEM domain
+
+    - `gms/`
+        - `buffer_stream_branches.py`: Clips branch buffer polygons to DEM domain
+        - `derive_level_paths.py`: Stop processing if no branches exist
+        - `mask_dem.py`: Checks if stream file exists before continuing
+        - `remove_error_branches.py`: Checks if error_branches has data before continuing
+        - `run_by_unit.sh`: Adds DEM domain as bash variable and adds it as an argument to calling `clip_vectors_to_wbd.py` and `buffer_stream_branches.py`
+
+<br/><br/>
+
+
+## v4.0.17.4 - 2023-01-06 - [PR#781](https://github.com/NOAA-OWP/inundation-mapping/pull/781)
+
+Added crosswalk_table.csv from the root output folder as being a file push up to Hydrovis s3 bucket after FIM BED runs.
+
+### Changes
+
+- `config`
+    - `aws_s3_put_fim4_hydrovis_whitelist.lst`:  Added crosswalk_table.csv to whitelist.
+
+
+<br/><br/>
+
+## v4.0.17.3 - 2022-12-23 - [PR#773](https://github.com/NOAA-OWP/inundation-mapping/pull/773)
+
+Cleans up REM masking of levee-protected areas and fixes associated error.
+
+### Removals
+
+- `src/gms/`
+    - `delineate_hydros_and_produce_HAND.sh`: removes rasterization and masking of levee-protected areas from the REM
+    - `rasterize_by_order`: removes this file
+- `config/`
+    - `deny_gms_branch_zero.lst`, `deny_gms_branches_dev.lst`, and `deny_gms_branches_prod.lst`: removes `LeveeProtectedAreas_subset_{}.tif`
+
+### Changes
+
+- `src/gms/rem.py`: fixes an error where the nodata value of the DEM was overlooked
+
+<br/><br/>
+
+## v4.0.17.2 - 2022-12-29 - [PR #779](https://github.com/NOAA-OWP/inundation-mapping/pull/779)
+
+Remove dependency on `other` folder in `test_cases`. Also updates ESRI and QGIS agreement raster symbology label to include the addition of levee-protected areas as a mask.
+
+### Removals
+
+- `tools/`
+    - `aggregate_metrics.py` and `cache_metrics.py`: Removes reference to test_cases/other folder
+
+### Changes
+
+- `config/symbology/`
+    - `esri/agreement_raster.lyr` and `qgis/agreement_raster.qml`: Updates label from Waterbody mask to Masked since mask also now includes levee-protected areas
+- `tools/`
+    - `eval_alt_catfim.py` and `run_test_case.py`: Updates waterbody mask to dataset located in /inputs folder
+
+<br/><br/>
+
+## v4.0.17.1 - 2022-12-29 - [PR #778](https://github.com/NOAA-OWP/inundation-mapping/pull/778)
+
+This merge fixes a bug where all of the Stage-Based intervals were the same.
+
+### Changes
+- `/tools/generate_categorical_fim.py`: Changed `stage` variable to `interval_stage` variable in `produce_stage_based_catfim_tifs` function call.
+
+<br/><br/>
+
+## v4.0.17.0 - 2022-12-21 - [PR #771](https://github.com/NOAA-OWP/inundation-mapping/pull/771)
+
+Added rysnc to docker images. rysnc can now be used inside the images to move data around via docker mounts.
+
+### Changes
+
+- `Dockerfile` : added rsync 
+
+<br/><br/>
+
+## v4.0.16.0 - 2022-12-20 - [PR #768](https://github.com/NOAA-OWP/inundation-mapping/pull/768)
+
+`gms_run_branch.sh` was processing all of the branches iteratively, then continuing on to a large post processing portion of code. That has now be split to two files, one for branch iteration and the other file for just post processing.
+
+Other minor changes include:
+- Removing the system where a user could override `DropStreamOrders` where they could process streams with stream orders 1 and 2 independently like other GMS branches.  This option is now removed, so it will only allow stream orders 3 and higher as gms branches and SO 1 and 2 will always be in branch zero.
+
+- The `retry` flag on the three gms*.sh files has been removed. It did not work correctly and was not being used. Usage of it would have created unreliable results. 
+
+### Additions
+
+- `gms_run_post_processing.sh`
+   - handles all tasks from after `gms_run_branch.sh` to this file, except for output cleanup, which stayed in `gms_run_branch.sh`.
+   - Can be run completely independent from `gms_run_unit.sh` or gms_run_branch.sh` as long as all of the files are in place. And can be re-run if desired.
+
+### Changes
+
+- `gms_pipeline.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer reusable output date/time/duration system.
+   - Add call to new `gms_run_post_processing.sh` file.
+
+- `gms_run_branch.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer reusable output date/time/duration system.
+   - Removed most code from below the branch iterator to the new `gms_run_post_processing.sh` file. However, it did keep the branch files output cleanup and non-zero exit code checking.
+
+- `gms_run_unit.sh`
+   - Remove "retry" system.
+   - Remove "dropLowStreamOrders" system.
+   - Updated for newer reusable output date/time/duration system.
+
+- `src`
+    - `bash_functions.env`:  Added a new method to make it easier / simpler to calculation and display duration time. 
+    - `filter_catchments_and_add_attributes.py`:  Remove "dropLowStreamOrders" system.
+    - `split_flows.py`: Remove "dropLowStreamOrders" system.
+    - `usgs_gage_unit_setup.py`:  Remove "dropLowStreamOrders" system.
+
+- `gms`  
+    - `delineate_hydros_and_produced_HAND.sh` : Remove "dropLowStreamOrders" system.
+    - `derive_level_paths.py`: Remove "dropLowStreamOrders" system and some small style updates.
+    - `run_by_unit.sh`: Remove "dropLowStreamOrders" system.
+
+- `unit_tests/gms`
+    - `derive_level_paths_params.json` and `derive_level_paths_unittests.py`: Remove "dropLowStreamOrders" system.
+
+<br/><br/>
+
+## v4.0.15.0 - 2022-12-20 - [PR #758](https://github.com/NOAA-OWP/inundation-mapping/pull/758)
+
+This merge addresses feedback received from field users regarding CatFIM. Users wanted a Stage-Based version of CatFIM, they wanted maps created for multiple intervals between flood categories, and they wanted documentation as to why many sites are absent from the Stage-Based CatFIM service. This merge seeks to address this feedback. CatFIM will continue to evolve with more feedback over time.
+
+## Changes
+- `/src/gms/usgs_gage_crosswalk.py`: Removed filtering of extra attributes when writing table
+- `/src/gms/usgs_gage_unit_setup.py`: Removed filter of gages where `rating curve == yes`. The filtering happens later on now.
+- `/tools/eval_plots.py`: Added a post-processing step to produce CSVs of spatial data
+- `/tools/generate_categorical_fim.py`:
+  - New arguments to support more advanced multiprocessing, support production of Stage-Based CatFIM, specific output directory pathing, upstream and downstream distance, controls on how high past "major" magnitude to go when producing interval maps for Stage-Based, the ability to run a single AHPS site.
+- `/tools/generate_categorical_fim_flows.py`:
+  - Allows for flows to be retrieved for only one site (useful for testing)
+  - More logging
+  - Filtering stream segments according to stream order
+- `/tools/generate_categorical_fim_mapping.py`:
+  - Support for Stage-Based CatFIM production
+  - Enhanced multiprocessing
+  - Improved post-processing
+- `/tools/pixel_counter.py`: fixed a bug where Nonetypes were being returned
+- `/tools/rating_curve_get_usgs_rating_curves.py`:
+  - Removed filtering when producing `usgs_gages.gpkg`, but adding attribute as to whether or not it meets acceptance criteria, as defined in `gms_tools/tools_shared_variables.py`.
+  - Creating a lookup list to filter out unacceptable gages before they're written to `usgs_rating_curves.csv`
+  - The `usgs_gages.gpkg` now includes two fields indicating whether or not gages pass acceptance criteria (defined in `tools_shared_variables.py`. The fields are `acceptable_codes` and `acceptable_alt_error`
+- `/tools/tools_shared_functions.py`:
+  - Added `get_env_paths()` function to retrieve environmental variable information used by CatFIM and rating curves scripts
+  - `Added `filter_nwm_segments_by_stream_order()` function that uses WRDS to filter out NWM feature_ids from a list if their stream order is different than a desired stream order.
+- `/tools/tools_shared_variables.py`: Added the acceptance criteria and URLS for gages as non-constant variables. These can be modified and tracked through version changes. These variables are imported by the CatFIM and USGS rating curve and gage generation scripts.
+- `/tools/test_case_by_hydroid.py`: reformatting code, recommend adding more comments/docstrings in future commit
+
+<br/><br/>
+
+## v4.0.14.2 - 2022-12-22 - [PR #772](https://github.com/NOAA-OWP/inundation-mapping/pull/772)
+
+Added `usgs_elev_table.csv` to hydrovis whitelist files.  Also updated the name to include the word "hydrovis" in them (anticipating more s3 whitelist files).
+
+### Changes
+
+- `config`
+    - `aws_s3_put_fim4_hydrovis_whitelist.lst`:  File name updated and added usgs_elev_table.csv so it gets push up as well.
+    - `aws_s3_put_fim3_hydrovis_whitelist.lst`: File name updated
+
+- `data/aws`
+   - `s3.py`: added `/foss_fim/config/aws_s3_put_fim4_hydrovis_whitelist.lst` as a default to the -w param.
+
+<br/><br/>
+
+## v4.0.14.1 - 2022-12-03 - [PR #753](https://github.com/NOAA-OWP/inundation-mapping/pull/753)
+
+Creates a polygon of 3DEP DEM domain (to eliminate errors caused by stream networks with no DEM data in areas of HUCs that are outside of the U.S. border) and uses the polygon layer to clip the WBD and stream network (to a buffer inside the WBD).
+
+### Additions
+- `data/usgs/acquire_and_preprocess_3dep_dems.py`: Adds creation of 3DEP domain polygon by polygonizing all HUC6 3DEP DEMs and then dissolving them.
+- `src/gms/run_by_unit.sh`: Adds 3DEP domain polygon .gpkg as input to `src/clip_vectors_to_wbd.py`
+
+### Changes
+- `src/clip_vectors_to_wbd.py`: Clips WBD to 3DEP domain polygon and clips streams to a buffer inside the clipped WBD polygon.
+
+<br/><br/>
+
+## v4.0.14.0 - 2022-12-20 - [PR #769](https://github.com/NOAA-OWP/inundation-mapping/pull/769)
+
+Masks levee-protected areas from the DEM in branch 0 and in highest two stream order branches.
+
+### Additions
+
+- `src/gms/`
+    - `mask_dem.py`: Masks levee-protected areas from the DEM in branch 0 and in highest two stream order branches
+    - `delineate_hydros_and_produce_HAND.sh`: Adds `src/gms/mask_dem.py`
+
+<br/><br/>
+
+## v4.0.13.2 - 2022-12-20 - [PR #767](https://github.com/NOAA-OWP/inundation-mapping/pull/767)
+
+Fixes inundation of nodata areas of REM.
+
+### Changes
+
+- `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
+
+<br/><br/>
+
+## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
+
+This merge adds the tools required to generate Alpha metrics by hydroid. It summarizes the Apha metrics by branch 0 catchment for use in the Hydrovis "FIM Performance" service.
+
+### Additions
+
+- `pixel_counter.py`:  A script to perform zonal statistics against raster data and geometries
+- `pixel_counter_functions.py`: Supporting functions
+- `pixel_counter_wrapper.py`: a script that wraps `pixel_counter.py` for batch processing
+- `test_case_by_hydroid.py`: the main script to orchestrate the generation of alpha metrics by catchment
+
+<br/><br/>
+
+## v4.0.13.0 - 2022-11-16 - [PR #744](https://github.com/NOAA-OWP/inundation-mapping/pull/744)
+
+Changes branch 0 headwaters data source from NHD to NWS to be consistent with branches. Removes references to NHD flowlines and headwater data.
+
+### Changes
+
+- `src/gms/derive_level_paths.py`: Generates headwaters before stream branch filtering
+
+### Removals
+
+- Removes NHD flowlines and headwater references from `gms_run_unit.sh`, `config/deny_gms_unit_prod.lst`, `src/clip_vectors_to_wbd.py`, `src/gms/run_by_unit.sh`, `unit_tests/__template_unittests.py`, `unit_tests/clip_vectors_to_wbd_params.json`, and `unit_tests/clip_vectors_to_wbd_unittests.py`
+
+<br/><br/>
+
+## V4.0.12.2 - 2022-12-04 - [PR #754](https://github.com/NOAA-OWP/inundation-mapping/pull/754)
+
+Stop writing `gms_inputs_removed.csv` if no branches are removed with Error status 61.
+
+### Changes
+
+- `src/gms/remove_error_branches.py`: Checks if error branches is not empty before saving gms_inputs_removed.csv
+
+<br/><br/>
+
+## v4.0.12.1 - 2022-11-30 - [PR #751](https://github.com/NOAA-OWP/inundation-mapping/pull/751)
+
+Updating a few deny list files.
+
+### Changes
+
+- `config`:
+    - `deny_gms_branches_dev.lst`, `deny_gms_branches_prod.lst`, and `deny_gms_unit_prod.lst`
+
+<br/><br/>
+
+
+## v4.0.12.0 - 2022-11-28 - [PR #736](https://github.com/NOAA-OWP/inundation-mapping/pull/736)
+
+This feature branch introduces a new methodology for computing Manning's equation for the synthetic rating curves. The new subdivision approach 1) estimates bankfull stage by crosswalking "bankfull" proxy discharge data to the raw SRC discharge values 2) identifies in-channel vs. overbank geometry values 3) applies unique in-channel and overbank Manning's n value (user provided values) to compute Manning's equation separately for channel and overbank discharge and adds the two components together for total discharge 4) computes a calibration coefficient (where benchmark data exists) that applies to the  calibrated total discharge calculation.
+
+### Additions
+
+- `src/subdiv_chan_obank_src.py`: new script that performs all subdiv calculations and then produce a new (modified) `hydroTable.csv`. Inputs include `src_full_crosswalked.csv` for each huc/branch and a Manning's roughness csv file (containing: featureid, channel n, overbank n; file located in the `/inputs/rating_curve/variable_roughness/`). Note that the `identify_src_bankfull.py` script must be run prior to running the subdiv workflow.
+
+### Changes
+
+- `config/params_template.env`: removed BARC and composite roughness parameters; added new subdivision parameters; default Manning's n file set to `mannings_global_06_12.csv`
+- `gms_run_branch.sh`: moved the PostgreSQL database steps to occur immediately before the SRC calibration steps; added new subdivision step; added condition to SRC calibration to ensure subdivision routine is run
+- `src/add_crosswalk.py`: removed BARC function call; update placeholder value list (removed BARC and composite roughness variables) - these placeholder variables ensure that all hydrotables have the same dimensions
+- `src/identify_src_bankfull.py`: revised FIM3 starting code to work with FIM4 framework; stripped out unnecessary calculations; restricted bankfull identification to stage values > 0
+- `src/src_adjust_spatial_obs.py`: added huc sort function to help user track progress from console outputs
+- `src/src_adjust_usgs_rating.py`: added huc sort function to help user track progress from console outputs
+- `src/src_roughness_optimization.py`: reconfigured code to compute a calibration coefficient and apply adjustments using the subdivision variables; renamed numerous variables; simplified code where possible
+- `src/utils/shared_variables.py`: increased `ROUGHNESS_MAX_THRESH` from 0.6 to 0.8
+- `tools/vary_mannings_n_composite.py`: *moved this script from /src to /tools*; updated this code from FIM3 to work with FIM4 structure; however, it is not currently implemented (the subdivision routine replaces this)
+- `tools/aggregate_csv_files.py`: helper tool to search for csv files by name/wildcard and concatenate all found files into one csv (used for aggregating previous calibrated roughness values)
+- `tools/eval_plots.py`: updated list of metrics to plot to also include equitable threat score and mathews correlation coefficient (MCC)
+- `tools/synthesize_test_cases.py`: updated the list of FIM version metrics that the `PREV` flag will use to create the final aggregated metrics csv; this change will combine the dev versions provided with the `-dc` flag along with the existing `previous_fim_list` 
+
+<br/><br/>
+
+## v4.0.11.5 - 2022-11-18 - [PR #746](https://github.com/NOAA-OWP/inundation-mapping/pull/746)
+
+Skips `src/usgs_gage_unit_setup.py` if no level paths exist. This may happen if a HUC has no stream orders > 2. This is a bug fix for #723 for the case that the HUC also has USGS gages.
+
+### Changes
+
+- `src/gms/run_by_unit.sh`: Adds check for `nwm_subset_streams_levelPaths.gpkg` before running `usgs_gage_unit_setup.py`
+
+<br/><br/>
+
+## v4.0.11.4 - 2022-10-12 - [PR #709](https://github.com/NOAA-OWP/inundation-mapping/pull/709)
+
+Adds capability to produce single rating curve comparison plots for each gage.
+
+### Changes
+
+- `tools/rating_curve_comparison.py`
+    - Adds generate_single_plot() to make a single rating curve comparison plot for each gage in a given HUC
+    - Adds command line switch to generate single plots
+    
+<br/><br/>
+
+## v4.0.11.3 - 2022-11-10 - [PR #739](https://github.com/NOAA-OWP/inundation-mapping/pull/739)
+
+New tool with instructions of downloading levee protected areas and a tool to pre-process it, ready for FIM.
+
+### Additions
+
+- `data`
+    - `nld`
+         - `preprocess_levee_protected_areas.py`:  as described above
+
+### Changes
+
+- `data`
+     - `preprocess_rasters.py`: added deprecation note. It will eventually be replaced in it's entirety.
+- `src`
+    - `utils`
+        - `shared_functions.py`: a few styling adjustments.
+
+<br/><br/>
+
+## v4.0.11.2 - 2022-11-07 - [PR #737](https://github.com/NOAA-OWP/inundation-mapping/pull/737)
+
+Add an extra input args to the gms_**.sh files to allow for an override of the branch zero deny list, same as we can do with the unit and branch deny list overrides. This is needed for debugging purposes.
+
+Also, if there is no override for the deny branch zero list and is not using the word "none", then use the default or overridden standard branch deny list.  This will keep the branch zero's and branch output folders similar but not identical for outputs.
+
+### Changes
+
+- `gms_pipeline.sh`:  Add new param to allow for branch zero deny list override. Plus added better logic for catching bad deny lists earlier.
+- `gms_run_branch.sh`:  Add new param to allow for branch zero deny list override.  Add logic to cleanup all branch zero output folders with the default branch deny list (not the branch zero list), UNLESS an override exists for the branch zero deny list.
+- `gms_run_unit.sh`: Add new param to allow for branch zero deny list override.
+- `config`
+    - `deny_gms_branch_zero.lst`: update to keep an additional file in the outputs.
+- `src`
+    - `output_cleanup.py`: added note saying it is deprecated.
+    - `gms`
+        - `run_by_branch.sh`: variable name change (matching new names in related files for deny lists)
+        - `run_by_unit.sh`: Add new param to allow for branch zero deny list override.
+
+<br/><br/>
+
+## v4.0.11.1 - 2022-11-01 - [PR #732](https://github.com/NOAA-OWP/inundation-mapping/pull/732)
+
+Due to a recent IT security scan, it was determined that Jupyter-core needed to be upgraded.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`:  Added a specific version of Jupyter Core that is compliant with IT.
+
+<br/><br/>
+
+## v4.0.11.0 - 2022-09-21 - [PR #690](https://github.com/NOAA-OWP/inundation-mapping/pull/690)
+
+Masks levee-protected areas from Relative Elevation Model if branch 0 or if branch stream order exceeds a threshold.
+
+### Additions
+
+- `src/gms/`
+   - `delineate_hydros_and_produce_HAND.sh`
+      - Reprojects and creates HUC-level raster of levee-protected areas from polygon layer
+      - Uses that raster to mask/remove those areas from the Relative Elevation Model
+   - `rasterize_by_order.py`: Subsets levee-protected area branch-level raster if branch 0 or if order exceeds a threshold (default threshold: max order - 1)
+- `config/`
+   - `deny_gms_branches_default.lst`, and `deny_gms_branches_min.lst`: Added LeveeProtectedAreas_subset_{}.tif
+   - `params_template.env`: Adds mask_leveed_area_toggle
+
+### Changes
+
+- `src/gms/delineate_hydros_and_produce_HAND.sh`: Fixes a bug in ocean/Great Lakes masking
+- `tools/`
+    - `eval_alt_catfim.py` and `run_test_case.py`: Changes the levee mask to the updated inputs/nld_vectors/Levee_protected_areas.gpkg
+
+<br/><br/>
+
+## v4.0.10.5 - 2022-10-21 - [PR #720](https://github.com/NOAA-OWP/inundation-mapping/pull/720)
+
+Earlier versions of the acquire_and_preprocess_3dep_dems.py did not have any buffer added when downloading HUC6 DEMs. This resulted in 1 pixel nodata gaps in the final REM outputs in some cases at HUC8 sharing a HUC6 border. Adding the param of cblend 6 to the gdalwarp command meant put a 6 extra pixels all around perimeter. Testing showed that 6 pixels was plenty sufficient as the gaps were never more than 1 pixel on borders of no-data.
+
+### Changes
+
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Added the `cblend 6` param to the gdalwarp call for when the dem is downloaded from USGS.
+    - `create_vrt_file.py`:  Added sample usage comment.
+ - `src`
+     - `gms`
+         `run_by_unit.sh`: Added a comment about gdal as it relates to run_by_unit.
+
+Note: the new replacement inputs/3dep_dems/10m_5070/ files can / will be copied before PR approval as the true fix was replacment DEM's. There is zero risk of overwriting prior to code merge.
+
+<br/><br/>
+
+## v4.0.10.4 - 2022-10-27 - [PR #727](https://github.com/NOAA-OWP/inundation-mapping/pull/727)
+
+Creates a single crosswalk table containing HUC (huc8), BranchID, HydroID, feature_id (and optionally LakeID) from branch-level hydroTables.csv files.
+
+### Additions
+
+- `tools/gms_tools/combine_crosswalk_tables.py`: reads and concatenates hydroTable.csv files, writes crosswalk table
+- `gms_run_branch.sh`: Adds `tools/gms_tools/make_complete_hydrotable.py` to post-processing
+
+<br/><br/>
+
+## v4.0.10.3 - 2022-10-19 - [PR #718](https://github.com/NOAA-OWP/inundation-mapping/pull/718)
+
+Fixes thalweg notch by clipping upstream ends of the stream segments to prevent the stream network from reaching the edge of the DEM and being treated as outlets when pit filling the burned DEM.
+
+### Changes
+
+- `src/clip_vectors_to_wbd.py`: Uses a slightly smaller buffer than wbd_buffer (wbd_buffer_distance-2*(DEM cell size)) to clip stream network inside of DEM extent.
+
+<br/><br/>
+
+## v4.0.10.2 - 2022-10-24 - [PR #723](https://github.com/NOAA-OWP/inundation-mapping/pull/723)
+
+Runs branch 0 on HUCs with no other branches remaining after filtering stream orders if `drop_low_stream_orders` is used.
+
+### Additions
+
+- `src/gms`
+    - `stream_branches.py`: adds `exclude_attribute_values()` to filter out stream orders 1&2 outside of `load_file()`
+
+### Changes
+
+- `src/gms`
+    - `buffer_stream_branches.py`: adds check for `streams_file`
+    - `derive_level_paths.py`: checks length of `stream_network` before filtering out stream orders 1&2, then filters using `stream_network.exclude_attribute_values()`
+    - `generate_branch_list.py`: adds check for `stream_network_dissolved`
+
+<br/><br/>
+    
+## v4.0.10.1 - 2022-10-5 - [PR #695](https://github.com/NOAA-OWP/inundation-mapping/pull/695)
+
+This hotfix address a bug with how the rating curve comparison (sierra test) handles the branch zero synthetic rating curve in the comparison plots. Address #676 
+
+### Changes
+
+- `tools/rating_curve_comparison.py`
+  - Added logging function to print and write to log file
+  - Added new filters to ignore AHPS only sites (these are sites that we need for CatFIM but do not have a USGS gage or USGS rating curve available for sierra test analysis)
+  - Added functionality to identify branch zero SRCs
+  - Added new plot formatting to distinguish branch zero from other branches
+
+<br/><br/>
+
+## v4.0.10.0 - 2022-10-4 - [PR #697](https://github.com/NOAA-OWP/inundation-mapping/pull/697)
+
+Change FIM to load DEM's from the new USGS 3Dep files instead of the original NHD Rasters.
+
+### Changes
+
+- `config`
+    - `params_template.env`: Change default of the calib db back to true:  src_adjust_spatial back to "True". Plus a few text updates.
+- `src`
+    - `gms`
+        - `run_by_unit.sh`: Change input_DEM value to the new vrt `$inputDataDir/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt` to load the new 3Dep DEM's. Note: The 3Dep DEM's are projected as CRS 5070, but for now, our code is using ESRI:102039. Later all code and input will be changed to CRS:5070. We now are defining the FIM desired projection (102039), so we need to reproject on the fly from 5070 to 102039 during the gdalwarp cut.
+        - `run_by_branch.sh`: Removed unused lines.
+    - `utils`
+        - `shared_variables.py`: Changes to use the new 3Dep DEM rasters instead of the NHD rasters. Moved some values (grouped some variables). Added some new variables for 3Dep. Note: At this time, some of these new enviro variables for 3Dep are not used but are expected to be used shortly.
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Minor updates for adjustments of environmental variables. Adjustments to ensure the cell sizes are fully defined as 10 x 10 as source has a different resolution. The data we downloaded to the new `inputs/3dep_dems/10m_5070` was loaded as 10x10, CRS:5070 rasters.
+
+### Removals
+
+- `lib`
+    - `aggregate_fim_outputs.py` : obsolete. Had been deprecated for a while and replaced by other files.
+    - `fr_to_mr_raster_mask.py` : obsolete. Had been deprecated for a while and replaced by other files.
+
+<br/><br/>
+
+## v4.0.9.8 - 2022-10-06 - [PR #701](https://github.com/NOAA-OWP/inundation-mapping/pull/701)
+
+Moved the calibration tool from dev-fim3 branch into "dev" (fim4) branch. Git history not available.
+
+Also updated making it easier to deploy, along with better information for external contributors.
+
+Changed the system so the calibration database name is configurable. This allows test databases to be setup in the same postgres db / server system. You can have more than one calb_db_keys.env running in different computers (or even more than one on one server) pointing to the same actual postgres server and service. ie) multiple dev machine can call a single production server which hosts the database.
+
+For more details see /tools/calibration-db/README.md
+
+### Changes
+
+- `tools`
+    - `calibration-db`
+        - `docker-compose.yml`: changed to allow for configurable database name. (allows for more then one database in a postgres database system (one for prod, another for test if needed))
+
+### Additions
+
+- `config`
+    - `calb_db_keys_template.env`: a new template verison of the required config values.
+
+### Removals
+
+- `tools`
+    - `calibration-db`
+        - `start_db.sh`: Removed as the command should be run on demand and not specifically scripted because of its configurable location of the env file.
+
+<br/><br/>
+
+## v4.0.9.7 - 2022-10-7 - [PR #703](https://github.com/NOAA-OWP/inundation-mapping/pull/703)
+
+During a recent release of a FIM 3 version, it was discovered that FIM3 has slightly different AWS S3 upload requirements. A new s3 whitelist file has been created for FIM3 and the other s3 file was renamed to include the phrase "fim4" in it.
+
+This is being added to source control as it might be used again and we don't want to loose it.
+
+### Additions
+
+- `config`
+   - `aws_s3_put_fim3_whitelist.lst`
+   
+### Renamed
+
+- `config`
+   - `aws_s3_put_fim4_whitelist.lst`: renamed from aws_s3_put_whitelist.lst
+
+<br/><br/>
+
+## v4.0.9.6 - 2022-10-17 - [PR #711](https://github.com/NOAA-OWP/inundation-mapping/pull/711)
+
+Bug fix and formatting upgrades. It was also upgraded to allow for misc other inundation data such as high water data.
+
+### Changes
+
+- `tools`
+    - `inundate_nation.py`:  As stated above.
+
+### Testing
+
+- it was run in a production model against fim 4.0.9.2 at 100 yr and 2 yr as well as a new High Water dataset.
+
+<br/><br/>
+
 ## v4.0.9.5 - 2022-10-3 - [PR #696](https://github.com/NOAA-OWP/inundation-mapping/pull/696)
 
 - Fixed deny_gms_unit_prod.lst to comment LandSea_subset.gpkg, so it does not get removed. It is needed for processing in some branches
@@ -60,7 +648,7 @@ Cleanup Branch Zero output at the end of a processing run. Without this fix, som
     - `deny_gms_branch_zero.lst`: Added some new files to be deleted.
     - `deny_gms_branches_dev.lst`:  Renamed from `deny_gms_branches_default.lst` and some new files to be deleted, updated others. Now used primarily for development and testing use.
     - `deny_gms_branches_prod.lst`:  Renamed from `deny_gms_branches_min` and some new files to be deleted, updated others. Now used primarily for when releasing a version to production.
-    -  `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
+    - `deny_gms_unit_prod.lst`: Renamed from `deny_gms_unit_default.lst`, yes... there currently is no "dev" version.  Added some new files to be deleted.
 
 <br/><br/>
 
@@ -257,7 +845,6 @@ Prunes branches that fail with NO_FLOWLINES_EXIST (Exit code: 61) in `gms_run_br
 - Deletes branch from `gms_inputs.csv`
 
 <br/><br/>
-
 
 ## v4.0.6.0 - 2022-08-10 - [PR #614](https://github.com/NOAA-OWP/inundation-mapping/pull/614)
 

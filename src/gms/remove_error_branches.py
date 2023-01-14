@@ -68,12 +68,16 @@ def remove_error_branches(logfile, gms_inputs):
                     error_branches = pd.concat([error_branches, tmp_df])
 
         # Save list of removed branches
-        pd.DataFrame(error_branches).to_csv(gms_inputs_removed, header=False, index=False)
+        if error_branches is not None and len(error_branches) > 0:
+            pd.DataFrame(error_branches).to_csv(gms_inputs_removed, header=False, index=False)
 
-        # Overwrite gms_inputs.csv with error branches removed
-        gms_inputs_df.to_csv(gms_inputs, header=False, index=False)
+            # Overwrite gms_inputs.csv with error branches removed
+            gms_inputs_df.to_csv(gms_inputs, header=False, index=False)
 
-        print('\nDone removing error branches\n')
+            print('\nDone removing error branches\n')
+
+        else:
+            print('\nDone -- no branches to remove')
 
     else:
         print('\nNo log file found\n')

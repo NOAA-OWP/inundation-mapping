@@ -1,3 +1,5 @@
 hydroTable{}.csv
 gw_catchments_reaches_filtered_addedAttributes{}.tif
 rem_zeroed_masked{}.tif
+usgs_elev_table.csv
+crosswalk_table.csv

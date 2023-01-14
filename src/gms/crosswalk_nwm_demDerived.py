@@ -40,9 +40,9 @@ def Crosswalk_nwm_demDerived(nwm_streams, demDerived, wbd=None, node_prefix=None
                                        verbose=verbose)
 
     # create points for nwm and demDerived networks
-    nwm_points = nwm_streams.explode_to_points(reach_id_attribute='ID', sampling_size=sampling_size, 
+    nwm_points = nwm_streams.explode_to_points(sampling_size=sampling_size, 
                                                verbose=verbose)
-    demDerived_points = demDerived.explode_to_points(reach_id_attribute='HydroID', sampling_size=sampling_size, 
+    demDerived_points = demDerived.explode_to_points(sampling_size=sampling_size, 
                                                      verbose=verbose)
     
     # conflate points
@@ -56,14 +56,6 @@ def Crosswalk_nwm_demDerived(nwm_streams, demDerived, wbd=None, node_prefix=None
     demDerived.drop(columns='feature_id',inplace=True,errors='raise')
     demDerived['HydroID'] = demDerived['HydroID'].astype(int)
     demDerived = demDerived.merge(crosswalk_table, how='left', left_on='HydroID', right_index=True)
-
-    """
-    demDerived = demDerived.conflate_branches(target_stream_network=nwm_streams,branch_id_attribute_left='levpa_id',
-                                                branch_id_attribute_right='levpa_id',
-                                                left_order_attribute='order_', right_order_attribute='order_',
-                                                crosswalk_attribute='nwm_levpa_id',
-                                                verbose=verbose)
-    """
 
     if demDerived_outfile is not None:
         demDerived.write(demDerived_outfile,index=False,verbose=verbose)

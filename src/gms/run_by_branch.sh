@@ -22,12 +22,6 @@ outputHucDataDir=$outputRunDataDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
 outputCurrentBranchDataDir=$outputBranchDataDir/$current_branch_id
 
-# set input files
-input_DEM=$inputDataDir/nhdplus_rasters/HRNHDPlusRasters"$huc4Identifier"/elev_m.tif
-input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
-input_bathy_bankfull=$inputDataDir/$bankfull_input_table
-input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
-
 ## OVERWRITE
 if [ -d "$outputCurrentBranchDataDir" ];then
     if [ $overwrite -eq 1 ]; then
@@ -70,6 +64,7 @@ echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
+Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"$stopDiv
@@ -109,11 +104,11 @@ if [ -f $outputHucDataDir/usgs_subset_gages.gpkg ]; then
 fi
 
 ## REMOVE FILES FROM DENY LIST ##
-if [ -f $deny_gms_branches_list ]; then
+if [ -f $deny_branches_list ]; then
     echo -e $startDiv"Remove files $hucNumber $current_branch_id"$stopDiv
     date -u
     Tstart
-    $srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_gms_branches_list -b $current_branch_id
+    $srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branches_list -b $current_branch_id
     Tcount
 fi
 

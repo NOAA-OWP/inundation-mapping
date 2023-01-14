@@ -1,10 +1,9 @@
 # List of files for gms branches to delete
 # Use comment to allow list the file
-NHDPlusBurnLineEvent_subset.gpkg
 #branch_id.lst
 #branch_polygons.gpkg
 #LandSea_subset.gpkg
-nhd_headwater_points_subset.gpkg
+#LeveeProtectedAreas_subset.gpkg
 #nld_subset_levees.gpkg
 #nwm_catchments_proj_subset.gpkg
 #nwm_catchments_proj_subset_levelPaths.gpkg
@@ -19,3 +18,4 @@ nwm_headwaters.gpkg
 #wbd.gpkg
 #wbd8_clp.gpkg
 wbd_buffered.gpkg
+#wbd_buffered_streams.gpkg

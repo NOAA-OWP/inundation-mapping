@@ -6,10 +6,16 @@ from pathlib import Path
 from tools_shared_functions import get_metadata, get_datum, ngvd_to_navd_ft, get_rating_curve, aggregate_wbd_hucs, get_thresholds, flow_data
 from dotenv import load_dotenv
 import os
+import numpy as np
 import argparse
 import sys
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION
+from tools_shared_variables import (acceptable_coord_acc_code_list, 
+                                    acceptable_coord_method_code_list, 
+                                    acceptable_alt_acc_thresh, 
+                                    acceptable_alt_meth_code_list, 
+                                    acceptable_site_type_list)
 
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
@@ -26,9 +32,10 @@ WBD_LAYER = os.getenv("WBD_LAYER")
 EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
 NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
 
+
 def get_all_active_usgs_sites():
     '''
-    Compile a list of all active usgs gage sites that meet certain criteria. 
+    Compile a list of all active usgs gage sites. 
     Return a GeoDataFrame of all sites.
 
     Returns
@@ -43,61 +50,15 @@ def get_all_active_usgs_sites():
     selector = ['all']
     must_include = 'usgs_data.active'
     metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = must_include, upstream_trace_distance = None, downstream_trace_distance = None )
-
-    #Filter out sites based quality of site. These acceptable codes were initially
-    #decided upon and may need fine tuning. A link where more information
-    #regarding the USGS attributes is provided. 
-    
-    #https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
-    acceptable_coord_acc_code = ['H','1','5','S','R','B','C','D','E']
-    #https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
-    acceptable_coord_method_code = ['C','D','W','X','Y','Z','N','M','L','G','R','F','S']
-    #https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
-    acceptable_alt_acc_thresh = 1
-    #https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
-    acceptable_alt_meth_code = ['A','D','F','I','J','L','N','R','W','X','Y','Z']
-    #https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
-    acceptable_site_type = ['ST']
-    
-    #Cycle through each site and filter out if site doesn't meet criteria.
-    acceptable_sites_metadata = []
-    for metadata in metadata_list:
-        #Get the usgs info from each site
-        usgs_data = metadata['usgs_data']
-                
-        #Get site quality attributes      
-        coord_accuracy_code = usgs_data.get('coord_accuracy_code')        
-        coord_method_code =   usgs_data.get('coord_method_code')
-        alt_accuracy_code =   usgs_data.get('alt_accuracy_code')
-        alt_method_code =     usgs_data.get('alt_method_code')
-        site_type =           usgs_data.get('site_type')
-        
-        #Check to make sure that none of the codes were null, if null values are found, skip to next.
-        if not all([coord_accuracy_code, coord_method_code, alt_accuracy_code, alt_method_code, site_type]):
-            continue
-        
-        #Test if site meets criteria.
-        if (coord_accuracy_code in acceptable_coord_acc_code and 
-            coord_method_code in acceptable_coord_method_code and
-            alt_accuracy_code <= acceptable_alt_acc_thresh and 
-            alt_method_code in acceptable_alt_meth_code and
-            site_type in acceptable_site_type):
-            
-            #If nws_lid is not populated then add a dummy ID so that 'aggregate_wbd_hucs' works correctly.
-            if not metadata.get('identifiers').get('nws_lid'):
-                metadata['identifiers']['nws_lid'] = 'Bogus_ID' 
-            
-            #Append metadata of acceptable site to acceptable_sites list.
-            acceptable_sites_metadata.append(metadata)  
-        
     #Get a geospatial layer (gdf) for all acceptable sites
-    dictionary, gdf = aggregate_wbd_hucs(acceptable_sites_metadata, Path(WBD_LAYER), retain_attributes = False)
+    print("Aggregating WBD HUCs...")
+    dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
     #Get a list of all sites in gdf
     list_of_sites = gdf['identifiers_usgs_site_code'].to_list()
     #Rename gdf fields
     gdf.columns = gdf.columns.str.replace('identifiers_','')
 
-    return gdf, list_of_sites, acceptable_sites_metadata
+    return gdf, list_of_sites, metadata_list
             
 ##############################################################################
 #Generate categorical flows for each category across all sites.
@@ -217,14 +178,19 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         all input sites. Additional metadata also contained in DataFrame
 
     '''
+    
     #Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
 
-    #If 'all' option passed to list of gages sites, it retrieves all acceptable sites within CONUS.
+    # Create workspace directory if it doesn't exist
+    if not os.path.exists(workspace):
+        os.mkdir(workspace)
+    
+    #If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     print('getting metadata for all sites')
     if list_of_gage_sites == ['all']:
-        acceptable_sites_gdf, acceptable_sites_list, metadata_list = get_all_active_usgs_sites()
+        sites_gdf, sites_list, metadata_list = get_all_active_usgs_sites()
     #Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:        
         #Define arguments to retrieve metadata and then get metadata from WRDS
@@ -254,22 +220,24 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
     #For each site in metadata_list
     for metadata in metadata_list:
         
+        print("get_datum")
         #Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)        
         
         #Filter out sites that are not in contiguous US. If this section is removed be sure to test with datum adjustment section (region will need changed)
         if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
             continue        
-        
         #Get rating curve for site
         location_ids = usgs['usgs_site_code']
+        if location_ids == None:  # Some sites don't have a value for usgs_site_code, skip them
+            continue
         curve = get_rating_curve(rating_curve_url, location_ids = [location_ids])
         #If no rating curve was returned, skip site.
         if curve.empty:
             message = f'{location_ids}: has no rating curve'
             regular_messages.append(message)
             continue
-
+        
         #Adjust datum to NAVD88 if needed. If datum unknown, skip site.
         if usgs['vcs'] == 'NGVD29':
             #To prevent time-out errors
@@ -283,7 +251,6 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
                 api_failure_messages.append(api_message)
                 print(api_message)
                 continue
-
             #If datum adjustment succeeded, calculate datum in NAVD88            
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
             message = f'{location_ids}:succesfully converted NGVD29 to NAVD88'
@@ -298,7 +265,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
             message = f"{location_ids}: datum unknown"
             regular_messages.append(message)
             continue
-
+        
+        print("Populating..")
         #Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
         curve['active'] = usgs['active']
         curve['datum'] = usgs['datum']
@@ -306,23 +274,53 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         curve['navd88_datum'] = navd88_datum
         curve['elevation_navd88'] = curve['stage'] + navd88_datum
         #Append all rating curves to a dataframe
-        all_rating_curves = all_rating_curves.append(curve)        
+        all_rating_curves = all_rating_curves.append(curve)
 
     #Rename columns and add attribute indicating if rating curve exists
-    acceptable_sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
+    sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
     sites_with_data = pd.DataFrame({'location_id':all_rating_curves['location_id'].unique(),'curve':'yes'})
-    acceptable_sites_gdf = acceptable_sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
-    acceptable_sites_gdf.fillna({'curve':'no'},inplace = True)    
+    sites_gdf = sites_gdf.merge(sites_with_data, on = 'location_id', how = 'left')
+    sites_gdf.fillna({'curve':'no'},inplace = True)    
     #Add mainstems attribute to acceptable sites
     print('Attributing mainstems sites')
     #Import mainstems segments used in run_by_unit.sh
     ms_df = gpd.read_file(NWM_FLOWS_MS)
     ms_segs = ms_df.ID.astype(str).to_list()
     #Populate mainstems attribute field
-    acceptable_sites_gdf['mainstem'] = 'no'
-    acceptable_sites_gdf.loc[acceptable_sites_gdf.eval('feature_id in @ms_segs'),'mainstem'] = 'yes' 
+    sites_gdf['mainstem'] = 'no'
+    sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'),'mainstem'] = 'yes' 
+    sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_pre.csv'))
     
+    sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     
+    print("Recasting...")
+    sites_gdf = sites_gdf.astype({'metadata_sources': str})
+    
+    # -- Filter all_rating_curves according to acceptance criteria -- #
+    # -- We only want acceptable gages in the rating curve CSV -- #           
+    sites_gdf['acceptable_codes'] = (sites_gdf['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+                                    & sites_gdf['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+                                    & sites_gdf['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+                                    & sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list))
+    
+    sites_gdf = sites_gdf.astype({'usgs_data_alt_accuracy_code': float})
+    sites_gdf['acceptable_alt_error'] = np.where(sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False)
+    
+    sites_gdf.to_file(os.path.join(workspace, 'sites_bool_flags.gpkg'), driver='GPKG')
+        
+    # Filter and save filtered file for viewing
+    acceptable_sites_gdf = sites_gdf[(sites_gdf['acceptable_codes'] == True) & (sites_gdf['acceptable_alt_error'] == True)]
+    acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
+    acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_for_rating_curves.csv'))
+    acceptable_sites_gdf.to_file(os.path.join(workspace, 'acceptable_sites_for_rating_curves.gpkg'),driver='GPKG')
+    
+    # Make list of acceptable sites
+    acceptable_sites_list = acceptable_sites_gdf['location_id'].tolist()
+        
+    # Filter out all_rating_curves by list
+    all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
+
     #If workspace is specified, write data to file.
     if workspace:
         #Write rating curve dataframe to file
@@ -334,10 +332,10 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         regular_messages = api_failure_messages + regular_messages                
         all_messages = pd.DataFrame({'Messages':regular_messages})
         all_messages.to_csv(Path(workspace) / 'log.csv', index = False)
-        #If 'all' option specified, reproject then write out shapefile of acceptable sites.
+        # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:            
-            acceptable_sites_gdf = acceptable_sites_gdf.to_crs(PREP_PROJECTION)
-            acceptable_sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
+            sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
+            sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer = 'usgs_gages', driver = 'GPKG')
         
         #Write out flow files for each threshold across all sites
         all_data = write_categorical_flow_files(metadata_list, workspace)
@@ -366,5 +364,6 @@ if __name__ == '__main__':
     t = float(args['sleep_timer'])           
     
     #Generate USGS rating curves
+    print("Executing...")
     usgs_rating_to_elev(list_of_gage_sites = l, workspace=w, sleep_time = t)
     

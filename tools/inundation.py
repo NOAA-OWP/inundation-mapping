@@ -365,9 +365,11 @@ def __go_fast_mapping(rem,catchments,catchmentStagesDict,inundation,depths):
 
     for i,(r,cm) in enumerate(zip(rem,catchments)):
         if cm in catchmentStagesDict:
-
-            depth = catchmentStagesDict[cm] - r
-            depths[i] = max(depth,0) # set negative depths to 0
+            if r >= 0:
+                depth = catchmentStagesDict[cm] - r
+                depths[i] = max(depth,0) # set negative depths to 0
+            else:
+                depths[i] = 0
 
             if depths[i] > 0: # set positive depths to positive
                 inundation[i] *= -1

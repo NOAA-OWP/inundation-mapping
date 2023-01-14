@@ -6,6 +6,15 @@ level=$1
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+## MASK LEVEE-PROTECTED AREAS FROM DEM ##
+if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $outputHucDataDir/LeveeProtectedAreas_subset.gpkg ]; then
+    echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"$stopDiv
+    date -u
+    Tstart
+    python3 -m memory_profiler $srcDir/gms/mask_dem.py -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif  -s $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -i $current_branch_id -b0 $branch_zero_id
+    Tcount
+fi
+
 ## D8 FLOW ACCUMULATIONS ##
 echo -e $startDiv"D8 Flow Accumulations $hucNumber $current_branch_id"$stopDiv
 date -u
@@ -66,7 +75,7 @@ Tcount
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg -ds $dropLowStreamOrders
+$srcDir/split_flows.py -f $outputCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $outputCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -l $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
@@ -108,7 +117,6 @@ if [ -f $outputHucDataDir/LandSea_subset.gpkg ]; then
     echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber $current_branch_id"$stopDiv
     date -u
     Tstart
-
     gdal_rasterize -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputHucDataDir/LandSea_subset.gpkg $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif
     Tcount
 fi
@@ -124,7 +132,7 @@ Tcount
 echo -e $startDiv"Process catchments and model streams $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber -s $dropLowStreamOrders
+python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py -i $outputCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -c $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -o $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -w $outputHucDataDir/wbd8_clp.gpkg -u $hucNumber
 Tcount
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
@@ -148,12 +156,13 @@ $srcDir/make_stages_and_catchlist.py -f $outputCurrentBranchDataDir/demDerived_r
 Tcount
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
-echo -e $startDiv"Additional masking to REM raster to remove ocean/Glake areas $hucNumber $current_branch_id"$stopDiv
-date -u
-Tstart
-[ -f $outputCurrentBranchDataDir/LandSea_subset.tif ] && \
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif -B $outputCurrentBranchDataDir/LandSea_subset_$current_node_id.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
-Tcount
+if  [ -f $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
+    echo -e $startDiv"Additional masking to REM raster to remove ocean/Glake areas $hucNumber $current_branch_id"$stopDiv
+    date -u
+    Tstart
+    gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" -A $outputCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif -B $outputCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif --calc="(A*B)" --NoDataValue=$ndv --outfile=$outputCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+    Tcount
+fi
 
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"$stopDiv
