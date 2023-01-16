@@ -67,7 +67,7 @@ fi
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
 Tstart
-ogr2ogr -f GPKG $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'"
+ogr2ogr -f GPKG $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'" -t_srs $default_projection_crs
 Tcount
 
 ## Subset Vector Layers ##

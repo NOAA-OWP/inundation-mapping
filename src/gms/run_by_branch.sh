@@ -43,13 +43,13 @@ echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"$
 date -u
 Tstart
 echo -e "Querying NWM streams ..."
-ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg
+ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -t_srs EPSG:5070
 echo -e "Querying NWM catchments ..."
-ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg
+ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -t_srs EPSG:5070
 echo -e "Querying NWM Dissolved Levelpaths headwaters ..."
-ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
+ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -t_srs EPSG:5070
 #echo -e "Querying NWM headwaters ..."
-#ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_headwaters_$current_branch_id.gpkg $outputHucDataDir/nwm_headwaters.gpkg
+#ogr2ogr -f GPKG -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_headwaters_$current_branch_id.gpkg $outputHucDataDir/nwm_headwaters.gpkg -t_srs EPSG:5070
 Tcount
 
 ## GET RASTERS FROM BRANCH ZERO AND CLIP TO CURRENT BRANCH BUFFER ##

@@ -20,7 +20,6 @@ def mask_dem(dem_filename, nld_filename, out_dem_filename, stream_layer, branch_
         if (branch_id == branch_zero_id) or (streams_df.loc[streams_df[branch_id_attribute].astype(int)==branch_id, order_attribute].max() >= streams_df[order_attribute].max() - 1):
 
             with rio.open(dem_filename) as dem, fiona.open(nld_filename) as leveed:
-                dem_data = dem.read(1)
                 dem_profile = dem.profile.copy()
 
                 geoms = [feature["geometry"] for feature in leveed]
