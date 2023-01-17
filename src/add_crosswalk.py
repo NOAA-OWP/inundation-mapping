@@ -116,17 +116,7 @@ def add_crosswalk(input_catchments_fileName,input_flows_fileName,input_srcbase_f
 
         output_flows = output_flows.merge(output_catchments.filter(items=['HydroID','areasqkm']),on='HydroID')
 
-    # read in manning's n values
-    if calibration_mode == False:
-        with open(mannings_n, "r") as read_file:
-            mannings_dict = json.load(read_file)
-    else:
-        mannings_dict = {}
-        for cnt,value in enumerate(mannings_n.split(",")[2:]):
-            streamorder = cnt+1
-            mannings_dict[str(streamorder)] = value
-
-    output_flows['ManningN'] = output_flows['order_'].astype(str).map(mannings_dict)
+    output_flows['ManningN'] = mannings_n
 
     if output_flows.NextDownID.dtype != 'int': output_flows.NextDownID = output_flows.NextDownID.astype(int)
 
