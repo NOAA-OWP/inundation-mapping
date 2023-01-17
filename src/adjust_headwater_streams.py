@@ -13,6 +13,12 @@ from utils.shared_functions import getDriver
 import warnings
 warnings.simplefilter("ignore")
 
+##################################
+##
+## Likely Deprecated: File not in use. Noticed Jan 16, 2023
+## Might want to be kept for possible re-use at a later time?
+##
+##################################
 
 def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
 
@@ -162,6 +168,14 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
 
 if __name__ == '__main__':
 
+##################################
+##
+## Likely Deprecated: File not in use. Noticed Jan 16, 2023
+## Might want to be kept for possible re-use at a later time?
+##
+##################################
+
+
     parser = argparse.ArgumentParser(description='adjust headwater stream geometery based on headwater start points')
     parser.add_argument('-f','--huc',help='huc number',required=True)
     parser.add_argument('-l','--nhd-streams',help='NHDPlus HR geodataframe',required=True)
@@ -186,3 +200,4 @@ if __name__ == '__main__':
 
     if adj_headwater_points_fileName is not None:
         adj_headwaters_gdf.to_file(args['adj_headwater_points_fileName'],driver=getDriver(args['adj_headwater_points_fileName']))
+
