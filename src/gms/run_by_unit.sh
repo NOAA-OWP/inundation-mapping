@@ -91,8 +91,6 @@ cmd_args+=" -w $input_nwm_flows"
 cmd_args+=" -x $outputHucDataDir/LandSea_subset.gpkg"
 cmd_args+=" -y $input_nwm_headwaters"
 cmd_args+=" -z $outputHucDataDir/nld_subset_levees.gpkg"
-cmd_args+=" -gl $input_GL_boundaries"
-cmd_args+=" -lb $lakes_buffer_dist_meters"
 cmd_args+=" -wb $wbd_buffer"
 cmd_args+=" -lpf $input_nld_levee_protected_areas"
 cmd_args+=" -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg"
@@ -102,7 +100,7 @@ Tcount
 python3 $srcDir/clip_vectors_to_wbd.py $cmd_args
 
 : '
-python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nwm_headwaters -v $input_LANDSEA -lpf $input_nld_levee_protected_areas -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nwm_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -gl $input_GL_boundaries -lb $lakes_buffer_dist_meters -wb $wbd_buffer -i $input_DEM -j $input_DEM_domain
+python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -l $input_nwm_lakes -r $input_NLD -g $outputHucDataDir/wbd.gpkg -f $outputHucDataDir/wbd_buffered.gpkg -m $input_nwm_catchments -y $input_nwm_headwaters -v $input_LANDSEA -lpf $input_nld_levee_protected_areas -z $outputHucDataDir/nld_subset_levees.gpkg -a $outputHucDataDir/nwm_lakes_proj_subset.gpkg -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg -e $outputHucDataDir/nwm_headwater_points_subset.gpkg -b $outputHucDataDir/nwm_subset_streams.gpkg -x $outputHucDataDir/LandSea_subset.gpkg -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -wb $wbd_buffer -i $input_DEM -j $input_DEM_domain
 '
 
 ## Clip WBD8 ##

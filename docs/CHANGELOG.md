@@ -1,17 +1,45 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.0.XX.X - 2023-01-06 - [PR#782](https://github.com/NOAA-OWP/inundation-mapping/pull/782)
+## v4.0.19.0 - 2023-01-06 - [PR#782](https://github.com/NOAA-OWP/inundation-mapping/pull/782)
 
 Changes the projection of HAND processing to EPSG 5070.
 
 ### Changes
 
+- `gms_run_post_processing.sh`: Adds target projection for `points`
+- `data/nld/preprocess_levee_protected_areas.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
 - `src/`
-    - `utils/shared_variables.py`: Changed the designated projection variables
+    - `clip_vectors_to_wbd.py`: Save intermediate outputs in EPSG:5070
+    - `src_adjust_spatial_obs.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+    - `utils/shared_variables.py`: Changes the designated projection variables
     - `gms/`
         - `stream_branches.py`: Checks the projection of the input streams and changes if necessary
-        - `run_by_unit.py`: Changed the default projection crs variable
+        - `run_by_unit.py`: Changes the default projection crs variable and added as HUC target projection
+- `tools/inundate_nation.py`: Changed to use `utils.shared_variables.PREP_PROJECTION`
+
+<br/><br/>
+
+## v4.0.18.2 - 2023-01-11 - [PR#790](https://github.com/NOAA-OWP/inundation-mapping/pull/790)
+
+Remove Great Lakes clipping
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Removes Great Lakes clipping and references to Great Lakes polygons and lake buffer size
+
+    - `gms/run_by_unit.sh`: Removes Great Lakes polygon and lake buffer size arguments to `src/clip_vectors_to_wbd.py`
+
+<br/><br/>
+
+## v4.0.18.1 - 2022-12-13 - [PR #760](https://github.com/NOAA-OWP/inundation-mapping/pull/760)
+
+Adds stacked bar eval plots.
+
+### Additions
+
+- `/tools/eval_plots_stackedbar.py`: produces stacked bar eval plots in the same manner as `eval_plots.py`.
 
 <br/><br/>
 
@@ -229,6 +257,8 @@ Fixes inundation of nodata areas of REM.
 ### Changes
 
 - `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
+
+<br/><br/>
 
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
