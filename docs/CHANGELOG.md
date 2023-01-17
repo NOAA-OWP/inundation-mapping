@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.X.XX.X - 2023-01-17 - [PR#796](https://github.com/NOAA-OWP/inundation-mapping/pull/796)
+
+### Changes
+
+- `tools/gms_tools/combine_crosswalk_tables.py`: Checks length of dataframe list before concatenating
+
+<br/><br/>
+
 ## v4.0.19.0 - 2023-01-06 - [PR#782](https://github.com/NOAA-OWP/inundation-mapping/pull/782)
 
 Changes the projection of HAND processing to EPSG 5070.
