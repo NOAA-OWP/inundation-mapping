@@ -58,6 +58,7 @@ fi
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
@@ -139,6 +140,7 @@ if [ "$src_adjust_spatial" = "True" ]; then
         export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
         export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
         export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
+        export DEFAULT_FIM_PROJECTION_CRS=$DEFAULT_FIM_PROJECTION_CRS
         echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
         echo "Loading HUC Data"
         time ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8

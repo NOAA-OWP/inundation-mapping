@@ -1,6 +1,5 @@
 import os
 from pyproj import CRS
-from pyproj import CRS
 
 from dotenv import load_dotenv
 load_dotenv('/foss_fim/src/bash_variables.env')

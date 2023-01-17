@@ -121,6 +121,7 @@ fi
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
