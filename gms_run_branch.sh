@@ -138,7 +138,6 @@ export outputRunDataDir=$outputDataDir/$runName
 export deny_branches_list=$deny_branches_list
 logFile=$outputRunDataDir/logs/branch/summary_gms_branch.log
 export overwrite=$overwrite
-export extent=GMS
 
 ## Check for run data directory and the file. If gms_run_unit failed, the file will not be there ##
 if [ ! -f "$outputRunDataDir/gms_inputs.csv" ]; then 
