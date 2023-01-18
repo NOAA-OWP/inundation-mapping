@@ -66,7 +66,7 @@ fi
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
 Tstart
-ogr2ogr -f GPKG $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'"
+ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'"
 Tcount
 
 ## Subset Vector Layers ##
@@ -107,7 +107,7 @@ python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -l $inp
 echo -e $startDiv"Clip WBD8"$stopDiv
 date -u
 Tstart
-ogr2ogr -f GPKG -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8 -t_srs $DEFAULT_FIM_PROJECTION_CRS
+ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8
 Tcount
 
 ## DERIVE LEVELPATH  ##
