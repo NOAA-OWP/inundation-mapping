@@ -43,7 +43,7 @@ echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"$
 date -u
 Tstart
 echo -e "Querying NWM streams ..."
-ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS-where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg
+ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg
 echo -e "Querying NWM catchments ..."
 ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="$current_branch_id" $outputCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg
 echo -e "Querying NWM Dissolved Levelpaths headwaters ..."
