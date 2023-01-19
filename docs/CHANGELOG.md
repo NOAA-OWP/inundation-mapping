@@ -18,7 +18,9 @@ Consolidates global bash environment variables into a new `src/bash_variables.en
 ### Changes
 
 - `config/params_template.env`: Changes manning_n from filename to default value of 0.06
-- `gms_run_post_processing.sh`: Changes projection from hardcoded to environment variable
+- `gms_run_branch.sh`: Adds `bash_variables.env`
+- `gms_run_post_processing.sh`: Adds `bash_variables.env` and changes projection from hardcoded to environment variable
+- `gms_run_unit.sh`: Adds `bash_variables.env`
 - `src/`
     - `add_crosswalk.py`: Assigns default manning_n value and removes assignments by stream orders
     - `aggregate_vector_inputs.py`: Removes unused references to environment variables and function
