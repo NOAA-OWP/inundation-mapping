@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.(pending) - 2023-01-17 - [PR#794](https://github.com/NOAA-OWP/inundation-mapping/pull/794)
+## v4.0.19.3 - 2023-01-17 - [PR#794](https://github.com/NOAA-OWP/inundation-mapping/pull/794)
 
 Removing FIM3 files and references.  Anything still required for FIM 3 are held in the dev-fim3 branch.
 
@@ -32,6 +32,42 @@ Removing FIM3 files and references.  Anything still required for FIM 3 are held 
 - `tools`
     - `cygnss_preprocess.py`: Likely deprecated but kept for safety reason. Deprecation note added.
     - `nesdis_preprocess.py`: Likely deprecated but kept for safety reason. Deprecation note added.
+
+<br/><br/>
+
+## v4.0.19.2 - 2023-01-17 - [PR#797](https://github.com/NOAA-OWP/inundation-mapping/pull/797)
+
+Consolidates global bash environment variables into a new `src/bash_variables.env` file. Additionally, Python environment variables have been moved into this file and `src/utils/shared_variables.py` now references this file. Hardcoded projections have been replaced by an environment variable. This also replaces the Manning's N file in `config/params_template.env` with a constant and updates relevant code. Unused environment variables have been removed.
+
+### Additions
+
+- `src/bash_variables.env`: Adds file for global environment variables
+
+### Removals
+
+- `config/`
+    - `mannings_default.json`
+    - `mannings_default_calibrated.json`
+
+### Changes
+
+- `config/params_template.env`: Changes manning_n from filename to default value of 0.06
+- `gms_run_branch.sh`: Adds `bash_variables.env`
+- `gms_run_post_processing.sh`: Adds `bash_variables.env` and changes projection from hardcoded to environment variable
+- `gms_run_unit.sh`: Adds `bash_variables.env`
+- `src/`
+    - `add_crosswalk.py`: Assigns default manning_n value and removes assignments by stream orders
+    - `aggregate_vector_inputs.py`: Removes unused references to environment variables and function
+    - `gms/run_by_unit.sh`: Removes environment variable assignments and uses projection from environment variables
+    - `utils/shared_variables.py`: Removes environment variables and instead references src/bash_variables.env
+
+<br/><br/>
+
+## v4.0.19.1 - 2023-01-17 - [PR#796](https://github.com/NOAA-OWP/inundation-mapping/pull/796)
+
+### Changes
+
+- `tools/gms_tools/combine_crosswalk_tables.py`: Checks length of dataframe list before concatenating
 
 <br/><br/>
 

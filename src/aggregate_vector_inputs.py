@@ -14,18 +14,7 @@ import numpy as np
 from shapely.wkb import dumps, loads
 import pygeos
 
-nhdplus_vectors_dir = os.environ.get('nhdplus_vectors_dir')
-wbd_filename = os.environ.get('wbd_filename')
-nwm_streams_orig_filename = os.environ.get('nwm_streams_orig_filename')
-nwm_streams_all_filename = os.environ.get('nwm_streams_all_filename')
-nwm_headwaters_filename = os.environ.get('nwm_headwaters_filename')
-nwm_catchments_orig_filename = os.environ.get('nwm_catchments_orig_filename')
-nwm_catchments_all_filename = os.environ.get('nwm_catchments_all_filename')
-ahps_filename = os.environ.get('ahps_filename')
-nwm_huc4_intersections_filename = os.environ.get('nwm_huc4_intersections_filename')
-nhd_huc8_intersections_filename = os.environ.get('nhd_huc8_intersections_filename')
-agg_nhd_headwaters_adj_fileName = os.environ['agg_nhd_headwaters_adj_fileName']
-agg_nhd_streams_adj_fileName = os.environ['agg_nhd_streams_adj_fileName']
+
 
 
 def identify_nwm_ms_streams(nwm_streams_filename,ahps_filename,nwm_streams_all_filename):
@@ -314,37 +303,6 @@ def subset_stream_networks(args, huc):
     print(f"finished stream subset for HUC {huc}",flush=True)
 
 
-def aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,huc_list):
-
-    for huc in huc_list:
-
-        # aggregated final filenames
-        nhd_agg_adj_huc_subset = os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_adj.gpkg')
-        nhd_agg_adj_headwaters_subset = os.path.join(nhdplus_vectors_dir,huc,'nhd' + str(huc) + '_headwaters_adj.gpkg')
-
-        if os.path.isfile(nhd_agg_adj_huc_subset):
-            adj_nhd_streams_all = gpd.read_file(nhd_agg_adj_huc_subset)
-
-            # Write out FR adjusted
-            if os.path.isfile(agg_nhd_streams_adj_fileName):
-                adj_nhd_streams_all.to_file(agg_nhd_streams_adj_fileName,driver=getDriver(agg_nhd_streams_adj_fileName),index=False, mode='a')
-            else:
-                adj_nhd_streams_all.to_file(agg_nhd_streams_adj_fileName,driver=getDriver(agg_nhd_streams_adj_fileName),index=False)
-
-            del adj_nhd_streams_all
-
-        if os.path.isfile(nhd_agg_adj_headwaters_subset):
-            adj_nhd_headwater_points_all = gpd.read_file(nhd_agg_adj_headwaters_subset)
-
-            # Write out FR adjusted
-            if os.path.isfile(agg_nhd_headwaters_adj_fileName):
-                adj_nhd_headwater_points_all.to_file(agg_nhd_headwaters_adj_fileName,driver=getDriver(agg_nhd_headwaters_adj_fileName),index=False, mode='a')
-            else:
-                adj_nhd_headwater_points_all.to_file(agg_nhd_headwaters_adj_fileName,driver=getDriver(agg_nhd_headwaters_adj_fileName),index=False)
-
-            del adj_nhd_headwater_points_all
-
-
 def clean_up_intermediate_files(nhdplus_vectors_dir):
 
     for huc in os.listdir(nhdplus_vectors_dir):
@@ -392,10 +350,6 @@ if __name__ == '__main__':
         subset_results = [executor.submit(subset_stream_networks, subset_arg_list, str(huc)) for huc in missing_subsets]
 
     del wbd4,wbd8
-
-    # Aggregate subset nhd networks for entire nwm domain
-    print ('Aggregating subset NHD networks for entire NWM domain')
-    aggregate_stream_networks(nhdplus_vectors_dir,agg_nhd_headwaters_adj_fileName,agg_nhd_streams_adj_fileName,missing_subsets)
 
     # Remove intermediate files
     # clean_up_intermediate_files(nhdplus_vectors_dir)
