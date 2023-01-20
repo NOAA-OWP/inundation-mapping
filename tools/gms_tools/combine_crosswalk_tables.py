@@ -24,9 +24,10 @@ def combine_crosswalk_tables(data_directory, output_filename):
         else:
             print(f'{filename} is missing.')
 
-    df = pd.concat(dfs)
+    if len(dfs) > 1:
+        df = pd.concat(dfs)
 
-    df.to_csv(output_filename, index=False)
+        df.to_csv(output_filename, index=False)
 
 
 if __name__ == '__main__':
