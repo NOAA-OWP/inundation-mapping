@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.X.XX.X - 2023-01-17 - [PR#796](https://github.com/NOAA-OWP/inundation-mapping/pull/796)
+## v4.0.19.1 - 2023-01-17 - [PR#796](https://github.com/NOAA-OWP/inundation-mapping/pull/796)
 
 ### Changes
 
