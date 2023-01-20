@@ -15,6 +15,14 @@ from tqdm import tqdm
 from foss_fim.tools.inundation import read_nwm_forecast_file
 
 
+##################################
+##
+## Likely Deprecated: File appears to be no longer used. Noticed Jan 16, 2023
+## Might want to be kept for possible re-use at a later time?
+##
+##################################
+
+
 def cygnss_preprocessing(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:4329',wbd_layer='WBDHU8',forecast_output_file=None,retrieve=True,workers=6,download_directory=None, daily_mean_forecast_files=None):
 
     _, bounding_boxes = find_hucs_of_bounding_boxes(bounding_boxes_file,wbd=wbd,projection_of_boxes=projection_of_boxes,wbd_layer=wbd_layer)
@@ -209,9 +217,15 @@ def construct_nwm_forecast_filenames_and_retrieve(forecast_df,download_directory
     return(forecast_df)
 
 
-
-
 if __name__ == '__main__':
+
+
+    ##################################
+    ##
+    ## Likely Deprecated: File appears to be no longer used. Noticed Jan 16, 2023
+    ## Might want to be kept for possible re-use at a later time?
+    ##
+    ##################################
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Find hucs for bounding boxes')

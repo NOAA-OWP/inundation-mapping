@@ -3,6 +3,9 @@
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+## SOURCE BASH FUNCTIONS
+source $srcDir/bash_variables.env
+
 ## SET OUTPUT DIRECTORY FOR UNIT ##
 hucNumber="$1"
 
@@ -46,11 +49,7 @@ huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 
-default_projection_crs="EPSG:5070"
-input_DEM=$inputDataDir/3dep_dems/10m_5070/fim_seamless_3dep_dem_10m_5070.vrt
-input_DEM_domain=$inputDataDir/3dep_dems/10m_5070/HUC6_dem_domain.gpkg
 input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
-input_bathy_bankfull=$inputDataDir/$bankfull_input_table
 
 ## START MESSAGE ##
 echo -e $startDiv"Processing HUC: $hucNumber ..."$stopDiv
@@ -67,7 +66,7 @@ fi
 echo -e $startDiv"Get WBD $hucNumber"$stopDiv
 date -u
 Tstart
-ogr2ogr -f GPKG $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'" -t_srs $default_projection_crs
+ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS $outputHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer -where "HUC$hucUnitLength='$hucNumber'"
 Tcount
 
 ## Subset Vector Layers ##
@@ -108,7 +107,7 @@ python3 $srcDir/clip_vectors_to_wbd.py -d $hucNumber -w $input_nwm_flows -l $inp
 echo -e $startDiv"Clip WBD8"$stopDiv
 date -u
 Tstart
-ogr2ogr -f GPKG -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8 -t_srs $default_projection_crs
+ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8
 Tcount
 
 ## DERIVE LEVELPATH  ##
@@ -160,7 +159,7 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"$stopD
 date -u
 Tstart
 [ ! -f $outputCurrentBranchDataDir/dem_meters.tif ] && \
-gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $default_projection_crs $input_DEM $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
 Tcount
 
 ## GET RASTER METADATA

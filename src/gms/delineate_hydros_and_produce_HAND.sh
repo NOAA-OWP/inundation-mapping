@@ -103,7 +103,7 @@ Tcount
 echo -e $startDiv"D8 REM $hucNumber $current_branch_id"$stopDiv
 date -u
 Tstart
-$srcDir/gms/rem.py -d $outputCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputCurrentBranchDataDir/rem_$current_branch_id.tif -t $outputCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
+$srcDir/gms/make_rem.py -d $outputCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputCurrentBranchDataDir/rem_$current_branch_id.tif -t $outputCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
 Tcount
 
 ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##

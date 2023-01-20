@@ -121,6 +121,7 @@ fi
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $envFile
 source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
@@ -138,20 +139,9 @@ if [ -d $outputRunDataDir ] && [ $overwrite -eq 0 ]; then
     usage
 fi
 
-## Set misc global variables
-export overwrite=$overwrite
-
 ## Define inputs
-export input_WBD_gdb=$inputDataDir/wbd/WBD_National.gpkg
-export input_nwm_lakes=$inputDataDir/nwm_hydrofabric/nwm_lakes.gpkg
-export input_nwm_catchments=$inputDataDir/nwm_hydrofabric/nwm_catchments.gpkg
-export input_nwm_flows=$inputDataDir/nwm_hydrofabric/nwm_flows.gpkg
-export input_nwm_headwaters=$inputDataDir/nwm_hydrofabric/nwm_headwaters.gpkg
-export input_GL_boundaries=$inputDataDir/landsea/gl_water_polygons.gpkg
-export input_nld_levee_protected_areas=$inputDataDir/nld_vectors/Levee_protected_areas.gpkg
+export overwrite=$overwrite
 export deny_gms_unit_list=$deny_gms_unit_list
-export extent=GMS
-
 export deny_unit_list=$deny_unit_list
 export deny_branch_zero_list_for_units=$deny_branch_zero_list_for_units
 
