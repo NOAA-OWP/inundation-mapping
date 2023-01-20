@@ -1,6 +1,40 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.19.3 - 2023-01-17 - [PR#794](https://github.com/NOAA-OWP/inundation-mapping/pull/794)
+
+Removing FIM3 files and references.  Anything still required for FIM 3 are held in the dev-fim3 branch.
+
+### Removals
+
+- `data`
+    - `preprocess_rasters.py`: no longer valid as it is for NHD DEM rasters.
+- `fim_run.sh`
+- ` src`
+    - `aggregate_fim_outputs.sh`
+    - `fr_to_ms_raster.mask.py`
+    - `get_all_huc_in_inputs.py`
+    - `reduce_nhd_stream_density.py`
+    - `rem.py`:  There are two files named `rem.py`, one in the src directory and one in the gms directory. This version in the src directory is no longer valid. The `rem.py` in the gms directory is being renamed to avoid future enhancements of moving files.
+    - `run_by_unit.sh`:  There are two files named `run_by_unit.sh`, one in the src directory and one in the gms directory. This version in the src directory is for fim3. For the remaining `run_by_unit.sh`, it is NOT being renamed at this time as it will likely be renamed in the near future.
+    - `time_and_tee_run_by_unit.sh`:  Same not as above for `run_by_unit.sh`.
+    - `utils`
+        - `archive_cleanup.py`
+ - `tools`
+     - `compare_gms_srcs_to_fr.py`
+     - `preprocess_fimx.py`
+
+### Changes
+
+- `src`
+    - `adjust_headwater_streams.py`: Likely deprecated but kept for safety reason. Deprecation note added.
+- `tools`
+    - `cygnss_preprocess.py`: Likely deprecated but kept for safety reason. Deprecation note added.
+    - `nesdis_preprocess.py`: Likely deprecated but kept for safety reason. Deprecation note added.
+
+<br/><br/>
+
 ## v4.0.19.2 - 2023-01-17 - [PR#797](https://github.com/NOAA-OWP/inundation-mapping/pull/797)
 
 Consolidates global bash environment variables into a new `src/bash_variables.env` file. Additionally, Python environment variables have been moved into this file and `src/utils/shared_variables.py` now references this file. Hardcoded projections have been replaced by an environment variable. This also replaces the Manning's N file in `config/params_template.env` with a constant and updates relevant code. Unused environment variables have been removed.
