@@ -30,7 +30,8 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                 overwrite=False, fr_run_dir=None, 
                 gms_workers=1,verbose=False,
                 keep_gms=False,
-                gms_verbose=False
+                gms_verbose=False,
+                raster_target='predicted'
               ):
 
     # check eval_meta input
@@ -323,6 +324,7 @@ def run_alpha_test( fim_run_dir, version, test_id, magnitude,
                                                        stats_modes_list=stats_modes_list,
                                                        test_id=test_id,
                                                        mask_dict=mask_dict,
+                                                       raster_target = raster_target
                                                        )
 
                 if benchmark_category in AHPS_BENCHMARK_CATEGORIES:
@@ -380,6 +382,7 @@ if __name__ == '__main__':
     parser.add_argument('-d','--fr-run-dir',help='Name of test case directory containing inundation for FR configuration',required=False,default=None)
     parser.add_argument('-vr', '--verbose', help='Verbose operation', required=False, action='store_true', default=False)
     parser.add_argument('-vg', '--gms-verbose', help='Prints progress bar for GMS', required=False, action='store_true', default=False)
+    parser.add_argument('-rt', '--raster-target', help='Target raster to use for reprojection: predicted or benchmark', required=True)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

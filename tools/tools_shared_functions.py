@@ -34,7 +34,7 @@ def check_for_regression(stats_json_to_test, previous_version, previous_version_
     return difference_dict
 
 
-def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_raster_path, agreement_raster=None, stats_csv=None, stats_json=None, mask_values=None, stats_modes_list=['total_area'], test_id='', mask_dict={}):
+def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_raster_path, agreement_raster=None, stats_csv=None, stats_json=None, mask_values=None, stats_modes_list=['total_area'], test_id='', mask_dict={}, raster_target = 'predicted'):
     """
     This function contains FIM-specific logic to prepare raster datasets for use in the generic get_contingency_table_from_binary_rasters() function.
     This function also calls the generic compute_stats_from_contingency_table() function and writes the results to CSV and/or JSON, depending on user input.
@@ -58,7 +58,7 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
     cell_area = abs(cell_x*cell_y)
 
     # Get contingency table from two rasters.
-    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, mask_dict=mask_dict)
+    contingency_table_dictionary = get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster, mask_values=mask_values, mask_dict=mask_dict, raster_target = raster_target)
 
     stats_dictionary = {}
 
@@ -344,7 +344,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     return stats_dictionary
 
 
-def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, mask_dict={}):
+def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, mask_dict={}, raster_target='benchmark'):
     """
     Produces contingency table from 2 rasters and returns it. Also exports an agreement raster classified as:
         0: True Negatives
@@ -368,47 +368,79 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     import rasterio.mask
     import geopandas as gpd
     from shapely.geometry import box
+    from gc import collect
 
-#    print("-----> Evaluating performance across the total area...")
-    # Load rasters.
-    benchmark_src = rasterio.open(benchmark_raster_path)
-    predicted_src = rasterio.open(predicted_raster_path)
-    predicted_array = predicted_src.read(1)
-
-    benchmark_array_original = benchmark_src.read(1)
+    print("-----> Evaluating performance across the total area...")
     
-    if benchmark_array_original.shape != predicted_array.shape:
-        benchmark_array = np.empty(predicted_array.shape, dtype=np.int8)
+    def _align_rasters(src_obj,dst_obj, treat_as_predicted='dst'):
+        
+        src_array_original = src_obj.read(1)
 
-        reproject(benchmark_array_original,
-              destination = benchmark_array,
-              src_transform = benchmark_src.transform,
-              src_crs = benchmark_src.crs,
-              src_nodata = benchmark_src.nodata,
-              dst_transform = predicted_src.transform,
-              dst_crs = predicted_src.crs,
-              dst_nodata = benchmark_src.nodata,
-              dst_resolution = predicted_src.res,
-              resampling = Resampling.nearest)
+        dst_array_shape = (dst_obj.height,dst_obj.width)
+        
+        same_shape = src_array_original.shape == dst_array_shape
+        same_crs = dst_obj.crs == src_obj.crs
+        same_transform = dst_obj.transform == src_obj.transform
+        same_resolution = dst_obj.res == src_obj.res
+
+        aligned = same_shape & same_crs & same_transform & same_resolution
+
+        if not aligned:
+            src_array = np.empty(dst_array_shape, dtype=np.int32)
+
+            reproject(src_array_original,
+                  destination = src_array,
+                  src_transform = src_obj.transform,
+                  src_crs = src_obj.crs,
+                  src_nodata = src_obj.nodata,
+                  dst_transform = dst_obj.transform,
+                  dst_crs = dst_obj.crs,
+                  dst_nodata = src_obj.nodata,
+                  dst_resolution = dst_obj.res,
+                  resampling = Resampling.nearest)
+        else:
+            src_array = src_array_original.copy()
+
+        del src_array_original ; collect()
+        #dst_array_raw = dst_obj.read(1)
+        
+        dst_array = dst_obj.read(1)
+
+        # Align the benchmark domain to the modeled domain.
+        src_array = np.where(dst_array==dst_obj.nodata, 10, src_array)
+
+        # Ensure zeros and ones for binary comparison. Assume that positive values mean flooding and 0 or negative values mean dry.
+        dst_array = np.where(dst_array==dst_obj.nodata, 10, dst_array)  # Reclassify NoData to 10
+        src_array = np.where(src_array==src_obj.nodata, 10, src_array)  # Reclassify NoData to 10
+        
+        # reclassifies arrays and computes agreement depending on which data is actually the predicted one
+        if treat_as_predicted == 'dst':
+            dst_array = np.where(dst_array<0, 0, dst_array)
+            dst_array = np.where(dst_array>0, 1, dst_array)
+            agreement_array = np.add(src_array, 2*dst_array)
+            
+        elif treat_as_predicted == 'src':
+            src_array = np.where(src_array<0, 0, src_array)
+            src_array = np.where(src_array>0, 1, src_array)
+            agreement_array = np.add(2*src_array, dst_array)
+
+        agreement_array = np.where(agreement_array>4, 10, agreement_array)
+
+        #del src_obj, src_array, dst_array
+        return agreement_array
+
+    # Load rasters.
+    benchmark_obj = rasterio.open(benchmark_raster_path)
+    predicted_obj = rasterio.open(predicted_raster_path)
+    
+    if raster_target == 'predicted':
+        agreement_array = _align_rasters(benchmark_obj,predicted_obj,'dst')
+        reference = predicted_obj
+    elif raster_target == 'benchmark':
+        agreement_array = _align_rasters(predicted_obj,benchmark_obj,'src')
+        reference = benchmark_obj
     else:
-        benchmark_array = benchmark_array_original.copy()
-
-    predicted_array_raw = predicted_src.read(1)
-
-    # Align the benchmark domain to the modeled domain.
-    benchmark_array = np.where(predicted_array==predicted_src.nodata, 10, benchmark_array)
-
-    # Ensure zeros and ones for binary comparison. Assume that positive values mean flooding and 0 or negative values mean dry.
-    predicted_array = np.where(predicted_array==predicted_src.nodata, 10, predicted_array)  # Reclassify NoData to 10
-    predicted_array = np.where(predicted_array<0, 0, predicted_array)
-    predicted_array = np.where(predicted_array>0, 1, predicted_array)
-
-    benchmark_array = np.where(benchmark_array==benchmark_src.nodata, 10, benchmark_array)  # Reclassify NoData to 10
-
-    agreement_array = np.add(benchmark_array, 2*predicted_array)
-    agreement_array = np.where(agreement_array>4, 10, agreement_array)
-
-    del benchmark_src, benchmark_array, predicted_array, predicted_array_raw
+        raise ValueError("Pass predicted or benchmark for raster_target")
 
     # Loop through exclusion masks and mask the agreement_array.
     if mask_dict != {}:
@@ -420,8 +452,6 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
 
                 poly_path = mask_dict[poly_layer]['path']
                 buffer_val = mask_dict[poly_layer]['buffer']
-
-                reference = predicted_src
 
                 bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
                 #Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).
@@ -463,7 +493,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
         with rasterio.Env():
-            profile = predicted_src.profile
+            profile = predicted_obj.profile
             profile.update(nodata=10)
             with rasterio.open(agreement_raster, 'w', **profile) as dst:
                 dst.write(agreement_array, 1)
@@ -505,7 +535,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                 poly_path = mask_dict[poly_layer]['path']
                 buffer_val = mask_dict[poly_layer]['buffer']
 
-                reference = predicted_src
+                reference = predicted_obj
 
                 bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
                 #Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).
@@ -550,7 +580,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                     # Write the layer_agreement_raster.
                     layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif')
                     with rasterio.Env():
-                        profile = predicted_src.profile
+                        profile = predicted_obj.profile
                         profile.update(nodata=10)
                         with rasterio.open(layer_agreement_raster, 'w', **profile) as dst:
                             dst.write(temp_agreement_array, 1)

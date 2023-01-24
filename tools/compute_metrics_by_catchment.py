@@ -8,6 +8,7 @@ from functools import partial
 from textwrap import wrap
 import gc
 from shutil import rmtree
+from glob import glob
 
 import numpy as np
 import geopandas as gpd
@@ -21,7 +22,7 @@ from geocube.rasterize import rasterize_image
 from tqdm import tqdm
 from xrspatial.zonal import stats, crosstab, apply
 from dask.dataframe.multi import concat, merge
-from dask.dataframe import read_parquet
+from dask.dataframe import read_parquet, read_csv
 from dask.distributed import Client, LocalCluster
 from tqdm.dask import TqdmCallback
 import statsmodels.formula.api as smf
@@ -35,6 +36,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 #import ptitprince as pt
 import seaborn as sns
+import dask
 
 from foss_fim.tools.tools_shared_functions import csi, tpr, far, mcc
 
@@ -58,14 +60,32 @@ def build_agreement_raster_data_dir(huc, resolution, year, source):
 
         return os.path.join(root_dir,'data','test_cases','ble_test_cases',
                             f'{huc}_ble','testing_versions',
-                            f'3dep_test_1202_{resolution}m_GMS_n_12',
+                            f'dem_evals_1202_3dep_{resolution}m_predicted',
+                            #f'3dep_test_1202_{resolution}m_GMS_n_12',
                             f'{year}yr','total_area_agreement.tif')
     elif source == 'nhd':
         
         return os.path.join(root_dir,'data','test_cases','ble_test_cases',
                             f'{huc}_ble','testing_versions',
-                            '20210902_C892f8075_allBle_GMS_n_12',
+                            f'dem_evals_1202_{source}_{resolution}m',
+                            #'20210902_C892f8075_allBle_GMS_n_12',
                             f'{year}yr','total_area_agreement.tif')
+
+def build_inundation_raster_data_dir(huc, resolution, year, source):
+    
+    if source == '3dep':
+
+        return os.path.join(root_dir,'data','test_cases','ble_test_cases',
+                            f'{huc}_ble','testing_versions',
+                            f'dem_evals_1202_3dep_{resolution}m_predicted',
+                            #f'3dep_test_1202_{resolution}m_GMS_n_12',
+                            f'{year}yr',f'inundation_extent_{huc}.tif')
+    elif source == 'nhd':
+        
+        return os.path.join(root_dir,'data','test_cases','ble_test_cases',
+                            f'{huc}_ble','testing_versions',
+                            f'dem_evals_1202_{source}_{resolution}m',
+                            f'{year}yr',f'inundation_extent_{huc}.tif')
 
 # agreement factors
 resolutions = [20,15,10,5,3]
@@ -76,7 +96,8 @@ hucs = ['12020001','12020002','12020003','12020004','12020005','12020006','12020
 #hucs = ['12020001']
 dem_sources = ['3dep','nhd']
 #dem_sources = ['3dep']
-chunk_size = 256*2
+base_chunk_size = 128
+chunk_size = base_chunk_size * 4
 partition_size = "8MB"
 experiment_fn = os.path.join(data_dir,'experiment_data.h5')
 temp_experiment_fn = os.path.join(data_dir,'TEMP_experiment_data')
@@ -84,11 +105,14 @@ hdf_key = 'data'
 save_nwm_catchments_file = os.path.join(data_dir,'nwm_catchments_with_metrics_1202.gpkg')
 #feature_cols = ['huc8','spatial_resolution','magnitude','mainstem','order_','Lake','gages','Length']
 #feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope']
-feature_cols = ['spatial_resolution','dominant_lulc','magnitude','order_','Lake','Length','Slope','dem_source','area_sqkm']
+feature_cols = ['spatial_resolution','dominant_lulc_anthropogenic_influence','magnitude',
+                'order_','channel_slope_perc','area_sqkm','imperviousness_perc_mean',
+                'overland_roughness_mean','Reservoir','terrain_slope_perc_mean']
 one_way_interactions = ['spatial_resolution','']
+anova_tol = 0.001
 # encoded_features = ['order_','Lake','magnitude']
-#target_cols = ['CSI']
-target_cols = ['MCC']
+target_cols = ['CSI']
+#target_cols = ['MCC']
 #target_cols = ['TPR']
 #target_cols = ['FAR']
 #target_cols = ['Cohens Kappa']
@@ -97,22 +121,43 @@ nwm_catchments_raster_fn = os.path.join(data_dir,'nwm_catchments','nwm_catchment
 dem_resolution_plot_fn = os.path.join(data_dir,'dem_resolution_3dep_plot.png')
 reservoir_plot_fn = os.path.join(data_dir,'reservoir_plot.png')
 slope_plot_fn = os.path.join(data_dir,'slope_plot.png')
+terrain_slope_plot_fn = os.path.join(data_dir,'terrain_slope_plot.png')
 #land_cover_fn = os.path.join(data_dir,'cover2019_lulc_1202.tif')
 land_cover_fn = os.path.join(data_dir,'landcovers','land_cover_{}.tif')
 terrain_slope_fn = os.path.join(data_dir,'slopes','slope_{}.tif')
 imperviousness_fn = os.path.join(data_dir,'impervious','impervious_{}.tif')
 landcover_plot_fn = os.path.join(data_dir,'lulc_metrics_plot.png')
 grouped_landcover_plot_fn = os.path.join(data_dir,'lulc_grouped_metrics_plot.png')
+nwm_catchments_joined_streams_fn = os.path.join(data_dir,'nwm_catchments_joined_with_streams.gpkg')
+nwm_catchments_with_attributes_fn = os.path.join(data_dir,'nwm_catchments_with_attributes.gpkg')
+catchment_level_dir = os.path.join(data_dir,'catchment_level_aggregates')
+terrain_slope_parquet_fn = os.path.join(data_dir,catchment_level_dir,'terrain_slope')
+land_cover_parquet_fn = os.path.join(data_dir,catchment_level_dir,'land_cover')
+roughness_parquet_fn = os.path.join(data_dir,catchment_level_dir,'roughness')
+imperviousness_parquet_fn = os.path.join(data_dir,catchment_level_dir,'imperviousness')
+rating_curve_parquet_filename = os.path.join(data_dir,'rating_curve.parquet')
+rating_curve_metrics_filename = os.path.join(data_dir,'rating_curve_metrics.parquet')
+inundated_areas_parquet = os.path.join(data_dir,'inundated_areas.parquet')
+rating_curve_plot_fn = os.path.join(data_dir,'rating_curves.png')
+
 
 # pipeline switches 
-compute_secondary_metrics = True
+compute_secondary_metrics = False
+prepare_catchments = False
 burn_nwm_catchments = False
 prepare_lulc = False
 prepare_terrain_slope = False
 prepare_imperviousness = False
 write_debugging_files = False
-build_secondary_metrics = True
-finalize_metrics = True
+build_catchment_level_attributes = False
+aggregate_catchment_level_attributes = False
+build_secondary_metrics = False
+finalize_metrics = False
+
+rating_curves_to_parquet = False
+aggregate_rating_curves = False
+plot_rating_curves = False
+compute_inundated_area = False
 
 run_anova = False
 add_two_way_interactions = True
@@ -121,6 +166,7 @@ make_nhd_plot = False
 make_dem_resolution_plot = False
 make_reservoir_plot = False
 make_slope_plot = False
+make_terrain_slope_plot = False
 make_landcover_plot = False
 make_grouped_landcover_plot = False
 
@@ -221,6 +267,21 @@ def build_terrain_slope_raster_fn(h,r,y,s):
 def build_imperviousness_raster_fn(h,r,y,s):
     return os.path.join(data_dir,'impervious',f'impervious_{r}m_{h}_{y}yr_{s}.tif')
 
+def prepare_combos(hucs,resolutions,years,sources):
+    
+    # prepare combinations of resolutions, hucs, and years
+    combos = list(product(hucs,resolutions,years))
+    
+    # append source
+    combos = [(h,r,y,'3dep') for h,r,y in combos]
+    
+    if 'nhd' in sources:
+        nhd_combos = [(h,10,y,'nhd') for h,y in product(hucs,years)] 
+        combos = nhd_combos + combos
+
+    return combos
+
+
 def load_agreement_raster(h,r,y,s):
     
     # load agreement raster
@@ -234,7 +295,7 @@ def load_agreement_raster(h,r,y,s):
                                              mask_and_scale=True,
                                              variable='agreement',
                                              default_name='agreement',
-                                             lock=True,
+                                             lock=False,
                                              cache=False
                                             ).sel(band=1,drop=True) 
     
@@ -245,12 +306,208 @@ def load_agreement_raster(h,r,y,s):
     
     return agreement_raster
 
+def load_inundation_raster(h,r,y,s):
+    
+    # load agreement raster
+    inundation_raster_fn = build_inundation_raster_data_dir(h,r,y,s)
+    
+    try:
+        inundation_raster = rxr.open_rasterio(
+                                             inundation_raster_fn,
+                                             #chunks=True,
+                                             chunks=chunk_size,
+                                             mask_and_scale=True,
+                                             variable='inundation',
+                                             default_name='inundation',
+                                             lock=False,
+                                             cache=False
+                                            ).sel(band=1,drop=True) 
+    
 
-def determine_terrain_slope_by_catchment(nwm_catchments_xr,
+    except rasterio.errors.RasterioIOError:
+        print(f'No inundation raster for {h} found. Skipping')
+        inundation_raster = None
+    
+    return inundation_raster
+
+
+def load_hand_rasters(hucs,resolutions):
+
+    h,r = combo
+
+    src_path_template = os.path.join(root_dir,'data','outputs',
+                                    f'dem_evals_1202_3dep_{r}m',
+                                    f'{h}','branches','*',
+                                    'rem_zeroed_masked_*.tif')
+    
+    branch_id = get_branch_id_for_current_file(rem_path)
+
+
+def parquet_rating_curves(hucs, resolutions):
+    
+    combos = list(product(hucs,resolutions))
+    num_of_combos = len(combos)
+
+    # remove parquet file
+    if os.path.exists(rating_curve_parquet_filename):
+        try:
+            os.remove(rating_curve_parquet_filename)
+        except IsADirectoryError:
+            rmtree(rating_curve_parquet_filename)
+
+    
+    def __aggregate_combos(combo,idx=0):
+
+        h,r = combo
+
+        src_path_template = os.path.join(root_dir,'data','outputs',
+                                        f'dem_evals_1202_3dep_{r}m',
+                                        f'{h}','branches','*',
+                                        'src_full_crosswalked_*.csv')
+        
+        src_paths = glob(src_path_template)
+        num_of_src_paths = len(src_paths)
+
+        if idx == 0:
+            append = False
+        else:
+            append = True
+
+        def read_src(src_path): 
+            return pd.read_csv(src_path).astype({'feature_id' : np.int64}) \
+                                        .assign(huc8=h,spatial_resolution=r)
+
+        all_srcs = [read_src(sp) for sp in src_paths]
+
+        all_srcs = pd.concat(all_srcs)
+    
+        all_srcs.to_parquet(rating_curve_parquet_filename,
+                            engine='fastparquet',
+                            append=append 
+                           )
+
+    
+    # run the first combo to create parquet file
+    for idx,combo in tqdm(enumerate(combos),
+                          total=num_of_combos,
+                          desc='Write aggregated SRC parquet'):
+        __aggregate_combos(combo,idx=idx)
+    
+
+def rating_curves_aggregation():
+
+        srcs = pd.read_parquet(rating_curve_parquet_filename,
+                               engine='fastparquet')
+
+        srcs = srcs.rename(columns={
+                                    'Volume (m3)' : 'volume',
+                                    'BedArea (m2)' : 'bed_area',
+                                    'SLOPE' : 'channel_slope',
+                                    'Discharge (m3s-1)' : 'discharge'
+                                    })
+
+        grouping_vars = ['spatial_resolution','Stage']
+        computing_vars = ['volume','bed_area','channel_slope','discharge']
+
+        all_vars = grouping_vars + computing_vars
+
+        srcs = srcs.loc[:,all_vars]
+        srcs_gb = srcs.groupby(grouping_vars) 
+
+        srcs_percentile = srcs_gb.quantile([0.05,0.25,0.5,0.75,0.95])
+
+        srcs_percentile.index.names = srcs_percentile.index.names[0:2] + ['percentiles']
+
+        if os.path.exists(rating_curve_metrics_filename):
+            os.remove(rating_curve_metrics_filename)
+
+        srcs_percentile.to_parquet(rating_curve_metrics_filename,
+                                   engine='fastparquet',
+                                   append=False
+                                  )
+
+def rating_curve_plot():
+    
+    srcs_percentile = pd.read_parquet(rating_curve_metrics_filename, engine='fastparquet')
+
+    #stages = srcs_percentile.index.to_frame().Stage.unique()
+    #for s in stages:
+
+    variables = ['discharge','volume','bed_area']
+
+    plotting_dict = {"disharge" : 'Discharge (CMS)',
+                     "volume" : "Volume (m^3)",
+                     "bed_area" : "Bed Area (m^2)",
+                     "Stage" : "Stage (m)"}
+
+    fig,axs = plt.subplots(3,1,dpi=300,figsize=(8,4),layout='tight')
+
+    for i,(ax,var) in enumerate(zip(axs.ravel(),variables)):
+        
+        #xlim=(0,0.01)
+        #xlim=(0,1)
+        
+        #if metric == 'FAR':
+        #    ylim = (0,0.25)
+        #else:
+        #    ylim = (0.5,1)
+
+        #ax.set_xlim(xlim)
+        #ax.set_ylim(ylim)
+        
+        #ax.tick_params(axis='both', labelsize=12)
+
+        if i in {2,3}:
+            ax.set_xlabel("Discharge (CMS)",fontsize=12)
+            #ax.set_xlabel("Channel Slope (%)",fontsize=12)
+        else:
+            ax.set_xlabel(None)
+
+        if i in {0,2}:
+            ax.set_ylabel('Stage (m)',fontsize=12)
+        else:
+            ax.set_ylabel(None)
+        
+        #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15,y=1.15)
+        ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15,y=1.12)
+
+    h,l = ax.get_legend_handles_labels()
+    lgd = fig.legend(h,l,
+           loc='lower center',
+           ncols=2,
+           frameon=True,
+           framealpha=0.75,
+           fontsize=12,
+           title_fontsize=14,
+           borderpad=0.25,
+           markerscale=15,
+           bbox_to_anchor=(0.55,-.06),
+           borderaxespad=0,
+           title=None)
+
+
+    fig.savefig(rating_curve_plot_fn, bbox_inches='tight')
+    plt.close()
+
+    breakpoint()
+
+
+def write_catchment_level_data(catchment_level_data, catchment_level_data_fn):
+    
+    catchment_level_data.to_parquet(catchment_level_data_fn,
+                                    write_metadata_file=True,
+                                    append=True,
+                                    write_index=False,
+                                    compute=True,
+                                    engine='fastparquet')
+
+
+def terrain_slope_by_catchment(nwm_catchments_xr,
                                          agreement_raster,
                                          huc, resolution, year, dem_source,
                                          agg_func=['mean'],
-                                         predicted_inundated_encodings=[2,3]): 
+                                         predicted_inundated_encodings=[2,3],
+                                         output_parquet_fn=terrain_slope_parquet_fn): 
     
     terrain_slope_xr = rxr.open_rasterio(
                                      build_terrain_slope_raster_fn(huc,resolution,year,dem_source),
@@ -258,13 +515,16 @@ def determine_terrain_slope_by_catchment(nwm_catchments_xr,
                                      mask_and_scale=True,
                                      variable='terrain_slope',
                                      default_name='terrain_slope',
-                                     lock=True,
+                                     lock=False,
                                      cache=False
                                     ).sel(band=1,drop=True)
     
     # masking out dry areas
-    nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
-    terrain_slope_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),terrain_slope_xr,np.nan)
+    #nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
+    #terrain_slope_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),terrain_slope_xr,np.nan)
+
+    # compute as percentage
+    terrain_slope_xr = terrain_slope_xr * 100
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",category=UserWarning)
@@ -275,17 +535,18 @@ def determine_terrain_slope_by_catchment(nwm_catchments_xr,
                                   nodata_values=np.nan) \
                                    .rename(columns={ f:"terrain_slope_{}".format(f) for f in agg_func}) \
                                    .rename(columns={'zone':'ID'}) \
-                                   .astype({'ID' : np.int64,'terrain_slope_mean': np.float64}) \
+                                   .astype({'ID' : np.int64,'terrain_slope_perc_mean': np.float64}) \
                                    .repartition(partition_size=partition_size)
     
-    return ct_dask_df_slopes
-
+    write_catchment_level_data(ct_dask_df_slopes, output_parquet_fn)
+    
 
 def determine_impervious_by_catchment(nwm_catchments_xr,
                                          agreement_raster,
                                          huc, resolution, year, dem_source,
                                          agg_func=['mean'],
-                                         predicted_inundated_encodings=[2,3]): 
+                                         predicted_inundated_encodings=[2,3],
+                                         output_parquet_fn=imperviousness_parquet_fn): 
     
     impervious_xr = rxr.open_rasterio(
                                      build_imperviousness_raster_fn(huc,resolution,year,dem_source),
@@ -293,16 +554,16 @@ def determine_impervious_by_catchment(nwm_catchments_xr,
                                      mask_and_scale=True,
                                      variable='impervious_2019',
                                      default_name='impervious_2019',
-                                     lock=True,
+                                     lock=False,
                                      cache=False
                                     ).sel(band=1,drop=True)
 
     # calculate as percent
-    impervious_xr = impervious_xr / 100
+    #impervious_xr = impervious_xr / 100
 
     # masking out dry areas
-    nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
-    impervious_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),impervious_xr,np.nan)
+    #nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
+    #impervious_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),impervious_xr,np.nan)
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",category=UserWarning)
@@ -313,32 +574,33 @@ def determine_impervious_by_catchment(nwm_catchments_xr,
                                       nodata_values=np.nan) \
                                        .rename(columns={ f:"imperviousness_{}".format(f) for f in agg_func}) \
                                        .rename(columns={'zone':'ID'}) \
-                                       .astype({'ID' : np.int64,'imperviousness_mean': np.float64}) \
+                                       .astype({'ID' : np.int64,'imperviousness_perc_mean': np.float64}) \
                                        .repartition(partition_size=partition_size) \
 
-    return ct_dask_df_impervious
-
-
-def determine_dominant_inundated_landcover(nwm_catchments_xr,
-                                             agreement_raster,
-                                             huc, resolution, year, dem_source,
-                                             agg_func=['mean'],
-                                             predicted_inundated_encodings=[2,3]): 
+    write_catchment_level_data(ct_dask_df_impervious, output_parquet_fn)
     
+
+def determine_dominant_landcover(nwm_catchments_xr,
+                                 agreement_raster,
+                                 huc, resolution, year, dem_source,
+                                 agg_func=['mean'],
+                                 predicted_inundated_encodings=[2,3],
+                                 output_parquet_fn_1=land_cover_parquet_fn, 
+                                 output_parquet_fn_2=roughness_parquet_fn): 
+
     land_cover_xr = rxr.open_rasterio(
                                      build_land_cover_raster_fn(huc,resolution,year,dem_source),
                                      chunks=chunk_size,
                                      mask_and_scale=True,
                                      variable='landcover',
                                      default_name='landcover',
-                                     lock=True,
+                                     lock=False,
                                      cache=False
-                                    ).sel(band=1,drop=True) \
-                                     .rio.reproject_match(agreement_raster)
+                                    ).sel(band=1,drop=True) 
     
     # masking out dry areas
-    nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
-    land_cover_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),land_cover_xr,np.nan)
+    #nwm_catchments_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),nwm_catchments_xr,np.nan)
+    #land_cover_xr = xr.where(agreement_raster.isin(predicted_inundated_encodings),land_cover_xr,np.nan)
     
     ct_dask_df_catchment_lc = crosstab(nwm_catchments_xr,land_cover_xr,nodata_values=np.nan) \
                                            .astype(np.float64) \
@@ -376,7 +638,15 @@ def determine_dominant_inundated_landcover(nwm_catchments_xr,
 
     ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.assign( 
                                                  dominant_lulc_anthropogenic_influence=dominant_lulc_anthropogenic_influence) \
-                                                     .astype({'dominant_lulc_anthropogenic_influence':'category'})
+                                                     .astype({'dominant_lulc_anthropogenic_influence': str}) \
+                                                     .reset_index(drop=False)
+    
+    """
+    Index(['ID', 'dominant_lulc', 'dominant_lulc_digits',
+       'dominant_lulc_anthropogenic_influence'],
+    """
+    write_catchment_level_data(ct_dask_df_catchment_lc, output_parquet_fn_1)
+    del ct_dask_df_catchment_lc
    
     # compute catchment level mannings n value
     overland_roughness_xr = gh.pygeohydro.overland_roughness(land_cover_xr) \
@@ -395,11 +665,58 @@ def determine_dominant_inundated_landcover(nwm_catchments_xr,
                                        .repartition(partition_size=partition_size)
     
     # merge with catchments
-    ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.merge(ct_dask_df_roughness,
-                                                            left_index=True,
-                                                            right_on='ID')
+    #ct_dask_df_catchment_lc = ct_dask_df_catchment_lc.merge(ct_dask_df_roughness,
+    #                                                        left_index=True,
+    #                                                        right_on='ID')
+    
+    """
+    Index(['ID', 'overland_roughness_mean'], dtype='object')
+    """
+    write_catchment_level_data(ct_dask_df_roughness, output_parquet_fn_2)
+    
 
-    return ct_dask_df_catchment_lc
+def determine_inundated_area(hucs, resolutions, years, dem_sources, output_parquet=None):
+
+    combos = prepare_combos(hucs, resolutions, years, dem_sources)
+
+    final_combos = []
+    for idx,combo in tqdm(enumerate(combos),
+                          total=len(combos),
+                          desc='Computing inundated areas'):
+        
+        inundation_raster = load_inundation_raster(*combo)
+        
+        resolution = inundation_raster.rio.resolution()
+        pixel_area = abs(resolution[0] * resolution[1]) / (1000**2)
+
+        inundated_area_km = ((inundation_raster > 0).sum() * pixel_area).to_numpy().item()
+
+        final_combos.append(tuple(combo + (inundated_area_km,)))
+
+    final_combos = pd.DataFrame.from_records(final_combos,
+                                             columns=['huc8','spatial_resolution','magnitude',
+                                                      'dem_source','inundated_area_km'])
+    
+    # overall
+    fc_gb = final_combos.groupby(['dem_source','spatial_resolution'])
+    mean_inundated_areas = fc_gb.mean(numeric_only=True)['inundated_area_km']
+    std_inundated_areas = fc_gb.std(numeric_only=True)['inundated_area_km']
+    
+    print("Inundated areas (km2) by spatial resolution for 3DEP derived FIMs across HUC8s and DEM sources")
+    print("Mean:",mean_inundated_areas)
+    print("Std:",std_inundated_areas)
+
+    if os.path.exists(output_parquet):
+        os.remove(output_parquet)
+
+    final_combos.to_parquet(output_parquet,
+                            engine='fastparquet',
+                            append=False
+                           )
+    
+        
+
+
 
 
 def compute_metrics_by_catchment( nwm_catchments_fn, 
@@ -422,6 +739,50 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                   land_cover_fn=None):
     
     
+    def __prepare_catchments():
+        
+        # load catchments and streams
+        print("Loading and prepping files ...")
+        nwm_streams = gpd.read_file(nwm_streams_fn)
+        nwm_catchments = gpd.read_file(nwm_catchments_fn)
+        huc8s_df = gpd.read_file(huc8s_vector_fn)
+
+        # compute catchment areas
+        nwm_catchments['area_sqkm'] = nwm_catchments.loc[:,'geometry'].area / (1000*1000)
+        
+        # spatial join with columns from huc8s_df to get catchment assignments by huc8
+        nwm_catchments = nwm_catchments \
+                                 .sjoin(huc8s_df.loc[:,['huc8','geometry']],how='inner',predicate='intersects') \
+                                 .drop('index_right',axis=1) \
+                                 .reset_index(drop=True)
+        
+        # make reservoir bool
+        nwm_streams = nwm_streams.assign(
+                                Reservoir=np.where(nwm_streams.loc[:,'Lake'] != -9999,'Reservoir', 'Not Reservoir')) 
+
+        nwm_catchments.drop(columns={'AreaSqKM', 'Shape_Length', 'Shape_Area'},inplace=True)
+
+        stream_cols = ['ID','order_','Lake','gages','Slope', 'Length','Reservoir']
+
+        nwm_catchments = nwm_catchments.merge(nwm_streams.loc[:,stream_cols],on='ID')
+
+        nwm_catchments['channel_slope_perc'] = nwm_catchments.loc[:,'Slope'] * 100
+                                       
+        nwm_catchments.to_file(nwm_catchments_joined_streams_fn,driver='GPKG',index=False)
+        """
+                   .astype({'huc8': str,
+                            'area_sqkm': np.float64,
+                            'ID' : np.int64,
+                            'mainstem' : np.int32,
+                            'order_' : np.float64,
+                            'Lake' : np.int64,
+                            'gages' : np.int64,
+                            'Reservoir' : str}) \
+        """
+        
+        return nwm_catchments
+    
+
     def __burn_nwm_catchments():
         
         # loop over every combination of resolutions and magnitude years
@@ -451,7 +812,9 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             # write rasterized nwm_catchments just for inspection
             nwm_catchments_xr.rio.to_raster(nwm_catchments_raster_fn.format(s,h,r,y),
                                             tiled=True,windowed=True,
-                                            lock=True,dtype=rasterio.int32,
+                                            BLOCKXSIZE=base_chunk_size,
+                                            BLOCKYSIZE=base_chunk_size,
+                                            lock=False,dtype=rasterio.int32,
                                             compress='lzw')
                 
             if write_debugging_files:
@@ -474,13 +837,15 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                              mask_and_scale=True,
                                              variable='landcover',
                                              default_name='landcover',
-                                             lock=True,
+                                             lock=False,
                                              cache=False
                                             ).sel(band=1,drop=True) \
                                          .rio.reproject_match(agreement_raster) \
                                          .rio.to_raster(build_land_cover_raster_fn(h,r,y,s),
                                                         tiled=True,windowed=True,
-                                                        lock=True,dtype=rasterio.int32,
+                                                        BLOCKXSIZE=base_chunk_size,
+                                                        BLOCKYSIZE=base_chunk_size,
+                                                        lock=False,dtype=rasterio.int32,
                                                         compress='lzw')
     
     def __prepare_terrain_slope():
@@ -498,13 +863,15 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                              mask_and_scale=True,
                                              variable='terrain_slope',
                                              default_name='terrain_slope',
-                                             lock=True,
+                                             lock=False,
                                              cache=False
                                             ).sel(band=1,drop=True) \
                                              .rio.reproject_match(agreement_raster) \
                                              .rio.to_raster(build_terrain_slope_raster_fn(h,r,y,s),
                                                             tiled=True,windowed=True,
-                                                            lock=True,dtype=rasterio.float32,
+                                                            BLOCKXSIZE=base_chunk_size,
+                                                            BLOCKYSIZE=base_chunk_size,
+                                                            lock=False,dtype=rasterio.float32,
                                                             compress='lzw')
 
     def __prepare_imperviousness():
@@ -522,14 +889,130 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                              mask_and_scale=True,
                                              variable='impervious_2019',
                                              default_name='impervious_2019',
-                                             lock=True,
+                                             lock=False,
                                              cache=False
                                             ).sel(band=1,drop=True) \
                                              .rio.reproject_match(agreement_raster) \
                                              .rio.to_raster(build_imperviousness_raster_fn(h,r,y,s),
                                                             tiled=True,windowed=True,
-                                                            lock=True,dtype=rasterio.float32,
+                                                            BLOCKXSIZE=base_chunk_size,
+                                                            BLOCKYSIZE=base_chunk_size,
+                                                            lock=False,dtype=rasterio.float32,
                                                             compress='lzw')
+
+    def __build_catchment_level_landcover():
+    
+        # remove temp experiment file
+        rmtree(land_cover_parquet_fn,ignore_errors=True)
+        rmtree(roughness_parquet_fn,ignore_errors=True)
+    
+        for idx,(h,r,y,s) in tqdm(enumerate(catchment_level_combos),
+                                desc='Catchment level landcover',
+                                total=num_of_catchment_level_combos):
+            
+            nwm_catchments_xr = rxr.open_rasterio(nwm_catchments_raster_fn.format(s,h,r,y),
+                                                  chunks=chunk_size,
+                                                  mask_and_scale=True,
+                                                  variable='ID',
+                                                  default_name='nwm_catchments',
+                                                  lock=False,
+                                                  cache=False
+                                                 ).sel(band=1,drop=True) 
+            
+            agreement_raster = load_agreement_raster(h,r,y,s)
+
+            # determines dominant inundated landcover by catchment
+            ct_dask_df_catchment_lc = determine_dominant_landcover(nwm_catchments_xr,
+                                                                             agreement_raster,
+                                                                             h,r,y,s,
+                                                                             agg_func=['mean'],
+                                                                             predicted_inundated_encodings=[2,3])
+
+            # merge in landcovers
+            #secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_catchment_lc,
+            #                             how='left', on='ID')
+    
+    def __build_catchment_level_terrain_slope():
+        
+        # remove temp experiment file
+        rmtree(terrain_slope_parquet_fn,ignore_errors=True)
+
+        for idx,(h,r,y,s) in tqdm(enumerate(catchment_level_combos),
+                                desc='Catchment level terrain slope df',
+                                total=num_of_catchment_level_combos):
+            
+            nwm_catchments_xr = rxr.open_rasterio(nwm_catchments_raster_fn.format(s,h,r,y),
+                                                  chunks=chunk_size,
+                                                  mask_and_scale=True,
+                                                  variable='ID',
+                                                  default_name='nwm_catchments',
+                                                  lock=False,
+                                                  cache=False
+                                                 ).sel(band=1,drop=True) 
+            
+            agreement_raster = load_agreement_raster(h,r,y,s)
+
+            
+            # aggregates slope by catchment
+            ct_dask_df_slopes = determine_terrain_slope_by_catchment(nwm_catchments_xr,
+                                                                     agreement_raster,
+                                                                     h,r,y,s,
+                                                                     agg_func=['mean'],
+                                                                     predicted_inundated_encodings=[2,3])
+
+            # merge in slopes
+            #secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_slopes,
+            #                             how='left', on='ID')
+    
+    def __build_catchment_level_imperviousness():
+        
+        # remove temp experiment file
+        rmtree(imperviousness_parquet_fn,ignore_errors=True)
+    
+        for idx,(h,r,y,s) in tqdm(enumerate(catchment_level_combos),
+                                desc='Catchment level imperviousness df',
+                                total=num_of_catchment_level_combos):
+            
+            nwm_catchments_xr = rxr.open_rasterio(nwm_catchments_raster_fn.format(s,h,r,y),
+                                                  chunks=chunk_size,
+                                                  mask_and_scale=True,
+                                                  variable='ID',
+                                                  default_name='nwm_catchments',
+                                                  lock=False,
+                                                  cache=False
+                                                 ).sel(band=1,drop=True) 
+            
+            agreement_raster = load_agreement_raster(h,r,y,s)
+
+            # aggregate imperviousness by catchment
+            ct_dask_df_impervious = determine_impervious_by_catchment(nwm_catchments_xr,
+                                                                      agreement_raster,
+                                                                      h,r,y,s,
+                                                                      agg_func=['mean'],
+                                                                      predicted_inundated_encodings=[2,3])
+            
+            # merge in impervious
+            #secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_impervious,
+            #                             how='left', on='ID')
+            
+
+    def __aggregate_catchment_level_attributes():
+
+        input_parquets = [ land_cover_parquet_fn,
+                           imperviousness_parquet_fn,
+                           terrain_slope_parquet_fn,
+                           roughness_parquet_fn
+                         ]
+
+        nwm_catchments_with_attributes = nwm_catchments.copy()
+        for ip in input_parquets:
+            ip_df = read_parquet(ip,
+                                 engine='fastparquet'
+                                ).compute()
+
+            nwm_catchments_with_attributes = nwm_catchments_with_attributes.merge(ip_df, on='ID')
+        
+        nwm_catchments_with_attributes.to_file(nwm_catchments_with_attributes_fn,driver='GPKG',index=False)
 
 
     # builds primary and lulc metrics and secondary metrics
@@ -551,7 +1034,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                                   mask_and_scale=True,
                                                   variable='ID',
                                                   default_name='nwm_catchments',
-                                                  lock=True,
+                                                  lock=False,
                                                   cache=False
                                                  ).sel(band=1,drop=True) 
             
@@ -588,42 +1071,11 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
             
             # append waterbody column if not already there
             if 'Waterbody' not in secondary_metrics_df.columns:
-                secondary_metrics_df = secondary_metrics_df.assign(Waterbody=lambda r: np.nan) \
-                                                           .astype({'Waterbody' : np.float64})
-
-            # determines dominant inundated landcover by catchment
-            ct_dask_df_catchment_lc = determine_dominant_inundated_landcover(nwm_catchments_xr,
-                                                                             agreement_raster,
-                                                                             h,r,y,s,
-                                                                             agg_func=['mean'],
-                                                                             predicted_inundated_encodings=[2,3])
-
-            # merge in landcovers
-            secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_catchment_lc,
-                                         how='left', on='ID')
-            
-            # aggregates slope by catchment
-            ct_dask_df_slopes = determine_terrain_slope_by_catchment(nwm_catchments_xr,
-                                                                     agreement_raster,
-                                                                     h,r,y,s,
-                                                                     agg_func=['mean'],
-                                                                     predicted_inundated_encodings=[2,3])
-
-            # merge in slopes
-            secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_slopes,
-                                         how='left', on='ID')
-
-            # aggregate imperviousness by catchment
-            ct_dask_df_impervious = determine_impervious_by_catchment(nwm_catchments_xr,
-                                                                      agreement_raster,
-                                                                      h,r,y,s,
-                                                                      agg_func=['mean'],
-                                                                      predicted_inundated_encodings=[2,3])
-            
-            # merge in impervious
-            secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_impervious,
-                                         how='left', on='ID')
-            
+                secondary_metrics_df = secondary_metrics_df.assign(Waterbody=lambda r: 0) \
+                                                           .astype({'Waterbody' : np.int64})
+            else:
+                secondary_metrics_df['Waterbody'] = secondary_metrics_df['Waterbody'].fillna(0) \
+                                                                                     .astype({'Waterbody' : np.int64})
             # dropnas
             secondary_metrics_df = secondary_metrics_df.dropna(subset=full_secondary_metrics,how='any') \
                                                        .reset_index(drop=True) \
@@ -636,7 +1088,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                             compute=True,
                                             engine='fastparquet')
 
-    def __finalize_files(nwm_streams):
+    def __finalize_files():
 
         print("Finalizing files ...")
         # read parquet file
@@ -644,48 +1096,39 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                             engine='fastparquet'
                                             ).compute()
         
-        # what about repeat ID's
-        # should we group by all factors and sum to aggregate???
-        # checking for duplicated IDs within resolution and magnitude
-        #print("Number of duplicate ID's within resolution and magnitude factor-level combinations", 
-        #    secondary_metrics_df.set_index(['spatial_resolution', 'magnitude','ID']).index.duplicated().sum())
-        
-        # read parquet file
+        nwm_catchments_with_attributes = gpd.read_file(nwm_catchments_with_attributes_fn)
 
-        # reset index
-        #secondary_metrics_df = secondary_metrics_df.dropna(subset=full_secondary_metrics,how='any') \
-        #                                           .reset_index(drop=True)
-        # make reservoir bool
-        nwm_streams = nwm_streams.assign(
-                                Reservoir=np.where(nwm_streams.loc[:,'Lake'] != -9999,'Reservoir', 'Not Reservoir')) 
+        # this won't be necessary once agreement maps are recomputed
+        secondary_metrics_df['Waterbody'] = secondary_metrics_df['Waterbody'].fillna(0)
         
-        # merge back into nwm_catchments
-        nwm_catchments_with_metrics = nwm_catchments.merge(secondary_metrics_df.drop(columns='huc8'),on='ID') \
-                                                    .merge(nwm_streams.loc[:,['ID','Slope','Lake',
-                                                                              'gages','Length','Reservoir']],
-                                                           on='ID')
-
+        nwm_catchments_with_metrics = nwm_catchments_with_attributes.merge(secondary_metrics_df.drop(columns='huc8'),on='ID')
 
         # join with nwm streams and convert datatypes
-        secondary_metrics_df = secondary_metrics_df.merge(nwm_streams.loc[:,['ID','mainstem',
-                                                                             'order_','Lake','gages',
-                                                                             'Slope', 'Length','Reservoir']],
-                                                                on='ID') \
-                                                   .merge(nwm_catchments.loc[:,['ID','area_sqkm']],on='ID') \
-                                                   .astype({'huc8': 'category',
-                                                            'spatial_resolution': np.float64,
-                                                            'area_sqkm': np.float64,
-                                                            'magnitude': 'category',
-                                                            'ID' : 'category',
-                                                            'mainstem' : 'category',
-                                                            'order_' : np.float64,
-                                                            'Lake' : 'category',
-                                                            'gages' : 'category',
-                                                            'dem_source': 'category',
-                                                            'dominant_lulc': 'category',
-                                                            'terrain_slope_mean': np.float64,
-                                                            'dominant_lulc_anthropogenic_influence': 'category',
-                                                            'Reservoir' : 'category'})
+        secondary_metrics_df = nwm_catchments_with_metrics.drop(columns='geometry') \
+                                                          .dropna(subset=full_secondary_metrics,how='any') \
+                                                          .drop_duplicates() \
+                                                          .astype({ 'huc8': 'category',
+                                                                    'spatial_resolution': np.float64,
+                                                                    'area_sqkm': np.float64,
+                                                                    'magnitude': 'category',
+                                                                    'ID' : 'category',
+                                                                    'mainstem' : 'category',
+                                                                    'order_' : 'category',
+                                                                    'TP' : np.int64,
+                                                                    'FP' : np.int64,
+                                                                    'TN' : np.int64,
+                                                                    'FN' : np.int64,
+                                                                    'Waterbody' : np.int64,
+                                                                    'Total Samples' : np.int64,
+                                                                    'Lake' : 'category',
+                                                                    'gages' : 'category',
+                                                                    'dem_source': 'category',
+                                                                    'dominant_lulc': 'category',
+                                                                    'dominant_lulc_digits': 'category',
+                                                                    'terrain_slope_perc_mean': np.float64,
+                                                                    'imperviousness_perc_mean': np.float64,
+                                                                    'dominant_lulc_anthropogenic_influence': 'category',
+                                                                    'Reservoir' : 'category'})
 
         # saving nwm catchments with metrics
         if save_nwm_catchments_file:
@@ -703,22 +1146,6 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
         
         return(secondary_metrics_df)
 
-    
-    # load catchments and streams
-    print("Loading and prepping files ...")
-    nwm_streams = gpd.read_file(nwm_streams_fn)
-    nwm_catchments = gpd.read_file(nwm_catchments_fn)
-    huc8s_df = gpd.read_file(huc8s_vector_fn)
-
-    # compute catchment areas
-    nwm_catchments['area_sqkm'] = nwm_catchments.loc[:,'geometry'].area / (1000*1000)
-    
-    # spatial join with columns from huc8s_df to get catchment assignments by huc8
-    nwm_catchments = nwm_catchments \
-                             .sjoin(huc8s_df.loc[:,['huc8','geometry']],how='inner',predicate='intersects') \
-                             .drop('index_right',axis=1) \
-                             .reset_index(drop=True)
-    
     # prepare combinations of resolutions, hucs, and years
     combos = list(product(hucs,resolutions,years))
     
@@ -733,9 +1160,10 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     num_of_combos = len(combos)
     list_of_secondary_metrics_df = [None] * num_of_combos
 
-    # burning catchments
-    if burn_nwm_catchments:
-        __burn_nwm_catchments()
+    if prepare_catchments:
+        nwm_catchments = __prepare_catchments()
+    else:
+        nwm_catchments = gpd.read_file(nwm_catchments_joined_streams_fn)
 
     if prepare_lulc:
         __prepare_lulc()
@@ -745,12 +1173,32 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
     
     if prepare_imperviousness:
         __prepare_imperviousness()
+    
+    # burning catchments
+    if burn_nwm_catchments:
+        __burn_nwm_catchments()
+
+    if build_catchment_level_attributes:
+
+        catchment_level_combos = []
+        for h,r,y,s in combos:
+            if (r == 10) & (y == 500) & (s == '3dep'):
+                catchment_level_combos += [(h,r,y,s)]
+       
+        num_of_catchment_level_combos = len(catchment_level_combos)
+        
+        __build_catchment_level_terrain_slope()
+        __build_catchment_level_landcover()
+        __build_catchment_level_imperviousness()
+
+    if aggregate_catchment_level_attributes:
+        __aggregate_catchment_level_attributes()
 
     if build_secondary_metrics:
         __build_secondary_metrics()
     
     if finalize_metrics:
-        secondary_metrics_df = __finalize_files(nwm_streams)
+        secondary_metrics_df = __finalize_files()
 
         return secondary_metrics_df
 
@@ -859,16 +1307,20 @@ def anova(secondary_metrics_df):
                                   axis=1)
 
 
-    linear_models = __forward_model_selection(selected_features)
+    secondary_metrics_df = secondary_metrics_df.loc[secondary_metrics_df.loc[:,'dem_source'] == '3dep',:]
+    linear_models = __forward_model_selection(selected_features,tol=anova_tol)
     
     # make two way interactions
     if add_two_way_interactions:
         two_way = [f"{i}:{ii}" for i,ii in combinations(selected_features,2)]
-        linear_models = __forward_model_selection(two_way,formula=linear_models.model.formula,prev_metric_val=linear_models.rsquared_adj)
+        linear_models = __forward_model_selection(two_way,tol=anova_tol,formula=linear_models.model.formula,prev_metric_val=linear_models.rsquared_adj)
 
     print(f"Final Formula: {linear_models.model.formula} | Adj-R2: {linear_models.rsquared_adj}")
     breakpoint()
-    # MCC ~ Lake + dominant_lulc + dem_source + order_ + Slope + area_sqkm + magnitude + Length + spatial_resolution + dominant_lulc:order_ + dominant_lulc:Slope + dominant_lulc:Lake + dominant_lulc:Length + order_:Slope + dominant_lulc:area_sqkm + Slope:area_sqkm + order_:area_sqkm + order_:Lake + Lake:dem_source + order_:dem_source + spatial_resolution:dominant_lulc + Lake:Length + Lake:Slope | Adj-R2: 0.29276087401948514
+    # 
+    #
+    #
+    #
 
     """
     # code on how to plot significant linear model parameters by normalized values
@@ -917,7 +1369,8 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
 
     prepared_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
                                            .set_index(['huc8','magnitude','spatial_resolution','dem_source','ID']) \
-                                           .sort_index() 
+                                           .sort_index() \
+                                           .drop_duplicates()
     
     metrics_3dep = prepared_metrics.xs('3dep',level="dem_source") \
                                    .xs(10,level='spatial_resolution') \
@@ -926,10 +1379,12 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
                                    .xs(10,level='spatial_resolution') \
                                    .loc[:,metrics]
     
-    difference = (metrics_3dep - metrics_nhd).dropna(how='any') 
+    difference = (metrics_3dep - metrics_nhd).dropna(how='any') \
+                                             .drop_duplicates()
     
     all_metrics = difference.join(metrics_3dep,how='left',lsuffix='_diff',rsuffix='_3dep') \
                             .join(metrics_nhd,how='left') \
+                            .drop_duplicates() \
                             .rename(columns=dict(zip(metrics,[m+'_nhd' for m in metrics])))
 
     for mag in [100,500]:
@@ -947,6 +1402,10 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
             
             reduced_indices = ~improved_indices
             
+            breakpoint()
+            ##########################################
+            # GETTING RED POINTS IN POSITIVE TERRITORY
+            ##########################################
             #y = range(len(sorted_metrics))
             #x = sorted_metrics.loc[:,metric+'_diff'] + sorted_metrics.loc[:,[metric+'_nhd', metric+'_3dep']].min(axis=1)
             
@@ -1025,7 +1484,6 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
         fig.savefig(os.path.join(data_dir,f'nhd_vs_3dep_{mag}yr.png'), bbox_extra_artists=(lgd,), bbox_inches='tight')
         plt.close(fig)
 
-    pass
 
 def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
     
@@ -1041,14 +1499,15 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
     
     # drop NAs and only use 3dep source
     all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .drop_duplicates() \
                                       .query('dem_source == "3dep"')
     
     # temp
-    all_metrics.set_index(['magnitude','spatial_resolution'],inplace=True)
-    for y in [100,500]:
-        diff = all_metrics.loc[(y,[5,10,15,20]),metrics].mean() - all_metrics.loc[(y,3),metrics].mean() -0.001
-        all_metrics.loc[(y,3),metrics] = all_metrics.loc[(y,3),metrics] + diff
-    all_metrics.reset_index(drop=False,inplace=True)
+    #all_metrics.set_index(['magnitude','spatial_resolution'],inplace=True)
+    #for y in [100,500]:
+    #    diff = all_metrics.loc[(y,[5,10,15,20]),metrics].mean() - all_metrics.loc[(y,3),metrics].mean() -0.001
+    #    all_metrics.loc[(y,3),metrics] = all_metrics.loc[(y,3),metrics] + diff
+    #all_metrics.reset_index(drop=False,inplace=True)
 
     fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
 
@@ -1180,6 +1639,7 @@ def reservoir_plot(secondary_metrics_df,reservoir_plot_fn):
     
     # drop NAs and only use 3dep source
     all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .drop_duplicates() \
                                       .query('dem_source == "3dep"')
 
     # threshold Lake
@@ -1191,15 +1651,15 @@ def reservoir_plot(secondary_metrics_df,reservoir_plot_fn):
     #all_metrics_thresholded_lakes.loc[:,"Lake"] = all_metrics_thresholded_lakes.loc[:,"Lake"].astype("Category")
     
     # temp
-    all_metrics_thresholded_lakes.set_index(['Lake','spatial_resolution'],inplace=True)
-    resolutions = [3,5,10,15,20]
-    for l in [False,True]:
-        for r in [3,5]:
-            current_resolutions = resolutions.copy()
-            current_resolutions.remove(r)
-            diff = all_metrics_thresholded_lakes.loc[(l,current_resolutions),metrics].mean() - all_metrics_thresholded_lakes.loc[(l,r),metrics].mean() -0.001
-            all_metrics_thresholded_lakes.loc[(l,r),metrics] = all_metrics_thresholded_lakes.loc[(l,r),metrics] + diff
-    all_metrics_thresholded_lakes.reset_index(drop=False,inplace=True)
+    #all_metrics_thresholded_lakes.set_index(['Lake','spatial_resolution'],inplace=True)
+    #resolutions = [3,5,10,15,20]
+    #for l in [False,True]:
+    #    for r in [3,5]:
+    #        current_resolutions = resolutions.copy()
+    #        current_resolutions.remove(r)
+    #        diff = all_metrics_thresholded_lakes.loc[(l,current_resolutions),metrics].mean() - all_metrics_thresholded_lakes.loc[(l,r),metrics].mean() -0.001
+    #        all_metrics_thresholded_lakes.loc[(l,r),metrics] = all_metrics_thresholded_lakes.loc[(l,r),metrics] + diff
+    #all_metrics_thresholded_lakes.reset_index(drop=False,inplace=True)
 
     fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
 
@@ -1327,11 +1787,12 @@ def slope_plot(secondary_metrics_df,slope_plot_fn):
     
     # drop NAs and only use 3dep source
     all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .drop_duplicates() \
                                       .query('dem_source == "3dep"') \
                                       .query('Lake == -9999')
     
     # convert to percentage
-    all_metrics.loc[:,'Slope'] = all_metrics.loc[:,'Slope'] * 100
+    #all_metrics.loc[:,'Slope'] = all_metrics.loc[:,'Slope'] * 100
 
     bool_100yr = all_metrics.loc[:,'magnitude'] == 100
     bool_500yr = all_metrics.loc[:,'magnitude'] == 500
@@ -1359,13 +1820,13 @@ def slope_plot(secondary_metrics_df,slope_plot_fn):
                    #cmax=0.8
                    )
         """
-        pts_100yr = ax.scatter(all_metrics.loc[bool_100yr,'Slope'],
+        pts_100yr = ax.scatter(all_metrics.loc[bool_100yr,'channel_slope_perc'],
                                all_metrics.loc[bool_100yr,metric],
                                alpha=0.3,s=0.08,c='red',
                                label='Catchments: 100yr'
                               )
         
-        pts_500yr = ax.scatter(all_metrics.loc[bool_500yr,'Slope'],
+        pts_500yr = ax.scatter(all_metrics.loc[bool_500yr,'channel_slope_perc'],
                                all_metrics.loc[bool_500yr,metric],
                                alpha=0.2,s=0.08,c='blue',
                                label='Catchments: 500yr'
@@ -1373,15 +1834,15 @@ def slope_plot(secondary_metrics_df,slope_plot_fn):
         
         # fit model
         linear_model_100yr = sm.RLM(all_metrics.loc[bool_100yr,metric],
-                                    sm.add_constant(all_metrics.loc[bool_100yr,"Slope"]),
+                                    sm.add_constant(all_metrics.loc[bool_100yr,"channel_slope_perc"]),
                                     M=sm.robust.norms.TrimmedMean()
                                    ).fit()
         linear_model_500yr = sm.RLM(all_metrics.loc[bool_500yr,metric],
-                                    sm.add_constant(all_metrics.loc[bool_500yr,"Slope"]),
+                                    sm.add_constant(all_metrics.loc[bool_500yr,"channel_slope_perc"]),
                                     M=sm.robust.norms.TrimmedMean()
                                    ).fit()
 
-        reg_func = lambda x,lm: lm.params.const + (lm.params.Slope * x)
+        reg_func = lambda x,lm: lm.params.const + (lm.params.channel_slope_perc * x)
         compute_y = lambda x, lm: list(map(partial(reg_func,lm=lm),x))
         
         """
@@ -1442,13 +1903,13 @@ def slope_plot(secondary_metrics_df,slope_plot_fn):
         
         # 100yr
         ax.text(.40,y_slope_loc,
-                '{:.1E}'.format(linear_model_100yr.params.Slope),
+                '{:.1E}'.format(linear_model_100yr.params.channel_slope_perc),
                 fontsize=12, color=trendline_100yr_color)
         ax.text(.40,y_pval_loc,
-                '{:.1E}'.format(linear_model_100yr.pvalues.Slope),
+                '{:.1E}'.format(linear_model_100yr.pvalues.channel_slope_perc),
                 fontsize=12, color=trendline_100yr_color)
         
-        coef_of_deter_100yr = (np.corrcoef(all_metrics.loc[bool_100yr,"Slope"],all_metrics.loc[bool_100yr,metric])**2)[0,1]
+        coef_of_deter_100yr = (np.corrcoef(all_metrics.loc[bool_100yr,"channel_slope_perc"],all_metrics.loc[bool_100yr,metric])**2)[0,1]
         ax.text(0.6,ylim[0]+((ylim[1]-ylim[0])/8),
                 'R2: {:.4f}'.format(coef_of_deter_100yr),
                 fontsize=12, color=trendline_100yr_color)
@@ -1456,13 +1917,13 @@ def slope_plot(secondary_metrics_df,slope_plot_fn):
         
         # 500yr
         ax.text(.65,y_slope_loc,
-                '{:.1E}'.format(linear_model_500yr.params.Slope),
+                '{:.1E}'.format(linear_model_500yr.params.channel_slope_perc),
                 fontsize=12, color=trendline_500yr_color)
         ax.text(.65,y_pval_loc,
-                '{:.1E}'.format(linear_model_500yr.pvalues.Slope),
+                '{:.1E}'.format(linear_model_500yr.pvalues.channel_slope_perc),
                 fontsize=12, color=trendline_500yr_color)
         
-        coef_of_deter_500yr = (np.corrcoef(all_metrics.loc[bool_500yr,"Slope"],all_metrics.loc[bool_500yr,metric])**2)[0,1]
+        coef_of_deter_500yr = (np.corrcoef(all_metrics.loc[bool_500yr,"channel_slope_perc"],all_metrics.loc[bool_500yr,metric])**2)[0,1]
         ax.text(0.6,ylim[0]+((ylim[1]-ylim[0])/14),
                 'R2: {:.4f}'.format(coef_of_deter_500yr),
                 fontsize=12, color=trendline_500yr_color)
@@ -1506,6 +1967,186 @@ def slope_plot(secondary_metrics_df,slope_plot_fn):
     fig.savefig(slope_plot_fn, bbox_inches='tight')
     plt.close()
 
+def terrain_slope_plot(secondary_metrics_df,terrain_slope_plot_fn):
+    
+    metrics = ['MCC','CSI','TPR','FAR']
+    metric_dict = {'MCC': "Matthew's Corr. Coeff.",'CSI':"Critical Success Index",
+                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+    
+    # drop NAs and only use 3dep source
+    all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .drop_duplicates() \
+                                      .query('dem_source == "3dep"') \
+                                      .query('Lake == -9999')
+    
+    all_metrics['overland_roughness_mean'] = np.log(all_metrics['overland_roughness_mean'])
+
+    bool_100yr = all_metrics.loc[:,'magnitude'] == 100
+    bool_500yr = all_metrics.loc[:,'magnitude'] == 500
+
+    fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
+
+    for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
+        
+        #xlim=(0,0.01)
+        xlim=(-3,-1)
+        
+        if metric == 'FAR':
+            ylim = (-4.5,0)
+        else:
+            ylim = (-1,0)
+
+        all_metrics.loc[:,metric] = np.log(all_metrics.loc[:,metric])
+        all_metrics = all_metrics.dropna()
+        all_metrics = all_metrics.loc[~np.isinf(all_metrics.loc[:,metric]),:]
+
+        pts_100yr = ax.scatter(all_metrics.loc[bool_100yr,'overland_roughness_mean'],
+                               all_metrics.loc[bool_100yr,metric],
+                               alpha=0.3,s=0.08,c='red',
+                               label='Catchments: 100yr'
+                              )
+        
+        pts_500yr = ax.scatter(all_metrics.loc[bool_500yr,'overland_roughness_mean'],
+                               all_metrics.loc[bool_500yr,metric],
+                               alpha=0.2,s=0.08,c='blue',
+                               label='Catchments: 500yr'
+                              )
+        
+        # fit model
+        linear_model_100yr = sm.RLM(all_metrics.loc[bool_100yr,metric],
+                                    sm.add_constant(all_metrics.loc[bool_100yr,"overland_roughness_mean"]),
+                                    M=sm.robust.norms.TrimmedMean()
+                                   ).fit()
+        linear_model_500yr = sm.RLM(all_metrics.loc[bool_500yr,metric],
+                                    sm.add_constant(all_metrics.loc[bool_500yr,"overland_roughness_mean"]),
+                                    M=sm.robust.norms.TrimmedMean()
+                                   ).fit()
+
+        reg_func = lambda x,lm: lm.params.const + (lm.params.overland_roughness_mean * x)
+        compute_y = lambda x, lm: list(map(partial(reg_func,lm=lm),x))
+        
+        """
+        lci_reg_func = lambda x,lm: lm.conf_int().loc['const',0] + (lm.conf_int().loc['Slope',0] * x)
+        compute_lci = lambda x, lm: list(map(partial(lci_reg_func,lm=lm),x))
+        
+        uci_reg_func = lambda x,lm: lm.conf_int().loc['const',1] + (lm.conf_int().loc['Slope',1] * x)
+        compute_uci = lambda x, lm: list(map(partial(uci_reg_func,lm=lm),x))
+        """
+        
+        trendline_100yr_color = mcolors.CSS4_COLORS["red"]
+        trendline_500yr_color = mcolors.CSS4_COLORS["blue"]
+
+        # plot 100yr
+        x = list(ax.get_xlim())
+        y = compute_y(x,linear_model_100yr)
+        trendline_100yr = ax.plot(x,y,color=trendline_100yr_color,
+                                  linewidth=3,label='Trendline: 100yr')
+        
+        """
+        y = compute_lci(x,linear_model_100yr)
+        trendline_lci_100yr = ax.plot(x,y,color=trendline_100yr_color,
+                                      linewidth=1,label='Lower 95% CI: 100yr')
+        
+        y = compute_uci(x,linear_model_100yr)
+        trendline_uci_100yr = ax.plot(x,y,color=trendline_100yr_color,
+                                      linewidth=1,label='Upper 95% CI: 100yr')
+        """
+        
+        # plot 500yr
+        y = compute_y(x,linear_model_500yr)
+        trendline_500yr = ax.plot(x,y,color=trendline_500yr_color,
+                                  linewidth=3,
+                                  label='Trendline: 500yr')
+        
+        """
+        y = compute_lci(x,linear_model_500yr)
+        trendline_lci_500yr = ax.plot(x,y,color=trendline_500yr_color,
+                                      linewidth=1,linestyle='dashed',
+                                      label='Lower 95% CI: 500yr')
+        
+        y = compute_uci(x,linear_model_500yr)
+        trendline_uci_500yr = ax.plot(x,y,color=trendline_500yr_color,
+                                      linewidth=1,linestyle='dashed',
+                                      label='Upper 95% CI: 500yr')
+        """
+        
+        # parameter labels
+        if metric != 'FAR':
+            y_slope_loc = ylim[1] + 0.04
+            y_pval_loc = ylim[1] + 0.01
+        else:
+            y_slope_loc = ylim[1] + 0.02
+            y_pval_loc = ylim[1] + 0.005
+        
+        ax.text(-1.5,y_slope_loc,'slope:',fontsize=12,color='black')
+        ax.text(-1.5,y_pval_loc,'p-value:',fontsize=12,color='black')
+        
+        # 100yr
+        ax.text(-1.5,y_slope_loc,
+                '{:.1E}'.format(linear_model_100yr.params.overland_roughness_mean),
+                fontsize=12, color=trendline_100yr_color)
+        ax.text(-1.5,y_pval_loc,
+                '{:.1E}'.format(linear_model_100yr.pvalues.overland_roughness_mean),
+                fontsize=12, color=trendline_100yr_color)
+        
+        coef_of_deter_100yr = (np.corrcoef(all_metrics.loc[bool_100yr,"overland_roughness_mean"],all_metrics.loc[bool_100yr,metric])**2)[0,1]
+        ax.text(-1.5,ylim[0]+((ylim[1]-ylim[0])/8),
+                'R2: {:.4f}'.format(coef_of_deter_100yr),
+                fontsize=12, color=trendline_100yr_color)
+
+        
+        # 500yr
+        ax.text(-1.5,y_slope_loc,
+                '{:.1E}'.format(linear_model_500yr.params.overland_roughness_mean),
+                fontsize=12, color=trendline_500yr_color)
+        ax.text(-1.5,y_pval_loc,
+                '{:.1E}'.format(linear_model_500yr.pvalues.overland_roughness_mean),
+                fontsize=12, color=trendline_500yr_color)
+        
+        coef_of_deter_500yr = (np.corrcoef(all_metrics.loc[bool_500yr,"overland_roughness_mean"],all_metrics.loc[bool_500yr,metric])**2)[0,1]
+        ax.text(-1.5,ylim[0]+((ylim[1]-ylim[0])/14),
+                'R2: {:.4f}'.format(coef_of_deter_500yr),
+                fontsize=12, color=trendline_500yr_color)
+        
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        
+        ax.tick_params(axis='both', labelsize=12)
+        #ax.tick_params(axis='x', rotation=45)
+        #ax.ticklabel_format(axis='xx',style='scientific',scilimits=(0,0))
+
+        if i in {2,3}:
+            #ax.set_xlabel("Terrain Slope"+"\n"+"(vertical/horizontal)",fontsize=12)
+            ax.set_xlabel("Terrain Slope (%)",fontsize=12)
+        else:
+            ax.set_xlabel(None)
+
+        if i in {0,2}:
+            ax.set_ylabel('Metric Value',fontsize=12)
+        else:
+            ax.set_ylabel(None)
+        
+        #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15,y=1.15)
+        ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15,y=1.12)
+
+    h,l = ax.get_legend_handles_labels()
+    lgd = fig.legend(h,l,
+           loc='lower center',
+           ncols=2,
+           frameon=True,
+           framealpha=0.75,
+           fontsize=12,
+           title_fontsize=14,
+           borderpad=0.25,
+           markerscale=15,
+           bbox_to_anchor=(0.55,-.06),
+           borderaxespad=0,
+           title=None)
+
+
+    fig.savefig(terrain_slope_plot_fn, bbox_inches='tight')
+    plt.close()
+
 
 def landcover_plot(secondary_metrics_df,landcover_plot_fn):
     
@@ -1516,6 +2157,7 @@ def landcover_plot(secondary_metrics_df,landcover_plot_fn):
     
     # drop NAs and only use 3dep source
     all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .drop_duplicates() \
                                       .query('dem_source == "3dep"') 
                                       #.query('dominant_lulc != "Other_45"') \
                                       #.query('dominant_lulc != "Other_46"') 
@@ -1540,12 +2182,10 @@ def landcover_plot(secondary_metrics_df,landcover_plot_fn):
     #all_metrics.loc[:,'dominant_lulc_digit'] =  all_metrics.loc[:,'dominant_lulc'] \
     #                                                       .apply(lambda s : landcover_encoding_names_to_digits[s])
 
-    #breakpoint()
     #all_metrics.loc[:,'dominant_lulc_digit'] = order_digits
 
-    #breakpoint()
+    
     #all_metrics = all_metrics.sort_values('dominant_lulc_digit',ascending=True)
-    #breakpoint()
 
     fig,axs = plt.subplots(4,1,dpi=300,figsize=(8.5,11),layout='tight')
 
@@ -1637,6 +2277,7 @@ def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
     
     # drop NAs and only use 3dep source
     all_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
+                                      .drop_duplicates() \
                                       .query('dem_source == "3dep"') 
 
     # grouping
@@ -1779,10 +2420,8 @@ if __name__ == '__main__':
 
     if compute_secondary_metrics:
         ## dask cluster and client
-        with LocalCluster(n_workers=6,threads_per_worker=1,
-                          memory_limit="15GB", processes=True
+        with LocalCluster(
             ) as cluster, Client(cluster) as client:
-            
             secondary_metrics_df = compute_metrics_by_catchment(nwm_catchments_fn,nwm_streams_fn, huc8s_vector_fn,
                                                                    resolutions,years,hucs,
                                                                    dem_sources,
@@ -1805,6 +2444,18 @@ if __name__ == '__main__':
     if run_anova:
         anova(secondary_metrics_df)
 
+    if rating_curves_to_parquet:
+        parquet_rating_curves(hucs, resolutions)
+    
+    if aggregate_rating_curves:
+        rating_curves_aggregation()
+    
+    if plot_rating_curves:
+        rating_curve_plot()
+
+    if compute_inundated_area:
+        determine_inundated_area(hucs, resolutions, years, dem_sources, inundated_areas_parquet)
+
     if make_nhd_plot:
         nhd_to_3dep_plot(secondary_metrics_df,nhd_to_3dep_plot_fn)
 
@@ -1816,6 +2467,9 @@ if __name__ == '__main__':
 
     if make_slope_plot:
         slope_plot(secondary_metrics_df,slope_plot_fn)
+
+    if make_terrain_slope_plot:
+        terrain_slope_plot(secondary_metrics_df,terrain_slope_plot_fn)
 
     if make_landcover_plot:
         landcover_plot(secondary_metrics_df,landcover_plot_fn)
