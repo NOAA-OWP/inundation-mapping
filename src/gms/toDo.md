@@ -1,11 +1,4 @@
 # To Do List
-## FIM 3 functionality
-- *NDV for elevation rasters:* setting NDV for rasters is exposed to the user in preprocess_raster.py. This should be set to value in src/shared_variables.py of elev_raster_ndv. This prevents issues. Make sure all references to NDV in entire pipeline are consistent.
-- *Pipeline Management:* the user pipeline should be strengthened. Preprocess, hydrofab production, inundation, evaluation steps should be consolidated. For example: there are many preprocessing steps now. Also every major pipeline step should have meta-data associated with it in some sort of pandas friendly json format. Example: every fim_run/gms_run should have a meta-data json detailing the model used, parameters, date ran, user, and the inherited data from the preprocessing steps of the pipeline.
-- *NLD Lines:* nld lines are first being rasterized then burned.
-    - the python script burn_levees could be avoided using gdal_calc and converting nld elevations to meters in preprocessing
-    - if conversion to meters is done in preprocessing. It maybe possible to burn the nld elevations directly into the dem with gdal_rasterize all in one step
-    - this could help both FIM 3 and GMS
 
 ## Eval
 - *Testing Architecture & Modularity:* The test case functionality requires more modularity. There should be a clear set of tools that abstract away the model or test cases used. 
@@ -23,7 +16,6 @@
 - *NWM Divergences:* Levelpath derivation doesn't handle divergences (eg 12020002).
     - it shortens the effective length of levelpaths thus reducing the rating curve height of the most upstream catchment
     - it also creates more levelpaths and likely increases computational time
-- *Update rem.py*: rem.py underwent some change. Update to latest src/rem.py from src/gms/rem.py
 - *Unique Level Path and Hydro IDs:* unique identifiers for HydroIDs with GMS. Maybe FIMID, then branch ID, then HydroID.
 - *convenience wrapper for gms_run...sh:* Make a convenience wrapper for gms_run_unit.sh and gms_run_branch.sh. Be mindful of the two different processing loads and expose two different job numbers to the user.
     - *Deny Listing for Units:* The files in the deny list for units is executed at the end of gms/run_by_unit.sh. This requires files used in run_by_branch.sh to be left while not necessary left behind. This should be moved later in the process possibly once the convenience wrapper is made.

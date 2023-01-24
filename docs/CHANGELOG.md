@@ -1,6 +1,118 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.19.3 - 2023-01-17 - [PR#794](https://github.com/NOAA-OWP/inundation-mapping/pull/794)
+
+Removing FIM3 files and references.  Anything still required for FIM 3 are held in the dev-fim3 branch.
+
+### Removals
+
+- `data`
+    - `preprocess_rasters.py`: no longer valid as it is for NHD DEM rasters.
+- `fim_run.sh`
+- ` src`
+    - `aggregate_fim_outputs.sh`
+    - `fr_to_ms_raster.mask.py`
+    - `get_all_huc_in_inputs.py`
+    - `reduce_nhd_stream_density.py`
+    - `rem.py`:  There are two files named `rem.py`, one in the src directory and one in the gms directory. This version in the src directory is no longer valid. The `rem.py` in the gms directory is being renamed to avoid future enhancements of moving files.
+    - `run_by_unit.sh`:  There are two files named `run_by_unit.sh`, one in the src directory and one in the gms directory. This version in the src directory is for fim3. For the remaining `run_by_unit.sh`, it is NOT being renamed at this time as it will likely be renamed in the near future.
+    - `time_and_tee_run_by_unit.sh`:  Same not as above for `run_by_unit.sh`.
+    - `utils`
+        - `archive_cleanup.py`
+ - `tools`
+     - `compare_gms_srcs_to_fr.py`
+     - `preprocess_fimx.py`
+
+### Changes
+
+- `src`
+    - `adjust_headwater_streams.py`: Likely deprecated but kept for safety reason. Deprecation note added.
+- `tools`
+    - `cygnss_preprocess.py`: Likely deprecated but kept for safety reason. Deprecation note added.
+    - `nesdis_preprocess.py`: Likely deprecated but kept for safety reason. Deprecation note added.
+
+<br/><br/>
+
+## v4.0.19.2 - 2023-01-17 - [PR#797](https://github.com/NOAA-OWP/inundation-mapping/pull/797)
+
+Consolidates global bash environment variables into a new `src/bash_variables.env` file. Additionally, Python environment variables have been moved into this file and `src/utils/shared_variables.py` now references this file. Hardcoded projections have been replaced by an environment variable. This also replaces the Manning's N file in `config/params_template.env` with a constant and updates relevant code. Unused environment variables have been removed.
+
+### Additions
+
+- `src/bash_variables.env`: Adds file for global environment variables
+
+### Removals
+
+- `config/`
+    - `mannings_default.json`
+    - `mannings_default_calibrated.json`
+
+### Changes
+
+- `config/params_template.env`: Changes manning_n from filename to default value of 0.06
+- `gms_run_branch.sh`: Adds `bash_variables.env`
+- `gms_run_post_processing.sh`: Adds `bash_variables.env` and changes projection from hardcoded to environment variable
+- `gms_run_unit.sh`: Adds `bash_variables.env`
+- `src/`
+    - `add_crosswalk.py`: Assigns default manning_n value and removes assignments by stream orders
+    - `aggregate_vector_inputs.py`: Removes unused references to environment variables and function
+    - `gms/run_by_unit.sh`: Removes environment variable assignments and uses projection from environment variables
+    - `utils/shared_variables.py`: Removes environment variables and instead references src/bash_variables.env
+
+<br/><br/>
+
+## v4.0.19.1 - 2023-01-17 - [PR#796](https://github.com/NOAA-OWP/inundation-mapping/pull/796)
+
+### Changes
+
+- `tools/gms_tools/combine_crosswalk_tables.py`: Checks length of dataframe list before concatenating
+
+<br/><br/>
+
+## v4.0.19.0 - 2023-01-06 - [PR#782](https://github.com/NOAA-OWP/inundation-mapping/pull/782)
+
+Changes the projection of HAND processing to EPSG 5070.
+
+### Changes
+
+- `gms_run_post_processing.sh`: Adds target projection for `points`
+- `data/nld/preprocess_levee_protected_areas.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+- `src/`
+    - `clip_vectors_to_wbd.py`: Save intermediate outputs in EPSG:5070
+    - `src_adjust_spatial_obs.py`: Changed to use `utils.shared_variables.DEFAULT_FIM_PROJECTION_CRS`
+    - `utils/shared_variables.py`: Changes the designated projection variables
+    - `gms/`
+        - `stream_branches.py`: Checks the projection of the input streams and changes if necessary
+        - `run_by_unit.py`: Changes the default projection crs variable and added as HUC target projection
+- `tools/inundate_nation.py`: Changed to use `utils.shared_variables.PREP_PROJECTION`
+
+<br/><br/>
+
+## v4.0.18.2 - 2023-01-11 - [PR#790](https://github.com/NOAA-OWP/inundation-mapping/pull/790)
+
+Remove Great Lakes clipping
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Removes Great Lakes clipping and references to Great Lakes polygons and lake buffer size
+
+    - `gms/run_by_unit.sh`: Removes Great Lakes polygon and lake buffer size arguments to `src/clip_vectors_to_wbd.py`
+
+<br/><br/>
+
+## v4.0.18.1 - 2022-12-13 - [PR #760](https://github.com/NOAA-OWP/inundation-mapping/pull/760)
+
+Adds stacked bar eval plots.
+
+### Additions
+
+- `/tools/eval_plots_stackedbar.py`: produces stacked bar eval plots in the same manner as `eval_plots.py`.
+
+<br/><br/>
+
 ## v4.0.18.0 - 2023-01-03 - [PR#780](https://github.com/NOAA-OWP/inundation-mapping/pull/780)
 
 Clips WBD and stream branch buffer polygons to DEM domain.
@@ -215,6 +327,8 @@ Fixes inundation of nodata areas of REM.
 ### Changes
 
 - `tools/inundation.py`: Assigns depth a value of `0` if REM is less than `0`
+
+<br/><br/>
 
 ## v4.0.13.1 - 2022-12-09 - [PR #743](https://github.com/NOAA-OWP/inundation-mapping/pull/743)
 
