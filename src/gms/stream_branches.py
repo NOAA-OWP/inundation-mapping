@@ -479,7 +479,6 @@ class StreamNetwork(gpd.GeoDataFrame):
             for downstream_ID in downstream_IDs:
                 # Stop if lowest reach is not in a lake
                 if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==downstream_ID]) == -9999:
-                    print('continuing...')
                     continue
                 else:
                     # Remove reach from tmp_self
