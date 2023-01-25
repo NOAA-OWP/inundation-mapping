@@ -11,6 +11,13 @@ from concurrent.futures import ThreadPoolExecutor,as_completed
 import os
 from tqdm import tqdm
 
+##################################
+##
+## Likely Deprecated: File appears to be no longer used. Noticed Jan 16, 2023
+## Might want to be kept for possible re-use at a later time?
+##
+##################################
+
 
 def nesdis_preprocessing(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:4329',wbd_layer='WBDHU8',forecast_output_file=None,retrieve=True,workers=6,download_directory=None):
 
@@ -127,6 +134,14 @@ def construct_nwm_forecast_filenames_and_retrieve(forecast_df,download_directory
 
 
 if __name__ == '__main__':
+
+    ##################################
+    ##
+    ## Likely Deprecated: File appears to be no longer used. Noticed Jan 16, 2023
+    ## Might want to be kept for possible re-use at a later time?
+    ##
+    ##################################
+
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Find hucs for bounding boxes')
