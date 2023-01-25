@@ -175,32 +175,34 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
     # Import geopackage output from flows creation
     flows_df = gpd.read_file(nws_sites_layer)
 
-    # Join failed sites to flows df
-    flows_df = flows_df.merge(mapping_df, how = 'left', on = 'nws_lid')
+    try:
+        # Join failed sites to flows df
+        flows_df = flows_df.merge(mapping_df, how = 'left', on = 'nws_lid')
 
-    # Switch mapped column to no for failed sites and update status
-    flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
-    flows_df.loc[flows_df['did_it_map']=='no','status'] = flows_df['status'] + flows_df['map_status']
-    
-#    # Perform pass for HUCs where mapping was skipped due to missing data  #TODO check with Brian
-#    if stage_based:
-#        missing_mapping_hucs = 
-#    else:
-#        flows_hucs = [i.stem for i in Path(output_flows_dir).iterdir() if i.is_dir()]
-#        mapping_hucs = [i.stem for i in Path(output_mapping_dir).iterdir() if i.is_dir()]
-#        missing_mapping_hucs = list(set(flows_hucs) - set(mapping_hucs))
-#    
-#    # Update status for nws_lid in missing hucs and change mapped attribute to 'no'
-#    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
-#    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
+        # Switch mapped column to no for failed sites and update status
+        flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
+        flows_df.loc[flows_df['did_it_map']=='no','status'] = flows_df['status'] + flows_df['map_status']
+        
+    #    # Perform pass for HUCs where mapping was skipped due to missing data  #TODO check with Brian
+    #    if stage_based:
+    #        missing_mapping_hucs = 
+    #    else:
+    #        flows_hucs = [i.stem for i in Path(output_flows_dir).iterdir() if i.is_dir()]
+    #        mapping_hucs = [i.stem for i in Path(output_mapping_dir).iterdir() if i.is_dir()]
+    #        missing_mapping_hucs = list(set(flows_hucs) - set(mapping_hucs))
+    #    
+    #    # Update status for nws_lid in missing hucs and change mapped attribute to 'no'
+    #    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
+    #    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
 
-    # Clean up GeoDataFrame and rename columns for consistency
-    flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
-    flows_df = flows_df.rename(columns = {'nws_lid':'ahps_lid'})
+        # Clean up GeoDataFrame and rename columns for consistency
+        flows_df = flows_df.drop(columns = ['did_it_map','map_status'])
+        flows_df = flows_df.rename(columns = {'nws_lid':'ahps_lid'})
 
-    # Write out to file
-    flows_df.to_file(nws_sites_layer)
-
+        # Write out to file
+        flows_df.to_file(nws_sites_layer)
+    except:
+        print("No LIDs")
 
 def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch):
     
@@ -286,8 +288,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             
             acceptable_usgs_elev_df = usgs_elev_df[(usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)]
         except Exception as e:
-            print(e)
-            print("(Various columns related to USGS probably not here)")
+            #print("(Various columns related to USGS probably not in this csv)")
             acceptable_usgs_elev_df = usgs_elev_df
 
         # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
@@ -308,6 +309,32 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
         lid_altitude = metadata['usgs_data']['altitude']
    
+        # Filter out sites that don't have "good" data
+        try:
+            if not metadata['usgs_data']['coord_accuracy_code'] in \
+                    acceptable_coord_acc_code_list:
+                print(f"\t{lid}: {metadata['usgs_data']['coord_accuracy_code']} Not in acceptable coord acc codes")
+                continue
+            if not metadata['usgs_data']['coord_method_code'] in \
+                    acceptable_coord_method_code_list:
+                print(f"\t{lid}: Not in acceptable coord method codes")
+                continue
+            if not metadata['usgs_data']['alt_method_code'] in \
+                    acceptable_alt_meth_code_list:
+                print(f"\t{lid}: Not in acceptable alt method codes")
+                continue
+            if not metadata['usgs_data']['site_type'] in \
+                    acceptable_site_type_list:
+                print(f"\t{lid}: Not in acceptable site type codes")
+                continue
+            if not float(metadata['usgs_data']['alt_accuracy_code']) <= \
+                    acceptable_alt_acc_thresh:
+                print(f"\t{lid}: Not in acceptable threshold range")
+                continue
+        except Exception as e:
+            print(e)
+            continue
+
         ### --- Do Datum Offset --- ###
         #determine source of interpolated threshold flows, this will be the rating curve that will be used.
         rating_curve_source = flows.get('source')
@@ -554,30 +581,32 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
             for row in reader:
                 all_messages.append(row)
     
-    # Write messages to DataFrame, split into columns, aggregate messages.
-    messages_df  = pd.DataFrame(all_messages, columns = ['message'])
-
-    messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
-    status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
-    
-    # Join messages to populate status field to candidate sites. Assign 
-    # status for null fields.
-    viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
-    
-#    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
-    
     # Filter out columns and write out to file
     nws_sites_layer = os.path.join(workspace, 'nws_lid_sites.gpkg')
-    
-    # Add acceptance criteria to viz_out_gdf before writing
-    viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
-    viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
-    viz_out_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
-    viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
-    viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
+    # Only write to sites geopackage if it didn't exist yet
+    if not os.path.exists(nws_sites_layer):
+        
+        # Write messages to DataFrame, split into columns, aggregate messages.
+        messages_df  = pd.DataFrame(all_messages, columns = ['message'])
 
-    viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
-    
+        messages_df = messages_df['message'].str.split(':', n = 1, expand = True).rename(columns={0:'nws_lid', 1:'status'})   
+        status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+        
+        # Join messages to populate status field to candidate sites. Assign 
+        # status for null fields.
+        viz_out_gdf = viz_out_gdf.merge(status_df, how = 'left', on = 'nws_lid')
+        
+        #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+        
+        # Add acceptance criteria to viz_out_gdf before writing
+        viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
+        viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
+        viz_out_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
+        viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
+        viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
+
+        viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
+        
     return nws_sites_layer
     
 
