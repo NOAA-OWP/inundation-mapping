@@ -484,29 +484,28 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Remove reach from tmp_self
                     tmp_IDs.append(downstream_ID)
                     tmp_self.drop(tmp_self[tmp_self.From_Node.astype(int).isin([downstream_ID,])].index, inplace=True)
-
                     # Repeat for next lowest downstream reach
                     if downstream_ID in tmp_self.To_Node.astype(int).values:
                         return find_downstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
-
             return tmp_IDs
 
         def find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs=[]):
             # Find highest reach(es)
             upstream_IDs = [int(x) for x in tmp_self.From_Node[~tmp_self.From_Node.isin(tmp_self.To_Node)]] # IDs of most upstream reach(es)
-
+            nonlake_reaches = [int(x) for x in tmp_self.From_Node[tmp_self.Lake  == -9999]] # IDs of most  reach(es) that are not designated as lake reaches
+            
             for upstream_ID in upstream_IDs:
                 # Stop if uppermost reach is not in a lake
                 if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==upstream_ID]) == -9999:
                     continue
                 else:
+                    if int(tmp_self.To_Node[tmp_self.From_Node.astype(int)==upstream_ID]) in nonlake_reaches:
+                        continue
                     # Remove reach from tmp_self
                     tmp_IDs.append(upstream_ID)
                     tmp_self.drop(tmp_self[tmp_self.From_Node.astype(int).isin([upstream_ID,])].index, inplace=True)
-
                     # Repeat for next highest upstream reach
                     return find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
-
             return tmp_IDs
 
         if verbose:
