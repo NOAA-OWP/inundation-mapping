@@ -58,6 +58,8 @@ If you'd like to test the whole unittest suite:
 ```
 pytest ./foss_fim/unit_tests
 ```
+This is not recommended, as we have not provided accurate paths for the parameters `.json` files. 
+ 
 If you want to test just one unit test, here is an example:
 At the root terminal window, run:
 
@@ -68,9 +70,9 @@ pytest ./foss_fim/unit_tests/clip_vectors_to_wbd_test.py
 ```
 If you'd like to run a particulat test, you can, for example:
 ```
-pytest -v -s -k test_helloworld
+pytest -v -s -k test_append_id_to_file_name_single_identifier_success
 ```
-
+If one test case is choosen, it will scan all of the test files, and scan for the method choosen. 
 
 
 
@@ -94,8 +96,13 @@ pytest -v -s -k test_helloworld
 
 9) Sometimes you may want to run a full successful "happy path" version through gms_run_by_unit.sh (or similar), to get all of the files you need in place to do your testing. However.. you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the "-d" parameter (denylist). 
 ie:
-```gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_gms_unit_default.lst -o```, but ours would be:
-`gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o`
+```bash
+gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_gms_unit_default.lst -o
+```
+but ours would be:
+```bash 
+gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o
+```
 
 ## Future Enhancements
 1) We can automate triggers on these files for things like checking triggers or an single global "run_all_unittest" script, but for now.. its one offs.
@@ -120,14 +127,14 @@ An example is in unit_tests/gms/Derive_level_paths_unittests.py -> test_Derive_l
 We have almost no "assert"s yet, but most unit test usually have one or more "assert" test. See https://docs.python.org/3/library/unittest.html for more details.
 
 ## Unit tests currently available
-python3 /foss_fim/unit_tests/gms/derive_level_paths_unittests.py
-python3 /foss_fim/unit_tests/tools/inundate_unittests.py
-python3 /foss_fim/unit_tests/tools/gms_tools/inundate_gms_unittests.py
-python3 /foss_fim/unit_tests/clip_vectors_to_wbd_unittests.py
-python3 /foss_fim/unit_tests/filter_catchments_and_add_attributes_unittests.py
-python3 /foss_fim/unit_tests/rating_curve_comparison_unittests.py
-python3 /foss_fim/unit_tests/shared_functions_unittests.py
-python3 /foss_fim/unit_tests/split_flows_unittests.py
-python3 /foss_fim/unit_tests/usgs_gage_crosswalk_unittests.py
+python3 /foss_fim/unit_tests/gms/derive_level_paths_test.py
+python3 /foss_fim/unit_tests/tools/inundate_test.py
+python3 /foss_fim/unit_tests/tools/gms_tools/inundate_gms_test.py
+python3 /foss_fim/unit_tests/clip_vectors_to_wbd_test.py
+python3 /foss_fim/unit_tests/filter_catchments_and_add_attributes_test.py
+python3 /foss_fim/unit_tests/rating_curve_comparison_test.py
+python3 /foss_fim/unit_tests/shared_functions_test.py
+python3 /foss_fim/unit_tests/split_flows_test.py
+python3 /foss_fim/unit_tests/usgs_gage_crosswalk_test.py
 
 

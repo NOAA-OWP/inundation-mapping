@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 
-import inspect
 import os
-import sys
 
 import json
 import unittest
 import pytest
 
-sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
-# importing python folders in other directories
-sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
 import <Your original source python file name> as src
 
 # NOTE: This goes directly to the function.
@@ -64,9 +59,6 @@ class test_<Your original source python file name>(unittest.TestCase):
                                     etc, etc for each param)
        
        
-        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-        print("*************************************************************")
-
 
     # ***** REMOVE THIS BLOCK IF YOU ARE NOT USING IT ***
     #       EXAMPLE SUCCESSFUL FAIL    

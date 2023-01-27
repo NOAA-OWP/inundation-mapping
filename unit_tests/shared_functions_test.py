@@ -27,13 +27,18 @@ class test_shared_functions(unittest.TestCase):
         Pass in a file name with the single identifier and get the single adjusted file name back
         '''
 
-        params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy()        
-        actual_output = src.append_id_to_file_name(file_name = params["file_name"],
+        params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy()
+
+        print(ut_helpers.json_concat(params, "outputRunDataDir" , "file_name")) 
+
+        actual_output = src.append_id_to_file_name(file_name = ut_helpers.json_concat(params, "outputRunDataDir" , "file_name"),
                                                    identifier = params["identifier"])
 
         err_msg = "actual output does not match expected output"
+
+        expected_output = ut_helpers.json_concat(params, "outputRunDataDir" , "expected_output")
         
-        assert params["expected_output"] == actual_output, err_msg
+        assert  expected_output == actual_output, err_msg
 
 
     def test_append_id_to_file_name_indentifer_list_success(self):
@@ -43,15 +48,15 @@ class test_shared_functions(unittest.TestCase):
         '''
         
         params = self.params["append_append_id_to_file_name_identifier_list_valid"].copy()        
-        
-        expected_output = "/output/myfolder/a_raster_13090001_05010204.tif"
 
-        actual_output = src.append_id_to_file_name(file_name = params["file_name"],
+        actual_output = src.append_id_to_file_name(file_name = ut_helpers.json_concat(params, "outputRunDataDir" , "file_name"),
                                                    identifier = params["identifier"])
 
         err_msg = "actual output does not match expected output"
         
-        assert params["expected_output"] == actual_output, err
+        expected_output = ut_helpers.json_concat(params, "outputRunDataDir" , "expected_output")
+        
+        assert expected_output == actual_output, err_msg
 
 
     def test_append_id_to_file_name_no_file_name_success(self):
@@ -64,6 +69,7 @@ class test_shared_functions(unittest.TestCase):
         
         actual_output = src.append_id_to_file_name(None, identifier = params["identifier"])
 
-        if (actual_output is not None):
-            raise Exception("actual output should not have a value")
+        error_msg = "actual output should not have a value"
+
+        assert actual_output == None, error_msg
 

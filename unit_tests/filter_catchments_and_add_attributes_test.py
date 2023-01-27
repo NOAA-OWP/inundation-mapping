@@ -5,7 +5,6 @@ import os
 import sys
 
 import json
-import warnings
 import unittest
 import pytest
 
@@ -37,8 +36,6 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
-    # MUST start with the name of "test_"
-    # This is the (or one of the) valid test expected to pass
     def test_filter_catchments_and_add_attributes_success(self):
 
         '''

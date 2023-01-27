@@ -18,3 +18,9 @@ class FIM_unit_test_helpers(object):
         
         return params_file_path
     
+    @staticmethod
+    def json_concat(obj, keyone, keytwo):
+        
+        concat_string = obj[keyone] + obj[keytwo] 
+        
+        return concat_string

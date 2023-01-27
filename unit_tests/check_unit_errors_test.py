@@ -7,15 +7,12 @@ import shutil
 import sys
 
 import json
-import warnings
 import unittest
 import pytest
 
-sys.path.append('/foss_fim/unit_tests/')
+
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
-# importing python folders in other directories
-sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
 import check_unit_errors as src
 from utils.fim_enums import FIM_exit_codes
 
@@ -26,16 +23,13 @@ from utils.shared_variables import (UNIT_ERRORS_MIN_NUMBER_THRESHOLD,
 # NOTE: This goes directly to the function.
 # Ultimately, it should emulate going through command line (not import -> direct function call)
 class test_check_unit_errors(unittest.TestCase):
-
-
-    # CURRENT 
     '''
     Allows the params to be loaded one and used for all test methods
     '''
+    
     @classmethod
     def setUpClass(self):
 
-        warnings.simplefilter('ignore')
         try:        
             params_file_path = ut_helpers.get_params_filename(__file__)
         except FileNotFoundError as ex:

@@ -5,16 +5,15 @@ import os
 import sys
 
 import json
-import warnings
 import unittest
 import pytest
 
 # importing python folders in other direcories
-sys.path.append('/foss_fim/unit_tests/')
+# sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
-# importing python folders in other direcories
-sys.path.append('/foss_fim/src/gms/')
+# # importing python folders in other direcories
+# sys.path.append('/foss_fim/src/gms/')
 import derive_level_paths as src
 import stream_branches
 from utils.fim_enums import FIM_exit_codes as fec
@@ -30,7 +29,6 @@ class test_Derive_level_paths(unittest.TestCase):
     @classmethod
     def setUpClass(self):
     
-        warnings.simplefilter('ignore')
         params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
@@ -135,7 +133,7 @@ class test_Derive_level_paths(unittest.TestCase):
             params = self.params["valid_data"].copy()
             params["in_stream_network"] = "some bad path"
           
-            actual = src.Derive_level_paths(in_stream_network = params["in_stream_network"],
+            actual = src.Derive_level_paths(in_stream_network = ut_helpers.json_concat(params, "outputRunDataDir", "in_stream_network"),
                                             out_stream_network = params["out_stream_network"],
                                             branch_id_attribute = params["branch_id_attribute"],
                                             out_stream_network_dissolved = params["out_stream_network_dissolved"],
@@ -156,16 +154,4 @@ class test_Derive_level_paths(unittest.TestCase):
         finally:
             print("*************************************************************")             
        
-       
-       
-if __name__ == '__main__':
-
-    print("*****************************")
-    print(f"Start of {os.path.basename(__file__)} tests")
-    print()
-            
-    unittest.main()
-    
-    print()    
-    print(f"End of {os.path.basename(__file__)} tests")
-    
+  
