@@ -118,6 +118,8 @@ def bbox_to_pixel_offsets(gt, bbox):
 # Main function that determines zonal statistics of raster classes in a polygon area
 def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_extent=False):
 
+    stats = []
+
     # Loop through different raster paths in the raster_path_dict and
     # perform zonal statistics on the files.
     for layer in raster_path_dict:
@@ -130,7 +132,7 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
 
 
         # Opens raster file and sets path
-        rds = gdal.Open(raster_path, GA_ReadOnly)
+        rds = gdal.Open(raster_path)
         
         assert rds
         rb = rds.GetRasterBand(1)
@@ -174,7 +176,7 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
 
         # Loop through vectors, as many as exist in file
         # Creates new list to contain their stats
-        stats = []
+
         feat = vlyr.GetNextFeature()
         while feat is not None:
 

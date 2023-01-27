@@ -6,6 +6,8 @@ import os
 import pandas as pd
 import geopandas as gpd
 import argparse
+from datetime import datetime
+
 from pixel_counter import zonal_stats
 from tools_shared_functions import compute_stats_from_contingency_table
 from run_test_case import test_case
@@ -130,7 +132,7 @@ if __name__ == "__main__":
                         help='The fim version to use. Should be similar to fim_3_0_24_14_ms',
                         required=True)
     parser.add_argument('-g', '--gpkg',
-                        help='filepath and filename to hold exported gpkg (and csv) file. Similar to /data/path/output.gpkg Need to use gpkg as output. ',
+                        help='filepath and filename to hold exported gpkg (and csv) file. Similar to /data/path/fim_performance_catchments.gpkg Need to use gpkg as output. ',
                         required=True)
 
 
@@ -139,6 +141,13 @@ if __name__ == "__main__":
     benchmark_category = args['benchmark_category']
     version = args['version']
     csv = args['gpkg']
+
+    print("================================")
+    print("Start test_case_by_hydroid.py")
+    start_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"started: {dt_string}")
+    print()
         
     # Execution code
     csv_output = gpd.GeoDataFrame(columns=['HydroID', 'huc8','contingency_tot_area_km2',
@@ -162,7 +171,7 @@ if __name__ == "__main__":
        
         for agree_rast in agreement_dict:
                 
-                print('performing_zonal_stats')
+                print(f'performing_zonal_stats for {agree_rast}')
 
                 branches_dir = os.path.join(test_case_class.fim_dir,'branches')
                 for branches in os.listdir(branches_dir):
@@ -216,6 +225,17 @@ if __name__ == "__main__":
     print('writing_to_csv')
     csv_output.to_csv(csv_path_dot) # Save to CSV
 
+    print("================================")
+    print("End test_case_by_hydroid.py")
 
-    
+    end_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"ended: {dt_string}")
 
+    # calculate duration
+    time_duration = end_time - start_time
+    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print()
+
+
+  
