@@ -7,6 +7,7 @@ import sys
 import json
 import warnings
 import unittest
+import pytest
 
 sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
@@ -67,21 +68,4 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
             raise Exception(params["output_catchments_filename"] + " does not exist")
         if os.path.exists(params["output_flows_filename"]) == False:
             raise Exception(params["output_flows_filename"] + " does not exist")
-
-        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-        print("*************************************************************")
-
-
-if __name__ == '__main__':
-
-    script_file_name = os.path.basename(__file__)
-
-    print("*****************************")
-    print(f"Start of {script_file_name} tests")
-    print()
-   
-    unittest.main()
-    
-    print()    
-    print(f"End of {script_file_name} tests")
     

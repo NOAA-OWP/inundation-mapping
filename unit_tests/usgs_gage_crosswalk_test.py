@@ -6,7 +6,7 @@ import sys
 
 import json
 import unittest
-import warnings
+import pytest
 
 sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
@@ -25,7 +25,6 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
     @classmethod
     def setUpClass(self):
 
-        warnings.simplefilter('ignore')
         params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)

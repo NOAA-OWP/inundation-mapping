@@ -11,3 +11,11 @@ def get_params_filename(unit_test_file_name):
         raise FileNotFoundError(f"{params_file_path} does not exist")
     
     return params_file_path
+
+
+@pytest.fixture
+def setUpParams():
+    params_file_path = get_params_filename(__file__)
+    with open(params_file_path) as params_file:
+        params = json.load(params_file)
+    return params

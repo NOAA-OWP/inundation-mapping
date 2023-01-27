@@ -77,8 +77,6 @@ class test_check_unit_errors(unittest.TestCase):
             if (ue_folder_existed):
                 self.__remove_temp_unit_errors_folder(params["fim_dir"])
             
-            print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-            print("*************************************************************")
             
         except BaseException as ex:
             
@@ -151,8 +149,6 @@ class test_check_unit_errors(unittest.TestCase):
             if (ue_folder_existed):
                 self.__remove_temp_unit_errors_folder(params["fim_dir"])
             
-            print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-            print("*************************************************************")
             
         except BaseException as ex:
             
@@ -262,18 +258,4 @@ class test_check_unit_errors(unittest.TestCase):
         temp_ue_folder = ue_folder + "_temp"        
         if (os.path.isdir(temp_ue_folder)):
             os.rename(temp_ue_folder, ue_folder)
-      
-
-if __name__ == '__main__':
-
-    script_file_name = os.path.basename(__file__)
-
-    print("*****************************")
-    print(f"Start of {script_file_name} tests")
-    print()
-   
-    unittest.main()
-    
-    print()    
-    print(f"End of {script_file_name} tests")
     
