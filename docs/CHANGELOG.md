@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.0.19.5 - 2023-01-24 - [PR#801](https://github.com/NOAA-OWP/inundation-mapping/pull/801)
+
+When running tools/test_case_by_hydroid.py, it throws an error of local variable 'stats' referenced before assignment.
+
+### Changes
+
+- `tools`
+    - `pixel_counter.py`: declare stats object and remove the GA_Readonly flag
+    - `test_case_by_hydroid_id_py`: Added more logging.
+
+<br/><br/>
+
 ## v4.0.19.4 - 2023-01-25 - [PR#802](https://github.com/NOAA-OWP/inundation-mapping/pull/802)
 
 This revision includes a slight alteration to the filtering technique used to trim/remove lakeid nwm_reaches that exist at the upstream end of each branch network. By keeping a single lakeid reach at the branch level, we can avoid issues with the branch headwater point starting at a lake boundary. This ensures the headwater catchments for some branches are properly identified as a lake catchment (no inundation produced). 
