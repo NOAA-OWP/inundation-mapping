@@ -48,6 +48,7 @@ usage ()
     echo '  -o               : Overwrite outputs if already exist'
     echo '  -skipcal         : If this param is included, post gres calibration system will be skipped'    
     echo '  -isAWS           : If this param is included, the code will use AWS objects where possible'
+    echo '                   : Note: This feature is not yet implemented'
     echo
     exit
 }
