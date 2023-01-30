@@ -125,7 +125,7 @@ source $srcDir/bash_variables.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
-    jobLimit=$default_max_jobs
+    jobLimit=1
 fi
 
 ## Define Outputs Data Dir & Log File##

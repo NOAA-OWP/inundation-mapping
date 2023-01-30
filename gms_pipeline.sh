@@ -146,7 +146,7 @@ source $srcDir/bash_functions.env
 
 # default values
 if [ "$jobLimit" = "" ] ; then
-    jobLimit=$default_max_jobs
+    jobLimit=1
 fi
 
 export outputRunDataDir=$outputDataDir/$runName
