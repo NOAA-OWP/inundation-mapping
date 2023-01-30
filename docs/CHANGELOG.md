@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.0.(pending) - 2023-01-30 - [PR#752](https://github.com/NOAA-OWP/inundation-mapping/pull/752)
+
+Details coming
+
+<br/><br/>
+
+
 ## v4.0.19.5 - 2023-01-24 - [PR#801](https://github.com/NOAA-OWP/inundation-mapping/pull/801)
 
 When running tools/test_case_by_hydroid.py, it throws an error of local variable 'stats' referenced before assignment.
