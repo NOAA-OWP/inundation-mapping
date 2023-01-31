@@ -10,7 +10,7 @@
 # from this file.
 # run_by_huc_wb will futher process branches with its own iterator (parallelization).
 
-# Sample Usage: /foss_fim/src/process_unit_wb.sh rob_test_wb_1 05030104
+# Sample Usage: /foss_fim/fim_process_unit_wb.sh rob_test_wb_1 05030104
 
 ## START MESSAGE ##
 
@@ -25,7 +25,7 @@ usage ()
     echo '      huc and its branches.'    
     echo 'Usage : There are no arg keys (aka.. no dashes)'
     echo '        you need the run name first, then the huc.'
-    echo '        ie ) /foss_fim/src/process_unit_wb.sh rob_test_1 05030104'
+    echo '        ie ) /foss_fim/fim_process_unit_wb.sh rob_test_1 05030104'
     echo
     exit
 }

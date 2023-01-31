@@ -4,7 +4,6 @@ usage ()
 {
     echo
     echo 'Produce FIM hydrofabric datasets for unit and branch scale.'
-    echo 'NOTE: this file runs hucs and branches AND post processing.'    
     echo 'Usage : [REQ: -u <hucs> -n <run name> ]'
     echo '        [OPT: -h -c <config file> -o'
     echo '          -ud <unit deny list file>'

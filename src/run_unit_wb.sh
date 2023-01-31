@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-# Do not call this file directly. Call process_unit_wb.sh which calls
+# Do not call this file directly. Call fim_process_unit_wb.sh which calls
 # this file.
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
