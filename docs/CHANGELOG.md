@@ -22,19 +22,20 @@ Note: This is a very large, complex PR with alot of critical details. Please rea
 ### Additions
 
 - `fim_pipeline.sh` :  The wrapper for the three new major "FIM" processing steps. This script allows processing in one command, same as the current tool of `gms_pipeline.sh`.
-- `fim_pre_processing.sh`: This file handles all argument input from the user, validates those inputs and sets up or cleans up folders. It also includes a new system of taking most input parameters and some key enviro variables and writing them out to a files called `runtime_args.env`.  Future processing steps need minimal input arguments as it can read most values it needs from this new `runtime_args.env`. This allows the three major steps to work independently from each other. Someone can now come in, run `fim_pre_processing.sh`, then run `process_unit_wb.sh`, each with one huc, as many time as they like, each adding just its own huc folder to the output runtime folder. 
+- `fim_pre_processing.sh`: This file handles all argument input from the user, validates those inputs and sets up or cleans up folders. It also includes a new system of taking most input parameters and some key enviro variables and writing them out to a files called `runtime_args.env`.  Future processing steps need minimal input arguments as it can read most values it needs from this new `runtime_args.env`. This allows the three major steps to work independently from each other. Someone can now come in, run `fim_pre_processing.sh`, then run `fim_process_unit_wb.sh`, each with one huc, as many time as they like, each adding just its own huc folder to the output runtime folder. 
 - `fim_post_processing.sh`: Scans all HUC folders inside the runtime folders to handle a number of processing steps which include (to name a few): 
     - aggregating errors
     - aggregating to create a single list (gms_inputs.csv) for all valid HUCs and their branch ids
     - usgs gage aggregation
     - adjustments to SRV's
     - and more
+- `fim_process_unit_wb.sh`: Handles some minimal input args (just runName and the HUC number), then sets up global variable, folders, etc to process just the one HUC. The logic for processing the HUC is in `run_unit_wb.sh` but managed by this `fim_process_unit_wb.sh` file including all error trapping.    
 - `src`
     - `aggregate_branch_lists.py`:  When each HUC is being processed, it creates it's own .csv file with its branch id's. In post processing we need one master csv list and this file aggregates them. Note: This is a similar file already in the `src/gms` folder but that version operates a bit different and will be deprecated soon.
     - `generate_branch_list`: This creates the single csv for a HUC defining each branch id. Note: This is also similar to the current `src/gms` file of the same name and the gms folder version will also be deprecated soon.
-    - `process_unit_wb.sh`: Handles some minimal input args (just runName and the HUC number), then sets up global variable, folders, etc to process just the one HUC. The logic for processing the HUC is in `run_unit_wb.sh` but managed by this `process_unit_wb.sh` file including all error trapping.
+
     - `run_unit_wb.sh`:  The actual HUC processing logic. Note: This is fundamentally the same as the current HUC processing logic that exists currently in `src/gms/run_by_unit.sh`, which will be removed in the very near future.
-    - `process_branch.sh`:  Same concept as `process_unit_wb.sh` but this one is for processing a single branch. This file manages the true branch processing file of `src/gms/run_by_branch.sh`.  Both the new fim processing system and the older gms processing system currently share the branch processing file of `src/gms/run_by_branch.sh`. When the gms processing file is removed, this file will likely not change, only moved one directory up and be no longer in the `gms` sub-folder.
+    - `process_branch.sh`:  Same concept as `fim_process_unit_wb.sh` but this one is for processing a single branch. This file manages the true branch processing file of `src/gms/run_by_branch.sh`.  Both the new fim processing system and the older gms processing system currently share the branch processing file of `src/gms/run_by_branch.sh`. When the gms processing file is removed, this file will likely not change, only moved one directory up and be no longer in the `gms` sub-folder.
 - `unit_tests`
     - `aggregate_branch_lists_unittests.py' and `aggregate_branch_lists_params.json`  (based on the newer `src` directory edition of `aggregate_branch_lists.py`).
     - `generate_branch_list_unittest.py` and `generate_branch_list_params.json` (based on the newer `src` directory edition of `generate_branch_list.py`).
