@@ -12,41 +12,45 @@ usage ()
     echo '          -jh <number of jobs for HUCs>'
     echo '          -jb <number of jobs for branches>'
     echo '          -skipcal <skip the PostGres calibration process>'
-    echo '          -isAWS ]'
+    echo '          -isaws ]'
     echo ''
     echo 'REQUIRED:'
     echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
-    echo '                    A line delimited file is also acceptable. HUCs must present in inputs directory.'
+    echo '                    A line delimited file, with a .lst extension, is also acceptable.'
+    echo '                    HUCs must present in inputs directory.'
     echo '  -n/--runName    : A name to tag the output directories and log files.'
     echo 
     echo 'OPTIONS:'
     echo '  -h/--help       : Help file'
     echo '  -c/--config     : Configuration file with bash environment variables to export'
     echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'    
-    echo '  -ud/--unitDenylist : A file with a line delimited list of files in UNIT (HUC) directories to be removed'
-    echo '                    upon completion (see config/deny_unit.lst for a starting point)'
-    echo '                    Default (if arg not added) : /foss_fim/config/deny_unit.lst'
+    echo '  -ud/--unitDenylist'
+    echo '                    A file with a line delimited list of files in UNIT (HUC) directories to be removed'
+    echo '                    upon completion (see config/deny_gms_unit_prod.lst for a starting point)'
+    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_prod.lst'
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
-    echo '  -bd/--branchDenylist : A file with a line delimited list of files in BRANCHES directories to be removed' 
+    echo '  -bd/--branchDenylist'
+    echo '                    A file with a line delimited list of files in BRANCHES directories to be removed' 
     echo '                    upon completion of branch processing.'
-    echo '                    (see config/deny_branches.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_branches.lst'   
+    echo '                    (see config/deny_gms_branches.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'   
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
-    echo '  -zd/--branchZeroDenylist : A file with a line delimited list of files in BRANCH ZERO directories to' 
+    echo '  -zd/--branchZeroDenylist'
+    echo '                    A file with a line delimited list of files in BRANCH ZERO directories to' 
     echo '                    be removed upon completion of branch zero processing.'
-    echo '                    (see config/deny_branch_zero.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_branch_zero.lst'   
+    echo '                    (see config/deny_gms_branch_zero.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branch_zero.lst'   
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'    
     echo '  -jh/--jobLimit   : Max number of concurrent HUC jobs to run. Default 1 job at time.'
     echo '  -jb/--jobBranchLimit : Max number of concurrent Branch jobs to run. Default 1 job at time.' 
-    echo '                         NOTE: Make sure that the multiplication of jh and jb subtract 2 do not'
-    echo '                         exceed the total number of cores available'
+    echo '                         NOTE: Make sure that the multiplication of jh and jb subtract 2 (jh x jb -2) does not'
+    echo '                         exceed the total number of cores available.'
     echo '  -o               : Overwrite outputs if already exist'
     echo '  -skipcal         : If this param is included, post gres calibration system will be skipped'    
-    echo '  -isAWS           : If this param is included, the code will use AWS objects where possible'
+    echo '  -isaws           : If this param is included, the code will use AWS objects where possible'
     echo '                   : Note: This feature is not yet implemented'
     echo
     exit
@@ -99,7 +103,7 @@ in
     -skipcal)
         skipcal=1
         ;;
-    -isAWS)
+    -isaws)
         isAWS=1
         ;;
     *) ;;
@@ -172,10 +176,10 @@ then
         usage
     else
         # only if the deny branch zero has been overwritten and file exists
-        $has_deny_branch_zero_override=1 
+        has_deny_branch_zero_override=1 
     fi
 else
-    $has_deny_branch_zero_override=1 # it is the value of NONE and is overridden
+    has_deny_branch_zero_override=1 # it is the value of NONE and is overridden
 fi
 
 # Safety feature to avoid accidentaly overwrites

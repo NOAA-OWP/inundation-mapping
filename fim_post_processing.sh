@@ -57,7 +57,7 @@ outputRunDataDir=$outputDataDir/$runName
 
 ## Check for run data directory ##
 if [ ! -d "$outputRunDataDir" ]; then 
-    echo "Depends on output from units and branches. Please produce data first."
+    echo "Depends on output from units and branches. Please provide an output folder name that has hucs/branches run."
     exit 1
 fi
 

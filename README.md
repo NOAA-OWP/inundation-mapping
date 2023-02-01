@@ -67,18 +67,21 @@ This system has an optional tool called the `calibration database tool`. In orde
 
 ### Produce HAND Hydrofabric
 ```
-gms_pipeline.sh -u <huc8> -n <name_your_run>
+fim_pipeline.sh -u <huc8> -n <name_your_run>
 ```
-- There are a wide number of options and defaulted values, for details run ```gms_pipeline.sh -h```
+- There are a wide number of options and defaulted values, for details run ```fim_pipeline.sh -h```
 - Manditory arguments:
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited file
-    i. To run entire domain of available data use one of the ```/data/inputs/included_huc[4,6,8].lst``` files or a huc list file of your choice.
+    i. To run entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a huc list file of your choice.
     - `-n` is a name of your run (only alphanumeric)
 - Outputs can be found under ```/data/outputs/<name_your_run>```
 
-Processing of HUC's in FIM4 (GMS) comes in two pieces: gms_run_unit and gms_run_branch. `gms_pipeline.sh` above takes care of both steps however, you can run each part seperately for faster development if you like.
+Processing of HUC's in FIM4 comes in three pieces. You can run `fim_pipeline.sh` which automatically runs all of three major section, but you can run each of the sections independently if you like. The tree secions are:
+- `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 
+- `fim_process_unit_wb.sh` : This script processes one and exactly one huc plus all of its related branches. While it can only process one, you can run this script multiple times, each with different HUCs (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates over the HUC or list of HUCs that have been submitted with each calling this `fim_process_unit_wb.sh`. This script allows for a rerun one one or more hucs, or running other hucs at different times or even different containers.
+- `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the group for sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, this can optionally be run (or re-run) after `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
 
-If you choose to do the two step hydrofabric creation, then run `gms_run_unit.sh`, then `gms_run_branch.sh`. See each of those files for details on arguments.
+Running the `fim_pipeline.sh` is a quicker process than running all three steps independently.
 
 ### Testing in Other HUCs
 To test in HUCs other than the provided HUCs, the following processes can be followed to acquire and preprocess additional NHDPlus rasters and vectors. After these steps are run, the "Produce HAND Hydrofabric" step can be run for the new HUCs.
@@ -86,6 +89,8 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 ```
 /foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
 ```
+    Note: This tool is temporarily un-usable but updates will be coming soon.
+
 - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
 - Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
 - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
@@ -97,7 +102,7 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 
 ----
 ### Evaluating Inundation Map Performance
-After `gms_pipeline.sh` completes, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
+After `fim_pipeline.sh` completes, or combinations of the three major steps described above, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
 
 To evaluate model skill, run the following:
 ```
