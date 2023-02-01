@@ -26,15 +26,15 @@ usage ()
     echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'    
     echo '  -ud/--unitDenylist'
     echo '                    A file with a line delimited list of files in UNIT (HUC) directories to be removed'
-    echo '                    upon completion (see config/deny_gms_unit_prod.lst for a starting point)'
-    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_prod.lst'
+    echo '                    upon completion (see config/deny_gms_unit.lst for a starting point)'
+    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit.lst'
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -bd/--branchDenylist'
     echo '                    A file with a line delimited list of files in BRANCHES directories to be removed' 
     echo '                    upon completion of branch processing.'
     echo '                    (see config/deny_gms_branches.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'   
+    echo '                    Default: /foss_fim/config/deny_gms_branches.lst'   
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -zd/--branchZeroDenylist'
@@ -141,7 +141,7 @@ if [ -z "$isAWS" ]; then isAWS=0; fi
 # validate and set defaults for the deny lists
 if [ "$deny_unit_list" = "" ]
 then
-    deny_unit_list=$projectDir/config/deny_gms_unit_prod.lst
+    deny_unit_list=$projectDir/config/deny_gms_unit.lst
 elif [ "${deny_unit_list^^}" != "NONE" ] && [ ! -f "$deny_unit_list" ]
 then
     # NONE is not case sensitive
@@ -152,7 +152,7 @@ fi
 # validate and set defaults for the deny lists
 if [ "$deny_branches_list" = "" ]
 then
-    deny_branches_list=$projectDir/config/deny_gms_branches_prod.lst
+    deny_branches_list=$projectDir/config/deny_gms_branches.lst
 elif [ "${deny_branches_list^^}" != "NONE" ] && [ ! -f "$deny_branches_list" ]
 then
     # NONE is not case sensitive

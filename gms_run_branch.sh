@@ -19,8 +19,8 @@ usage ()
     echo '                    default (if arg not added) : /foss_fim/config/params_template.env'            
     echo '  -bd/--branchDenylist : A file with a line delimited list of files in BRANCHES directories to be removed' 
     echo '                    upon completion of branch processing.'
-    echo '                    (see config/deny_gms_branches_prod.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches_prod.lst'   
+    echo '                    (see config/deny_gms_branches.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_gms_branches.lst'   
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -zd/--branchZeroDenylist : A file with a line delimited list of files in BRANCH ZERO directories to' 
@@ -89,7 +89,7 @@ fi
 
 if [ "$deny_branches_list" = "" ]
 then
-   deny_branches_list=/foss_fim/config/deny_gms_branches_prod.lst
+   deny_branches_list=/foss_fim/config/deny_gms_branches.lst
 elif [ "${deny_branches_list^^}" != "NONE" ] && [ ! -f "$deny_branches_list" ]
 then
     # NONE is not case sensitive
