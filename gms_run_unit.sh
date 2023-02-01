@@ -18,8 +18,8 @@ usage ()
     echo '  -c/--config     : configuration file with bash environment variables to export'
     echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'        
     echo '  -ud/--unitDenylist : A file with a line delimited list of files in UNIT (HUC) directories to be removed'
-    echo '                    upon completion (see config/deny_gms_unit_prod.lst for a starting point)'
-    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit_prod.lst'
+    echo '                    upon completion (see config/deny_gms_unit.lst for a starting point)'
+    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit.lst'
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -zd/--branchZeroDenylist : A file with a line delimited list of files in BRANCH ZERO directories to' 
@@ -93,7 +93,7 @@ fi
 
 if [ "$deny_unit_list" = "" ]
 then
-    deny_unit_list=/foss_fim/config/deny_gms_unit_prod.lst
+    deny_unit_list=/foss_fim/config/deny_gms_unit.lst
 elif [ "${deny_unit_list^^}" != "NONE" ] && [ ! -f "$deny_unit_list" ]
 then
     # NONE is not case sensitive
