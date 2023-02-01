@@ -18,24 +18,28 @@ A further requirement was to split up the overall processing flow to independent
 
 Note: This is a very large, complex PR with alot of critical details. Please read the details at [PR 806](https://github.com/NOAA-OWP/inundation-mapping/pull/806). 
 
+### CRITICAL NOTE
+The new `fim_pipeline.sh` and by proxy `fim_pre_processing.sh` has two new key input args, one named **-jh** (job HUCs) and one named **-jb** (job branches).  You can assign the number of cores/CPU's are used for processing a HUC versus the number of branches.  For the -jh number arg, it only is used against the `fim_pipeline.sh` file when it is processing more than one HUC or a list of HUCs as it is the iterator for HUCs.   The -jb flag says how many cores/CPU's can be used when processing branches (note.. the average HUC has 26 branches). 
+
+BUT.... you have to be careful not to overload your system.  **You need to multiply the -jh and the -jb values together, but only when using the `fim_pipeline.sh` script.**  Why? _If you have 16 CPU's available on your machine, and you assign -jh as 10 and -jb as 26, you are actually asking for 126 cores (10 x 26) but your machine only has 16 cores._   If you are not using `fim_pipeline.sh` but using the three processing steps independently, then the -jh value has not need to be anything but the number of 1 as each actual HUC can only be processed one at a time. (aka.. no iterator).
+</br>
 
 ### Additions
 
 - `fim_pipeline.sh` :  The wrapper for the three new major "FIM" processing steps. This script allows processing in one command, same as the current tool of `gms_pipeline.sh`.
-- `fim_pre_processing.sh`: This file handles all argument input from the user, validates those inputs and sets up or cleans up folders. It also includes a new system of taking most input parameters and some key enviro variables and writing them out to a files called `runtime_args.env`.  Future processing steps need minimal input arguments as it can read most values it needs from this new `runtime_args.env`. This allows the three major steps to work independently from each other. Someone can now come in, run `fim_pre_processing.sh`, then run `fim_process_unit_wb.sh`, each with one huc, as many time as they like, each adding just its own huc folder to the output runtime folder. 
+- `fim_pre_processing.sh`: This file handles all argument input from the user, validates those inputs and sets up or cleans up folders. It also includes a new system of taking most input parameters and some key enviro variables and writing them out to a files called `runtime_args.env`.  Future processing steps need minimal input arguments as it can read most values it needs from this new `runtime_args.env`. This allows the three major steps to work independently from each other. Someone can now come in, run `fim_pre_processing.sh`, then run `fim_process_unit_wb.sh`, each with one HUC, as many time as they like, each adding just its own HUC folder to the output runtime folder. 
 - `fim_post_processing.sh`: Scans all HUC folders inside the runtime folders to handle a number of processing steps which include (to name a few): 
     - aggregating errors
     - aggregating to create a single list (gms_inputs.csv) for all valid HUCs and their branch ids
     - usgs gage aggregation
     - adjustments to SRV's
-    - and more
-- `fim_process_unit_wb.sh`: Handles some minimal input args (just runName and the HUC number), then sets up global variable, folders, etc to process just the one HUC. The logic for processing the HUC is in `run_unit_wb.sh` but managed by this `fim_process_unit_wb.sh` file including all error trapping.    
+    - and more    
+- `fim_process_unit_wb.sh`: Accepts only input args of runName and HUC number. It then sets up global variable, folders, etc to process just the one HUC. The logic for processing the HUC is in `run_unit_wb.sh` but managed by this `fim_process_unit_wb.sh` file including all error trapping.
 - `src`
     - `aggregate_branch_lists.py`:  When each HUC is being processed, it creates it's own .csv file with its branch id's. In post processing we need one master csv list and this file aggregates them. Note: This is a similar file already in the `src/gms` folder but that version operates a bit different and will be deprecated soon.
     - `generate_branch_list`: This creates the single csv for a HUC defining each branch id. Note: This is also similar to the current `src/gms` file of the same name and the gms folder version will also be deprecated soon.
-
     - `run_unit_wb.sh`:  The actual HUC processing logic. Note: This is fundamentally the same as the current HUC processing logic that exists currently in `src/gms/run_by_unit.sh`, which will be removed in the very near future.
-    - `process_branch.sh`:  Same concept as `fim_process_unit_wb.sh` but this one is for processing a single branch. This file manages the true branch processing file of `src/gms/run_by_branch.sh`.  Both the new fim processing system and the older gms processing system currently share the branch processing file of `src/gms/run_by_branch.sh`. When the gms processing file is removed, this file will likely not change, only moved one directory up and be no longer in the `gms` sub-folder.
+    - `process_branch.sh`:  Same concept as `process_unit_wb.sh` but this one is for processing a single branch. This file manages the true branch processing file of `src/gms/run_by_branch.sh`.  Both the new fim processing system and the older gms processing system currently share the branch processing file of `src/gms/run_by_branch.sh`. When the gms processing file is removed, this file will likely not change, only moved one directory up and be no longer in the `gms` sub-folder.
 - `unit_tests`
     - `aggregate_branch_lists_unittests.py' and `aggregate_branch_lists_params.json`  (based on the newer `src` directory edition of `aggregate_branch_lists.py`).
     - `generate_branch_list_unittest.py` and `generate_branch_list_params.json` (based on the newer `src` directory edition of `generate_branch_list.py`).
@@ -44,16 +48,24 @@ Note: This is a very large, complex PR with alot of critical details. Please rea
 
 - `config`
     - `params_template.env`: Removed the `default_max_jobs` value and moved the `startDiv` and `stopDiv` to the `bash_variables.env` file.
+    - `deny_gms_unit.lst` : Renamed from `deny_gms_unit_prod.lst`
+    - `deny_gms_branches.lst` : Renamed from `deny_gms_branches_prod.lst`
 
-- `gms_pipeline.sh`, `gms_run_branch.sh`, `gms_run_unit.sh`, and `gms_post_processing.sh` :  Changed to hardcode the `default_max_jobs` to the value of 1. (we don't want this to be changed at all).
+- `gms_pipeline.sh`, `gms_run_branch.sh`, `gms_run_unit.sh`, and `gms_post_processing.sh` :  Changed to hardcode the `default_max_jobs` to the value of 1. (we don't want this to be changed at all). They were also changed for minor adjustments for the `deny` list files names.
 
 - `src`
     - `bash_functions.env`: Fix error with calculating durations.
     - `bash_variables.env`:  Adds the two export lines (stopDiv and startDiv) from `params_template.env`
     - `clip_vectors_to_wbd.py`: Cleaned up some print statements for better output traceability.
+    - `check_huc_inputs.py`: Added logic to ensure the file was an .lst file. Other file formats were not be handled correctly.
     - `gms`
         - `delineate_hydros_and_produce_HAND.sh`: Removed all `stopDiv` variable to reduce log and screen output. 
         - `run_by_branch.sh`: Removed an unnecessary test for overriding outputs.
+
+### Removed
+
+- `config`
+    - `deny_gms_branches_dev.lst`
 
 
 <br/><br/>
