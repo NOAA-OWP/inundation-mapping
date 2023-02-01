@@ -87,7 +87,7 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 ```
 /foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
 ```
-    Note: This tool is temporarily un-usable but updates will be coming soon.
+    Note: This tool is deprecated, updates will be coming soon.
 
 - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
 - Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
@@ -97,7 +97,7 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 ```
 /foss_fim/src/preprocess_rasters.py
 ```
-    Note: This tool is temporarily un-usable but updates will be coming soon.
+    Note: This tool is deprecated, updates will be coming soon.
 
 ----
 ### Evaluating Inundation Map Performance
