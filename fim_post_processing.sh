@@ -1,6 +1,5 @@
 #!/bin/bash -e
 
-# Note: This file does you named arguments as one of them is an optional argument (jobLimit)
 :
 usage ()
 {

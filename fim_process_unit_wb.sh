@@ -4,11 +4,11 @@
 # For AWS, we need to make a direct call to this files with two params, hucNumber first, 
 # then the runName same as the -n flag in fim_pipeline and fim_pre_processing.sh
 
-# This file will also catch any and all errors from run_by_huc_wb, even script aborts from that file
+# This file will also catch any and all errors from src/run_unit_wb.sh file, even script aborts from that file
 
-# You really can not call directly to run_unit_wb.sh as that file relys on export values
+# You really can not call directly to src/run_unit_wb.sh as that file relys on export values
 # from this file.
-# run_by_huc_wb will futher process branches with its own iterator (parallelization).
+# run_unit_wb will futher process branches with its own iterator (parallelization).
 
 # Sample Usage: /foss_fim/fim_process_unit_wb.sh rob_test_wb_1 05030104
 
@@ -25,7 +25,11 @@ usage ()
     echo '      huc and its branches.'    
     echo 'Usage : There are no arg keys (aka.. no dashes)'
     echo '        you need the run name first, then the huc.'
-    echo '        ie ) /foss_fim/fim_process_unit_wb.sh rob_test_1 05030104'
+    echo '        Arguments:'
+    echo '           1) run name'
+    echo '           2) HUC number'
+    echo '        Example:'
+    echo '           /foss_fim/fim_process_unit_wb.sh rob_test_1 05030104'
     echo
     exit
 }
@@ -80,7 +84,7 @@ rm -f $outputRunDataDir/branch_errors/"$hucNumber"*.log
 hucLogFileName=$outputRunDataDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
-/usr/bin/time -v $srcDir/run_unit_wb.sh | tee $hucLogFileName
+/usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 return_codes=( "${PIPESTATUS[@]}" )
