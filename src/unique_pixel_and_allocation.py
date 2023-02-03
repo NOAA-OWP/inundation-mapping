@@ -64,6 +64,17 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
     wbt.euclidean_distance(stream_pixels,distance_grid)
     wbt.euclidean_allocation(unique_stream_pixels,allocation_grid)
 
+    with rasterio.open(allocation_grid) as allocation_ds:
+        allocation = allocation_ds.read(1)
+        allocation_profile = allocation_ds.profile
+
+    # Add stream channel ids
+    allocation = np.where(allocation > 0, allocation, stream_pixel_values)
+
+    with rasterio.open(allocation_grid, 'w', **allocation_profile) as allocation_ds:
+        allocation_ds.write(allocation, 1)
+
+
     return distance_grid, allocation_grid
 
 
