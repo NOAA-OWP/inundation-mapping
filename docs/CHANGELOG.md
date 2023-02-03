@@ -12,7 +12,7 @@ Our new processing system, starting with this PR,  is to allow each HUC to proce
 
 A further requirement was to split up the overall processing flow to independent steps, with each step being able to process itself without relying on "export" variables from other files. Note: There are still a few exceptions.  The basic flow now becomes
 - `fim_pre_processing.sh`, 
-- one or more calls to `process_unit_wb.sh` (calling this file for each single HUC to be processed).
+- one or more calls to `fim_process_unit_wb.sh` (calling this file for each single HUC to be processed).
 - followed by a call to `fim_post_processing.sh`. 
 
 
