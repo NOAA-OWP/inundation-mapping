@@ -131,7 +131,7 @@ def create_csvs(output_mapping_dir, reformatted_catfim_method):
     # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
     gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
     for gpkg in gpkg_list:
-        print(f"creating CSV for {gpkg}")
+        print(f"Creating CSV for {gpkg}")
         gdf = gpd.read_file(gpkg)
         parent_directory = os.path.split(gpkg)[0]
         if 'catfim_library' in gpkg:
@@ -232,6 +232,10 @@ def produce_inundation_map_with_stage_and_feature_ids(rem_path, catchments_path,
             with rasterio.open(output_tif, 'w', **profile) as dst:
                 dst.write(masked_reclass_rem_array, 1)
     
+def mark_complete(site_directory):
+    marker_file = Path(site_directory) / 'complete.txt'
+    marker_file.touch()
+    return
 
 def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir):
     missing_huc_files = []
@@ -265,6 +269,11 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         lid_directory = os.path.join(huc_directory, lid)
         if not os.path.exists(lid_directory):
             os.mkdir(lid_directory)
+        else:
+            complete_marker = os.path.join(lid_directory, 'complete.txt')
+            if os.path.exists(complete_marker):
+                all_messages.append([f"{lid}: already completed in previous run."])
+                continue
         # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
         stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
 
@@ -495,7 +504,6 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                 csv_df = csv_df.append(line_df)
                 
             except Exception as e:
-                print("Exception")
                 print(e)
           
         # Round flow and stage columns to 2 decimal places.
@@ -510,6 +518,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             
         # If it made it to this point (i.e. no continues), there were no major preventers of mapping
         all_messages.append([f'{lid}:OK'])
+        mark_complete(output_dir)
     # Write all_messages by HUC to be scraped later.
     messages_dir = os.path.join(workspace, 'messages')
     if not os.path.exists(messages_dir):
