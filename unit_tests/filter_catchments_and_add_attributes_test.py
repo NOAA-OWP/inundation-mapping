@@ -8,15 +8,12 @@ import json
 import unittest
 import pytest
 
-sys.path.append('/foss_fim/unit_tests/')
+# sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # importing python folders in other directories
-sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
+# sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
 import filter_catchments_and_add_attributes as src
-
-# NOTE: This goes directly to the function.
-# Ultimately, it should emulate going through command line (not import -> direct function call)
 
 
 # *************
@@ -31,10 +28,11 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
     @classmethod
     def setUpClass(self):
 
-        warnings.simplefilter('ignore')
         params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
+
+# Test Cases:
 
     def test_filter_catchments_and_add_attributes_success(self):
 
@@ -61,8 +59,9 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
                                                 huc_code = params["huc_code"],
                                                 drop_stream_orders = params["drop_stream_orders"])
        
-        if os.path.exists(params["output_catchments_filename"]) == False:
-            raise Exception(params["output_catchments_filename"] + " does not exist")
-        if os.path.exists(params["output_flows_filename"]) == False:
-            raise Exception(params["output_flows_filename"] + " does not exist")
+        assert os.path.exists(params["output_flows_filename"]) == False
+        
+        assert os.path.exists(params["output_catchments_filename"]) == False
+  
+
     
