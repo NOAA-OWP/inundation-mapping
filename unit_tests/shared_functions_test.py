@@ -27,9 +27,7 @@ class test_shared_functions(unittest.TestCase):
         Pass in a file name with the single identifier and get the single adjusted file name back
         '''
 
-        params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy()
-
-        print(ut_helpers.json_concat(params, "outputRunDataDir" , "file_name")) 
+        params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy() 
 
         actual_output = src.append_id_to_file_name(file_name = ut_helpers.json_concat(params, "outputRunDataDir" , "file_name"),
                                                    identifier = params["identifier"])

@@ -8,13 +8,8 @@ import json
 import unittest
 import pytest
 
-# sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
-
-# importing python folders in other directories
-# sys.path.append('/foss_fim/src/')   # *** update your folder path here if required ***
 import filter_catchments_and_add_attributes as src
-
 
 # *************
 # Important: For this to work, when you run gms_run_branch.sh, you have to 
@@ -44,24 +39,28 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
 
         params = self.params["valid_data"].copy() 
 
-        # to setup the test, lets start by deleted the two expected output files to ensure
-        # that they are regenerated
-        if os.path.exists(params["output_catchments_filename"]):
-            os.remove(params["output_catchments_filename"])
+        # To setup the test, lets start by deleted the two expected output files to ensure
+        # that they are regenerated.
         if os.path.exists(params["output_flows_filename"]):
             os.remove(params["output_flows_filename"])
-       
+        if os.path.exists(params["output_catchments_filename"]):
+            os.remove(params["output_catchments_filename"])
+        
+        # Test that the files were deleted
+        assert os.path.exists(params["output_flows_filename"]) == False
+
+        assert os.path.exists(params["output_catchments_filename"]) == False
+        
         src.filter_catchments_and_add_attributes(input_catchments_filename = params["input_catchments_filename"],
                                                 input_flows_filename = params["input_flows_filename"],
                                                 output_catchments_filename = params["output_catchments_filename"],
                                                 output_flows_filename = params["output_flows_filename"],
                                                 wbd_filename = params["wbd_filename"],
-                                                huc_code = params["huc_code"],
-                                                drop_stream_orders = params["drop_stream_orders"])
-       
-        assert os.path.exists(params["output_flows_filename"]) == False
-        
-        assert os.path.exists(params["output_catchments_filename"]) == False
-  
-
+                                                huc_code = params["huc_code"])
     
+
+        # Test that the files were created by filer_catchments_and_add_attributes       
+        assert os.path.exists(params["output_flows_filename"]) == True
+        
+        assert os.path.exists(params["output_catchments_filename"]) == True
+
