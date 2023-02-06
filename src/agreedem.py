@@ -38,7 +38,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
     '''
     # Set wbt envs
     wbt = whitebox.WhiteboxTools()
-    wbt.set_verbose_mode(True)
+    wbt.set_verbose_mode(False)
     
     #------------------------------------------------------------------
     # 1. From Hellweger documentation: Compute the vector grid
