@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import inspect
 import os
 import sys
-
 import json
 import unittest
 import pytest
@@ -19,8 +17,6 @@ import stream_branches
 from utils.fim_enums import FIM_exit_codes as fec
 
 
-# NOTE: This goes directly to the function.
-# Ultimately, it should emulate going through command line (not import -> direct function call)
 class test_Derive_level_paths(unittest.TestCase):
 
     '''
@@ -32,6 +28,9 @@ class test_Derive_level_paths(unittest.TestCase):
         params_file_path = ut_helpers.get_params_filename(__file__)
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
+
+
+# Test Cases:
 
     def test_Derive_level_paths_success_all_params(self):
     
@@ -89,8 +88,6 @@ class test_Derive_level_paths(unittest.TestCase):
             raise Exception(params["branch_inlets_outfile"] + " does not exist")
        
         
-        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-        print("*************************************************************")        
 
     def test_Derive_level_paths_success_drop_low_stream_orders_no_branches_left(self):
     
@@ -117,10 +114,7 @@ class test_Derive_level_paths(unittest.TestCase):
                                     reach_id_attribute = params["reach_id_attribute"],
                                     verbose = params["verbose"])
 
-        self.assertEqual(se.exception.code, fec.GMS_UNIT_NO_BRANCHES.value)
-
-        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-        print("*************************************************************")        
+        self.assertEqual(se.exception.code, fec.GMS_UNIT_NO_BRANCHES.value)  
 
     
     # Invalid Input stream for demo purposes. Normally, you would not have this basic of a test (input validation).
@@ -149,9 +143,8 @@ class test_Derive_level_paths(unittest.TestCase):
             
         except Exception:
             print()
-            print(f"Test Success (failed as expected): {inspect.currentframe().f_code.co_name}")
+            # print(f"Test Success (failed as expected): {inspect.currentframe().f_code.co_name}")
             
         finally:
             print("*************************************************************")             
        
-  

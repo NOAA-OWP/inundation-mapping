@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
-import inspect
 import os 
-
 import json
 import unittest
 import pytest
 
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
-
 import clip_vectors_to_wbd as src
 
 

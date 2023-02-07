@@ -68,7 +68,7 @@ pytest ./foss_fim/unit_tests/gms/derive_level_paths_test.py
 
 pytest ./foss_fim/unit_tests/clip_vectors_to_wbd_test.py
 ```
-If you'd like to run a particulat test, you can, for example:
+If you'd like to run a particular test, you can, for example:
 ```
 pytest -v -s -k test_append_id_to_file_name_single_identifier_success
 ```
@@ -107,10 +107,11 @@ gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/con
 ## Future Enhancements
 1) We can automate triggers on these files for things like checking triggers or an single global "run_all_unittest" script, but for now.. its one offs.
 
-	This has been accomplished in using the Pytest  Framework. 
+	This has been accomplished in using the Pytest Framework. 
 
 2) Better output from the unit tests including verbosity output control
 
+	This has been capture in using `Pytest` as well, provide the `-s` flag to capture stdout.
 
 3) Over time, it is expected that python code files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each code file which makes unit testing harder and less specific. Generally for each function in a python code file will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample tif or small gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: Our first two files of derive_level_paths_unittests and clip_vectors_to_wbd_unittests are not complete as they do not yet test all output from a method.
 
@@ -127,14 +128,14 @@ An example is in unit_tests/gms/Derive_level_paths_unittests.py -> test_Derive_l
 We have almost no "assert"s yet, but most unit test usually have one or more "assert" test. See https://docs.python.org/3/library/unittest.html for more details.
 
 ## Unit tests currently available
-python3 /foss_fim/unit_tests/gms/derive_level_paths_test.py
-python3 /foss_fim/unit_tests/tools/inundate_test.py
-python3 /foss_fim/unit_tests/tools/gms_tools/inundate_gms_test.py
-python3 /foss_fim/unit_tests/clip_vectors_to_wbd_test.py
-python3 /foss_fim/unit_tests/filter_catchments_and_add_attributes_test.py
-python3 /foss_fim/unit_tests/rating_curve_comparison_test.py
-python3 /foss_fim/unit_tests/shared_functions_test.py
-python3 /foss_fim/unit_tests/split_flows_test.py
-python3 /foss_fim/unit_tests/usgs_gage_crosswalk_test.py
+pytest /foss_fim/unit_tests/gms/derive_level_paths_test.py
+pytest /foss_fim/unit_tests/tools/inundate_test.py
+pytest /foss_fim/unit_tests/tools/gms_tools/inundate_gms_test.py
+pytest /foss_fim/unit_tests/clip_vectors_to_wbd_test.py
+pytest /foss_fim/unit_tests/filter_catchments_and_add_attributes_test.py
+pytest /foss_fim/unit_tests/rating_curve_comparison_test.py
+pytest /foss_fim/unit_tests/shared_functions_test.py
+pytest /foss_fim/unit_tests/split_flows_test.py
+pytest /foss_fim/unit_tests/usgs_gage_crosswalk_test.py
 
 

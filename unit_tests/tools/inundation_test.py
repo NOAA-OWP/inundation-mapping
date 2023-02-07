@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
 
-import inspect
 import os
 import sys
-
 import json
 import unittest
 import pytest
 
-sys.path.append('/foss_fim/unit_tests/')
+# sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
-
-sys.path.append('/foss_fim/tools/')
+# sys.path.append('/foss_fim/tools/')
 import inundation as src
 
-# NOTE: This goes directly to the function.
-# Ultimately, it should emulate going through command line (not import -> direct function call)
+
 class test_inundate(unittest.TestCase):
 
     '''
@@ -69,6 +65,6 @@ class test_inundate(unittest.TestCase):
         assert os.path.exists(params["expected_inundation_raster"]), \
             f"Expected file {params['expected_inundation_raster']} but it does not exist."
 
-        print(f"Test Success: {inspect.currentframe().f_code.co_name}")
+        # print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")
 

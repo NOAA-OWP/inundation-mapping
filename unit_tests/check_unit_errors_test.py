@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
 
-import inspect
 import math
 import os
 import shutil
-
 import json
 import unittest
 import pytest
 
-
-from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
-
-import check_unit_errors as src
 from utils.fim_enums import FIM_exit_codes
-
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 from utils.shared_variables import (UNIT_ERRORS_MIN_NUMBER_THRESHOLD,
                                     UNIT_ERRORS_MIN_PERCENT_THRESHOLD)
+import check_unit_errors as src
 
 
 class test_check_unit_errors(unittest.TestCase):
@@ -228,3 +223,4 @@ class test_check_unit_errors(unittest.TestCase):
         temp_folder_created = os.path.join(params["fim_dir"], "unit_errors") + "_temp"
 
         assert os.path.exists(temp_folder_created) == False
+
