@@ -87,6 +87,7 @@ hucLogFileName=$outputRunDataDir/logs/unit/"$hucNumber"_unit.log
 /usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
+# and yes.. we can not use the $? as we are messing with exit codes
 return_codes=( "${PIPESTATUS[@]}" )
 
 #echo "huc return codes are:"
@@ -94,9 +95,11 @@ return_codes=( "${PIPESTATUS[@]}" )
 
 # we do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
+err_exists=0
 for code in "${return_codes[@]}"
 do
-    # Make an extra copy of the branch log in a new folder  if an error
+    # Make an extra copy of the unit log into a new folder.
+
     # Note: It was tricky to load in the fim_enum into bash, so we will just 
     # go with the code for now
     if [ $code -eq 0 ]; then
@@ -105,19 +108,22 @@ do
     elif [ $code -eq 60 ]; then
         echo
         echo "***** Unit has no valid branches *****"
+        err_exists=1
     elif [ $code -eq 61 ]; then
         echo
-        echo "***** Unit has not a valid unit *****"        
+        echo "***** Unit has no remaining valid flowlines *****"   
+        err_exists=1        
     else
         echo
         echo "***** An error has occured  *****"
-        # copy the error log over to the unit_errors folder to better isolate it
-        cp $hucLogFileName $outputRunDataDir/unit_errors
+        err_exists=1        
     fi
 done
 
-# TODO: Check its output logs for this huc and its branches here
-
+if [ "$err_exists" = "1" ]; then
+    # copy the error log over to the unit_errors folder to better isolate it
+    cp $hucLogFileName $outputRunDataDir/unit_errors
+fi
 echo "=========================================================================="
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0

@@ -89,12 +89,8 @@ post_proc_start_time=`date +%s`
 echo -e $startDiv"Start branch aggregation"
 python3 $srcDir/aggregate_branch_lists.py -d $outputRunDataDir -f "branch_ids.csv" -o $gms_inputs
 
-
 ## GET NON ZERO EXIT CODES FOR UNITS ##
-# Needed in case aggregation fails, we will need the logs
-echo -e $startDiv"Start of unit non zero exit codes check"
-find $outputRunDataDir/logs/ -name "*_unit.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" >"$outputRunDataDir/unit_errors/non_zero_exit_codes.log" &
-
+## No longer applicable
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 echo -e $startDiv"Start non-zero exit code checking"
@@ -103,9 +99,10 @@ find $outputRunDataDir/logs/branch -name $hucNumber"_branch_*.log" -type f | xar
 
 ## REMOVE FAILED BRANCHES ##
 # Needed in case aggregation fails, we will need the logs
-echo -e $startDiv"Removing branches that failed with Exit status: 61"
-Tstart
-python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g $gms_inputs
+#echo
+#echo -e $startDiv"Removing branches that failed with Exit status: 61"
+#Tstart
+#python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g #$gms_inputs
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 echo "Processing usgs gage aggregation"

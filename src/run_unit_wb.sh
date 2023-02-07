@@ -3,7 +3,7 @@
 # Do not call this file directly. Call fim_process_unit_wb.sh which calls
 # this file.
 
-## SOURCE ENV FILE AND FUNCTIONS ##
+## SOURCE FILE AND FUNCTIONS ##
 # load the various enviro files
 args_file=$outputRunDataDir/runtime_args.env
 
@@ -12,8 +12,8 @@ source $outputRunDataDir/params.env
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
-fim_inputs_csv=$outputHucDataDir/branch_ids.csv
-fim_inputs_list=$outputHucDataDir/branch_ids.lst
+branch_list_csv_file=$outputHucDataDir/branch_ids.csv
+branch_list_lst_file=$outputHucDataDir/branch_ids.lst
 
 branchSummaryLogFile=$outputRunDataDir/logs/branch/"$hucNumber"_summary_branch.log
 
@@ -101,10 +101,10 @@ $srcDir/gms/buffer_stream_branches.py -a $input_DEM_domain -s $outputHucDataDir/
 Tcount
 
 ## CREATE BRANCHID LIST FILE
-echo -e $startDiv"Create file of branch ids for $hucNumber"
+echo -e $startDiv"Create list file of branch ids for $hucNumber"
 date -u
 Tstart
-$srcDir/generate_branch_list.py -oc $fim_inputs_csv -ol $fim_inputs_list -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -b $branch_id_attribute -u $hucNumber
+$srcDir/generate_branch_list.py -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -b $branch_id_attribute -o $branch_list_lst_file
 Tcount
 
 ## CREATE BRANCH ZERO ##
@@ -220,7 +220,7 @@ fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"
-$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list -b 0
+$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
 
 
 ## REMOVE FILES FROM DENY LIST ##
@@ -233,12 +233,16 @@ if [ -f $deny_unit_list ]; then
 fi
 
 # -------------------
+## Start the local csv branch list
+$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
+
+# -------------------
 ## Processing Branches ##
 echo
 echo "---- Start of branch processing for $hucNumber"
 branch_processing_start_time=`date +%s`
 
-parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' -- $srcDir/process_branch.sh $runName $hucNumber :::: $fim_inputs_list
+parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
 
 # -------------------
 ## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO (but using normal branch deny) ##

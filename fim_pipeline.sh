@@ -38,7 +38,7 @@ source $srcDir/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 
 
-logFile=$outputRunDataDir/logs/pipeline_summary_unit.log
+logFile=$outputRunDataDir/logs/unit/pipeline_summary_unit.log
 process_wb_file=$projectDir/fim_process_unit_wb.sh
 
 pipeline_start_time=`date +%s`
@@ -47,15 +47,15 @@ pipeline_start_time=`date +%s`
 # Why an if and else? watch the number of colons
 if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
-        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList 
+                parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList 
     else
         parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     fi
 else 
     if [ "$jobHucLimit" = "1" ]; then
-        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName ::: $hucList
+                parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName ::: $hucList
     else
-        parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file ::: $hucList
+        parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file  $runName  ::: $hucList
     fi
 fi
 

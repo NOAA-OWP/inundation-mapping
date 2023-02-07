@@ -35,11 +35,9 @@ class test_Generate_branch_list(unittest.TestCase):
         
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
 
-        src.Generate_branch_list(stream_network_dissolved = params["stream_network_dissolved"],
+        src.generate_branch_list(stream_network_dissolved = params["stream_network_dissolved"],
                                  branch_id_attribute = params["branch_id_attribute"],
-                                 output_branch_list = params["output_branch_list"],
-                                 output_branch_csv = params["output_branch_csv"],
-                                 huc_id = params["huc_id"])
+                                 output_branch_list_file = params["output_branch_list_file"])
        
        
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")

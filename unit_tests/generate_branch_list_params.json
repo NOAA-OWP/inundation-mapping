@@ -1,10 +1,8 @@
 {
 	"valid_data":
 	{
-		"stream_network_dissolved": "/outputs/rob_wb_1/05030104/nwm_subset_streams_levelPaths_dissolved.gpkg",
+		"stream_network_dissolved": "/outputs/rob_wb_3/05030104/nwm_subset_streams_levelPaths_dissolved.gpkg",
 		"branch_id_attribute": "levpa_id",
-		"output_branch_list": "/outputs/rob_wb_1/05030104/branch_ids.lst",
-		"output_branch_csv": "/outputs/rob_wb_1/05030104/branch_ids.csv",
-		"huc_id": 15030104
+		"output_branch_list_file": "/outputs/rob_wb_3/05030104/branch_ids.lst"
 	}
 }
