@@ -37,49 +37,48 @@ class test_<Your original source python file name>(unittest.TestCase):
             Remember... You need to validate the method output if there is any. However, if you have time, it
             is also recommended that you validate other outputs such as writing or updating file on the file 
             system, aka: Does the expected file exist. Don't worry about its contents.
-
         '''
 
         #global params_file
-        
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
         
        
         # for now we are happy if no exceptions are thrown.
         
-        # < See the readme.md, clip_vectors_to_wbd_unittests.py or gms/derive_level_paths_unittests.py 
-        # for examples.>
+        #  See the readme.md, clip_vectors_to_wbd_test.py or gms/derive_level_paths_test.py  for examples.
         # Replace this stub example with your own.
         # Try to use the same order to make it easier.
         # Remember, if the method accepts **params, then you can sent that in here as well.
         #   ie: my_py_class.my_method(** params)
         
         src.subset_vector_layers(hucCode = params["hucCode"],
-                                    nwm_streams_filename = params["nwm_streams"],
-                                    etc, etc for each param)
+                                 nwm_streams_filename = params["nwm_streams"],
+                                 etc, etc for each param)
        
+        # This is what we are actually testing
+        # An assert that evaluates as True passes, one that evaluates to False fails
+        # A message (string) can be added after the assert statement to show more detail on the case being tested
+        assert os.path.exists(params["nwm_streams"]) == True, "The nwm_streams file does not exist"
+
+    
+    
+    # EXAMPLE SUCCESSFUL FAIL    
+    
+    def test_subset_vector_layers_fail_invalid_stream_path(self):
+        '''
+        Notes about what the test is and the expected results (or expected exception if applicable)
+        '''
+        #global params_file
+
+        params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
+
+        params["nwm_streams"] = "/some/bad/path/"  
+
+        with pytest.raises(Exception) as e_info:
+            clip_vectors_to_wbd.subset_vector_layers(hucCode = params["hucCode"],
+                                                     nwm_streams_filename = params["nwm_streams"],
+                                                     etc, etc for each param)
+      
        
 
-    # ***** REMOVE THIS BLOCK IF YOU ARE NOT USING IT ***
-    #       EXAMPLE SUCCESSFUL FAIL    
-    # 
-    #def test_subset_vector_layers_fail_invalid_stream_path(self):
-    #    '''
-    #    Notes about what the test is and the expected results (or expected exception if applicable)
-    #    '''
-    #   #global params_file
-        
-    #   params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
-
-    #   params["nwm_streams"] = "some bad path"
-
-    #   clip_vectors_to_wbd.subset_vector_layers(hucCode = params["hucCode"],
-    #                                            nwm_streams_filename = params["nwm_streams"],
-    #                                            etc, etc for each param)
-    #   
-       
-    #    print(f"Test Success: {inspect.currentframe().f_code.co_name}")
-    #    print("*************************************************************")
-        
-    # ***********************
     

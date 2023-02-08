@@ -4,27 +4,27 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 
 #### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/inundation-mapping/wiki).
 
-### This folder and files are for unit testing python files
+# This folder (`/unit_tests`) holds files for unit testing python files
 
 ## Creating unit tests
 
-For each python code file that is being tested, unit tests should come in two files: a unit test file (based on the original python code file) and it's json parms file. 
+For each python code file that is being tested, unit tests should come in two files: a unit test file (based on the original python code file) and an accompanying json paramerters file. 
 
 The files should be named following FIM convention:
 
-{source py file name}_test.py          ie) derive_level_paths_test.py
-{source py file name}_params.json      ie) derive_level_paths_params.json
+{source py file name}_test.py ->     `derive_level_paths_test.py`  
+{source py file name}_params.json -> `derive_level_paths_params.json`
 
 
-## Tips to creating a new json file for a new unit test file.
+## Tips to create a new json file for a new python unit test file.
 
 There are multiple way to figure out a set of default json parameters for the new unit test file. 
 
-One way is to use the incoming arg parser. Most py files, they include the code block of " __name__ == '__main__':", followed by external arg parsing, ie) the args = vars(parser.parse_args()). 
-	- Add a print(args) or similar, and get all the values including keys as output.
-	- Copy that into an editor being used to create the json file.
-	- Add a line break after every comma.
-	- Find/replace all single quotes to double quotes then cleanup the left tab formatting.
+One way is to use the incoming arg parser. Most python files include the code block of ` __name__ == '__main__':`, followed by external arg parsing (`args = vars(parser.parse_args()`). 
+* Add a `print(args)` or similar, and get all the values including keys as output.  
+* Copy that into an editor being used to create the json file.  
+* Add a line break after every comma.  
+* Find/replace all single quotes to double quotes then cleanup the left tab formatting.
 
 
 ## Running unit tests
@@ -44,7 +44,7 @@ Notice a modified branch "deny_gms_branch_unittests.lst"  (special for unittests
 Here are the params and args you need if you need to re-run unit and branch
 
 ```bash
-gms_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 02030201 05030104" -bd /foss_fim/config/deny_gms_branch_unittests.lst -ud None -j 1 -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 02030201 05030104" -bd /foss_fim/config/deny_gms_branch_unittests.lst -ud None -j 1 -o
 ```
 
 **NOTICE: the deny file used for gms_run_branch... its a special one for unittests `deny_gms_branch_unittests.lst`.
@@ -54,22 +54,22 @@ If you need to run inundation tests, fun the following:
 ```bash
 python3 foss_fim/tools/synthesize_test_cases.py -c DEV -e GMS -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
 ```
-If you'd like to test the whole unittest suite:
+### If you'd like to test the whole unit test suite:
 ```
 pytest /foss_fim/unit_tests
 ```
 
 This is not 100% stable, as accurate paths for the parameters `.json` files are not included in this repository, are not uniform accross machines, and are subject to change. 
  
-If you want to test just one unit test (at the root terminal window), here are two examples:
+### If you want to test just one unit test (from the root terminal window):
 
 ```bash
 pytest /foss_fim/unit_tests/gms/derive_level_paths_test.py 
-
+						or  
 pytest /foss_fim/unit_tests/clip_vectors_to_wbd_test.py
 ```
 
-If you'd like to run a particular test, you can, for example:
+### If you'd like to run a particular test, you can, for example:
 ```
 pytest -v -s -k test_append_id_to_file_name_single_identifier_success
 ```
@@ -77,7 +77,7 @@ pytest -v -s -k test_append_id_to_file_name_single_identifier_success
 If one test case is choosen, it will scan all of the test files, and scan for the method (test case) specified. 
 
 ## Key Notes for creating new unit tests
-1) All test functions must end with the phrase `_test`. That is how pytest picks it up. The rest of the function name does not have to match the pattern of `function_name_being_tested` but should. Further, the rest of the function name should say what the test is about, ie) `_failed_input_path`.  ie) `test_{some_function_name_from_the_source_code_file}_failed_input_path`. It is fine that the function names get very long (common in the industry).
+1) All test functions must start with the phrase `test_`. That is how pytest picks them up. The rest of the function name does not have to match the pattern of `function_name_being_tested` but should. Further, the rest of the function name should say what the test is about, ie) `_failed_input_path`.  ie) `test_{some_function_name_from_the_source_code_file}_failed_input_path`. It is fine that the function names get very long (common in the industry).
 
 2) If you are using this for development purposes, use caution when checking back in files for unit tests files and json file. If you check it in, it still has to work and work for others and not just for a dev test you are doing.
 
@@ -93,14 +93,14 @@ If one test case is choosen, it will scan all of the test files, and scan for th
 
 8) One Python file = one `{original py file name}_test.py` file.
 
-9) Sometimes you may want to run a full successful "happy path" version through gms_run_by_unit.sh (or similar), to get all of the files you need in place to do your testing. However, you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the `-d` parameter (denylist). 
+9) Sometimes you may want to run a full successful "happy path" version through `fim_pipeline.sh` (or similar), to get all of the files you need in place to do your testing. However, you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the `-d` parameter (denylist). 
 ie:
 ```bash
-gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_gms_unit_default.lst -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_gms_unit_default.lst -o
 ```
 but ours would be:
 ```bash 
-gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o
 ```
 
 ## Future Enhancements
@@ -125,14 +125,16 @@ gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/con
 An example is in `unit_tests/gms/Derive_level_paths_test.py` -> `test_Derive_level_paths_invalid_input_stream_network` (function). This example gives you the pattern implemented in Pytest.
 
 ## Unit tests currently available
-pytest /foss_fim/unit_tests/gms/derive_level_paths_test.py
-pytest /foss_fim/unit_tests/gms/outputs_cleanup_test.py
-pytest /foss_fim/unit_tests/tools/inundate_gms_test.py
-pytest /foss_fim/unit_tests/tools/inundation_test.py
-pytest /foss_fim/unit_tests/check_unit_errors_test.py
-pytest /foss_fim/unit_tests/clip_vectors_to_wbd_test.py
-pytest /foss_fim/unit_tests/filter_catchments_and_add_attributes_test.py
-pytest /foss_fim/unit_tests/rating_curve_comparison_test.py
-pytest /foss_fim/unit_tests/shared_functions_test.py
-pytest /foss_fim/unit_tests/split_flows_test.py
-pytest /foss_fim/unit_tests/usgs_gage_crosswalk_test.py
+```
+pytest /foss_fim/unit_tests/gms/derive_level_paths_test.py  
+pytest /foss_fim/unit_tests/gms/outputs_cleanup_test.py  
+pytest /foss_fim/unit_tests/tools/inundate_gms_test.py  
+pytest /foss_fim/unit_tests/tools/inundation_test.py  
+pytest /foss_fim/unit_tests/check_unit_errors_test.py  
+pytest /foss_fim/unit_tests/clip_vectors_to_wbd_test.py  
+pytest /foss_fim/unit_tests/filter_catchments_and_add_attributes_test.py  
+pytest /foss_fim/unit_tests/rating_curve_comparison_test.py  
+pytest /foss_fim/unit_tests/shared_functions_test.py  
+pytest /foss_fim/unit_tests/split_flows_test.py  
+pytest /foss_fim/unit_tests/usgs_gage_crosswalk_test.py  
+```
