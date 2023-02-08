@@ -9,8 +9,6 @@ from contextlib import redirect_stdout
 import unittest
 import pytest
 
-
-# sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 from utils.shared_functions import FIM_Helpers as fh
 
