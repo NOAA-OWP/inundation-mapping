@@ -94,7 +94,7 @@ python3 $srcDir/aggregate_branch_lists.py -d $outputRunDataDir -f "branch_ids.cs
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 echo -e $startDiv"Start non-zero exit code checking"
-find $outputRunDataDir/logs/branch -name $hucNumber"_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
+find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
 
 
 ## REMOVE FAILED BRANCHES ##
