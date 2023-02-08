@@ -37,12 +37,14 @@ BUT.... you have to be careful not to overload your system.  **You need to multi
 - `fim_process_unit_wb.sh`: Accepts only input args of runName and HUC number. It then sets up global variable, folders, etc to process just the one HUC. The logic for processing the HUC is in `run_unit_wb.sh` but managed by this `fim_process_unit_wb.sh` file including all error trapping.
 - `src`
     - `aggregate_branch_lists.py`:  When each HUC is being processed, it creates it's own .csv file with its branch id's. In post processing we need one master csv list and this file aggregates them. Note: This is a similar file already in the `src/gms` folder but that version operates a bit different and will be deprecated soon.
-    - `generate_branch_list`: This creates the single csv for a HUC defining each branch id. Note: This is also similar to the current `src/gms` file of the same name and the gms folder version will also be deprecated soon.
-    - `run_unit_wb.sh`:  The actual HUC processing logic. Note: This is fundamentally the same as the current HUC processing logic that exists currently in `src/gms/run_by_unit.sh`, which will be removed in the very near future.
-    - `process_branch.sh`:  Same concept as `process_unit_wb.sh` but this one is for processing a single branch. This file manages the true branch processing file of `src/gms/run_by_branch.sh`.  Both the new fim processing system and the older gms processing system currently share the branch processing file of `src/gms/run_by_branch.sh`. When the gms processing file is removed, this file will likely not change, only moved one directory up and be no longer in the `gms` sub-folder.
+    - `generate_branch_list.py`: This creates the single .lst for a HUC defining each branch id. With this list, `run_unit_wb.sh` can do a parallelized iteration over each of its branches for processing. Note: This is also similar to the current `src/gms` file of the same name and the gms folder version will also be deprecated soon.
+    - `generate_branch_list_csv.py`. As each branch, including branch zero, has processed and if it was successful, it will add to a .csv list in the HUC directory. At the end, it becomes a list of all successful branches. This file will be aggregates with all similar .csv in post processing for future processing.
+    - `run_unit_wb.sh`:  The actual HUC processing logic. Note: This is fundamentally the same as the current HUC processing logic that exists currently in `src/gms/run_by_unit.sh`, which will be removed in the very near future. However, at the end of this file, it creates and manages a parallelized iterator for processing each of it's branches.
+    - `process_branch.sh`:  Same concept as `process_unit_wb.sh` but this one is for processing a single branch. This file manages the true branch processing file of `src/gms/run_by_branch.sh`.  It is a wrapper file to `src/gms/run_by_branch.sh` and catches all error and copies error files as applicable. This allows the parent processing files to continue despite branch errors. Both the new fim processing system and the older gms processing system currently share the branch processing file of `src/gms/run_by_branch.sh`. When the gms processing file is removed, this file will likely not change, only moved one directory up and be no longer in the `gms` sub-folder.
 - `unit_tests`
     - `aggregate_branch_lists_unittests.py' and `aggregate_branch_lists_params.json`  (based on the newer `src` directory edition of `aggregate_branch_lists.py`).
     - `generate_branch_list_unittest.py` and `generate_branch_list_params.json` (based on the newer `src` directory edition of `generate_branch_list.py`).
+    -  `generate_branch_list_csv_unittest.py` and `generate_branch_list_csv_params.json` 
 
 ### Changes
 
@@ -66,7 +68,6 @@ BUT.... you have to be careful not to overload your system.  **You need to multi
 
 - `config`
     - `deny_gms_branches_dev.lst`
-
 
 <br/><br/>
 
