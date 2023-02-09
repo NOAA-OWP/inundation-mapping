@@ -103,17 +103,13 @@ but ours would be:
 fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o
 ```
 
-## Future Enhancements
-1) We can automate triggers on these files for things like checking triggers or a single global "run_all_unittest" script, but for now, its one offs.
+## [Pytest](https://docs.pytest.org/en/7.2.x/) particulars
 
-	The single global "run_all_unittest" script has been accomplished in using the Pytest Framework. Simply run `pytest` from within `/unit_tests`. 
+The `pyproject.toml` file has been added, which contains the build system requirements of Python projects.  This file used to specify which warnings are disabled to pass our unit tests. 
 
-2) Better output from the unit tests including verbosity output control
+A `__init__.py` file has been added to both subdirectories (`/gms` & `/tools`) in order for the `pytest` command run in the `/unit_tests` to pick up the tests in those directories as well.
 
-	This has been capture in using `Pytest` as well, provide the `-s` flag to capture stdout.
-
-3) Over time, it is expected that python files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each python file which makes unit testing harder and less specific. Generally function will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample .tif or small .gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: The files `/gms/derive_level_paths_test.py` and `clip_vectors_to_wbd_test.py` are not complete as they do not yet test all output from a method.
-
+Luckily, `pytest` works well with The Python Standard Library `unittest`. This made the migration of previous unit tests using `unittest` over to `pytest` quite simple. The caveat is that our current unit tests employ elements of both libraries. A full transition to `pytest` will ideally take place at a future date.
 
 ## Testing for failing conditions
 - Over time, you want to start adding functions that specifically look for fail conditions. This is a key part of unit test systems. It is not uncommon to have many dozens of tests functions in one unit test file. Each "fail" type test, must check for ONLY one variable value change. A "fail" test function should not fundamentally pass in an invalid huc AND an invalid file path.  Those two failing test conditions and must have two seperate unit test functions. 
@@ -123,6 +119,11 @@ fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/con
 - When you create a "fail" test function, you can load up the normal full "params" from the json file, but then you can override (hardcoded) the one (or rarely more than one) variable inside the function. There is a way to "catch" a failure you are expecting, ensure it is the type of failure you expected and make that "failure" to become a true fail, ie) a unit test pass. 
 
 An example is in `unit_tests/gms/Derive_level_paths_test.py` -> `test_Derive_level_paths_invalid_input_stream_network` (function). This example gives you the pattern implemented in Pytest.
+
+## Future Enhancements
+1) Full transition to the `pytest` library, removing classes of `unittest.TestCase` and taking full advantage of available code re-use patterns offered through `pytest`.  
+
+2) Over time, it is expected that python files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each python file which makes unit testing harder and less specific. Generally function will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample .tif or small .gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: The files `/gms/derive_level_paths_test.py` and `clip_vectors_to_wbd_test.py` are not complete as they do not yet test all output from a method.
 
 ## Unit tests currently available
 ```
