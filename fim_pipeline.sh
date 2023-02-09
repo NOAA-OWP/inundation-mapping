@@ -5,7 +5,7 @@ fim_pipeline.sh -u <huc8> -n <name_your_run>
 
 For more details on 
 
-- There are a wide number of options and defaulted values, for details run ```gms_pipeline.sh -h```
+- There are a wide number of options and defaulted values, for details run ```fim_pipeline.sh -h```
 - Manditory arguments:
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited file
     i. To run entire domain of available data use the ```/data/inputs/included_huc8.lst``` file or a huc list file of your choice.
