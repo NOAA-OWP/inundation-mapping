@@ -5,7 +5,6 @@ import argparse
 import csv
 import traceback
 import sys
-sys.path.append("./src")
 import time
 from pathlib import Path
 import geopandas as gpd
@@ -297,6 +296,9 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             
             acceptable_usgs_elev_df = usgs_elev_df[(usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)]
         except Exception as e:
+            # Not sure any of the sites actually have those USGS-related
+            # columns in this particular file, so just assume it's fine to use
+
             #print("(Various columns related to USGS probably not in this csv)")
             acceptable_usgs_elev_df = usgs_elev_df
 
@@ -592,7 +594,10 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     # Filter out columns and write out to file
     nws_sites_layer = os.path.join(workspace, 'nws_lid_sites.gpkg')
+
     # Only write to sites geopackage if it didn't exist yet
+    # (and this line shouldn't have been reached if we had an interrupted
+    # run previously and are picking back up with a restart)
     if not os.path.exists(nws_sites_layer):
         
         # Write messages to DataFrame, split into columns, aggregate messages.
