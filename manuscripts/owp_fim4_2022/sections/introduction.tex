@@ -16,6 +16,7 @@ Increasing trends in frequency and risk are not uniform across spatial regions w
 %
 Operational flood forecasting systems are primary tools in developing accurate forecasts for public awareness prior to life threatening and property damaging events. 
 One of these operational systems is the Advanced Hydrologic Prediction System (AHPS) maintained by the National Oceanic Atmospheric Administration (NOAA) National Weather Service (NWS) with thousands of forecasting points across the US at typically short forecast horizons of 24 or 72 hours \cite{mcenery2005noaa}.
+AHPS utilizes a variety of techniques including distributed modeling \cite{reed2004overall,koren2004hydrology,duan2003global}, ensemble forecasting \cite{day1985extended,seo2000simulation,mullusky2002simplified,herr2002simplified}, hydraulic routing \cite{cajina2002fldview,fread1973technique}, multi-sensor precipitation methods \cite{seo2002real,kondragunta2001outlier,breidenbach1999accounting,bonnin1996noaa}, flood inundation mapping \cite{cajina2002fldview}, and calibration techniques \cite{zhang2003hydrologic,hogue2003multi,duan2003global,gupta2003advances,parada2003multi}.
 AHPS provides forecasting services in the form of ensemble streamflows at more than 3,600 locations and flood inundation maps (FIM) at more than 150 of those points shown in Figure \ref{fig:forecast_points}.
 Additionally, two forecasting networks, Full Resolution (FR) and Mainstems (MS) stream networks, relevant to the National Water Model (NWM) (see Section \ref{ssec:national_water_model}) are rendered in Figure \ref{fig:forecast_points}.
 The FR network refers to the entire NWM forecasting domain while MS refers to the subset of the FR network that is at or downstream of AHPS forecasting points (see Section \ref{ssec:national_water_model}).
@@ -24,7 +25,7 @@ Despite the AHPS advances in operational flood forecasting, it lacks sufficient 
 %
 \begin{figure}[H]
 \centering
-\includegraphics[scale=1.0]{figures/forecast_points.jpg}
+\includegraphics[scale=0.75]{figures/forecast_points.jpg}
 \caption{Forecast points with and without Flood Inundation Maps (FIM) in United States' Advanced Hydrologic Prediction System (AHPS).
 Note that only a small fraction of the AHPS forecast points have existing FIM.
 Also shown are the National Water Model (NWM) stream networks at the Full Resolution (FR) and Mainstems (MS) resolution.
@@ -53,7 +54,7 @@ The term ``hydrofabric'' is used within the NWM jargon to describe the subset of
 The NWM provides stream forecasts at these hydrofabric segments using the Muskingum-Cunge method to reduce computational requirements of a continental scale model but fails to consider backwater dynamics \cite{bedient2008hydrology,ponce1994variable,gochis2021wrf}.
 The need for high resolution FIM at 10 m or better requires additional post-processing from the principal output of the NWM which is forecast river discharges at the reach scale.
 The use of a 2-dimensional (2D) hydrodynamic model across a continental-scale and high spatial resolutions is very cost prohibitive especially in an operational setting.
-The Height Above Nearest Drainage (HAND) terrain model is one such technique that can be used, along with synthetic rating curves (SRC), to convert 1-dimensional (1D) riverine discharges to stages, and finally to inundation extents and depths.
+The Height Above Nearest Drainage (HAND) terrain model is one such technique that can be used, along with synthetic rating curves (SRC), to convert 1-dimensional (1D) riverine discharges to stages, and finally to inundation extents.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Height Above Nearest Drainage}
@@ -63,7 +64,7 @@ HAND normalizes topography along the nearest drainage path and it has been demon
 \citeA{nobre2016hand} showed evidence for utilizing the drainage normalizing HAND dataset as a proxy for flood potential to make static flood inundation maps from known stages.
 The terrain index also provides additional utility in the observation of riverine flood inundation mapping from remote sensing especially in areas of high electromagnetic interference such as vegetated and anthropogenic areas \cite{aristizabal2020high,shastry2019using,huang2017comparison,twele2016sentinel,aristizabal2021mapping}.
 \citeA{zheng2018river} developed a methodology for determining stage-discharge relationships known as SRCs by sampling reach-averaged parameters from HAND datasets and inputting into the Manning's equation \cite{gauckler1867etudes,manning1890flow}.
-This collection of methods, coupling HAND with SRCs, have been experimented with and compared to other sources of FIM including engineering scale models, in-situ observation, and remote sensing based observation with solid results in large spatial scale applications \cite{godbout2019error,johnson2019integrated,garousi2019terrain,nobre2016hand,afshari2018comparison,zheng2018geoflood,teng2015rapid,teng2017flood,zhang2018comparative}.
+This collection of methods, coupling HAND with SRCs, have been experimented with and compared to other sources of FIM including engineering scale models, in-situ observation, and remote sensing based observation with solid results in large spatial scale applications \cite{godbout2019error,johnson2019integrated,garousi2019terrain,nobre2016hand,afshari2018comparison,zheng2018geoflood,teng2015rapid,teng2017flood,zhang2018comparative,hocini2020performance}.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{HAND's Assumptions and Limitations}
@@ -72,7 +73,7 @@ This collection of methods, coupling HAND with SRCs, have been experimented with
 %
 HAND operates on many underlying assumptions since it can only be used as an inundation proxy or no physics model and thus, not a true hydrodynamic inundation model \cite{nobre2016hand,liu2016cybergis,liu2020height}.
 HAND, to our knowledge, has only been applied to natural, inland, and riverine inundation applications thus it is also missing pluvial, coastal, ground water, and dam break components among other possible sources of flooding.
-Additionally, in order to flood an area, HAND assumes all areas eligible for inundation must drain to some nearest stream line which is used for catchment allocation and relative elevation calculation \cite{nobre2016hand,nobre2011height,liu2016cybergis,liu2020height,maidment2017conceptual,garousi2019terrain,zheng2018river,zheng2018geoflood,johnson2019integrated,renno2008hand}.
+Additionally, in order to flood an area, HAND assumes all areas eligible for inundation must drain to some nearest stream line which is used for catchment allocation and relative elevation calculation \cite{nobre2016hand,nobre2011height,liu2016cybergis,liu2020height,maidment2017conceptual,garousi2019terrain,zheng2018river,zheng2018geoflood,johnson2019integrated,renno2008hand,hocini2020performance}. 
 Stream thalweg networks must also collectively drain to a singular outlet point for a given processing region \cite{nobre2016hand,zheng2018geoflood,renno2008hand}.
 Since elevations don't naturally do this, they must undergo a long series of hydro-conditioning processes to enforce monotonically decreasing elevations across an entire processing unit along with hydrologically correct directions of flow \cite{nobre2016hand,nobre2011height,liu2016cybergis,liu2020height,donchyts2016global,renno2008hand}.
 The level of digital elevation map (DEM) manipulation required to enforce this assumption can be substantial depending on the region and can be a significant source of error.
@@ -105,14 +106,47 @@ In addition to the domestic work done in the US, some studies have expanded upon
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Office of Water Prediction Flood Inundation Mapping}
+\label{ssec:owp_fim}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-In order to mitigate the ever increasing threat of flooding to life and property, an operational capability is required to extend NWM streamflow forecasts to river stages, inundation extents, and inundation depths.
+In order to mitigate the ever increasing threat of flooding to life and property, an operational capability is required to extend NWM streamflow forecasts to river stages and inundation extents.
 OWP FIM is introduced here as a continental scale capability that generates these products at high spatial and temporal resolutions.
 Here we introduce OWP FIM that utilizes a few of the latest techniques in HAND based FIM oriented for use with the NWM in continental scale operational forecasting settings. 
 Within the operational framework of OWP FIM, we introduce research demonstrating how FIM performance skill with HAND can be improved by discretizing stream networks into units of an effective unit Horton-Strahler stream order \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} for HAND computation contexts.
+
 Previous authors dating back to the first HAND for FIM work by \citeA{nobre2016hand} have noted a sensitivity of mapping skill to the stream accumulation threshold which is closely related to stream density and the maximum Horton-Strahler stream order (or simply stream order) of the processing unit employed \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation}.
-Here we demonstrate how reducing a HAND processing unit's stream network into discrete level paths (LPs) of singular, effective stream order, can enhance FIM skill by accounting for multiple possible sources of fluvial inundation.
-This capability is introduced progressively as MS (whose network represents about 4\% of FR network) and to a higher degree Generalized Mainstems (GMS) (covers entire FR network) which will be explained later on.
+HAND produced FIMs are limited in only providing inundation sourced from the nearest drainage line, however, depending on flow conditions and topography, a given area may have multiple contributing fluvial sources of surface water inundation.
+The forecasting community, in reviewing HAND, have noted significant negative effects at the confluence of lower flow tributaries with higher flow rivers for which the phrase ``catchment boundary issue'' has been termed.
+In previous studies, FIM skill has been shown to be sensitive to the drainage density of the stream network employed as the datum for HAND which is closely related to the maximum Horton-Strahler stream order of the network \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
+This sensitivity is partly in due to the limitation that catchment boundaries place on inundation extents where only the nearest drainage line can source inundation for any particular area.
+
+Figure \ref{fig:catchment_boundaries_issue} illustrates the exact situation our solution proposes to address where two tributaries converge with a higher order stream segment. 
+An actual map with OWP FIM is generated using the NWM full-resolution stream network and compared with a FEMA 100 yr extent (see Section \ref{ssec:evaluation} for more details) showing significant under-prediction in inundation extent.
+The higher discharge along the main segment in Figure \ref{fig:catchment_boundaries_issue} of 1,900 cubic meters per second (CMS) does not translate to the lower flow rates along the tributaries of 84 and 195 CMS. 
+This is due to a lack of representation of backwater conditions in the hydraulic routing techniques used.
+As a parallel problem, there is excess water accumulated along the mainstem that cannot extend in either a fluvial or pluvial manner beyond the boundaries of the mainstem catchments.
+%
+\begin{figure}[H]
+\centering
+\includegraphics[scale=1.0]{figures/catchment_boundaries_issue.jpg}
+\caption{The figure represents an agreement map between a HAND derived FIM and one produced from the Base Level Engineering (BLE) program for a 100 yr magnitude event at HUC8 12090301.
+Agreement maps are symbolized by false negatives (FN), true negatives (TN), false positives (FP), and true positives (TP) where inundated represents the positive condition (see Section \ref{ssec:evaluation} for more details).
+The streamflows associated with each river segment are shown in CMS while the flow directions are symbolized as red arrows.
+The presence of FNs at the confluence of tributaries (circled in red) with the main segment is associated with lower flow rates in the tributaries that don't account for backwater effects.
+Additionally, the flow of 1900 CMS from the main segment cannot extend to the neighboring catchments belonging to its tributaries shown here.
+Water pools up vertically along the catchment boundaries of the higher order segment distorting rating curve behavior (Section \ref{sec:discussion}).
+Sourcing fluvial inundation from HAND is limited to only its nearest drainage line which is the main issue this study aims to address.
+}
+\label{fig:catchment_boundaries_issue}
+\end{figure}
+%
+
+We seek to resolve this catchment boundary problem or nearest drainage limitation by discretizing the target stream network into stream networks of reduced, unit stream order to avoid the constraining of catchments by those belonging to lower order neighbors.
+By discretizing the network into stream networks of unit stream order (later defined as level paths or LPs), we remove the influence of neighboring catchments that constrain the inundation extent.
+This creates much larger and overlapping catchments that can source fluvial inundation from multiple reaches as required by the given river stage at current flow conditions.
+We present two successive methods, National Weather Service MS (Section \ref{sssec:nws_mainstems}) and Generalized Mainstems (GMS) (Section \ref{sssec:generalized_mainstems}), implemented that reduce the effective Horton-Strahler stream orders of the networks employed and test our presented hypothesis that stream networks of unit stream order enhance quality of FIM extents produced with HAND by expanding the nearest drainage definition to increase potential inundated areas.
+
+Here we demonstrate how reducing a HAND processing unit's stream network into discrete LPs of singular, effective stream order, can enhance FIM skill by accounting for multiple possible sources of fluvial inundation.
+This capability is introduced progressively as MS (whose network represents about 4\% of FR network) and to a higher degree GMS (covers entire FR network) which will be explained later on.
 The following methods and results describe the work in more detail and demonstrate its efficacy in producing enhanced FIM for the NWM.
 %

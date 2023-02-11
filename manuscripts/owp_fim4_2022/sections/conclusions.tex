@@ -5,17 +5,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-Floods present a significant, under-served, and expanding risk to life, property, and resources.
-Previous flood forecasting systems lacked the coverage to adequately inform society of these risks.
-The National Water Model (NWM), developed by the National Oceanic and Atmospheric Administration's (NOAA) Office of Water Prediction (OWP) and the National Center for Atmospheric Research (NCAR), provides increased spatial coverage and resolution as well as additional forecast time horizons on mostly hourly intervals.
-Additional modeling is required to convert streamflows from the NWM to river stages and finally to flood inundation maps (FIM).
-Height Above Nearest Drainage (HAND) is a means of detrending digital elevations maps (DEM) by normalizing elevation to the nearest relevant drainage point.
-HAND coupled with the use of reach averaged synthetic rating curves (SRC) provide such a means of creating continental scale FIM capabilities at high resolutions (1/3 arc-second, 10 m) and high temporal frequencies (up to 1 hr).
-Scalable, open-source software, known as OWP FIM, was developed to produce HAND and associated datasets (catchments, SRCs, and cross-walking data) for the NWM forecasting area including Hawaii and Puerto Rico \cite{inundationMapping2022}.
-HAND is produced using the latest hydro-conditioning techniques to enforce monotonically decreasing elevations including stream burning, levee enforcement, pit-filling, stream channel excavation, thalweg breaching, headwater seeding, stream reach resampling, and more. 
-Finally, we used this implementation to investigate the skill of the FIMs by varying the scale of the processing units used to derive HAND.
-FIM skill was evaluated over large spatial scales by comparison to HEC-RAS 1D models.
-
 The main contribution and conclusion of this work centers around a fundamental limitation in HAND based FIM which is a failure to account for multiple possible sources of fluvial inundation since HAND only considers inundation from the nearest drainage line.
 We illustrate that reducing the Horton-Strahler stream order of a HAND processing unit down to one enhances skill by significantly reducing false negatives at junctions of major streams.
 In order to reduce stream order of the NWM stream network for HAND computation, we dissected the NWM network into two simpler units of singular Horton-Strahler stream order and mosaiced the resulting FIMs derived from each.

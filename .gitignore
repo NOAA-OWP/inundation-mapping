@@ -20,4 +20,5 @@ manuscripts/**/prev
 .vscode/
 **/.DS_Store
 **/*_pytest.py
-manuscripts/**/responses.pdf
+manuscripts/**/reviews/responses_*.pdf
+*.code-workspace
