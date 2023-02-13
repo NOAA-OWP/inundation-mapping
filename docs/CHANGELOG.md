@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.0.(pending) - 2023-01-30 - [PR#806](https://github.com/NOAA-OWP/inundation-mapping/pull/806)
+## v4.1.0.0 - 2023-01-30 - [PR#806](https://github.com/NOAA-OWP/inundation-mapping/pull/806)
 
 As we move to Amazon Web Service, AWS, we need to change our processing system. Currently, it is `gms_pipeline.sh` using bash "parallel" as an iterator which then first processes all HUCs, but not their branches. One of `gms_pipeline.sh`'s next steps is to do branch processing which is again iterated via "parallel". AKA. Units processed as one step, branches processed as second independent step.
 
