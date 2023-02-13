@@ -36,9 +36,10 @@ aws s3 ls s3://noaa-nws-owp-fim/ --request-payer requester
 
 Download a directory of outputs for a HUC8:
 ```
-aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/fim_3_0_34_1/outputs/fr/12090301 12090301 --request-payer requester
+aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_0_18_02/12090301 /your_local_folder_name/12090301 --request-payer requester
 ```
-**Note**: There may be newer editions than fim_3_0_34_1, and it is recommended to adjust the command above for the latest version.
+By adjusting pathing, you can also download entire directories such as the fim_4_0_18_0 folder.
+**Note**: There may be newer editions than fim_4_0_18_0, and it is recommended to adjust the command above for the latest version.
 
 
 ## Running the Code
@@ -60,25 +61,25 @@ Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP 
 This software is configurable via parameters found in the `config` directory. Copy files before editing and remove "template" pattern from the filename.
 Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
 - `params_template.env`
-- `mannings_default.json`
-    - must change filepath in `params_template.env` in `manning_n` variable name
 
 This system has an optional tool called the `calibration database tool`. In order to use this system, you will need to install the calibration database service or disable it in the `params_template.env` file. See [calibration tool README](https://github.com/NOAA-OWP/inundation-mapping/blob/dev/tools/calibration-db/README.md) for more details.
 
 ### Produce HAND Hydrofabric
 ```
-gms_pipeline.sh -u <huc8> -n <name_your_run>
+fim_pipeline.sh -u <huc8> -n <name_your_run>
 ```
-- There are a wide number of options and defaulted values, for details run ```gms_pipeline.sh -h```
+- There are a wide number of options and defaulted values, for details run ```fim_pipeline.sh -h```.
 - Manditory arguments:
-    - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited file
-    i. To run entire domain of available data use one of the ```/data/inputs/included_huc[4,6,8].lst``` files or a huc list file of your choice.
+    - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited (.lst) file. To run the entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a HUC list file of your choice.  Depending on the performance of your server, especially the number of CPU cores, running the full domain can take multiple days.
     - `-n` is a name of your run (only alphanumeric)
-- Outputs can be found under ```/data/outputs/<name_your_run>```
+- Outputs can be found under ```/data/outputs/<name_your_run>```.
 
-Processing of HUC's in FIM4 (GMS) comes in two pieces: gms_run_unit and gms_run_branch. `gms_pipeline.sh` above takes care of both steps however, you can run each part seperately for faster development if you like.
+Processing of HUC's in FIM4 comes in three pieces. You can run `fim_pipeline.sh` which automatically runs all of three major section, but you can run each of the sections independently if you like. The three sections are:
+- `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 
+- `fim_process_unit_wb.sh` : This script processes one and exactly one HUC8 plus all of it's related branches. While it can only process one, you can run this script multiple times, each with different HUC (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates when more than one HUC number has been supplied either by command line arguments or via a HUC list. For each HUC provided, `fim_pipeline.sh` will `fim_process_unit_wb.sh`. Using the `fim_process_unit_wb.sh`  script allows for a run / rerun of a HUC, or running other HUCs at different times / days or even different docker containers.
+- `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the group in sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, running or re-running this script can only be done after running `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
 
-If you choose to do the two step hydrofabric creation, then run `gms_run_unit.sh`, then `gms_run_branch.sh`. See each of those files for details on arguments.
+Running the `fim_pipeline.sh` is a quicker process than running all three steps independently.
 
 ### Testing in Other HUCs
 To test in HUCs other than the provided HUCs, the following processes can be followed to acquire and preprocess additional NHDPlus rasters and vectors. After these steps are run, the "Produce HAND Hydrofabric" step can be run for the new HUCs.
@@ -86,6 +87,8 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 ```
 /foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
 ```
+    Note: This tool is deprecated, updates will be coming soon.
+
 - `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
 - Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
 - See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
@@ -94,10 +97,11 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 ```
 /foss_fim/src/preprocess_rasters.py
 ```
+    Note: This tool is deprecated, updates will be coming soon.
 
 ----
 ### Evaluating Inundation Map Performance
-After `gms_pipeline.sh` completes, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
+After `fim_pipeline.sh` completes, or combinations of the three major steps described above, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
 
 To evaluate model skill, run the following:
 ```

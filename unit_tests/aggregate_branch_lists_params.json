@@ -1,0 +1,8 @@
+{
+	"valid_data":
+	{
+		"output_dir": "/outputs/rob_wb_3/",
+		"file_name": "branch_ids.csv",
+		"output_file_name": "/outputs/rob_wb_3/test.csv"
+	}
+}
