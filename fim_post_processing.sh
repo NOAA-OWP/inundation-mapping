@@ -149,7 +149,6 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
             CALIBRATION_DB_HOST=$(curl http://169.254.169.254/latest/meta-data/local-ipv4 -s)
         fi
 
-
         export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
         export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
         export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
