@@ -23,23 +23,19 @@ outputBranchDataDir=$outputHucDataDir/branches
 outputCurrentBranchDataDir=$outputBranchDataDir/$current_branch_id
 
 ## OVERWRITE
-if [ -d "$outputCurrentBranchDataDir" ];then
-    if [ $overwrite -eq 1 ]; then
-        rm -rf $outputCurrentBranchDataDir
-    else
-        echo "GMS branch data directories for $hucNumber - $current_branch_id already exist. Use -o/--overwrite to continue"
-        exit 1
-    fi
+if [ -d "$outputCurrentBranchDataDir" ]; then
+    rm -rf $outputCurrentBranchDataDir
 fi
 
 ## MAKE OUTPUT BRANCH DIRECTORY
 mkdir -p $outputCurrentBranchDataDir
 
 ## START MESSAGE ##
-echo -e $startDiv"Processing branch_id: $current_branch_id in HUC: $hucNumber ..."$stopDiv
+echo -e $startDiv"Processing HUC: $hucNumber - branch_id: $current_branch_id"
+echo
 
 ## SUBSET VECTORS
-echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"$stopDiv
+echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"
 date -u
 Tstart
 echo -e "Querying NWM streams ..."
@@ -53,28 +49,28 @@ ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="
 Tcount
 
 ## GET RASTERS FROM BRANCH ZERO AND CLIP TO CURRENT BRANCH BUFFER ##
-echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"$stopDiv
+echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 date -u
 Tstart
 $srcDir/gms/clip_rasters_to_branches.py -d $current_branch_id -b $outputHucDataDir/branch_polygons.gpkg -i $branch_id_attribute -r $outputBranchDataDir/$branch_zero_id/dem_meters_$branch_zero_id.tif $outputBranchDataDir/$branch_zero_id/flowdir_d8_burned_filled_$branch_zero_id.tif -c $outputCurrentBranchDataDir/dem_meters.tif $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -v
 Tcount
 
 ## GET RASTER METADATA
-echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"$stopDiv
+echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"
 date -u
 Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
-echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"$stopDiv
+echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
 date -u
 Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg $outputCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
 Tcount
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
-echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"$stopDiv
+echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
 date -u
 Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $outputCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg $outputCurrentBranchDataDir/headwaters_$current_branch_id.tif
@@ -96,7 +92,7 @@ $srcDir/gms/delineate_hydros_and_produce_HAND.sh "branch"
 
 ## USGS CROSSWALK ##
 if [ -f $outputHucDataDir/usgs_subset_gages.gpkg ]; then
-    echo -e $startDiv"USGS Crosswalk $hucNumber $current_branch_id"$stopDiv
+    echo -e $startDiv"USGS Crosswalk $hucNumber $current_branch_id"
     date -u
     Tstart
     python3 $srcDir/usgs_gage_crosswalk.py -gages $outputHucDataDir/usgs_subset_gages.gpkg -flows $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -cat $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -dem_adj $outputCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -outtable $outputCurrentBranchDataDir/usgs_elev_table.csv -b $current_branch_id
@@ -105,12 +101,12 @@ fi
 
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_branches_list ]; then
-    echo -e $startDiv"Remove files $hucNumber $current_branch_id"$stopDiv
+    echo -e $startDiv"Remove files $hucNumber $current_branch_id"
     date -u
     Tstart
     $srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branches_list -b $current_branch_id
     Tcount
 fi
 
-echo -e $startDiv"End Processing $hucNumber $current_branch_id ..."
+echo -e $startDiv"End Branch Processing $hucNumber $current_branch_id ..."
 echo

@@ -1,0 +1,20 @@
+{
+	"valid_data_add_branch_zero":
+	{
+		"huc_id": "05030104",
+		"branch_id": "0",
+		"output_branch_csv": "/outputs/rob_wb_3/05030104/branch_ids.csv"
+	},
+	"valid_data_add_branch":
+	{
+		"huc_id": "05030104",
+		"branch_id": "1946000003",
+		"output_branch_csv": "/outputs/rob_wb_3/05030104/branch_ids.csv"
+	},	
+	"invalid_bad_file_extension":
+	{
+		"huc_id": "05030104",
+		"branch_id": "1946000003",
+		"output_branch_csv": "/outputs/rob_wb_3/05030104/branch_ids2"
+	}	
+}
