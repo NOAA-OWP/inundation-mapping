@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.1.1.0 - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
+## v4.1(pending) - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
 
 Incorporating the `pytest` package will significantly reduce complexity of existing unit tests, and remove boilerplate code which was necessary with The Python Standard Library `unittest` for our unit tests.  The creation of unit tests is significantly easier using `pytest`, which should aid in the addition of new tests, as well as shorten development time to increase the capabilities of existing tests.   The addition of the `pytest` package streamlines the code in our unit test cases, and expedites the process of running them.  Running the `pytest` command line executable from the `/unit_tests`  directory will automatically run all of our unit tests, absolving the necessity to write a script which runs all of the unit tests. All of the parameters in the `/unit_tests/*_params.json` files point to valid paths on the NWC `fim-dev1` machine, which enables reproducibility of the unit tests.
 
@@ -54,6 +54,9 @@ All of the files listed in the above section were refactored to follow the `pyte
 - `/`
   - Pipfile
   - Pipfile.lock
+
+- `/config`
+  - params_template.env - leading slash added to paths
  
 
 ### Testing
