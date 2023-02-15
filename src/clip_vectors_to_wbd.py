@@ -33,16 +33,19 @@ def subset_vector_layers(subset_nwm_lakes,
         
     hucUnitLength = len(str(hucCode))
 
+    print("Getting Cell Size", flush=True)
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
 
     # Erase area outside 3DEP domain
+    print("Erase area outside 3DEP domain", flush=True)
     wbd = gpd.read_file(wbd_filename)
     dem_domain = gpd.read_file(dem_domain)
     wbd = gpd.clip(wbd, dem_domain)
     wbd.to_file(wbd_filename, layer='WBDHU8', crs=DEFAULT_FIM_PROJECTION_CRS)
 
     # Get wbd buffer
+    print("Create wbd buffer", flush=True)
     wbd_buffer = wbd.copy()
     wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
     wbd_buffer = gpd.clip(wbd_buffer, dem_domain)
@@ -58,6 +61,7 @@ def subset_vector_layers(subset_nwm_lakes,
     # Clip ocean water polygon for future masking ocean areas (where applicable)
     landsea = gpd.read_file(landsea, mask=wbd_buffer)
     if not landsea.empty:
+        print("Create landsea gpkg", flush=True)
         landsea.to_file(subset_landsea, driver = getDriver(subset_landsea), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
     del landsea
 
@@ -70,7 +74,7 @@ def subset_vector_layers(subset_nwm_lakes,
     del levee_protected_areas
 
     # Find intersecting lakes and writeout
-    print("Subsetting NWM Lakes for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    print("Subsetting NWM Lakes", flush=True)
     nwm_lakes = gpd.read_file(nwm_lakes, mask = wbd_buffer)
     nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
@@ -85,14 +89,14 @@ def subset_vector_layers(subset_nwm_lakes,
     del nwm_lakes
 
     # Find intersecting levee lines
-    print("Subsetting NLD levee lines for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    print("Subsetting NLD levee lines", flush=True)
     nld_lines = gpd.read_file(nld_lines, mask = wbd_buffer)
     if not nld_lines.empty:
         nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
     del nld_lines
 
     # Subset NWM headwaters
-    print("Subsetting NWM Headwater Points for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    print("Subsetting NWM Headwater Points", flush=True)
     nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer)
 
     if len(nwm_headwaters) > 0:
@@ -103,7 +107,7 @@ def subset_vector_layers(subset_nwm_lakes,
     del nwm_headwaters
 
     # Find intersecting nwm_catchments
-    print("Subsetting NWM Catchments for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    print("Subsetting NWM Catchments", flush=True)
     nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer)
 
     if len(nwm_catchments) > 0:
@@ -114,7 +118,7 @@ def subset_vector_layers(subset_nwm_lakes,
     del nwm_catchments
 
     # Subset nwm streams
-    print("Subsetting NWM Streams for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    print("Subsetting NWM Streams", flush=True)
 
     nwm_streams = gpd.read_file(nwm_streams, mask = wbd)
 

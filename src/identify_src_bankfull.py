@@ -190,7 +190,7 @@ def run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,verbose,src_plot_opti
     procs_list = []
 
     ## Print message to user and initiate run clock
-    print('Writing progress to log file here: ' + str(join(fim_dir,'bankfull_detect.log')))
+    print('Writing progress to log file here: /logs/log_bankfull_indentify.log')
     print('This may take a few minutes...')
 
     ## Check that the input fim_dir exists

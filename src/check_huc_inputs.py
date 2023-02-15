@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-from logging import exception
+
 import os
 import argparse
-from glob import glob
 import string
+import pathlib
+from glob import glob
+from logging import exception
 
 def __read_included_files(parent_dir_path):
 
@@ -25,6 +27,12 @@ def __read_input_hucs(hucs):
 
     huc_list = set()
     if os.path.isfile(hucs[0]):
+        
+        source_file_extension = pathlib.Path(hucs[0]).suffix   
+       
+        if (source_file_extension.lower() != ".lst" ):
+            raise Exception("Incoming file must be in .lst format if submitting a file name and path.")
+        
         with open(hucs[0],'r') as hucs_file:
             file_lines = hucs_file.readlines()
             f_list = [__clean_huc_value(fl) for fl in file_lines]
