@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 import json
 import unittest
 
@@ -21,8 +20,8 @@ class test_rating_curve_comparison(unittest.TestCase):
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
-
 # Test Cases
+
     def test_generate_rating_curve_metrics_01010004_success(self):
 
         '''

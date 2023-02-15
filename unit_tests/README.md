@@ -137,5 +137,11 @@ pytest /foss_fim/unit_tests/filter_catchments_and_add_attributes_test.py
 pytest /foss_fim/unit_tests/rating_curve_comparison_test.py  
 pytest /foss_fim/unit_tests/shared_functions_test.py  
 pytest /foss_fim/unit_tests/split_flows_test.py  
-pytest /foss_fim/unit_tests/usgs_gage_crosswalk_test.py  
+pytest /foss_fim/unit_tests/usgs_gage_crosswalk_test.py
+pytest /foss_fim/unit_tests/aggregate_branch_lists_params.json
+pytest /foss_fim/unit_tests/aggregate_branch_lists_test.py
+pytest /foss_fim/unit_tests/generate_branch_list_csv_params.json
+pytest /foss_fim/unit_tests/generate_branch_list_csv_test.py
+pytest /foss_fim/unit_tests/generate_branch_list_params.json
+pytest /foss_fim/unit_tests/generate_branch_list_test.py
 ```

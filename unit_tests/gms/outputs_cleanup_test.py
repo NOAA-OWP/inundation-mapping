@@ -12,7 +12,7 @@ import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 from utils.shared_functions import FIM_Helpers as fh
 
-# importing python folders in other directories
+
 sys.path.append('/foss_fim/src/gms') 
 import outputs_cleanup as src
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-
 import json
 import unittest
 import pytest
@@ -10,8 +9,6 @@ from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 import <Your original source python file name> as src
 
-# NOTE: This goes directly to the function.
-# Ultimately, it should emulate going through command line (not import -> direct function call)
 class test_<Your original source python file name>(unittest.TestCase):
 
     '''
@@ -24,6 +21,7 @@ class test_<Your original source python file name>(unittest.TestCase):
         with open(params_file_path) as params_file:
             self.params = json.load(params_file)
 
+# Test Cases:
 
     # MUST start with the name of "test_"
     # This is the (or one of the) valid test expected to pass
@@ -42,33 +40,31 @@ class test_<Your original source python file name>(unittest.TestCase):
         #global params_file
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
         
-       
         # for now we are happy if no exceptions are thrown.
         
-        #  See the readme.md, clip_vectors_to_wbd_test.py or gms/derive_level_paths_test.py  for examples.
+        # See the readme.md, clip_vectors_to_wbd_test.py or gms/derive_level_paths_test.py for examples.
         # Replace this stub example with your own.
         # Try to use the same order to make it easier.
         # Remember, if the method accepts **params, then you can sent that in here as well.
-        #   ie: my_py_class.my_method(** params)
+        # ie: my_py_class.my_method(** params)
         
         src.subset_vector_layers(hucCode = params["hucCode"],
                                  nwm_streams_filename = params["nwm_streams"],
                                  etc, etc for each param)
        
-        # This is what we are actually testing
-        # An assert that evaluates as True passes, one that evaluates to False fails
-        # A message (string) can be added after the assert statement to show more detail on the case being tested
+        # This is what we are actually testing-
+        # An assert that evaluates as True passes, one that evaluates to False fails.
+        # A message (string) can be added after the assert statement to provide detail on the case being tested, and
+        # why it failed.
         assert os.path.exists(params["nwm_streams"]) == True, "The nwm_streams file does not exist"
-
     
     
-    # EXAMPLE SUCCESSFUL FAIL    
+    # EXAMPLE SUCCESSFUL TEST CASE WHICH CAPTURES AN EXCEPTION (FAILURE)   
     
     def test_subset_vector_layers_fail_invalid_stream_path(self):
         '''
         Notes about what the test is and the expected results (or expected exception if applicable)
         '''
-        #global params_file
 
         params = self.params["valid_data"].copy()  #update "valid_data" value if you need to (aka.. more than one node)
 
@@ -78,7 +74,4 @@ class test_<Your original source python file name>(unittest.TestCase):
             clip_vectors_to_wbd.subset_vector_layers(hucCode = params["hucCode"],
                                                      nwm_streams_filename = params["nwm_streams"],
                                                      etc, etc for each param)
-      
-       
 
-    
