@@ -2,6 +2,28 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.1.x.x - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
+
+Replaces GRASS with Whitebox. This addresses several issues, including Windows permissions and GRASS projection issues. Whitebox also has a slight performance benefit over GRASS.
+
+### Removals
+
+- `src/r_grow_distance.py`: Deletes file
+
+### Changes
+
+- `Dockerfile`: Removes GRASS
+- `Pipfile` and `Pipfile.lock`: Adds Whitebox and removes GRASS
+- `src/`
+    - `agreedem.py`: Removes `r_grow_distance`; refactors to use with context and removes redundant raster reads.
+    - `adjust_lateral_thalweg.py` and `agreedem.py`: Refactors to use `with` context and removes redundant raster reads
+    - `unique_pixel_and_allocation.py`: Replaces GRASS with Whitebox and remove `r_grow_distance`
+    - `gms/`
+        - `delineate_hydros_and_produce_HAND.sh` and `run_by_unit.sh`: Removes GRASS parameter
+        - `mask_dem.py`: Removes unnecessary line
+
+<br/><br/>
+
 ## v4.1.0.0 - 2023-01-30 - [PR#806](https://github.com/NOAA-OWP/inundation-mapping/pull/806)
 
 As we move to Amazon Web Service, AWS, we need to change our processing system. Currently, it is `gms_pipeline.sh` using bash "parallel" as an iterator which then first processes all HUCs, but not their branches. One of `gms_pipeline.sh`'s next steps is to do branch processing which is again iterated via "parallel". AKA. Units processed as one step, branches processed as second independent step.
