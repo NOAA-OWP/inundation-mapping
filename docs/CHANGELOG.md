@@ -1,71 +1,60 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.1(pending) - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
+## v4.1.x.x - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
 
-Incorporating the `pytest` package will significantly reduce complexity of existing unit tests, and remove boilerplate code which was necessary with The Python Standard Library `unittest` for our unit tests.  The creation of unit tests is significantly easier using `pytest`, which should aid in the addition of new tests, as well as shorten development time to increase the capabilities of existing tests.   The addition of the `pytest` package streamlines the code in our unit test cases, and expedites the process of running them.  Running the `pytest` command line executable from the `/unit_tests`  directory will automatically run all of our unit tests, absolving the necessity to write a script which runs all of the unit tests. All of the parameters in the `/unit_tests/*_params.json` files point to valid paths on the NWC `fim-dev1` machine, which enables reproducibility of the unit tests.
+Add `pytest` package and refactor existing unit tests. Update parameters to unit tests (`/unit_tests/*_params.json`) to valid paths. Add leading slash to paths in `/config/params_template.env`.
 
 ### Additions
 
-The following files have been added to incorporate the use of the `pytest` command line executable. Additional description of their use can be found in the `/unit_tests/README.md` . The two `__init__.py` files need to exist in each subdirectory of `/unit_tests` in order for the `pytest` command to automatically pick up the `_test.py` files in those subdirectories, and incorporate them into the test suite. For our purposes, the `pyproject.toml` file specifies which warnings to filter out (not give a test failure on a warning); additional project configurations can be added to this file in the future.   
+- `/unit_tests`
+  - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
+  - `pyproject.toml`  - used to specify which warnings are excluded/filtered.
+  - `/gms`  
+    - `__init__.py` - needed for `pytest` command line executable to pick up tests.
+  - `/tools`
+    - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
+    - `inundate_gms_params.json` - file moved up into this directory
+    - `inundate_gms_test.py`     - file moved up into this directory
+    - `inundation_params.json`   - file moved up into this directory
+    - `inundation_test.py`       - file moved up into this directory
 
-```
-unit_tests/gms/__init__.py
-unit_tests/pyproject.toml
-unit_tests/tools/__init__.py
-```
-### Renamed/Removed
+### Removals
 
-No files were technically removed. All `_unittests.py` suffixed files were either removed and re-added, or changed names to use the `_test.py` suffix.  All of these files underwent a significant refactor to be compatible with `pytest`.
-
-- `/unit_tests/gms`  
-  - derive_level_paths_test.py  
-  - output_cleanup_test.py  
-
-- `/unit_tests/tools` ( `/unit_tests/tools/gms_tools` directory removed, and files moved up into `/unit_tests/tools`)    
-  - inundate_unittests.py -> inundation_test.py  
-  - inundate_gms_test.py  
-  
-- `/unit_tests/`  
-  - __template_unittests.py -> __template.py (exclude the `_test` suffix to remove from test suite.)
-  - check_unit_errors_test.py
-  - clip_vectors_to_wbd_test.py
-  - filter_catchments_and_add_attributes_test.py 
-  - rating_curve_comparison_test.py
-  - shared_functions_test.py
-  - split_flow_test.py
-  - usgs_gage_crosswalk_test.py
-  - aggregate_branch_lists_test.py
-  - generate_branch_list_test.py
-  - generate_branch_list_csv_test.py
-
+- `/unit_tests/tools/gms_tools/` directory removed, and files moved up into `/unit_tests/tools`    
  
 ### Changes
 
-All of the files listed in the above section were refactored to follow the `pytest` paradigm (using `assert` statements). Additional changes include:
-1.) Update the Pipfiles to include pytest as a dependency.
-2.) Refactor all of the `_params.json` parameters to valid paths on the NWC `fim-dev1` machine (`/outputs/fim_unit_test_data_do_not_remove`). 
-3.) The `/unit_tests/README.md` has been updated to provide additional description on how to run the unit tests using `pytest`, with example commands, and options. 
-
-- `/unit_tests/`
-  - *.json
-  - README.md
-  - unit_tests_utils.py
-- `/`
-  - Pipfile
-  - Pipfile.lock
+- `Pipfile` - updated to include pytest as a dependency
+- `Pipfile.lock` - updated to include pytest as a dependency
 
 - `/config`
-  - params_template.env - leading slash added to paths
- 
-
-### Testing
-
-Unit test framework updated. `Pipfile` & `Pipfile.lock` updated.
-
-A run of `gms_pipeline.sh` was successful in a new docker container, built against an updated docker image using the new Pipfiles. A run of `synthesize_test_cases.py` was successful. 
-
-Since merging latest [2f44e73](https://github.com/NOAA-OWP/inundation-mapping/commit/2f44e731047b0cc60b6401b2dde2216b7029e79c), the 3 new unit tests that were refactored to work with `pytest` do in fact work, and `fim_pipeline.sh` was run successfully. 
+  - `params_template.env` - leading slash added to paths
+  
+- `/unit_tests/` - All of the `*_test.py` files were refactored to follow the `pytest` paradigm.  
+  - `*_params.json` - valid paths on `fim-dev1` provided
+  - `README.md`  - updated to include documentation on pytest.  
+  - `unit_tests_utils.py`  
+  - `__template_unittests.py` -> `__template.py` - exclude the `_test` suffix to remove from test suite. Updated example on new format for pytest.
+  - `check_unit_errors_test.py`  
+  - `clip_vectors_to_wbd_test.py`  
+  - `filter_catchments_and_add_attributes_test.py`  
+  - `rating_curve_comparison_test.py`  
+  - `shared_functions_test.py`  
+  - `split_flow_test.py`  
+  - `usgs_gage_crosswalk_test.py`  
+  - `aggregate_branch_lists_test.py`  
+  - `generate_branch_list_test.py`  
+  - `generate_branch_list_csv_test.py`  
+  - `aggregate_branch_lists_test.py`  
+  - `generate_branch_list_csv_test.py`  
+  - `generate_branch_list_test.py`  
+    - `/gms`  
+      - `derive_level_paths_test.py`  
+      - `outputs_cleanup_test.py`
+    - `/tools`
+      - `inundate_unittests.py` -> `inundation_test.py`  
+      - `inundate_gms_test.py`
 
 <br/><br/>
 
