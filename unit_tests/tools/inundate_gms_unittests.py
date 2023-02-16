@@ -11,7 +11,7 @@ import unittest
 sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
-sys.path.append('/foss_fim/tools/gms_tools')
+sys.path.append('/foss_fim/tools')
 import inundate_gms as src
 
 # NOTE: This goes directly to the function.

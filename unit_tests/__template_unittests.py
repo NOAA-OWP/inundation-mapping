@@ -53,7 +53,7 @@ class test_<Your original source python file name>(unittest.TestCase):
        
         # for now we are happy if no exceptions are thrown.
         
-        # < See the readme.md, clip_vectors_to_wbd_unittests.py or gms/derive_level_paths_unittests.py 
+        # < See the readme.md, clip_vectors_to_wbd_unittests.py or derive_level_paths_unittests.py 
         # for examples.>
         # Replace this stub example with your own.
         # Try to use the same order to make it easier.

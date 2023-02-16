@@ -13,7 +13,7 @@ sys.path.append('/foss_fim/unit_tests/')
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # importing python folders in other direcories
-sys.path.append('/foss_fim/src/gms/')
+sys.path.append('/foss_fim/src/')
 import derive_level_paths as src
 import stream_branches
 from utils.fim_enums import FIM_exit_codes as fec
@@ -118,7 +118,7 @@ class test_Derive_level_paths(unittest.TestCase):
                                     reach_id_attribute = params["reach_id_attribute"],
                                     verbose = params["verbose"])
 
-        self.assertEqual(se.exception.code, fec.GMS_UNIT_NO_BRANCHES.value)
+        self.assertEqual(se.exception.code, fec.UNIT_NO_BRANCHES.value)
 
         print(f"Test Success: {inspect.currentframe().f_code.co_name}")
         print("*************************************************************")        

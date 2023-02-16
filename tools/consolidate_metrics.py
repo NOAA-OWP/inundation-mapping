@@ -20,6 +20,15 @@ from tools_shared_functions import csi,far,tpr,mcc
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
+
+########################################################
+'''
+Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
+   a significant review and/or upgrade.
+'''
+
+########################################################
+
 def Consolidate_metrics( benchmarks=['all'],versions=['all'],
                          zones=['total_area'],matching_hucs_only=True,
                          metrics_output_csv=None,
@@ -308,6 +317,14 @@ def parse_eval_metadata(file_names,metadata_field):
 
 
 if __name__ == '__main__':
+
+    ########################################################
+    '''
+    Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
+    a significant review and/or upgrade.
+    '''
+
+    ########################################################
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')

@@ -33,20 +33,20 @@ Start a docker container as you normally would for any development. ie) docker r
 	- ie) docker run --rm -it --name mytest -v /home/abcd/projects/dev/innudation-mapping/:/foss_fim -v /abcd_share/foss_fim/outputs/:/outputs -v /abcs_share/foss_fim/:/data fim_4:dev_20220208_8eba0ee
 
 For unit tests to work, you need to run the following (if not already in place).
-Notice a modified branch "deny_gms_branch_unittests.lst"  (special for unittests)
+Notice a modified branch "deny_branch_unittests.lst"  (special for unittests)
 
 Here are the params and args you need if you need to re-run unit and branch
 
-gms_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 02030201 05030104" -bd /foss_fim/config/deny_gms_branch_unittests.lst -ud None -j 1 -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 02030201 05030104" -bd /foss_fim/config/deny_branch_unittests.lst -ud None -j 1 -o
 
-**NOTICE: the deny file used for gms_run_branch... its a special one for unittests `deny_gms_branch_unittests.lst`.
+**NOTICE: the deny file used for fim_pipeline... its a special one for unittests `deny_branch_unittests.lst`.
 
 If you need to run inundation tests, fun the following:
 
-python3 foss_fim/tools/synthesize_test_cases.py -c DEV -e GMS -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
+python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
 
 If you want to test just one unit test, here is an example:
-At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level_paths_unittests.py  or python ./foss_fim/unit_tests/clip_vectors_to_wbd_unittests.py
+At the root terminal window, run:  python ./foss_fim/unit_tests/derive_level_paths_unittests.py  or python ./foss_fim/unit_tests/clip_vectors_to_wbd_unittests.py
 (replace with your own script and path name)
 
 ## Key Notes for creating new unit tests
@@ -68,7 +68,7 @@ At the root terminal window, run:  python ./foss_fim/unit_tests/gms/derive_level
 
 9) One py file = one "{original py file name}_unittests.py" file.
 
-10) Sometimes you may want to run a full successful "happy path" version through gms_run_by_unit.sh (or similar), to get all of the files you need in place to do your testing. However.. you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the "-d" parameter (denylist). ie) Normally:  gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_gms_unit_default.lst -o, but ours would be 
+10) Sometimes you may want to run a full successful "happy path" version through fim_pipeline.sh (or similar), to get all of the files you need in place to do your testing. However.. you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the "-d" parameter (denylist). ie) Normally:  fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_unit_default.lst -o, but ours would be 
 gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o. 
 
 ## Future Enhancements
@@ -86,14 +86,14 @@ gms_run_unit.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/con
 
 - When you create a "fail" test function, you can load up the normal full "params" from the json file, but then you can override (hardcoded) the one (or rarely more than one) variable inside the function. There is a way to "catch" a failure you are expecting, ensure it is the type of failure you expected and make that "failure" to become a true fail, ie) a unit test pass. 
 
-An example is in unit_tests/gms/Derive_level_paths_unittests.py -> test_Derive_level_paths_invalid_input_stream_network (function). It is incomplete but give you the pattern.
+An example is in unit_tests/Derive_level_paths_unittests.py -> test_Derive_level_paths_invalid_input_stream_network (function). It is incomplete but give you the pattern.
 
 We have almost no "assert"s yet, but most unit test usually have one or more "assert" test. See https://docs.python.org/3/library/unittest.html for more details.
 
 ## Unit tests currently available
-python3 /foss_fim/unit_tests/gms/derive_level_paths_unittests.py
+python3 /foss_fim/unit_tests/derive_level_paths_unittests.py
 python3 /foss_fim/unit_tests/tools/inundate_unittests.py
-python3 /foss_fim/unit_tests/tools/gms_tools/inundate_gms_unittests.py
+python3 /foss_fim/unit_tests/tools/inundate_gms_unittests.py
 python3 /foss_fim/unit_tests/clip_vectors_to_wbd_unittests.py
 python3 /foss_fim/unit_tests/filter_catchments_and_add_attributes_unittests.py
 python3 /foss_fim/unit_tests/rating_curve_comparison_unittests.py

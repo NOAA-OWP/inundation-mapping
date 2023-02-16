@@ -13,7 +13,7 @@ from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # importing python folders in other directories
 sys.path.append('/foss_fim/src/') 
-import gms.outputs_cleanup as src
+import outputs_cleanup as src
 
 # NOTE: This goes directly to the function.
 # Ultimately, it should emulate going through command line (not import -> direct function call)

@@ -11,7 +11,7 @@ if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $outputHucDataDir/LeveeProtec
     echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/gms/mask_dem.py -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif  -s $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -i $current_branch_id -b0 $branch_zero_id
+    python3 -m memory_profiler $srcDir/mask_dem.py -dem $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputCurrentBranchDataDir/dem_meters_$current_branch_id.tif  -s $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -i $current_branch_id -b0 $branch_zero_id
     Tcount
 fi
 
@@ -103,7 +103,7 @@ Tcount
 echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
 date -u
 Tstart
-$srcDir/gms/make_rem.py -d $outputCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputCurrentBranchDataDir/rem_$current_branch_id.tif -t $outputCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
+$srcDir/make_rem.py -d $outputCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif -w $outputCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif -o $outputCurrentBranchDataDir/rem_$current_branch_id.tif -t $outputCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
 Tcount
 
 ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##
@@ -183,5 +183,5 @@ elif [ "$level" = "unit" ]; then
     b_arg=$outputHucDataDir/nwm_subset_streams.gpkg
     z_arg=$outputHucDataDir/nwm_catchments_proj_subset.gpkg
 fi
-python3 -m memory_profiler $srcDir/add_crosswalk.py -d $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -a $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -s $outputCurrentBranchDataDir/src_base_$current_branch_id.csv -l $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -r $outputCurrentBranchDataDir/src_full_crosswalked_$current_branch_id.csv -j $outputCurrentBranchDataDir/src_$current_branch_id.json -x $outputCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv -t $outputCurrentBranchDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $b_arg -y $outputCurrentBranchDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $z_arg -p $extent -k $outputCurrentBranchDataDir/small_segments_$current_branch_id.csv
+python3 -m memory_profiler $srcDir/add_crosswalk.py -d $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -a $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -s $outputCurrentBranchDataDir/src_base_$current_branch_id.csv -l $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -f $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -r $outputCurrentBranchDataDir/src_full_crosswalked_$current_branch_id.csv -j $outputCurrentBranchDataDir/src_$current_branch_id.json -x $outputCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv -t $outputCurrentBranchDataDir/hydroTable_$current_branch_id.csv -w $outputHucDataDir/wbd8_clp.gpkg -b $b_arg -y $outputCurrentBranchDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $z_arg -k $outputCurrentBranchDataDir/small_segments_$current_branch_id.csv
 Tcount

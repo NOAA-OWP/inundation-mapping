@@ -211,7 +211,7 @@ class test_check_unit_errors(unittest.TestCase):
             dummy files.
             A dummy file for non_zero_exit_codes.log will also be created.
         Input:
-            output_folder: the root output folder (ie. /outputs/gms_example_unit_tests/)
+            output_folder: the root output folder (ie. /outputs/check_errors_example_unit_tests/)
             number_of_files: how many dummy files to create
         Returns:
             True if the 'unit_errors' folder did original exist and needs to be renamed back.
@@ -249,7 +249,7 @@ class test_check_unit_errors(unittest.TestCase):
             Note.. it is possible the temp folder does not exist,
             but we don't need to error out on it. Sometimes we got here by a try/catch cleanup
         Input:
-            output_folder: the root output folder (ie. /outputs/gms_example_unit_tests/)
+            output_folder: the root output folder (ie. /outputs/check_errors_example_unit_tests/)
         Returns:
             nothing
         '''
