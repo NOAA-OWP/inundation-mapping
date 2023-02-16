@@ -234,8 +234,7 @@ if __name__ == '__main__':
 
     # Sample usage:
     '''
-     === FOR GMS
-    python /foss_fim/tools/synthesize_test_cases.py -c DEV -v some_runtime_folder_name -jh 3 -ji 25 -m /outputs/some_runtime_folder_name/some_runtime_folder_name_metrics.csv -o
+    python /foss_fim/tools/synthesize_test_cases.py -c DEV -v some_runtime_folder_name -jh 3 -jb 25 -m /outputs/some_runtime_folder_name/some_runtime_folder_name_metrics.csv -o
 
      Notes:
        - fim_input.csv MUST be in the folder suggested.
@@ -244,7 +243,7 @@ if __name__ == '__main__':
        - the -vg param may not be working (will be assessed better on later releases).
        - Find a balance between -jh (number of jobs for hucs) versus -jb (number of jobs for branches)
          on quick tests on a 96 core machine, we tried [1 @ 80], [2 @ 40], and [3 @ 25] (and others).
-       -jb 3 -ji 25 was noticably better. You can likely go more jb cores with better success, just
+       -jb 3 -jb 25 was noticably better. You can likely go more jb cores with better success, just
          experiment.  Start times, End Times and duration are now included.
        - The -m can be any path and any name.
     
