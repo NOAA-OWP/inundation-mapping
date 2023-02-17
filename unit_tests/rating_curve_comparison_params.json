@@ -12,6 +12,7 @@
 			"/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/",
 			"/data/inputs/usgs_gages/catfim_flows_cms.csv",
 			"01010004",
+			false,
 			false
 		],
 		"02020005":
@@ -25,6 +26,7 @@
 			"/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/",
 			"/data/inputs/usgs_gages/catfim_flows_cms.csv",
 			"02020005",
+			false,
 			false
 		],
 		"02030103":
@@ -38,6 +40,7 @@
 			"/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/",
 			"/data/inputs/usgs_gages/catfim_flows_cms.csv",
 			"02030103",
+			false, 
 			false
 		]
 	}
