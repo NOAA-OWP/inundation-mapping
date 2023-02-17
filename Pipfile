@@ -33,7 +33,7 @@ boto3 = "*"
 jupyter = "*"
 jupyterlab = "*"
 ipympl = "*"
-jupyter-core = "~=4.11.2"
+pytest = "*"
 
 [requires]
 python_version = "3.8"
