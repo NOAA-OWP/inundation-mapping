@@ -4,7 +4,7 @@ import os, re, shutil, json, sys
 import pandas as pd
 
 from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, elev_raster_ndv
-# from inundation import inundate
+from inundation import inundate
 from mosaic_inundation import Mosaic_inundation
 from inundate_gms import Inundate_gms
 from tools_shared_functions import compute_contingency_stats_from_rasters
@@ -144,14 +144,16 @@ class test_case(benchmark):
 
         return test_case_list
 
-    def alpha_test(self, calibrated=False,  mask_type='huc', inclusion_area='',
-                inclusion_area_buffer=0, overwrite=True, verbose=False, num_workers_inundate=1):
+    def alpha_test(self, calibrated=False, model='', mask_type='huc', inclusion_area='',
+                inclusion_area_buffer=0, overwrite=True, verbose=False, gms_workers=1):
         '''Compares a FIM directory with benchmark data from a variety of sources.
         
             Parameters
             ----------
             calibrated : bool
                 Whether or not this FIM version is calibrated.
+            model : str
+                MS or FR extent of the model. This value will be written to the eval_metadata.json.
             mask_type : str
                 Mask type to feed into inundation.py.
             inclusion_area : int
@@ -162,7 +164,7 @@ class test_case(benchmark):
                 If True, overwites pre-existing test cases within the test_cases directory.
             verbose : bool
                 If True, prints out all pertinent data.
-            num_workers_branches : int
+            gms_workers : int
                 Number of worker processes assigned to GMS processing.
         '''
         
@@ -176,7 +178,6 @@ class test_case(benchmark):
             self.stats_modes_list = ['total_area']
 
             # Create paths to fim_run outputs for use in inundate()
-            '''
             if model != 'GMS':
                 self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
                 if not os.path.exists(self.rem):
@@ -190,16 +191,15 @@ class test_case(benchmark):
                 else:
                     self.catchment_poly = os.path.join(self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
                 self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
-            '''
-            
+
             # Map necessary inputs for inundate().
             self.hucs, self.hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
 
             if inclusion_area != '':
                 inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
                 self.mask_dict.update({inclusion_area_name: {'path': inclusion_area,
-                                                            'buffer': int(inclusion_area_buffer),
-                                                            'operation': 'include'}})
+                                                        'buffer': int(inclusion_area_buffer),
+                                                        'operation': 'include'}})
                 # Append the concatenated inclusion_area_name and buffer.
                 if inclusion_area_buffer == None:
                     inclusion_area_buffer = 0
@@ -215,14 +215,14 @@ class test_case(benchmark):
             for magnitude in validation_data:
                 for instance in validation_data[magnitude]:      # instance will be the lid for AHPS sites and '' for other sites
                     # For each site, inundate the REM and compute aggreement raster with stats
-                    self._inundate_and_compute(magnitude, instance, verbose=verbose, num_workers_inundate=num_workers_inundate)
+                    self._inundate_and_compute(magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers)
 
                 # Clean up 'total_area' outputs from AHPS sites
                 if self.is_ahps:
                     self.clean_ahps_outputs(os.path.join(self.dir, magnitude))
 
             # Write out evaluation meta-data
-            self.write_metadata(calibrated)
+            self.write_metadata(calibrated, model)
 
         except KeyboardInterrupt:
             print("Program aborted via keyboard interrupt")
@@ -235,10 +235,12 @@ class test_case(benchmark):
                               magnitude, 
                               lid, 
                               compute_only = False, 
+                              model = '',
                               verbose = False,
-                              num_workers_inundate = 1):
+                              gms_workers = 1):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
-           
+           Used by both the alpha_test() and composite() methods.
+
             Parameters
             ----------
             magnitude : str
@@ -281,31 +283,30 @@ class test_case(benchmark):
 
         # Inundate REM
         if not compute_only:             # composite alpha tests don't need to be inundated
-            #if model == 'GMS':
-            fh.vprint("Begin FIM Inundation", verbose)
-            map_file = Inundate_gms( hydrofabric_dir = os.path.dirname(self.fim_dir), 
-                                        forecast = benchmark_flows, 
-                                        num_workers = num_workers_inundate,
-                                        hucs = self.huc,
-                                        inundation_raster = predicted_raster_path,
-                                        inundation_polygon = None,
-                                        depths_raster = None,
-                                        verbose = verbose,
-                                        log_file = None,
-                                        output_fileNames = None )
-            #if (len(map_file) > 0):
-            fh.vprint("Begin FIM Mosaic", verbose)
-            Mosaic_inundation( map_file,
-                                mosaic_attribute = 'inundation_rasters',
-                                mosaic_output = predicted_raster_path,
-                                mask = os.path.join(self.fim_dir,'wbd.gpkg'),
-                                unit_attribute_name = 'huc8',
-                                nodata = elev_raster_ndv,
-                                workers = 1,
-                                remove_inputs = True,
-                                subset = None,
-                                verbose = verbose )
-            '''
+            if model == 'GMS':
+                fh.vprint("Begin FIM4 Inundation", verbose)
+                map_file = Inundate_gms( hydrofabric_dir = os.path.dirname(self.fim_dir), 
+                                         forecast = benchmark_flows, 
+                                         num_workers = gms_workers,
+                                         hucs = self.huc,
+                                         inundation_raster = predicted_raster_path,
+                                         inundation_polygon = None,
+                                         depths_raster = None,
+                                         verbose = verbose,
+                                         log_file = None,
+                                         output_fileNames = None )
+                #if (len(map_file) > 0):
+                fh.vprint("Begin FIM4 Mosaic", verbose)
+                Mosaic_inundation( map_file,
+                                    mosaic_attribute = 'inundation_rasters',
+                                    mosaic_output = predicted_raster_path,
+                                    mask = os.path.join(self.fim_dir,'wbd.gpkg'),
+                                    unit_attribute_name = 'huc8',
+                                    nodata = elev_raster_ndv,
+                                    workers = 1,
+                                    remove_inputs = True,
+                                    subset = None,
+                                    verbose = verbose )
             # FIM v3 and before
             else:
                 fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
@@ -317,8 +318,7 @@ class test_case(benchmark):
                     quiet=True)
                 if inundate_result != 0:
                     return inundate_result
-            '''
-            
+
         # Create contingency rasters and stats
         fh.vprint("Begin creating contingency rasters and stats", verbose)
         if os.path.isfile(predicted_raster_path):
@@ -335,17 +335,15 @@ class test_case(benchmark):
 
 
     @classmethod
-    def run_alpha_test(cls, version, test_id, magnitude, calibrated, archive_results=False, 
-                       mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False,
-                       overwrite=True, verbose=False, num_workers_inundate=1):
-        
+    def run_alpha_test(cls, version, test_id, magnitude, calibrated, model, archive_results=False, 
+                       mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True, verbose=False, gms_workers=1):
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
         alpha_class = cls(test_id, version, archive_results)
-        alpha_class.alpha_test(calibrated, mask_type, inclusion_area,
-                               inclusion_area_buffer, overwrite, verbose, num_workers_inundate)
+        alpha_class.alpha_test(calibrated, model, mask_type, inclusion_area,
+                inclusion_area_buffer, overwrite, verbose, gms_workers)
 
-    #def composite(self, version_2, calibrated = False, overwrite = True, verbose = False):
+    def composite(self, version_2, calibrated = False, overwrite = True, verbose = False):
         '''Class method for compositing MS and FR inundation and creating an agreement raster with stats
 
             Parameters
@@ -357,7 +355,7 @@ class test_case(benchmark):
             overwrite : bool
                 If True, overwites pre-existing test cases within the test_cases directory.
         '''
-    '''
+
         if re.match(r'(.*)(_ms|_fr)', self.version):
             composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', self.version, count=1)
         else:
@@ -414,17 +412,15 @@ class test_case(benchmark):
                 composite_test_case.clean_ahps_outputs(os.path.join(composite_test_case.dir, magnitude))
 
         composite_test_case.write_metadata(calibrated, 'COMP')
-        '''
 
-    def write_metadata(self, calibrated ):
-        
+    def write_metadata(self, calibrated, model):
         '''Writes metadata files for a test_case directory.'''
         with open(os.path.join(self.dir,'eval_metadata.json'),'w') as meta:
-            eval_meta = { 'calibrated' : calibrated , 'model' : 'FIM4' }
-            meta.write( json.dumps(eval_meta,indent=2) )
-            
+            eval_meta = { 'calibrated' : calibrated , 'model' : model }
+            meta.write( 
+                        json.dumps(eval_meta,indent=2) 
+                    )
     def clean_ahps_outputs(self, magnitude_directory):
-        
         '''Cleans up `total_area` files from an input AHPS magnitude directory.'''
         output_file_list = [os.path.join(magnitude_directory, of) for of in os.listdir(magnitude_directory)]
         for output_file in output_file_list:

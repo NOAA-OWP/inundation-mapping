@@ -25,7 +25,7 @@ def Mosaic_inundation( map_file,
                        is_mosaic_for_branches = False ):
     
     # Notes:
-    #    - If is_mosaic_for_gms_branches is true, the mosaic output name
+    #    - If is_mosaic_for_branches is true, the mosaic output name
     #      will add the HUC into the output name for overwrite resons.
 
     # check input
