@@ -1,0 +1,16 @@
+{
+	"valid_data_inudation_raster_single_huc":
+	{
+		"hydrofabric_dir": "/outputs/fim_unit_test_data_do_not_remove/",
+		"forecast": "data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_25_0_cms.csv",
+		"num_workers": 1,
+		"hucs": "02020005",
+	    "inundation_raster": "/outputs/fim_unit_test_data_do_not_remove/inundation_unittest_02020005_gms.tif",
+		"inundation_polygon": null,
+		"depths_raster": null,
+		"verbose": true,
+		"log_file": "/outputs/fim_unit_test_data_do_not_remove/logs/inundation_logfile.txt",
+		"output_fileNames": "/outputs/fim_unit_test_data_do_not_remove/logs/inundation_file_list.csv"
+	}
+
+}

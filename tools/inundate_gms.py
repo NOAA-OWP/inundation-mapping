@@ -43,8 +43,8 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
         #logging.basicConfig(filename=log_file, level=logging.INFO)
         #logging.info('HUC8,BranchID,Exception')
 
-    # load gms inputs
-    hucs_branches = pd.read_csv( os.path.join(hydrofabric_dir,'gms_inputs.csv'),
+    # load fim inputs
+    hucs_branches = pd.read_csv( os.path.join(hydrofabric_dir,'fim_inputs.csv'),
                                  header=None,
                                  dtype= {0:str,1:str} )
     
@@ -164,18 +164,18 @@ def __inundate_gms_generator( hucs_branches,
         huc = str(row[0])
         branch_id = str(row[1])
 
-        gms_dir = os.path.join(hydrofabric_dir, huc, 'branches')
+        huc_dir = os.path.join(hydrofabric_dir, huc, 'branches')
 
         rem_file_name = 'rem_zeroed_masked_{}.tif'.format(branch_id)
-        rem_branch = os.path.join( gms_dir, branch_id, rem_file_name )
+        rem_branch = os.path.join( huc_dir, branch_id, rem_file_name )
 
         catchments_file_name = f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif'
-        catchments_branch = os.path.join( gms_dir, branch_id, catchments_file_name )
+        catchments_branch = os.path.join( huc_dir, branch_id, catchments_file_name )
 
-        hydroTable_branch = os.path.join( gms_dir,branch_id, 'hydroTable_{}.csv'.format(branch_id) )
+        hydroTable_branch = os.path.join( huc_dir, branch_id, 'hydroTable_{}.csv'.format(branch_id) )
 
         xwalked_file_name = f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg'
-        catchment_poly = os.path.join( gms_dir, branch_id, xwalked_file_name )
+        catchment_poly = os.path.join( huc_dir, branch_id, xwalked_file_name )
         
     
         # branch output
@@ -224,7 +224,7 @@ def __inundate_gms_generator( hucs_branches,
 if __name__ == '__main__':
 
     # parse arguments
-    parser = argparse.ArgumentParser(description='Inundate GMS')
+    parser = argparse.ArgumentParser(description='Inundate FIM')
     parser.add_argument('-y','--hydrofabric_dir', help='Directory path to FIM hydrofabric by processing unit', required=True)
     parser.add_argument('-u','--hucs',help='List of HUCS to run',required=False,default=None,type=str,nargs='+')
     parser.add_argument('-f','--forecast',help='Forecast discharges in CMS as CSV file',required=True)

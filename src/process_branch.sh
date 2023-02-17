@@ -1,13 +1,13 @@
 #!/bin/bash -e
 
-# it is strongly recommended that you do not call directly to src/gms/run_by_branch.sh
+# it is strongly recommended that you do not call directly to src/run_by_branch.sh
 # but call this file and let is call run_by_branch.
 # This file will auto trap any exceptions from run_by_branch.
 
 # also.. remember.. that this file will rarely need to be called (but can be)
 # as it is usually called through a parallelizing iterator in run_unit_wb.sh
 
-# this also has no named command line arguments, onlly positional args.
+# this also has no named command line arguments, only positional args.
 
 runName=$1
 hucNumber=$2
@@ -18,7 +18,7 @@ export outputRunDataDir=$outputDataDir/$runName
 branchLogFileName=$outputRunDataDir/logs/branch/"$hucNumber"_branch_"$branchId".log
 branch_list_csv_file=$outputRunDataDir/$hucNumber/branch_ids.csv
 
-/usr/bin/time -v $srcDir/gms/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName 
+/usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName 
 
 #exit ${PIPESTATUS[0]}
 return_codes=( "${PIPESTATUS[@]}" )

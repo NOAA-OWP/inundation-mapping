@@ -5,7 +5,7 @@ import numpy as np
 import argparse
 import os
 from glob import iglob,glob
-from gms.stream_branches import StreamNetwork
+from stream_branches import StreamNetwork
 
 def Reset_mannings(hydrofabric_dir,mannings_value,overwrite_files=False):
 

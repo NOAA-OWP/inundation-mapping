@@ -28,18 +28,18 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
         stream_network = StreamNetwork.from_file(filename=in_stream_network)
     else:
         print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
-        sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
+        sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # if there are no reaches at this point
     if (len(stream_network) == 0):
         # This is technically not an error but we need to have it logged so the user know what
         # happened to it and we need the huc to not be included in future processing. 
-        # We need it to be not included in the gms_input.csv at the end of the unit processing.
+        # We need it to be not included in the fim_input.csv at the end of the unit processing.
         # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
         # Later, we can look at creating custom sys exit codes 
         # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
-        sys.exit(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value)  # will send a 60 back
+        sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # values_exluded of 1 and 2 mean where are dropping stream orders 1 and 2. We are leaving those
     # for branch zero.

@@ -232,11 +232,11 @@ if __name__ == '__main__':
 
     # Sample usage:
     '''
-     === FOR GMS
+     === FOR (FIM 4)
     python /foss_fim/tools/synthesize_test_cases.py -c DEV -e GMS -v gms_test_synth_combined -jh 2 -jb 40 -m /outputs/gms_test_synth_combined/gms_synth_metrics.csv -vg -o
 
      Notes:
-       - gms_input.csv MUST be in the folder suggested.
+       - fim_input.csv MUST be in the folder suggested.
        - the -v param is the name in the folder in the "outputs/" directory where the test hucs are at.
            It also becomes the folder names inside the test_case folders when done.
        - the -vg param may not be working (will be assessed better on later releases).
@@ -253,7 +253,7 @@ if __name__ == '__main__':
          command becomes:  find . -name gms_test_* -type d  -exec rm -rdf {} +
     '''
     '''
-     === FOR FIM
+     === FOR FIM 3
     python /foss_fim/tools/synthesize_test_cases.py -c DEV -e MS -v dev_fim_3_0_29_1_ms -jh 4 -m /outputs/dev_fim_3_0_29_1_ms/alpha/alpha_master_metrics_fim_3_0_29_1_ms_src_adjust.csv -vg -o
 
      Notes:
@@ -273,7 +273,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=False,default='DEV')
     parser.add_argument('-l','--calibrated',help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir',required=False, default=False,action='store_true')
-    parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.',required=True)
+    parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.', default='GMS', required=False)
     parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
     parser.add_argument('-jh','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
     parser.add_argument('-jb','--job-number-branch',help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)

@@ -18,12 +18,12 @@ class FIM_exit_codes(Enum):
         - More advanced combinations of codes can be used and we will keep it simple for now.
     - Sample usage:
         import utils/fim_enums
-        print(FIM_exit_codes.GMS_UNIT_NO_BRANCHES.value) -> 60   [this is used in gms/derive_level_paths.py]
+        print(FIM_exit_codes.UNIT_NO_BRANCHES.value) -> 60   [this is used in derive_level_paths.py]
 
     - For more information : https://docs.python.org/3.11/howto/enum.html and https://docs.python.org/3/library/enum.html
     '''
 
-    GMS_UNIT_NO_BRANCHES = 60
+    UNIT_NO_BRANCHES = 60
     NO_FLOWLINES_EXIST = 61
     EXCESS_UNIT_ERRORS = 62    
             

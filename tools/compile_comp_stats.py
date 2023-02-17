@@ -6,6 +6,14 @@ from glob import glob, iglob
 import argparse
 import os
 
+########################################################
+'''
+Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
+   a significant review and/or upgrade.
+'''
+
+########################################################
+
 
 def Compile_comp_stats(hydrofabric_dirs):
     
@@ -66,6 +74,15 @@ def get_log_files(hydrofabric_dirs):
 
 
 if __name__ == '__main__':
+
+    ########################################################
+    '''
+    Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
+    a significant review and/or upgrade.
+    '''
+
+    ########################################################
+
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Get Comp Stats')

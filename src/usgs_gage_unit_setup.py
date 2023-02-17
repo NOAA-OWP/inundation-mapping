@@ -76,24 +76,24 @@ class Gage2Branch(object):
             return int(lines.iloc[queried_index[0]].feature_id.item())
 
     @staticmethod
-    def filter_gage_branches(gms_inputs_filename):
+    def filter_gage_branches(fim_inputs_filename):
 
-        fim_dir = os.path.dirname(gms_inputs_filename)
-        gms_inputs = pd.read_csv(gms_inputs_filename, header=None, names=['huc', 'levpa_id'],
+        fim_dir = os.path.dirname(fim_inputs_filename)
+        fim_inputs = pd.read_csv(fim_inputs_filename, header=None, names=['huc', 'levpa_id'],
             dtype={'huc':str, 'levpa_id':str})
 
         for huc_dir in [d for d in os.listdir(fim_dir) if re.search('^\d{8}$', d)]:
 
             gage_file = os.path.join(fim_dir, huc_dir, 'usgs_subset_gages.gpkg')
             if not os.path.isfile(gage_file):
-                gms_inputs.drop(gms_inputs.loc[gms_inputs.huc == huc_dir].index, inplace=True)
+                fim_inputs.drop(fim_inputs.loc[fim_inputs.huc == huc_dir].index, inplace=True)
                 continue
 
             gages = gpd.read_file(gage_file)
             level_paths = gages.levpa_id
-            gms_inputs.drop(gms_inputs.loc[(gms_inputs.huc == huc_dir) & (~gms_inputs.levpa_id.isin(level_paths))].index, inplace=True)
+            fim_inputs.drop(fim_inputs.loc[(fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))].index, inplace=True)
         
-        gms_inputs.to_csv(gms_inputs_filename, index=False, header=False)
+        fim_inputs.to_csv(fim_inputs_filename, index=False, header=False)
 
 
 if __name__ == '__main__':
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('-o','--output-filename', help='Table to append data', required=True)
     parser.add_argument('-huc','--huc8-id', help='HUC8 ID (to verify gage location huc)', type=str, required=True)
     parser.add_argument('-bzero_id','--branch-zero-id', help='Branch zero ID value', type=str, required=True)
-    parser.add_argument('-ff','--filter-gms-inputs', help='WARNING: only run this parameter if you know exactly what you are doing', required=False)
+    parser.add_argument('-ff','--filter-fim-inputs', help='WARNING: only run this parameter if you know exactly what you are doing', required=False)
 
     args = vars(parser.parse_args())
 
@@ -115,9 +115,9 @@ if __name__ == '__main__':
     output_filename = args['output_filename']
     huc8 = args['huc8_id']
     bzero_id = args['branch_zero_id']
-    filter_gms_inputs = args['filter_gms_inputs']
+    filter_fim_inputs = args['filter_fim_inputs']
 
-    if not filter_gms_inputs:
+    if not filter_fim_inputs:
 
         usgs_gage_subset = Gage2Branch(usgs_gages_filename, nws_lid_filename, huc8)
         if usgs_gage_subset.gages.empty:
@@ -133,13 +133,12 @@ if __name__ == '__main__':
 
     else:
         ''' 
-        This is an easy way to filter gms_inputs so that only branches with gages will run during gms_run_branch.sh.
-        You can run this option after gms_run_unit.sh has completed.
+        This is an easy way to filter fim_inputs so that only branches with gages will run during fim_process_unit_wb.sh.
 
         example:
-        python3 src/usgs_gage_unit_setup.py -gages x -ahps x -nwm x -o x -huc x -ff /data/outputs/test_output/gms_inputs.csv
+        python3 src/usgs_gage_unit_setup.py -gages x -ahps x -nwm x -o x -huc x -ff /data/outputs/test_output/fim_inputs.csv
         '''
-        assert os.path.isfile(filter_gms_inputs)
-        Gage2Branch.filter_gage_branches(filter_gms_inputs)
+        assert os.path.isfile(filter_fim_inputs)
+        Gage2Branch.filter_gage_branches(filter_fim_inputs)
 
     

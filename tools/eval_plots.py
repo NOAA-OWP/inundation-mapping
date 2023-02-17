@@ -25,7 +25,9 @@ API_BASE_URL = os.getenv("API_BASE_URL")
 #########################################################################
 #Create boxplot
 #########################################################################
-def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, dest_file = False):
+def boxplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue,
+            title_text, fim_configuration, textbox_str = False, 
+            simplify_legend = False, dest_file = False):
     '''
     Create boxplots.
 
@@ -192,7 +194,9 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
 #########################################################################
 #Create barplot
 #########################################################################
-def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, title_text, fim_configuration, textbox_str = False, simplify_legend = False, display_values = False, dest_file = False):
+def barplot(dataframe, x_field, x_order, y_field, hue_field, ordered_hue, 
+            title_text, fim_configuration, textbox_str = False, 
+            simplify_legend = False, display_values = False, dest_file = False):
     '''
     Create barplots.
 
@@ -344,7 +348,9 @@ def filter_dataframe(dataframe, unique_field):
 ##############################################################################
 #Main function to analyze metric csv.
 ##############################################################################
-def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR','PND','MCC','EQUITABLE_THREAT_SCORE'] , spatial = False, fim_1_ms = False, site_barplots = False):
+def eval_plots(metrics_csv, workspace, versions = [], 
+               stats = ['CSI','FAR','TPR','PND','MCC','EQUITABLE_THREAT_SCORE'] , spatial = False,
+               fim_1_ms = False, site_barplots = False):
 
     '''
     Creates plots and summary statistics using metrics compiled from

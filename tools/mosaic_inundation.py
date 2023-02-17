@@ -7,7 +7,7 @@ import pandas as pd
 import sys
 
 from glob import glob
-from gms_tools.overlapping_inundation import OverlapWindowMerge
+from overlapping_inundation import OverlapWindowMerge
 from tqdm import tqdm
 from utils.shared_variables import elev_raster_ndv
 from utils.shared_functions import FIM_Helpers as fh
@@ -22,10 +22,10 @@ def Mosaic_inundation( map_file,
                        remove_inputs = False,
                        subset = None,
                        verbose = True,
-                       is_mosaic_for_gms_branches = False ):
+                       is_mosaic_for_branches = False ):
     
     # Notes:
-    #    - If is_mosaic_for_gms_branches is true, the mosaic output name
+    #    - If is_mosaic_for_branches is true, the mosaic output name
     #      will add the HUC into the output name for overwrite resons.
 
     # check input
@@ -79,7 +79,7 @@ def Mosaic_inundation( map_file,
         # fr set with a gms composite map.
 
         ag_mosaic_output = mosaic_output
-        if (is_mosaic_for_gms_branches) and (ag not in mosaic_output):
+        if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag) # change it
 
         mosaic_by_unit(inundation_maps_list, 
@@ -156,8 +156,8 @@ if __name__ == '__main__':
                         required=False, default=False, action='store_true')
     parser.add_argument('-v','--verbose', help='Remove original input inundation Maps', 
                         required=False, default=False, action='store_true')
-    parser.add_argument('-g','--is-mosaic-for-gms-branches', 
-                        help='If the mosaic is for gms branchs, include this arg',
+    parser.add_argument('-g','--is-mosaic-for-branches', 
+                        help='If the mosaic is for branchs, include this arg',
                         required=False, default=False, action='store_true')
 
     args = vars(parser.parse_args())

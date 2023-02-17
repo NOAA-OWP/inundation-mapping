@@ -174,7 +174,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
 
                 sys.exit(1)
             
-        # Send the executor to the progress bar and wait for all FR tasks to finish
+        # Send the executor to the progress bar and wait for all tasks to finish
         sf.progress_bar_handler(executor_dict, f"Downloading USGG 3Dep Dems")
 
     print(f"-- Downloading USGS DEMs Completed")
