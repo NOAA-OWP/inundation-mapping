@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.1.3.0 - 2023-02-13 - [PR#812](https://github.com/NOAA-OWP/inundation-mapping/pull/812)
+
+An update was required to adjust host name when in the AWS environment
+
+### Changes
+
+- `fim_post_processing.sh`: Added an "if isAWS" flag system based on the input command args from fim_pipeline.sh or 
+
+- `tools/calibration-db`
+    - `README.md`: Minor text correction.
+
+<br/><br/>
+
 ## v4.1.2.0 - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
 
 Add `pytest` package and refactor existing unit tests. Update parameters to unit tests (`/unit_tests/*_params.json`) to valid paths. Add leading slash to paths in `/config/params_template.env`.
@@ -59,7 +72,6 @@ Add `pytest` package and refactor existing unit tests. Update parameters to unit
 
 <br/><br/>
 
-
 ## v4.1.1.0 - 2023-02-16 - [PR#809](https://github.com/NOAA-OWP/inundation-mapping/pull/809)
 
 The CatFIM code was updated to allow 1-foot interval processing across all stage-based AHPS sites ranging from action stage to 5 feet above major stage, along with restart capability for interrupted processing runs.
@@ -73,7 +85,6 @@ The CatFIM code was updated to allow 1-foot interval processing across all stage
     - When a HUC is successfully processed, an empty "complete" text file is created / touched.
 
 <br/><br/>
-
 
 ## v4.1.0.0 - 2023-01-30 - [PR#806](https://github.com/NOAA-OWP/inundation-mapping/pull/806)
 

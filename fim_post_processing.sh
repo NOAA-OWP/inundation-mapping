@@ -143,6 +143,12 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
         when we start up that part of the sytem and it does not like the word
         export.
         '
+
+        # Pick up the docker parent host machine name and override the one coming from the config file (aws only)
+        if [ "$isAWS" = "1" ]; then
+            CALIBRATION_DB_HOST=$(curl http://169.254.169.254/latest/meta-data/local-ipv4 -s)
+        fi
+
         export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
         export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
         export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
