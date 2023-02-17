@@ -1,6 +1,65 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.1.2.0 - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
+
+Add `pytest` package and refactor existing unit tests. Update parameters to unit tests (`/unit_tests/*_params.json`) to valid paths. Add leading slash to paths in `/config/params_template.env`.
+
+### Additions
+
+- `/unit_tests`
+  - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
+  - `pyproject.toml`  - used to specify which warnings are excluded/filtered.
+  - `/gms`  
+    - `__init__.py` - needed for `pytest` command line executable to pick up tests.
+  - `/tools`
+    - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
+    - `inundate_gms_params.json` - file moved up into this directory
+    - `inundate_gms_test.py`     - file moved up into this directory
+    - `inundation_params.json`   - file moved up into this directory
+    - `inundation_test.py`       - file moved up into this directory
+
+### Removals
+
+- `/unit_tests/tools/gms_tools/` directory removed, and files moved up into `/unit_tests/tools`    
+ 
+### Changes
+
+- `Pipfile` - updated to include pytest as a dependency
+- `Pipfile.lock` - updated to include pytest as a dependency
+
+- `/config`
+  - `params_template.env` - leading slash added to paths
+  
+- `/unit_tests/` - All of the `*_test.py` files were refactored to follow the `pytest` paradigm.  
+  - `*_params.json` - valid paths on `fim-dev1` provided
+  - `README.md`  - updated to include documentation on pytest.  
+  - `unit_tests_utils.py`  
+  - `__template_unittests.py` -> `__template.py` - exclude the `_test` suffix to remove from test suite. Updated example on new format for pytest.
+  - `check_unit_errors_test.py`  
+  - `clip_vectors_to_wbd_test.py`  
+  - `filter_catchments_and_add_attributes_test.py`  
+  - `rating_curve_comparison_test.py`  
+  - `shared_functions_test.py`  
+  - `split_flow_test.py`  
+  - `usgs_gage_crosswalk_test.py`  
+  - `aggregate_branch_lists_test.py`  
+  - `generate_branch_list_test.py`  
+  - `generate_branch_list_csv_test.py`  
+  - `aggregate_branch_lists_test.py`  
+  - `generate_branch_list_csv_test.py`  
+  - `generate_branch_list_test.py`  
+    - `/gms`  
+      - `derive_level_paths_test.py`  
+      - `outputs_cleanup_test.py`
+    - `/tools`
+      - `inundate_unittests.py` -> `inundation_test.py`  
+      - `inundate_gms_test.py`
+
+
+<br/><br/>
+
+
 ## v4.1.1.0 - 2023-02-16 - [PR#809](https://github.com/NOAA-OWP/inundation-mapping/pull/809)
 
 The CatFIM code was updated to allow 1-foot interval processing across all stage-based AHPS sites ranging from action stage to 5 feet above major stage, along with restart capability for interrupted processing runs.
