@@ -20,6 +20,9 @@ import utils.shared_functions as sf
 from utils.shared_functions import FIM_Helpers as fh
 
 # local constants (until changed to input param)
+# This URL is part of a series of vrt data available from USGS via an S3 Bucket.
+# for more info see: "http://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Elevation/". The odd folder numbering is
+# a translation of arc seconds with 13m  being 1/3 arc second or 10 meters.
 __USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt'  # 10m = 13 (1/3 arc second)
 
 
