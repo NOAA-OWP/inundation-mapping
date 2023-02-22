@@ -1,6 +1,140 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.2.(pending) - 2023-02-21 - [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+During the merge from remove-fim3 PR into dev, merge conflicts were discovered in the unit_tests folders and files. Attempts to fix them at that time failed, so some files were removed, other renamed, other edited to get the merge to work.  Here are the fixes to put the unit tests system back to par.
+
+Note: some unit tests are now temporarily disabled due to dependencies on other files / folders which may not exist in other environments.
+
+Also.. the Changelog.md was broken and is being restored here.
+
+Also.. a minor text addition was added to the acquire_and_preprocess_3dep_dems.py files (not directly related to this PR)
+
+For file changes directly related to unit_test folder and it's file, please see [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+Other file changes:
+
+### Changes
+- `Pipfile.lock` : rebuilt and updated as a safety pre-caution.
+- `docs`
+    - `CHANGELOG.md`: additions to this file for FIM 4.2.0.0 were not merged correctly.  (re-added just below in the 4.2.0.0 section)
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Added text on data input URL source.
+        
+<br/><br/>
+
+## v4.2.0.0 - 2023-02-16 - [PR#816](https://github.com/NOAA-OWP/inundation-mapping/pull/816)
+
+This update removes the remaining elements of FIM3 code.  It further removes the phrases "GMS" as basically the entire FIM4 model. FIM4 is GMS. With removing FIM3, it also means remove concepts of "MS" and "FR" which were no longer relevant in FIM4.  There are only a few remaining places that will continue with the phrase "GMS" which is in some inundation files which are being re-evaluated.  Some deprecated files have been removed and some subfolders removed.
+
+There are a lot of duplicate explanations for some of the changes, so here is a shortcut system.
+
+- desc 1:  Remove or rename values based on phrase "GMS, MS and/or FR"
+- desc 2:  Moved file from the /src/gms folder to /src  or /tools/gms_tools to /tools
+- desc 3:  No longer needed as we now use the `fim_pipeline.sh` processing model.
+
+### Removals
+
+- `data`
+    - `acquire_and_preprocess_inputs.py`:  No longer needed
+- `gms_pipeline.sh` : see desc 3
+- `gms_run_branch.sh` : see desc 3
+- `gms_run_post_processing.sh` : see desc 3
+- `gms_run_unit.sh` : see desc 3
+- `src`
+    - `gms`
+        - `init.py` : folder removed, no longer needed.
+        - `aggregate_branch_lists.py`: no longer needed.  Newer version already exists in src directory.
+        - `remove_error_branches.py` :  see desc 3
+        - `run_by_unit.sh` : see desc 3
+        - `test_new_crosswalk.sh` : no longer needed
+        - `time_and_tee_run_by_branch.sh` : see desc 3
+        - `time_and_tee_run_by_unit.sh` : see desc 3
+    - `output_cleanup.py` : see desc 3
+ - `tools/gms_tools`
+     - `init.py` : folder removed, no longer needed.
+
+### Changes
+
+- `config`
+   - `deny_branch_unittests.lst` :  renamed from `deny_gms_branch_unittests.lst`
+   - `deny_branch_zero.lst` : renamed from `deny_gms_branch_zero.lst`
+   - `deny_branches.lst` :  renamed from `deny_gms_branches.lst`
+   - `deny_unit.lst`  : renamed from `deny_gms_unit.lst`
+   - `params_template.env` : see desc 1
+
+- `data`
+    - `nws`
+        - `preprocess_ahps_nws.py`:   Added deprecation note: If reused, it needs review and/or upgrades.
+    - `acquire_and_preprocess_3dep_dems.py` : see desc 1
+ - `fim_post_processing.sh` : see desc 1, plus a small pathing change.
+ - `fim_pre_processing.sh` : see desc 1
+ - ` src`
+     - `add_crosswalk.py` : see desc 1. Also cleaned up some formatting and commented out a code block in favor of a better way to pass args from "__main__"
+     - `bash_variables.env` : see desc 1
+     - `buffer_stream_branches.py` : see desc 2
+     - `clip_rasters_to_branches.py` : see desc 2
+     - `crosswalk_nwm_demDerived.py` :  see desc 1 and desc 2
+     - `delineate_hydros_and_produce_HAND.sh` : see desc 1 and desc 2
+     - `derive_level_paths.py`  :  see desc 1 and desc 2
+     - `edit_points.py` : see desc  2
+     - `filter_inputs_by_huc.py`: see desc 1 and desc 2
+     - `finalize_srcs.py`:  see desc 2
+     - `generate_branch_list.py` : see desc 1
+     - `make_rem.py` : see desc 2
+     - `make_dem.py` : see desc  2
+     - `outputs_cleanup.py`:  see desc 1
+     - `process_branch.sh`:  see desc 1
+     - `query_vectors_by_branch_polygons.py`: see desc 2
+     - `reset_mannings.py` : see desc 2
+     - `run_by_branch.sh`:  see desc 1
+     - `run_unit_wb.sh`: see desc 1
+     - `stream_branches.py`:  see desc 2
+     - `subset_catch_list_by_branch_id.py`: see desc 2
+     - `toDo.md`: see desc 2
+     - `usgs_gage_aggregate.py`:  see desc 1
+     - `usgs_gage_unit_setup.py` : see desc 1
+     - `utils`
+         - `fim_enums.py` : see desc 1
+
+- `tools`
+    - `combine_crosswalk_tables.py` : see desc 2
+    - `compare_ms_and_non_ms_metrics.py` : see desc 2
+    - `compile_comp_stats.py`: see desc 2  and added note about possible deprecation.
+    - `compile_computation_stats.py` : see desc 2  and added note about possible deprecation.
+    - `composite_inundation.py` : see desc 1 : note.. references a file called inundate_gms which retains it's name for now.
+    - `consolidate_metrics.py`: added note about possible deprecation.
+    - `copy_test_case_folders.py`: see desc 1
+    - `eval_plots.py` : see desc 1
+    - `evaluate_continuity.py`: see desc 2
+    - `find_max_catchment_breadth.py` : see desc 2
+    - `generate_categorical_fim_mapping.py` : see desc 1
+    - `inundate_gms.py`: see desc 1 and desc 2. Note: This file has retained its name with the phrase "gms" in it as it might be upgraded later and there are some similar files with similar names.
+    - `inundate_nation.py` : see desc 1
+    - `inundation.py`:  text styling change
+    - `make_boxes_from_bounds.py`: text styling change
+    - `mosaic_inundation.py`:  see desc 1 and desc 2
+    - `overlapping_inundation.py`: see desc 2
+    - `plots.py` : see desc 2
+    - `run_test_case.py`:  see desc 1
+    - `synthesize_test_cases.py`: see desc 1
+
+- `unit_tests`
+    - `README.md`: see desc 1
+    - `__template_unittests.py`: see desc 1
+    - `check_unit_errors_params.json`  and `check_unit_errors_unittests.py` : see desc 1
+    - `derive_level_paths_params.json` and `derive_level_paths_unittests.py` : see desc 1 and desc 2
+    - `filter_catchments_and_add_attributes_unittests.py`: see desc 1
+    - `outputs_cleanup_params.json` and `outputs_cleanup_unittests.py`: see desc 1 and desc 2
+    - `split_flows_unittests.py` : see desc 1
+    - `tools`
+        - `inundate_gms_params.json` and `inundate_gms_unittests.py`: see desc 1 and desc 2
+
+<br/><br/>
+
 ## v4.1.3.0 - 2023-02-13 - [PR#812](https://github.com/NOAA-OWP/inundation-mapping/pull/812)
 
 An update was required to adjust host name when in the AWS environment
