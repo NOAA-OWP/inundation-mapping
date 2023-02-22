@@ -3,6 +3,7 @@
 import os
 import json
 import unittest
+import pytest
 
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 from rating_curve_comparison import generate_rating_curve_metrics
@@ -22,7 +23,8 @@ class test_rating_curve_comparison(unittest.TestCase):
 
 # Test Cases
      
-
+    @pytest.mark.skip(reason="rating_curve has invalid pathing based on files "\
+        "that are normally not in a runtime folder. This test will disabled for now.")
     def test_generate_rating_curve_metrics_02020005_success(self):
 
         '''
