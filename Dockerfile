@@ -90,6 +90,14 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 COPY Pipfile .
 COPY Pipfile.lock .
 RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
+#RUN pip3 install pipenv==2022.4.8 && pipenv install --system --deploy --ignore-pipfile (too slow to
+#     leave out shapely,pygeos at this time. Likely better after upgrading)
+
+# TEMP FIX as neither shapely or Shapely is staying in the pip list. If we manually add
+# it with pip (not pipenv), it works. Notice case for Shapely versus shapely. 
+# This temp fix works for now until we can reconsile the shapely package,
+# pygeos, geopanda's and possibly others (coming soon)
+RUN pip install shapely==1.7.0
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /

@@ -1,88 +1,26 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.1.3.0 - 2023-02-13 - [PR#812](https://github.com/NOAA-OWP/inundation-mapping/pull/812)
 
-An update was required to adjust host name when in the AWS environment
+## v4.2.x.x - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
 
-### Changes
-
-- `fim_post_processing.sh`: Added an "if isAWS" flag system based on the input command args from fim_pipeline.sh or 
-
-- `tools/calibration-db`
-    - `README.md`: Minor text correction.
-
-<br/><br/>
-
-## v4.1.2.0 - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
-
-Add `pytest` package and refactor existing unit tests. Update parameters to unit tests (`/unit_tests/*_params.json`) to valid paths. Add leading slash to paths in `/config/params_template.env`.
-
-### Additions
-
-- `/unit_tests`
-  - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
-  - `pyproject.toml`  - used to specify which warnings are excluded/filtered.
-  - `/gms`  
-    - `__init__.py` - needed for `pytest` command line executable to pick up tests.
-  - `/tools`
-    - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
-    - `inundate_gms_params.json` - file moved up into this directory
-    - `inundate_gms_test.py`     - file moved up into this directory
-    - `inundation_params.json`   - file moved up into this directory
-    - `inundation_test.py`       - file moved up into this directory
+Replaces GRASS with Whitebox. This addresses several issues, including Windows permissions and GRASS projection issues. Whitebox also has a slight performance benefit over GRASS.
 
 ### Removals
 
-- `/unit_tests/tools/gms_tools/` directory removed, and files moved up into `/unit_tests/tools`    
- 
-### Changes
-
-- `Pipfile` - updated to include pytest as a dependency
-- `Pipfile.lock` - updated to include pytest as a dependency
-
-- `/config`
-  - `params_template.env` - leading slash added to paths
-  
-- `/unit_tests/` - All of the `*_test.py` files were refactored to follow the `pytest` paradigm.  
-  - `*_params.json` - valid paths on `fim-dev1` provided
-  - `README.md`  - updated to include documentation on pytest.  
-  - `unit_tests_utils.py`  
-  - `__template_unittests.py` -> `__template.py` - exclude the `_test` suffix to remove from test suite. Updated example on new format for pytest.
-  - `check_unit_errors_test.py`  
-  - `clip_vectors_to_wbd_test.py`  
-  - `filter_catchments_and_add_attributes_test.py`  
-  - `rating_curve_comparison_test.py`  
-  - `shared_functions_test.py`  
-  - `split_flow_test.py`  
-  - `usgs_gage_crosswalk_test.py`  
-  - `aggregate_branch_lists_test.py`  
-  - `generate_branch_list_test.py`  
-  - `generate_branch_list_csv_test.py`  
-  - `aggregate_branch_lists_test.py`  
-  - `generate_branch_list_csv_test.py`  
-  - `generate_branch_list_test.py`  
-    - `/gms`  
-      - `derive_level_paths_test.py`  
-      - `outputs_cleanup_test.py`
-    - `/tools`
-      - `inundate_unittests.py` -> `inundation_test.py`  
-      - `inundate_gms_test.py`
-
-
-<br/><br/>
-
-## v4.1.1.0 - 2023-02-16 - [PR#809](https://github.com/NOAA-OWP/inundation-mapping/pull/809)
-
-The CatFIM code was updated to allow 1-foot interval processing across all stage-based AHPS sites ranging from action stage to 5 feet above major stage, along with restart capability for interrupted processing runs.
+- `src/r_grow_distance.py`: Deletes file
 
 ### Changes
 
-- `tools/generate_categorical_fim.py` (all changes made here)
-    - Added try-except blocks for code that didn't allow most sites to actually get processed because it was trying to check values of some USGS-related variables that most of the sites didn't have
-    - Overwrite abilities of the different outputs for the viz team were not consistent (i.e., one of the files had the ability to be overwritten but another didn't), so that has been made consistent to disallow any overwrites of the existing final outputs for a specified output folder.
-    - The code also has the ability to restart from an interrupted run and resume processing uncompleted HUCs by first checking for a simple "complete" file for each HUC. If a HUC has that file, then it is skipped (because it already completed processing during a run for a particular output folder / run name).
-    - When a HUC is successfully processed, an empty "complete" text file is created / touched.
+- `Dockerfile`: Removes GRASS
+- `Pipfile` and `Pipfile.lock`: Adds Whitebox and removes GRASS
+- `src/`
+    - `agreedem.py`: Removes `r_grow_distance`; refactors to use with context and removes redundant raster reads.
+    - `adjust_lateral_thalweg.py` and `agreedem.py`: Refactors to use `with` context and removes redundant raster reads
+    - `unique_pixel_and_allocation.py`: Replaces GRASS with Whitebox and remove `r_grow_distance`
+    - `gms/`
+        - `delineate_hydros_and_produce_HAND.sh` and `run_by_unit.sh`: Removes GRASS parameter
+        - `mask_dem.py`: Removes unnecessary line
 
 <br/><br/>
 
@@ -125,7 +63,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
    - `deny_branches.lst` :  renamed from `deny_gms_branches.lst`
    - `deny_unit.lst`  : renamed from `deny_gms_unit.lst`
    - `params_template.env` : see desc 1
- 
+
 - `data`
     - `nws`
         - `preprocess_ahps_nws.py`:   Added deprecation note: If reused, it needs review and/or upgrades.
@@ -159,7 +97,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
      - `usgs_gage_unit_setup.py` : see desc 1
      - `utils`
          - `fim_enums.py` : see desc 1
-         
+
 - `tools`
     - `combine_crosswalk_tables.py` : see desc 2
     - `compare_ms_and_non_ms_metrics.py` : see desc 2
@@ -181,7 +119,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
     - `plots.py` : see desc 2
     - `run_test_case.py`:  see desc 1
     - `synthesize_test_cases.py`: see desc 1
-    
+
 - `unit_tests`
     - `README.md`: see desc 1
     - `__template_unittests.py`: see desc 1
@@ -194,6 +132,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
         - `inundate_gms_params.json` and `inundate_gms_unittests.py`: see desc 1 and desc 2
 
 <br/><br/>
+
 ## v4.1.3.0 - 2023-02-13 - [PR#812](https://github.com/NOAA-OWP/inundation-mapping/pull/812)
 
 An update was required to adjust host name when in the AWS environment
@@ -276,28 +215,6 @@ The CatFIM code was updated to allow 1-foot interval processing across all stage
     - Overwrite abilities of the different outputs for the viz team were not consistent (i.e., one of the files had the ability to be overwritten but another didn't), so that has been made consistent to disallow any overwrites of the existing final outputs for a specified output folder.
     - The code also has the ability to restart from an interrupted run and resume processing uncompleted HUCs by first checking for a simple "complete" file for each HUC. If a HUC has that file, then it is skipped (because it already completed processing during a run for a particular output folder / run name).
     - When a HUC is successfully processed, an empty "complete" text file is created / touched.
-
-<br/><br/>
-
-## v4.1.x.x - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
-
-Replaces GRASS with Whitebox. This addresses several issues, including Windows permissions and GRASS projection issues. Whitebox also has a slight performance benefit over GRASS.
-
-### Removals
-
-- `src/r_grow_distance.py`: Deletes file
-
-### Changes
-
-- `Dockerfile`: Removes GRASS
-- `Pipfile` and `Pipfile.lock`: Adds Whitebox and removes GRASS
-- `src/`
-    - `agreedem.py`: Removes `r_grow_distance`; refactors to use with context and removes redundant raster reads.
-    - `adjust_lateral_thalweg.py` and `agreedem.py`: Refactors to use `with` context and removes redundant raster reads
-    - `unique_pixel_and_allocation.py`: Replaces GRASS with Whitebox and remove `r_grow_distance`
-    - `gms/`
-        - `delineate_hydros_and_produce_HAND.sh` and `run_by_unit.sh`: Removes GRASS parameter
-        - `mask_dem.py`: Removes unnecessary line
 
 <br/><br/>
 
