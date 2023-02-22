@@ -39,20 +39,20 @@ docker run --rm -it --name mytest -v /home/abcd/projects/dev/innudation-mapping/
 ```
 
 For unit tests to work, you need to run the following (if not already in place).
-Notice a modified branch "deny_gms_branch_unittests.lst"  (special for unittests)
+Notice a modified branch "deny_branch_unittests.lst"  (special for unittests)
 
 Here are the params and args you need if you need to re-run unit and branch
 
 ```bash
-fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 02030201 05030104" -bd /foss_fim/config/deny_gms_branch_unittests.lst -ud None -j 1 -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 05030104" -bd /foss_fim/config/deny_branch_unittests.lst -ud None -j 1 -o
 ```
 
-**NOTICE: the deny file used for gms_run_branch... its a special one for unittests `deny_gms_branch_unittests.lst`.
+**NOTICE: the deny file used for fim_pipeline.sh, has a special one for unittests `deny_branch_unittests.lst`.
 
 If you need to run inundation tests, fun the following:
 
 ```bash
-python3 foss_fim/tools/synthesize_test_cases.py -c DEV -e GMS -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
+python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
 ```
 ### If you'd like to test the whole unit test suite:
 ```
@@ -96,7 +96,7 @@ If one test case is choosen, it will scan all of the test files, and scan for th
 9) Sometimes you may want to run a full successful "happy path" version through `fim_pipeline.sh` (or similar), to get all of the files you need in place to do your testing. However, you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the `-d` parameter (denylist). 
 ie:
 ```bash
-fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_gms_unit_default.lst -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_unit_default.lst -o
 ```
 but ours would be:
 ```bash 
@@ -107,7 +107,7 @@ fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/con
 
 The `pyproject.toml` file has been added, which contains the build system requirements of Python projects.  This file used to specify which warnings are disabled to pass our unit tests. 
 
-A `__init__.py` file has been added to both subdirectories (`/gms` & `/tools`) in order for the `pytest` command run in the `/unit_tests` to pick up the tests in those directories as well.
+A `__init__.py` file has been added to the subdirectory of `/tools` in order for the `pytest` command run in the `/unit_tests` to pick up the tests in those directories as well.
 
 Luckily, `pytest` works well with The Python Standard Library `unittest`. This made the migration of previous unit tests using `unittest` over to `pytest` quite simple. The caveat is that our current unit tests employ elements of both libraries. A full transition to `pytest` will ideally take place at a future date.
 
@@ -118,27 +118,9 @@ Luckily, `pytest` works well with The Python Standard Library `unittest`. This m
 
 - When you create a "fail" test function, you can load up the normal full "params" from the json file, but then you can override (hardcoded) the one (or rarely more than one) variable inside the function. There is a way to "catch" a failure you are expecting, ensure it is the type of failure you expected and make that "failure" to become a true fail, ie) a unit test pass. 
 
-An example is in `unit_tests/gms/Derive_level_paths_test.py` -> `test_Derive_level_paths_invalid_input_stream_network` (function). This example gives you the pattern implemented in Pytest.
+An example is in `unit_tests/Derive_level_paths_test.py` -> `test_Derive_level_paths_invalid_input_stream_network` (function). This example gives you the pattern implemented in Pytest.
 
 ## Future Enhancements
 1) Full transition to the `pytest` library, removing classes of `unittest.TestCase` and taking full advantage of available code re-use patterns offered through `pytest`.  
 
-2) Over time, it is expected that python files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each python file which makes unit testing harder and less specific. Generally function will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample .tif or small .gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: The files `/gms/derive_level_paths_test.py` and `clip_vectors_to_wbd_test.py` are not complete as they do not yet test all output from a method.
-
-## Unit tests currently available
-```
-pytest /foss_fim/unit_tests/gms/derive_level_paths_test.py  
-pytest /foss_fim/unit_tests/gms/outputs_cleanup_test.py  
-pytest /foss_fim/unit_tests/tools/inundate_gms_test.py  
-pytest /foss_fim/unit_tests/tools/inundation_test.py  
-pytest /foss_fim/unit_tests/check_unit_errors_test.py  
-pytest /foss_fim/unit_tests/clip_vectors_to_wbd_test.py  
-pytest /foss_fim/unit_tests/filter_catchments_and_add_attributes_test.py  
-pytest /foss_fim/unit_tests/rating_curve_comparison_test.py  
-pytest /foss_fim/unit_tests/shared_functions_test.py  
-pytest /foss_fim/unit_tests/split_flows_test.py  
-pytest /foss_fim/unit_tests/usgs_gage_crosswalk_test.py
-pytest /foss_fim/unit_tests/aggregate_branch_lists_test.py
-pytest /foss_fim/unit_tests/generate_branch_list_csv_test.py
-pytest /foss_fim/unit_tests/generate_branch_list_test.py
-```
+2) Over time, it is expected that python files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each python file which makes unit testing harder and less specific. Generally function will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample .tif or small .gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: The files `/derive_level_paths_test.py` and `clip_vectors_to_wbd_test.py` are not complete as they do not yet test all output from a method.

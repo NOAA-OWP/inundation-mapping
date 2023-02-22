@@ -4,11 +4,11 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 import argparse
+import stream_branches as sb
+
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
-from gms import stream_branches as sb
 from shapely.geometry import MultiLineString
-
 
 def Crosswalk_nwm_demDerived(nwm_streams, demDerived, wbd=None, node_prefix=None, sampling_size=None, 
                              crosswalk_outfile=None, 

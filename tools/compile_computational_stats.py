@@ -9,6 +9,15 @@ from os.path import join
 # desired output for branches
 # dataframe columns: HUC, branch_id, exit status, ,time, ram, 
 
+########################################################
+'''
+Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
+   a significant review and/or upgrade.
+'''
+
+########################################################
+
+
 def compile_summary(gms_output_dir,ouput=None):
 
     unit_summary = join(gms_output_dir,logs, 'summary_gms_unit.log')
@@ -18,9 +27,16 @@ def compile_summary(gms_output_dir,ouput=None):
     branch_summary = pd.read_csv(branch_summary,sep='\t')
 
 
-
-
 if __name__ == '__main__':
+
+    ########################################################
+    '''
+    Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
+    a significant review and/or upgrade.
+    '''
+
+    ########################################################
+
 
     parser = argparse.ArgumentParser(description='Create stream network level paths')
     parser.add_argument('-d','--gms-output-dir', help='Input stream network', required=True)

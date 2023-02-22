@@ -1,20 +1,6 @@
 {
 	"valid_data":
 	{
-		"01010004":
-		[
-			"/data/outputs/fim_unit_test_data_do_not_remove/01010004/usgs_elev_table.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/01010004/branches",
-			"/data/inputs/usgs_gages/usgs_rating_curves.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/tables/usgs_interpolated_elevation_stats_01010004.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/tables/nwm_recurrence_flow_elevations_01010004.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/plots/FIM-USGS_rating_curve_comparison_01010004.png",
-			"/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/",
-			"/data/inputs/usgs_gages/catfim_flows_cms.csv",
-			"01010004",
-			false,
-			false
-		],
 		"02020005":
 		[
 			"/data/outputs/fim_unit_test_data_do_not_remove/02020005/usgs_elev_table.csv",
@@ -27,20 +13,6 @@
 			"/data/inputs/usgs_gages/catfim_flows_cms.csv",
 			"02020005",
 			false,
-			false
-		],
-		"02030103":
-		[
-			"/data/outputs/fim_unit_test_data_do_not_remove/02030103/usgs_elev_table.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/02030103/branches",
-			"/data/inputs/usgs_gages/usgs_rating_curves.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/tables/usgs_interpolated_elevation_stats_02030103.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/tables/nwm_recurrence_flow_elevations_02030103.csv",
-			"/data/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/plots/FIM-USGS_rating_curve_comparison_02030103.png",
-			"/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/",
-			"/data/inputs/usgs_gages/catfim_flows_cms.csv",
-			"02030103",
-			false, 
 			false
 		]
 	}

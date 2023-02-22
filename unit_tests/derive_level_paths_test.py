@@ -9,7 +9,7 @@ import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 # # importing python folders in other direcories
-sys.path.append('/foss_fim/src/gms/')
+sys.path.append('/foss_fim/src/')
 import derive_level_paths as src
 import stream_branches
 from utils.fim_enums import FIM_exit_codes as fec

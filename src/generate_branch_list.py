@@ -5,7 +5,6 @@ import argparse
 import pandas as pd
 import sys
 
-sys.path.append('/foss_fim/src/gms/')
 from stream_branches import StreamNetwork
 
 def generate_branch_list(stream_network_dissolved, branch_id_attribute,

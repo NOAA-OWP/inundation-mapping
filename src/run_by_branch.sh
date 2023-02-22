@@ -52,7 +52,7 @@ Tcount
 echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 date -u
 Tstart
-$srcDir/gms/clip_rasters_to_branches.py -d $current_branch_id -b $outputHucDataDir/branch_polygons.gpkg -i $branch_id_attribute -r $outputBranchDataDir/$branch_zero_id/dem_meters_$branch_zero_id.tif $outputBranchDataDir/$branch_zero_id/flowdir_d8_burned_filled_$branch_zero_id.tif -c $outputCurrentBranchDataDir/dem_meters.tif $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -v
+$srcDir/clip_rasters_to_branches.py -d $current_branch_id -b $outputHucDataDir/branch_polygons.gpkg -i $branch_id_attribute -r $outputBranchDataDir/$branch_zero_id/dem_meters_$branch_zero_id.tif $outputBranchDataDir/$branch_zero_id/flowdir_d8_burned_filled_$branch_zero_id.tif -c $outputCurrentBranchDataDir/dem_meters.tif $outputCurrentBranchDataDir/flowdir_d8_burned_filled.tif -v
 Tcount
 
 ## GET RASTER METADATA
@@ -88,7 +88,7 @@ export xmax=$xmax
 export ymax=$ymax
 export ncols=$ncols
 export nrows=$nrows
-$srcDir/gms/delineate_hydros_and_produce_HAND.sh "branch"
+$srcDir/delineate_hydros_and_produce_HAND.sh "branch"
 
 ## USGS CROSSWALK ##
 if [ -f $outputHucDataDir/usgs_subset_gages.gpkg ]; then
@@ -104,7 +104,7 @@ if [ -f $deny_branches_list ]; then
     echo -e $startDiv"Remove files $hucNumber $current_branch_id"
     date -u
     Tstart
-    $srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branches_list -b $current_branch_id
+    $srcDir/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branches_list -b $current_branch_id
     Tcount
 fi
 

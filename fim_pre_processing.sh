@@ -26,22 +26,22 @@ usage ()
     echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'    
     echo '  -ud/--unitDenylist'
     echo '                    A file with a line delimited list of files in UNIT (HUC) directories to be removed'
-    echo '                    upon completion (see config/deny_gms_unit.lst for a starting point)'
-    echo '                    Default (if arg not added) : /foss_fim/config/deny_gms_unit.lst'
+    echo '                    upon completion (see config/deny_unit.lst for a starting point)'
+    echo '                    Default (if arg not added) : /foss_fim/config/deny_unit.lst'
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -bd/--branchDenylist'
     echo '                    A file with a line delimited list of files in BRANCHES directories to be removed' 
     echo '                    upon completion of branch processing.'
-    echo '                    (see config/deny_gms_branches.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branches.lst'   
+    echo '                    (see config/deny_branches.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_branches.lst'   
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -zd/--branchZeroDenylist'
     echo '                    A file with a line delimited list of files in BRANCH ZERO directories to' 
     echo '                    be removed upon completion of branch zero processing.'
-    echo '                    (see config/deny_gms_branch_zero.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_gms_branch_zero.lst'   
+    echo '                    (see config/deny_branch_zero.lst for a starting point)'
+    echo '                    Default: /foss_fim/config/deny_branch_zero.lst'   
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'    
     echo '  -jh/--jobLimit   : Max number of concurrent HUC jobs to run. Default 1 job at time.'
@@ -141,7 +141,7 @@ if [ -z "$isAWS" ]; then isAWS=0; fi
 # validate and set defaults for the deny lists
 if [ "$deny_unit_list" = "" ]
 then
-    deny_unit_list=$projectDir/config/deny_gms_unit.lst
+    deny_unit_list=$projectDir/config/deny_unit.lst
 elif [ "${deny_unit_list^^}" != "NONE" ] && [ ! -f "$deny_unit_list" ]
 then
     # NONE is not case sensitive
@@ -152,7 +152,7 @@ fi
 # validate and set defaults for the deny lists
 if [ "$deny_branches_list" = "" ]
 then
-    deny_branches_list=$projectDir/config/deny_gms_branches.lst
+    deny_branches_list=$projectDir/config/deny_branches.lst
 elif [ "${deny_branches_list^^}" != "NONE" ] && [ ! -f "$deny_branches_list" ]
 then
     # NONE is not case sensitive
@@ -167,7 +167,7 @@ fi
 has_deny_branch_zero_override=0
 if [ "$deny_branch_zero_list" = "" ]
 then
-    deny_branch_zero_list=$projectDir/config/deny_gms_branch_zero.lst
+    deny_branch_zero_list=$projectDir/config/deny_branch_zero.lst
 elif [ "${deny_branch_zero_list^^}" != "NONE" ]   # NONE is not case sensitive
 then
     if [ ! -f "$deny_branch_zero_list" ]
@@ -211,7 +211,7 @@ else
     rm -rdf $outputRunDataDir/unit_errors
     rm -rdf $outputRunDataDir/eval
     rm -f $outputRunDataDir/crosswalk_table.csv
-    rm -f $outputRunDataDir/gms_inputs*
+    rm -f $outputRunDataDir/fim_inputs*
     rm -f $outputRunDataDir/*.env
 fi
 

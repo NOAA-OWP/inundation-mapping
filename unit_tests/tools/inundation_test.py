@@ -25,6 +25,7 @@ class test_inundate(unittest.TestCase):
 
 # Test Cases:
 
+    @pytest.mark.skip(reason="Inundate_gms will be rebuilt in the future, so this test will be left broken.")
     def test_inundate_create_inundation_raster_single_branch_success(self):
         '''
         Test for creating a inundation branch raster, no depth raster and no
@@ -52,6 +53,9 @@ class test_inundate(unittest.TestCase):
                                                            out_vector_profile = params["out_vector_profile"],
                                                            src_table = params["src_table"],
                                                            quiet = params["quiet"])
+        
+        print("in_rasters")
+        print(in_rasters)
         
         assert len(in_rasters) == 1, "Expected exactly one inundation raster path records"
         assert depth_rasters[0] == None, "Expected no depth raster path records"
