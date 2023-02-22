@@ -627,11 +627,8 @@
             "hashes": [
                 "sha256:b13a1d6c1f5818bd388db53b7107d17454129a70de2b87481d555daede5eb49e",
                 "sha256:b38c31e8fc7eff642fc7c597061fff462537cf2314e3225a19c906b7b0d8a345"
-                "sha256:b13a1d6c1f5818bd388db53b7107d17454129a70de2b87481d555daede5eb49e",
-                "sha256:b38c31e8fc7eff642fc7c597061fff462537cf2314e3225a19c906b7b0d8a345"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==8.10.0"
             "version": "==8.10.0"
         },
         "ipython-genutils": {
@@ -648,6 +645,13 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==8.0.4"
+        },
+        "isoduration": {
+            "hashes": [
+                "sha256:ac2f9015137935279eac671f94f89eb00584f940f5dc49462a0c4ee692ba1bd9",
+                "sha256:b2904c2a4228c3d44f409c8ae8e2370eb21a26f7ac2ec5446df141dde3452042"
+            ],
+            "version": "==20.11.0"
         },
         "jedi": {
             "hashes": [
@@ -2277,12 +2281,9 @@
             "hashes": [
                 "sha256:188834565033387710d046e3fe96acfc9b5e86cbca7f39ff69cf21a4128198b7",
                 "sha256:9e5421e176ef5ab4c0ad896624e87a7b2f07aca746c9b2aa305952800cb8eecb"
-                "sha256:23f70e964bc11a34cef175bc90ba2914e1e4545ea1e3e2f67c079671883f9cb6",
-                "sha256:e8b2a36ea17df80ffe9e2c4fda3f693c3dad6df1697d3cd3af232db680950b0b"
             ],
             "markers": "python_version >= '3.7'",
             "version": "==3.14.0"
-            "version": "==3.13.0"
         }
     },
     "develop": {
@@ -2319,11 +2320,8 @@
             "hashes": [
                 "sha256:b13a1d6c1f5818bd388db53b7107d17454129a70de2b87481d555daede5eb49e",
                 "sha256:b38c31e8fc7eff642fc7c597061fff462537cf2314e3225a19c906b7b0d8a345"
-                "sha256:b13a1d6c1f5818bd388db53b7107d17454129a70de2b87481d555daede5eb49e",
-                "sha256:b38c31e8fc7eff642fc7c597061fff462537cf2314e3225a19c906b7b0d8a345"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==8.10.0"
             "version": "==8.10.0"
         },
         "jedi": {
