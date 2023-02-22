@@ -69,7 +69,7 @@ rm -f $outputRunDataDir/logs/subdiv_src_.log
 
 # load up enviromental information
 args_file=$outputRunDataDir/runtime_args.env
-gms_inputs=$outputRunDataDir/gms_inputs.csv
+fim_inputs=$outputRunDataDir/fim_inputs.csv
 
 source $args_file
 source $outputRunDataDir/params.env
@@ -87,7 +87,7 @@ post_proc_start_time=`date +%s`
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
 echo -e $startDiv"Start branch aggregation"
-python3 $srcDir/aggregate_branch_lists.py -d $outputRunDataDir -f "branch_ids.csv" -o $gms_inputs
+python3 $srcDir/aggregate_branch_lists.py -d $outputRunDataDir -f "branch_ids.csv" -o $fim_inputs
 
 ## GET NON ZERO EXIT CODES FOR UNITS ##
 ## No longer applicable
@@ -96,17 +96,9 @@ python3 $srcDir/aggregate_branch_lists.py -d $outputRunDataDir -f "branch_ids.cs
 echo -e $startDiv"Start non-zero exit code checking"
 find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
 
-
-## REMOVE FAILED BRANCHES ##
-# Needed in case aggregation fails, we will need the logs
-#echo
-#echo -e $startDiv"Removing branches that failed with Exit status: 61"
-#Tstart
-#python3 $srcDir/gms/remove_error_branches.py -f "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" -g #$gms_inputs
-
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 echo "Processing usgs gage aggregation"
-python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -gms $gms_inputs
+python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -i $fim_inputs
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
@@ -143,6 +135,12 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
         when we start up that part of the sytem and it does not like the word
         export.
         '
+
+        # Pick up the docker parent host machine name and override the one coming from the config file (aws only)
+        if [ "$isAWS" = "1" ]; then
+            CALIBRATION_DB_HOST=$(curl http://169.254.169.254/latest/meta-data/local-ipv4 -s)
+        fi
+
         export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
         export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
         export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
@@ -191,7 +189,7 @@ echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
 Tstart
-python3 /foss_fim/tools/gms_tools/combine_crosswalk_tables.py -d $outputRunDataDir -o $outputRunDataDir/crosswalk_table.csv
+python3 /foss_fim/tools/combine_crosswalk_tables.py -d $outputRunDataDir -o $outputRunDataDir/crosswalk_table.csv
 Tcount
 date -u
 

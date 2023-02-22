@@ -5,8 +5,8 @@ import pandas as pd
 
 from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, elev_raster_ndv
 from inundation import inundate
-from gms_tools.mosaic_inundation import Mosaic_inundation
-from gms_tools.inundate_gms import Inundate_gms
+from mosaic_inundation import Mosaic_inundation
+from inundate_gms import Inundate_gms
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from utils.shared_functions import FIM_Helpers as fh
 
@@ -284,7 +284,7 @@ class test_case(benchmark):
         # Inundate REM
         if not compute_only:             # composite alpha tests don't need to be inundated
             if model == 'GMS':
-                fh.vprint("Begin GMS Inundation", verbose)
+                fh.vprint("Begin FIM4 Inundation", verbose)
                 map_file = Inundate_gms( hydrofabric_dir = os.path.dirname(self.fim_dir), 
                                          forecast = benchmark_flows, 
                                          num_workers = gms_workers,
@@ -296,7 +296,7 @@ class test_case(benchmark):
                                          log_file = None,
                                          output_fileNames = None )
                 #if (len(map_file) > 0):
-                fh.vprint("Begin GMS Mosaic", verbose)
+                fh.vprint("Begin FIM4 Mosaic", verbose)
                 Mosaic_inundation( map_file,
                                     mosaic_attribute = 'inundation_rasters',
                                     mosaic_output = predicted_raster_path,

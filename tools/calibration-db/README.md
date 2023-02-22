@@ -38,7 +38,9 @@ Steps:
 Using a bash terminal window, run
     `docker-compose down`
     `rm -rf pgdata`
-
+  
+If that command errors out, use `docker-compose down --rmi local -v --remove-orphans`. 
+ 
 -------------------------------
 ## Debugging Postgres DB
 

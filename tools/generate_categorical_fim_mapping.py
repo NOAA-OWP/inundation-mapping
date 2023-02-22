@@ -14,8 +14,8 @@ from shapely.geometry.multipolygon import MultiPolygon
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION,VIZ_PROJECTION
 from utils.shared_functions import getDriver
-from gms_tools.mosaic_inundation import Mosaic_inundation
-from gms_tools.inundate_gms import Inundate_gms
+from mosaic_inundation import Mosaic_inundation
+from inundate_gms import Inundate_gms
 
 
 def generate_categorical_fim(fim_run_dir, source_flow_dir, output_catfim_dir, 

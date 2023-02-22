@@ -85,7 +85,7 @@ Tcount
 echo -e $startDiv"Generating Level Paths for $hucNumber"
 date -u
 Tstart
-$srcDir/gms/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $outputHucDataDir/nwm_headwaters.gpkg -c $outputHucDataDir/nwm_catchments_proj_subset.gpkg -t $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $outputHucDataDir/nwm_lakes_proj_subset.gpkg
+$srcDir/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $outputHucDataDir/nwm_headwaters.gpkg -c $outputHucDataDir/nwm_catchments_proj_subset.gpkg -t $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $outputHucDataDir/nwm_lakes_proj_subset.gpkg
 
 # test if we received a non-zero code back from derive_level_paths.py
 subscript_exit_code=$?
@@ -97,7 +97,7 @@ Tcount
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"
 date -u
 Tstart
-$srcDir/gms/buffer_stream_branches.py -a $input_DEM_domain -s $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputHucDataDir/branch_polygons.gpkg
+$srcDir/buffer_stream_branches.py -a $input_DEM_domain -s $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -i $branch_id_attribute -d $branch_buffer_distance_meters -b $outputHucDataDir/branch_polygons.gpkg
 Tcount
 
 ## CREATE BRANCHID LIST FILE
@@ -198,7 +198,7 @@ export ncols=$ncols
 export nrows=$nrows
 
 ## PRODUCE BRANCH ZERO HAND
-$srcDir/gms/delineate_hydros_and_produce_HAND.sh "unit"
+$srcDir/delineate_hydros_and_produce_HAND.sh "unit"
 
 ## CREATE USGS GAGES FILE
 if [ -f $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
@@ -220,7 +220,7 @@ fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"
-$srcDir/gms/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
+$srcDir/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
 
 
 ## REMOVE FILES FROM DENY LIST ##
@@ -228,7 +228,7 @@ if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
     date -u
     Tstart
-    $srcDir/gms/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
+    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
     Tcount
 fi
 
@@ -249,11 +249,11 @@ parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSumm
 if [ "$has_deny_branch_zero_override" == "1" ]
 then
     echo -e $startDiv"Second cleanup of files for branch zero (none default)"
-    $srcDir/gms/outputs_cleanup.py -d $outputHucDataDir -l $deny_branch_zero_list -b 0
+    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_branch_zero_list -b 0
 
 else 
     echo -e $startDiv"Second cleanup of files for branch zero using the default branch deny list"
-    $srcDir/gms/outputs_cleanup.py -d $outputHucDataDir -l $deny_branches_list -b 0
+    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_branches_list -b 0
 fi
 
 echo "---- All huc for $hucNumber branches have been now processed"
