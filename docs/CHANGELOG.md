@@ -12,7 +12,7 @@ Replaces GRASS with Whitebox. This addresses several issues, including Windows p
 
 ### Changes
 
-- `Dockerfile`: Removes GRASS
+- `Dockerfile`: Removes GRASS, update `$outputDataDir` from `/data/outputs` to `/outputs`
 - `Pipfile` and `Pipfile.lock`: Adds Whitebox and removes GRASS
 - `src/`
     - `agreedem.py`: Removes `r_grow_distance`; refactors to use with context and removes redundant raster reads.
