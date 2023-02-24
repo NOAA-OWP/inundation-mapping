@@ -1,6 +1,31 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.2.1.0 - 2023-02-21 - [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+During the merge from remove-fim3 PR into dev, merge conflicts were discovered in the unit_tests folders and files. Attempts to fix them at that time failed, so some files were removed, other renamed, other edited to get the merge to work.  Here are the fixes to put the unit tests system back to par.
+
+Note: some unit tests are now temporarily disabled due to dependencies on other files / folders which may not exist in other environments.
+
+Also.. the Changelog.md was broken and is being restored here.
+
+Also.. a minor text addition was added to the acquire_and_preprocess_3dep_dems.py files (not directly related to this PR)
+
+For file changes directly related to unit_test folder and it's file, please see [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+Other file changes:
+
+### Changes
+- `Pipfile.lock` : rebuilt and updated as a safety pre-caution.
+- `docs`
+    - `CHANGELOG.md`: additions to this file for FIM 4.2.0.0 were not merged correctly.  (re-added just below in the 4.2.0.0 section)
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Added text on data input URL source.
+        
+<br/><br/>
+
 ## v4.2.0.1 - 2023-02-16 - [PR#827](https://github.com/NOAA-OWP/inundation-mapping/pull/827)
 
 FIM 4.2.0.0. was throwing errors for 14 HUCs that did not have any level paths. These are HUCs that have only stream orders 1 and 2 and are covered under branch zero, but no stream orders 3+ (no level paths).  This has now been changed to not throw an error but continue to process of the HUC.
@@ -51,7 +76,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
    - `deny_branches.lst` :  renamed from `deny_gms_branches.lst`
    - `deny_unit.lst`  : renamed from `deny_gms_unit.lst`
    - `params_template.env` : see desc 1
- 
+
 - `data`
     - `nws`
         - `preprocess_ahps_nws.py`:   Added deprecation note: If reused, it needs review and/or upgrades.
@@ -85,7 +110,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
      - `usgs_gage_unit_setup.py` : see desc 1
      - `utils`
          - `fim_enums.py` : see desc 1
-         
+
 - `tools`
     - `combine_crosswalk_tables.py` : see desc 2
     - `compare_ms_and_non_ms_metrics.py` : see desc 2
@@ -107,7 +132,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
     - `plots.py` : see desc 2
     - `run_test_case.py`:  see desc 1
     - `synthesize_test_cases.py`: see desc 1
-    
+
 - `unit_tests`
     - `README.md`: see desc 1
     - `__template_unittests.py`: see desc 1
@@ -120,6 +145,7 @@ There are a lot of duplicate explanations for some of the changes, so here is a 
         - `inundate_gms_params.json` and `inundate_gms_unittests.py`: see desc 1 and desc 2
 
 <br/><br/>
+
 ## v4.1.3.0 - 2023-02-13 - [PR#812](https://github.com/NOAA-OWP/inundation-mapping/pull/812)
 
 An update was required to adjust host name when in the AWS environment
