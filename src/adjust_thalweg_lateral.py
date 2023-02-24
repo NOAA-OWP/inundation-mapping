@@ -32,32 +32,6 @@ def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster,
 
         return(zone_min_dict)
 
-    # Open files.
-    elevation_raster_object = rasterio.open(elevation_raster)
-    allocation_zone_raster_object = rasterio.open(allocation_raster)
-    cost_distance_raster_object = rasterio.open(cost_distance_raster)
-
-    meta = elevation_raster_object.meta.copy()
-    meta['tiled'], meta['compress'] = True, 'lzw'
-
-    # -- Create zone_min_dict -- #
-    zone_min_dict = typed.Dict.empty(types.int32,types.float32)  # Initialize an empty dictionary to store the catchment minimums
-    # Update catchment_min_dict with pixel sheds minimum.
-    for ji, window in elevation_raster_object.block_windows(1):  # Iterate over windows, using elevation_raster_object as template
-        elevation_window = elevation_raster_object.read(1,window=window).ravel()  # Define elevation_window
-        zone_window = allocation_zone_raster_object.read(1,window=window).ravel()  # Define zone_window
-        cost_window = cost_distance_raster_object.read(1, window=window).ravel()  # Define cost_window
-
-        # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
-        zone_min_dict = make_zone_min_dict(elevation_window, zone_min_dict, zone_window, cost_window, int(cost_distance_tolerance), meta['nodata'])
-
-    # ------------------------------------------------------------------------------------------------------------------------ #
-
-    elevation_raster_object.close()
-    allocation_zone_raster_object.close()
-    cost_distance_raster_object.close()
-
-
     # ------------------------------------------- Assign zonal min to thalweg ------------------------------------------------ #
     @njit
     def minimize_thalweg_elevation(dem_window, zone_min_dict, zone_window, thalweg_window):
@@ -82,30 +56,46 @@ def adjust_thalweg_laterally(elevation_raster, stream_raster, allocation_raster,
 
         return(dem_window_to_return)
 
-    # Specify raster object metadata.
-    elevation_raster_object = rasterio.open(elevation_raster)
-    allocation_zone_raster_object = rasterio.open(allocation_raster)
-    thalweg_object = rasterio.open(stream_raster)
+    # Open files.
+    with rasterio.open(elevation_raster) as elevation_raster_object, rasterio.open(allocation_raster) as allocation_zone_raster_object:
 
-    dem_lateral_thalweg_adj_object = rasterio.open(dem_lateral_thalweg_adj, 'w', **meta)
+        with rasterio.open(cost_distance_raster) as cost_distance_raster_object:
 
-    for ji, window in elevation_raster_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template
-        dem_window = elevation_raster_object.read(1,window=window)  # Define dem_window
-        window_shape = dem_window.shape
-        dem_window = dem_window.ravel()
+            meta = elevation_raster_object.meta.copy()
+            meta['tiled'], meta['compress'] = True, 'lzw'
+            ndv = meta['nodata']
 
-        zone_window = allocation_zone_raster_object.read(1,window=window).ravel()  # Define catchments_window
-        thalweg_window = thalweg_object.read(1,window=window).ravel()  # Define thalweg_window
+            # -- Create zone_min_dict -- #
+            zone_min_dict = typed.Dict.empty(types.int32,types.float32)  # Initialize an empty dictionary to store the catchment minimums
+            # Update catchment_min_dict with pixel sheds minimum.
+            for ji, window in elevation_raster_object.block_windows(1):  # Iterate over windows, using elevation_raster_object as template
+                elevation_window = elevation_raster_object.read(1,window=window).ravel()  # Define elevation_window
+                zone_window = allocation_zone_raster_object.read(1,window=window).ravel()  # Define zone_window
+                cost_window = cost_distance_raster_object.read(1, window=window).ravel()  # Define cost_window
 
-        # Call numba-optimized function to reassign thalweg cell values to catchment minimum value.
-        minimized_dem_window = minimize_thalweg_elevation(dem_window, zone_min_dict, zone_window, thalweg_window)
-        minimized_dem_window = minimized_dem_window.reshape(window_shape).astype(np.float32)
+                # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
+                zone_min_dict = make_zone_min_dict(elevation_window, zone_min_dict, zone_window, cost_window, int(cost_distance_tolerance), ndv)
 
-        dem_lateral_thalweg_adj_object.write(minimized_dem_window, window=window, indexes=1)
+            # ------------------------------------------------------------------------------------------------------------------------ #
 
-    elevation_raster_object.close()
-    allocation_zone_raster_object.close()
-    cost_distance_raster_object.close()
+
+        # Specify raster object metadata.
+        with rasterio.open(stream_raster) as thalweg_object, rasterio.open(dem_lateral_thalweg_adj, 'w', **meta) as dem_lateral_thalweg_adj_object:
+
+            for ji, window in elevation_raster_object.block_windows(1):  # Iterate over windows, using dem_rasterio_object as template
+                dem_window = elevation_raster_object.read(1,window=window)  # Define dem_window
+                window_shape = dem_window.shape
+                dem_window = dem_window.ravel()
+
+                zone_window = allocation_zone_raster_object.read(1,window=window).ravel()  # Define catchments_window
+                thalweg_window = thalweg_object.read(1,window=window).ravel()  # Define thalweg_window
+
+                # Call numba-optimized function to reassign thalweg cell values to catchment minimum value.
+                minimized_dem_window = minimize_thalweg_elevation(dem_window, zone_min_dict, zone_window, thalweg_window)
+                minimized_dem_window = minimized_dem_window.reshape(window_shape).astype(np.float32)
+
+                dem_lateral_thalweg_adj_object.write(minimized_dem_window, window=window, indexes=1)
+
 
 
 if __name__ == '__main__':

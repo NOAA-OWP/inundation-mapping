@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f05b5609b9137d06ed14e862c850d362334b299b913f52899fb234449fbb231a"
+            "sha256": "4ef68f0d8f3ea64518ebd604722e5283603cf6ffe3401320f3db3be365224ac0"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -550,14 +550,6 @@
             ],
             "index": "pypi",
             "version": "==0.8.1"
-        },
-        "grass-session": {
-            "hashes": [
-                "sha256:7155314535790145da8e2e31b0d20cd2be91477d54083a738b5c319164e7f03b",
-                "sha256:ce03a53e28cc14bc7fff91482e83ed4f174a1325732c4333ed183dd15de39f8d"
-            ],
-            "index": "pypi",
-            "version": "==0.5"
         },
         "h5py": {
             "hashes": [
@@ -2181,6 +2173,14 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==1.5.1"
+        },
+        "whitebox": {
+            "hashes": [
+                "sha256:0455cf727233adb53abe1bbe221fe0ac597d3c2609a3f7e74c1243f8ffb4b190",
+                "sha256:8afc78a2f59e1b58e1cae2509f9489b7fc9f2105a5ee7d84a4005e5905dcea01"
+            ],
+            "index": "pypi",
+            "version": "==2.2.0"
         },
         "widgetsnbextension": {
             "hashes": [

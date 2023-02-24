@@ -2,6 +2,28 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.0.0 - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
+
+Replaces GRASS with Whitebox. This addresses several issues, including Windows permissions and GRASS projection issues. Whitebox also has a slight performance benefit over GRASS.
+
+### Removals
+
+- `src/r_grow_distance.py`: Deletes file
+
+### Changes
+
+- `Dockerfile`: Removes GRASS, update `$outputDataDir` from `/data/outputs` to `/outputs`
+- `Pipfile` and `Pipfile.lock`: Adds Whitebox and removes GRASS
+- `src/`
+    - `agreedem.py`: Removes `r_grow_distance`; refactors to use with context and removes redundant raster reads.
+    - `adjust_lateral_thalweg.py` and `agreedem.py`: Refactors to use `with` context and removes redundant raster reads
+    - `unique_pixel_and_allocation.py`: Replaces GRASS with Whitebox and remove `r_grow_distance`
+    - `gms/`
+        - `delineate_hydros_and_produce_HAND.sh` and `run_by_unit.sh`: Removes GRASS parameter
+        - `mask_dem.py`: Removes unnecessary line
+
+<br/><br/>
+
 ## v4.2.1.0 - 2023-02-21 - [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
 
 During the merge from remove-fim3 PR into dev, merge conflicts were discovered in the unit_tests folders and files. Attempts to fix them at that time failed, so some files were removed, other renamed, other edited to get the merge to work.  Here are the fixes to put the unit tests system back to par.
@@ -299,7 +321,6 @@ BUT.... you have to be careful not to overload your system.  **You need to multi
     - `deny_gms_branches_dev.lst`
 
 <br/><br/>
-
 
 ## v4.0.19.5 - 2023-01-24 - [PR#801](https://github.com/NOAA-OWP/inundation-mapping/pull/801)
 
