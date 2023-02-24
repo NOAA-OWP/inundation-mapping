@@ -242,7 +242,13 @@ echo
 echo "---- Start of branch processing for $hucNumber"
 branch_processing_start_time=`date +%s`
 
-parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
+if [ -f $branch_list_lst_file ]; then
+    # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
+    # but there will still be a branch zero
+    parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
+else
+    echo "No level paths exist with this HUC. Processing branch zero only."
+fi
 
 # -------------------
 ## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO (but using normal branch deny) ##
@@ -256,7 +262,7 @@ else
     $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_branches_list -b 0
 fi
 
-echo "---- All huc for $hucNumber branches have been now processed"
+echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration $branch_processing_start_time
 echo
 

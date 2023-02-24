@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.2.x.x - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
+## v4.3.0.0 - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
 
 Replaces GRASS with Whitebox. This addresses several issues, including Windows permissions and GRASS projection issues. Whitebox also has a slight performance benefit over GRASS.
 
@@ -21,6 +21,41 @@ Replaces GRASS with Whitebox. This addresses several issues, including Windows p
     - `gms/`
         - `delineate_hydros_and_produce_HAND.sh` and `run_by_unit.sh`: Removes GRASS parameter
         - `mask_dem.py`: Removes unnecessary line
+
+<br/><br/>
+
+## v4.2.1.0 - 2023-02-21 - [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+During the merge from remove-fim3 PR into dev, merge conflicts were discovered in the unit_tests folders and files. Attempts to fix them at that time failed, so some files were removed, other renamed, other edited to get the merge to work.  Here are the fixes to put the unit tests system back to par.
+
+Note: some unit tests are now temporarily disabled due to dependencies on other files / folders which may not exist in other environments.
+
+Also.. the Changelog.md was broken and is being restored here.
+
+Also.. a minor text addition was added to the acquire_and_preprocess_3dep_dems.py files (not directly related to this PR)
+
+For file changes directly related to unit_test folder and it's file, please see [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+Other file changes:
+
+### Changes
+- `Pipfile.lock` : rebuilt and updated as a safety pre-caution.
+- `docs`
+    - `CHANGELOG.md`: additions to this file for FIM 4.2.0.0 were not merged correctly.  (re-added just below in the 4.2.0.0 section)
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Added text on data input URL source.
+        
+<br/><br/>
+
+## v4.2.0.1 - 2023-02-16 - [PR#827](https://github.com/NOAA-OWP/inundation-mapping/pull/827)
+
+FIM 4.2.0.0. was throwing errors for 14 HUCs that did not have any level paths. These are HUCs that have only stream orders 1 and 2 and are covered under branch zero, but no stream orders 3+ (no level paths).  This has now been changed to not throw an error but continue to process of the HUC.
+
+### Changes
+
+- `src`
+    - `run_unit_wb.sh`: Test if branch_id.lst exists, which legitimately might not. Also a bit of text cleanup.
 
 <br/><br/>
 
@@ -286,7 +321,6 @@ BUT.... you have to be careful not to overload your system.  **You need to multi
     - `deny_gms_branches_dev.lst`
 
 <br/><br/>
-
 
 ## v4.0.19.5 - 2023-01-24 - [PR#801](https://github.com/NOAA-OWP/inundation-mapping/pull/801)
 
