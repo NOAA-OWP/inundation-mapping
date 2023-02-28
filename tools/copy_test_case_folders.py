@@ -89,7 +89,7 @@ if __name__ == '__main__':
 #   and it has to be run on each root folder, one at a time (for now. aka.. no wildcards)
 
 # Sample Usage: 
-#python /foss_fim/tools/copy_test_case_folders.py -f /data/inputs/huc_lists/huc_list_for_alpha_tests_20220420.lst -s /outputs/copy_test_synth/ -t /data/outputs/copy_test_synth_combined -a
+#python /foss_fim/tools/copy_test_case_folders.py -f /data/inputs/huc_lists/huc_list_for_alpha_tests_20220420.lst -s /outputs/copy_test_synth/ -t /outputs/copy_test_synth_combined -a
 
 #  NOTE the 'a' at the end meaning go ahead create the gms_input.csv. This is normally
 # left for the last folder to be copied over.

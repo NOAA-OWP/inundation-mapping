@@ -124,7 +124,7 @@ then
 fi
 
 # TODO
-# upgrade Dockerfile to add this as an env value
+# update Dockerfile to add this as an env value, and delete line below
 projectDir=/foss_fim
 
 # outputDataDir, srcDir and others come from the Dockerfile

@@ -23,7 +23,7 @@ Running the `fim_pipeline.sh` is a quicker process than running all three steps 
 set -e
 
 # TODO
-# upgrade Dockerfile to add this as an env value
+# update Dockerfile to add this as an env value, and delete line below
 projectDir=/foss_fim
 
 # See fim_pre_processing.sh for details of how to use this script. fim_pre_processing.sh
