@@ -46,10 +46,13 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order):
     filtered_segments = []
     for feature_id in unfiltered_segments:
         all_lists = get_metadata(metadata_url, select_by = 'nwm_feature_id', selector = [feature_id])
-        feature_id_metadata = next(item for item in all_lists)[0]
-        stream_order = feature_id_metadata['nwm_feature_data']['stream_order']
-        if stream_order == desired_order:
-            filtered_segments.append(feature_id)
+        try:
+            feature_id_metadata = next(item for item in all_lists)[0]
+            stream_order = feature_id_metadata['nwm_feature_data']['stream_order']
+            if stream_order == desired_order:
+                filtered_segments.append(feature_id)
+        except:
+            pass
 
     return filtered_segments
 
