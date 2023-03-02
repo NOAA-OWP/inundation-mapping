@@ -52,7 +52,7 @@ ARG dataDir=/data
 ARG projectDir=/foss_fim
 ARG depDir=/dependencies
 ENV inputDataDir=$dataDir/inputs
-ENV outputDataDir=$dataDir/outputs
+ENV outputDataDir=/outputs
 ENV srcDir=$projectDir/src
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
@@ -70,14 +70,12 @@ COPY --from=builder $depDir $depDir
 RUN apt update --fix-missing 
 RUN apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1 tmux rsync
 
-RUN DEBIAN_FRONTEND=noninteractive apt install -y grass=7.8.2-1build3 grass-doc=7.8.2-1build3
-
 RUN apt auto-remove
 
 ## adding AWS CLI (for bash) ##
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
-	./aws/install
+    ./aws/install
 
 ## adding environment variables for numba and python ##
 ENV LC_ALL=C.UTF-8
@@ -92,6 +90,14 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 COPY Pipfile .
 COPY Pipfile.lock .
 RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
+#RUN pip3 install pipenv==2022.4.8 && pipenv install --system --deploy --ignore-pipfile (too slow to
+#     leave out shapely,pygeos at this time. Likely better after upgrading)
+
+# TEMP FIX as neither shapely or Shapely is staying in the pip list. If we manually add
+# it with pip (not pipenv), it works. Notice case for Shapely versus shapely. 
+# This temp fix works for now until we can reconsile the shapely package,
+# pygeos, geopanda's and possibly others (coming soon)
+RUN pip install shapely==1.7.0
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /

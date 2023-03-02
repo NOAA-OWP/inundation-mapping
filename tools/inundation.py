@@ -270,10 +270,8 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
         if out_vector_profile is None:
             out_vector_profile = {'crs' : crs , 'driver' : 'GPKG'}
 
-        out_vector_profile['schema'] = {
-                                         'geometry' : 'Polygon',
-                                         'properties' : OrderedDict([('HydroID' , 'int')])
-                                       }
+        out_vector_profile['schema'] = { 'geometry' : 'Polygon',
+                                         'properties' : OrderedDict([('HydroID' , 'int')]) }
 
         # open output inundation polygons
         if isinstance(inundation_polygon,str):

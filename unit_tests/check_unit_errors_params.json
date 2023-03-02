@@ -1,11 +1,11 @@
 {
 	"valid_data":
 	{
-		"fim_dir": "/outputs/gms_example_unit_tests"
+		"fim_dir": "/outputs/fim_unit_test_data_do_not_remove"
 	},
 
 	"invalid_path":
 	{
-		"fim_dir": "/outputs/gms_example_unit_tests_not_not_valid"
+		"fim_dir": "/outputs/check_errors_example_unit_tests_not_not_valid"
 	}	
 }

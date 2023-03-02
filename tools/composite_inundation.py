@@ -12,16 +12,24 @@ import concurrent.futures as cf
 from tqdm import tqdm
 
 from inundation import inundate
-from gms_tools.mosaic_inundation import Mosaic_inundation
-from gms_tools.inundate_gms import Inundate_gms
+from mosaic_inundation import Mosaic_inundation
+from inundate_gms import Inundate_gms
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 
+########################################################
+'''
+Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
+   a significant review and/or upgrade.
+'''
+
+########################################################
+
+
 class InundateModel_HUC(object):
 
-    def __init__(self, model, source_directory, huc):
+    def __init__(self, source_directory, huc):
 
-        self.model = model
         self.source_directory = source_directory
         self.huc = huc        
 
@@ -48,13 +56,6 @@ class InundateModel_HUC(object):
         if not os.path.isdir(output_huc_dir):
             os.mkdir(output_huc_dir)
 
-        if self.model == "ms":
-            extent_friendly = "mainstem (MS)"
-        elif self.model == "fr":
-            extent_friendly = "full-resolution (FR)"
-        else: # gms
-            extent_friendly = "FIM4 GMS"
-
         inundation_map_file = None
 
         output_raster_name = os.path.join(output_huc_dir, output_name)
@@ -64,12 +65,12 @@ class InundateModel_HUC(object):
         log_file = None
         inundation_list_file = None        
         if (log_file_path != None):
-            log_file = os.path.join(log_file_path, f"{self.huc}_{self.model}_error_logs.txt") 
+            log_file = os.path.join(log_file_path, f"{self.huc}_error_logs.txt") 
             inundation_list_file = os.path.join(log_file_path, 
-                                               f"{self.huc}_{self.model}_inundation_file_list.csv") 
+                                               f"{self.huc}_inundation_file_list.csv") 
 
         if (verbose):
-            print(f'... Creating an inundation map for the {extent_friendly}'\
+            print(f'... Creating an inundation map for the FIM4'\
                     f' configuration for HUC {self.huc}...')
 
         if self.model in ["fr", "ms"]:
@@ -150,7 +151,7 @@ class Composite_HUC(object):
         composite_model_map_files = []
         for model in args["models"]:
 
-            # setup original fim/gms processed directory
+            # setup original fim processed directory
             if model == "ms" : source_dir = args["fim_dir_ms"]
             elif model == "fr" : source_dir = args["fim_dir_fr"]
             else: source_dir = args["gms_dir"]

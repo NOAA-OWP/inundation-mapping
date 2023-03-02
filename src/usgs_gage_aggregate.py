@@ -68,20 +68,20 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Aggregates usgs_elev_table.csv at the HUC level')
     parser.add_argument('-fim','--fim_directory', help='Input FIM Directory', required=True)
-    parser.add_argument('-gms','--gms_inputs', help='Input gms_inputs CSV file', required=False)
+    parser.add_argument('-i','--fim_inputs', help='Input fim_inputs CSV file', required=False)
 
     args = vars(parser.parse_args())
 
     fim_directory = args['fim_directory']
-    gms_inputs = args['gms_inputs']
+    fim_inputs = args['fim_inputs']
     assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
 
-    if gms_inputs:
-        gms_inputs = pd.read_csv(gms_inputs, header=None, names=['huc', 'levpa_id'],dtype=str)
+    if fim_inputs:
+        fim_inputs = pd.read_csv(fim_inputs, header=None, names=['huc', 'levpa_id'],dtype=str)
 
-        for huc in gms_inputs.huc.unique():
+        for huc in fim_inputs.huc.unique():
 
-            branches = gms_inputs.loc[gms_inputs.huc == huc, 'levpa_id'].tolist()
+            branches = fim_inputs.loc[fim_inputs.huc == huc, 'levpa_id'].tolist()
             huc = HucDirectory(join(fim_directory, huc), limit_branches=branches)
             huc.agg_function()
 

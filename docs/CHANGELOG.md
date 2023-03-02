@@ -1,6 +1,327 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.3.0.0 - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
+
+Replaces GRASS with Whitebox. This addresses several issues, including Windows permissions and GRASS projection issues. Whitebox also has a slight performance benefit over GRASS.
+
+### Removals
+
+- `src/r_grow_distance.py`: Deletes file
+
+### Changes
+
+- `Dockerfile`: Removes GRASS, update `$outputDataDir` from `/data/outputs` to `/outputs`
+- `Pipfile` and `Pipfile.lock`: Adds Whitebox and removes GRASS
+- `src/`
+    - `agreedem.py`: Removes `r_grow_distance`; refactors to use with context and removes redundant raster reads.
+    - `adjust_lateral_thalweg.py` and `agreedem.py`: Refactors to use `with` context and removes redundant raster reads
+    - `unique_pixel_and_allocation.py`: Replaces GRASS with Whitebox and remove `r_grow_distance`
+    - `gms/`
+        - `delineate_hydros_and_produce_HAND.sh` and `run_by_unit.sh`: Removes GRASS parameter
+        - `mask_dem.py`: Removes unnecessary line
+
+<br/><br/>
+
+## v4.2.1.0 - 2023-02-21 - [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+During the merge from remove-fim3 PR into dev, merge conflicts were discovered in the unit_tests folders and files. Attempts to fix them at that time failed, so some files were removed, other renamed, other edited to get the merge to work.  Here are the fixes to put the unit tests system back to par.
+
+Note: some unit tests are now temporarily disabled due to dependencies on other files / folders which may not exist in other environments.
+
+Also.. the Changelog.md was broken and is being restored here.
+
+Also.. a minor text addition was added to the acquire_and_preprocess_3dep_dems.py files (not directly related to this PR)
+
+For file changes directly related to unit_test folder and it's file, please see [PR#829](https://github.com/NOAA-OWP/inundation-mapping/pull/829)
+
+Other file changes:
+
+### Changes
+- `Pipfile.lock` : rebuilt and updated as a safety pre-caution.
+- `docs`
+    - `CHANGELOG.md`: additions to this file for FIM 4.2.0.0 were not merged correctly.  (re-added just below in the 4.2.0.0 section)
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`: Added text on data input URL source.
+        
+<br/><br/>
+
+## v4.2.0.1 - 2023-02-16 - [PR#827](https://github.com/NOAA-OWP/inundation-mapping/pull/827)
+
+FIM 4.2.0.0. was throwing errors for 14 HUCs that did not have any level paths. These are HUCs that have only stream orders 1 and 2 and are covered under branch zero, but no stream orders 3+ (no level paths).  This has now been changed to not throw an error but continue to process of the HUC.
+
+### Changes
+
+- `src`
+    - `run_unit_wb.sh`: Test if branch_id.lst exists, which legitimately might not. Also a bit of text cleanup.
+
+<br/><br/>
+
+## v4.2.0.0 - 2023-02-16 - [PR#816](https://github.com/NOAA-OWP/inundation-mapping/pull/816)
+
+This update removes the remaining elements of FIM3 code.  It further removes the phrases "GMS" as basically the entire FIM4 model. FIM4 is GMS. With removing FIM3, it also means remove concepts of "MS" and "FR" which were no longer relevant in FIM4.  There are only a few remaining places that will continue with the phrase "GMS" which is in some inundation files which are being re-evaluated.  Some deprecated files have been removed and some subfolders removed.
+
+There are a lot of duplicate explanations for some of the changes, so here is a shortcut system.
+
+- desc 1:  Remove or rename values based on phrase "GMS, MS and/or FR"
+- desc 2:  Moved file from the /src/gms folder to /src  or /tools/gms_tools to /tools
+- desc 3:  No longer needed as we now use the `fim_pipeline.sh` processing model.
+
+### Removals
+
+- `data`
+    - `acquire_and_preprocess_inputs.py`:  No longer needed
+- `gms_pipeline.sh` : see desc 3
+- `gms_run_branch.sh` : see desc 3
+- `gms_run_post_processing.sh` : see desc 3
+- `gms_run_unit.sh` : see desc 3
+- `src`
+    - `gms`
+        - `init.py` : folder removed, no longer needed.
+        - `aggregate_branch_lists.py`: no longer needed.  Newer version already exists in src directory.
+        - `remove_error_branches.py` :  see desc 3
+        - `run_by_unit.sh` : see desc 3
+        - `test_new_crosswalk.sh` : no longer needed
+        - `time_and_tee_run_by_branch.sh` : see desc 3
+        - `time_and_tee_run_by_unit.sh` : see desc 3
+    - `output_cleanup.py` : see desc 3
+ - `tools/gms_tools`
+     - `init.py` : folder removed, no longer needed.
+
+### Changes
+
+- `config`
+   - `deny_branch_unittests.lst` :  renamed from `deny_gms_branch_unittests.lst`
+   - `deny_branch_zero.lst` : renamed from `deny_gms_branch_zero.lst`
+   - `deny_branches.lst` :  renamed from `deny_gms_branches.lst`
+   - `deny_unit.lst`  : renamed from `deny_gms_unit.lst`
+   - `params_template.env` : see desc 1
+
+- `data`
+    - `nws`
+        - `preprocess_ahps_nws.py`:   Added deprecation note: If reused, it needs review and/or upgrades.
+    - `acquire_and_preprocess_3dep_dems.py` : see desc 1
+ - `fim_post_processing.sh` : see desc 1, plus a small pathing change.
+ - `fim_pre_processing.sh` : see desc 1
+ - ` src`
+     - `add_crosswalk.py` : see desc 1. Also cleaned up some formatting and commented out a code block in favor of a better way to pass args from "__main__"
+     - `bash_variables.env` : see desc 1
+     - `buffer_stream_branches.py` : see desc 2
+     - `clip_rasters_to_branches.py` : see desc 2
+     - `crosswalk_nwm_demDerived.py` :  see desc 1 and desc 2
+     - `delineate_hydros_and_produce_HAND.sh` : see desc 1 and desc 2
+     - `derive_level_paths.py`  :  see desc 1 and desc 2
+     - `edit_points.py` : see desc  2
+     - `filter_inputs_by_huc.py`: see desc 1 and desc 2
+     - `finalize_srcs.py`:  see desc 2
+     - `generate_branch_list.py` : see desc 1
+     - `make_rem.py` : see desc 2
+     - `make_dem.py` : see desc  2
+     - `outputs_cleanup.py`:  see desc 1
+     - `process_branch.sh`:  see desc 1
+     - `query_vectors_by_branch_polygons.py`: see desc 2
+     - `reset_mannings.py` : see desc 2
+     - `run_by_branch.sh`:  see desc 1
+     - `run_unit_wb.sh`: see desc 1
+     - `stream_branches.py`:  see desc 2
+     - `subset_catch_list_by_branch_id.py`: see desc 2
+     - `toDo.md`: see desc 2
+     - `usgs_gage_aggregate.py`:  see desc 1
+     - `usgs_gage_unit_setup.py` : see desc 1
+     - `utils`
+         - `fim_enums.py` : see desc 1
+
+- `tools`
+    - `combine_crosswalk_tables.py` : see desc 2
+    - `compare_ms_and_non_ms_metrics.py` : see desc 2
+    - `compile_comp_stats.py`: see desc 2  and added note about possible deprecation.
+    - `compile_computation_stats.py` : see desc 2  and added note about possible deprecation.
+    - `composite_inundation.py` : see desc 1 : note.. references a file called inundate_gms which retains it's name for now.
+    - `consolidate_metrics.py`: added note about possible deprecation.
+    - `copy_test_case_folders.py`: see desc 1
+    - `eval_plots.py` : see desc 1
+    - `evaluate_continuity.py`: see desc 2
+    - `find_max_catchment_breadth.py` : see desc 2
+    - `generate_categorical_fim_mapping.py` : see desc 1
+    - `inundate_gms.py`: see desc 1 and desc 2. Note: This file has retained its name with the phrase "gms" in it as it might be upgraded later and there are some similar files with similar names.
+    - `inundate_nation.py` : see desc 1
+    - `inundation.py`:  text styling change
+    - `make_boxes_from_bounds.py`: text styling change
+    - `mosaic_inundation.py`:  see desc 1 and desc 2
+    - `overlapping_inundation.py`: see desc 2
+    - `plots.py` : see desc 2
+    - `run_test_case.py`:  see desc 1
+    - `synthesize_test_cases.py`: see desc 1
+
+- `unit_tests`
+    - `README.md`: see desc 1
+    - `__template_unittests.py`: see desc 1
+    - `check_unit_errors_params.json`  and `check_unit_errors_unittests.py` : see desc 1
+    - `derive_level_paths_params.json` and `derive_level_paths_unittests.py` : see desc 1 and desc 2
+    - `filter_catchments_and_add_attributes_unittests.py`: see desc 1
+    - `outputs_cleanup_params.json` and `outputs_cleanup_unittests.py`: see desc 1 and desc 2
+    - `split_flows_unittests.py` : see desc 1
+    - `tools`
+        - `inundate_gms_params.json` and `inundate_gms_unittests.py`: see desc 1 and desc 2
+
+<br/><br/>
+
+## v4.1.3.0 - 2023-02-13 - [PR#812](https://github.com/NOAA-OWP/inundation-mapping/pull/812)
+
+An update was required to adjust host name when in the AWS environment
+
+### Changes
+
+- `fim_post_processing.sh`: Added an "if isAWS" flag system based on the input command args from fim_pipeline.sh or 
+
+- `tools/calibration-db`
+    - `README.md`: Minor text correction.
+
+<br/><br/>
+
+## v4.1.2.0 - 2023-02-15 - [PR#808](https://github.com/NOAA-OWP/inundation-mapping/pull/808)
+
+Add `pytest` package and refactor existing unit tests. Update parameters to unit tests (`/unit_tests/*_params.json`) to valid paths. Add leading slash to paths in `/config/params_template.env`.
+
+### Additions
+
+- `/unit_tests`
+  - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
+  - `pyproject.toml`  - used to specify which warnings are excluded/filtered.
+  - `/gms`  
+    - `__init__.py` - needed for `pytest` command line executable to pick up tests.
+  - `/tools`
+    - `__init__.py`  - needed for `pytest` command line executable to pick up tests.
+    - `inundate_gms_params.json` - file moved up into this directory
+    - `inundate_gms_test.py`     - file moved up into this directory
+    - `inundation_params.json`   - file moved up into this directory
+    - `inundation_test.py`       - file moved up into this directory
+
+### Removals
+
+- `/unit_tests/tools/gms_tools/` directory removed, and files moved up into `/unit_tests/tools`    
+ 
+### Changes
+
+- `Pipfile` - updated to include pytest as a dependency
+- `Pipfile.lock` - updated to include pytest as a dependency
+
+- `/config`
+  - `params_template.env` - leading slash added to paths
+  
+- `/unit_tests/` - All of the `*_test.py` files were refactored to follow the `pytest` paradigm.  
+  - `*_params.json` - valid paths on `fim-dev1` provided
+  - `README.md`  - updated to include documentation on pytest.  
+  - `unit_tests_utils.py`  
+  - `__template_unittests.py` -> `__template.py` - exclude the `_test` suffix to remove from test suite. Updated example on new format for pytest.
+  - `check_unit_errors_test.py`  
+  - `clip_vectors_to_wbd_test.py`  
+  - `filter_catchments_and_add_attributes_test.py`  
+  - `rating_curve_comparison_test.py`  
+  - `shared_functions_test.py`  
+  - `split_flow_test.py`  
+  - `usgs_gage_crosswalk_test.py`  
+  - `aggregate_branch_lists_test.py`  
+  - `generate_branch_list_test.py`  
+  - `generate_branch_list_csv_test.py`  
+  - `aggregate_branch_lists_test.py`  
+  - `generate_branch_list_csv_test.py`  
+  - `generate_branch_list_test.py`  
+    - `/gms`  
+      - `derive_level_paths_test.py`  
+      - `outputs_cleanup_test.py`
+    - `/tools`
+      - `inundate_unittests.py` -> `inundation_test.py`  
+      - `inundate_gms_test.py`
+
+
+<br/><br/>
+
+## v4.1.1.0 - 2023-02-16 - [PR#809](https://github.com/NOAA-OWP/inundation-mapping/pull/809)
+
+The CatFIM code was updated to allow 1-foot interval processing across all stage-based AHPS sites ranging from action stage to 5 feet above major stage, along with restart capability for interrupted processing runs.
+
+### Changes
+
+- `tools/generate_categorical_fim.py` (all changes made here)
+    - Added try-except blocks for code that didn't allow most sites to actually get processed because it was trying to check values of some USGS-related variables that most of the sites didn't have
+    - Overwrite abilities of the different outputs for the viz team were not consistent (i.e., one of the files had the ability to be overwritten but another didn't), so that has been made consistent to disallow any overwrites of the existing final outputs for a specified output folder.
+    - The code also has the ability to restart from an interrupted run and resume processing uncompleted HUCs by first checking for a simple "complete" file for each HUC. If a HUC has that file, then it is skipped (because it already completed processing during a run for a particular output folder / run name).
+    - When a HUC is successfully processed, an empty "complete" text file is created / touched.
+
+<br/><br/>
+
+## v4.1.0.0 - 2023-01-30 - [PR#806](https://github.com/NOAA-OWP/inundation-mapping/pull/806)
+
+As we move to Amazon Web Service, AWS, we need to change our processing system. Currently, it is `gms_pipeline.sh` using bash "parallel" as an iterator which then first processes all HUCs, but not their branches. One of `gms_pipeline.sh`'s next steps is to do branch processing which is again iterated via "parallel". AKA. Units processed as one step, branches processed as second independent step.
+
+**Note:** While we are taking steps to move to AWS, we will continue to maintain the ability of doing all processing on a single server using a single docker container as we have for a long time. Moving to AWS is simply taking portions of code from FIM and adding it to AWS tools for performance of large scale production runs.
+
+Our new processing system, starting with this PR,  is to allow each HUC to process it's own branches.
+
+A further requirement was to split up the overall processing flow to independent steps, with each step being able to process itself without relying on "export" variables from other files. Note: There are still a few exceptions.  The basic flow now becomes
+- `fim_pre_processing.sh`, 
+- one or more calls to `fim_process_unit_wb.sh` (calling this file for each single HUC to be processed).
+- followed by a call to `fim_post_processing.sh`. 
+
+
+Note: This is a very large, complex PR with alot of critical details. Please read the details at [PR 806](https://github.com/NOAA-OWP/inundation-mapping/pull/806). 
+
+### CRITICAL NOTE
+The new `fim_pipeline.sh` and by proxy `fim_pre_processing.sh` has two new key input args, one named **-jh** (job HUCs) and one named **-jb** (job branches).  You can assign the number of cores/CPU's are used for processing a HUC versus the number of branches.  For the -jh number arg, it only is used against the `fim_pipeline.sh` file when it is processing more than one HUC or a list of HUCs as it is the iterator for HUCs.   The -jb flag says how many cores/CPU's can be used when processing branches (note.. the average HUC has 26 branches). 
+
+BUT.... you have to be careful not to overload your system.  **You need to multiply the -jh and the -jb values together, but only when using the `fim_pipeline.sh` script.**  Why? _If you have 16 CPU's available on your machine, and you assign -jh as 10 and -jb as 26, you are actually asking for 126 cores (10 x 26) but your machine only has 16 cores._   If you are not using `fim_pipeline.sh` but using the three processing steps independently, then the -jh value has not need to be anything but the number of 1 as each actual HUC can only be processed one at a time. (aka.. no iterator).
+</br>
+
+### Additions
+
+- `fim_pipeline.sh` :  The wrapper for the three new major "FIM" processing steps. This script allows processing in one command, same as the current tool of `gms_pipeline.sh`.
+- `fim_pre_processing.sh`: This file handles all argument input from the user, validates those inputs and sets up or cleans up folders. It also includes a new system of taking most input parameters and some key enviro variables and writing them out to a files called `runtime_args.env`.  Future processing steps need minimal input arguments as it can read most values it needs from this new `runtime_args.env`. This allows the three major steps to work independently from each other. Someone can now come in, run `fim_pre_processing.sh`, then run `fim_process_unit_wb.sh`, each with one HUC, as many time as they like, each adding just its own HUC folder to the output runtime folder. 
+- `fim_post_processing.sh`: Scans all HUC folders inside the runtime folders to handle a number of processing steps which include (to name a few): 
+    - aggregating errors
+    - aggregating to create a single list (gms_inputs.csv) for all valid HUCs and their branch ids
+    - usgs gage aggregation
+    - adjustments to SRV's
+    - and more    
+- `fim_process_unit_wb.sh`: Accepts only input args of runName and HUC number. It then sets up global variable, folders, etc to process just the one HUC. The logic for processing the HUC is in `run_unit_wb.sh` but managed by this `fim_process_unit_wb.sh` file including all error trapping.
+- `src`
+    - `aggregate_branch_lists.py`:  When each HUC is being processed, it creates it's own .csv file with its branch id's. In post processing we need one master csv list and this file aggregates them. Note: This is a similar file already in the `src/gms` folder but that version operates a bit different and will be deprecated soon.
+    - `generate_branch_list.py`: This creates the single .lst for a HUC defining each branch id. With this list, `run_unit_wb.sh` can do a parallelized iteration over each of its branches for processing. Note: This is also similar to the current `src/gms` file of the same name and the gms folder version will also be deprecated soon.
+    - `generate_branch_list_csv.py`. As each branch, including branch zero, has processed and if it was successful, it will add to a .csv list in the HUC directory. At the end, it becomes a list of all successful branches. This file will be aggregates with all similar .csv in post processing for future processing.
+    - `run_unit_wb.sh`:  The actual HUC processing logic. Note: This is fundamentally the same as the current HUC processing logic that exists currently in `src/gms/run_by_unit.sh`, which will be removed in the very near future. However, at the end of this file, it creates and manages a parallelized iterator for processing each of it's branches.
+    - `process_branch.sh`:  Same concept as `process_unit_wb.sh` but this one is for processing a single branch. This file manages the true branch processing file of `src/gms/run_by_branch.sh`.  It is a wrapper file to `src/gms/run_by_branch.sh` and catches all error and copies error files as applicable. This allows the parent processing files to continue despite branch errors. Both the new fim processing system and the older gms processing system currently share the branch processing file of `src/gms/run_by_branch.sh`. When the gms processing file is removed, this file will likely not change, only moved one directory up and be no longer in the `gms` sub-folder.
+- `unit_tests`
+    - `aggregate_branch_lists_unittests.py' and `aggregate_branch_lists_params.json`  (based on the newer `src` directory edition of `aggregate_branch_lists.py`).
+    - `generate_branch_list_unittest.py` and `generate_branch_list_params.json` (based on the newer `src` directory edition of `generate_branch_list.py`).
+    -  `generate_branch_list_csv_unittest.py` and `generate_branch_list_csv_params.json` 
+
+### Changes
+
+- `config`
+    - `params_template.env`: Removed the `default_max_jobs` value and moved the `startDiv` and `stopDiv` to the `bash_variables.env` file.
+    - `deny_gms_unit.lst` : Renamed from `deny_gms_unit_prod.lst`
+    - `deny_gms_branches.lst` : Renamed from `deny_gms_branches_prod.lst`
+
+- `gms_pipeline.sh`, `gms_run_branch.sh`, `gms_run_unit.sh`, and `gms_post_processing.sh` :  Changed to hardcode the `default_max_jobs` to the value of 1. (we don't want this to be changed at all). They were also changed for minor adjustments for the `deny` list files names.
+
+- `src`
+    - `bash_functions.env`: Fix error with calculating durations.
+    - `bash_variables.env`:  Adds the two export lines (stopDiv and startDiv) from `params_template.env`
+    - `clip_vectors_to_wbd.py`: Cleaned up some print statements for better output traceability.
+    - `check_huc_inputs.py`: Added logic to ensure the file was an .lst file. Other file formats were not be handled correctly.
+    - `gms`
+        - `delineate_hydros_and_produce_HAND.sh`: Removed all `stopDiv` variable to reduce log and screen output. 
+        - `run_by_branch.sh`: Removed an unnecessary test for overriding outputs.
+
+### Removed
+
+- `config`
+    - `deny_gms_branches_dev.lst`
+
+<br/><br/>
+
 ## v4.0.19.5 - 2023-01-24 - [PR#801](https://github.com/NOAA-OWP/inundation-mapping/pull/801)
 
 When running tools/test_case_by_hydroid.py, it throws an error of local variable 'stats' referenced before assignment.
