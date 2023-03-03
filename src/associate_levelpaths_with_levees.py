@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from shapely import wkb
 
 def associate_levelpaths_with_levees(levees_filename, leveed_areas_filename, levelpaths_filename, levee_buffer, out_filename):
     """
@@ -60,6 +61,27 @@ def associate_levelpaths_with_levees(levees_filename, leveed_areas_filename, lev
 
         levee_streams_right = gpd.sjoin(leveed_right, levelpaths)
         levee_streams_left = gpd.sjoin(leveed_left, levelpaths)
+
+        # Remove levelpaths crossing the levee exactly once
+        remove_levelpaths = []
+        for i, levelpath in levelpaths.iterrows():
+            # Get GeoSeries of intersections of row with all rows
+            row_intersections = levees.intersection(levelpath['geometry'])
+            # Exclude any rows that aren't a MultiPoint geometry
+            row_intersection_points = row_intersections[row_intersections.geom_type == 'MultiPoint']
+            # Create a DataFrame of the the row intersection points
+            # row_intersections_df = pd.DataFrame(row_intersection_points)
+            row_intersections_df = pd.DataFrame(
+                [[k, point.x, point.y]
+                for k, v in row_intersection_points.items()
+                for point in wkb.loads(v.wkb)],
+                columns=['ID', 'X', 'Y']
+            )
+
+            if len(row_intersections_df) == 1:
+                remove_levelpaths.append(levelpath['levpa_id'])
+
+        levee_streams_right = levee_streams_right[~levee_streams_right['levpa_id'].isin(remove_levelpaths)]
 
         out_df =  pd.concat([levee_streams_right, levee_streams_left])[['SYSTEM_ID_1', 'levpa_id']].drop_duplicates().reset_index()
 

@@ -96,7 +96,7 @@ echo -e $startDiv"Associate level paths with levees"
 date -u
 Tstart
 [ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-python3 $srcDir/associate_levelpaths_with_levees.py -nld $outputHucDataDir/nld_subset_levees.gpkg -s $outputHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -lpa $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputHucDataDir/levee_levelpaths.csv -w $levee_buffer
+python3 $srcDir/associate_levelpaths_with_levees.py -nld $outputHucDataDir/nld_subset_levees.gpkg -s $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -lpa $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputHucDataDir/levee_levelpaths.csv -w $levee_buffer
 Tcount
 
 ## STREAM BRANCH POLYGONS
