@@ -4,7 +4,7 @@ import sys
 import geopandas as gpd
 import argparse
 import rasterio as rio
-
+import fiona
 from shapely.geometry import MultiPolygon,Polygon
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 from utils.shared_functions import getDriver, mem_profile
@@ -90,10 +90,19 @@ def subset_vector_layers(subset_nwm_lakes,
 
     # Find intersecting levee lines
     print("Subsetting NLD levee lines", flush=True)
-    nld_lines = gpd.read_file(nld_lines, mask = wbd_buffer)
-    if not nld_lines.empty:
-        nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
-    del nld_lines
+    # nld_lines = gpd.read_file(nld_lines, mask = wbd_buffer)
+
+    features=[]
+    with fiona.open(nld_lines, crs='EPSG:4269') as src:
+        for feature in src:
+            features.append(feature)
+
+    if len(features) > 0:
+        nld_lines = gpd.GeoDataFrame.from_features([feature for feature in features], crs=5070)
+
+        if not nld_lines.empty:
+            nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
+        del nld_lines
 
     # Subset NWM headwaters
     print("Subsetting NWM Headwater Points", flush=True)

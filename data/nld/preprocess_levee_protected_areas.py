@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import sys
+import fiona
 
 from datetime import datetime
 
@@ -12,6 +13,28 @@ sys.path.append('/foss_fim/src')
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 import utils.shared_functions as sf
 from utils.shared_functions import FIM_Helpers as fh
+
+
+# The following two files were downloaded in QGIS from https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer
+levees_file = '/data/inputs/nld_vectors/System_Routes_NLDFS_4269_230227.gpkg'
+leveed_areas_file = '/data/inputs/nld_vectors/Leveed_Areas_NLDFS_4269_230227.gpkg'
+
+def reproject_to_5070_fiona(filename, crs):
+    """
+    Implements fiona to open files to geopandas GeoDataFrame (https://gis.stackexchange.com/questions/388167/opening-gkpg-in-geopandas-throws-unsupportedgeometrytypeerror-12)
+    """
+
+    features=[]
+    with fiona.open(filename, crs=crs) as src:
+        for feature in src:
+                features.append(feature)
+
+    out_gdf = gpd.GeoDataFrame.from_features([feature for feature in features], crs=crs)
+
+    out_gdf = out_gdf.to_crs(5070)
+
+    out_gdf.to_file(filename.replace('4269', '5070'))
+
 
 def preprocess_levee_protected_areas(source_file_name_and_path,
                                      target_output_folder_path = '',
