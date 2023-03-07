@@ -70,18 +70,13 @@ def associate_levelpaths_with_levees(levees_filename, leveed_areas_filename, lev
             # Exclude any rows that aren't a MultiPoint geometry
             row_intersection_points = row_intersections[row_intersections.geom_type == 'MultiPoint']
             # Create a DataFrame of the the row intersection points
-            # row_intersections_df = pd.DataFrame(row_intersection_points)
-            row_intersections_df = pd.DataFrame(
-                [[k, point.x, point.y]
-                for k, v in row_intersection_points.items()
-                for point in wkb.loads(v.wkb)],
-                columns=['ID', 'X', 'Y']
-            )
+            row_intersections_df = pd.DataFrame([[k, point.x, point.y] for k, v in row_intersection_points.items() for point in wkb.loads(v.wkb)], columns=['ID', 'X', 'Y'])
 
             if len(row_intersections_df) == 1:
                 remove_levelpaths.append(levelpath['levpa_id'])
 
         levee_streams_right = levee_streams_right[~levee_streams_right['levpa_id'].isin(remove_levelpaths)]
+        levee_streams_left = levee_streams_left[~levee_streams_left['levpa_id'].isin(remove_levelpaths)]        
 
         out_df =  pd.concat([levee_streams_right, levee_streams_left])[['SYSTEM_ID_1', 'levpa_id']].drop_duplicates().reset_index()
 
