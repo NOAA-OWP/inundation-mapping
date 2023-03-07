@@ -18,7 +18,7 @@ if [ $current_branch_id = $branch_zero_id ]; then
     exit 0
 fi
 
-outputHucDataDir=$outputRunDataDir/$hucNumber
+outputHucDataDir=$outputRunDir/$hucNumber
 outputBranchDataDir=$outputHucDataDir/branches
 outputCurrentBranchDataDir=$outputBranchDataDir/$current_branch_id
 

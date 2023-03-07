@@ -5,17 +5,17 @@
 
 ## SOURCE FILE AND FUNCTIONS ##
 # load the various enviro files
-args_file=$outputRunDataDir/runtime_args.env
+args_file=$outputRunDir/runtime_args.env
 
 source $args_file
-source $outputRunDataDir/params.env
+source $outputRunDir/params.env
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
 branch_list_csv_file=$outputHucDataDir/branch_ids.csv
 branch_list_lst_file=$outputHucDataDir/branch_ids.lst
 
-branchSummaryLogFile=$outputRunDataDir/logs/branch/"$hucNumber"_summary_branch.log
+branchSummaryLogFile=$outputRunDir/logs/branch/"$hucNumber"_summary_branch.log
 
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
@@ -27,14 +27,14 @@ huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 
-input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
+input_NLD=$inputsDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
 
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then
   input_LANDSEA=$input_GL_boundaries
   #echo -e "Using $input_LANDSEA for water body mask (Great Lakes)"
 else
-  input_LANDSEA=$inputDataDir/landsea/water_polygons_us.gpkg
+  input_LANDSEA=$inputsDir/landsea/water_polygons_us.gpkg
 fi
 
 ## GET WBD ##
@@ -78,7 +78,7 @@ Tcount
 echo -e $startDiv"Clip WBD8"
 date -u
 Tstart
-ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -clipsrc $outputHucDataDir/wbd_buffered.gpkg $outputHucDataDir/wbd8_clp.gpkg $inputsDir/wbd/WBD_National.gpkg WBDHU8
 Tcount
 
 ## DERIVE LEVELPATH  ##
@@ -205,7 +205,7 @@ if [ -f $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputDataDir/usgs_gages/usgs_gages.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputDataDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id
+    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputsDir/usgs_gages/usgs_gages.gpkg -nwm $outputHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $outputHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputsDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id
     Tcount
 fi
 

@@ -13,10 +13,10 @@ runName=$1
 hucNumber=$2
 branchId=$3
 
-# outputDataDir, srcDir and others come from the Dockerfile
-export outputRunDataDir=$outputDataDir/$runName
-branchLogFileName=$outputRunDataDir/logs/branch/"$hucNumber"_branch_"$branchId".log
-branch_list_csv_file=$outputRunDataDir/$hucNumber/branch_ids.csv
+# outputsDir, srcDir and others come from the Dockerfile
+export outputRunDir=$outputsDir/$runName
+branchLogFileName=$outputRunDir/logs/branch/"$hucNumber"_branch_"$branchId".log
+branch_list_csv_file=$outputRunDir/$hucNumber/branch_ids.csv
 
 /usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName 
 
@@ -42,7 +42,7 @@ do
         echo
         err_exists=1
         echo "***** An error has occured  *****"
-        cp $branchLogFileName $outputRunDataDir/branch_errors
+        cp $branchLogFileName $outputRunDir/branch_errors
     fi
 done
 

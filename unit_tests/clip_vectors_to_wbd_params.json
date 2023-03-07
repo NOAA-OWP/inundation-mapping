@@ -1,6 +1,6 @@
 {
 	"valid_data": {
-		"outputRunDataDir":  "/outputs/fim_unit_test_data_do_not_remove",
+		"outputRunDir":  "/outputs/fim_unit_test_data_do_not_remove",
 		"subset_nwm_lakes": "/outputs/fim_unit_test_data_do_not_remove/05030104/nwm_lakes_proj_subset.gpkg",
 		"subset_nwm_streams": "/outputs/fim_unit_test_data_do_not_remove/05030104/nwm_subset_streams.gpkg",
 		"hucCode": "05030104",

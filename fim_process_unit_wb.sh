@@ -59,10 +59,10 @@ fi
 echo "=========================================================================="
 echo "---- Start of huc processing for $hucNumber"
 
-# outputDataDir, srcDir and others come from the Dockerfile
+# outputsDir, srcDir and others come from the Dockerfile
 
-export outputRunDataDir=/$outputDataDir/$runName
-export outputHucDataDir=$outputRunDataDir/$hucNumber
+export outputRunDir=$outputsDir/$runName
+export outputHucDataDir=$outputRunDir/$hucNumber
 export outputBranchDataDir=$outputHucDataDir/branches
 export current_branch_id=0
 
@@ -76,12 +76,12 @@ mkdir -p $outputHucDataDir
 mkdir -p $outputBranchDataDir
 
 # Clean out previous unit logs and branch logs starting with this huc
-rm -f $outputRunDataDir/logs/unit/"$hucNumber"_unit.log
-rm -f $outputRunDataDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $outputRunDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputRunDataDir/unit_errors/"$hucNumber"*.log
-rm -f $outputRunDataDir/branch_errors/"$hucNumber"*.log
-hucLogFileName=$outputRunDataDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputRunDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputRunDir/logs/branch/"$hucNumber"_summary_branch.log
+rm -f $outputRunDir/logs/branch/"$hucNumber"*.log
+rm -f $outputRunDir/unit_errors/"$hucNumber"*.log
+rm -f $outputRunDir/branch_errors/"$hucNumber"*.log
+hucLogFileName=$outputRunDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
@@ -122,7 +122,7 @@ done
 
 if [ "$err_exists" = "1" ]; then
     # copy the error log over to the unit_errors folder to better isolate it
-    cp $hucLogFileName $outputRunDataDir/unit_errors
+    cp $hucLogFileName $outputRunDir/unit_errors
 fi
 echo "=========================================================================="
 # we always return a success at this point (so we don't stop the loops / iterator)
