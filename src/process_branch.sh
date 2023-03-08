@@ -13,8 +13,8 @@ runName=$1
 hucNumber=$2
 branchId=$3
 
-# outputsDir, srcDir and others come from the Dockerfile
-export outputRunDir=$outputsDir/$runName
+# outputsDir, srcDir, tempDir and others come from the Dockerfile
+export outputRunDir=$tempDir/$runName
 branchLogFileName=$outputRunDir/logs/branch/"$hucNumber"_branch_"$branchId".log
 branch_list_csv_file=$outputRunDir/$hucNumber/branch_ids.csv
 

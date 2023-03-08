@@ -123,12 +123,8 @@ then
     usage
 fi
 
-# TODO
-# update Dockerfile to add this as an env value, and delete line below
-projectDir=/foss_fim
-
-# outputsDir, srcDir and others come from the Dockerfile
-outputRunDir=$outputsDir/$runName
+# outputsDir, srcDir, tempDir and others come from the Dockerfile
+outputRunDir=$tempDir/$runName
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi

@@ -40,11 +40,6 @@ in
     shift
 done
 
-# TODO
-# update Dockerfile to add this as an env value, and delete line below
-projectDir=/foss_fim
-
-
 # print usage if arguments empty
 if [ "$runName" = "" ]
 then
@@ -52,7 +47,7 @@ then
     usage
 fi
 
-outputRunDir=$outputsDir/$runName
+outputRunDir=$tempDir/$runName
 
 ## Check for run data directory ##
 if [ ! -d "$outputRunDir" ]; then 

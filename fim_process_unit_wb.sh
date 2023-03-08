@@ -59,9 +59,10 @@ fi
 echo "=========================================================================="
 echo "---- Start of huc processing for $hucNumber"
 
-# outputsDir, srcDir and others come from the Dockerfile
 
-export outputRunDir=$outputsDir/$runName
+# outputsDir, srcDir, tempDir and others come from the Dockerfile
+export outputRunDir=$tempDir/$runName
+# export outputRunDir=$outputDataDir/$runName
 export outputHucDataDir=$outputRunDir/$hucNumber
 export outputBranchDataDir=$outputHucDataDir/branches
 export current_branch_id=0
@@ -85,6 +86,10 @@ hucLogFileName=$outputRunDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
+
+# TODO
+# Copy the necessary files to $outputsDir
+
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
