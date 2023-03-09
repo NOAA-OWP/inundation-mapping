@@ -44,15 +44,20 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order):
     metadata_url = f'{API_BASE_URL}/metadata'
     
     filtered_segments = []
+
+    # feature ID of 0 is getting passed to WRDS and returns empty results,
+    # which can cause failures on next() 
+    if '0' in unfiltered_segments:
+        unfiltered_segments = unfiltered_segments.remove('0')
+    if unfiltered_segments is None:
+        return filtered_segments
+
     for feature_id in unfiltered_segments:
         all_lists = get_metadata(metadata_url, select_by = 'nwm_feature_id', selector = [feature_id])
-        try:
-            feature_id_metadata = next(item for item in all_lists)[0]
-            stream_order = feature_id_metadata['nwm_feature_data']['stream_order']
-            if stream_order == desired_order:
-                filtered_segments.append(feature_id)
-        except:
-            pass
+        feature_id_metadata = next(item for item in all_lists)[0]
+        stream_order = feature_id_metadata['nwm_feature_data']['stream_order']
+        if stream_order == desired_order:
+            filtered_segments.append(feature_id)
 
     return filtered_segments
 
