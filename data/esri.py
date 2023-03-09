@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-import sys
 import requests
 import pandas as pd
 import geopandas as gpd
 
-sys.path.append('/foss_fim/src')
-from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 class ESRI_REST(object):
     """
@@ -19,8 +16,9 @@ class ESRI_REST(object):
         self.exceededTransferLimit = True
     
     @classmethod
-    def query(cls, query_url:str, save_file:str=None, params:dict=dict(f="json", where="1=1", returnGeometry="True", outFields="*", outSR=DEFAULT_FIM_PROJECTION_CRS)):
-        rest_call = cls(query_url, params)
+    def query(cls, query_url:str, save_file:str=None, **kwargs):
+        # Query the input URL using the kwargs as URL parameters
+        rest_call = cls(query_url, kwargs)
         gdf_complete = rest_call._query_rest(save_file)
         # Save geodataframe as geopackage
         if save_file:
