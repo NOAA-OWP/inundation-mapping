@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.[pending] - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
+
+Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. The cause was that within a HUC8, the first NWS LID to be processed would have its information associated with the polygons of other NWS LIDs that were processed after it.
+
+### Changes
+
+- `tools/generate_categorical_fim_mapping.py`: Moves initialization of list of tifs to format into the loop so that each AHPS site is associated only with its own tifs and not those that were processed before it within the HUC8
+- `tools/tools_shared_functions.py`: Adds try-except block around a `next()` iterator that tried to operate on an empty list in one of the test cases
+
+<br/><br/>
 
 ## v4.3.0.0 - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
 
