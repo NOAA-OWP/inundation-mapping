@@ -18,7 +18,7 @@ def download_nld_lines():
             f="json", where="1=1", returnGeometry="True", outFields="*", outSR=epsg_code, returnZ="True")
                    
     # Write levees to a single geopackage
-    levees.to_file(os.path.join(INPUTS_DIR+'_crs5070', 'nld_vectors', f'nld_system_routes.gpkg'))
+    levees.to_file(os.path.join(INPUTS_DIR+'_crs5070', 'nld_vectors', 'nld_system_routes.gpkg'))
 
 
 
