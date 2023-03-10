@@ -2,6 +2,33 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2023-03-10 - [PR#834](https://github.com/NOAA-OWP/inundation-mapping/pull/834)
+
+Change all occurances of /data/outputs to /outputs to honor the correct volume mount directory specified when executing docker run.
+
+### Changes
+
+- `Dockerfile` - updated comments in relation to `projectDir=/foss_fim`
+- `fim_pipeline.sh` - updated comments in relation to `projectDir=/foss_fim`
+- `fim_pre_processing.sh` -updated comments in relation to `projectDir=/foss_fim`
+- `fim_post_processing.sh` - updated comments in relation to `projectDir=/foss_fim`
+- `README.md` - Provide documentation on starting the Docker Container, and update docs to include additional command line option for calibration database tool.   
+
+- `src/` 
+  - `usgs_gage_crosswalk.py` - added newline character to shorten commented example usage
+  - `usgs_gage_unit_setup.py` - `/data/outputs/` => `/outputs/`  
+
+- `tools/` 
+  - `cache_metrics.py` -  `/data/outputs/` => `/outputs/`
+  - `copy_test_case_folders.py`  - `/data/outputs/` => `/outputs/`
+  - `run_test_case.py` - `/data/outputs/` => `/outputs/`  
+
+- `unit_tests/*_params.json`  - `/data/outputs/` => `/outputs/` 
+
+- `unit_tests/split_flows_test.py`  - `/data/outputs/` => `/outputs/` 
+
+<br/><br/>
+
 ## v4.3.0.0 - 2023-02-15 - [PR#814](https://github.com/NOAA-OWP/inundation-mapping/pull/814)
 
 Replaces GRASS with Whitebox. This addresses several issues, including Windows permissions and GRASS projection issues. Whitebox also has a slight performance benefit over GRASS.
