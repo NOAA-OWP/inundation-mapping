@@ -25,7 +25,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
     
     """
     
-    # Construct header
+    # Construct header  
     metrics_to_write = ['true_negatives_count',
                         'false_negatives_count',
                         'true_positives_count',
