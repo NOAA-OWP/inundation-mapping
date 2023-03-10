@@ -271,20 +271,30 @@ if __name__ == '__main__':
 
     # Parse arguments.
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
-    parser.add_argument('-c','--config',help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',required=False,default='DEV')
-    parser.add_argument('-l','--calibrated',help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir',required=False, default=False,action='store_true')
-    parser.add_argument('-e','--model',help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.', default='GMS', required=False)
-    parser.add_argument('-v','--fim-version',help='Name of fim version to cache.',required=False, default="all")
-    parser.add_argument('-jh','--job-number-huc',help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
-    parser.add_argument('-jb','--job-number-branch',help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.',required=False, default=1,type=int)
-    parser.add_argument('-s','--special-string',help='Add a special name to the end of the branch.',required=False, default="")
-    parser.add_argument('-b','--benchmark-category',help='A benchmark category to specify. Defaults to process all categories.',required=False, default="all")
-    parser.add_argument('-o','--overwrite',help='Overwrite all metrics or only fill in missing metrics.',required=False, action="store_true")
-    parser.add_argument('-dc', '--dev-version-to-compare', nargs='+', help='Specify the name(s) of a dev (testing) version to include in master metrics CSV. Pass a space-delimited list.',required=False)
-    parser.add_argument('-m','--master-metrics-csv',help='Define path for master metrics CSV file.',required=False,default=None)
-    parser.add_argument('-d','--fr-run-dir',help='Name of test case directory containing FIM for FR model',required=False,default=None)
-    parser.add_argument('-vr','--verbose',help='Verbose',required=False,default=None,action='store_true')
-    parser.add_argument('-vg','--gms-verbose',help='GMS Verbose Progress Bar',required=False,default=None,action='store_true')
+    parser.add_argument('-c','--config', help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"', 
+                        required=False, default='DEV')
+    parser.add_argument('-l','--calibrated',help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir', 
+                        required=False, default=False,action='store_true')
+    parser.add_argument('-e','--model', help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.', 
+                        default='GMS', required=False)
+    parser.add_argument('-v','--fim-version', help='Name of fim version to cache.', required=False, default="all")
+    parser.add_argument('-jh','--job-number-huc', help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply '\
+                        'to no more than one less than the CPU count of the machine.', required=False, default=1,type=int)
+    parser.add_argument('-jb','--job-number-branch', help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should '\
+                        'multiply to no more than one less than the CPU count of the machine.', required=False, default=1,type=int)
+    parser.add_argument('-s','--special-string', help='Add a special name to the end of the branch.', required=False, default="")
+    parser.add_argument('-b','--benchmark-category', help='A benchmark category to specify. Defaults to process all categories.',required=False, 
+                        default="all")
+    parser.add_argument('-o','--overwrite', help='Overwrite all metrics or only fill in missing metrics.', required=False, action="store_true")
+    parser.add_argument('-dc', '--dev-version-to-compare', nargs='+', help='Specify the name(s) of a dev (testing) version to include in master '\
+                        'metrics CSV. Pass a space-delimited list.',required=False)
+    parser.add_argument('-m','--master-metrics-csv', help='Define path for master metrics CSV file.', required=False, default=None)
+    parser.add_argument('-d','--fr-run-dir', help='Name of test case directory containing FIM for FR model', required=False, default=None)
+    parser.add_argument('-vr','--verbose', help='Verbose', required=False, default=None, action='store_true')
+    parser.add_argument('-vg','--gms-verbose', help='GMS Verbose Progress Bar', required=False, default=None, action='store_true')
+    parser.add_argument('-pcsv', '--previous-metrics-csv', help='Optional: Filepath for a CSV with previous metrics to concatenate with new '\
+                        'metrics to form a final aggregated metrics csv.', required=False)
+    ** add another arguement '-pfil' to specify that it should cycle through the files still  (an arguement )
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -302,6 +312,7 @@ if __name__ == '__main__':
     model = args['model']
     verbose = bool(args['verbose'])
     gms_verbose = bool(args['gms_verbose'])
+    prev_metrics_csv = args['previous_metrics_csv']
 
     print("================================")
     print("Start synthesize test cases")
@@ -341,6 +352,21 @@ if __name__ == '__main__':
     all_test_cases = test_case.list_all_test_cases(version = fim_version, archive = archive_results,
             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
     
+    # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
+    if prev_metrics_csv != None:
+        if not os.path.exists(prev_metrics_csv):
+            print(f"Error: File does not exist at {prev_metrics_csv}")
+            sys.exit(1)
+        else:
+            # if CSV format is wrong:  ##* what is the correct CSV format?
+            #   print("Error: CSV does not fit required format.")
+            #   sys.exit(1)
+            # else
+            #   print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}") 
+            print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}") 
+    else:
+        print("Warning: A previous metric CSV has not been provided.")
+
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
 
