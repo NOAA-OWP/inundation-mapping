@@ -10,7 +10,7 @@ For more details on
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited file
     i. To run entire domain of available data use the ```/data/inputs/included_huc8.lst``` file or a huc list file of your choice.
     - `-n` is a name of your run (only alphanumeric)
-- Outputs can be found under ```/data/outputs/<name_your_run>```
+- Outputs can be found under ```/outputs/<name_your_run>```
 
 Processing of HUC''s in FIM4 comes in three pieces. You can run `fim_pipeline.sh` which automatically runs all of three major section, but you can run each of the sections independently if you like. The three sections are:
 - `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 
@@ -23,7 +23,7 @@ Running the `fim_pipeline.sh` is a quicker process than running all three steps 
 set -e
 
 # TODO
-# upgrade Dockerfile to add this as an env value
+# update Dockerfile to add this as an env value, and delete line below
 projectDir=/foss_fim
 
 # See fim_pre_processing.sh for details of how to use this script. fim_pre_processing.sh
