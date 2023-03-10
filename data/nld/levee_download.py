@@ -17,24 +17,8 @@ def download_nld_lines():
     levees = ESRI_REST.query(nld_url, 
             f="json", where="1=1", returnGeometry="True", outFields="*", outSR=epsg_code, returnZ="True")
                    
-    # Load WBD 2-digit HUCs to do a spatial join
-    print("Spatial join to HUC2...")
-#    wbdhuc2 = gpd.read_file(os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), layer='WBDHU2')
-    wbdhuc2 = gpd.read_file(os.path.join(INPUTS_DIR+'_crs5070', 'wbd', 'WBD_National.gpkg'), layer='WBDHU2')   ## TODO REMOVE ME
-    levees = gpd.sjoin(levees, wbdhuc2[['HUC2', 'geometry']], how='left')
-
-    # Save levees to inputs directory
-    print("Saving GPKGs to inputs directory...")
-    huc2s = list(levees['HUC2'].unique())
-    for huc2 in huc2s:
-        if huc2 != '02': continue   ## TODO REMOVE ME
-        print(huc2)
-        huc2_levees = levees.loc[levees['HUC2'] == huc2]
-#        huc2_levees.to_file(os.path.join(INPUTS_DIR, 'nld_vectors', 'huc2_levee_lines', f'nld_preprocessed_{huc2}.gpkg'), 
-#            driver="GPKG", index=False)
-        huc2_levees.to_file(os.path.join(INPUTS_DIR+'_crs5070', 'nld_vectors', 'huc2_levee_lines', f'new_nld_preprocessed_{huc2}.gpkg'), 
-            driver="GPKG", index=False)   ## TODO REMOVE ME
-        break
+    # Write levees to a single geopackage
+    levees.to_file(os.path.join(INPUTS_DIR+'_crs5070', 'nld_vectors', f'nld_system_routes.gpkg'))
 
 
 
