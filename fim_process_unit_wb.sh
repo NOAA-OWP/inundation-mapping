@@ -60,36 +60,42 @@ echo "==========================================================================
 echo "---- Start of huc processing for $hucNumber"
 
 
-# outputsDir, srcDir, tempDir and others come from the Dockerfile
-export outputRunDir=$tempDir/$runName
-# export outputRunDir=$outputDataDir/$runName
-export outputHucDataDir=$outputRunDir/$hucNumber
-export outputBranchDataDir=$outputHucDataDir/branches
+# outputsDir, srcDir, runDir and others come from the Dockerfile
+export tempRunDir=$workDir/$runName
+
+export outputDestDir=$outputsDir/$runName
+
+export tempHucDataDir=$tempRunDir/$hucNumber
+
+export outputHucDataDir=$outputDestDir/$hucNumber
+
+export tempBranchDataDir=$tempHucDataDir/branches
+
 export current_branch_id=0
 
 ## huc data
-if [ -d "$outputHucDataDir" ]; then
+if [ -d "$outputHucDataDir" ] ; then
     rm -rf $outputHucDataDir
 fi
 
 # make outputs directory
-mkdir -p $outputHucDataDir
-mkdir -p $outputBranchDataDir
+mkdir -p $tempHucDataDir
+mkdir -p $tempBranchDataDir
 
 # Clean out previous unit logs and branch logs starting with this huc
-rm -f $outputRunDir/logs/unit/"$hucNumber"_unit.log
-rm -f $outputRunDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $outputRunDir/logs/branch/"$hucNumber"*.log
-rm -f $outputRunDir/unit_errors/"$hucNumber"*.log
-rm -f $outputRunDir/branch_errors/"$hucNumber"*.log
-hucLogFileName=$outputRunDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputDestDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
+rm -f $outputDestDir/logs/branch/"$hucNumber"*.log
+rm -f $outputDestDir/unit_errors/"$hucNumber"*.log
+rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
+
+hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
-/usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
+/usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName 
 
 # TODO
-# Copy the necessary files to $outputsDir
-
+# mv tempRunDir/* outputDestDir/
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
@@ -106,7 +112,7 @@ do
     # Make an extra copy of the unit log into a new folder.
 
     # Note: It was tricky to load in the fim_enum into bash, so we will just 
-    # go with the code for now
+    # go with the exit code for now
     if [ $code -eq 0 ]; then
         echo
         # do nothing
@@ -127,8 +133,13 @@ done
 
 if [ "$err_exists" = "1" ]; then
     # copy the error log over to the unit_errors folder to better isolate it
-    cp $hucLogFileName $outputRunDir/unit_errors
+    cp $hucLogFileName $outputDestDir/unit_errors
 fi
+
 echo "=========================================================================="
+
+mv -f $tempHucDataDir $outputHucDataDir
+echo "***** Copied temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0

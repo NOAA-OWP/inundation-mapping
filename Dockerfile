@@ -54,7 +54,7 @@ ARG depDir=/dependencies
 ENV inputsDir=$dataDir/inputs
 ENV outputsDir=/outputs
 ENV srcDir=$projectDir/src
-ENV tempDir=/fim_temp
+ENV workDir=/fim_temp
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 

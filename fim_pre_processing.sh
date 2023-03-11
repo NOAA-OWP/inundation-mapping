@@ -123,8 +123,9 @@ then
     usage
 fi
 
-# outputsDir, srcDir, tempDir and others come from the Dockerfile
-outputRunDir=$tempDir/$runName
+# outputsDir, srcDir, runDir and others come from the Dockerfile
+outputDestDir=$outputsDir/$runName
+tempRunDir=$workDir/$runName
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
@@ -179,9 +180,9 @@ else
 fi
 
 # Safety feature to avoid accidentaly overwrites
-if [ -d $outputRunDir ] && [ $overwrite -eq 0 ]; then
+if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo
-    echo "ERROR: Output dir $outputRunDir exists. Use overwrite -o to run."
+    echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
     echo        
     usage
 fi
@@ -198,34 +199,35 @@ echo
 echo "--- Number of HUCs to process is $num_hucs"
 
 # make dirs
-if [ ! -d $outputRunDir ]; then
-    mkdir -p $outputRunDir
+if [ ! -d $outputDestDir ]; then
+    mkdir -p $outputDestDir
+    mkdir -p $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
-    rm -rdf $outputRunDir/logs
-    rm -rdf $outputRunDir/branch_errors
-    rm -rdf $outputRunDir/unit_errors
-    rm -rdf $outputRunDir/eval
-    rm -f $outputRunDir/crosswalk_table.csv
-    rm -f $outputRunDir/fim_inputs*
-    rm -f $outputRunDir/*.env
+    rm -rdf $outputDestDir/logs
+    rm -rdf $outputDestDir/branch_errors
+    rm -rdf $outputDestDir/unit_errors
+    rm -rdf $outputDestDir/eval
+    rm -f $outputDestDir/crosswalk_table.csv
+    rm -f $outputDestDir/fim_inputs*
+    rm -f $outputDestDir/*.env
 fi
 
-#logFile=$outputRunDir/logs/unit/summary_unit.log
-mkdir -p $outputRunDir/logs/unit
-mkdir -p $outputRunDir/logs/branch
-mkdir -p $outputRunDir/unit_errors
-mkdir -p $outputRunDir/branch_errors
+#logFile=$outputDestDir/logs/unit/summary_unit.log
+mkdir -p $outputDestDir/logs/unit
+mkdir -p $outputDestDir/logs/branch
+mkdir -p $outputDestDir/unit_errors
+mkdir -p $outputDestDir/branch_errors
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
-cp $envFile $outputRunDir/params.env
+cp $envFile $outputDestDir/params.env
 
 # create an new .env file on the fly that contains all runtime values
 # that any unit can load it independently (in seperate AWS objects, AWS fargates)
 # or via pipeline. There is likely a more elegent way to do this.
 
-args_file=$outputRunDir/runtime_args.env
+args_file=$outputDestDir/runtime_args.env
 
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file
