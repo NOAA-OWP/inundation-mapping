@@ -18,6 +18,10 @@ def associate_levelpaths_with_levees(levees_filename, leveed_areas_filename, lev
         leveed_areas = gpd.read_file(leveed_areas_filename)
         levelpaths = gpd.read_file(levelpaths_filename)
 
+        levees['SYSTEM_ID'] = levees['SYSTEM_ID'].astype(int)
+        leveed_areas['SYSTEM_ID'] = leveed_areas['SYSTEM_ID'].astype(int)
+        levelpaths['levpa_id'] = levelpaths['levpa_id'].astype(int)
+
         # Buffer each side of levee line
         levees_buffered_left = levees.copy()
         levees_buffered_right = levees.copy()
@@ -72,15 +76,15 @@ def associate_levelpaths_with_levees(levees_filename, leveed_areas_filename, lev
         out_df['SYSTEM_ID'] = out_df['SYSTEM_ID'].astype(int)
         out_df['levpa_id'] = out_df['levpa_id'].astype(int)
 
-        out_df = out_df.reset_index()
+        out_df = out_df.reset_index(drop=True)
 
         # Remove levelpaths that cross the levee exactly once
         for j, row in out_df.iterrows():
-            row_intersections = levees[levees['SYSTEM_ID'] == row['SYSTEM_ID']].intersection(levelpaths.loc[levelpaths['levpa_id'] == row['levpa_id'], 'geometry'])
+            # Intersect levees and levelpaths
+            row_intersections = gpd.overlay(levees[levees['SYSTEM_ID'] == row['SYSTEM_ID']], levelpaths[levelpaths['levpa_id'] == row['levpa_id']], how='intersection', keep_geom_type=False)
             row_intersection_points = row_intersections[row_intersections.geom_type.isin(['Point', 'MultiPoint'])]
-            row_intersections_df = pd.DataFrame([[k, point.x, point.y] for k, v in row_intersection_points.items() for point in wkb.loads(v.wkb)], columns=['ID', 'X', 'Y'])
 
-            if len(row_intersections_df) == 1:
+            if len(row_intersection_points) == 1:
                 out_df = out_df.drop(j)
                 
         out_df.to_csv(out_filename, columns=['SYSTEM_ID', 'levpa_id'], index=False)

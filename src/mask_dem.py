@@ -31,7 +31,6 @@ def mask_dem(dem_filename, nld_filename, out_dem_filename, branch_id_attribute, 
                 dest.write(out_dem_masked[0,:,:], indexes=1)
 
     elif os.path.exists(levee_streams):
-        # streams_df = gpd.read_file(stream_layer, ignore_geometry=True)
         levee_streams = pd.read_csv(levee_streams)
 
         levee_streams = levee_streams[levee_streams['levpa_id'] == branch_id]
