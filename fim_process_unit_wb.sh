@@ -6,8 +6,7 @@
 
 # This file will also catch any and all errors from src/run_unit_wb.sh file, even script aborts from that file
 
-# You really can not call directly to src/run_unit_wb.sh as that file relys on export values
-# from this file.
+# You really can not call directly to src/run_unit_wb.sh as that file relies on export values from this file.
 # run_unit_wb will futher process branches with its own iterator (parallelization).
 
 # Sample Usage: /foss_fim/fim_process_unit_wb.sh rob_test_wb_1 05030104
@@ -62,15 +61,10 @@ echo "---- Start of huc processing for $hucNumber"
 
 # outputsDir, srcDir, workDir and others come from the Dockerfile
 export tempRunDir=$workDir/$runName
-
 export outputDestDir=$outputsDir/$runName
-
 export tempHucDataDir=$tempRunDir/$hucNumber
-
 export outputHucDataDir=$outputDestDir/$hucNumber
-
 export tempBranchDataDir=$tempHucDataDir/branches
-
 export current_branch_id=0
 
 ## huc data
@@ -133,12 +127,12 @@ if [ "$err_exists" = "1" ]; then
     cp $hucLogFileName $outputDestDir/unit_errors
 fi
 
-echo "=========================================================================="
+echo "============================================================================================="
 echo 
 mv -f $tempHucDataDir $outputHucDataDir
 echo "***** Copied temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
 echo
-echo "=========================================================================="
+echo "============================================================================================="
 
 
 # we always return a success at this point (so we don't stop the loops / iterator)

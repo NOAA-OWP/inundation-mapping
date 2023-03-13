@@ -34,7 +34,6 @@ source $srcDir/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 
 logFile=$outputDestDir/logs/unit/pipeline_summary_unit.log
-# logFile=$workDir/logs/unit/pipeline_summary_unit.log
 process_wb_file=$projectDir/fim_process_unit_wb.sh
 
 pipeline_start_time=`date +%s`

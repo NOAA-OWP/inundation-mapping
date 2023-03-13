@@ -123,7 +123,7 @@ then
     usage
 fi
 
-# outputsDir, srcDir, runDir and others come from the Dockerfile
+# outputsDir & workDir come from the Dockerfile
 outputDestDir=$outputsDir/$runName
 tempRunDir=$workDir/$runName
 
