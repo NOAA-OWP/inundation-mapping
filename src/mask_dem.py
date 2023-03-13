@@ -10,7 +10,7 @@ import argparse
 from utils.shared_functions import mem_profile
 
 @mem_profile
-def mask_dem(dem_filename, nld_filename, levee_id_attribute, out_dem_filename, branch_id_attribute, branch_id, branch_zero_id, levee_streams):
+def mask_dem(dem_filename, nld_filename, levee_id_attribute, out_dem_filename, branch_id_attribute, branch_id, branch_zero_id, levee_levelpaths):
     """
     Masks levee-protected areas from DEM in branch 0 or if the level path is associated with a levee
     """
@@ -28,12 +28,12 @@ def mask_dem(dem_filename, nld_filename, levee_id_attribute, out_dem_filename, b
             with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
                 dest.write(out_dem_masked[0,:,:], indexes=1)
 
-    elif os.path.exists(levee_streams):
-        levee_streams = pd.read_csv(levee_streams)
+    elif os.path.exists(levee_levelpaths):
+        levee_levelpaths = pd.read_csv(levee_levelpaths)
 
-        levee_streams = levee_streams[levee_streams[branch_id_attribute] == branch_id]
+        levee_levelpaths = levee_levelpaths[levee_levelpaths[branch_id_attribute] == branch_id]
 
-        levelpath_levees = list(levee_streams[levee_id_attribute])
+        levelpath_levees = list(levee_levelpaths[levee_id_attribute])
         
         if len(levelpath_levees) > 0:
             with rio.open(dem_filename) as dem:#, fiona.open(nld_filename) as leveed:
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--branch-id-attribute', help='Branch ID attribute name', required=True, type=str)
     parser.add_argument('-i', '--branch-id', help='Branch ID', type=int, required='True')
     parser.add_argument('-b0', '--branch-zero-id', help='Branch zero ID', type=int, required=False, default=0)
-    parser.add_argument('-csv', '--levee-streams', help='Stream layer filename', required=True)
+    parser.add_argument('-csv', '--levee-levelpaths', help='Levee - levelpath layer filename', required=True)
 
     args = vars(parser.parse_args())
 
