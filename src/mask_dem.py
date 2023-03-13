@@ -36,7 +36,7 @@ def mask_dem(dem_filename, nld_filename, out_dem_filename, branch_id_attribute, 
 
         levee_streams = levee_streams[levee_streams['levpa_id'] == branch_id]
 
-        levelpath_levees = list(levee_streams['SYSTEM_ID_1'])
+        levelpath_levees = list(levee_streams['SYSTEM_ID'])
         
         if len(levelpath_levees) > 0:
             with rio.open(dem_filename) as dem:#, fiona.open(nld_filename) as leveed:

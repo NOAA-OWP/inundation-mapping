@@ -100,6 +100,8 @@ def subset_vector_layers(subset_nwm_lakes,
     if len(features) > 0:
         nld_lines = gpd.GeoDataFrame.from_features([feature for feature in features], crs=5070)
 
+        nld_lines = gpd.clip(nld_lines, wbd_buffer)
+
         if not nld_lines.empty:
             nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
         del nld_lines

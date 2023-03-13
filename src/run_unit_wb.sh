@@ -190,6 +190,13 @@ Tstart
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 Tcount
 
+## MAKE A COPY OF THE DEM FOR BRANCH 0
+echo -e $startDiv"Copying DEM to Branch 0"
+date -u
+Tstart
+cp $outputHucDataDir/dem_meters.tif $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+Tcount
+
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
 export hucNumber=$hucNumber
 export current_branch_id=$current_branch_id
@@ -220,16 +227,9 @@ if [ -f $outputHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
     echo -e $startDiv"USGS Crosswalk $hucNumber $branch_zero_id"
     date -u
     Tstart
-    python3 $srcDir/usgs_gage_crosswalk.py -gages $outputHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg -flows $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$branch_zero_id.gpkg -cat $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg -dem $outputHucDataDir/dem_meters.tif -dem_adj $outputCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif -outtable $outputCurrentBranchDataDir/usgs_elev_table.csv -b $branch_zero_id
+    python3 $srcDir/usgs_gage_crosswalk.py -gages $outputHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg -flows $outputCurrentBranchDataDir/demDerived_reaches_split_filtered_$branch_zero_id.gpkg -cat $outputCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg -dem $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif -dem_adj $outputCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif -outtable $outputCurrentBranchDataDir/usgs_elev_table.csv -b $branch_zero_id
     Tcount
 fi
-
-## MAKE A COPY OF THE DEM FOR BRANCH 0
-echo -e $startDiv"Copying DEM to Branch 0"
-date -u
-Tstart
-cp $outputHucDataDir/dem_meters.tif $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
-Tcount
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"
