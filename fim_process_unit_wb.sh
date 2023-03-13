@@ -60,7 +60,7 @@ echo "==========================================================================
 echo "---- Start of huc processing for $hucNumber"
 
 
-# outputsDir, srcDir, runDir and others come from the Dockerfile
+# outputsDir, srcDir, workDir and others come from the Dockerfile
 export tempRunDir=$workDir/$runName
 
 export outputDestDir=$outputsDir/$runName
@@ -93,9 +93,6 @@ hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName 
-
-# TODO
-# mv tempRunDir/* outputDestDir/
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
@@ -137,9 +134,12 @@ if [ "$err_exists" = "1" ]; then
 fi
 
 echo "=========================================================================="
-
+echo 
 mv -f $tempHucDataDir $outputHucDataDir
 echo "***** Copied temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+echo
+echo "=========================================================================="
+
 
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0
