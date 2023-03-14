@@ -52,7 +52,7 @@ fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 05030104" -bd /
 If you need to run inundation tests, fun the following:
 
 ```bash
-python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
+python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /data/outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
 ```
 ### If you'd like to test the whole unit test suite:
 ```
