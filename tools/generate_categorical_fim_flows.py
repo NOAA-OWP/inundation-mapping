@@ -22,7 +22,7 @@ def get_env_paths():
     return API_BASE_URL, WBD_LAYER
 
 
-def process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir):
+def process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df):
     
     # Process each huc unit, first define message variable and flood categories.
     all_messages = []
@@ -36,6 +36,7 @@ def process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, worksp
         #Convert lid to lower case
         lid = lid.lower()
         #Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
+        print("getting thresholds")
         stages, flows = get_thresholds(threshold_url = threshold_url, select_by = 'nws_lid', selector = lid, threshold = 'all')
         if stages == None or flows == None:
             print("Likely WRDS error")
@@ -58,10 +59,14 @@ def process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, worksp
         
         desired_order = metadata['nwm_feature_data']['stream_order']
         # Filter segments to be of like stream order.
-        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
+        print("filtering segments")
+        start = time.time()
+        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
+        end = time.time()
+        elapsed_time = (end-start)/60
+        print(f'Finished filtering segments in {elapsed_time} minutes')
         #if no segments, write message and exit out
         if not segments:
-            print(f'{lid} no segments')
             message = f'{lid}:missing nwm segments'
             all_messages.append(message)
             continue
@@ -164,11 +169,20 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     
     # Create workspace
     workspace.mkdir(parents=True,exist_ok = True)
-    
+    print(job_number_huc)
+
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
     huc_messages_dir = os.path.join(workspace, 'huc_messages')
     if not os.path.exists(huc_messages_dir):
         os.mkdir(huc_messages_dir)
+
+    # Open NWM flows geopackage
+    nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
+    print(os.path.exists(nwm_flows_gpkg))
+    print("Hi")
+    nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
+    print(nwm_flows_df.columns)
+    print(nwm_flows_df.dtypes)
 
     print(f'Retrieving metadata for site(s): {lid_to_run}...')
     #Get metadata for 'CONUS'
@@ -195,11 +209,11 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         
     if stage_based:
         return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists
-
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     for huc in huc_dictionary:
         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-            executor.submit(process_generate_flows, huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir)
+#            process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df)
+            executor.submit(process_generate_flows, huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df)
             
     print('Wrapping up flows generation...')
     #Recursively find all *_attributes csv files and append

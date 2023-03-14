@@ -88,9 +88,12 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         fim_dir = ""
         print('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
-        nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir)
+        print("Job number HUC")
+        print(job_number_huc)
+        nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir, job_number_huc)
         end = time.time()
         elapsed_time = (end-start)/60
+        
         print(f'Finished creating flow files in {elapsed_time} minutes')
         # Generate CatFIM mapping
         print('Begin mapping')
