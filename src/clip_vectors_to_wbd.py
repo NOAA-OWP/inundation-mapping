@@ -33,8 +33,6 @@ def subset_vector_layers(subset_nwm_lakes,
                          levee_protected_areas,
                          subset_levee_protected_areas):
         
-    hucUnitLength = len(str(hucCode))
-
     print("Getting Cell Size", flush=True)
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
@@ -96,6 +94,7 @@ def subset_vector_layers(subset_nwm_lakes,
     if not nld_lines.empty:
         nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
     del nld_lines
+
     # Preprocced levee lines for burning
     nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask = wbd_buffer)
     if not nld_lines_preprocessed.empty:
