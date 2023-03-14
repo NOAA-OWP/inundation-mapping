@@ -22,11 +22,13 @@ def subset_vector_layers(subset_nwm_lakes,
                          nwm_catchments,
                          subset_nwm_catchments,
                          nld_lines,
+                         nld_lines_preprocessed,
                          landsea,
                          nwm_streams,
                          subset_landsea,
                          nwm_headwaters,
                          subset_nld_lines,
+                         subset_nld_lines_preprocessed,
                          wbd_buffer_distance,
                          levee_protected_areas,
                          subset_levee_protected_areas):
@@ -91,10 +93,14 @@ def subset_vector_layers(subset_nwm_lakes,
     # Find intersecting levee lines
     print("Subsetting NLD levee lines", flush=True)
     nld_lines = gpd.read_file(nld_lines, mask = wbd_buffer)
-
     if not nld_lines.empty:
         nld_lines.to_file(subset_nld_lines, driver = getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
     del nld_lines
+    # Preprocced levee lines for burning
+    nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask = wbd_buffer)
+    if not nld_lines_preprocessed.empty:
+        nld_lines_preprocessed.to_file(subset_nld_lines_preprocessed, driver = getDriver(subset_nld_lines_preprocessed), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
+    del nld_lines_preprocessed
 
     # Subset NWM headwaters
     print("Subsetting NWM Headwater Points", flush=True)
@@ -161,6 +167,8 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('-r','--nld-lines', help='Levee vectors to use within project path',
                         required=True)
+    parser.add_argument('-rp','--nld-lines-preprocessed', help='Levee vectors to use for DEM burning',
+                        required=True)
     parser.add_argument('-v','--landsea', help='LandSea - land boundary',
                         required=True)	 
     parser.add_argument('-w','--nwm-streams', help='NWM flowlines',
@@ -170,6 +178,8 @@ if __name__ == '__main__':
     parser.add_argument('-y','--nwm-headwaters', help='NWM headwaters',
                         required=True)	 
     parser.add_argument('-z','--subset-nld-lines', help='Subset of NLD levee vectors for HUC',
+                        required=True)
+    parser.add_argument('-zp','--subset-nld-lines-preprocessed', help='Subset of NLD levee vectors for burning elevations into DEMs',
                         required=True)
     parser.add_argument('-wb','--wbd-buffer-distance', help='WBD Mask buffer distance', 
                         required=True, type=int)

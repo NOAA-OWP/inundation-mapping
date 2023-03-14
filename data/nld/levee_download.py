@@ -4,6 +4,7 @@ import os
 import re
 import geopandas as gpd
 from tqdm import tqdm
+from datetime import datetime
 from shapely.geometry import LineString
 
 sys.path += ['/foss_fim/src', '/foss_fim/data', '/foss_fim/tools']
@@ -11,16 +12,17 @@ from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 from tools_shared_variables import INPUTS_DIR
 from esri import ESRI_REST
 epsg_code = re.search('\d+$', DEFAULT_FIM_PROJECTION_CRS).group()
-nld_vector_output = os.path.join(INPUTS_DIR+'_crs5070', 'nld_vectors', 'nld_system_routes.gpkg')
-processed_nld_vector = os.path.join(INPUTS_DIR+'_crs5070', 'nld_vectors', 'levees_preprocessed.gpkg')
+today = datetime.now().strftime('%y%m%d')
+nld_vector_output = os.path.join(INPUTS_DIR, 'nld_vectors', f'System_Routes_NLDFS_5070_{today}.gpkg')
+processed_nld_vector = os.path.join(INPUTS_DIR, 'nld_vectors', f'3d_nld_preprocessed_{today}.gpkg')
+nld_protected_areas = os.path.join(INPUTS_DIR, 'nld_vectors', f'Leveed_Areas_NLDFS_5070_{today}.gpkg')
 
 def download_nld_lines():
     '''
-    Main function call for this module. Downloads levees from the National Levee Database 
+    First main function call for this module. Downloads levees from the National Levee Database 
     ESRI service, save the raw output for use in the levee masking algorithm, processes
     the levees to remove lines and vertices that have no elevation data, and saves the preprocessed
     levee geopackage for use in levee burning.
-    
     '''
     # Query REST service to download levee 'system routes'
     print("Downloading levee lines from the NLD...")
@@ -100,10 +102,27 @@ def remove_nulls(geom:LineString, huc:str):
     else:
         return None
 
+def download_nld_poly():
+    '''
+    Second main function call for this module. Downloads levee protected areas from the National Levee Database 
+    ESRI service and saves the raw output for use in the levee masking algorithm.
+    '''
+    # Query REST service to download levee 'system routes'
+    print("Downloading levee protected areas from the NLD...")
+    nld_area_url = "https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer/14/query"
+    # FYI to whomever takes the time to read this code, the resultRecordCount had to be set on this query because
+    # the service was returning an error that turned out to be caused by the size of the request. Running the 
+    # default max record count of 5000 was too large for polygons, so using resultRecordCount=2000 prevents the error.
+    leveed_areas = ESRI_REST.query(nld_area_url, 
+            f="json", where="1=1", returnGeometry="true", outFields="*", outSR=epsg_code, resultRecordCount=2000)
+                   
+    # Write levees to a single geopackage
+    leveed_areas.to_file(nld_protected_areas, index=False, driver='GPKG')
+    print(f"Levees written to file:\n{nld_protected_areas}")
 
 
 if __name__ == '__main__':
 
     download_nld_lines()
 
-    # TODO: Add levee protected polygons to this file??
+    download_nld_poly()

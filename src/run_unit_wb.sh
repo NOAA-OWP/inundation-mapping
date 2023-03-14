@@ -59,11 +59,13 @@ cmd_args+=" -l $input_nwm_lakes"
 cmd_args+=" -m $input_nwm_catchments"
 cmd_args+=" -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg"
 cmd_args+=" -r $input_NLD"
+cmd_args+=" -rp $input_levees_preprocessed"
 cmd_args+=" -v $input_LANDSEA"
 cmd_args+=" -w $input_nwm_flows"
 cmd_args+=" -x $outputHucDataDir/LandSea_subset.gpkg"
 cmd_args+=" -y $input_nwm_headwaters"
 cmd_args+=" -z $outputHucDataDir/nld_subset_levees.gpkg"
+cmd_args+=" -zp $outputHucDataDir/nld_subset_levees_burned.gpkg"
 cmd_args+=" -wb $wbd_buffer"
 cmd_args+=" -lpf $input_nld_levee_protected_areas"
 cmd_args+=" -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg"
@@ -140,8 +142,8 @@ echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $
 date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-gdal_rasterize -l nld_subset_levees -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputCurrentBranchDataDir/nld_subset_levees_$branch_zero_id.tif
+[ -f $outputHucDataDir/nld_subset_levees_burned.gpkg ] && \
+gdal_rasterize -l nld_subset_levees_burned -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees_burned.gpkg $outputCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif
 Tcount
 
 ## BURN LEVEES INTO DEM ##
@@ -150,7 +152,7 @@ date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $outputCurrentBranchDataDir/nld_subset_levees.tif ] && \
-python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputHucDataDir/dem_meters.tif -nld $outputCurrentBranchDataDir/nld_subset_levees_$branch_zero_id.tif -out $outputHucDataDir/dem_meters.tif
+python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputHucDataDir/dem_meters.tif -nld $outputCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif -out $outputHucDataDir/dem_meters.tif
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##

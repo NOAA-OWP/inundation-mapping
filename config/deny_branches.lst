@@ -44,7 +44,6 @@ idFile_{}.txt
 LandSea_subset_{}.tif
 levee_levelpaths.csv
 nld_rasterized_elev_{}.tif
-nld_subset_levees_{}.tif
 nwm_catchments_proj_subset_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_dissolved_headwaters_{}.gpkg
