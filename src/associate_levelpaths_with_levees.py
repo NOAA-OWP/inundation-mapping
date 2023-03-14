@@ -31,6 +31,9 @@ def associate_levelpaths_with_levees(levees_filename, levee_id_attribute, leveed
         leveed_left = gpd.overlay(levees_buffered_left, leveed_areas, how='intersection')
         leveed_right = gpd.overlay(levees_buffered_right, leveed_areas, how='intersection')
 
+        # Find leveed areas not intersected by either buffer
+        levees_not_found = leveed_areas[~leveed_areas['SYSTEM_ID'].isin(pd.concat([leveed_left['SYSTEM_ID_1'], leveed_right['SYSTEM_ID_1']]).values)]
+
         # Associate levees and leveed areas
         matches_left = np.where(leveed_left[f'{levee_id_attribute}_1']==leveed_left[f'{levee_id_attribute}_2'])[0]
         matches_right = np.where(leveed_right[f'{levee_id_attribute}_1']==leveed_right[f'{levee_id_attribute}_2'])[0]
@@ -70,12 +73,12 @@ def associate_levelpaths_with_levees(levees_filename, levee_id_attribute, leveed
         levee_levelpaths_left = levee_levelpaths_left[levee_levelpaths_left[levee_id_attribute].isin(left_ids)]
         levee_levelpaths_right = levee_levelpaths_right[levee_levelpaths_right[levee_id_attribute].isin(right_ids)]
 
-        out_df =  pd.concat([levee_levelpaths_right[[levee_id_attribute, branch_id_attribute]], levee_levelpaths_left[[levee_id_attribute, branch_id_attribute]]]).drop_duplicates()
+        # Add level paths to levees not found
+        levees_not_found.geometry = levees_not_found.buffer(2*levee_buffer)
+        levees_not_found = gpd.sjoin(levees_not_found, levelpaths)
 
-        out_df[levee_id_attribute] = out_df[levee_id_attribute].astype(int)
-        out_df[branch_id_attribute] = out_df[branch_id_attribute].astype(int)
-
-        out_df = out_df.reset_index(drop=True)
+        # Join left and right
+        out_df =  pd.concat([levee_levelpaths_right[[levee_id_attribute, branch_id_attribute]], levee_levelpaths_left[[levee_id_attribute, branch_id_attribute]], levees_not_found[[levee_id_attribute, branch_id_attribute]]]).drop_duplicates().reset_index(drop=True)
 
         # Remove levelpaths that cross the levee exactly once
         for j, row in out_df.iterrows():
