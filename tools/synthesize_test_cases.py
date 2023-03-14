@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os, argparse, json, csv, ast, re, sys, traceback, signal
+import pandas as pd ##*
 from datetime import datetime
 from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
@@ -10,19 +11,19 @@ from utils.shared_functions import FIM_Helpers as fh
 from run_test_case import test_case
 from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT
 
-
-def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list):
+def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list, pfiles, ):
     """
     This function searches for and collates metrics into a single CSV file that can queried database-style. The
     CSV is an input to eval_plots.py. This function automatically looks for metrics produced for official versions
     and loads them into memory to be written to the output CSV.
     
     Args:
-        master_metrics_csv_output (str): Full path to CSV output. If a file already exists at this path, it will be overwritten.
-        dev_versions_to_include_list (list): A list of non-official FIM version names. If a user supplied information on the command
-                                            line using the -dc flag, then this function will search for metrics in the "testing_versions"
-                                            library of metrics and include them in the CSV output.
-    
+        master_metrics_csv_output (str): Full path to CSV output. If a file already exists at this path, it will be 
+        overwritten.
+        dev_versions_to_include_list (list): A list of non-official FIM version names. If a user supplied information 
+                                            on the command line using the -dc flag, then this function will search for 
+                                            metrics in the "testing_versions" library of metrics and include them in 
+                                            the CSV output.
     """
     
     # Construct header  
@@ -70,7 +71,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                         'masked_area_km2'
                         ]
 
-
+    # Create table header
     additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
     list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config'] + ["calibrated"]]
 
@@ -81,31 +82,35 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
     else:
         iteration_list = ['official']
 
+    # Iterate through 5 benchmark sources 
     for benchmark_source in ['ble', 'nws', 'usgs', 'ifc','ras2fim']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
         test_cases_list = [d for d in os.listdir(benchmark_test_case_dir) if re.match('\d{8}_\w{3,7}', d)]
+
         if benchmark_source in ['ble', 'ifc','ras2fim']:
-            
             magnitude_list = MAGNITUDE_DICT[benchmark_source]
             
+            # Iterate through available test cases
             for test_case in test_cases_list:
                 try:
+                    # Get HUC id
                     int(test_case.split('_')[0])
-
                     huc = test_case.split('_')[0]
 
+                    # Update filepaths based on whether the official or dev versions should be included
                     for iteration in iteration_list:
-
-                        if iteration == "official":
+                        if iteration == "official" & pfiles==True: # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                             # add in composite of versions
                             composite_versions = [v.replace('_ms', '_comp') for v in versions_to_aggregate if '_ms' in v]
                             versions_to_aggregate += composite_versions
-                        if iteration == "comparison":
+
+                        if iteration == "comparison": # "comparison" refers to the development model version(s) being evaluated
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             versions_to_aggregate = dev_versions_to_include_list
 
+                        # Pull version info from filepath
                         for magnitude in magnitude_list:
                             for version in versions_to_aggregate:
                                 if '_ms' in version:
@@ -121,6 +126,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                                 version_dir = os.path.join(versions_to_crawl, version)
                                 magnitude_dir = os.path.join(version_dir, magnitude)
 
+                                # Add metrics from file to metrics table ('list_to_write')
                                 if os.path.exists(magnitude_dir):
                                     magnitude_dir_list = os.listdir(magnitude_dir)
                                     for f in magnitude_dir_list:
@@ -143,27 +149,29 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                 except ValueError:
                     pass
         
+        # Iterate through AHPS benchmark data
         if benchmark_source in AHPS_BENCHMARK_CATEGORIES:
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
             for test_case in test_cases_list:
                 try:
+                    # Get HUC id
                     int(test_case.split('_')[0])
-
                     huc = test_case.split('_')[0]
 
+                    # Update filepaths based on whether the official or dev versions should be included
                     for iteration in iteration_list:
-
-                        if iteration == "official":
+                        if iteration == "official" & pfiles==True: # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                             # add in composite of versions
                             composite_versions = [v.replace('_ms', '_comp') for v in versions_to_aggregate if '_ms' in v]
                             versions_to_aggregate += composite_versions
-                        if iteration == "comparison":
+                        if iteration == "comparison": # "comparison" refers to the development model version(s) being evaluated
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'testing_versions')
                             versions_to_aggregate = dev_versions_to_include_list
 
+                        # Pull model info from filepath
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
                                 if '_ms' in version:
@@ -179,6 +187,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
                                 version_dir = os.path.join(versions_to_crawl, version)
                                 magnitude_dir = os.path.join(version_dir, magnitude)
+                                
                                 if os.path.exists(magnitude_dir):
                                     magnitude_dir_list = os.listdir(magnitude_dir)
                                     for f in magnitude_dir_list:
@@ -198,6 +207,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                                                         for row in reader:
                                                             flow = row[1]
 
+                                                # Add metrics from file to metrics table ('list_to_write')
                                                 stats_dict = json.load(open(full_json_path))
                                                 for metric in metrics_to_write:
                                                     sub_list_to_append.append(stats_dict[metric])
@@ -206,14 +216,32 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                                                 sub_list_to_append.append(benchmark_source)
                                                 sub_list_to_append.append(extent_config)
                                                 sub_list_to_append.append(calibrated)
-
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
                     pass
+
+    # Read in previously compiled metrics (if provided)
+    #if prev_metrics_csv != None:
+    #    prev_compiled_metrics = pd.read_csv(prev_metrics_csv) ## I think this needs to be moved
+
+    #    prev_compiled_metrics.head()
+
+        ## check structure here (it probably needs to have certain columns, return an error if it doesn't have those)
+        ## restructure if needed?
+
+        ## list_to_write.append(prev_compiled_metrics_formatted)
     
+
+    # Save aggregated compiled metrics ('list_to_write') as a CSV
     with open(master_metrics_csv_output, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerows(list_to_write)
+
+    # Save compiled metrics for the individual comparison/model of interest
+
+    ##* [[add here]]
+
+
 
 def progress_bar_handler(executor_dict, verbose, desc):
 
@@ -226,7 +254,6 @@ def progress_bar_handler(executor_dict, verbose, desc):
             future.result()
         except Exception as exc:
             print('{}, {}, {}'.format(executor_dict[future],exc.__class__.__name__,exc))
-
 
 if __name__ == '__main__':
 
@@ -273,28 +300,29 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument('-c','--config', help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"', 
                         required=False, default='DEV')
-    parser.add_argument('-l','--calibrated',help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir', 
-                        required=False, default=False,action='store_true')
+    parser.add_argument('-l','--calibrated', help='Denotes use of calibrated n values. This should be taken from meta-data from hydrofabric dir', 
+                        required=False, default=False, action='store_true')
     parser.add_argument('-e','--model', help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.', 
                         default='GMS', required=False)
     parser.add_argument('-v','--fim-version', help='Name of fim version to cache.', required=False, default="all")
     parser.add_argument('-jh','--job-number-huc', help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply '\
-                        'to no more than one less than the CPU count of the machine.', required=False, default=1,type=int)
+                        'to no more than one less than the CPU count of the machine.', required=False, default=1, type=int)
     parser.add_argument('-jb','--job-number-branch', help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should '\
-                        'multiply to no more than one less than the CPU count of the machine.', required=False, default=1,type=int)
+                        'multiply to no more than one less than the CPU count of the machine.', required=False, default=1, type=int)
     parser.add_argument('-s','--special-string', help='Add a special name to the end of the branch.', required=False, default="")
-    parser.add_argument('-b','--benchmark-category', help='A benchmark category to specify. Defaults to process all categories.',required=False, 
+    parser.add_argument('-b','--benchmark-category', help='A benchmark category to specify. Defaults to process all categories.', required=False, 
                         default="all")
     parser.add_argument('-o','--overwrite', help='Overwrite all metrics or only fill in missing metrics.', required=False, action="store_true")
     parser.add_argument('-dc', '--dev-version-to-compare', nargs='+', help='Specify the name(s) of a dev (testing) version to include in master '\
-                        'metrics CSV. Pass a space-delimited list.',required=False)
+                        'metrics CSV. Pass a space-delimited list.', required=False)
     parser.add_argument('-m','--master-metrics-csv', help='Define path for master metrics CSV file.', required=False, default=None)
     parser.add_argument('-d','--fr-run-dir', help='Name of test case directory containing FIM for FR model', required=False, default=None)
     parser.add_argument('-vr','--verbose', help='Verbose', required=False, default=None, action='store_true')
     parser.add_argument('-vg','--gms-verbose', help='GMS Verbose Progress Bar', required=False, default=None, action='store_true')
     parser.add_argument('-pcsv', '--previous-metrics-csv', help='Optional: Filepath for a CSV with previous metrics to concatenate with new '\
-                        'metrics to form a final aggregated metrics csv.', required=False)
-    ** add another arguement '-pfil' to specify that it should cycle through the files still  (an arguement )
+                        'metrics to form a final aggregated metrics csv.', required=False, default=None)
+    parser.add_argument('-pfiles', '--cycle-previous-files', help='Optional: Specifies whether previous metrics should be compiled by cycling '\
+                        'through files (True). Cannot be used if a previous metrics CSV is provided.', required=False, action="store_true", default=False)
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -313,6 +341,8 @@ if __name__ == '__main__':
     verbose = bool(args['verbose'])
     gms_verbose = bool(args['gms_verbose'])
     prev_metrics_csv = args['previous_metrics_csv']
+    cycle_previous_files = args['cycle-previous-files']
+
 
     print("================================")
     print("Start synthesize test cases")
@@ -335,7 +365,7 @@ if __name__ == '__main__':
     if fim_version != "all":
         previous_fim_list = [fim_version]
     else:
-        if config == 'PREV':
+        if config == 'PREV': ##* "official" fim model results
             previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
         elif config == 'DEV':
             previous_fim_list = os.listdir(OUTPUTS_DIR)
@@ -357,15 +387,15 @@ if __name__ == '__main__':
         if not os.path.exists(prev_metrics_csv):
             print(f"Error: File does not exist at {prev_metrics_csv}")
             sys.exit(1)
-        else:
-            # if CSV format is wrong:  ##* what is the correct CSV format?
-            #   print("Error: CSV does not fit required format.")
-            #   sys.exit(1)
-            # else
-            #   print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}") 
+        else: 
             print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}") 
     else:
         print("Warning: A previous metric CSV has not been provided.")
+
+    # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
+    if prev_metrics_csv != None & cycle_previous_files == True:
+        print(f"Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently.")
+        sys.exit(1)
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
@@ -452,6 +482,7 @@ if __name__ == '__main__':
 
             # Send the executor to the progress bar
             progress_bar_handler(executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers")
+
 
     if dev_versions_to_compare != None:
         dev_versions_to_include_list = dev_versions_to_compare + previous_fim_list
