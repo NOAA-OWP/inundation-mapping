@@ -67,8 +67,12 @@ class ESRI_REST(object):
             print("-------------------------------------")
             print(f"Service name: {self.metadata['name']}")
             print(f"Features returned: {self.feature_count}")
-            print(f"Service max record count: {self.metadata['maxRecordCount']}")
-            print(f"Total API calls: {-(self.feature_count//-self.metadata['maxRecordCount'])}")
+            if 'resultRecordCount' in self.params.keys():
+                print(f"Request max record count: {self.params['resultRecordCount']}")
+                print(f"Total API calls: {-(self.feature_count//-self.params['resultRecordCount'])}")
+            else:
+                print(f"Service max record count: {self.metadata['maxRecordCount']}")
+                print(f"Total API calls: {-(self.feature_count//-self.metadata['maxRecordCount'])}")
         # Call the REST API repeatedly until all of the features have been collected, i.e. the transfer
         # limit has no longer been exceeded
         with tqdm(total=self.feature_count, desc='Feature download progress', disable=not self.verbose) as pbar:
@@ -88,10 +92,15 @@ class ESRI_REST(object):
         '''
         This method calls the REST API.
 
+        Parameters
+        ----------
+        params: dict
+            Parameters for the rest query.
+
         Returns
         -------
         sub_gdf: geopandas.GeoDataFrame
-            GeoDataFrame containing features returned by the query. FYI This may not be the full
+            GeoDataFrame containing features returned by the query. FYI This may not be the complete
             dataset if the 'exceededTransferLimit' == True
         '''
         self._api_call(self.query_url, params)
@@ -99,13 +108,23 @@ class ESRI_REST(object):
         r_dict = self.response.json()
         if 'exceededTransferLimit' in r_dict.keys():
             self.exceededTransferLimit = r_dict['exceededTransferLimit']
+        # This very nondescript error was returned when querying a polygon layer.
+        # Setting resultRecordCount to a lower value fixed the error.
+        elif 'error' in r_dict.keys():
+            print("There was an error with the query. It may have been caused by requesting too many features. Try setting resultRecordCount to a lower value.")
+            raise Exception(r_dict['error']['message'], f"code: {r_dict['error']['code']}")
         else:
             self.exceededTransferLimit = False
+        # Read the response into a GeoDataFrame
         sub_gdf = gpd.read_file(self.response.text)
         return sub_gdf
     
     def _api_call(self, url, params=None):
+        '''
+        Helper method for calling the API and checking that the response is ok.
 
+
+        '''
         self.response = requests.get(url, params=params)
         if not self.response.ok:
             raise Exception(f"The following URL recieved a bad response.\n{self.response.url}")
