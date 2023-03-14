@@ -169,7 +169,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     
     # Create workspace
     workspace.mkdir(parents=True,exist_ok = True)
-    print(job_number_huc)
 
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
     huc_messages_dir = os.path.join(workspace, 'huc_messages')
@@ -178,11 +177,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
 
     # Open NWM flows geopackage
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
-    print(os.path.exists(nwm_flows_gpkg))
-    print("Hi")
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
-    print(nwm_flows_df.columns)
-    print(nwm_flows_df.dtypes)
 
     print(f'Retrieving metadata for site(s): {lid_to_run}...')
     #Get metadata for 'CONUS'
