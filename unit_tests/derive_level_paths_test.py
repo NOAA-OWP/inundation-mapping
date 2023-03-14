@@ -80,7 +80,7 @@ class test_Derive_level_paths(unittest.TestCase):
         params["in_stream_network"] = "some bad path"
         
         with pytest.raises(Exception) as e_info:
-            actual = src.Derive_level_paths(in_stream_network = ut_helpers.json_concat(params, "outputRunDir", "in_stream_network"),
+            actual = src.Derive_level_paths(in_stream_network = ut_helpers.json_concat(params, "outputDestDir", "in_stream_network"),
                                             out_stream_network = params["out_stream_network"],
                                             branch_id_attribute = params["branch_id_attribute"],
                                             out_stream_network_dissolved = params["out_stream_network_dissolved"],

@@ -213,7 +213,6 @@ else
     rm -f $outputDestDir/*.env
 fi
 
-#logFile=$outputDestDir/logs/unit/summary_unit.log
 mkdir -p $outputDestDir/logs/unit
 mkdir -p $outputDestDir/logs/branch
 mkdir -p $outputDestDir/unit_errors

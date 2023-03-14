@@ -65,6 +65,8 @@ RUN addgroup --gid $GroupID $GroupName
 ENV GID=$GroupID
 ENV GN=$GroupName
 
+RUN mkdir -p $workDir
+
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 

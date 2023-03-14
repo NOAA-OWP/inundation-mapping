@@ -1,7 +1,7 @@
 {
 	"valid_data":
 	{
-		"outputRunDir" : "/data/outputs/fim_unit_test_data_do_not_remove/",
+		"outputDestDir" : "/data/outputs/fim_unit_test_data_do_not_remove/",
 		"in_stream_network": "/data/outputs/fim_unit_test_data_do_not_remove/05030104/nwm_subset_streams.gpkg",
 		"out_stream_network": "/data/outputs/fim_unit_test_data_do_not_remove/05030104/nwm_subset_streams_levelPaths.gpkg",
 		"branch_id_attribute": "levpa_id",

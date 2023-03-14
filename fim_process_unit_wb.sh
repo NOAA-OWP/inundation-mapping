@@ -86,14 +86,11 @@ rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
 hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
-/usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName 
+/usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
 return_codes=( "${PIPESTATUS[@]}" )
-
-#echo "huc return codes are:"
-#echo $return_codes
 
 # we do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
@@ -127,6 +124,7 @@ if [ "$err_exists" = "1" ]; then
     cp $hucLogFileName $outputDestDir/unit_errors
 fi
 
+# Here we're using the mv command to move the contents of the temp directory into the specified output directory
 echo "============================================================================================="
 echo 
 mv -f $tempHucDataDir $outputHucDataDir

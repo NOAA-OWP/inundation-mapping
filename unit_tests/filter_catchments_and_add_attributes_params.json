@@ -1,7 +1,7 @@
 {
 	"valid_data":
 	{
-		"outputRunDir":  "/outputs/fim_unit_test_data_do_not_remove",
+		"outputDestDir":  "/outputs/fim_unit_test_data_do_not_remove",
 		"input_catchments_filename": "/data/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000006/gw_catchments_reaches_3246000006.gpkg",
 		"input_flows_filename": "/data/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000006/demDerived_reaches_split_3246000006.gpkg",
 		"output_catchments_filename": "/data/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000006/gw_catchments_reaches_filtered_addedAttributes_3246000006.gpkg",

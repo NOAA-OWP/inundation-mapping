@@ -1,7 +1,7 @@
 {
 	"valid_data":
 	{
-		"outputRunDir" : "/data/outputs/fim_unit_test_data_do_not_remove/",
+		"outputDestDir" : "/data/outputs/fim_unit_test_data_do_not_remove/",
 		"max_length": 1500,
 		"slope_min": 0.001,
 		"lakes_buffer_input": 20,
