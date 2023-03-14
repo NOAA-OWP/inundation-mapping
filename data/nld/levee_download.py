@@ -5,7 +5,7 @@ import re
 import geopandas as gpd
 from tqdm import tqdm
 from datetime import datetime
-from shapely.geometry import LineString
+from shapely.geometry import LineString, MultiLineString
 
 sys.path += ['/foss_fim/src', '/foss_fim/data', '/foss_fim/tools']
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
@@ -91,14 +91,35 @@ def remove_nulls(geom:LineString, huc:str):
     elif huc2 == '08': # Louisana below sea level
         min_z = -10.0
     else:
-        min_z = 1.0 # Default set to 1 m
+        min_z = 1.0 # Default set to 1 ft
     # Loop through the vertices
     out_geom = []
+    part_geom = []
+    skipped_vert = 0
+    max_skipped_vert = 5
     for coord in geom.coords:
+        skip_flag = False
         if coord[2] > min_z:
-            out_geom.append(coord)
+            # Convert units from feet to meters
+            part_geom.append(tuple([coord[0], coord[1], coord[2]*0.3048]))
+        elif skipped_vert < max_skipped_vert:
+            # Allows a few (5) vertices to be skipped without forcing a multipart break.
+            # This enables short sections of roads that cross levees to have the levee elevations
+            # burned in to account for temporary flood walls not captured in the data.
+            skip_flag = True
+            skipped_vert += 1
+        elif (len(part_geom) > 1) and (not skip_flag):   # Create a multipart geometry when there's a break in z-values
+            out_geom.append(LineString(part_geom))
+            part_geom = []
+            skipped_vert = 0
+    # Append the last segment
+    if len(part_geom) > 1:
+        out_geom.append(LineString(part_geom))
+    # Compile LineString geometries into one multipart geometry
     if len(out_geom) >= 2:
-        return LineString(out_geom)
+        return MultiLineString(out_geom)
+    elif (len(out_geom) == 1) and (len(out_geom[0].coords) > 1):
+        return MultiLineString(out_geom)
     else:
         return None
 
