@@ -81,9 +81,10 @@ def associate_levelpaths_with_levees(levees_filename, levee_id_attribute, leveed
         for j, row in out_df.iterrows():
             # Intersect levees and levelpaths
             row_intersections = gpd.overlay(levees[levees[levee_id_attribute] == row[levee_id_attribute]], levelpaths[levelpaths[branch_id_attribute] == row[branch_id_attribute]], how='intersection', keep_geom_type=False)
-            row_intersection_points = row_intersections[row_intersections.geom_type.isin(['Point', 'MultiPoint'])]
+            row_intersections = row_intersections.explode()
+            row_intersections = row_intersections[row_intersections.geom_type =='Point']
 
-            if len(row_intersection_points) == 1:
+            if len(row_intersections) == 1:
                 out_df = out_df.drop(j)
                 
         out_df.to_csv(out_filename, columns=[levee_id_attribute, branch_id_attribute], index=False)
