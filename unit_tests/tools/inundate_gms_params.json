@@ -1,7 +1,7 @@
 {
 	"valid_data_inudation_raster_single_huc":
 	{
-		"hydrofabric_dir": "/data/outputs/fim_unit_test_data_do_not_remove/",
+		"hydrofabric_dir": "/outputs/fim_unit_test_data_do_not_remove/",
 		"forecast": "/data/inputs/rating_curve/nwm_recur_flows/nwm21_17C_recurrence_flows_cfs.csv",
 		"num_workers": 1,
 		"hucs": "02020005, 05030104",
