@@ -10,9 +10,28 @@ import argparse
 from utils.shared_functions import mem_profile
 
 @mem_profile
-def mask_dem(dem_filename, nld_filename, levee_id_attribute, out_dem_filename, branch_id_attribute, branch_id, branch_zero_id, levee_levelpaths):
+def mask_dem(dem_filename:str, nld_filename:str, levee_id_attribute:str, out_dem_filename:str, branch_id_attribute:str, branch_id:int, branch_zero_id:int, levee_levelpaths:str):
     """
-    Masks levee-protected areas from DEM in branch 0 or if the level path is associated with a levee
+    Masks levee-protected areas from DEM in branch 0 or if the level path is associated with a levee (determined in src/associate_levelpaths_with_levees.py).
+
+    Parameters
+    ----------
+    dem_filename: str
+        Path to DEM file.
+    nld_filename: str
+        Path to levee-protected areas file.
+    levee_id_attribute: str
+        Name of levee ID attribute.
+    out_dem_filename: str
+        Path to write masked DEM.
+    branch_id_attribute: str
+        Name of branch ID attribute.
+    branch_id: int
+        Branch ID number
+    branch_zero_id: int
+        Branch 0 ID number
+    levee_levelpaths: str
+        Path to levee-levelpath association file.
     """
     
     # Rasterize if branch zero
@@ -59,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--branch-id-attribute', help='Branch ID attribute name', required=True, type=str)
     parser.add_argument('-i', '--branch-id', help='Branch ID', type=int, required='True')
     parser.add_argument('-b0', '--branch-zero-id', help='Branch zero ID', type=int, required=False, default=0)
-    parser.add_argument('-csv', '--levee-levelpaths', help='Levee - levelpath layer filename', required=True)
+    parser.add_argument('-csv', '--levee-levelpaths', help='Levee - levelpath layer filename', type=str, required=True)
 
     args = vars(parser.parse_args())
 

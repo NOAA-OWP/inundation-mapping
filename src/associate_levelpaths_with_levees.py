@@ -6,9 +6,26 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 
-def associate_levelpaths_with_levees(levees_filename, levee_id_attribute, leveed_areas_filename, levelpaths_filename, branch_id_attribute, levee_buffer, out_filename):
+def associate_levelpaths_with_levees(levees_filename:str, levee_id_attribute:str, leveed_areas_filename:str, levelpaths_filename:str, branch_id_attribute:str, levee_buffer:float, out_filename:str):
     """
     Finds the level path associated with each levee. Ignores level paths that cross a levee exactly once.
+
+    Parameters
+    ----------
+    levees_filename: str
+        Path to levees file.
+    levee_id_attribute: str
+        Name of levee ID attribute.
+    leveed_areas_filename: str
+        Path to levee-protected areas file.
+    levelpaths_filename: str
+        Path to level paths file.
+    branch_id_attribute: str
+        Name of branch ID attribute.
+    levee_buffer: float
+        Distance to buffer from levee.
+    out_filename: str
+        Path to write output CSV file.    
     """
 
     if os.path.exists(levees_filename):
@@ -84,7 +101,11 @@ def associate_levelpaths_with_levees(levees_filename, levee_id_attribute, leveed
         for j, row in out_df.iterrows():
             # Intersect levees and levelpaths
             row_intersections = gpd.overlay(levees[levees[levee_id_attribute] == row[levee_id_attribute]], levelpaths[levelpaths[branch_id_attribute] == row[branch_id_attribute]], how='intersection', keep_geom_type=False)
+
+            # Convert MultiPoint to Point
             row_intersections = row_intersections.explode()
+
+            # Select Point geometry type
             row_intersections = row_intersections[row_intersections.geom_type =='Point']
 
             if len(row_intersections) == 1:
