@@ -31,11 +31,17 @@ One way is to use the incoming arg parser. Most python files include the code bl
 
 Start a docker container as you normally would for any development. 
 ```bash 
-docker run --rm -it --name <a docker container name> -v /home/<your name>/projects/<folder path>/:/foss_fim {your docker image name}
+docker run --rm -it --name <a docker container name> \
+	-v /home/<your name>/projects/<folder path>/:/foss_fim \
+	{your docker image name}
 ```
 Example:
 ```bash 
-docker run --rm -it --name mytest -v /home/abcd/projects/dev/innudation-mapping/:/foss_fim -v /abcd_share/foss_fim/outputs/:/outputs -v /abcs_share/foss_fim/:/data fim_4:dev_20220208_8eba0ee
+docker run --rm -it --name mytest \
+	-v /home/abcd/projects/dev/innudation-mapping/:/foss_fim \
+	-v /abcd_share/foss_fim/outputs/:/outputs \
+	-v /abcs_share/foss_fim/:/data \
+	fim_4:dev_20220208_8eba0ee
 ```
 
 For unit tests to work, you need to run the following (if not already in place).
@@ -44,7 +50,8 @@ Notice a modified branch "deny_branch_unittests.lst"  (special for unittests)
 Here are the params and args you need if you need to re-run unit and branch
 
 ```bash
-fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 05030104" -bd /foss_fim/config/deny_branch_unittests.lst -ud None -j 1 -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 05030104" \
+	-bd /foss_fim/config/deny_branch_unittests.lst -ud None -j 1 -o
 ```
 
 **NOTICE: the deny file used for fim_pipeline.sh, has a special one for unittests `deny_branch_unittests.lst`.
@@ -52,7 +59,8 @@ fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 05030104" -bd /
 If you need to run inundation tests, fun the following:
 
 ```bash
-python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_not_remove -jh 1 -jb 1 -m /data/outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
+python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_not_remove \
+	-jh 1 -jb 1 -m /data/outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
 ```
 ### If you'd like to test the whole unit test suite:
 ```
@@ -96,11 +104,13 @@ If one test case is choosen, it will scan all of the test files, and scan for th
 9) Sometimes you may want to run a full successful "happy path" version through `fim_pipeline.sh` (or similar), to get all of the files you need in place to do your testing. However, you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the `-d` parameter (denylist). 
 ie:
 ```bash
-fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_unit_default.lst -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 \
+	-c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_unit_default.lst -o
 ```
 but ours would be:
 ```bash 
-fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 -c /foss_fim/config/params_template.env -j 1 -d no_list -o
+fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 \
+	-c /foss_fim/config/params_template.env -j 1 -d no_list -o
 ```
 
 ## [Pytest](https://docs.pytest.org/en/7.2.x/) particulars

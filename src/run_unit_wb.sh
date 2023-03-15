@@ -85,9 +85,12 @@ Tcount
 echo -e $startDiv"Generating Level Paths for $hucNumber"
 date -u
 Tstart
-$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
-    -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
-    -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg \
+$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" \
+    -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
+    -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg \
+    -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
+    -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg \
+    -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg \
     -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg
 
 # test if we received a non-zero code back from derive_level_paths.py
@@ -100,15 +103,16 @@ Tcount
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"
 date -u
 Tstart
-$srcDir/buffer_stream_branches.py -a $input_DEM_domain -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -i $branch_id_attribute \
-    -d $branch_buffer_distance_meters -b $tempHucDataDir/branch_polygons.gpkg
+$srcDir/buffer_stream_branches.py -a $input_DEM_domain -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
+    -i $branch_id_attribute -d $branch_buffer_distance_meters -b $tempHucDataDir/branch_polygons.gpkg
 Tcount
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create list file of branch ids for $hucNumber"
 date -u
 Tstart
-$srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -b $branch_id_attribute -o $branch_list_lst_file
+$srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -b $branch_id_attribute \
+    -o $branch_list_lst_file
 Tcount
 
 ## CREATE BRANCH ZERO ##
@@ -124,8 +128,9 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 date -u
 Tstart
 [ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && \
-    gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" \
-    -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM \
+    gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
+        -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" \
+        -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM \
         $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
 Tcount
 
@@ -143,7 +148,7 @@ Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $tempHucDataDir/nld_subset_levees.gpkg ] && \
     gdal_rasterize -l nld_subset_levees -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-    -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+        -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
         $tempHucDataDir/nld_subset_levees.gpkg $tempCurrentBranchDataDir/nld_subset_levees_$branch_zero_id.tif
 Tcount
 
@@ -294,5 +299,3 @@ date -u
 echo "---- HUC processing for $hucNumber is complete"
 Calc_Duration $huc_start_time
 echo
-
-

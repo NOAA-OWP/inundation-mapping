@@ -195,7 +195,7 @@ date -u
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo "---- Enc of fim_post_processing, fim_post_processing complete"
+echo "---- End of fim_post_processing, fim_post_processing complete"
 echo "---- Ended: `date -u`"
 Calc_Duration $post_proc_start_time
 echo
