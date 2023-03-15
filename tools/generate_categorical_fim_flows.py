@@ -175,7 +175,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     huc_messages_dir = os.path.join(workspace, 'huc_messages')
     if not os.path.exists(huc_messages_dir):
         os.mkdir(huc_messages_dir)
-
+    
     # Open NWM flows geopackage
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
@@ -226,7 +226,6 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-#            process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df)
             executor.submit(process_generate_flows, huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df)
             
     end_dt = datetime.now()
@@ -274,9 +273,9 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         full_path_file = os.path.join(huc_messages_dir, huc_message_file)
         with open(full_path_file, 'r') as f:
             if full_path_file.endswith('.txt'):
-            
                 lines = f.readlines()
-                huc_message_list.append(lines)
+                for line in lines:
+                    huc_message_list.append(line)
     
     # Write messages to DataFrame, split into columns, aggregate messages.
     messages_df  = pd.DataFrame(huc_message_list, columns = ['message'])
