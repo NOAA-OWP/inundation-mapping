@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 
 import os, argparse, json, csv, ast, re, sys, traceback, signal
-import pandas as pd ##*
+import pandas as pd
 from datetime import datetime
 from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from tqdm import tqdm
-
 from utils.shared_functions import FIM_Helpers as fh
 from run_test_case import test_case
 from tools_shared_variables import TEST_CASES_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT
 
-def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list, pfiles, ):
+def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include_list, pfiles, prev_metrics_csv):
     """
     This function searches for and collates metrics into a single CSV file that can queried database-style. The
     CSV is an input to eval_plots.py. This function automatically looks for metrics produced for official versions
@@ -77,10 +76,14 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
     versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
 
+    # Specify which results to iterate through
     if len(dev_versions_to_include_list) > 0:
-        iteration_list = ['official', 'comparison']
+        iteration_list = ['official', 'comparison'] # iterating through official model results AND comparison model(s)
     else:
-        iteration_list = ['official']
+        iteration_list = ['official'] # only iterating through official model results
+
+    if pfiles != True: 
+        iteration_list = ['comparison'] # not iterating through official model results, just the comparison model(s) 
 
     # Iterate through 5 benchmark sources 
     for benchmark_source in ['ble', 'nws', 'usgs', 'ifc','ras2fim']:
@@ -99,7 +102,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
                     # Update filepaths based on whether the official or dev versions should be included
                     for iteration in iteration_list:
-                        if iteration == "official" & pfiles==True: # "official" refers to previous finalized model versions
+                        if iteration == "official": # and str(pfiles) == "True": # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                             # add in composite of versions
@@ -161,7 +164,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
                     # Update filepaths based on whether the official or dev versions should be included
                     for iteration in iteration_list:
-                        if iteration == "official" & pfiles==True: # "official" refers to previous finalized model versions
+                        if iteration == "official" and str(pfiles) == "True": # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(benchmark_test_case_dir, test_case, 'official_versions')
                             versions_to_aggregate = os.listdir(PREVIOUS_FIM_DIR)
                             # add in composite of versions
@@ -218,30 +221,28 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                                                 sub_list_to_append.append(calibrated)
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError:
-                    pass
+                    pass 
 
-    # Read in previously compiled metrics (if provided)
-    #if prev_metrics_csv != None:
-    #    prev_compiled_metrics = pd.read_csv(prev_metrics_csv) ## I think this needs to be moved
+    # If previous metrics are provided: read in previously compiled metrics and join to calcaulated metrics
+    if prev_metrics_csv != None:
+        prev_metrics_df = pd.read_csv(prev_metrics_csv)
 
-    #    prev_compiled_metrics.head()
+        # Put calculated metrics into a dataframe and set the headers
+        df_to_write_calc = pd.DataFrame(list_to_write)
+        df_to_write_calc.columns = df_to_write_calc.iloc[0]
+        df_to_write_calc = df_to_write_calc[1:]
 
-        ## check structure here (it probably needs to have certain columns, return an error if it doesn't have those)
-        ## restructure if needed?
+        # Join the calculated metrics and the previous metrics dataframe
+        df_to_write = pd.concat([df_to_write_calc, prev_metrics_df], axis=0)
 
-        ## list_to_write.append(prev_compiled_metrics_formatted)
-    
-
-    # Save aggregated compiled metrics ('list_to_write') as a CSV
-    with open(master_metrics_csv_output, 'w', newline='') as csvfile:
-        csv_writer = csv.writer(csvfile)
-        csv_writer.writerows(list_to_write)
-
-    # Save compiled metrics for the individual comparison/model of interest
-
-    ##* [[add here]]
+    else:
+        df_to_write = pd.DataFrame(list_to_write)
+        df_to_write.columns = df_to_write.iloc[0]
+        df_to_write = df_to_write[1:]
 
 
+    # Save aggregated compiled metrics ('df_to_write') as a CSV
+    df_to_write.to_csv(master_metrics_csv_output)
 
 def progress_bar_handler(executor_dict, verbose, desc):
 
@@ -322,7 +323,7 @@ if __name__ == '__main__':
     parser.add_argument('-pcsv', '--previous-metrics-csv', help='Optional: Filepath for a CSV with previous metrics to concatenate with new '\
                         'metrics to form a final aggregated metrics csv.', required=False, default=None)
     parser.add_argument('-pfiles', '--cycle-previous-files', help='Optional: Specifies whether previous metrics should be compiled by cycling '\
-                        'through files (True). Cannot be used if a previous metrics CSV is provided.', required=False, action="store_true", default=False)
+                        'through files (True). Cannot be used if a previous metrics CSV is provided.', required=False, action="store_true")
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -341,8 +342,7 @@ if __name__ == '__main__':
     verbose = bool(args['verbose'])
     gms_verbose = bool(args['gms_verbose'])
     prev_metrics_csv = args['previous_metrics_csv']
-    cycle_previous_files = args['cycle-previous-files']
-
+    pfiles = bool(args['cycle_previous_files'])
 
     print("================================")
     print("Start synthesize test cases")
@@ -365,9 +365,9 @@ if __name__ == '__main__':
     if fim_version != "all":
         previous_fim_list = [fim_version]
     else:
-        if config == 'PREV': ##* "official" fim model results
+        if config == 'PREV': # official fim model results
             previous_fim_list = os.listdir(PREVIOUS_FIM_DIR)
-        elif config == 'DEV':
+        elif config == 'DEV': # development fim model results
             previous_fim_list = os.listdir(OUTPUTS_DIR)
 
     # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
@@ -382,6 +382,11 @@ if __name__ == '__main__':
     all_test_cases = test_case.list_all_test_cases(version = fim_version, archive = archive_results,
             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
     
+    # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
+    if prev_metrics_csv != None and pfiles == True:
+        print(f"Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently.")
+        sys.exit(1)
+
     # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
     if prev_metrics_csv != None:
         if not os.path.exists(prev_metrics_csv):
@@ -389,13 +394,18 @@ if __name__ == '__main__':
             sys.exit(1)
         else: 
             print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}") 
+            print()
     else:
         print("Warning: A previous metric CSV has not been provided.")
+        print()
 
-    # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
-    if prev_metrics_csv != None & cycle_previous_files == True:
-        print(f"Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently.")
-        sys.exit(1)
+    # Print whether the previous files will be cycled through
+    if pfiles == True:
+        print("Results from previous directories will be compiled.")
+        print()
+    else:
+        print("No results from previous directories will be compiled.")
+        print()
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
@@ -495,7 +505,8 @@ if __name__ == '__main__':
 
         # this function is not compatible with GMS
         create_master_metrics_csv(master_metrics_csv_output = master_metrics_csv, 
-                                  dev_versions_to_include_list = dev_versions_to_include_list)
+                                  dev_versions_to_include_list = dev_versions_to_include_list,
+                                  pfiles=pfiles, prev_metrics_csv=prev_metrics_csv)
     
     print("================================")
     print("End synthesize test cases")
