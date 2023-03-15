@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import geopandas as gpd
+from datetime import datetime
 import time
 from tools_shared_functions import aggregate_wbd_hucs, mainstem_nwm_segs, get_thresholds, flow_data, get_metadata, get_nwm_segs, get_datum, ngvd_to_navd_ft, filter_nwm_segments_by_stream_order
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
@@ -63,7 +64,7 @@ def process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, worksp
         start = time.time()
         segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
         end = time.time()
-        elapsed_time = (end-start)/60
+        elapsed_time = round(((end-start)/60), 6)
         print(f'Finished filtering segments in {elapsed_time} minutes')
         #if no segments, write message and exit out
         if not segments:
@@ -157,7 +158,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     None.
     '''
         
-    all_start = time.time()
+    all_start = datetime.now()
     API_BASE_URL, WBD_LAYER = get_env_paths()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
@@ -180,6 +181,8 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
 
     print(f'Retrieving metadata for site(s): {lid_to_run}...')
+    start_dt = datetime.now()
+    
     #Get metadata for 'CONUS'
     print(metadata_url)
     if lid_to_run != 'all':
@@ -192,7 +195,15 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         # Append the dataframes and lists
         all_lists = conus_list + islands_list
     print(len(all_lists))
+    
+    end_dt = datetime.now()
+    time_duration = end_dt - start_dt
+    print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
+    print()
+    
     print('Determining HUC using WBD layer...')
+    start_dt = datetime.now()    
+    
     # Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer. 
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
@@ -202,13 +213,26 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.astype({'metadata_sources': str})
         
+    end_dt = datetime.now()        
+    time_duration = end_dt - start_dt
+    print(f"Determining HUC using WBD layer Duration: {str(time_duration).split('.')[0]}")
+    print()
+        
     if stage_based:
         return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists
+    
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
+    start_dt = datetime.now()        
+    
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 #            process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df)
             executor.submit(process_generate_flows, huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df)
+            
+    end_dt = datetime.now()
+    time_duration = end_dt - start_dt
+    print(f"Generating flows for hucs Duration: {str(time_duration).split('.')[0]}")
+    print()
             
     print('Wrapping up flows generation...')
     #Recursively find all *_attributes csv files and append
@@ -271,8 +295,10 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')
     
     # time operation
-    all_end = time.time()
-    print(f'total time is {round((all_end - all_start)/60),1} minutes')
+    all_end = datetime.now()
+    all_time_duration = all_end - all_start
+    print(f"Duration: {str(all_time_duration).split('.')[0]}")
+    print()
     
     return nws_lid_layer
 
