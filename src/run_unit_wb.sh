@@ -238,15 +238,6 @@ echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"
 $srcDir/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
 
 
-## REMOVE FILES FROM DENY LIST ##
-if [ -f $deny_unit_list ]; then
-    echo -e $startDiv"Remove files $hucNumber"
-    date -u
-    Tstart
-    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
-    Tcount
-fi
-
 # -------------------
 ## Start the local csv branch list
 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
@@ -263,6 +254,15 @@ if [ -f $branch_list_lst_file ]; then
     parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
+fi
+
+## REMOVE FILES FROM DENY LIST ##
+if [ -f $deny_unit_list ]; then
+    echo -e $startDiv"Remove files $hucNumber"
+    date -u
+    Tstart
+    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
+    Tcount
 fi
 
 # -------------------

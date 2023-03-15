@@ -28,7 +28,7 @@ demDerived_streamPixels_ids_{}_dist.tif
 dem_burned_{}.tif
 dem_burned_filled_{}.tif
 dem_lateral_thalweg_adj_{}.tif
-#dem_meters_{}.tif
+dem_meters_{}.tif
 dem_thalwegCond_{}.tif
 flowaccum_d8_burned_filled_{}.tif
 #flowdir_d8_burned_filled_{}.tif
