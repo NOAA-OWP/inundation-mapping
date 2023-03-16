@@ -11,27 +11,27 @@ Create a 'working directory' in the Docker container to run processes within the
 - `Dockerfile` - create a `/fim_temp` working directory, update `projectDir` to an `ENV`, rename inputs and outputs directory variables  
 - `fim_pipeline.sh` - remove `projectDir=/foss_fim`, update path of `logFile`, remove indentation  
 - `fim_pre_processing.sh` - change `$outputRunDataDir` => `$outputDestDir` & add `$tempRunDir`  
-- `fim_post_processing.sh` - change `$outputRunDataDir` => `$outputDestDir` & add linebreaks  
+- `fim_post_processing.sh` - change `$outputRunDataDir` => `$outputDestDir`   
 - `fim_process_unit_wb.sh` - change `$outputRunDataDir` => `$outputDestDir`, add vars & export `tempRunDir`, `tempHucDataDir`, & `tempBranchDataDir` to `run_unit_wb.sh`  
 - `README.md` - add linebreaks to codeblocks  
 
 - `src/` 
   - `bash_variables.env` - `$inputDataDir` => `$inputsDir`  
   - `check_huc_inputs.py` - `$inputDataDir` => `$inputsDir`  
-  - `delineate_hydros_and_produce_HAND.py` - add linebreaks, `$outputHucDataDir` => `$tempHucDataDir`, `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`  
+  - `delineate_hydros_and_produce_HAND.py` - `$outputHucDataDir` => `$tempHucDataDir`, `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`  
   - `process_branch.sh` - `$outputRunDataDir` => `$outputsDestDir`  
-  - `run_by_branch.sh` - add linebreaks, `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`, `$outputHucDataDir` => `$tempHucDataDir`  
+  - `run_by_branch.sh` - `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`, `$outputHucDataDir` => `$tempHucDataDir`  
   - `run_unit_wb.sh` - `$outputRunDataDir` => `$outputDestDir`, `$outputHucDataDir` => `$tempHucDataDir`  
   - `utils/`  
-    - `shared_functions.py` - `inputDataDir` => `inputsDir`  
+    - `shared_functions.py` - `$inputDataDir` => `$inputsDir`  
 
 - `tools/` 
-  - `inundation_wrapper_custom_flow.py` - `outputDataDir` => `outputsDir`  
-  - `inundation_wrapper_nwm_flows.py`  - `outputDataDir` => `outputsDir`  
-  - `tools_shared_variables.py` - `outputDataDir` => `outputsDir`    
+  - `inundation_wrapper_custom_flow.py` - `$outputDataDir` => `$outputsDir`  
+  - `inundation_wrapper_nwm_flows.py`  - `$outputDataDir` => `$outputsDir`  
+  - `tools_shared_variables.py` - `$outputDataDir` => `$outputsDir`    
 
 - `unit_tests/`
-  - `README.md` - add linebreaks for code blocks, `/outputs/` => `/data/outputs/`  
+  - `README.md` - add linebreaks to code blocks, `/outputs/` => `/data/outputs/`  
   - `*_params.json` - `/outputs/` => `/data/outputs/` & `$outputRunDataDir` => `$outputDestDir`  
   - `derive_level_paths_test.py` - `$outputRunDataDir` => `$outputDestDir`  
   - `check_unit_errors_test.py` - `/outputs/` => `/data/outputs/`  

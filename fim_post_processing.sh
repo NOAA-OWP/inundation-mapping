@@ -89,8 +89,7 @@ python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir -f "branch_ids.csv" 
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 echo -e $startDiv"Start non-zero exit code checking"
-find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | \
-    xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
+find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 echo "Processing usgs gage aggregation"
@@ -149,13 +148,11 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
         echo "Loading HUC Data"
         echo
 
-        ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST \
-            dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
+        ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
 
         echo "Loading Point Data"
         echo
-        ogr2ogr -overwrite -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME \
-            user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
+        ogr2ogr -overwrite -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
 
         Tcount
     fi
@@ -169,8 +166,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     echo    
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputDestDir -usgs_rc $inputsDir/usgs_gages/usgs_rating_curves.csv \
-        -nwm_recur $nwm_recur_file -j $jobLimit
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputDestDir -usgs_rc $inputsDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
     Tcount
     date -u
 fi
