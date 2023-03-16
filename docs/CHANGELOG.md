@@ -2,11 +2,11 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3.x.x - 2023-03-15 - [PR#836](https://github.com/NOAA-OWP/inundation-mapping/pull/836)
+## v4.3.x.x - 2023-03-16-23 [PR#847](https://github.com/NOAA-OWP/inundation-mapping/pull/847)
 
 ### Changes
 
-Create a 'working directory' in the Docker container to run processes within the container's non-persistant filesystem. Modify variables in scripts that process HUCs and branches to use the temporary working directory, and then copy temporary directory (after trimming un-wanted files) over to output directory (persistent filesystem).  Roll back changes to `unit_tests/` to use `/data/outputs` (contains canned data), as the volume mounted `outputs/` most likely will not contain the necessary unit test data. 
+Create a 'working directory' in the Docker container to run processes within the container's non-persistent filesystem. Modify variables in scripts that process HUCs and branches to use the temporary working directory, and then copy temporary directory (after trimming un-wanted files) over to output directory (persistent filesystem).  Roll back changes to `unit_tests/` to use `/data/outputs` (contains canned data), as the volume mounted `outputs/` most likely will not contain the necessary unit test data. 
 
 - `Dockerfile` - create a `/fim_temp` working directory, update `projectDir` to an `ENV`, rename inputs and outputs directory variables  
 - `fim_pipeline.sh` - remove `projectDir=/foss_fim`, update path of `logFile`, remove indentation  

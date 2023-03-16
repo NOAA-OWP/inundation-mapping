@@ -68,7 +68,7 @@ export tempBranchDataDir=$tempHucDataDir/branches
 export current_branch_id=0
 
 ## huc data
-if [ -d "$outputHucDataDir" ] ; then
+if [ -d "$outputHucDataDir" ]; then
     rm -rf $outputHucDataDir
 fi
 
