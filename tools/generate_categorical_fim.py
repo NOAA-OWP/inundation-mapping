@@ -5,6 +5,7 @@ import argparse
 import csv
 import traceback
 import sys
+from datetime import datetime
 import time
 from pathlib import Path
 import geopandas as gpd
@@ -28,6 +29,13 @@ from tools_shared_variables import (acceptable_coord_acc_code_list,
 def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, 
                                      stage_based, output_folder, overwrite, search, 
                                      lid_to_run, job_number_intervals, past_major_interval_cap):
+        
+    print("================================")
+    print("Start generate categorical fim")
+    overall_start_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"started: {dt_string}")
+    print()
         
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
@@ -110,6 +118,17 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
 
+    print("================================")
+    print("End generate categorical fim")
+
+    end_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"ended: {dt_string}")
+
+    # calculate duration
+    time_duration = end_time - overall_start_time
+    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print()
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
     '''
