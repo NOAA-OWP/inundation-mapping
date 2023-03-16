@@ -237,7 +237,7 @@ def mark_complete(site_directory):
     marker_file.touch()
     return
 
-def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir):
+def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir, nwm_flows_df):
     missing_huc_files = []
     all_messages = []
     stage_based_att_dict = {}
@@ -424,7 +424,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         
         # Filter segments to be of like stream order.
         desired_order = metadata['nwm_feature_data']['stream_order']
-        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
+        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
         action_stage = stages['action']
         minor_stage = stages['minor']
         moderate_stage = stages['moderate']
@@ -459,9 +459,9 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                 all_messages.append([f'{lid}:missing some HUC data'])
                 
         # Now that the "official" category maps are made, produce the incremental maps.
-        for interval_stage in interval_list:
+        with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
             try:
-                with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
+                for interval_stage in interval_list:
                     # Determine category the stage value belongs with.
                     if action_stage <= interval_stage < minor_stage:
                         category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
@@ -536,14 +536,14 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
-    huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
+    huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
     
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
             executor.submit(iterate_through_huc_stage_based, workspace, huc, 
                             fim_dir, huc_dictionary, threshold_url, flood_categories,
                             all_lists, past_major_interval_cap, number_of_jobs, 
-                            number_of_interval_jobs, attributes_dir)
+                            number_of_interval_jobs, attributes_dir, nwm_flows_df)
                 
     print('Wrapping up Stage-Based CatFIM...')
     csv_files = os.listdir(attributes_dir)
@@ -678,7 +678,7 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
             
             # Create inundation maps with branch and stage data
             try:
-                print("Running inundation for " + huc + " and branch " + branch)
+                print("Generating stage-based FIM for " + huc + " and branch " + branch)
                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
             except Exception:
                 messages.append([f'{lid}:inundation failed at {category}'])

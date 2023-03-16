@@ -203,7 +203,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
     out_gdf = out_gdf.astype({'metadata_sources': str})
         
     if stage_based:
-        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists
+        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
