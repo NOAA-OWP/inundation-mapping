@@ -2,6 +2,55 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.X.X.X - 2023-03-15 - [PR#845](https://github.com/NOAA-OWP/inundation-mapping/pull/845)
+
+This PR revises the methodology for masking levee-protected areas from inundation. It accomplishes two major tasks: (1) updates the procedure for acquiring and preprocessing the levee data to be burned into the DEM and (2) revises the way levee-protected areas are masked from branches.
+
+(1) There are now going to be two different levee vector line files in each HUC. One (`nld_subset_levees_burned.gpkg`) for the levee elevation burning and one (`nld_subset_levees.gpkg`) for the levee-level-path assignment and masking workflow.
+
+(2) Levee-protected areas are masked from inundation based on a few methods:
+    - Branch 0: All levee-protected areas are masked
+    - Other branches: Levee-protected areas are masked from the DEMs of branches for level path(s) that the levee is protecting against by using single-sided buffers alongside each side of the levee to determine which side the levee is protecting against (the side opposite the associated levee-protected area).
+
+### Additions
+
+- `.gitignore`: Adds `.private` folder for unversioned code
+- `data/`
+    - `esri.py`: Class for querying and downloading ESRI feature services.
+    - `nld/`
+        - `levee_download.py`: Module that handles downloading and preprocessing levee lines and protected areas from the National Levee Database.
+- `src/associate_levelpaths_with_levees.py`: Associates level paths with levees using single-sided levee buffers and writes to CSV to be used by `src/mask_dem.py`
+
+### Changes
+
+- `.config/`
+    - `deny_branch_zero.lst`: Adds `dem_meters_{}.tif`
+    - `deny_branches.lst`: Adds `levee_levelpaths.csv` and removes `nld_subset_levees_{}.tif`
+    - `deny_unit.lst`: Adds `dem_meters.tif`
+    - `params_template.env`: Adds `levee_buffer` parameter for levee buffer size/distance in meters and `levee_id_attribute`
+- `src/`
+    - `bash_variables.env`: Updates `input_nld_levee_protected_areas` and adds `input_NLD` (moved from `run_unit_wb.sh`) and `input_levees_preprocessed` environment variables
+    - `burn_in_levees.py`: Removed the unit conversion from feet to meters because it's now being done in `levee_download.py`.
+    - `clip_vectors_to_wbd.py`: Added the new levee lines for the levee-level-path assignment and masking workflow.
+    - `delineate_hydros_and_produce_HAND.sh`: Updates input arguments
+    - `mask_dem.py`: Updates to use `levee_levelpaths.csv` (output from `associate_levelpaths_with_levees.py`) to mask branch DEMs
+    - `run_by_branch.sh`: Clips `dem_meters.tif` to use for branches instead of `dem_meters_0.tif` since branch 0 is already masked.
+    - `run_unit_wb.sh`: Added inputs to `clip_vectors_to_wbd.py`. Added `associate_levelpaths_with_levees.py`. Processes `dem_meters.tif` and then makes a copy for branch 0. Moved `deny_unit.lst` cleanup to after branch processing.
+
+### Removals
+- `data/nld/preprocess_levee_protected_areas.py`: Deprecated
+
+### Testing
+Tested on a number of HUCs including 03140202, 08080202, 08080301, 08080302, and 08080401.
+
+### Notes
+Usage for the new levee download workflow is simply: `python3 /foss_fim/data/nld/levee_download.py`. There will be 3 outputs written to `/data/inputs/nld_vectors/`. Whenever levees are updated, `/src/bash_variables.env` should also be updated to reflect the new filenames since the dates will be updated.
+- `System_Routes_NLDFS_5070_{YYMMDD}.gpkg`
+- `3d_nld_preprocessed_{YYMMDD}.gpkg`
+- `Leveed_Areas_NLDFS_5070_{YYMMDD}.gpkg`
+
+<br/><br/>
+
 ## v4.3.1.0 - 2023-03-10 - [PR#834](https://github.com/NOAA-OWP/inundation-mapping/pull/834)
 
 Change all occurances of /data/outputs to /outputs to honor the correct volume mount directory specified when executing docker run.
