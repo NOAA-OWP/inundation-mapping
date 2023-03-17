@@ -201,7 +201,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
                                             flow = ''
                                             if os.path.exists(full_json_path):
 
-                                                # Get flow used to map.
+                                                # Get flow used to map
                                                 flow_file = os.path.join(benchmark_test_case_dir, 'validation_data_' + benchmark_source, huc, nws_lid, magnitude, 'ahps_' + nws_lid + '_huc_' + huc + '_flows_' + magnitude + '.csv')
                                                 if os.path.exists(flow_file):
                                                     with open(flow_file, newline='') as csv_file:
@@ -266,13 +266,16 @@ if __name__ == '__main__':
      Notes:
        - fim_input.csv MUST be in the folder suggested.
        - the -v param is the name in the folder in the "outputs/" directory where the test hucs are at.
-           It also becomes the folder names inside the test_case folders when done.
+         It also becomes the folder names inside the test_case folders when done.
        - the -vg param may not be working (will be assessed better on later releases).
        - Find a balance between -jh (number of jobs for hucs) versus -jb (number of jobs for branches)
          on quick tests on a 96 core machine, we tried [1 @ 80], [2 @ 40], and [3 @ 25] (and others).
        -jb 3 -jh 25 was noticably better. You can likely go more jb cores with better success, just
          experiment.  Start times, End Times and duration are now included.
        - The -m can be any path and any name.
+       - Previous metric CSV (-pcsv) and the cycle previous files argument (-pfiles) will return an error 
+         if called at the same time. If neither are used, the alpha test metrics will only be compiled 
+         for the provided dev version to compare. 
     
      To see your outputs in the test_case folder (hard coded path), you can check for outputs using
          (cd .... to your test_case folder), then command becomes  find . -name gms_test_* -type d (Notice the
@@ -404,13 +407,13 @@ if __name__ == '__main__':
         print("ALERT: Metrics from previous directories will be compiled.")
         print()
     else:
-        print("ALERT: Metrics from previous directories will NOT be compiled.")
+        print("ALERT: Metrics from previous directories will NOT be compiled. (-pfiles)")
         print()
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
 
-        ## Loop through all test cases, build the alpha test arguments, and submit them to the process pool
+        # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
         executor_dict = {}
         for test_case_class in all_test_cases:
             
@@ -440,10 +443,10 @@ if __name__ == '__main__':
         progress_bar_handler(executor_dict, True, f"Running {model} alpha test cases with {job_number_huc} workers")
         #wait(executor_dict.keys())
 
-    ## Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
+    # Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
     if model == 'MS' and fr_run_dir:
 
-        ## Rebuild all test cases list with the FR version, loop through them and apply the alpha test
+        # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
         all_test_cases = test_case.list_all_test_cases(version = fr_run_dir, archive = archive_results,
                 benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
 
@@ -493,7 +496,6 @@ if __name__ == '__main__':
             # Send the executor to the progress bar
             progress_bar_handler(executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers")
 
-
     if dev_versions_to_compare != None:
         dev_versions_to_include_list = dev_versions_to_compare + previous_fim_list
     else:
@@ -503,7 +505,7 @@ if __name__ == '__main__':
         # Do aggregate_metrics.
         print("Creating master metrics CSV...")
 
-        # this function is not compatible with GMS
+        # Note: This function is not compatible with GMS
         create_master_metrics_csv(master_metrics_csv_output = master_metrics_csv, 
                                   dev_versions_to_include_list = dev_versions_to_include_list,
                                   pfiles=pfiles, prev_metrics_csv=prev_metrics_csv)
@@ -515,7 +517,7 @@ if __name__ == '__main__':
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     print (f"ended: {dt_string}")
 
-    # calculate duration
+    # Calculate duration
     time_duration = end_time - start_time
     print(f"Duration: {str(time_duration).split('.')[0]}")
     print()
