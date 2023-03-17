@@ -242,7 +242,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
 
 
     # Save aggregated compiled metrics ('df_to_write') as a CSV
-    df_to_write.to_csv(master_metrics_csv_output)
+    df_to_write.to_csv(master_metrics_csv_output,index=False)
 
 def progress_bar_handler(executor_dict, verbose, desc):
 
@@ -396,15 +396,15 @@ if __name__ == '__main__':
             print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}") 
             print()
     else:
-        print("Warning: A previous metric CSV has not been provided.")
+        print("ALERT: A previous metric CSV has not been provided (-pcsv).")
         print()
 
     # Print whether the previous files will be cycled through
     if pfiles == True:
-        print("Results from previous directories will be compiled.")
+        print("ALERT: Metrics from previous directories will be compiled.")
         print()
     else:
-        print("No results from previous directories will be compiled.")
+        print("ALERT: Metrics from previous directories will NOT be compiled.")
         print()
 
     # Set up multiprocessor
