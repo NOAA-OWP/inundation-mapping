@@ -1,12 +1,15 @@
 # List of files for branches to delete
 # Use comment to allow list the file
 # Use curly braces to denote branch_id
+agree_binary_bufgrid.tif
 agree_bufgrid.tif
 agree_bufgrid_allo.tif
 agree_bufgrid_dist.tif
+agree_bufgrid_zerod.tif
 agree_smogrid.tif
 agree_smogrid_allo.tif
 agree_smogrid_dist.tif
+agree_smogrid_zerod.tif
 catch_list_{}.txt
 coordFile_{}.txt
 crosswalk_table_{}.csv
@@ -42,8 +45,8 @@ headwaters_{}.tif
 #hydroTable_{}.csv
 idFile_{}.txt
 LandSea_subset_{}.tif
+levee_levelpaths.csv
 nld_rasterized_elev_{}.tif
-nld_subset_levees_{}.tif
 nwm_catchments_proj_subset_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_dissolved_headwaters_{}.gpkg

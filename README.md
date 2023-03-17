@@ -62,7 +62,22 @@ This software is configurable via parameters found in the `config` directory. Co
 Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
 - `params_template.env`
 
-This system has an optional tool called the `calibration database tool`. In order to use this system, you will need to install the calibration database service or disable it in the `params_template.env` file. See [calibration tool README](https://github.com/NOAA-OWP/inundation-mapping/blob/dev/tools/calibration-db/README.md) for more details.
+This system has an optional tool called the `calibration database tool`. In order to use this system, you have three options:  
+1.  Install the calibration database service.
+2.  Disable it by providing the `-skipcal` command line option to `fim_pipeline.sh` or `fim_preprocessing.sh`.
+3.  Disable it in the `params_template.env` file. See [calibration tool README](https://github.com/NOAA-OWP/inundation-mapping/blob/dev/tools/calibration-db/README.md) for more details.
+
+### Start/run the Docker Container
+
+Since all of the dependencies are managed in utilizing a Docker container, we must issue the [`docker run`](https://docs.docker.com/engine/reference/run/#clean-up---rm) command to start a container as the run-time environment. The container is launched from a Docker Image which was built in [Installation](#installation) step 2. The correct input file pathing is necessary for the `/data` volume mount (`-v`) for the `<input_path>`. The `<input_path>` should contain a subdirectory named `/inputs` (similar to `s3://noaa-nws-owp-fim/hand_fim`). If the pathing is set correctly, we do not need to adjust the `params_template.env` file, and can use the default file paths provided.
+
+```bash 
+docker run --rm -it --name <your_container_name> -v <path/to/repository>/:/foss_fim -v <desired_output_path>/:/outputs -v <input_path>:/data <image_name>:<tag>
+```
+For example:  
+```bash
+docker run --rm -it --name robs_container -v /home/projects/inundation-mapping/:/foss_fim -v /home/projects/fim/outputs/:/outputs -v /home/projects/fim/inputs/:/data fim_4:dev_20230224_ad87a74
+```
 
 ### Produce HAND Hydrofabric
 ```
@@ -72,7 +87,7 @@ fim_pipeline.sh -u <huc8> -n <name_your_run>
 - Manditory arguments:
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited (.lst) file. To run the entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a HUC list file of your choice.  Depending on the performance of your server, especially the number of CPU cores, running the full domain can take multiple days.
     - `-n` is a name of your run (only alphanumeric)
-- Outputs can be found under ```/data/outputs/<name_your_run>```.
+- Outputs can be found under ```/outputs/<name_your_run>```.
 
 Processing of HUC's in FIM4 comes in three pieces. You can run `fim_pipeline.sh` which automatically runs all of three major section, but you can run each of the sections independently if you like. The three sections are:
 - `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 

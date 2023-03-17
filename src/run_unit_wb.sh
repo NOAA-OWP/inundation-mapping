@@ -27,8 +27,6 @@ huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 input_NHD_WBHD_layer=WBDHU$hucUnitLength
 
-input_NLD=$inputDataDir/nld_vectors/huc2_levee_lines/nld_preprocessed_"$huc2Identifier".gpkg
-
 # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
 if [[ $huc2Identifier == "04" ]] ; then
   input_LANDSEA=$input_GL_boundaries
@@ -61,11 +59,13 @@ cmd_args+=" -l $input_nwm_lakes"
 cmd_args+=" -m $input_nwm_catchments"
 cmd_args+=" -n $outputHucDataDir/nwm_catchments_proj_subset.gpkg"
 cmd_args+=" -r $input_NLD"
+cmd_args+=" -rp $input_levees_preprocessed"
 cmd_args+=" -v $input_LANDSEA"
 cmd_args+=" -w $input_nwm_flows"
 cmd_args+=" -x $outputHucDataDir/LandSea_subset.gpkg"
 cmd_args+=" -y $input_nwm_headwaters"
 cmd_args+=" -z $outputHucDataDir/nld_subset_levees.gpkg"
+cmd_args+=" -zp $outputHucDataDir/3d_nld_subset_levees_burned.gpkg"
 cmd_args+=" -wb $wbd_buffer"
 cmd_args+=" -lpf $input_nld_levee_protected_areas"
 cmd_args+=" -lps $outputHucDataDir/LeveeProtectedAreas_subset.gpkg"
@@ -91,6 +91,14 @@ $srcDir/derive_level_paths.py -i $outputHucDataDir/nwm_subset_streams.gpkg -b $b
 subscript_exit_code=$?
 # we have to retrow it if it is not a zero (but it will stop further execution in this script)
 if [ $subscript_exit_code -ne 0 ]; then exit $subscript_exit_code; fi
+Tcount
+
+## ASSOCIATE LEVEL PATHS WITH LEVEES
+echo -e $startDiv"Associate level paths with levees"
+date -u
+Tstart
+[ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
+python3 $srcDir/associate_levelpaths_with_levees.py -nld $outputHucDataDir/nld_subset_levees.gpkg -s $outputHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -lpa $outputHucDataDir/LeveeProtectedAreas_subset.gpkg -out $outputHucDataDir/levee_levelpaths.csv -w $levee_buffer -b $branch_id_attribute -l $levee_id_attribute
 Tcount
 
 ## STREAM BRANCH POLYGONS
@@ -120,22 +128,22 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 date -u
 Tstart
 [ ! -f $outputCurrentBranchDataDir/dem_meters.tif ] && \
-gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+gdalwarp -cutline $outputHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM $outputHucDataDir/dem_meters.tif
 Tcount
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
 date -u
 Tstart
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif)
+read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $outputHucDataDir/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $branch_zero_id"
 date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f $outputHucDataDir/nld_subset_levees.gpkg ] && \
-gdal_rasterize -l nld_subset_levees -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/nld_subset_levees.gpkg $outputCurrentBranchDataDir/nld_subset_levees_$branch_zero_id.tif
+[ -f $outputHucDataDir/3d_nld_subset_levees_burned.gpkg ] && \
+gdal_rasterize -l 3d_nld_subset_levees_burned -3d -at -a_nodata $ndv -te $xmin $ymin $xmax $ymax -ts $ncols $nrows -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" $outputHucDataDir/3d_nld_subset_levees_burned.gpkg $outputCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif
 Tcount
 
 ## BURN LEVEES INTO DEM ##
@@ -144,7 +152,7 @@ date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $outputCurrentBranchDataDir/nld_subset_levees.tif ] && \
-python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif -nld $outputCurrentBranchDataDir/nld_subset_levees_$branch_zero_id.tif -out $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $outputHucDataDir/dem_meters.tif -nld $outputCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif -out $outputHucDataDir/dem_meters.tif
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
@@ -167,7 +175,7 @@ Tcount
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/agreedem.py -r $outputCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif -d $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif -w $outputCurrentBranchDataDir -o $outputCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+python3 -m memory_profiler $srcDir/agreedem.py -r $outputCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif -d $outputHucDataDir/dem_meters.tif -w $outputCurrentBranchDataDir -o $outputCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
@@ -182,6 +190,13 @@ echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 date -u
 Tstart
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $outputCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif -p $outputCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
+Tcount
+
+## MAKE A COPY OF THE DEM FOR BRANCH 0
+echo -e $startDiv"Copying DEM to Branch 0"
+date -u
+Tstart
+cp $outputHucDataDir/dem_meters.tif $outputCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
 Tcount
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
@@ -223,15 +238,6 @@ echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"
 $srcDir/outputs_cleanup.py -d $outputCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
 
 
-## REMOVE FILES FROM DENY LIST ##
-if [ -f $deny_unit_list ]; then
-    echo -e $startDiv"Remove files $hucNumber"
-    date -u
-    Tstart
-    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
-    Tcount
-fi
-
 # -------------------
 ## Start the local csv branch list
 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
@@ -248,6 +254,15 @@ if [ -f $branch_list_lst_file ]; then
     parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
+fi
+
+## REMOVE FILES FROM DENY LIST ##
+if [ -f $deny_unit_list ]; then
+    echo -e $startDiv"Remove files $hucNumber"
+    date -u
+    Tstart
+    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
+    Tcount
 fi
 
 # -------------------

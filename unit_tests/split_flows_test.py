@@ -27,8 +27,8 @@ class test_split_flows(unittest.TestCase):
     def test_split_flows_success(self):
 
         '''
-        The /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/demDerived_reaches_split_<branchid>.gpkg and
-        /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/demDerived_reaches_split_points_<branchid>.gpkg should not exit prior to this test.
+        The /outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/demDerived_reaches_split_<branchid>.gpkg and
+        /outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/demDerived_reaches_split_points_<branchid>.gpkg should not exit prior to this test.
         If the test is successful, these files will be created.
         '''
 

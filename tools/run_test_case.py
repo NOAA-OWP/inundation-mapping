@@ -75,12 +75,12 @@ class test_case(benchmark):
                 ID of the test case in huc8_category format, e.g. `12090201_ble`.
             version : str
                 Version of FIM to which this test_case belongs. This should correspond to the fim directory
-                name in either `/data/previous_fim/` or `/data/outputs/`.
+                name in either `/data/previous_fim/` or `/outputs/`.
             archive : bool
                 If true, this test case outputs will be placed into the `official_versions` folder
                 and the FIM model will be read from the `/data/previous_fim` folder.
                 If false, it will be saved to the `testing_versions/` folder and the FIM model 
-                will be read from the `/data/outputs/` folder.
+                will be read from the `/outputs/` folder.
         
         """
         self.test_id = test_id
@@ -123,12 +123,12 @@ class test_case(benchmark):
             ----------
             version : str
                 Version of FIM to which this test_case belongs. This should correspond to the fim directory
-                name in either `/data/previous_fim/` or `/data/outputs/`.
+                name in either `/data/previous_fim/` or `/outputs/`.
             archive : bool
                 If true, this test case outputs will be placed into the `official_versions` folder
                 and the FIM model will be read from the `/data/previous_fim` folder.
                 If false, it will be saved to the `testing_versions/` folder and the FIM model 
-                will be read from the `/data/outputs/` folder.
+                will be read from the `/outputs/` folder.
         """
         if not benchmark_categories:
             benchmark_categories = list(cls.MAGNITUDE_DICT.keys())
