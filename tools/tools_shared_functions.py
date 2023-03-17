@@ -8,6 +8,7 @@ import geopandas as gpd
 import requests
 import numpy as np
 import pathlib
+import time
 from pathlib import Path
 import rasterio.shutil
 from rasterio.warp import calculate_default_transform, reproject, Resampling
@@ -27,7 +28,7 @@ def get_env_paths():
     return API_BASE_URL, WBD_LAYER
 
 
-def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order):
+def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df):
     """
     This function uses the WRDS API to filter out NWM segments from a list if their stream order is different than
     the target stream order.
@@ -39,15 +40,24 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order):
         filtered_segments (list): A list of NWM feature_id strings, paired down to only those that share the target order.        
     
     """
-    API_BASE_URL, WBD_LAYER = get_env_paths()
+        
+#    API_BASE_URL, WBD_LAYER = get_env_paths()
     #Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
-    metadata_url = f'{API_BASE_URL}/metadata'
+#    metadata_url = f'{API_BASE_URL}/metadata'
+        
     
+
+    # feature ID of 0 is getting passed to WRDS and returns empty results,
+    # which can cause failures on next() 
+#    if '0' in unfiltered_segments:
+#        unfiltered_segments = unfiltered_segments.remove('0')
+#    if unfiltered_segments is None:
+#        return filtered_segments
+
     filtered_segments = []
+
     for feature_id in unfiltered_segments:
-        all_lists = get_metadata(metadata_url, select_by = 'nwm_feature_id', selector = [feature_id])
-        feature_id_metadata = next(item for item in all_lists)[0]
-        stream_order = feature_id_metadata['nwm_feature_data']['stream_order']
+        stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
         if stream_order == desired_order:
             filtered_segments.append(feature_id)
 
@@ -767,7 +777,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
 #        metadata_gdf = metadata_gdf[retain_attributes]
     print("Performing spatial and tabular operations on geodataframe...")
     #Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
-    print(metadata_gdf)
     joined_gdf = gpd.sjoin(metadata_gdf, huc8, how = 'inner', op = 'intersects', lsuffix = 'ahps', rsuffix = 'wbd')
     joined_gdf = joined_gdf.drop(columns = 'index_wbd')
 

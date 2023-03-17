@@ -119,10 +119,10 @@ def run_inundation(magnitude_flows_csv, huc, output_extent_grid, ahps_site, magn
 
 def post_process_huc_level(job_number_tif, ahps_dir_list, huc_dir, attributes_dir, gpkg_dir, fim_version, huc):
     
-    tifs_to_reformat_list = []
 
     # Loop through ahps sites
     for ahps_lid in ahps_dir_list:
+        tifs_to_reformat_list = []
         ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
 
         # Append desired filenames to list.
