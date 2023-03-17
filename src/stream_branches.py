@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import geopandas as gpd
 import pandas as pd
 import rasterio
@@ -1134,8 +1135,8 @@ class StreamBranchPolygons(StreamNetwork):
                 if out_filename_template is not None:
                     branch_id = row[self.branch_id_attribute]
 
-                    base,ext = out_filename_template.split('.')
-                    out_filename = base + "_{}.".format(branch_id) + ext
+                    base, ext = os.path.splitext(out_filename_template)
+                    out_filename = base + "_{}".format(branch_id) + ext
                     
                     with rasterio.open(out_filename,'w',**buffered_meta) as out:
                         out.write(buffered_array)
