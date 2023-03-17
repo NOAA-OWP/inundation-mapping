@@ -1,23 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.[pending] - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
+## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
-Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. The cause was that within a HUC8, the first NWS LID to be processed would have its information associated with the polygons of other NWS LIDs that were processed after it. This merge also creates a workaround solution for a slowdown that was observed in the WRDS location API where feature_id metadata was taking over 2 seconds to be returned per request, causing Flow-Based and possibly Stage-Based to balloon in run time (multiple days). Ideally, CatFIM would still leverage WRDS to get NWM metadata as it is an authoritative source, so once the slowdown has been addressed in WRDS I recommend reverting to the WRDS dependency.
+Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. This merge also creates a workaround solution for a slowdown that was observed in the WRDS location API, which may be a temporary workaround, until WRDS addresses the slowdown.
 
 ### Changes
 
-- `tools/generate_categorical_fim_mapping.py` resets the list of tifs to format for each LID within the loop that does the map processing, instead of only once before the start of the loop
+- `tools/generate_categorical_fim_mapping.py`: resets the list of tifs to format for each LID within the loop that does the map processing, instead of only once before the start of the loop.
 - `tools/tools_shared_functions.py`:
-  - adds a try-except block around code that attempted to iterate on an empty list when the API didn't return relevant metadata for a given feature ID (this is commented out, but may be used in the future once WRDS slowdown is addressed)
-  - Uses a passed NWM flows geodataframe to determine stream order
-- `/tools/generate_categorical_fim_flows.py':
+  - adds a try-except block around code that attempted to iterate on an empty list when the API didn't return relevant metadata for a given feature ID (this is commented out, but may be used in the future once WRDS slowdown is addressed).
+  - Uses a passed NWM flows geodataframe to determine stream order.
+- `/tools/generate_categorical_fim_flows.py`:
   - Adds multiprocessing to flows generation and uses `nwm_flows.gpkg` instead of the WRDS API to determine stream order of NWM feature_ids.
-  - Adds duration print messages
+  - Adds duration print messages.
 - `/tools/generate_categorical_fim.py`:
   - Refactor to allow for new NWM filtering scheme.
   - Bug fix in multiprocessing calls for interval map production.
-  - Adds duration print messages
+  - Adds duration print messages.
 
 <br/><br/>
 
