@@ -62,7 +62,8 @@ def split_flows(max_length,
 
     wbd8 = wbd8.filter(items=[FIM_ID, 'geometry'])
     wbd8 = wbd8.set_index(FIM_ID)
-    flows = flows.explode()
+    # don't index parts because the new index format causes problems later on
+    flows = flows.explode(index_parts=False)
 
     # temp
     flows = flows.to_crs(wbd8.crs)
@@ -76,7 +77,7 @@ def split_flows(max_length,
     if (os.path.split(os.path.dirname(nwm_streams_filename))[1] != '0'):
         print ('trimming DEM stream to NWM branch terminus')
         # read in nwm lines, explode to ensure linestrings are the only geometry
-        levelpath_lines = gpd.read_file(nwm_streams_filename).explode()
+        levelpath_lines = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
 
         # Dissolve the linestring (how much faith should I hold that these are digitized with flow?)
         linestring_geo = levelpath_lines.iloc[0]['geometry']
@@ -85,12 +86,12 @@ def split_flows(max_length,
 
         # Identify the end vertex (most downstream, should be last), transform into geodataframe
         terminal_nwm_point = []
-        first, last = linestring_geo.boundary
-        terminal_nwm_point.append({'ID':'teminal','geometry':last})
+        last = Point(linestring_geo.coords[-1])
+        terminal_nwm_point.append({'ID':'terminal','geometry':last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(levelpath_lines.crs)
 
         # Snap to DEM flows
-        snapped_point['geometry'] = snapped_point.apply(lambda row: flows.interpolate(flows.project( row.geometry)), axis=1)
+        snapped_point['geometry'] = flows.interpolate(flows.project(snapped_point.geometry))
 
         # Trim flows to snapped point
         # buffer here because python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
@@ -98,7 +99,7 @@ def split_flows(max_length,
         # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
         # Note to dear reader: last here is really the most upstream segmennt (see crevats above).  When we split we should get 3 segments, the most downstream one
         # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.  We want that last one which is why we trimmed_line[len(trimmed_line)-1]
-        last_line_segment = pd.DataFrame({'id':['first'],'geometry':[trimmed_line[len(trimmed_line)-1].wkt]})
+        last_line_segment = pd.DataFrame({'id':['first'],'geometry':[trimmed_line.geoms[len(trimmed_line.geoms)-1].wkt]})
         last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads) # can be last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment) when we update geopandas verisons
         last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flows.crs)
 
@@ -107,7 +108,7 @@ def split_flows(max_length,
 
     # split at HUC8 boundaries
     print ('splitting stream segments at HUC8 boundaries')
-    flows = gpd.overlay(flows, wbd8, how='union').explode().reset_index(drop=True)
+    flows = gpd.overlay(flows, wbd8, how='union',keep_geom_type=True).explode(index_parts=True).reset_index(drop=True)
     flows = flows[~flows.is_empty]
 
     if (len(flows) == 0):
@@ -122,7 +123,7 @@ def split_flows(max_length,
           #create splits at lake boundaries
           lakes = lakes.filter(items=['newID', 'geometry'])
           lakes = lakes.set_index('newID')
-          flows = gpd.overlay(flows, lakes, how='union').explode().reset_index(drop=True)
+          flows = gpd.overlay(flows, lakes, how='union',keep_geom_type=True).explode(index_parts=True).reset_index(drop=True)
           lakes_buffer = lakes.copy()
           lakes_buffer['geometry'] = lakes.buffer(lakes_buffer_input) # adding X meter buffer for spatial join comparison (currently using 20meters)
 
@@ -215,7 +216,7 @@ def split_flows(max_length,
     split_flows_gdf = gpd.GeoDataFrame({'S0' : slopes ,'geometry':split_flows}, crs=flows.crs, geometry='geometry')
     split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
     if lakes is not None:
-        split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes_buffer, how='left', op='within') #options: intersects, within, contains, crosses
+        split_flows_gdf = gpd.sjoin(split_flows_gdf, lakes_buffer, how='left', predicate='within') #options: intersects, within, contains, crosses
         split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
     else:
         split_flows_gdf['LakeID'] = -999

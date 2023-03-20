@@ -24,7 +24,7 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
 
     # Identify true headwater segments
     nhd_streams_adj = nhd_streams.loc[(nhd_streams.headwaters_id > 0) & (nhd_streams.downstream_of_headwater == False),:].copy()
-    nhd_streams_adj = nhd_streams_adj.explode()
+    nhd_streams_adj = nhd_streams_adj.explode(index_parts=True)
     nhd_streams_adj = nhd_streams_adj.reset_index(drop=True)
 
     if nwm_headwaters["site_id"].dtype != 'int': nwm_headwaters["site_id"] = nwm_headwaters["site_id"].astype(int)
@@ -66,7 +66,7 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
                 closest_stream = nhd_streams.loc[nhd_streams["nws_lid"]==point[headwater_id]]
 
             try: # Seeing inconsistent geometry objects even after exploding nhd_streams_adj; not sure why this is
-                closest_stream =closest_stream.explode()
+                closest_stream =closest_stream.explode(index_parts=True)
             except:
                 pass
 
@@ -143,7 +143,7 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
 
         # Identify ajusted nhd headwaters
         nhd_headwater_streams_adj = nhd_streams.loc[nhd_streams['is_headwater'],:]
-        nhd_headwater_streams_adj = nhd_headwater_streams_adj.explode()
+        nhd_headwater_streams_adj = nhd_headwater_streams_adj.explode(index_parts=True)
 
         hw_points = np.zeros(len(nhd_headwater_streams_adj),dtype=object)
         for index,lineString in enumerate(nhd_headwater_streams_adj.geometry):

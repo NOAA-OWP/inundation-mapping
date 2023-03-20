@@ -93,7 +93,7 @@ def fimr_to_benchmark(fimr_path, output_path):
     correct_flow = joined_flowlines_fimr.loc[joined_flowlines_fimr['order_'] == stream_order_float]
     
     # Exploding the fimr inundaton polygon
-    exploded_fimr = fimr.explode()
+    exploded_fimr = fimr.explode(index_parts=True)
     # Taking only the fimr polygons that overlap the flowlines to minimize noise
     clean_fimr = gpd.sjoin(exploded_fimr, correct_flow)
     # Renaming columns to prevent duplicate column names in overlay

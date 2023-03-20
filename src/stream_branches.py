@@ -549,7 +549,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         if isinstance(waterbodies,gpd.GeoDataFrame):
             # Find branches in waterbodies
-            sjoined = gpd.sjoin(self, waterbodies, op='within')
+            sjoined = gpd.sjoin(self, waterbodies, predicate='within')
             self.drop(sjoined.index, inplace=True)
 
             if out_vector_files is not None:
@@ -909,7 +909,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         points_gdf['geometry'] = all_exploded_points
         
-        points_gdf = points_gdf.explode()
+        points_gdf = points_gdf.explode(index_parts=True)
         points_gdf.reset_index(inplace=True,drop=True)
 
         return(points_gdf)
