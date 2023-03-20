@@ -6,7 +6,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Bug fix to change `.split()` to `os.path.splitext()`
 
 ### Changes
-- `src/stream_branches.py`: Changes 3 occurrences of `.split()` to `os.path.splitext()`
+- `src/stream_branches.py`: Change 3 occurrences of `.split()` to `os.path.splitext()`
 
 <br/><br/>
 
