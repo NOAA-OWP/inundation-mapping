@@ -61,7 +61,7 @@ echo "---- Start of huc processing for $hucNumber"
 
 # outputDataDir, srcDir and others come from the Dockerfile
 
-export outputRunDataDir=/$outputDataDir/$runName
+export outputRunDataDir=$outputDataDir/$runName
 export outputHucDataDir=$outputRunDataDir/$hucNumber
 export outputBranchDataDir=$outputHucDataDir/branches
 export current_branch_id=0

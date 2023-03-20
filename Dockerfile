@@ -49,7 +49,9 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d
 # Base Image that has GDAL, PROJ, etc
 FROM osgeo/gdal:ubuntu-full-3.1.2
 ARG dataDir=/data
+# remove below line, and uncomment # ENV projectDir=/foss_fim, & delete this line
 ARG projectDir=/foss_fim
+# ENV projectDir=/foss_fim
 ARG depDir=/dependencies
 ENV inputDataDir=$dataDir/inputs
 ENV outputDataDir=/outputs
