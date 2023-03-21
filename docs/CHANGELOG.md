@@ -3,12 +3,12 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.(to be assigned) - 2023-03-20 - [PR#854](https://github.com/NOAA-OWP/inundation-mapping/pull/854)
 
-At least one site (e.g. TRYM7) was not been getting mapped in Stage-Based CatFIM, despite having all of the acceptable accuracy codes. This was caused by a data type issue in the `acceptable_coord_acc_code_list` in `tools_shared_variables.py` having the accuracy code of 5 as a string instead of an integer.
+At least one site (e.g. TRYM7) was not been getting mapped in Stage-Based CatFIM, despite having all of the acceptable accuracy codes. This was caused by a data type issue in the `acceptable_coord_acc_code_list` in `tools_shared_variables.py` having the accuracy codes of 5 and 1 as a strings instead of an integers.
 
 
 ### Changes
 
-- `/tools/tools_shared_variables.py`: Added an integer 5 to the acceptable_coord_acc_code_list, kept the '5' string as well.
+- `/tools/tools_shared_variables.py`: Added integers 5 and 1 to the acceptable_coord_acc_code_list, kept the '5' and '1' strings as well.
 
 <br/><br/>
 
