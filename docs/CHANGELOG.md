@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.(to be assigned) - 2023-03-20 - [PR#854](https://github.com/NOAA-OWP/inundation-mapping/pull/854)
+
+At least one site (e.g. TRYM7) was not been getting mapped in Stage-Based CatFIM, despite having all of the acceptable accuracy codes. This was caused by a data type issue in the `acceptable_coord_acc_code_list` in `tools_shared_variables.py` having the accuracy code of 5 as a string instead of an integer.
+
+
+### Changes
+
+- `/tools/tools_shared_variables.py`: Added an integer 5 to the acceptable_coord_acc_code_list, kept the '5' string as well.
+
+<br/><br/>
+
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
 Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. This merge also creates a workaround solution for a slowdown that was observed in the WRDS location API, which may be a temporary workaround, until WRDS addresses the slowdown.
