@@ -91,7 +91,8 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 ## install python 3 modules ##
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
+RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
+#RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
 #RUN pip3 install pipenv==2022.4.8 && pipenv install --system --deploy --ignore-pipfile (too slow to
 #     leave out shapely,pygeos at this time. Likely better after upgrading)
 
@@ -99,7 +100,8 @@ RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,
 # it with pip (not pipenv), it works. Notice case for Shapely versus shapely. 
 # This temp fix works for now until we can reconsile the shapely package,
 # pygeos, geopanda's and possibly others (coming soon)
-RUN pip install shapely==1.7.0
+RUN pip install --force-reinstall shapely==2.0.1 geopandas==0.12.2 pandas==1.1 numba==0.56.4 rasterstats==0.18.0 numpy==1.23.5 pyarrow==11.0.0 rtree==1.0.1 tqdm==4.65.0
+RUN pip uninstall -y pygeos
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /

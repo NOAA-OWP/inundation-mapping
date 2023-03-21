@@ -777,12 +777,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
 #        metadata_gdf = metadata_gdf[retain_attributes]
     print("Performing spatial and tabular operations on geodataframe...")
     #Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
-<<<<<<< HEAD
     print(metadata_gdf)
     joined_gdf = gpd.sjoin(metadata_gdf, huc8, how = 'inner', predicate = 'intersects', lsuffix = 'ahps', rsuffix = 'wbd')
-=======
-    joined_gdf = gpd.sjoin(metadata_gdf, huc8, how = 'inner', op = 'intersects', lsuffix = 'ahps', rsuffix = 'wbd')
->>>>>>> 92318a5149984de5de34c33949499cc1946dd314
     joined_gdf = joined_gdf.drop(columns = 'index_wbd')
 
     #Remove all Alaska HUCS (Not in NWM v2.0 domain)
