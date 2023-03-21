@@ -1,6 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.[pending] - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
+
+Addresses changes to function calls needed to run upgraded Shapely library plus other related library upgrades. Upgraded libraries include:
+- shapely
+- geopandas
+- pandas
+- numba
+- rasterstats
+- numpy
+- rtree
+- tqdm
+- pyarrow
+
+Pygeos is removed because its functionality is incorporated into the upgraded shapely library.
+
+### Changes
+
+- `Dockerfile`
+- `src/build_stream_traversal.py`
+- `src/add_crosswalk.py`
+- `src/adjust_headwater_streams.py`
+- `src/aggregate_vector_inputs.py`
+- `src/clip_vectors_to_wbd.py`
+- `src/derive_headwaters.py`
+- `src/stream_branches.py`
+- `src/split_flows.py`
+- `tools/fimr_to_benchmark.py`
+- `tools/tools_shared_functions.py`
+
+<br/><br/>
+
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
 Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. This merge also creates a workaround solution for a slowdown that was observed in the WRDS location API, which may be a temporary workaround, until WRDS addresses the slowdown.
