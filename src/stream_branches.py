@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import geopandas as gpd
 import pandas as pd
 import rasterio
@@ -1072,8 +1073,8 @@ class StreamBranchPolygons(StreamNetwork):
             out_records += __find_matching_record(vector,branch_id_attribute,bid,matching='all')
 
         if (out_filename_template is not None) & ( len(out_records) != 0):
-                base,ext = out_filename_template.split('.')
-                out_filename = base + "_{}.".format(bid) + ext
+                base, ext = os.path.splitext(out_filename_template)
+                out_filename = base + "_{}".format(bid) + ext
                 
                 with fiona.open(out_filename,'w',**source_meta) as out_file:
                     out_file.writerecords(out_records)
@@ -1134,8 +1135,8 @@ class StreamBranchPolygons(StreamNetwork):
                 if out_filename_template is not None:
                     branch_id = row[self.branch_id_attribute]
 
-                    base,ext = out_filename_template.split('.')
-                    out_filename = base + "_{}.".format(branch_id) + ext
+                    base, ext = os.path.splitext(out_filename_template)
+                    out_filename = base + "_{}".format(branch_id) + ext
                     
                     with rasterio.open(out_filename,'w',**buffered_meta) as out:
                         out.write(buffered_array)
@@ -1152,8 +1153,8 @@ class StreamBranchPolygons(StreamNetwork):
                 return_list += [out]
                 
                 if (out_filename_template is not None) & (not out.empty):
-                    base,ext = out_filename_template.split('.')
-                    out_filename = base + "_{}.".format(branch_id) + ext
+                    base, ext = os.path.splitext(out_filename_template)
+                    out_filename = base + "_{}".format(branch_id) + ext
                     StreamNetwork.write(out,out_filename)
         
         return(return_list)
