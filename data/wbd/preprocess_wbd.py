@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import os
 from pathlib import Path
 import argparse
 import geopandas as gpd
+from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
 def clip_wbd_to_dem_domain(dem:str, wbd_in:str, wbd_out:str, huc_level:int):
@@ -25,18 +25,22 @@ def clip_wbd_to_dem_domain(dem:str, wbd_in:str, wbd_out:str, huc_level:int):
     # Erase area outside 3DEP domain
     if Path(wbd_in).is_file() and Path(dem).is_file():
         layer = f'WBDHU{huc_level}'
+
+        # Read input files
         wbd = gpd.read_file(wbd_in, layer=layer)
         dem_domain = gpd.read_file(dem)
+
         wbd = gpd.clip(wbd, dem_domain)
 
-        wbd.to_file(wbd_out, layer=layer)
+        # Write output file
+        wbd.to_file(wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS)
     
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Clip WBD to DEM domain')
     parser.add_argument('-d', '--dem', help='Path to DEM', type=str, required=True)
     parser.add_argument('-w', '--wbd-in', help='Input WBD filename', type=str, required=True)
-    parser.add_argument('-x', '--wbd-out', help='Output WBD filename', type=str, required=True)
+    parser.add_argument('-o', '--wbd-out', help='Output WBD filename', type=str, required=True)
     parser.add_argument('-l', '--huc-level', help='HUC level', type=int, required=True)
 
     args = vars(parser.parse_args())
@@ -44,4 +48,4 @@ if __name__ == '__main__':
     clip_wbd_to_dem_domain(**args)
 
     # Example:
-    # clip_wbd_to_dem_domain.py -d /data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg -x /data/temp/WBD_clip.gpkg -l 8'
+    # clip_wbd_to_dem_domain.py -d /data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg -o /data/inputs/wbd/WBD_National_EPSG_5070_clip_dem_domain.gpkg -l 8'
