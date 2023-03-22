@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.3.x.x - 2023-03-22 - [PR#856](https://github.com/NOAA-OWP/inundation-mapping/pull/856)
+
+Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated boilerplate items, add octothorpe (#) in front of Additions, Changes, Removals to mirror CHANGELOG.md format, and clean up the PR Checklist.
+
+### Changes
+- `docs/`  
+  - `PULL_REQUEST_TEMPLATE.md` 
+
+  <br/><br/>
+
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
 Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. This merge also creates a workaround solution for a slowdown that was observed in the WRDS location API, which may be a temporary workaround, until WRDS addresses the slowdown.
