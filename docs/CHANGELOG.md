@@ -19,16 +19,18 @@ Pygeos is removed because its functionality is incorporated into the upgraded sh
 ### Changes
 
 - `Dockerfile`
-- `src/build_stream_traversal.py`
-- `src/add_crosswalk.py`
-- `src/adjust_headwater_streams.py`
-- `src/aggregate_vector_inputs.py`
-- `src/clip_vectors_to_wbd.py`
-- `src/derive_headwaters.py`
-- `src/stream_branches.py`
-- `src/split_flows.py`
-- `tools/fimr_to_benchmark.py`
-- `tools/tools_shared_functions.py`
+- `src/`
+	- `build_stream_traversal.py`
+	- `add_crosswalk.py`
+	- `adjust_headwater_streams.py`
+	- `aggregate_vector_inputs.py`
+	- `clip_vectors_to_wbd.py`
+	- `derive_headwaters.py`
+	- `stream_branches.py`
+	- `split_flows.py`
+- `tools/`
+	- `fimr_to_benchmark.py`
+	- `tools_shared_functions.py`
 
 <br/><br/>
 
