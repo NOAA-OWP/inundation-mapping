@@ -1,11 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2023-03-23 - [PR#803](https://github.com/NOAA-OWP/inundation-mapping/pull/803)
+
+Clips Watershed Boundary Dataset (WBD) to DEM domain for increased efficiency. Essentially, this is a wrapper for `geopandas.clip()` and moves clipping from `src/clip_vectors_to_wbd.py` to `data/wbd/preprocess_wbd.py`.
+
+### Additions
+
+- `data/wbd/preprocess_wbd.py`: Clips WBD to DEM domain polygon
+
+### Changes
+
+- `src/`
+    - `bash_variables.env`: Updates `input_WBD_gdb` environment variable
+    - `clip_vectors_to_wbd.py`: Removes clipping to DEM domain
+
+<br/><br/>
+
 ## v4.3.3.4 - 2023-03-17 - [PR#849](https://github.com/NOAA-OWP/inundation-mapping/pull/849)
 
 This hotfix addresses an error in inundate_nation.py relating to projection CRS.
 
-## Changes
+### Changes
 
 - `tools/inundate_nation.py`: #782 CRS projection change likely causing issue with previous projection configuration
 
