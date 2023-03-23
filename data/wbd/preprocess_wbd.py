@@ -37,9 +37,6 @@ def clip_wbd_to_dem_domain(dem:str, wbd_in:str, wbd_out:str, huc_level:int):
     
 
 if __name__ == '__main__':
-
-    # Example:
-    # preprocess_wbd.py -d /data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg -o /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -l 8
     
     parser = argparse.ArgumentParser(description='Clip WBD to DEM domain')
     parser.add_argument('-d', '--dem', help='Path to DEM', type=str, required=True)
@@ -50,4 +47,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     clip_wbd_to_dem_domain(**args)
+
+    # Example:
+    # preprocess_wbd.py -d /data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg -o /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -l 8
 
