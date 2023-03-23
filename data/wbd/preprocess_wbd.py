@@ -48,4 +48,4 @@ if __name__ == '__main__':
     clip_wbd_to_dem_domain(**args)
 
     # Example:
-    # clip_wbd_to_dem_domain.py -d /data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg -o /data/inputs/wbd/WBD_National_EPSG_5070_clip_dem_domain.gpkg -l 8'
+    # clip_wbd_to_dem_domain.py -d /data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg -o /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -l 8
