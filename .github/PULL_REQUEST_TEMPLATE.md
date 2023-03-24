@@ -13,7 +13,7 @@
 
 _Put an `x` in the boxes that apply. You can also fill these out after creating the PR. If you're unsure about any of them, don't hesitate to ask. We're here to help! This is simply a reminder of what we are going to look for before merging your code._
 
-- [ ] Informative and human-readable title, using the format: `[_ pt] PR: <description>`.
+- [ ] Informative and human-readable title, using the format: `[_pt] PR: <description>`.
 - [ ] Links are provided if this PR resolves an issue, or depends on another other PR.
 - [ ] Changes are limited to a single goal (no scope creep).
 - [ ] Code can be automatically merged (no conflicts).
