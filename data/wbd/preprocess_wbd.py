@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 from pathlib import Path
 import argparse
 import geopandas as gpd
@@ -33,7 +34,7 @@ def clip_wbd_to_dem_domain(dem:str, wbd_in:str, wbd_out:str, huc_level:int):
         wbd = gpd.clip(wbd, dem_domain)
 
         # Write output file
-        wbd.to_file(wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS)
+        wbd.to_file(wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS, driver='GPKG')
     
 
 if __name__ == '__main__':
