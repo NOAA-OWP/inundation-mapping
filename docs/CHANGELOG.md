@@ -4,7 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.3.x.x - 2023-03-22 - [PR#856](https://github.com/NOAA-OWP/inundation-mapping/pull/856)
 
-Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated boilerplate items, add octothorpe (#) in front of Additions, Changes, Removals to mirror CHANGELOG.md format, and clean up the PR Checklist.
+Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated boilerplate items, add octothorpe (#) in front of Additions, Changes, Removals to mirror `CHANGELOG.md` format, and clean up the PR Checklist.
 
 ### Changes
 - `docs/`  
