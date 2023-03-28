@@ -15,7 +15,7 @@ _You may update this checklist before and/or after creating the PR. If you're un
 
 - [ ] Informative and human-readable title, using the format: `[_pt] PR: <description>`
 - [ ] Links are provided if this PR resolves an issue, or depends on another other PR
-- [ ] If submitting a PR to the `dev` branch (the default branch), you have a descriptive [Feature Branch](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow) name using the format: `dev-<description-of-change>` (ie: `dev-revise-levee-masking`)
+- [ ] If submitting a PR to the `dev` branch (the default branch), you have a descriptive [Feature Branch](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow) name using the format: `dev-<description-of-change>` (e.g.: `dev-revise-levee-masking`)
 - [ ] Changes are limited to a single goal (no scope creep)
 - [ ] The feature branch you're submitting as a PR is up to date (merged) with the latest `dev` branch
 - [ ] Changes adhere to [PEP-8 Style Guidelines](https://peps.python.org/pep-0008/)
