@@ -13,12 +13,14 @@ Addresses changes to function calls needed to run upgraded Shapely library plus 
 - rtree
 - tqdm
 - pyarrow
+- py7zr
 
 Pygeos is removed because its functionality is incorporated into the upgraded shapely library.
 
 ### Changes
 
 - `Dockerfile`
+- `Pipfile and Pipfile.lock`
 - `src/`
 	- `build_stream_traversal.py`
 	- `add_crosswalk.py`
@@ -33,6 +35,7 @@ Pygeos is removed because its functionality is incorporated into the upgraded sh
 	- `tools_shared_functions.py`
 
 <br/><br/>
+
 
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
