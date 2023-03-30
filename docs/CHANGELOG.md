@@ -11,6 +11,46 @@ Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated b
   - `PULL_REQUEST_TEMPLATE.md` 
 
   <br/><br/>
+  
+## v4.3.3.4 - 2023-03-17 - [PR#849](https://github.com/NOAA-OWP/inundation-mapping/pull/849)
+
+This hotfix addresses an error in inundate_nation.py relating to projection CRS.
+
+## Changes
+
+- `tools/inundate_nation.py`: #782 CRS projection change likely causing issue with previous projection configuration
+
+<br/><br/>
+
+## v4.3.3.3 - 2023-03-20 - [PR#854](https://github.com/NOAA-OWP/inundation-mapping/pull/854)
+
+At least one site (e.g. TRYM7) was not been getting mapped in Stage-Based CatFIM, despite having all of the acceptable accuracy codes. This was caused by a data type issue in the `acceptable_coord_acc_code_list` in `tools_shared_variables.py` having the accuracy codes of 5 and 1 as a strings instead of an integers.
+
+### Changes
+
+- `/tools/tools_shared_variables.py`: Added integers 5 and 1 to the acceptable_coord_acc_code_list, kept the '5' and '1' strings as well.
+
+<br/><br/>
+
+## v4.3.3.2 - 2023-03-20 - [PR#851](https://github.com/NOAA-OWP/inundation-mapping/pull/851)
+
+Bug fix to change `.split()` to `os.path.splitext()`
+
+### Changes
+
+- `src/stream_branches.py`: Change 3 occurrences of `.split()` to `os.path.splitext()`
+
+<br/><br/>
+
+## v4.3.3.1 - 2023-03-20 - [PR#855](https://github.com/NOAA-OWP/inundation-mapping/pull/855)
+
+Bug fix for KeyError in `src/associate_levelpaths_with_levees.py`
+
+### Changes
+
+- `src/associate_levelpaths_with_levees.py`: Adds check if input files exist and handles empty GeoDataFrame(s) after intersecting levee buffers with leveed areas.
+
+<br/><br/>
 
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
