@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.______ - 2023-03-30 - [PR#859](https://github.com/NOAA-OWP/inundation-mapping/pull/859)
+
+Addresses the issue of output storage space being taken up by output files from branches that did not run. Updates branch processing to remove the extraneous branch file if a branch gets an error code of 61.
+
+### Changes
+
+- `src/process_branch.sh`: added line 41, which removes the outputs and output folder if Error 61 occurs.
+
+<br/><br/>
+
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
 Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. This merge also creates a workaround solution for a slowdown that was observed in the WRDS location API, which may be a temporary workaround, until WRDS addresses the slowdown.
