@@ -11,7 +11,7 @@ if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $tempHucDataDir/LeveeProtecte
     echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/mask_dem.py -dem $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $tempHucDataDir/LeveeProtectedAreas_subset.gpkg -out $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif -s $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -i $current_branch_id -b0 $branch_zero_id
+    python3 -m memory_profiler $srcDir/mask_dem.py -dem $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif -nld $tempHucDataDir/LeveeProtectedAreas_subset.gpkg -out $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif -b $branch_id_attribute -i $current_branch_id -b0 $branch_zero_id -csv $tempHucDataDir/levee_levelpaths.csv -l $levee_id_attribute
     Tcount
 fi
 

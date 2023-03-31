@@ -5,6 +5,7 @@ import argparse
 import csv
 import traceback
 import sys
+from datetime import datetime
 import time
 from pathlib import Path
 import geopandas as gpd
@@ -28,6 +29,13 @@ from tools_shared_variables import (acceptable_coord_acc_code_list,
 def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inundate, 
                                      stage_based, output_folder, overwrite, search, 
                                      lid_to_run, job_number_intervals, past_major_interval_cap):
+        
+    print("================================")
+    print("Start generate categorical fim")
+    overall_start_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"started: {dt_string}")
+    print()
         
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
@@ -88,9 +96,10 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
         fim_dir = ""
         print('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
-        nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir)
+        nws_sites_layer = generate_catfim_flows(output_flows_dir, nwm_us_search, nwm_ds_search, stage_based, fim_dir, lid_to_run, attributes_dir, job_number_huc)
         end = time.time()
         elapsed_time = (end-start)/60
+        
         print(f'Finished creating flow files in {elapsed_time} minutes')
         # Generate CatFIM mapping
         print('Begin mapping')
@@ -109,6 +118,17 @@ def process_generate_categorical_fim(fim_run_dir, job_number_huc, job_number_inu
     reformatted_catfim_method = catfim_method.lower().replace('-', '_')
     create_csvs(output_mapping_dir, reformatted_catfim_method)
 
+    print("================================")
+    print("End generate categorical fim")
+
+    end_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"ended: {dt_string}")
+
+    # calculate duration
+    time_duration = end_time - overall_start_time
+    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print()
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
     '''
@@ -236,7 +256,7 @@ def mark_complete(site_directory):
     marker_file.touch()
     return
 
-def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir):
+def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, threshold_url, flood_categories, all_lists, past_major_interval_cap, number_of_jobs, number_of_interval_jobs, attributes_dir, nwm_flows_df):
     missing_huc_files = []
     all_messages = []
     stage_based_att_dict = {}
@@ -423,7 +443,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
         
         # Filter segments to be of like stream order.
         desired_order = metadata['nwm_feature_data']['stream_order']
-        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order)
+        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
         action_stage = stages['action']
         minor_stage = stages['minor']
         moderate_stage = stages['moderate']
@@ -458,9 +478,9 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                 all_messages.append([f'{lid}:missing some HUC data'])
                 
         # Now that the "official" category maps are made, produce the incremental maps.
-        for interval_stage in interval_list:
+        with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
             try:
-                with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
+                for interval_stage in interval_list:
                     # Determine category the stage value belongs with.
                     if action_stage <= interval_stage < minor_stage:
                         category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
@@ -535,14 +555,14 @@ def generate_stage_based_categorical_fim(workspace, fim_version, fim_dir, nwm_us
     
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
-    huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
+    huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df = generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run)
     
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
             executor.submit(iterate_through_huc_stage_based, workspace, huc, 
                             fim_dir, huc_dictionary, threshold_url, flood_categories,
                             all_lists, past_major_interval_cap, number_of_jobs, 
-                            number_of_interval_jobs, attributes_dir)
+                            number_of_interval_jobs, attributes_dir, nwm_flows_df)
                 
     print('Wrapping up Stage-Based CatFIM...')
     csv_files = os.listdir(attributes_dir)
@@ -677,7 +697,7 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
             
             # Create inundation maps with branch and stage data
             try:
-                print("Running inundation for " + huc + " and branch " + branch)
+                print("Generating stage-based FIM for " + huc + " and branch " + branch)
                 executor.submit(produce_inundation_map_with_stage_and_feature_ids, rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch)
             except Exception:
                 messages.append([f'{lid}:inundation failed at {category}'])

@@ -9,8 +9,10 @@ agree_smogrid.tif
 agree_smogrid_allo.tif
 agree_smogrid_dist.tif
 agree_smogrid_zerod.tif
+#3d_nld_subset_levees_burned.gpkg
 #branch_id.lst
 #branch_polygons.gpkg
+dem_meters.tif
 #LandSea_subset.gpkg
 #LeveeProtectedAreas_subset.gpkg
 #nld_subset_levees.gpkg
