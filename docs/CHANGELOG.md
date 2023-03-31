@@ -78,7 +78,7 @@ The dtype warning was suppressed through updates to the `read_csv` function in `
 
 This hotfix addresses an error in inundate_nation.py relating to projection CRS.
 
-## Changes
+### Changes
 
 - `tools/inundate_nation.py`: #782 CRS projection change likely causing issue with previous projection configuration
 
