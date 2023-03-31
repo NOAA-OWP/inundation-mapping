@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3.x.x - 2023-03-22 - [PR#856](https://github.com/NOAA-OWP/inundation-mapping/pull/856)
+## v4.3.3.7 - 2023-03-22 - [PR#856](https://github.com/NOAA-OWP/inundation-mapping/pull/856)
 
 Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated boilerplate items, add octothorpe (#) in front of Additions, Changes, Removals to mirror `CHANGELOG.md` format, and clean up the PR Checklist.
 
@@ -10,13 +10,36 @@ Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated b
 - `docs/`  
   - `PULL_REQUEST_TEMPLATE.md` 
 
-  <br/><br/>
+<br/><br/>
   
+## v4.3.3.6 - 2023-03-30 - [PR#859](https://github.com/NOAA-OWP/inundation-mapping/pull/859)
+
+Addresses the issue of output storage space being taken up by output files from branches that did not run. Updates branch processing to remove the extraneous branch file if a branch gets an error code of 61.
+
+### Changes
+
+- `src/process_branch.sh`: added line 41, which removes the outputs and output folder if Error 61 occurs.
+
+<br/><br/>
+
+## v4.3.3.5 - 2023-03-23 - [PR#848](https://github.com/NOAA-OWP/inundation-mapping/pull/848)
+
+Introduces two new arguments (`-pcsv` and `-pfiles`) and improves the documentation of  `synthesize_test_cases.py`. The new arguments allow the user to provide a CSV of previous metrics (`-pcsv`) and to specity whether or not metrics should pulled from previous directories (`-pfiles`). 
+
+The dtype warning was suppressed through updates to the `read_csv` function in `hydrotable.py` and additional comments were added throughout script to improve readability.
+
+### Changes
+- `tools/inundation.py`: Add data types to the section that reads in the hydrotable (line 483).
+
+- `tools/synthesize_test_cases.py`: Improved formatting, spacing, and added comments. Added two new arguments: `pcsv` and `pfiles` along with checks to verify they are not being called concurrently (lines 388-412). In `create_master_metrics_csv`, creates an `iteration_list` that only contains `['comparison']` if `pfiles` is not true, reads in the previous metric csv `prev_metrics_csv` if it is provided and combine it with the compiled metrics (after it is converted to dataframe), and saves the metrics dataframe (`df_to_write`) to CSV.
+  
+<br/><br/>
+
 ## v4.3.3.4 - 2023-03-17 - [PR#849](https://github.com/NOAA-OWP/inundation-mapping/pull/849)
 
 This hotfix addresses an error in inundate_nation.py relating to projection CRS.
 
-## Changes
+### Changes
 
 - `tools/inundate_nation.py`: #782 CRS projection change likely causing issue with previous projection configuration
 
