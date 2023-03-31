@@ -36,7 +36,8 @@ aws s3 ls s3://noaa-nws-owp-fim/ --request-payer requester
 
 Download a directory of outputs for a HUC8:
 ```
-aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_0_18_02/12090301 /your_local_folder_name/12090301 --request-payer requester
+aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_0_18_02/12090301 \
+    /your_local_folder_name/12090301 --request-payer requester
 ```
 By adjusting pathing, you can also download entire directories such as the fim_4_0_18_0 folder.
 **Note**: There may be newer editions than fim_4_0_18_0, and it is recommended to adjust the command above for the latest version.
@@ -72,11 +73,19 @@ This system has an optional tool called the `calibration database tool`. In orde
 Since all of the dependencies are managed in utilizing a Docker container, we must issue the [`docker run`](https://docs.docker.com/engine/reference/run/#clean-up---rm) command to start a container as the run-time environment. The container is launched from a Docker Image which was built in [Installation](#installation) step 2. The correct input file pathing is necessary for the `/data` volume mount (`-v`) for the `<input_path>`. The `<input_path>` should contain a subdirectory named `/inputs` (similar to `s3://noaa-nws-owp-fim/hand_fim`). If the pathing is set correctly, we do not need to adjust the `params_template.env` file, and can use the default file paths provided.
 
 ```bash 
-docker run --rm -it --name <your_container_name> -v <path/to/repository>/:/foss_fim -v <desired_output_path>/:/outputs -v <input_path>:/data <image_name>:<tag>
+docker run --rm -it --name <your_container_name> \
+    -v <path/to/repository>/:/foss_fim \
+    -v <desired_output_path>/:/outputs \
+    -v <input_path>:/data \
+    <image_name>:<tag>
 ```
 For example:  
 ```bash
-docker run --rm -it --name robs_container -v /home/projects/inundation-mapping/:/foss_fim -v /home/projects/fim/outputs/:/outputs -v /home/projects/fim/inputs/:/data fim_4:dev_20230224_ad87a74
+docker run --rm -it --name robs_container \
+    -v /home/projects/inundation-mapping/:/foss_fim \
+    -v /home/projects/fim/outputs/:/outputs \
+    -v /home/projects/fim/inputs/:/data \
+    fim_4:dev_20230224_ad87a74
 ```
 
 ### Produce HAND Hydrofabric
@@ -120,7 +129,12 @@ After `fim_pipeline.sh` completes, or combinations of the three major steps desc
 
 To evaluate model skill, run the following:
 ```
-python /foss_fim/tools/synthesize_test_cases.py -c DEV -v <fim_run_name> -m <path/to/output/metrics.csv> -j [num_of_jobs (cores and/or procs)]
+python /foss_fim/tools/synthesize_test_cases.py \
+    -c DEV \
+    -v <fim_run_name> \
+    -m <path/to/output/metrics.csv> \
+    -jh [num of jobs (cores and/or procs) per huc] \
+    -jb [num of jobs (cores and/or procs) per branch]
 ```
 
 More information can be found by running:

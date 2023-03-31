@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.[pending] - 2023-03-02 - [PR#857](https://github.com/NOAA-OWP/inundation-mapping/pull/857)
+## v4.3.5.0 - 2023-03-02 - [PR#857](https://github.com/NOAA-OWP/inundation-mapping/pull/857)
 
 Addresses changes to function calls needed to run upgraded Shapely library plus other related library upgrades. Upgraded libraries include:
 - shapely
@@ -37,6 +37,119 @@ Pygeos is removed because its functionality is incorporated into the upgraded sh
 
 <br/><br/>
 
+## v4.3.4.0 - 2023-03-16-23 [PR#847](https://github.com/NOAA-OWP/inundation-mapping/pull/847)
+
+### Changes
+
+Create a 'working directory' in the Docker container to run processes within the container's non-persistent filesystem. Modify variables in scripts that process HUCs and branches to use the temporary working directory, and then copy temporary directory (after trimming un-wanted files) over to output directory (persistent filesystem).  Roll back changes to `unit_tests/` to use `/data/outputs` (contains canned data), as the volume mounted `outputs/` most likely will not contain the necessary unit test data. 
+
+- `Dockerfile` - create a `/fim_temp` working directory, update `projectDir` to an `ENV`, rename inputs and outputs directory variables  
+- `fim_pipeline.sh` - remove `projectDir=/foss_fim`, update path of `logFile`, remove indentation  
+- `fim_pre_processing.sh` - change `$outputRunDataDir` => `$outputDestDir` & add `$tempRunDir`  
+- `fim_post_processing.sh` - change `$outputRunDataDir` => `$outputDestDir`   
+- `fim_process_unit_wb.sh` - change `$outputRunDataDir` => `$outputDestDir`, add vars & export `tempRunDir`, `tempHucDataDir`, & `tempBranchDataDir` to `run_unit_wb.sh`  
+- `README.md` - add linebreaks to codeblocks  
+
+- `src/` 
+  - `bash_variables.env` - `$inputDataDir` => `$inputsDir`  
+  - `check_huc_inputs.py` - `$inputDataDir` => `$inputsDir`  
+  - `delineate_hydros_and_produce_HAND.py` - `$outputHucDataDir` => `$tempHucDataDir`, `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`  
+  - `process_branch.sh` - `$outputRunDataDir` => `$outputsDestDir`  
+  - `run_by_branch.sh` - `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`, `$outputHucDataDir` => `$tempHucDataDir`  
+  - `run_unit_wb.sh` - `$outputRunDataDir` => `$outputDestDir`, `$outputHucDataDir` => `$tempHucDataDir`  
+  - `utils/`  
+    - `shared_functions.py` - `$inputDataDir` => `$inputsDir`  
+
+- `tools/` 
+  - `inundation_wrapper_custom_flow.py` - `$outputDataDir` => `$outputsDir`  
+  - `inundation_wrapper_nwm_flows.py`  - `$outputDataDir` => `$outputsDir`  
+  - `tools_shared_variables.py` - `$outputDataDir` => `$outputsDir`    
+
+- `unit_tests/`
+  - `README.md` - add linebreaks to code blocks, `/outputs/` => `/data/outputs/`  
+  - `*_params.json` - `/outputs/` => `/data/outputs/` & `$outputRunDataDir` => `$outputDestDir`  
+  - `derive_level_paths_test.py` - `$outputRunDataDir` => `$outputDestDir`  
+  - `check_unit_errors_test.py` - `/outputs/` => `/data/outputs/`  
+  - `shared_functions_test.py` - `$outputRunDataDir` => `$outputDestDir`
+  - `split_flows_test.py`  - `/outputs/` => `/data/outputs/`  
+  - `tools/` 
+    - `*_params.json` - `/outputs/` => `/data/outputs/` & `$outputRunDataDir` => `$outputDestDir`  
+
+<br/><br/>
+
+## v4.3.3.7 - 2023-03-22 - [PR#856](https://github.com/NOAA-OWP/inundation-mapping/pull/856)
+
+Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated boilerplate items, add octothorpe (#) in front of Additions, Changes, Removals to mirror `CHANGELOG.md` format, and clean up the PR Checklist.
+
+### Changes
+- `docs/`  
+  - `PULL_REQUEST_TEMPLATE.md` 
+
+<br/><br/>
+  
+## v4.3.3.6 - 2023-03-30 - [PR#859](https://github.com/NOAA-OWP/inundation-mapping/pull/859)
+
+Addresses the issue of output storage space being taken up by output files from branches that did not run. Updates branch processing to remove the extraneous branch file if a branch gets an error code of 61.
+
+### Changes
+
+- `src/process_branch.sh`: added line 41, which removes the outputs and output folder if Error 61 occurs.
+
+<br/><br/>
+
+## v4.3.3.5 - 2023-03-23 - [PR#848](https://github.com/NOAA-OWP/inundation-mapping/pull/848)
+
+Introduces two new arguments (`-pcsv` and `-pfiles`) and improves the documentation of  `synthesize_test_cases.py`. The new arguments allow the user to provide a CSV of previous metrics (`-pcsv`) and to specity whether or not metrics should pulled from previous directories (`-pfiles`). 
+
+The dtype warning was suppressed through updates to the `read_csv` function in `hydrotable.py` and additional comments were added throughout script to improve readability.
+
+### Changes
+- `tools/inundation.py`: Add data types to the section that reads in the hydrotable (line 483).
+
+- `tools/synthesize_test_cases.py`: Improved formatting, spacing, and added comments. Added two new arguments: `pcsv` and `pfiles` along with checks to verify they are not being called concurrently (lines 388-412). In `create_master_metrics_csv`, creates an `iteration_list` that only contains `['comparison']` if `pfiles` is not true, reads in the previous metric csv `prev_metrics_csv` if it is provided and combine it with the compiled metrics (after it is converted to dataframe), and saves the metrics dataframe (`df_to_write`) to CSV.
+  
+<br/><br/>
+
+## v4.3.3.4 - 2023-03-17 - [PR#849](https://github.com/NOAA-OWP/inundation-mapping/pull/849)
+
+This hotfix addresses an error in inundate_nation.py relating to projection CRS.
+
+### Changes
+
+- `tools/inundate_nation.py`: #782 CRS projection change likely causing issue with previous projection configuration
+
+<br/><br/>
+
+## v4.3.3.3 - 2023-03-20 - [PR#854](https://github.com/NOAA-OWP/inundation-mapping/pull/854)
+
+At least one site (e.g. TRYM7) was not been getting mapped in Stage-Based CatFIM, despite having all of the acceptable accuracy codes. This was caused by a data type issue in the `acceptable_coord_acc_code_list` in `tools_shared_variables.py` having the accuracy codes of 5 and 1 as a strings instead of an integers.
+
+### Changes
+
+- `/tools/tools_shared_variables.py`: Added integers 5 and 1 to the acceptable_coord_acc_code_list, kept the '5' and '1' strings as well.
+
+<br/><br/>
+
+## v4.3.3.2 - 2023-03-20 - [PR#851](https://github.com/NOAA-OWP/inundation-mapping/pull/851)
+
+Bug fix to change `.split()` to `os.path.splitext()`
+
+### Changes
+
+- `src/stream_branches.py`: Change 3 occurrences of `.split()` to `os.path.splitext()`
+
+<br/><br/>
+
+## v4.3.3.1 - 2023-03-20 - [PR#855](https://github.com/NOAA-OWP/inundation-mapping/pull/855)
+
+Bug fix for KeyError in `src/associate_levelpaths_with_levees.py`
+
+### Changes
+
+- `src/associate_levelpaths_with_levees.py`: Adds check if input files exist and handles empty GeoDataFrame(s) after intersecting levee buffers with leveed areas.
+
+<br/><br/>
+>>>>>>> ee26f0f41297a015e2a744426c42e47ab7c40d84
 
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
