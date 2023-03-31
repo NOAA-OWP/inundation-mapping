@@ -9,7 +9,7 @@ from multiprocessing import Pool
 
 TEST_CASES_DIR = r'/data/test_cases_new/'  #TODO remove "_new"
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
-OUTPUTS_DIR = r'/data/outputs'
+OUTPUTS_DIR = r'/outputs'
 
 
 def process_alpha_test(args):

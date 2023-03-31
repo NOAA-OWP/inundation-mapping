@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.pending - 2023-03-23 - [PR#848](https://github.com/NOAA-OWP/inundation-mapping/pull/848)
+## v4.3.3.5 - 2023-03-23 - [PR#848](https://github.com/NOAA-OWP/inundation-mapping/pull/848)
 
 Introduces two new arguments (`-pcsv` and `-pfiles`) and improves the documentation of  `synthesize_test_cases.py`. The new arguments allow the user to provide a CSV of previous metrics (`-pcsv`) and to specity whether or not metrics should pulled from previous directories (`-pfiles`). 
 
@@ -12,6 +12,142 @@ The dtype warning was suppressed through updates to the `read_csv` function in `
 
 - `tools/synthesize_test_cases.py`: Improved formatting, spacing, and added comments. Added two new arguments: `pcsv` and `pfiles` along with checks to verify they are not being called concurrently (lines 388-412). In `create_master_metrics_csv`, creates an `iteration_list` that only contains `['comparison']` if `pfiles` is not true, reads in the previous metric csv `prev_metrics_csv` if it is provided and combine it with the compiled metrics (after it is converted to dataframe), and saves the metrics dataframe (`df_to_write`) to CSV.
   
+<br/><br/>
+
+## v4.3.3.4 - 2023-03-17 - [PR#849](https://github.com/NOAA-OWP/inundation-mapping/pull/849)
+
+This hotfix addresses an error in inundate_nation.py relating to projection CRS.
+
+### Changes
+
+- `tools/inundate_nation.py`: #782 CRS projection change likely causing issue with previous projection configuration
+
+<br/><br/>
+
+## v4.3.3.3 - 2023-03-20 - [PR#854](https://github.com/NOAA-OWP/inundation-mapping/pull/854)
+
+At least one site (e.g. TRYM7) was not been getting mapped in Stage-Based CatFIM, despite having all of the acceptable accuracy codes. This was caused by a data type issue in the `acceptable_coord_acc_code_list` in `tools_shared_variables.py` having the accuracy codes of 5 and 1 as a strings instead of an integers.
+
+### Changes
+
+- `/tools/tools_shared_variables.py`: Added integers 5 and 1 to the acceptable_coord_acc_code_list, kept the '5' and '1' strings as well.
+
+<br/><br/>
+
+## v4.3.3.2 - 2023-03-20 - [PR#851](https://github.com/NOAA-OWP/inundation-mapping/pull/851)
+
+Bug fix to change `.split()` to `os.path.splitext()`
+
+### Changes
+
+- `src/stream_branches.py`: Change 3 occurrences of `.split()` to `os.path.splitext()`
+
+<br/><br/>
+
+## v4.3.3.1 - 2023-03-20 - [PR#855](https://github.com/NOAA-OWP/inundation-mapping/pull/855)
+
+Bug fix for KeyError in `src/associate_levelpaths_with_levees.py`
+
+### Changes
+
+- `src/associate_levelpaths_with_levees.py`: Adds check if input files exist and handles empty GeoDataFrame(s) after intersecting levee buffers with leveed areas.
+
+<br/><br/>
+
+## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
+
+Addresses bug wherein multiple CatFIM sites in the flow-based service were displaying the same NWS LID. This merge also creates a workaround solution for a slowdown that was observed in the WRDS location API, which may be a temporary workaround, until WRDS addresses the slowdown.
+
+### Changes
+
+- `tools/generate_categorical_fim_mapping.py`: resets the list of tifs to format for each LID within the loop that does the map processing, instead of only once before the start of the loop.
+- `tools/tools_shared_functions.py`:
+  - adds a try-except block around code that attempted to iterate on an empty list when the API didn't return relevant metadata for a given feature ID (this is commented out, but may be used in the future once WRDS slowdown is addressed).
+  - Uses a passed NWM flows geodataframe to determine stream order.
+- `/tools/generate_categorical_fim_flows.py`:
+  - Adds multiprocessing to flows generation and uses `nwm_flows.gpkg` instead of the WRDS API to determine stream order of NWM feature_ids.
+  - Adds duration print messages.
+- `/tools/generate_categorical_fim.py`:
+  - Refactor to allow for new NWM filtering scheme.
+  - Bug fix in multiprocessing calls for interval map production.
+  - Adds duration print messages.
+
+<br/><br/>
+
+## v4.3.2.0 - 2023-03-15 - [PR#845](https://github.com/NOAA-OWP/inundation-mapping/pull/845)
+
+This merge revises the methodology for masking levee-protected areas from inundation. It accomplishes two major tasks: (1) updates the procedure for acquiring and preprocessing the levee data to be burned into the DEM and (2) revises the way levee-protected areas are masked from branches.
+
+(1) There are now going to be two different levee vector line files in each HUC. One (`nld_subset_levees_burned.gpkg`) for the levee elevation burning and one (`nld_subset_levees.gpkg`) for the levee-level-path assignment and masking workflow.
+
+(2) Levee-protected areas are masked from inundation based on a few methods:
+  - Branch 0: All levee-protected areas are masked.
+  - Other branches: Levee-protected areas are masked from the DEMs of branches for level path(s) that the levee is protecting against by using single-sided buffers alongside each side of the levee to determine which side the levee is protecting against (the side opposite the associated levee-protected area).
+
+### Additions
+
+- `.gitignore`: Adds `.private` folder for unversioned code.
+- `data/`
+    - `esri.py`: Class for querying and downloading ESRI feature services.
+    - `nld/`
+        - `levee_download.py`: Module that handles downloading and preprocessing levee lines and protected areas from the National Levee Database.
+- `src/associate_levelpaths_with_levees.py`: Associates level paths with levees using single-sided levee buffers and writes to CSV to be used by `src/mask_dem.py`
+
+### Changes
+
+- `.config/`
+    - `deny_branch_zero.lst`: Adds `dem_meters_{}.tif`.
+    - `deny_branches.lst`: Adds `levee_levelpaths.csv` and removes `nld_subset_levees_{}.tif`.
+    - `deny_unit.lst`: Adds `dem_meters.tif`.
+    - `params_template.env`: Adds `levee_buffer` parameter for levee buffer size/distance in meters and `levee_id_attribute`.
+- `src/`
+    - `bash_variables.env`: Updates `input_nld_levee_protected_areas` and adds `input_NLD` (moved from `run_unit_wb.sh`) and `input_levees_preprocessed` environment. .variables
+    - `burn_in_levees.py`: Removed the unit conversion from feet to meters because it's now being done in `levee_download.py`.
+    - `clip_vectors_to_wbd.py`: Added the new levee lines for the levee-level-path assignment and masking workflow.
+    - `delineate_hydros_and_produce_HAND.sh`: Updates input arguments.
+    - `mask_dem.py`: Updates to use `levee_levelpaths.csv` (output from `associate_levelpaths_with_levees.py`) to mask branch DEMs.
+    - `run_by_branch.sh`: Clips `dem_meters.tif` to use for branches instead of `dem_meters_0.tif` since branch 0 is already masked.
+    - `run_unit_wb.sh`: Added inputs to `clip_vectors_to_wbd.py`. Added `associate_levelpaths_with_levees.py`. Processes `dem_meters.tif` and then makes a copy for branch 0. Moved `deny_unit.lst` cleanup to after branch processing.
+
+### Removals
+- `data/nld/preprocess_levee_protected_areas.py`: Deprecated.
+
+<br/><br/>
+
+## v4.3.1.0 - 2023-03-10 - [PR#834](https://github.com/NOAA-OWP/inundation-mapping/pull/834)
+
+Change all occurances of /data/outputs to /outputs to honor the correct volume mount directory specified when executing docker run.
+
+### Changes
+
+- `Dockerfile` - updated comments in relation to `projectDir=/foss_fim`
+- `fim_pipeline.sh` - updated comments in relation to `projectDir=/foss_fim`
+- `fim_pre_processing.sh` -updated comments in relation to `projectDir=/foss_fim`
+- `fim_post_processing.sh` - updated comments in relation to `projectDir=/foss_fim`
+- `README.md` - Provide documentation on starting the Docker Container, and update docs to include additional command line option for calibration database tool.   
+
+- `src/` 
+  - `usgs_gage_crosswalk.py` - added newline character to shorten commented example usage
+  - `usgs_gage_unit_setup.py` - `/data/outputs/` => `/outputs/`  
+
+- `tools/` 
+  - `cache_metrics.py` -  `/data/outputs/` => `/outputs/`
+  - `copy_test_case_folders.py`  - `/data/outputs/` => `/outputs/`
+  - `run_test_case.py` - `/data/outputs/` => `/outputs/`  
+
+- `unit_tests/*_params.json`  - `/data/outputs/` => `/outputs/` 
+
+- `unit_tests/split_flows_test.py`  - `/data/outputs/` => `/outputs/` 
+
+<br/><br/>
+
+## v4.3.0.1 - 2023-03-06 - [PR#841](https://github.com/NOAA-OWP/inundation-mapping/pull/841)
+
+Deletes intermediate files generated by `src/agreedem.py` by adding them to `config/deny_*.lst`
+
+- `config/`
+    - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_branch_unittests.lst`: Added `agree_binary_bufgrid.tif`, `agree_bufgrid_zerod.tif`, and `agree_smogrid_zerod.tif`
+    - `deny_unit.lst`: Added `agree_binary_bufgrid.tif`, `agree_bufgrid.tif`, `agree_bufgrid_allo.tif`, `agree_bufgrid_dist.tif`,  `agree_bufgrid_zerod.tif`, `agree_smogrid.tif`, `agree_smogrid_allo.tif`, `agree_smogrid_dist.tif`, `agree_smogrid_zerod.tif`
 
 <br/><br/>
 
