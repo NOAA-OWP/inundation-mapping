@@ -2,6 +2,7 @@
 
 import os
 import argparse
+import warnings
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -45,8 +46,10 @@ def associate_levelpaths_with_levees(levees_filename:str, levee_id_attribute:str
         levees_buffered_right.geometry = levees.buffer(-levee_buffer, single_sided=True)
 
         # Intersect leveed areas with single-sided levee buffers
-        leveed_left = gpd.overlay(levees_buffered_left, leveed_areas, how='intersection')
-        leveed_right = gpd.overlay(levees_buffered_right, leveed_areas, how='intersection')
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            leveed_left = gpd.overlay(levees_buffered_left, leveed_areas, how='intersection')
+            leveed_right = gpd.overlay(levees_buffered_right, leveed_areas, how='intersection')
 
         # Find leveed areas not intersected by either buffer
         levees_not_found = leveed_areas[~leveed_areas['SYSTEM_ID'].isin(pd.concat([leveed_left['SYSTEM_ID_1'], leveed_right['SYSTEM_ID_1']]).values)]
