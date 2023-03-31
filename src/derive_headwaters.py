@@ -8,7 +8,7 @@ import argparse
 
 def findHeadWaterPoints(flows):
 
-    flows = flows.explode()
+    flows = flows.explode(index_parts=True)
     headwater_points = []
     starting_points = set() ; end_points = set()
     for i,g in enumerate(flows.geometry):

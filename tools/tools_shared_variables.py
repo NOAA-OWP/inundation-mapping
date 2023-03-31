@@ -3,7 +3,7 @@ import os
 # Environmental variables and constants.
 TEST_CASES_DIR = r'/data/test_cases/'
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
-OUTPUTS_DIR = os.environ['outputDataDir']
+OUTPUTS_DIR = os.environ['outputsDir']
 INPUTS_DIR = r'/data/inputs'
 AHPS_BENCHMARK_CATEGORIES = ['usgs', 'nws']
 FR_BENCHMARK_CATEGORIES = ['ble', 'ifc']

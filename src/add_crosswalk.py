@@ -97,7 +97,7 @@ def add_crosswalk(input_catchments_fileName,
         input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
 
         # Create crosswalk
-        crosswalk = gpd.sjoin(input_flows_midpoint, input_nwmcat, how='left', op='within').reset_index()
+        crosswalk = gpd.sjoin(input_flows_midpoint, input_nwmcat, how='left', predicate='within').reset_index()
         crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
 
         # fill in missing ms
