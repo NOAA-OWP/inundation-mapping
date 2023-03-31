@@ -480,7 +480,11 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                  hydroTable,
                                  dtype={'HUC':str,'feature_id':str,
                                          'HydroID':str,'stage':float,
-                                         'discharge_cms':float,'LakeID' : int},
+                                         'discharge_cms':float,
+                                         'LakeID' : int                                         
+                                         'last_updated':object, 
+                                         'submitter':object, 
+                                         'obs_source':object},
                                  low_memory=False
                                 )
         huc_error = hydroTable.HUC.unique()
