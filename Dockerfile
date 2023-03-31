@@ -93,9 +93,6 @@ COPY Pipfile .
 COPY Pipfile.lock .
 RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
 
-#RUN pip install --force-reinstall shapely==2.0.1 geopandas==0.12.2 pandas==1.1 numba==0.56.4 rasterstats==0.18.0 numpy==1.23.5 pyarrow==11.0.0 rtree==1.0.1 tqdm==4.65.0
-#RUN pip uninstall -y pygeos
-
 # ----------------------------------
 # Mar 2023
 # There are some nuances in the whitebox python downloads in that the first time it loads
