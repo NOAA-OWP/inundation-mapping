@@ -1,13 +1,67 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.______ - 2023-03-30 - [PR#859](https://github.com/NOAA-OWP/inundation-mapping/pull/859)
+## v4.3.3.6 - 2023-03-30 - [PR#859](https://github.com/NOAA-OWP/inundation-mapping/pull/859)
 
 Addresses the issue of output storage space being taken up by output files from branches that did not run. Updates branch processing to remove the extraneous branch file if a branch gets an error code of 61.
 
 ### Changes
 
 - `src/process_branch.sh`: added line 41, which removes the outputs and output folder if Error 61 occurs.
+
+<br/><br/>
+
+=======
+## v4.3.3.5 - 2023-03-23 - [PR#848](https://github.com/NOAA-OWP/inundation-mapping/pull/848)
+
+Introduces two new arguments (`-pcsv` and `-pfiles`) and improves the documentation of  `synthesize_test_cases.py`. The new arguments allow the user to provide a CSV of previous metrics (`-pcsv`) and to specity whether or not metrics should pulled from previous directories (`-pfiles`). 
+
+The dtype warning was suppressed through updates to the `read_csv` function in `hydrotable.py` and additional comments were added throughout script to improve readability.
+
+### Changes
+- `tools/inundation.py`: Add data types to the section that reads in the hydrotable (line 483).
+
+- `tools/synthesize_test_cases.py`: Improved formatting, spacing, and added comments. Added two new arguments: `pcsv` and `pfiles` along with checks to verify they are not being called concurrently (lines 388-412). In `create_master_metrics_csv`, creates an `iteration_list` that only contains `['comparison']` if `pfiles` is not true, reads in the previous metric csv `prev_metrics_csv` if it is provided and combine it with the compiled metrics (after it is converted to dataframe), and saves the metrics dataframe (`df_to_write`) to CSV.
+  
+<br/><br/>
+
+## v4.3.3.4 - 2023-03-17 - [PR#849](https://github.com/NOAA-OWP/inundation-mapping/pull/849)
+
+This hotfix addresses an error in inundate_nation.py relating to projection CRS.
+
+### Changes
+
+- `tools/inundate_nation.py`: #782 CRS projection change likely causing issue with previous projection configuration
+
+<br/><br/>
+
+## v4.3.3.3 - 2023-03-20 - [PR#854](https://github.com/NOAA-OWP/inundation-mapping/pull/854)
+
+At least one site (e.g. TRYM7) was not been getting mapped in Stage-Based CatFIM, despite having all of the acceptable accuracy codes. This was caused by a data type issue in the `acceptable_coord_acc_code_list` in `tools_shared_variables.py` having the accuracy codes of 5 and 1 as a strings instead of an integers.
+
+### Changes
+
+- `/tools/tools_shared_variables.py`: Added integers 5 and 1 to the acceptable_coord_acc_code_list, kept the '5' and '1' strings as well.
+
+<br/><br/>
+
+## v4.3.3.2 - 2023-03-20 - [PR#851](https://github.com/NOAA-OWP/inundation-mapping/pull/851)
+
+Bug fix to change `.split()` to `os.path.splitext()`
+
+### Changes
+
+- `src/stream_branches.py`: Change 3 occurrences of `.split()` to `os.path.splitext()`
+
+<br/><br/>
+
+## v4.3.3.1 - 2023-03-20 - [PR#855](https://github.com/NOAA-OWP/inundation-mapping/pull/855)
+
+Bug fix for KeyError in `src/associate_levelpaths_with_levees.py`
+
+### Changes
+
+- `src/associate_levelpaths_with_levees.py`: Adds check if input files exist and handles empty GeoDataFrame(s) after intersecting levee buffers with leveed areas.
 
 <br/><br/>
 

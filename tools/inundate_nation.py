@@ -11,11 +11,13 @@ from multiprocessing import Pool
 from rasterio.merge import merge
 from osgeo import gdal, ogr
 
-sys.path.append('/foss_fim/src')
 from datetime import datetime
 from mosaic_inundation import Mosaic_inundation
 from inundate_gms import Inundate_gms
 from inundation import inundate
+
+# setting path
+sys.path.append('/foss_fim/src')
 from utils.shared_variables import elev_raster_ndv, PREP_PROJECTION
 from utils.shared_functions import FIM_Helpers as fh
 
@@ -193,7 +195,6 @@ def create_bool_rasters(args):
                 blockxsize=512, 
                 blockysize=512,
                 dtype='int8',
-                crs=PREP_PROJECTION,
                 compress='lzw')
     with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, 'w', **profile) as dst:
         dst.write(array.astype(rasterio.int8))
