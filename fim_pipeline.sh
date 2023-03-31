@@ -36,7 +36,7 @@ echo "---- Started: `date -u`"
 ## LOAD AND VALIDATE INCOMING ARGUMENTS
 source $srcDir/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
-jobMaxLimit=$(( $jobHucLimit + $jobBranchLimit ))
+jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))
 
 
 logFile=$outputRunDataDir/logs/unit/pipeline_summary_unit.log
