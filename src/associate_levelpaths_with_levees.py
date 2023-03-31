@@ -103,7 +103,7 @@ def associate_levelpaths_with_levees(levees_filename:str, levee_id_attribute:str
             row_intersections = gpd.overlay(levees[levees[levee_id_attribute] == row[levee_id_attribute]], levelpaths[levelpaths[branch_id_attribute] == row[branch_id_attribute]], how='intersection', keep_geom_type=False)
 
             # Convert MultiPoint to Point
-            row_intersections = row_intersections.explode()
+            row_intersections = row_intersections.explode(index_parts=True)
 
             # Select Point geometry type
             row_intersections = row_intersections[row_intersections.geom_type =='Point']
