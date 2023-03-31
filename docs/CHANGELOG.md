@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.3.3.7 - 2023-03-22 - [PR#856](https://github.com/NOAA-OWP/inundation-mapping/pull/856)
+
+Simple update to the `PULL_REQUEST_TEMPLATE.md` to remove unnecessary/outdated boilerplate items, add octothorpe (#) in front of Additions, Changes, Removals to mirror `CHANGELOG.md` format, and clean up the PR Checklist.
+
+### Changes
+- `docs/`  
+  - `PULL_REQUEST_TEMPLATE.md` 
+
+<br/><br/>
+  
 ## v4.3.3.6 - 2023-03-30 - [PR#859](https://github.com/NOAA-OWP/inundation-mapping/pull/859)
 
 Addresses the issue of output storage space being taken up by output files from branches that did not run. Updates branch processing to remove the extraneous branch file if a branch gets an error code of 61.
@@ -11,7 +22,6 @@ Addresses the issue of output storage space being taken up by output files from 
 
 <br/><br/>
 
-=======
 ## v4.3.3.5 - 2023-03-23 - [PR#848](https://github.com/NOAA-OWP/inundation-mapping/pull/848)
 
 Introduces two new arguments (`-pcsv` and `-pfiles`) and improves the documentation of  `synthesize_test_cases.py`. The new arguments allow the user to provide a CSV of previous metrics (`-pcsv`) and to specity whether or not metrics should pulled from previous directories (`-pfiles`). 
