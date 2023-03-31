@@ -238,9 +238,7 @@ class OverlapWindowMerge:
                               window[-1][0],
                               window[-1][1],
                               window[0][0],
-                              transform=self.depth_rsts[ds].transform,
-                              height=window_height,
-                              width=window_width)
+                              transform=self.depth_rsts[ds].transform)
 
             bnds.append(bnd)
 
@@ -255,9 +253,7 @@ class OverlapWindowMerge:
                                  window[-1][0],
                                  window[-1][1],
                                  window[0][0],
-                                 transform=meta['transform'],
-                                 height=window_height,
-                                 width=window_width)
+                                 transform=meta['transform'])
 
         return [final_bnds, bnds, data]
 

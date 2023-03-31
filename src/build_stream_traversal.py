@@ -48,7 +48,7 @@ class build_stream_traversal_columns(object):
                     stream_midpoint = stream_midpoint + [lineString.interpolate(0.5,normalized=True)]
 
                 stream_md_gpd = gpd.GeoDataFrame({'geometry':stream_midpoint}, crs=streams.crs, geometry='geometry')
-                stream_wbdjoin = gpd.sjoin(stream_md_gpd, wbd8, how='left', op='within')
+                stream_wbdjoin = gpd.sjoin(stream_md_gpd, wbd8, how='left', predicate='within')
                 stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint", "index_right": "HUC8id"})
                 streams = streams.join(stream_wbdjoin).drop(columns=['midpoint'])
 

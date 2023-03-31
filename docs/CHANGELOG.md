@@ -1,6 +1,42 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.5.0 - 2023-03-02 - [PR#857](https://github.com/NOAA-OWP/inundation-mapping/pull/857)
+
+Addresses changes to function calls needed to run upgraded Shapely library plus other related library upgrades. Upgraded libraries include:
+- shapely
+- geopandas
+- pandas
+- numba
+- rasterstats
+- numpy
+- rtree
+- tqdm
+- pyarrow
+- py7zr
+
+Pygeos is removed because its functionality is incorporated into the upgraded shapely library.
+
+### Changes
+
+- `Dockerfile`
+- `Pipfile and Pipfile.lock`
+- `src/`
+	- `associate_levelpaths_with_levees.py`
+    - `build_stream_traversal.py`
+	- `add_crosswalk.py`
+	- `adjust_headwater_streams.py`
+	- `aggregate_vector_inputs.py`
+	- `clip_vectors_to_wbd.py`
+	- `derive_headwaters.py`
+	- `stream_branches.py`
+	- `split_flows.py`
+- `tools/`
+	- `fimr_to_benchmark.py`
+	- `tools_shared_functions.py`
+
+<br/><br/>
+
 ## v4.3.4.0 - 2023-03-16-23 [PR#847](https://github.com/NOAA-OWP/inundation-mapping/pull/847)
 
 ### Changes

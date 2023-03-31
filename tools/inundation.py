@@ -484,7 +484,8 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
                                          'LakeID' : int,
                                          'last_updated':object, 
                                          'submitter':object, 
-                                         'obs_source':object}
+                                         'obs_source':object},
+                                 low_memory=False
                                 )
         huc_error = hydroTable.HUC.unique()
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
