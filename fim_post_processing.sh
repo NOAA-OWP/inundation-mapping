@@ -86,7 +86,7 @@ post_proc_start_time=`date +%s`
 
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
-echo -e $startDiv"Start branch aggregation"
+echo -e $startDiv"Start branch list aggregation"
 python3 $srcDir/aggregate_branch_lists.py -d $outputRunDataDir -f "branch_ids.csv" -o $fim_inputs
 
 ## GET NON ZERO EXIT CODES FOR UNITS ##
@@ -98,7 +98,7 @@ find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 echo "Processing usgs gage aggregation"
-python3 $srcDir/usgs_gage_aggregate.py -fim $outputRunDataDir -i $fim_inputs
+python3 $srcDir/aggregate_by_huc.py -fim $outputRunDataDir -i $fim_inputs -elev
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
@@ -118,6 +118,17 @@ if [ "$src_subdiv_toggle" = "True" ]; then
     Tcount
 fi
 
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
+if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
+    Tstart
+    echo    
+    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
+    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    Tcount
+    date -u
+fi
+
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
     if [ ! -f $CALB_DB_KEYS_FILE ]; then
@@ -126,15 +137,13 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
     else
         source $CALB_DB_KEYS_FILE
 
-        : '
-        This makes the local variables from the calb_db_keys files
-        into global variables that can be used in other files, including python.
+        ## This makes the local variables from the calb_db_keys files
+        ## into global variables that can be used in other files, including python.
 
-        Why not just leave the word export in front of each of the keys in the
-        calb_db_keys.env? Becuase that file is used against docker-compose
-        when we start up that part of the sytem and it does not like the word
-        export.
-        '
+        ## Why not just leave the word export in front of each of the keys in the
+        ## calb_db_keys.env? Becuase that file is used against docker-compose
+        ## when we start up that part of the sytem and it does not like the word
+        ## export.
 
         # Pick up the docker parent host machine name and override the one coming from the config file (aws only)
         if [ "$isAWS" = "1" ]; then
@@ -148,7 +157,8 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
         export DEFAULT_FIM_PROJECTION_CRS=$DEFAULT_FIM_PROJECTION_CRS
 
         Tstart
-        echo "Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
+        echo
+        echo -e $startDiv"Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
         echo "Loading HUC Data"
         echo
 
@@ -164,17 +174,6 @@ else
     echo "Skipping Populate PostgrSQL database"
 fi
 
-## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
-if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
-    Tstart
-    echo    
-    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
-    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
-    Tcount
-    date -u
-fi
-
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [ "$skipcal" = "0" ]; then
     Tstart
@@ -184,6 +183,16 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tcount
     date -u
 fi
+
+## AGGREGATE BRANCH TABLES ##
+# TODO: How do we skip aggregation if there is a branch error
+# maybe against the non_zero logs above
+echo 
+echo -e $startDiv"Aggregating branch hydrotables"
+Tstart
+python3 $srcDir/aggregate_by_huc.py -fim $outputRunDataDir -i $fim_inputs -htable
+Tcount
+date -u
 
 echo
 echo -e $startDiv"Combining crosswalk tables"
