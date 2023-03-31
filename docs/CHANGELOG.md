@@ -149,7 +149,6 @@ Bug fix for KeyError in `src/associate_levelpaths_with_levees.py`
 - `src/associate_levelpaths_with_levees.py`: Adds check if input files exist and handles empty GeoDataFrame(s) after intersecting levee buffers with leveed areas.
 
 <br/><br/>
->>>>>>> ee26f0f41297a015e2a744426c42e47ab7c40d84
 
 ## v4.3.3.0 - 2023-03-02 - [PR#831](https://github.com/NOAA-OWP/inundation-mapping/pull/831)
 
