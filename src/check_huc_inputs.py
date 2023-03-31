@@ -69,7 +69,7 @@ def __check_for_membership(hucs,accepted_hucs_set):
 
 def check_hucs(hucs):
     
-    huc_list_path = os.path.join(os.environ['inputDataDir'],'huc_lists')
+    huc_list_path = os.path.join(os.environ['inputsDir'],'huc_lists')
     accepted_hucs = __read_included_files(huc_list_path)
     list_hucs = __read_input_hucs(hucs)
     __check_for_membership(list_hucs, accepted_hucs)

@@ -14,7 +14,7 @@ from inundation import inundate
 
 TEST_CASES_DIR = r'/data/inundation_review/inundation_custom_flow/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
-OUTPUTS_DIR = os.environ['outputDataDir']
+OUTPUTS_DIR = os.environ['outputsDir']
 
 ENDC = '\033[m'
 TGREEN_BOLD = '\033[32;1m'

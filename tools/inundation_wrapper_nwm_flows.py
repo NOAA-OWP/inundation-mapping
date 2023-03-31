@@ -14,7 +14,7 @@ from inundation import inundate
 
 INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
-OUTPUTS_DIR = os.environ['outputDataDir']
+OUTPUTS_DIR = os.environ['outputsDir']
 
 ENDC = '\033[m'
 TGREEN_BOLD = '\033[32;1m'

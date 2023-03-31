@@ -123,12 +123,9 @@ then
     usage
 fi
 
-# TODO
-# update Dockerfile to add this as an env value, and delete line below
-projectDir=/foss_fim
-
-# outputDataDir, srcDir and others come from the Dockerfile
-outputRunDataDir=$outputDataDir/$runName
+# outputsDir & workDir come from the Dockerfile
+outputDestDir=$outputsDir/$runName
+tempRunDir=$workDir/$runName
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
@@ -183,9 +180,9 @@ else
 fi
 
 # Safety feature to avoid accidentaly overwrites
-if [ -d $outputRunDataDir ] && [ $overwrite -eq 0 ]; then
+if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo
-    echo "ERROR: Output dir $outputRunDataDir exists. Use overwrite -o to run."
+    echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
     echo        
     usage
 fi
@@ -202,34 +199,34 @@ echo
 echo "--- Number of HUCs to process is $num_hucs"
 
 # make dirs
-if [ ! -d $outputRunDataDir ]; then
-    mkdir -p $outputRunDataDir
+if [ ! -d $outputDestDir ]; then
+    mkdir -p $outputDestDir
+    mkdir -p $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
-    rm -rdf $outputRunDataDir/logs
-    rm -rdf $outputRunDataDir/branch_errors
-    rm -rdf $outputRunDataDir/unit_errors
-    rm -rdf $outputRunDataDir/eval
-    rm -f $outputRunDataDir/crosswalk_table.csv
-    rm -f $outputRunDataDir/fim_inputs*
-    rm -f $outputRunDataDir/*.env
+    rm -rdf $outputDestDir/logs
+    rm -rdf $outputDestDir/branch_errors
+    rm -rdf $outputDestDir/unit_errors
+    rm -rdf $outputDestDir/eval
+    rm -f $outputDestDir/crosswalk_table.csv
+    rm -f $outputDestDir/fim_inputs*
+    rm -f $outputDestDir/*.env
 fi
 
-#logFile=$outputRunDataDir/logs/unit/summary_unit.log
-mkdir -p $outputRunDataDir/logs/unit
-mkdir -p $outputRunDataDir/logs/branch
-mkdir -p $outputRunDataDir/unit_errors
-mkdir -p $outputRunDataDir/branch_errors
+mkdir -p $outputDestDir/logs/unit
+mkdir -p $outputDestDir/logs/branch
+mkdir -p $outputDestDir/unit_errors
+mkdir -p $outputDestDir/branch_errors
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
-cp $envFile $outputRunDataDir/params.env
+cp $envFile $outputDestDir/params.env
 
 # create an new .env file on the fly that contains all runtime values
 # that any unit can load it independently (in seperate AWS objects, AWS fargates)
 # or via pipeline. There is likely a more elegent way to do this.
 
-args_file=$outputRunDataDir/runtime_args.env
+args_file=$outputDestDir/runtime_args.env
 
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file

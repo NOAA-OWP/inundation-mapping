@@ -13,10 +13,9 @@ runName=$1
 hucNumber=$2
 branchId=$3
 
-# outputDataDir, srcDir and others come from the Dockerfile
-export outputRunDataDir=$outputDataDir/$runName
-branchLogFileName=$outputRunDataDir/logs/branch/"$hucNumber"_branch_"$branchId".log
-branch_list_csv_file=$outputRunDataDir/$hucNumber/branch_ids.csv
+# outputDestDir & tempHucDataDir come from fim_process_unit_wb.sh
+branchLogFileName=$outputDestDir/logs/branch/"$hucNumber"_branch_"$branchId".log
+branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 
 /usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName 
 
@@ -43,16 +42,16 @@ do
         echo
         err_exists=1
         echo "***** An error has occured  *****"
-        cp $branchLogFileName $outputRunDataDir/branch_errors
+        cp $branchLogFileName $outputDestDir/branch_errors
     fi
 done
 
 # Note: For branches, we do not copy over the log file for codes of 60 and 61.
 
+# Only add the huc and branch number to the csv if the branch was successful at processing
 if [ "$err_exists" = "0" ]; then
-    # Only add the huc and branch number to the csv is the branch was successful at processing
-    # We also don't want to include 60's and 61's
     $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branchId
 fi
 
-exit 0  # we always return a success at this point (so we don't stop the loops / iterator)
+# We always return a success at this point (so we don't stop the loops / iterator)
+exit 0  

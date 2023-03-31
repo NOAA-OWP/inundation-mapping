@@ -1,6 +1,45 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.4.0 - 2023-03-16-23 [PR#847](https://github.com/NOAA-OWP/inundation-mapping/pull/847)
+
+### Changes
+
+Create a 'working directory' in the Docker container to run processes within the container's non-persistent filesystem. Modify variables in scripts that process HUCs and branches to use the temporary working directory, and then copy temporary directory (after trimming un-wanted files) over to output directory (persistent filesystem).  Roll back changes to `unit_tests/` to use `/data/outputs` (contains canned data), as the volume mounted `outputs/` most likely will not contain the necessary unit test data. 
+
+- `Dockerfile` - create a `/fim_temp` working directory, update `projectDir` to an `ENV`, rename inputs and outputs directory variables  
+- `fim_pipeline.sh` - remove `projectDir=/foss_fim`, update path of `logFile`, remove indentation  
+- `fim_pre_processing.sh` - change `$outputRunDataDir` => `$outputDestDir` & add `$tempRunDir`  
+- `fim_post_processing.sh` - change `$outputRunDataDir` => `$outputDestDir`   
+- `fim_process_unit_wb.sh` - change `$outputRunDataDir` => `$outputDestDir`, add vars & export `tempRunDir`, `tempHucDataDir`, & `tempBranchDataDir` to `run_unit_wb.sh`  
+- `README.md` - add linebreaks to codeblocks  
+
+- `src/` 
+  - `bash_variables.env` - `$inputDataDir` => `$inputsDir`  
+  - `check_huc_inputs.py` - `$inputDataDir` => `$inputsDir`  
+  - `delineate_hydros_and_produce_HAND.py` - `$outputHucDataDir` => `$tempHucDataDir`, `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`  
+  - `process_branch.sh` - `$outputRunDataDir` => `$outputsDestDir`  
+  - `run_by_branch.sh` - `$outputCurrentBranchDataDir` => `$tempCurrentBranchDataDir`, `$outputHucDataDir` => `$tempHucDataDir`  
+  - `run_unit_wb.sh` - `$outputRunDataDir` => `$outputDestDir`, `$outputHucDataDir` => `$tempHucDataDir`  
+  - `utils/`  
+    - `shared_functions.py` - `$inputDataDir` => `$inputsDir`  
+
+- `tools/` 
+  - `inundation_wrapper_custom_flow.py` - `$outputDataDir` => `$outputsDir`  
+  - `inundation_wrapper_nwm_flows.py`  - `$outputDataDir` => `$outputsDir`  
+  - `tools_shared_variables.py` - `$outputDataDir` => `$outputsDir`    
+
+- `unit_tests/`
+  - `README.md` - add linebreaks to code blocks, `/outputs/` => `/data/outputs/`  
+  - `*_params.json` - `/outputs/` => `/data/outputs/` & `$outputRunDataDir` => `$outputDestDir`  
+  - `derive_level_paths_test.py` - `$outputRunDataDir` => `$outputDestDir`  
+  - `check_unit_errors_test.py` - `/outputs/` => `/data/outputs/`  
+  - `shared_functions_test.py` - `$outputRunDataDir` => `$outputDestDir`
+  - `split_flows_test.py`  - `/outputs/` => `/data/outputs/`  
+  - `tools/` 
+    - `*_params.json` - `/outputs/` => `/data/outputs/` & `$outputRunDataDir` => `$outputDestDir`  
+
+<br/><br/>
 
 ## v4.3.3.7 - 2023-03-22 - [PR#856](https://github.com/NOAA-OWP/inundation-mapping/pull/856)
 
