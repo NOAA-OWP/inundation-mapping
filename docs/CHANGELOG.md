@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.6.0 - 2023-03-02 - [PR#868](https://github.com/NOAA-OWP/inundation-mapping/pull/868)
+
+This pull request adds a new feature to `fim_post_processing.sh` to aggregate all of the hydrotables for a given HUC into a single HUC-level `hydrotable.csv` file. Note that the aggregation step happens near the end of `fim_post_processing.sh` (after the subdivision and calibration routines), and the branch hydrotable files are preserved in the branch directories for the time being.
+
+### Changes  
+
+- `fim_pipeline.sh`: created a new variable `$jobMaxLimit` that multiplies the `$jobHucLimit` and the `$jobBranchLimit`
+- `fim_post_processing.sh`: added new aggregation/concatenation step after the SRC calibration routines; passing the new `$jobMaxLimit` to the commands that accept a multiprocessing job number input; added `$skipcal` argument to the USGS rating curve calibration routine
+- `src/add_crosswalk.py`: changed the default value for `calb_applied` variable to be a boolean
+- `src/aggregate_by_huc.py`: file renamed (previous name: `src/usgs_gage_aggregate.py`); updated to perform branch to huc file aggregation for `hydroTable_{branch_id}.csv` and `src_full_crosswalked_{branch_id}.csv` files; note that the input arguments ask you to specify which file types to aggregate using the flags: `-elev`, `-htable`, and `-src`
+- `tools/inundate_gms.py`: added check to use the aggregated HUC-level `hydrotable.csv` if it exists, otherwise continue to use the branch hydroTable files
+- `tools/inundation.py`: added `usecols` argument to the `pd.read_csv` commands to improve read time for hydrotables
+- src/subdiv_chan_obank_src.py`: add dtype to hydrotable pd.read_csv to resolve pandas dtype interpretation warnings
+
+<br/><br/>
 
 ## v4.3.5.1 - 2023-04-01 - [PR#867](https://github.com/NOAA-OWP/inundation-mapping/pull/867)
 
