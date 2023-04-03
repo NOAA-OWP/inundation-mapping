@@ -40,11 +40,6 @@ in
     shift
 done
 
-# TODO
-# update Dockerfile to add this as an env value, and delete line below
-projectDir=/foss_fim
-
-
 # print usage if arguments empty
 if [ "$runName" = "" ]
 then
@@ -52,10 +47,10 @@ then
     usage
 fi
 
-outputRunDataDir=$outputDataDir/$runName
+outputDestDir=$outputsDir/$runName
 
-## Check for run data directory ##
-if [ ! -d "$outputRunDataDir" ]; then 
+## Check for output destination directory ##
+if [ ! -d "$outputDestDir" ]; then 
     echo "Depends on output from units and branches. Please provide an output folder name that has hucs/branches run."
     exit 1
 fi
@@ -63,16 +58,16 @@ fi
 if [ "$jobLimit" = "" ]; then jobLimit=1; fi
 
 # Clean out the other post processing files before starting
-rm -rdf $outputRunDataDir/logs/src_optimization
-rm -f $outputRunDataDir/logs/log_bankfull_indentify.log
-rm -f $outputRunDataDir/logs/subdiv_src_.log
+rm -rdf $outputDestDir/logs/src_optimization
+rm -f $outputDestDir/logs/log_bankfull_indentify.log
+rm -f $outputDestDir/logs/subdiv_src_.log
 
 # load up enviromental information
-args_file=$outputRunDataDir/runtime_args.env
-fim_inputs=$outputRunDataDir/fim_inputs.csv
+args_file=$outputDestDir/runtime_args.env
+fim_inputs=$outputDestDir/fim_inputs.csv
 
 source $args_file
-source $outputRunDataDir/params.env
+source $outputDestDir/params.env
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
@@ -86,26 +81,26 @@ post_proc_start_time=`date +%s`
 
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
-echo -e $startDiv"Start branch list aggregation"
-python3 $srcDir/aggregate_branch_lists.py -d $outputRunDataDir -f "branch_ids.csv" -o $fim_inputs
+echo -e $startDiv"Start branch aggregation"
+python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir -f "branch_ids.csv" -o $fim_inputs
 
 ## GET NON ZERO EXIT CODES FOR UNITS ##
 ## No longer applicable
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 echo -e $startDiv"Start non-zero exit code checking"
-find $outputRunDataDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputRunDataDir/branch_errors/non_zero_exit_codes.log" &
+find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 echo "Processing usgs gage aggregation"
-python3 $srcDir/aggregate_by_huc.py -fim $outputRunDataDir -i $fim_inputs -elev
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
     echo -e $startDiv"Estimating bankfull stage in SRCs"
     # Run SRC bankfull estimation routine routine
     Tstart
-    python3 $srcDir/identify_src_bankfull.py -fim_dir $outputRunDataDir -flows $bankfull_flows_file -j $jobLimit
+    python3 $srcDir/identify_src_bankfull.py -fim_dir $outputDestDir -flows $bankfull_flows_file -j $jobLimit
     Tcount
 fi
 
@@ -114,7 +109,7 @@ if [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC channel/overbank subdivision routine"
     # Run SRC Subdivision & Variable Roughness routine
     Tstart
-    python3 $srcDir/subdiv_chan_obank_src.py -fim_dir $outputRunDataDir -mann $vmann_input_file -j $jobLimit
+    python3 $srcDir/subdiv_chan_obank_src.py -fim_dir $outputDestDir -mann $vmann_input_file -j $jobLimit
     Tcount
 fi
 
@@ -124,7 +119,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     echo    
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputRunDataDir -usgs_rc $inputDataDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputDestDir -usgs_rc $inputsDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
     Tcount
     date -u
 fi
@@ -132,7 +127,8 @@ fi
 ## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
     if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file), but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
+        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file),"
+        echo "but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
         exit 1
     else
         source $CALB_DB_KEYS_FILE
@@ -162,7 +158,7 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
         echo "Loading HUC Data"
         echo
 
-        ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputDataDir/wbd/WBD_National.gpkg WBDHU8
+        ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
 
         echo "Loading Point Data"
         echo
@@ -179,7 +175,7 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tstart
     echo
     echo -e $startDiv"Performing SRC adjustments using benchmark point database"
-    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputRunDataDir -j $jobLimit
+    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit
     Tcount
     date -u
 fi
@@ -190,7 +186,7 @@ fi
 echo 
 echo -e $startDiv"Aggregating branch hydrotables"
 Tstart
-python3 $srcDir/aggregate_by_huc.py -fim $outputRunDataDir -i $fim_inputs -htable
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable
 Tcount
 date -u
 
@@ -198,13 +194,13 @@ echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
 Tstart
-python3 /foss_fim/tools/combine_crosswalk_tables.py -d $outputRunDataDir -o $outputRunDataDir/crosswalk_table.csv
+python3 /foss_fim/tools/combine_crosswalk_tables.py -d $outputDestDir -o $outputDestDir/crosswalk_table.csv
 Tcount
 date -u
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo "---- Start of fim_post_processing complete"
+echo "---- End of fim_post_processing, fim_post_processing complete"
 echo "---- Ended: `date -u`"
 Calc_Duration $post_proc_start_time
 echo

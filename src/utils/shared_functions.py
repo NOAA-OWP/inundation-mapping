@@ -104,7 +104,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
 
 
 def get_fossid_from_huc8(huc8_id,foss_id_attribute='fossid',
-                         hucs=os.path.join(os.environ['inputDataDir'],'wbd','WBD_National.gpkg'),
+                         hucs=os.path.join(os.environ['inputsDir'],'wbd','WBD_National.gpkg'),
                          hucs_layerName=None):
 
     hucs = fiona.open(hucs,'r',layer=hucs_layerName)

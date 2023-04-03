@@ -49,13 +49,12 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d
 # Base Image that has GDAL, PROJ, etc
 FROM osgeo/gdal:ubuntu-full-3.1.2
 ARG dataDir=/data
-# remove below line, and uncomment # ENV projectDir=/foss_fim, & delete this line
-ARG projectDir=/foss_fim
-# ENV projectDir=/foss_fim
+ENV projectDir=/foss_fim
 ARG depDir=/dependencies
-ENV inputDataDir=$dataDir/inputs
-ENV outputDataDir=/outputs
+ENV inputsDir=$dataDir/inputs
+ENV outputsDir=/outputs
 ENV srcDir=$projectDir/src
+ENV workDir=/fim_temp
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
@@ -65,6 +64,8 @@ ARG GroupName=fim
 RUN addgroup --gid $GroupID $GroupName
 ENV GID=$GroupID
 ENV GN=$GroupName
+
+RUN mkdir -p $workDir
 
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
@@ -91,15 +92,25 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
 ## install python 3 modules ##
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off PIP_NO_BINARY=shapely,pygeos pipenv install --system --deploy --ignore-pipfile
-#RUN pip3 install pipenv==2022.4.8 && pipenv install --system --deploy --ignore-pipfile (too slow to
-#     leave out shapely,pygeos at this time. Likely better after upgrading)
+RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
 
-# TEMP FIX as neither shapely or Shapely is staying in the pip list. If we manually add
-# it with pip (not pipenv), it works. Notice case for Shapely versus shapely. 
-# This temp fix works for now until we can reconsile the shapely package,
-# pygeos, geopanda's and possibly others (coming soon)
-RUN pip install shapely==1.7.0
+# ----------------------------------
+# Mar 2023
+# There are some nuances in the whitebox python downloads in that the first time it loads
+# it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
+# required for the whitebox python library to work. We don't want to have FIM attempting a download
+# each time a container is opened and the whitebox engine is called.
+# Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
+# Whitebox code detects that the engine it there and makes no attempt to update it.
+# We download and unzip it to the same file folder that pip deployed the whitebox library.
+# Whitebox also attempts to always download a folder called testdata regardless of use. 
+# We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
+RUN wbox_path=/usr/local/lib/python3.8/dist-packages/whitebox/ && \
+wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
+cp $wbox_path/WBT/whitebox_tools $wbox_path && \
+mkdir $wbox_path/testdata
+# ----------------------------------
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /

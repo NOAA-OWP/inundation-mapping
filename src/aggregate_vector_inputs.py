@@ -34,7 +34,7 @@ def identify_nwm_ms_streams(nwm_streams_filename,ahps_filename,nwm_streams_all_f
     # Subset NHDPlus HR
     nwm_streams['is_relevant_stream'] = nwm_streams['is_headwater'].copy()
 
-    nwm_streams = nwm_streams.explode()
+    nwm_streams = nwm_streams.explode(index_parts=True)
 
     # Trace down from headwaters
     nwm_streams.set_index('ID',inplace=True,drop=False)
@@ -93,7 +93,7 @@ def find_nwm_incoming_streams(nwm_streams_,wbd,huc_unit):
         col_name = f"HUC{huc_unit}"
         huc = row[col_name]
         huc_mask = wbd.loc[wbd[col_name]==str(huc)]
-        huc_mask = huc_mask.explode()
+        huc_mask = huc_mask.explode(index_parts=True)
         huc_mask = huc_mask.reset_index(drop=True)
 
         # Input nwm streams
@@ -104,7 +104,7 @@ def find_nwm_incoming_streams(nwm_streams_,wbd,huc_unit):
         else:
             raise TypeError("Pass dataframe or filepath for nwm streams")
 
-        nwm_streams = nwm_streams.explode()
+        nwm_streams = nwm_streams.explode(index_parts=True)
         nwm_streams = nwm_streams.reset_index(drop=True)
 
         for index, polygon in enumerate(huc_mask.geometry):
@@ -239,7 +239,7 @@ def subset_stream_networks(args, huc):
     del wbd8
 
     huc_mask = selected_wbd4.loc[selected_wbd4.HUC4.str.startswith(huc)]
-    huc_mask = huc_mask.explode()
+    huc_mask = huc_mask.explode(index_parts=True)
     huc_mask = huc_mask.reset_index(drop=True)
 
     if len(selected_wbd8.HUC8) > 0:

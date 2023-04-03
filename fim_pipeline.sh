@@ -22,10 +22,6 @@ Running the `fim_pipeline.sh` is a quicker process than running all three steps 
 
 set -e
 
-# TODO
-# update Dockerfile to add this as an env value, and delete line below
-projectDir=/foss_fim
-
 # See fim_pre_processing.sh for details of how to use this script. fim_pre_processing.sh
 # is a proxy for collecting and validating input.
 
@@ -38,8 +34,7 @@ source $srcDir/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))
 
-
-logFile=$outputRunDataDir/logs/unit/pipeline_summary_unit.log
+logFile=$outputDestDir/logs/unit/pipeline_summary_unit.log
 process_wb_file=$projectDir/fim_process_unit_wb.sh
 
 pipeline_start_time=`date +%s`
@@ -48,13 +43,13 @@ pipeline_start_time=`date +%s`
 # Why an if and else? watch the number of colons
 if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
-                parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList 
+        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList 
     else
         parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     fi
 else 
     if [ "$jobHucLimit" = "1" ]; then
-                parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName ::: $hucList
+        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName ::: $hucList
     else
         parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file  $runName  ::: $hucList
     fi
