@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.3.5.1 - 2023-04-01 - [PR#867](https://github.com/NOAA-OWP/inundation-mapping/pull/867)
+
+outputs_cleanup.py was throwing an error saying that the HUC source directory (to be cleaned up), did not exist. This was confirmed in a couple of environments. The src path in run_unit_wb.sh was sending in the "outputs" directory and not the "fim_temp" directory. This might have been a merge issue.
+
+The log file was moved to the unit_errors folder to validate the error, as expected.
+
+### Changes  
+
+- `src/run_unit_wb.sh`: Change the source path being submitted to `outputs_cleanup.py` from the `outputs` HUC directory to the `fim_temp` HUC directory.
+- `fim_process_unit_wb.sh`: Updated the phrase "Copied temp directory" to "Moved temp directory"
+
+<br/><br/>
+
 ## v4.3.5.0 - 2023-03-02 - [PR#857](https://github.com/NOAA-OWP/inundation-mapping/pull/857)
 
 Addresses changes to function calls needed to run upgraded Shapely library plus other related library upgrades. Upgraded libraries include:

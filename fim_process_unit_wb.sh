@@ -128,7 +128,7 @@ fi
 echo "============================================================================================="
 echo 
 mv -f $tempHucDataDir $outputHucDataDir
-echo "***** Copied temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
 echo
 echo "============================================================================================="
 
