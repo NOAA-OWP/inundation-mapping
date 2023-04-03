@@ -3,6 +3,15 @@
 ## Level is equal to the parent script: 'unit' or 'branch'
 level=$1
 
+if [ "$level" = "branch" ]; then
+    b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
+    z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg
+elif [ "$level" = "unit" ]; then
+    # Branch zero has a different source for -b and -z arguments
+    b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
+    z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
+fi
+
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
@@ -75,7 +84,7 @@ Tcount
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"
 date -u
 Tstart
-$srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $tempHucDataDir/wbd8_clp.gpkg -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg -n $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg 
+$srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg -w $tempHucDataDir/wbd8_clp.gpkg -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg -n $b_arg -m $max_split_distance_meters -t $slope_min -b $lakes_buffer_dist_meters
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
@@ -175,14 +184,5 @@ Tcount
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
 date -u
 Tstart
-if [ "$level" = "branch" ]; then
-    b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
-    z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg
-elif [ "$level" = "unit" ]; then
-    # Branch zero has a different source for -b and -z arguments
-    b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
-    z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
-fi
-
 python3 -m memory_profiler $srcDir/add_crosswalk.py -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg -s $tempCurrentBranchDataDir/src_base_$current_branch_id.csv -l $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -f $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg -r $tempCurrentBranchDataDir/src_full_crosswalked_$current_branch_id.csv -j $tempCurrentBranchDataDir/src_$current_branch_id.json -x $tempCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv -w $tempHucDataDir/wbd8_clp.gpkg -b $b_arg -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif -m $manning_n -z $z_arg -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv
 Tcount

@@ -69,6 +69,8 @@ cmd_args+=" -zp $tempHucDataDir/3d_nld_subset_levees_burned.gpkg"
 cmd_args+=" -wb $wbd_buffer"
 cmd_args+=" -lpf $input_nld_levee_protected_areas"
 cmd_args+=" -lps $tempHucDataDir/LeveeProtectedAreas_subset.gpkg"
+cmd_args+=" -ki $input_sinks"
+cmd_args+=" -ko $tempHucDataDir/nwm_subset_sinks.gpkg"
 
 #echo "$cmd_args"
 python3 $srcDir/clip_vectors_to_wbd.py $cmd_args

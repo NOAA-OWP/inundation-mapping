@@ -31,7 +31,9 @@ def subset_vector_layers(subset_nwm_lakes,
                          subset_nld_lines_preprocessed,
                          wbd_buffer_distance,
                          levee_protected_areas,
-                         subset_levee_protected_areas):
+                         subset_levee_protected_areas,
+                         sinks,
+                         subset_sinks):
         
     print("Getting Cell Size", flush=True)
     with rio.open(dem_filename) as dem_raster:
@@ -140,6 +142,20 @@ def subset_vector_layers(subset_nwm_lakes,
         sys.exit(0)
     del nwm_streams
 
+    # Subset sinks
+    print("Subsetting sinks", flush=True)
+
+    sinks = gpd.read_file(sinks, mask = wbd)
+
+    if len(sinks) > 0:
+        sinks = gpd.clip(sinks, wbd_streams_buffer)
+
+        sinks.to_file(sinks, driver=getDriver(subset_sinks), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
+    else:
+        print ("No sinks within HUC " + str(hucCode) + " boundaries.")
+        sys.exit(0)
+    del sinks
+
 
 if __name__ == '__main__':
 
@@ -186,6 +202,8 @@ if __name__ == '__main__':
                         help='Levee-protected areas filename', required=True)    
     parser.add_argument('-lps','--subset-levee-protected-areas', 
                         help='Levee-protected areas subset', required=True)
+    parser.add_argument('-ki', '--sinks', help='Sinks input filename', required=True)
+    parser.add_argument('-ko', '--subset-sinks', help='Sinks subset output filename', required=True)
     
     args = vars(parser.parse_args())
 
