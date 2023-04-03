@@ -263,7 +263,7 @@ if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
     date -u
     Tstart
-    $srcDir/outputs_cleanup.py -d $outputHucDataDir -l $deny_unit_list -b $hucNumber
+    $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
     Tcount
 fi
 
