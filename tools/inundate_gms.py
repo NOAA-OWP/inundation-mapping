@@ -172,7 +172,7 @@ def __inundate_gms_generator( hucs_branches,
         catchments_file_name = f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif'
         catchments_branch = os.path.join( huc_dir, branch_id, catchments_file_name )
         
-        # FIM versions > 4.3.4? use an aggregated hydrotable file rather than individual branch hydrotables
+        # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
         hydroTable_huc = os.path.join( huc_dir, 'hydrotable.csv' )
         if os.path.isfile(hydroTable_huc):
             htable_req_cols = ['HUC','branch_id','feature_id','HydroID','stage','discharge_cms','LakeID']

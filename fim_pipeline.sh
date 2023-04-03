@@ -66,7 +66,6 @@ date -u
 
 ## POST PROCESSING
 
-# TODO: multiply the two job limits together for the limit here ??
 . $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
 
 echo
