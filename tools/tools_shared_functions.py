@@ -777,7 +777,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
 #        metadata_gdf = metadata_gdf[retain_attributes]
     print("Performing spatial and tabular operations on geodataframe...")
     #Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
-    joined_gdf = gpd.sjoin(metadata_gdf, huc8, how = 'inner', op = 'intersects', lsuffix = 'ahps', rsuffix = 'wbd')
+    joined_gdf = gpd.sjoin(metadata_gdf, huc8, how = 'inner', predicate = 'intersects', lsuffix = 'ahps', rsuffix = 'wbd')
     joined_gdf = joined_gdf.drop(columns = 'index_wbd')
 
     #Remove all Alaska HUCS (Not in NWM v2.0 domain)
@@ -1340,7 +1340,7 @@ def process_extent(extent, profile, output_raster = False):
         
     #Convert extent to feature and explode geometry
     poly_extent = raster_to_feature(extent, profile, footprint_only = True)
-    poly_extent = poly_extent.explode()
+    poly_extent = poly_extent.explode(index_parts=True)
     
     #Fill holes in extent
     poly_extent_fill_holes=MultiPolygon(Polygon(p.exterior) for p in poly_extent['geometry'])
@@ -1351,7 +1351,7 @@ def process_extent(extent, profile, output_raster = False):
     #Dissolve filled holes with main map and explode
     poly_extent['dissolve_field'] = 1
     poly_extent = poly_extent.dissolve(by = 'dissolve_field')
-    poly_extent = poly_extent.explode()
+    poly_extent = poly_extent.explode(index_parts=True)
     poly_extent = poly_extent.reset_index()
     
     #Convert filled polygon back to raster

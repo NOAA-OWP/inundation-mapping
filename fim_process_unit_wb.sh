@@ -6,8 +6,7 @@
 
 # This file will also catch any and all errors from src/run_unit_wb.sh file, even script aborts from that file
 
-# You really can not call directly to src/run_unit_wb.sh as that file relys on export values
-# from this file.
+# You really can not call directly to src/run_unit_wb.sh as that file relies on export values from this file.
 # run_unit_wb will futher process branches with its own iterator (parallelization).
 
 # Sample Usage: /foss_fim/fim_process_unit_wb.sh rob_test_wb_1 05030104
@@ -59,11 +58,13 @@ fi
 echo "=========================================================================="
 echo "---- Start of huc processing for $hucNumber"
 
-# outputDataDir, srcDir and others come from the Dockerfile
 
-export outputRunDataDir=$outputDataDir/$runName
-export outputHucDataDir=$outputRunDataDir/$hucNumber
-export outputBranchDataDir=$outputHucDataDir/branches
+# outputsDir, srcDir, workDir and others come from the Dockerfile
+export tempRunDir=$workDir/$runName
+export outputDestDir=$outputsDir/$runName
+export tempHucDataDir=$tempRunDir/$hucNumber
+export outputHucDataDir=$outputDestDir/$hucNumber
+export tempBranchDataDir=$tempHucDataDir/branches
 export current_branch_id=0
 
 ## huc data
@@ -72,16 +73,17 @@ if [ -d "$outputHucDataDir" ]; then
 fi
 
 # make outputs directory
-mkdir -p $outputHucDataDir
-mkdir -p $outputBranchDataDir
+mkdir -p $tempHucDataDir
+mkdir -p $tempBranchDataDir
 
 # Clean out previous unit logs and branch logs starting with this huc
-rm -f $outputRunDataDir/logs/unit/"$hucNumber"_unit.log
-rm -f $outputRunDataDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $outputRunDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputRunDataDir/unit_errors/"$hucNumber"*.log
-rm -f $outputRunDataDir/branch_errors/"$hucNumber"*.log
-hucLogFileName=$outputRunDataDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputDestDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
+rm -f $outputDestDir/logs/branch/"$hucNumber"*.log
+rm -f $outputDestDir/unit_errors/"$hucNumber"*.log
+rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
+
+hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
@@ -89,9 +91,6 @@ hucLogFileName=$outputRunDataDir/logs/unit/"$hucNumber"_unit.log
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
 return_codes=( "${PIPESTATUS[@]}" )
-
-#echo "huc return codes are:"
-#echo $return_codes
 
 # we do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
@@ -101,7 +100,7 @@ do
     # Make an extra copy of the unit log into a new folder.
 
     # Note: It was tricky to load in the fim_enum into bash, so we will just 
-    # go with the code for now
+    # go with the exit code for now
     if [ $code -eq 0 ]; then
         echo
         # do nothing
@@ -122,8 +121,17 @@ done
 
 if [ "$err_exists" = "1" ]; then
     # copy the error log over to the unit_errors folder to better isolate it
-    cp $hucLogFileName $outputRunDataDir/unit_errors
+    cp $hucLogFileName $outputDestDir/unit_errors
 fi
-echo "=========================================================================="
+
+# Here we're using the mv command to move the contents of the temp directory into the specified output directory
+echo "============================================================================================="
+echo 
+mv -f $tempHucDataDir $outputHucDataDir
+echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+echo
+echo "============================================================================================="
+
+
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0
