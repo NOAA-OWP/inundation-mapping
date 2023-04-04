@@ -38,6 +38,7 @@ def subset_vector_layers(subset_nwm_lakes,
         dem_cellsize = max(dem_raster.res)
 
     wbd = gpd.read_file(wbd_filename)
+    dem_domain = gpd.read_file(dem_domain)
 
     # Get wbd buffer
     print("Create wbd buffer", flush=True)
