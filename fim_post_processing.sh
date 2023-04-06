@@ -137,7 +137,7 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
         ## into global variables that can be used in other files, including python.
 
         ## Why not just leave the word export in front of each of the keys in the
-        ## calb_db_keys.env? Becuase that file is used against docker-compose
+        ## calb_db_keys.env? Because that file is used against docker-compose        
         ## when we start up that part of the sytem and it does not like the word
         ## export.
 
@@ -154,9 +154,7 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
 
         Tstart
         echo
-        echo -e $startDiv"Populate PostgrSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
-        echo "Loading HUC Data"
-        echo
+        echo -e $startDiv"Populate PostgreSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"        echo
 
         ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
 
