@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.5.? - 2023-04-01 - [PR#874](https://github.com/NOAA-OWP/inundation-mapping/pull/874)
+## v4.3.5.? - 2023-04-06 - [PR#874](https://github.com/NOAA-OWP/inundation-mapping/pull/874)
 
 Hotfix to `process_branch.sh` because it wasn't removing code-61 branches on exit. 
 
