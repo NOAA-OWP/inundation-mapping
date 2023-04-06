@@ -60,6 +60,9 @@ date -u
 
 ## POST PROCESSING
 
+# Remove run from the fim_temp directory
+rm -d $workDir/$runName
+
 # TODO: multiply the two job limits together for the limit here ??
 . $projectDir/fim_post_processing.sh -n $runName -j $jobHucLimit
 
