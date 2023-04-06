@@ -291,8 +291,8 @@ if __name__ == '__main__':
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 
-    max_length             = float(args['max_length'])
-    slope_min              = float(args['slope_min'])
-    lakes_buffer_input     = float(args['lakes_buffer_input'])
+    args['max_length'] = float(args['max_length'])
+    args['slope_min'] = float(args['slope_min'])
+    args['lakes_buffer_input'] = float(args['lakes_buffer_input'])
 
     split_flows(**args)
