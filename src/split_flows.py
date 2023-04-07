@@ -40,25 +40,40 @@ def split_flows(flows_filename,
                 nwm_streams_filename,
                 max_length, 
                 slope_min, 
-                lakes_buffer_input,
-                sinks_filename):
+                lakes_buffer_input):
 
     def snap_and_trim_flow(snapped_point, flows):
+        # Find nearest flow line
+        if len(flows) > 1:
+            sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows)
+            nearest_index = int(sjoin_nearest['LINKNO'])
+            flow = flows[flows['LINKNO']==nearest_index]
+            flow.index = [0]
+        else:
+            flow = flows
+            nearest_index = None
+
         # Snap to DEM flows
-        snapped_point['geometry'] = flows.interpolate(flows.project(snapped_point.geometry))
+        snapped_point['geometry'] = flow.interpolate(flow.project(snapped_point.geometry))[0]
 
         # Trim flows to snapped point
         # buffer here because python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
-        trimmed_line = shapely_ops_split(flows.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1))
+        trimmed_line = shapely_ops_split(flow.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1))
         # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
-        # Note to dear reader: last here is really the most upstream segmennt (see crevats above).  When we split we should get 3 segments, the most downstream one
+        # Note to dear reader: last here is really the most upstream segment (see crevats above).  When we split we should get 3 segments, the most downstream one
         # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.  We want that last one which is why we trimmed_line[len(trimmed_line)-1]
         last_line_segment = pd.DataFrame({'id':['first'],'geometry':[trimmed_line.geoms[len(trimmed_line.geoms)-1].wkt]})
         last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads) # can be last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment) # when we update geopandas verisons
-        last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flows.crs)
+        last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flow.crs)
 
         # replace geometry in merged flowine
-        flows['geometry'] = last_line_segment_geodataframe.iloc[0]['geometry']
+        flow_geometry = last_line_segment_geodataframe.iloc[0]['geometry']
+
+        if nearest_index is not None:
+            # Update geometry of line closest to snapped_point
+            flows.loc[flows['LINKNO']==nearest_index, 'geometry'] = flow_geometry
+        else:
+            flows['geometry'] = flow_geometry
 
         return flows
 
@@ -116,9 +131,8 @@ def split_flows(flows_filename,
 
     # If branch 0: loop over NWM terminal segments
     else:
-        flows_list = []
         nwm_streams_terminal = nwm_streams[nwm_streams['to']==0]
-        if not nwm_streams.empty:
+        if not nwm_streams_terminal.empty:
             for i, row in nwm_streams_terminal.iterrows():
                 linestring_geo = row['geometry']
                 # Identify the end vertex (most downstream, should be last), transform into geodataframe
@@ -127,7 +141,7 @@ def split_flows(flows_filename,
                 terminal_nwm_point.append({'ID':'terminal','geometry':last})
                 snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-                flows_list.append(snap_and_trim_flow(snapped_point, row))
+                flows = snap_and_trim_flow(snapped_point, flows)
 
 
     # split at HUC8 boundaries
