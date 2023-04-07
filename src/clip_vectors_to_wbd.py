@@ -140,20 +140,6 @@ def subset_vector_layers(subset_nwm_lakes,
         sys.exit(0)
     del nwm_streams
 
-    # Subset sinks
-    print("Subsetting sinks", flush=True)
-
-    sinks = gpd.read_file(sinks, mask = wbd)
-
-    if len(sinks) > 0:
-        sinks = gpd.clip(sinks, wbd_streams_buffer)
-
-        sinks.to_file(sinks, driver=getDriver(subset_sinks), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
-    else:
-        print ("No sinks within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
-    del sinks
-
 
 if __name__ == '__main__':
 
