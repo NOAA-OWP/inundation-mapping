@@ -5,14 +5,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-The main contribution and conclusion of this work centers around a fundamental limitation in HAND based FIM which is a failure to account for multiple possible sources of fluvial inundation since HAND only considers inundation from the nearest drainage line.
+The main contribution and conclusion of this work centers around a fundamental limitation in HAND based FIM which is a failure to account for multiple possible sources of fluvial inundation since HAND only considers inundation from the nearest flowpath.
 We illustrate that reducing the Horton-Strahler stream order of a HAND processing unit down to one enhances skill by significantly reducing false negatives at junctions of major streams.
 In order to reduce stream order of the NWM stream network for HAND computation, we dissected the NWM network into two simpler units of singular Horton-Strahler stream order and mosaiced the resulting FIMs derived from each.
 The NWM Mainstems (MS) stream network, which covers roughly 4-5\% of the NWM Full Resolution (FR) network, spans all established forecasting points in the Advanced Hydrologic Prediction System (AHPS) and downstream reaches.
 The inundation from MS derived HAND is mosaiced together with the inundation of FR derived HAND.
 Extending order reduction to the entire network, the Generalized Mainstem (GMS) technique discretizes the NWM FR network into level paths (LP) of unit stream order for HAND computation.
 All LP based FIM derived from LP based HAND datasets are mosaiced together to form one seamless FIM.
-Dissecting the stream network into regions of LPs with unit stream order is necessary because HAND has a ``nearest drainage'' limitation meaning it only accounts for riverine inundation sourced from the nearest drainage line.
+Dissecting the stream network into regions of LPs with unit stream order is necessary because HAND has a ``nearest drainage'' limitation meaning it only accounts for riverine inundation sourced from the nearest flowpath.
 In our evaluation of this technique, we observe that HAND based FIM improves in skill as we extend from nearest drainage inundation in FR to multiple drainage support in MS for only 4-5\% of the FR network.
 Extending multiple drainage support to the entire FR network with GMS based HAND improves skill at around the same magnitude that MS improved upon FR.
 Thus we conclude that deriving HAND with independent stream networks of unit Horton-Strahler stream order enhances the skill of FIM but offers diminishing returns as we extend from 4-5\% of the network with MS to 100\% of the network with GMS since deriving HAND and FIMs at these localized scale does add computational expense.
@@ -21,7 +21,7 @@ This primary contribution also affects the parameters used to compute stage-disc
 This shift in SRC behavior is driven by larger catchments that influence reach averaged geometric parameters in the Manning's equation.
 Related to SRCs, we noted better results and more sensitivity to unit stream order networks with the higher Manning's n value of 0.12 when compared to 0.06 for high magnitude events at 1\% (100 year or yr) and 0.2\% (500 year or yr) recurrence intervals.
 Additionally, we noted better performance for more intense 500 yr events which we attribute to a stronger influence of poor quality bathymetric data in 100 yr magnitude inundation extents.
-While the AGREE DEM procedure is meant to add some bathymetry primarily motivated to enhance catchment and stream line delineation, it does introduce three parameters that have major implications in the quality of SRCs and the resulting FIMs.
+While the AGREE DEM procedure is meant to add some bathymetry primarily motivated to enhance catchment and flowpath delineation, it does introduce three parameters that have major implications in the quality of SRCs and the resulting FIMs.
 Utilizing the highest resolution Lidar and bathymetric data should also improve the vertical accuracy of HAND and better account for fine grain features that greatly affect inundation extents.
 We leave questions related to Manning's n localization as well as bathymetry integration, estimation, and/or calibration open for future research to answer.
 Two other issues left open for improvement include the integration of higher resolution Lidar-based digital elevation maps (DEM) as well as the use of physics-based models for continental scale, high resolution forecasting applications.

@@ -60,7 +60,6 @@ The Height Above Nearest Drainage (HAND) terrain model is one such technique tha
 \subsection{Height Above Nearest Drainage}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-HAND normalizes topography along the nearest drainage path and it has been demonstrated to be a good proxy and indicator of a series of important environmental conditions including soil environments, landscape classes, soil gravitational potentials, geomorphologies, soil moisture, and groundwater dynamics \cite{renno2008hand,nobre2011height}. 
 \citeA{nobre2016hand} showed evidence for utilizing the drainage normalizing HAND dataset as a proxy for flood potential to make static flood inundation maps from known stages.
 The terrain index also provides additional utility in the observation of riverine flood inundation mapping from remote sensing especially in areas of high electromagnetic interference such as vegetated and anthropogenic areas \cite{aristizabal2020high,shastry2019using,huang2017comparison,twele2016sentinel,aristizabal2021mapping}.
 \citeA{zheng2018river} developed a methodology for determining stage-discharge relationships known as SRCs by sampling reach-averaged parameters from HAND datasets and inputting into the Manning's equation \cite{gauckler1867etudes,manning1890flow}.
@@ -73,19 +72,19 @@ This collection of methods, coupling HAND with SRCs, have been experimented with
 %
 HAND operates on many underlying assumptions since it can only be used as an inundation proxy or no physics model and thus, not a true hydrodynamic inundation model \cite{nobre2016hand,liu2016cybergis,liu2020height}.
 HAND, to our knowledge, has only been applied to natural, inland, and riverine inundation applications thus it is also missing pluvial, coastal, ground water, and dam break components among other possible sources of flooding.
-Additionally, in order to flood an area, HAND assumes all areas eligible for inundation must drain to some nearest stream line which is used for catchment allocation and relative elevation calculation \cite{nobre2016hand,nobre2011height,liu2016cybergis,liu2020height,maidment2017conceptual,garousi2019terrain,zheng2018river,zheng2018geoflood,johnson2019integrated,renno2008hand,hocini2020performance}. 
+Additionally, in order to flood an area, HAND assumes all areas eligible for inundation must drain to some nearest flowpath which is used for catchment allocation and relative elevation calculation \cite{nobre2016hand,nobre2011height,liu2016cybergis,liu2020height,maidment2017conceptual,garousi2019terrain,zheng2018river,zheng2018geoflood,johnson2019integrated,renno2008hand,hocini2020performance}. 
 Stream thalweg networks must also collectively drain to a singular outlet point for a given processing region \cite{nobre2016hand,zheng2018geoflood,renno2008hand}.
 Since elevations don't naturally do this, they must undergo a long series of hydro-conditioning processes to enforce monotonically decreasing elevations across an entire processing unit along with hydrologically correct directions of flow \cite{nobre2016hand,nobre2011height,liu2016cybergis,liu2020height,donchyts2016global,renno2008hand}.
 The level of digital elevation map (DEM) manipulation required to enforce this assumption can be substantial depending on the region and can be a significant source of error.
 The drainage enforcing assumption also interacts with an inability to properly account for fluvial inundation in regions of DEM depressions that lack natural drainage to riverine areas \cite{nobre2016hand,renno2008hand}.
 
-When used for FIM applications, HAND assumes only fluvial inundation sourced from its nearest drainage line is accounted for \cite{nobre2016hand,mcgehee2016modified}.
+When used for FIM applications, HAND assumes only fluvial inundation sourced from its nearest flowpath is accounted for \cite{nobre2016hand,mcgehee2016modified}.
 Catchments are independent of one another for FIM purposes meaning a reaches' stage value is only used to threshold the HAND values within its respective catchment \cite{liu2016cybergis,zheng2018river,zheng2018geoflood}.
 This assumption plays to the ``Nearest Drainage'' term in HAND and creates a significant limitation within HAND for FIM applications \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
 At the junction of high stream order and high flow rivers with lower flow tributaries, there can be a lack of inundation extents exhibited which is known colloquially in the forecasting community as the ``catchment boundary problem''.
 The academic community has somewhat referenced this issue before but it has been characterized more as a problem with the stream delineation process that comes from thresholding the drainage accumulation maps \cite{nobre2016hand,li2020evaluation}.
 Later in this study, we will re-introduce this problem and demonstrate how we initialize with a stream network (that of the NWM's) and thus avoid having to threshold accumulations to some arbitrary value to define stream networks.
-We illustrate how computing HAND independently for stream lines of unit stream order can significantly enhance FIM performance by accounting for multiple sources of fluvial inundation that may exist in certain regions and flow scenarios.
+We illustrate how computing HAND independently for flowpaths of unit stream order can significantly enhance FIM performance by accounting for multiple sources of fluvial inundation that may exist in certain regions and flow scenarios.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{HAND Implementations}
@@ -95,7 +94,7 @@ Due to significant advances in high performance computing (HPC) and large scale 
 As part of the OWP's Innovators Program and NWC's Summer Institute, the National Flood Interoperability Experiment (NFIE) generated FIM hydrofabric (will be used interchangeably with the datasets produced by HAND) rapidly on a HPC \cite{maidment2017conceptual,liu2016cybergis}. 
 NFIE used open-source dependencies including the Terrain Analysis Using Digital Elevation Models (TauDEM) \cite{tarboton2005terrain} and the Geospatial Data Abstraction Library (GDAL) \cite{warmerdam2008geospatial} to compute HAND for the Continental United States (CONUS) at 331 Hydrologic Unit Code (HUC) 6 processing units in 1.34 central processing unit (CPU) years.
 By allocating 31 nodes at 20 cores per node for a total of 620 available cores to the overall operation, it enabled the production to finish up in 36 hours consuming 3.2 terrabyte (TB) of peak memory and 5 TB of total disk space.
-Originally, NFIE utilized the NHD Medium Resolution (MR) to etch or burn flowlines prior to further conditioning but more recent work has advanced this to the more current NHDPlus High Resolution (NHDPlusHR) which better agrees with the 10 m DEM from the NHDPlusHR program \cite{liu2020height}. 
+Originally, NFIE utilized the NHD Medium Resolution (MR) to enforce flowpaths prior to further conditioning but more recent work has advanced this to the more current NHDPlus High Resolution (NHDPlusHR) which better agrees with the 10 m DEM from the NHDPlusHR program \cite{liu2020height}. 
 The original NFIE dataset was employed by the NWC as an unofficial demonstration to produce forecast FIM from the NWM for additional guidance in hydro-blind regions.
 Further work by \citeA{djokic2019arc}, implemented a series of improvements to HAND including equidistant reaches, updates to use with NHDPlusHR hydrography, and AGREE DEM reconditioning \cite{hellweger1997agree} into an ESRI Arc-Hydro workflow with use in ArcGIS. 
 More notably the software added the ability to derive HAND on both the NWM FR and MS stream networks to consider multiple sources of fluvial inundation along high impact rivers of primary forecasting concern.
@@ -115,14 +114,14 @@ Here we introduce OWP FIM that utilizes a few of the latest techniques in HAND b
 Within the operational framework of OWP FIM, we introduce research demonstrating how FIM performance skill with HAND can be improved by discretizing stream networks into units of an effective unit Horton-Strahler stream order \cite{horton1945erosional,strahler1952hypsometric,strahler1952hypsometric} for HAND computation contexts.
 
 Previous authors dating back to the first HAND for FIM work by \citeA{nobre2016hand} have noted a sensitivity of mapping skill to the stream accumulation threshold which is closely related to stream density and the maximum Horton-Strahler stream order (or simply stream order) of the processing unit employed \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation}.
-HAND produced FIMs are limited in only providing inundation sourced from the nearest drainage line, however, depending on flow conditions and topography, a given area may have multiple contributing fluvial sources of surface water inundation.
+HAND produced FIMs are limited in only providing inundation sourced from the nearest flowpath, however, depending on flow conditions and topography, a given area may have multiple contributing fluvial sources of surface water inundation.
 The forecasting community, in reviewing HAND, have noted significant negative effects at the confluence of lower flow tributaries with higher flow rivers for which the phrase ``catchment boundary issue'' has been termed.
-In previous studies, FIM skill has been shown to be sensitive to the drainage density of the stream network employed as the datum for HAND which is closely related to the maximum Horton-Strahler stream order of the network \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
-This sensitivity is partly in due to the limitation that catchment boundaries place on inundation extents where only the nearest drainage line can source inundation for any particular area.
+In previous studies, FIM skill has been shown sensitivity to the drainage density of the stream network employed as the datum for HAND which is closely related to the maximum Horton-Strahler stream order of the network \cite{zhang2018comparative,mcgehee2016modified,li2020evaluation,nobre2016hand}.
+This sensitivity is partly in due to the limitation that catchment boundaries place on inundation extents where only the nearest flowpath can source inundation for any particular area.
 
 Figure \ref{fig:catchment_boundaries_issue} illustrates the exact situation our solution proposes to address where two tributaries converge with a higher order stream segment. 
 An actual map with OWP FIM is generated using the NWM full-resolution stream network and compared with a FEMA 100 yr extent (see Section \ref{ssec:evaluation} for more details) showing significant under-prediction in inundation extent.
-The higher discharge along the main segment in Figure \ref{fig:catchment_boundaries_issue} of 1,900 cubic meters per second (CMS) does not translate to the lower flow rates along the tributaries of 84 and 195 CMS. 
+The higher discharge along the main segment in Figure \ref{fig:catchment_boundaries_issue} of 1,900 cubic meters per second (cumecs) does not translate to the lower flow rates along the tributaries of 84 and 195 cumecs. 
 This is due to a lack of representation of backwater conditions in the hydraulic routing techniques used.
 As a parallel problem, there is excess water accumulated along the mainstem that cannot extend in either a fluvial or pluvial manner beyond the boundaries of the mainstem catchments.
 %
@@ -131,11 +130,11 @@ As a parallel problem, there is excess water accumulated along the mainstem that
 \includegraphics[scale=1.0]{figures/catchment_boundaries_issue.jpg}
 \caption{The figure represents an agreement map between a HAND derived FIM and one produced from the Base Level Engineering (BLE) program for a 100 yr magnitude event at HUC8 12090301.
 Agreement maps are symbolized by false negatives (FN), true negatives (TN), false positives (FP), and true positives (TP) where inundated represents the positive condition (see Section \ref{ssec:evaluation} for more details).
-The streamflows associated with each river segment are shown in CMS while the flow directions are symbolized as red arrows.
+The streamflows associated with each river segment are shown in cumecs while the flow directions are symbolized as red arrows.
 The presence of FNs at the confluence of tributaries (circled in red) with the main segment is associated with lower flow rates in the tributaries that don't account for backwater effects.
-Additionally, the flow of 1900 CMS from the main segment cannot extend to the neighboring catchments belonging to its tributaries shown here.
+Additionally, the flow of 1900 cumecs from the main segment cannot extend to the neighboring catchments belonging to its tributaries shown here.
 Water pools up vertically along the catchment boundaries of the higher order segment distorting rating curve behavior (Section \ref{sec:discussion}).
-Sourcing fluvial inundation from HAND is limited to only its nearest drainage line which is the main issue this study aims to address.
+Sourcing fluvial inundation from HAND is limited to only its nearest flowpath which is the main issue this study aims to address.
 }
 \label{fig:catchment_boundaries_issue}
 \end{figure}

@@ -10,7 +10,7 @@ Figure \ref{fig:methods_overview} gives a high level overview of the methodology
 Input data from multiple sources are preprocessed (not illustrated) and then subset to processing areas based on the model used, FR, MS, or GMS.
 The standard processing unit of OWP FIM is a HUC8 and the entire NWM FR stream network is used for enforcment.
 Later, we explain how only the NWM MS stream network is used for the MS version of HAND, while for GMS, the FR stream network is discretized into LPs before computing HAND.
-A series of hydro-conditioning steps enforces the location of stream lines, monotonically decreasing elevations, excavated bathymetry, stream thalweg breaching, and levee enforcement.
+A series of hydro-conditioning steps enforces the location of flowpaths, monotonically decreasing elevations, excavated bathymetry, stream thalweg breaching, and levee enforcement.
 After a DEM suitable for HAND's assumptions is conditioned, the FIM hydrofabric is generated including stream network, catchments, HAND, SRCs, and cross-walk table.
 The FIM hydrofabric is defined as the datasets required to make an inundation map from discharges including the relative elevation model (REM) or HAND grid, the catchments in vector and raster form, and the hydro-table (contains SRC and cross-walk information).
 In operational circumstances, the NWM streamflows are used in conjunction with the FIM hydrofabric to derive forecast FIMs.
@@ -21,7 +21,7 @@ The evaluation FIM extents are compared to the extents of the benchmark model an
 %
 \begin{figure}[H]
 \centering
-\includegraphics[scale=6.0]{figures/methods_overview.jpg}
+\includegraphics[scale=0.17]{figures/methods_overview.jpg}
 \caption{
 Methodology overview detailing high level steps followed in the study.
 The flow chart begins with the input data organized by source.
@@ -47,7 +47,7 @@ OWP FIM exclusively utilizes free and open source software dependencies includin
 Within the Python 3 ecosystem, many common packages are employed including but not limited to RichDEM, GeoPandas, Rasterio, Rasterstats, and Numba \cite{barnes2018richdem,jordahl2014geopandas,lam2015numba}. 
 To simplify setup and enhance portability across host operating systems, OWP FIM packages all dependencies up in a Docker image \cite{merkel2014docker}. 
 A user only needs to install Docker on their host machine and build the image from the provided recipe. 
-Source code is made available for this project on GitHub where a user could consult the Readme.md page for more information on how to acquire the datasets and reproduce the pipeline \cite{inundationMapping2022}.
+Source code is made available for this project where a user could consult the Readme.md page for more information on how to acquire the datasets and reproduce the pipeline \cite{inundationMapping2022,imHS2023}.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Datasets}
@@ -55,10 +55,10 @@ Source code is made available for this project on GitHub where a user could cons
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 Data sources used within OWP FIM are publicly available from a variety of government sources including the USGS, NWC, Federal Emergency Management Agency (FEMA), and US Army Core of Engineers (USACE) to enhance reproducibility and collaboration among government, academia, and industry.
-Instructions for accessing data processed for OWP FIM are provided on the project's GitHub page via an Amazon Web Services (AWS) S3 bucket furnished by the Earth Science Information Partners (ESIP) \cite{esipData2022}.
+Instructions for accessing data processed for OWP FIM are provided on the project's GitHub or HydroShare page via an Amazon Web Services (AWS) S3 bucket furnished by the Earth Science Information Partners (ESIP) \cite{esipData2022,inundationMapping2022,imHS2023}.
 The National Hydrography Dataset Plus High Resolution (NHDPlusHR) Beta Version is the latest hydrography dataset used for land surface hydrologic modeling in the US \cite{moore2019user}.
 We utilized a series of data products from the NHDPlusHR including the BurnLineEvents \cite{nhdplus2022vectors}, Value Added Attributes (VAA) \cite{nhdplus2022vectors}, Water Boundaries (WBD) or HUC Layers \cite{nhdplus2022wbd}, and the DEM elevation rasters \cite{nhdplus2022dems}.
-These BurnLines used in conjunction with the hydrofabric of the NWM V2.1 to help define flowlines for OWP FIM while the NWM hydrofabric is also used to define reservoirs for exclusion and catchments to cross-walk against for forecasting purposes \cite{nwm2022hydrofabric}.
+These BurnLines used in conjunction with the hydrofabric of the NWM V2.1 to help define flowpaths for OWP FIM while the NWM hydrofabric is also used to define reservoirs for exclusion and catchments to cross-walk against for forecasting purposes \cite{nwm2022hydrofabric}.
 For enforcing levee data, the USACE NLD is used to burn feature elevations into DEMs \cite{engineers2016national}.
 Since NHDPlusHR datasets extend beyond land borders into sea and Great Lake regions, we used the land-sea border from OpenStreetMap (OSM) \cite{osm2021landsea} and the land-lake border from Great Lakes Hydrography Dataset (GLHD) \cite{GreatLakesHydrographyDataset} to exclude those areas from production of FIMs.
 Additionally, the Base Level Engineering (BLE) datasets within FEMA Region 6 spanning parts of nine states including Colorado, New Mexico, Texas, Oklahoma, Kansas, Arkansas, Louisiana, Missouri and Mississippi at two recurrence intervals, 1\% (100 year or yr) and 0.2\% (500 year or yr), are used for validation in this study and furnished by the Interagency Flood Risk Management (InFRM) consortium \cite{fema2021base,fema2021estimated}. 
@@ -74,7 +74,7 @@ The full input datasets presented by source are listed in Table \ref{tab:data}.
 \hline
 Source & Name & Description & Citations\\
 \hline
-USGS & NHDPlusHR BurnLineEvents & Stream lines used by NHDPlusHR for hydro-enforcement. & \cite{nhdplus2022vectors} \\
+USGS & NHDPlusHR BurnLineEvents & Flowpaths used by NHDPlusHR for hydro-enforcement. & \cite{nhdplus2022vectors} \\
 \hline
 USGS & NHDPlusHR Value-Added Attributes & Database of additional attributes associated with the BurnLineEvents that enhance navigation, analysis, and display. & \cite{nhdplus2022vectors} \\
 \hline
@@ -82,7 +82,7 @@ USGS & NHDPlusHR DEM & DEM used for NHDPlusHR at 1/3 arc-second (10 m) spatial r
 \hline
 USGS & NHDPlusHR WBD & Water Boundaries (WBD) or HUCs used for spatial processing units. & \cite{nhdplus2022wbd} \\
 \hline
-NOAA-OWP & NWM Streams & Stream network center lines used by NWM for routing and forecasting adapted from NHDPlus V2 NHDFlowline\_Network feature class. & \cite{nwm2022hydrofabric} \\
+NOAA-OWP & NWM Streams & Flowpaths used by NWM for routing and forecasting adapted from NHDPlus V2 NHDFlowline\_Network feature class. & \cite{nwm2022hydrofabric} \\
 \hline
 NOAA-OWP & NWM Catchments & Surface drainage area corresponding to each reach in the NWM adapted from NHDPlus V2 Catchment feature class. & \cite{nwm2022hydrofabric} \\
 \hline
@@ -116,7 +116,7 @@ These techniques are specific for making OWP FIM and differ from the conditionin
 HAND inherently requires all areas eligible for inundation to drain to the designated drainage network.
 So to satisfy this requirment, DEMs must undergo significant manipulation.
 In other words, all areas within a given processing unit for HAND must have monotonically decreasing elevations to enable eligiblity for flooding.
-Hydro-conditioning is implemented to obtain many objectives including enforcing the location of hydrologically relevant features such as flowlines, lakes, or drainage divides whether natural or anthropogenic. 
+Hydro-conditioning is implemented to obtain many objectives including enforcing the location of hydrologically relevant features such as flowpaths, lakes, or drainage divides whether natural or anthropogenic. 
 It can also be used to simulate more accurate bathymetry which is not accounted for in the 10 m DEM \cite{gesch2002national}.
 
 Specifically within the context of OWP FIM, the hydro-conditioning operations that take place in sequential order are presented. 
@@ -147,7 +147,7 @@ The elevations found in the NLD are burned onto the DEM if those elevations were
 \subsubsection{Depression Filling}
 \label{sssec:depression_filling}
 %
-Local depressions are naturally occurring features of a DEM but must be addressed if a connected drainage network with continuous catchments are to be derived for flood modeling purposes with HAND.
+Local depressions are naturally occurring features of a DEM but must be addressed to derive a connected drainage network with continuous catchments for flood modeling purposes with HAND.
 The partially conditioned DEM was removed of depressions by filling areas with pits while preserving the stream and levee information previously enforced.
 Priority-Flood developed by \citeA{barnes2014priority} is an algorithm for filling said depressions and shown to have improved performance over early works in the field by \citeA{jenson1988extracting} implemented in \citeA{tarboton2005terrain} as well as \citeA{planchon2002fast}.
 The depression filling algorithm used in our pipeline is a Priority-Flood variant developed by \cite{zhou2016efficient} with enhanced single-thread performance and a time complexity of O(n log n) for floating point grids.
@@ -177,8 +177,8 @@ This procedure was found to increase the Critical Success Index (CSI) of resulti
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 The FIM Hydrofabric is defined here as the collection of geospatial datasets that are used for converting NWM discharges into inundation extents.
-These datasets include the HAND or relative elevation model (REM) raster, reach-level catchments raster/polygons, DEM-derived streamlines, SRCs, and cross-walk table.
-Within the context of this section, we refer to HAND as a grid of relative elevations to detrend elevations away from mean level towards elevations referenced to the nearest drainage line (See Section \ref{sssec:hand}).
+These datasets include the HAND or relative elevation model (REM) raster, reach-level catchments raster/polygons, DEM-derived flowpaths, SRCs, and cross-walk table.
+Within the context of this section, we refer to HAND as a grid of relative elevations to detrend elevations away from mean level towards elevations referenced to the nearest flowpath (See Section \ref{sssec:hand}).
 SRCs are considered stage-discharge relationships that are derived synthetically using the Manning's equation (See Section \ref{sssec:synthetic_rating_curve}).
 Lastly, a cross-walk table attempts to conflate NWM reach identifiers to those derived of the FIM stream network (See Section \ref{sssec:cross_walking_networks}).
 The following sub-sections describe how the subset and hydro-enforced geospatial datasets are converted into the FIM hydrofabric.
@@ -189,7 +189,7 @@ The following sub-sections describe how the subset and hydro-enforced geospatial
 %
 To facilitate the generation of a connected stream network and its associated catchments from the conditioned DEM, the depression-filled DEM is used to derive connectivity in the form of D-8 flow directions \cite{o1984extraction}.
 Flat resolution from flats endemic to the DEM or from depression filled regions is a costly, non-trivial procedure which was originally addressed by \citeA{garbrecht1997assignment} where flats are resolved by incrementing elevations iteratively.
-OWP FIM utilized a CyberGIS implementation of the D-8 flow direction algorithm with the accelerated resolution of flats which we found to be very efficient and effective \cite{survila2016scalable,cybergis2016}.
+OWP FIM utilized a CyberGIS implementation of the D-8 flow direction algorithm with the accelerated resolution of flats which we found efficient and effective \cite{survila2016scalable,cybergis2016}.
 For more information on the derivations of flow directions and resolving flats, please see \ref{sec:app_flow_direction_and_flat_resolution}.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -219,7 +219,7 @@ This stream network is important since it drives the HAND calculation and deriva
 \label{sssec:catchments}
 %
 Catchments were derived using the D8 connectivity established by \citeA{o1984extraction}.
-Outlet points are set at the pixel center points of the delineated stream lines explained in Section \ref{sssec:deriving_fim_stream_network}.
+Outlet points are set at the pixel center points of the delineated flowpaths explained in Section \ref{sssec:deriving_fim_stream_network}.
 The outlets act as root nodes in a tree structure and the connectivity is traversed to derive the contributing, nearest drainage region for each outlet point.
 Two sets of catchments are derived, one set of catchments denotes the unique drainage region for each thalweg pixel which is used for relative elevation calculation.
 The other catchments are derived for the drainage region for each stream reach as defined in Section \ref{sssec:deriving_fim_stream_network}. 
@@ -235,7 +235,7 @@ Contrary to some of the some other previous HAND implementations, the DEM used f
 This DEM utilizes the native elevations in regions outside of the excavated channel from the AGREE DEM method \cite{djokic2019arc}.
 Any negative values resulting from this subtraction with native elevations are replaced by zero.
 Again, HAND assumes and requires processing areas to drain thus have monotonically decreasing elevations with hydrologically correct flow directions all leading to a singular outlet point.
-While this is required for the generation of DEM-derived catchments and stream lines, it is not necessarily required for the computation of the relative elevations.
+While this is required for the generation of DEM-derived catchments and flowpaths, it is not necessarily required for the computation of the relative elevations.
 Since the use of hydro-conditioning processes to fit the drainage requirement for HAND can be extensive, we found it more fitting to use the native elevations this final HAND computation thus avoid the use of manipulated values that fit modeling assumptions.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -246,7 +246,7 @@ A method for converting forecast river discharges from the NWM to stages or rive
 For 1D hydrodynamic models such as the routing methods in the NWM, the typical procedure is to establish the stage-discharge relationship by sampling data from the DEM to derive a SRC at discrete cross-sections \cite{quintero2021development,di2011hydraulic}. 
 For this application, we utilized the reach averaged approach for developing SRCs \cite{zheng2018river}.
 The reach averaged approach seeks to sample the geometry parameters in the Manning's equation \cite{gauckler1867etudes,manning1890flow} on a reach scale then dividing those by length. 
-Previously not reported in literature to our knowledge in this form, the reach averaged Manning's formula is derived to be 
+Previously not reported in literature to our knowledge in this form, the reach averaged Manning's formula is derived as 
 %
 \begin{linenomath*}
 \begin{equation}
@@ -268,7 +268,7 @@ Due to the varying nature of stage (y in Equation \ref{eq:reach_averaged_manning
 
 Setting of the Manning's n roughness coefficient has precedent in previous continental-scale FIM (CFIM) studies \cite{maidment2017conceptual,liu2016cybergis,liu2020height,djokic2019arc,garousi2019terrain,zheng2018geoflood} with two noted values of 0.05 and 0.06 for NFIE and \citeA{djokic2019arc} respectively. 
 These values are applied universally to the entire forecasting domain across space, time, and discharge profiles.
-We note significant opportunity to enhance CFIM skill by better localizing Manning's n according to available data including but not limited to land cover, land use, stream order, stream geometry, drainage area, reach length, and discharge percentiles \cite{garousi2019terrain,johnson2019integrated}.
+We note significant opportunity to enhance CFIM skill by better localizing Manning's n according to available data including but not limited to land cover, land use, stream order, stream geometry, drainage area, reach length, and discharge percentiles \cite{garousi2019terrain,johnson2019integrated,godbout2019error,zheng2018river}.
 For now and for the purpose of this study, we examine the SRCs with Manning's n set to both 0.06 and 0.12 which we hope will shed some light on the sensitivity of this parameter to HAND based FIMs.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -277,7 +277,7 @@ For now and for the purpose of this study, we examine the SRCs with Manning's n 
 %
 The DEM based stream network derived in Section \ref{sssec:deriving_fim_stream_network} must be associated with NWM reach identifiers so that a discharge can be converted to stage and later inundation extents.
 For the FR version of HAND, we overlap the reach catchments derived in Section \ref{sssec:catchments} with the NWM catchments matching the ID of the NWM catchment that most overlaps the derived catchment for HAND.
-For two subsequent HAND methods, MS and GMS, discussed in Sections \ref{sssec:nws_mainstems} and \ref{sssec:generalized_mainstems}, respectively, we find the mid-point of the derived stream reach line described in Section \ref{sssec:deriving_fim_stream_network} and find the NWM catchment that contains the mid-point.
+For two subsequent HAND methods, MS and GMS, discussed in Sections \ref{sssec:nws_mainstems} and \ref{sssec:generalized_mainstems}, respectively, we find the mid-point of the derived stream reach described in Section \ref{sssec:deriving_fim_stream_network} and find the NWM catchment that contains the mid-point.
 Additionally, only relevant catchments from the NWM for the given LP are selected for cross-walking for methods in Sections \ref{sssec:nws_mainstems} and \ref{sssec:generalized_mainstems}.
 While these conflation methods are approximate, they can lead to some substantial errors which will be discussed more in Section \ref{sec:discussion}.
 %
@@ -313,8 +313,8 @@ So while we may refer to the MS network as that of one with unit stream order, w
 %
 Since MS only covers 4\% of the entire FR stream network, we sought to expand drainage order reduction techniques to all reaches within the NWM modeling domain.
 In order to do this, we discretized the NWM network into LPs which when considered individually have unit Horton-Strahler stream orders.
-LPs group flowlines by maximizing the length of each flow path and minimizing the number of LP identifiers within a given domain \cite{moore2019user,mckay2012nhdplus}. 
-In order to derive LPs for the NWM FR stream network at the HUC8 processing area, we first compute arbolate sums which are defined as the cumulative drainage distance of all upstream drainage lines.
+LPs group flowpaths by maximizing the length of each flowpath and minimizing the number of LP identifiers within a given domain \cite{moore2019user,mckay2012nhdplus}. 
+In order to derive LPs for the NWM FR stream network at the HUC8 processing area, we first compute arbolate sums which are defined as the cumulative drainage distance of all upstream flowpaths.
 Arbolate sum is also inclusive of the current drainage reach as well.
 Arbolate sums are computed by starting at the headwater points and summing up drainage distances as you traverse downstream.
 
@@ -330,15 +330,15 @@ From the figure, we can see how unique colors are propagated in the direction of
 Each HUC8 is discretized into LPs independently and the relevant inputs as described in Table \ref{tab:data} are assigned to each LP processing unit given a buffer of seven km.
 This buffer was selected to avoid edge contamination \cite{lindsay2013measuring} and to ensure adequate data availability for wide rivers with large catchments in regions with low slope.
 Further work could be dedicated to tune this user exposed parameter to better balance its effect on FIM extents and computational expense since larger buffers create additional floating point calculations and storage requirements.
-For the time being, we designate this issue to be out of scope.
+For the time being, we designate this issue out of scope.
 
 At the LP scale, the methods in Sections \ref{ssec:hydro_conditioning} and \ref{ssec:deriving_fim_hydrofabric} are executed leaving out any tributaries of the LP in question at the time.
-The only exception to this is the use of the NWM stream network directly for use with hydro-enforcement by burning these lines and seeding from its headwater points directly instead of going through the NHDPlusHR network as described in Section \ref{ssec:stream_network_enforcement} and \ref{sec:app_stream_network_enforcement}.
-This decision was motivated by the difficulty in deriving LPs in the NWM stream network with high agreement with the LPs derived for the NHDPlusHR stream lines.
+The only exception to this is the use of the NWM stream network directly for use with hydro-enforcement by burning these flowpaths and seeding from its headwater points directly instead of going through the NHDPlusHR network as described in Section \ref{ssec:stream_network_enforcement} and \ref{sec:app_stream_network_enforcement}.
+This decision was motivated by the difficulty in deriving LPs in the NWM stream network with high agreement with the LPs derived for the NHDPlusHR flowpaths.
 We found that the same algorithm to compute arbolate sums and LPs could yield enough disagreements associated with disordered branches or slight differences in arbolate sums that could significantly affect the agreement of the LP identifiers in the NWM and NHDPlusHR networks.
 This yielded enough error to justify the use of the NWM directly for hydro-enforcement operations.
 
-Once the NWM FR stream network is discretized into LPs, we independently compute HAND using each LP as the target stream network to be used.
+Once the NWM FR stream network is discretized into LPs, we independently compute HAND using each LP as the target stream network used.
 To illustrate the GMS procedure, we reference Figure \ref{fig:gms_methods} to show how deriving HAND and FIMs from GMS works.
 In Figure \ref{fig:gms_methods}a, we uniquely color code the LPs derived for the NWM stream network. 
 For each one of these lines, we derive HAND and its associated datasets including catchments, crosswalks, and rating curves.
@@ -348,7 +348,7 @@ Once the FIM hydrofabrics for each LP are generated, we can inundate them indivi
 Lastly, these individual FIMs are mosaiced together as explained in Section \ref{ssec:inundation_mapping} and shown in Figure \ref{fig:gms_methods}d.
 
 For a more intimate look at the drainage order reduction procedure GMS, and its effects, we allude to Figure \ref{fig:gms_methods_2} which references the same area (in HUC8 12090301) and set of river junctions as in Figure \ref{fig:catchment_boundaries_issue}.
-The catchments and stream lines for HAND computed at the FR scale are illustrated in Figure \ref{fig:gms_methods_2}a where the respective inundation at the 100 yr magnitude is heavily constrained by the limited catchment extents especially at junctions.
+The catchments and flowpaths for HAND computed at the FR scale are illustrated in Figure \ref{fig:gms_methods_2}a where the respective inundation at the 100 yr magnitude is heavily constrained by the limited catchment extents especially at junctions.
 In subsequent sub-figures, we show the same datasets for the HAND computation problem for this region but discretized into independent LPs for the main LP (b), the eastern tributary (c), and the western tributary (d).
 Notably, inspecting (b), one sees how removing the tributaries creates much larger catchments for the main LP. 
 These catchments include drainage areas that would traditionally be considered nearest to the tributaries thus ineligible to receive inundation sourced from the main LP.
@@ -359,7 +359,7 @@ The inundation extents in (b) overlap those of (c) and (d) and are mosaiced toge
 \includegraphics[scale=1.0]{figures/level_path_methods.jpg}
 \caption{Illustrates the NWM Full Resolution V2.1 stream network discretized into level paths (LP), symbolized by unique colors, as well as the values of the arbolate sums in km units.
 The LPs were derived on a HUC8 level (12020002) but only illustrated for a small, headwater subset of this HUC8 for clarity purposes.
-Arbolate sums are defined as the cumulative drainage distances of all upstream stream lines.
+Arbolate sums are defined as the cumulative drainage distances of all upstream flowpaths.
 Arbolate sums are computed for the NWM network by starting at the headwater points then traversing downstream and adding the distances cumulatively. 
 LPs are derived by starting at an outlet point with a unique identifier (ID).
 The unique LP ID is propagated upstream until a junction is reached where the current LP ID is propagated in the direction of maximum arbolate sum.
@@ -375,7 +375,7 @@ Each individual LP has a unit Horton-Strahler stream order thus serves as a grea
 \centering
 \includegraphics[scale=1.0]{figures/gms_methods.jpg}
 \caption{Overall procedure for GMS HAND at HUC8 12090301.
-In (a), we illustrate all NWM stream lines symbolized by their LP with 372 unique LP IDs in this HUC.
+In (a), we illustrate all NWM flowpaths symbolized by their LP with 372 unique LP IDs in this HUC.
 Meanwhile (b), demonstrates the DEM clipped to a seven km buffer around two selected LPs.
 In (c), we show how HAND can be computed just for each one of these two LPs independently. 
 We also show inundation maps created for these two LPs in (c). 
@@ -391,9 +391,9 @@ In (d), we show all the inundation maps for all the LPs mosaiced together. }
 In (a), the catchments and stream network are shown for HAND computed in Full-Resolution (FR) method which shows constrained inundation extents around the two junctions.
 (b) demonstrates the LP associated with this region's highest order river.
 By delineating catchments at this scale independent of the neighboring tributaries, the drainage areas are allowed to expand thus allowing inundation extents to cover previously restricted areas.
-In (c) and (d), we show the stream lines, catchments, and inundation extents of the two tributaries.
+In (c) and (d), we show the flowpaths, catchments, and inundation extents of the two tributaries.
 Later in Section \ref{ssec:inundation_mapping}, we describe how the inundation in (b), (c), and (d) are mosaiced together to form one seamless inundation map.
-This process allows for multiple, possible contributing sources of fluvial inundation to be considered thus enhancing FIM skill.
+This process allows to consider for multiple, possible contributing sources of fluvial inundation thus enhancing FIM skill.
 }
 \label{fig:gms_methods_2}
 \end{figure}
@@ -478,7 +478,7 @@ We did exclude NWM V2.1 Reservoirs from evaluation because these are not properl
 Since the BLE does account for reservoir inundation, some of the BLE reservoir inundation extents extend beyond the NWM reservoir geometries contributing to false negatives (FNs), or under-prediction.
 
 By using the same HEC-RAS derived discharges and FIM extents for creating maps with OWP FIM, we are able to separate out errors introduced by NWM inputs and processes including land surface interactions, groundwater fluxes, atmospheric forcings, hydraulic routing, and others that would have potentially affected our conclusions if we had used NWM forecasted discharges.
-Figure \ref{fig:ble_evaluation_method} illustrates both NWM V2.1 and BLE stream lines as well as the BLE cross-sections that have recurrence discharges associated with them.
+Figure \ref{fig:ble_evaluation_method} illustrates both NWM V2.1 and BLE flowpaths as well as the BLE cross-sections that have recurrence discharges associated with them.
 We elected to spatially intersect the HEC-RAS cross sections with the NWM stream network assigning the 1\% and 0.2\% flow rates to each NWM reach. 
 To handle multiple intersections, we opted to use a filter to select the median discharge value attributed to each NWM reach.
 This partially handles the influence of neighboring cross sections that could cause flow discontinuities and mass conservation issues.
@@ -500,10 +500,10 @@ The maps are used as benchmarks for validation purposes of OWP FIM.
 \centering
 \includegraphics[scale=1.0]{figures/ble_evaluation_method.jpg}
 \caption{
-Illustrates Base Level Engineering (BLE) cross sections and stream lines at the HUC8 12100203 near the confluences of West Fork Plum Creek and Clear Fork Plum Creek with Plum Creek.
-BLE cross sections are intersected with NWM reaches and the median recurrence discharge for 1\% and 0.2\% levels are selected per NWM V2.1 Full Resolution (FR) stream lines.
-Additionally, we illustrate the NWM V2.1 catchments to provide a sense of how many cross-sections may intersect a given NWM flowline.
-The BLE stream network is also shown which is denser than the NWM V2.1 stream lines meaning there are several lower order streams represented in the BLE stream network that are not in the NWM V2.1 stream lines.
+Illustrates Base Level Engineering (BLE) cross sections and flowpaths at the HUC8 12100203 near the confluences of West Fork Plum Creek and Clear Fork Plum Creek with Plum Creek.
+BLE cross sections are intersected with NWM reaches and the median recurrence discharge for 1\% and 0.2\% levels are selected per NWM V2.1 Full Resolution (FR) flowpaths.
+Additionally, we illustrate the NWM V2.1 catchments to provide a sense of how many cross-sections may intersect a given NWM flowpaths.
+The BLE stream network is also shown which is denser than the NWM V2.1 flowpaths meaning there are several lower order streams represented in the BLE stream network that are not in the NWM V2.1 flowpaths.
 This creates additional inundation areas in the validation data that are not modeled with our HAND based FIMs.
 }
 \label{fig:ble_evaluation_method}
@@ -516,7 +516,7 @@ The two types of errors consist of false positives (FP), or type I errors, which
 Lastly, the reader may come across true negatives (TN) which is defined as dry in both the benchmark and predicted datasets.
 Maximizing POD indicates a model's ability to detect the given threat of interest, inundation, while minimizing FAR is sought to indicate a models ability in reducing FN errors.
 In other words, POD is an indicator of model skill in inundated regions while FAR is an indicator of model skill in non-inundated regions.
-Some work by \citeA{gerapetritis2004behavior} denotes CSI a good proxy for measuring a forecasting system's utility in protecting life and property and has been shown to be optimized mathematically when $POD = 1 - FAR$.
+Some work by \citeA{gerapetritis2004behavior} denotes CSI a good proxy for measuring a forecasting system's utility in protecting life and property and has been shown as mathematically optimized when $POD = 1 - FAR$.
 We use all three secondary metrics here to add value to the discussion while avoiding aggregating away the meaning of all four primary metrics.
 
 While these metrics are commonly employed in the evaluation of FIM and binary weather prediction communities in general, they do come with some notable limitations including frequency dependence in the case of CSI and FAR \cite{gerapetritis2004behavior,stephens2014problems,schaefer1990critical,jolliffe2012forecast}.

@@ -14,7 +14,7 @@ We produced FIMs for the entire BLE domain within the 49 HUC8 areas across sever
 The forecasted FIMs using the discharges for the 1\% (100 year) and 0.2\% (500 year) recurrence flows directly from HEC-RAS were used to avoid noise and errors from hydrological processes.
 We computed the statistics, CSI, POD, and FAR, for both 100 and 500 year events for Mannings N set to 0.06 and 0.12.
 These results are presented in Figure \ref{fig:violin_plot} as violin plots and in Table \ref{tab:aggregate_metrics} as aggregated metrics with the results for MS and GMS presented as percentage changes from their respective FR values.
-To be more specific, Table \ref{tab:aggregate_metrics} sums the primary metrics, TP, FP, FN, and TN, across all HUC8s then recomputes the secondary metrics which was done to better account for large variances in HUC8 size.
+More specifically, Table \ref{tab:aggregate_metrics} sums the primary metrics, TP, FP, FN, and TN, across all HUC8s then recomputes the secondary metrics which was done to better account for large variances in HUC8 size.
 The same trends discussed below are consistent across both reporting methods (Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metrics}).
 
 The distribution of these flood extent metrics can be examined in Figure \ref{fig:violin_plot} as violin plots.
@@ -30,7 +30,7 @@ The slope of each trend line is quantified in the figure by its $\beta_1$ value 
 % Interpretation of metrics
 Both Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metrics} contain a fair amount of information that is central to the objectives of this study.
 As previously stated in Section \ref{ssec:evaluation}, we consider CSI as a general proxy for the skill of the inundation extents with POD denoting skill on inundated areas and FAR indicating skill on non-inundated areas.
-Again, the main objective of the study is to introduce how computing HAND with disaggregated stream networks to those with unit stream order can enhance the fidelity of FIMs by capturing fluvial inundation from multiple sources as opposed to that of just the nearest drainage line.
+Again, the main objective of the study is to introduce how computing HAND with disaggregated stream networks to those with unit stream order can enhance the fidelity of FIMs by capturing fluvial inundation from multiple sources as opposed to that of just the nearest flowpath.
 As can be seen in Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metrics}, CSI generally increases from FR to MS and MS to GMS for both sets of Manning's n values and flood magnitudes.
 This increase is primarily driven by an increase in POD thus generally increasing the probability of correctly detecting inundation.
 Also, we note that FAR is somewhat, albeit marginally, decreased from FR to MS and MS to GMS for both sets of Manning's n values and flood magnitudes.

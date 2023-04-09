@@ -15,7 +15,7 @@ Lastly, we discuss the diminishing effects on performance that the MS and GMS te
 
 As evident in the results of the study in Section \ref{sec:results}, a sizable amount of the increase in CSI observed by reducing stream order for HAND computation can be attributed to increases in POD.
 This can be inferred by close inspection of Figure \ref{fig:violin_plot} and Table \ref{tab:aggregate_metrics} where changes in POD are significantly higher than that of FAR.
-This intuition is confirmed by previously mentioned work by \citeA{gerapetritis2004behavior} where CSI was shown to be a direct function of both POD and FAR where CSI is maximized when $POD = 1 - FAR$.
+This intuition is confirmed by previously mentioned work by \citeA{gerapetritis2004behavior} where CSI was shown as a direct function of both POD and FAR where CSI is maximized when $POD = 1 - FAR$.
 Upon investigation of the performance of HAND derived FIM, we note a general increase of catchment sizes for the MS and GMS methods when compared to the FR method as they are now delineated independently of any tributaries that would constrain catchment sizes otherwise.
 Additionally, we note significantly less water build up along catchment boundaries especially at the junction of lower order tributaries with lower flow rates and higher order rivers with more flow.
 This allows for inundation extents to expand across regions previously encapsulated by catchments of joining reaches in lower flow tributaries.
@@ -32,24 +32,24 @@ The FNs also exhibit a spatial pattern as in they tend to collocate within catch
 This sort of behavior was introduced early in the paper and shown qualitatively in Figure \ref{fig:catchment_boundaries_issue}.
 
 As an enhancement, this paper proposes computing HAND for stream networks comprised of level-paths independently of one another.
-In sub-figure \ref{fig:gms_enhancement}b, the agreement raster for the GMS technique is illustrated as well as the stream network lines in green.
+In sub-figure \ref{fig:gms_enhancement}b, the agreement raster for the GMS technique is illustrated as well as the flowpaths in green.
 While the entire mosaiced inundation map from GMS (as described in Section \ref{ssec:inundation_mapping} and Equation \ref{eq:hand_fim_depth}) is used to produce this agreement map, we only show the catchments associated with the mainstem of this region that is shown to follow a clear horizontal path.
 Showing all the catchments for the tributaries that were all derived independently would convolute the image.
 The main message illustrated here is that the catchments associated with the mainstem of this area significantly increase in size.
 Since they are not restricted by the catchments of tributaries that lie in the same drainage areas as those of the mainstem, they extend to include those as well.
-The consequence for inundation extents is a general increase in spatial coverage of the river's water which shows to be in much better agreement with the benchmark map.
+The consequence for inundation extents is a general increase in spatial coverage of the river's water which shows better agreement with the benchmark maps.
 The TPs are no longer bounded by the catchment lines and allowed to expand to their natural extents.
 Additionally, this study has a limitation in that it did not assess FIM depths, so limited conclusions can be made about the impact of drainage order reduction techniques on the accuracy of FIM depths or water surface elevations.
 
 We note here as a contribution of this study that a major inherent, limitation of HAND is the ``nearest drainage'' constraint or the idea that a given river reach only drains or, in HAND's case, inundates its immediate, unique drainage area or catchment.
 In other words, HAND based FIMs are limited to producing fluvial inundation to only their nearest drainage area or catchment.
 However, we know that fluvial inundation can be sourced from several streams nearby that also serve as drainage outlets to the area in question.
-Generally speaking, drainage areas are known to be hierarchical in nature so a given drainage area for a given outlet point can be decomposed into nested drainage areas for outlet points that lie in the original drainage area.
+Generally speaking, drainage areas are hierarchical in nature so a given drainage area of an outlet point can be decomposed into nested drainage areas for outlet points that lie in the original drainage area.
 A perfect example of this are points that lie on tributary reaches closely neighboring a mainstem.
 These points lie in the drainage area of reaches in the mainstem but inundation from the mainstem cannot reach these tributary catchments because of the ``nearest'' assumption in HAND.
 Hence it's important to state that just like there are different sources of flooding such as fluvial, pluvial, groundwater, reservoir, barrier failure (dam/levee/embankment), and coastal, there can also be multiple sources of a riverine flood.
-HAND is only equipped to handle riverine flooding from the nearest drainage line.
-Other relevant drainage lines that produce fluvial flood waters are not considered here especially if the routing model used doesn't consider backwater effects.
+HAND is only equipped to handle riverine flooding from the nearest flowpaths.
+Other relevant flowpaths that produce fluvial flood waters are not considered here especially if the routing model used doesn't consider backwater effects.
 
 The remaining portion of the improvement in CSI was found to come from a marginal yet notable reduction in FAR.
 Upon investigation of the spatial results in the agreement maps, we found some areas of slight reductions in FPs especially where changes in catchment boundaries may have occurred due to the reduction in effective stream order in computing HAND.
@@ -60,7 +60,7 @@ This bias is more pronounced for GMS since that implements stream order reductio
 
 Attempting to diagnose this bias in the SRC leads one to Equation \ref{eq:reach_averaged_mannings_equation} which shows the reach averaged SRC relationship between stage and discharge.
 Across the three methods explored, FR, MS, and GMS, one identifies differences in the inputs and outputs and notes no difference in the stages and Manning's n values.
-While the channel slope and reach lengths are not exactly the same across methods, their averaged differences were found to be statistically insignificant which only leaves room for deviations in volume and bed area.
+While the channel slope and reach lengths are not exactly the same across methods, their averaged differences were statistically insignificant which only leaves room for deviations in volume and bed area.
 Specifically, we found FR to have an average reach length for the study region of 1354.8 km with a standard deviation 249.6km.
 For GMS, we computed an average reach length of 1398.1 km with a standard deviation of 50.2 km.
 Again, volume (V(y) or simply V) is synonymous to reach-averaged cross-sectional area and bed area (B(y) or B) is analogous to reach-averaged hydraulic radius but these associations only hold when reach length, L, is considered.
@@ -94,9 +94,10 @@ Additional conflation errors are realized by cross-walking the stream network us
 The methods that intersect HEC-RAS cross-sections with NWM reaches could introduce errors that violate mass conservation.
 Additionally, as previously noted and illustrated in Figure \ref{fig:ble_evaluation_method}, the BLE network is denser than that of the NWM which leads to FNs due to headwater streams that are present in the BLE but not within the NWM.
 Until a singular stream network is used for the NWM, BLE benchmark, and for HAND based FIM, conflation will continue being a source of error.
+Future work could aim at producing a singular stream network that complies with the Open Geospatial Consortium (OGC) WaterML2.0 HY\_FEATURES data model for standard water feature representation \cite{simons2014waterml,boston2019water,looser2014international,blodgett2018ogc}.
 
 Our qualitative analysis suggests that the SRCs offer a significant opportunity for improvement in HAND based FIM for future development.
-The bathymetry of the 10 m DEM from 3DEP is known to be lacking proper representation thus leading to inadequate representation of volume and bed area with all three methods employed.
+The bathymetry of the 10 m DEM from 3DEP is known as lacking proper representation thus leading to inadequate representation of volume and bed area with all three methods employed.
 Manning's n which typically accounts for roughness could be tuned to account for these DEM limitations or could be held fixed to some local value associated with a given flood magnitude.
 Some adjusting parameter must be introduced to enhance the estimation of the bathymetric representation.
 Lidar DEMs from the USGS at 3 m and 1 m scale could be utilized to derive HAND as well which we conject should show better agreement with higher fidelity FIMs also derived from the same Lidar based DEMs.
@@ -108,7 +109,7 @@ To reiterate in this discussion, Section \ref{ssec:evaluation} pointed out that 
 Due to focus on the nearest drainage problem, we leave future work related to SRC representation including roughness estimation, bathymetric data assimilation and adjustments as well as reservoir inundation as opportunities for major enhancements in HAND based FIM.
 
 Lastly, after errors introduced by conflation, poor roughness estimation, bathymetric/elevation adjustment, and reservoir representation are accounted for, HAND still has another fundamental limitation that is inherently baked into how it works.
-For HAND to be derived and thus create a FIM for a given area, that area must entirely drain to the stream network and the stream network must also drain itself.
+To derive HAND and create a FIM for a given area, that area must entirely drain to the stream network and the stream network must also drain itself.
 In other words, an entire area eligible for flooding must monotonically decrease in elevation. 
 DEM's naturally don't do this and the dynamics of true flood events don't follow drainage patterns.
 Enforcing this assumption for HAND leads to significant amount of DEM manipulations that introduce basic errors.
@@ -119,7 +120,7 @@ Ultimately, the use of more advanced 2D hydrodynamic models should be considered
 \centering
 \includegraphics[scale=1.0]{figures/gms_enhancement.jpg}
 \caption{OWP FIM inundation agreement, TP, FP, FN, and TN, with BLE HEC-RAS maps in HUC 11140105 at the 500 yr recurrence magnitude.
-Catchment boundaries and stream lines are shown in white and dotted green, respectively.
+Catchment boundaries and flowpaths are shown in white and dotted green, respectively.
 Sub-figure (a) shows agreement of FR HAND denoting significant areas of under-prediction due to junctions and catchment boundaries.
 Meanwhile, (b) shows the agreement for GMS and much larger catchments leading to much better inundation agreement for this given reach. 
 Overall, this illustrates the benefits of stream order reduction for deriving HAND datasets.

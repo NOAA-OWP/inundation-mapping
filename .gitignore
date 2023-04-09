@@ -22,3 +22,4 @@ manuscripts/**/prev
 **/*_pytest.py
 manuscripts/**/reviews/responses_*.pdf
 *.code-workspace
+._*
