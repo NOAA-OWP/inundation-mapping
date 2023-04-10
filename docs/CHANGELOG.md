@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.x.x - 2023-04-10 - [PR#882](https://github.com/NOAA-OWP/inundation-mapping/pull/882)
+
+Bug fix for empty `output_catchments` in `src/filter_catchments_and_add_attributes.py`
+
+### Changes
+
+- `src/filter_catchments_and_add_attributes.py`: Adds check for empty `output_catchments` and exits with Status 61 if empty.
+
+<br/><br/>
+
 ## v4.3.5.1 - 2023-04-01 - [PR#867](https://github.com/NOAA-OWP/inundation-mapping/pull/867)
 
 outputs_cleanup.py was throwing an error saying that the HUC source directory (to be cleaned up), did not exist. This was confirmed in a couple of environments. The src path in run_unit_wb.sh was sending in the "outputs" directory and not the "fim_temp" directory. This might have been a merge issue.
