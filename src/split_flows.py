@@ -45,10 +45,17 @@ def split_flows(flows_filename,
     def snap_and_trim_flow(snapped_point, flows):
         # Find nearest flow line
         if len(flows) > 1:
-            sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows)
+            sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows, max_distance=100)
+            if sjoin_nearest.empty:
+                return flows
+            
+            if len(sjoin_nearest) > 1:
+                sjoin_nearest = sjoin_nearest[sjoin_nearest['DSLINKNO'].isin(sjoin_nearest['LINKNO'])]
+            
             nearest_index = int(sjoin_nearest['LINKNO'])
             flow = flows[flows['LINKNO']==nearest_index]
             flow.index = [0]
+
         else:
             flow = flows
             nearest_index = None
