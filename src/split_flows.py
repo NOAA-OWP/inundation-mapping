@@ -50,7 +50,7 @@ def split_flows(flows_filename,
                 return flows
             
             if len(sjoin_nearest) > 1:
-                sjoin_nearest = sjoin_nearest[sjoin_nearest['DSLINKNO'].isin(sjoin_nearest['LINKNO'])]
+                sjoin_nearest = sjoin_nearest[sjoin_nearest['LINKNO'].isin(sjoin_nearest['DSLINKNO'])]
             
             nearest_index = int(sjoin_nearest['LINKNO'])
             flow = flows[flows['LINKNO']==nearest_index]
