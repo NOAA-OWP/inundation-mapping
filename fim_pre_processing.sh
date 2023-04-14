@@ -194,7 +194,7 @@ source $srcDir/bash_functions.env
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList)
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList -i $inputsDir)
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 

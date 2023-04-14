@@ -44,6 +44,21 @@ Clips Watershed Boundary Dataset (WBD) to DEM domain for increased efficiency. E
 
 <br/><br/>
 
+## v4.3.7.2 - 2023-04-06 - [PR#879](https://github.com/NOAA-OWP/inundation-mapping/pull/879)
+
+Replaces `os.environ` with input arguments in Python files that are called from bash scripts. The bash scripts now access the environment variables and pass them to the Python files as input arguments. In addition to adapting some Python scripts to a more modular structure which allows them to be run individually, it also allows Visual Studio Code debugger to work properly. Closes #875.
+
+### Changes
+
+- `fim_pre_processing.sh`: Added `-i $inputsDir` input argument to `src/check_huc_inputs.py`
+- `src/`
+    - `add_crosswalk.py`: Changed `min_catchment_area` and `min_stream_length` environment variables to input arguments
+    - `check_huc_inputs.py`: Changed `inputsDir` environment variable to input argument
+    - `delineate_hydros_and_produce_HAND.sh`: Added `-m $max_split_distance_meters -t $slope_min -b $lakes_buffer_dist_meters` input arguments to `src/split_flows.py`
+    - `split_flows.py`: Changed `max_split_distance_meters`, `slope_min`, and `lakes_buffer_dist_meters` from environment variables to input arguments
+
+<br/><br/>
+
 ## v4.3.5.1 - 2023-04-01 - [PR#867](https://github.com/NOAA-OWP/inundation-mapping/pull/867)
 
 outputs_cleanup.py was throwing an error saying that the HUC source directory (to be cleaned up), did not exist. This was confirmed in a couple of environments. The src path in run_unit_wb.sh was sending in the "outputs" directory and not the "fim_temp" directory. This might have been a merge issue.
