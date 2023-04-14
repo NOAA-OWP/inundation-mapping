@@ -12,7 +12,10 @@ agree_smogrid_zerod.tif
 #3d_nld_subset_levees_burned.gpkg
 #branch_id.lst
 #branch_polygons.gpkg
+dem_burned_filled.tif
 dem_meters.tif
+flowdir_d8_burned_filled.tif
+flows_grid_boolean.tif
 #LandSea_subset.gpkg
 #LeveeProtectedAreas_subset.gpkg
 #nld_subset_levees.gpkg

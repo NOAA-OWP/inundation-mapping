@@ -157,11 +157,18 @@ Tstart
 python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $tempHucDataDir/dem_meters.tif -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif -out $tempHucDataDir/dem_meters.tif
 Tcount
 
-## RASTERIZE REACH BOOLEAN (1 & 0) ##
+## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
 date -u
 Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
+Tcount
+
+## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES > 0 (NWM levelpath streams) ##
+echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
+date -u
+Tstart
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg $tempHucDataDir/flows_grid_boolean.tif
 Tcount
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
@@ -171,7 +178,7 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
 
-## DEM Reconditioning ##
+## DEM Reconditioning - BRANCH 0 (include all NWM streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
@@ -180,18 +187,41 @@ Tstart
 python3 -m memory_profiler $srcDir/agreedem.py -r $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
 Tcount
 
-## PIT REMOVE BURNED DEM ##
+## DEM Reconditioning - BRANCHES > 0 (NWM levelpath streams) ##
+# Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
+# This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
+echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
+date -u
+Tstart
+python3 -m memory_profiler $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif -d $tempHucDataDir/dem_meters.tif -w $tempHucDataDir -o $tempHucDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+Tcount
+
+## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 date -u
 Tstart
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 Tcount
 
-## D8 FLOW DIR ##
+## PIT REMOVE BURNED DEM - BRANCHES > 0 (NWM levelpath streams) ##
+echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
+date -u
+Tstart
+rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+Tcount
+
+## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 date -u
 Tstart
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
+Tcount
+
+## D8 FLOW DIR - BRANCHES > 0 (NWM levelpath streams) ##
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
+date -u
+Tstart
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempHucDataDir/dem_burned_filled.tif -p $tempHucDataDir/flowdir_d8_burned_filled.tif
 Tcount
 
 ## MAKE A COPY OF THE DEM FOR BRANCH 0
@@ -269,15 +299,15 @@ fi
 
 # -------------------
 ## REMOVE FILES FROM DENY LIST FOR BRANCH ZERO (but using normal branch deny) ##
-if [ "$has_deny_branch_zero_override" == "1" ]
-then
-    echo -e $startDiv"Second cleanup of files for branch zero (none default)"
-    $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_branch_zero_list -b 0
+#if [ "$has_deny_branch_zero_override" == "1" ]
+#then
+#    echo -e $startDiv"Second cleanup of files for branch zero (none default)"
+#    $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_branch_zero_list -b 0
 
-else 
-    echo -e $startDiv"Second cleanup of files for branch zero using the default branch deny list"
-    $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_branches_list -b 0
-fi
+#else 
+#    echo -e $startDiv"Second cleanup of files for branch zero using the default branch deny list"
+#    $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_branches_list -b 0
+#fi
 
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration $branch_processing_start_time
