@@ -61,6 +61,10 @@ date -u
 
 ## POST PROCESSING
 
+# Remove run from the fim_temp directory
+rm -d $workDir/$runName
+
+# Pipe into post processing 
 . $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
 
 echo

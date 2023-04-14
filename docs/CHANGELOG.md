@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.7.1 - 2023-04-06 - [PR#874](https://github.com/NOAA-OWP/inundation-mapping/pull/874)
+
+Hotfix to `process_branch.sh` because it wasn't removing code-61 branches on exit. Also removes the current run from the new fim_temp directory.
+
+### Changes  
+
+- `fim_pipeline.sh`: removal of current run from fim_temp directory
+- `src/process_branch.sh`: switched the exit 61 block to use the temp directory instead of the outputs directory
+
+<br/><br/>
+
 ## v4.3.7.0 - 2023-03-02 - [PR#868](https://github.com/NOAA-OWP/inundation-mapping/pull/868)
 
 This pull request adds a new feature to `fim_post_processing.sh` to aggregate all of the hydrotables for a given HUC into a single HUC-level `hydrotable.csv` file. Note that the aggregation step happens near the end of `fim_post_processing.sh` (after the subdivision and calibration routines), and the branch hydrotable files are preserved in the branch directories for the time being.
