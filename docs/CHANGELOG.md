@@ -1,6 +1,31 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.7.3 - 2023-04-14 - [PR#880](https://github.com/NOAA-OWP/inundation-mapping/pull/880)
+
+Hotfix for addressing an error during the NRMSE calculation/aggregation step within `tools/rating_curve_comparison.py`. Also added the "n" variable to the agg_nwm_recurr_flow_elev_stats table. Addresses #878 
+
+### Changes  
+
+- `tools/rating_curve_comparison.py`: address error for computing nrmse when n=1; added the "n" variable (sample size) to the output metrics table
+
+<br/><br/>
+
+## v4.3.7.2 - 2023-04-06 - [PR#879](https://github.com/NOAA-OWP/inundation-mapping/pull/879)
+
+Replaces `os.environ` with input arguments in Python files that are called from bash scripts. The bash scripts now access the environment variables and pass them to the Python files as input arguments. In addition to adapting some Python scripts to a more modular structure which allows them to be run individually, it also allows Visual Studio Code debugger to work properly. Closes #875.
+
+### Changes
+
+- `fim_pre_processing.sh`: Added `-i $inputsDir` input argument to `src/check_huc_inputs.py`
+- `src/`
+    - `add_crosswalk.py`: Changed `min_catchment_area` and `min_stream_length` environment variables to input arguments
+    - `check_huc_inputs.py`: Changed `inputsDir` environment variable to input argument
+    - `delineate_hydros_and_produce_HAND.sh`: Added `-m $max_split_distance_meters -t $slope_min -b $lakes_buffer_dist_meters` input arguments to `src/split_flows.py`
+    - `split_flows.py`: Changed `max_split_distance_meters`, `slope_min`, and `lakes_buffer_dist_meters` from environment variables to input arguments
+
+<br/><br/>
+
 ## v4.3.7.1 - 2023-04-06 - [PR#874](https://github.com/NOAA-OWP/inundation-mapping/pull/874)
 
 Hotfix to `process_branch.sh` because it wasn't removing code-61 branches on exit. Also removes the current run from the new fim_temp directory.
@@ -41,21 +66,6 @@ Clips Watershed Boundary Dataset (WBD) to DEM domain for increased efficiency. E
 - `src/`
     - `bash_variables.env`: Updates `input_WBD_gdb` environment variable
     - `clip_vectors_to_wbd.py`: Removes clipping to DEM domain
-
-<br/><br/>
-
-## v4.3.7.2 - 2023-04-06 - [PR#879](https://github.com/NOAA-OWP/inundation-mapping/pull/879)
-
-Replaces `os.environ` with input arguments in Python files that are called from bash scripts. The bash scripts now access the environment variables and pass them to the Python files as input arguments. In addition to adapting some Python scripts to a more modular structure which allows them to be run individually, it also allows Visual Studio Code debugger to work properly. Closes #875.
-
-### Changes
-
-- `fim_pre_processing.sh`: Added `-i $inputsDir` input argument to `src/check_huc_inputs.py`
-- `src/`
-    - `add_crosswalk.py`: Changed `min_catchment_area` and `min_stream_length` environment variables to input arguments
-    - `check_huc_inputs.py`: Changed `inputsDir` environment variable to input argument
-    - `delineate_hydros_and_produce_HAND.sh`: Added `-m $max_split_distance_meters -t $slope_min -b $lakes_buffer_dist_meters` input arguments to `src/split_flows.py`
-    - `split_flows.py`: Changed `max_split_distance_meters`, `slope_min`, and `lakes_buffer_dist_meters` from environment variables to input arguments
 
 <br/><br/>
 
