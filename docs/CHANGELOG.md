@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.6.0 - 2023-03-02 - [PR#868](https://github.com/NOAA-OWP/inundation-mapping/pull/868)
+## v4.3.7.0 - 2023-03-02 - [PR#868](https://github.com/NOAA-OWP/inundation-mapping/pull/868)
 
 This pull request adds a new feature to `fim_post_processing.sh` to aggregate all of the hydrotables for a given HUC into a single HUC-level `hydrotable.csv` file. Note that the aggregation step happens near the end of `fim_post_processing.sh` (after the subdivision and calibration routines), and the branch hydrotable files are preserved in the branch directories for the time being.
 
@@ -14,6 +14,22 @@ This pull request adds a new feature to `fim_post_processing.sh` to aggregate al
 - `tools/inundate_gms.py`: added check to use the aggregated HUC-level `hydrotable.csv` if it exists, otherwise continue to use the branch hydroTable files
 - `tools/inundation.py`: added `usecols` argument to the `pd.read_csv` commands to improve read time for hydrotables
 - `src/subdiv_chan_obank_src.py`: add dtype to hydrotable pd.read_csv to resolve pandas dtype interpretation warnings
+
+<br/><br/>
+
+## v4.3.6.0 - 2023-03-23 - [PR#803](https://github.com/NOAA-OWP/inundation-mapping/pull/803)
+
+Clips Watershed Boundary Dataset (WBD) to DEM domain for increased efficiency. Essentially, this is a wrapper for `geopandas.clip()` and moves clipping from `src/clip_vectors_to_wbd.py` to `data/wbd/preprocess_wbd.py`.
+
+### Additions
+
+- `data/wbd/preprocess_wbd.py`: Clips WBD to DEM domain polygon
+
+### Changes
+
+- `src/`
+    - `bash_variables.env`: Updates `input_WBD_gdb` environment variable
+    - `clip_vectors_to_wbd.py`: Removes clipping to DEM domain
 
 <br/><br/>
 
