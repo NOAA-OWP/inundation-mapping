@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3.x.x - 2023-04-06 - [PR#879](https://github.com/NOAA-OWP/inundation-mapping/pull/879)
+## v4.3.7.2 - 2023-04-06 - [PR#879](https://github.com/NOAA-OWP/inundation-mapping/pull/879)
 
 Replaces `os.environ` with input arguments in Python files that are called from bash scripts. The bash scripts now access the environment variables and pass them to the Python files as input arguments. In addition to adapting some Python scripts to a more modular structure which allows them to be run individually, it also allows Visual Studio Code debugger to work properly. Closes #875.
 
