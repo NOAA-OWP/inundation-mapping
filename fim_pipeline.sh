@@ -32,6 +32,7 @@ echo "---- Started: `date -u`"
 ## LOAD AND VALIDATE INCOMING ARGUMENTS
 source $srcDir/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
+jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))
 
 logFile=$outputDestDir/logs/unit/pipeline_summary_unit.log
 process_wb_file=$projectDir/fim_process_unit_wb.sh
@@ -60,8 +61,7 @@ date -u
 
 ## POST PROCESSING
 
-# TODO: multiply the two job limits together for the limit here ??
-. $projectDir/fim_post_processing.sh -n $runName -j $jobHucLimit
+. $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
 
 echo
 echo "======================== End of fim_pipeline.sh =========================="
