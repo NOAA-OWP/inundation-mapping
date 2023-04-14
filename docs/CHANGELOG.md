@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2023-03-23 - [PR#803](https://github.com/NOAA-OWP/inundation-mapping/pull/803)
+## v4.3.6.0 - 2023-03-23 - [PR#803](https://github.com/NOAA-OWP/inundation-mapping/pull/803)
 
 Clips Watershed Boundary Dataset (WBD) to DEM domain for increased efficiency. Essentially, this is a wrapper for `geopandas.clip()` and moves clipping from `src/clip_vectors_to_wbd.py` to `data/wbd/preprocess_wbd.py`.
 
