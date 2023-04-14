@@ -35,14 +35,16 @@ def add_crosswalk(input_catchments_fileName,
                   input_nwmcat_fileName,
                   extent,
                   small_segments_filename,
+                  min_catchment_area,
+                  min_stream_length,
                   calibration_mode=False):
 
     input_catchments = gpd.read_file(input_catchments_fileName)
     input_flows = gpd.read_file(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName)
     input_nwmflows = gpd.read_file(input_nwmflows_fileName)
-    min_catchment_area = float(os.environ['min_catchment_area']) #0.25#
-    min_stream_length = float(os.environ['min_stream_length']) #0.5#
+    min_catchment_area = float(min_catchment_area) #0.25#
+    min_stream_length = float(min_stream_length) #0.5#
 
     if extent == 'FR':
         ## crosswalk using majority catchment method
@@ -260,7 +262,7 @@ def add_crosswalk(input_catchments_fileName,
     output_hydro_table['channel_n'] = pd.NA
     output_hydro_table['subdiv_discharge_cms'] = pd.NA
     ## Placeholder vars for the calibration routine
-    output_hydro_table['calb_applied'] = pd.NA
+    output_hydro_table['calb_applied'] = False
     output_hydro_table['last_updated'] = pd.NA
     output_hydro_table['submitter'] = pd.NA
     output_hydro_table['obs_source'] = pd.NA
@@ -285,33 +287,29 @@ def add_crosswalk(input_catchments_fileName,
     if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 
-    # write out based on mode
-    if calibration_mode == True:
-        output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
-    else:
-        # make src json
-        output_src_json = dict()
-        hydroID_list = unique(output_src['HydroID'])
+    # make src json
+    output_src_json = dict()
+    hydroID_list = unique(output_src['HydroID'])
 
-        for hid in hydroID_list:
-            indices_of_hid = output_src['HydroID'] == hid
-            stage_list = output_src['Stage'][indices_of_hid].astype(float)
-            q_list = output_src['Discharge (m3s-1)'][indices_of_hid].astype(float)
+    for hid in hydroID_list:
+        indices_of_hid = output_src['HydroID'] == hid
+        stage_list = output_src['Stage'][indices_of_hid].astype(float)
+        q_list = output_src['Discharge (m3s-1)'][indices_of_hid].astype(float)
 
-            stage_list = stage_list.tolist()
-            q_list = q_list.tolist()
+        stage_list = stage_list.tolist()
+        q_list = q_list.tolist()
 
-            output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
+        output_src_json[str(hid)] = { 'q_list' : q_list , 'stage_list' : stage_list }
 
-        # write out
-        output_catchments.to_file(output_catchments_fileName,driver=getDriver(output_catchments_fileName),index=False)
-        output_flows.to_file(output_flows_fileName,driver=getDriver(output_flows_fileName),index=False)
-        output_src.to_csv(output_src_fileName,index=False)
-        output_crosswalk.to_csv(output_crosswalk_fileName,index=False)
-        output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
+    # write out
+    output_catchments.to_file(output_catchments_fileName,driver=getDriver(output_catchments_fileName),index=False)
+    output_flows.to_file(output_flows_fileName,driver=getDriver(output_flows_fileName),index=False)
+    output_src.to_csv(output_src_fileName,index=False)
+    output_crosswalk.to_csv(output_crosswalk_fileName,index=False)
+    output_hydro_table.to_csv(output_hydro_table_fileName,index=False)
 
-        with open(output_src_json_fileName,'w') as f:
-            json.dump(output_src_json,f,sort_keys=True,indent=2)
+    with open(output_src_json_fileName,'w') as f:
+        json.dump(output_src_json,f,sort_keys=True,indent=2)
 
 
 if __name__ == '__main__':
@@ -334,6 +332,8 @@ if __name__ == '__main__':
     parser.add_argument('-p','--extent',help='GMS only for now', default='GMS', required=False)
     parser.add_argument('-k','--small-segments-filename',help='output list of short segments',required=True)
     parser.add_argument('-c','--calibration-mode',help='Mannings calibration flag',required=False,action='store_true')
+    parser.add_argument('-e', '--min-catchment-area', help='Minimum catchment area', required=True)
+    parser.add_argument('-g', '--min-stream-length', help='Minimum stream length', required=True)
 
     args = vars(parser.parse_args())
 
