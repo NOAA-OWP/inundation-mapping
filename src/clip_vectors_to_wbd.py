@@ -37,12 +37,8 @@ def subset_vector_layers(subset_nwm_lakes,
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
 
-    # Erase area outside 3DEP domain
-    print("Erase area outside 3DEP domain", flush=True)
     wbd = gpd.read_file(wbd_filename)
     dem_domain = gpd.read_file(dem_domain)
-    wbd = gpd.clip(wbd, dem_domain)
-    wbd.to_file(wbd_filename, layer='WBDHU8', crs=DEFAULT_FIM_PROJECTION_CRS)
 
     # Get wbd buffer
     print("Create wbd buffer", flush=True)
