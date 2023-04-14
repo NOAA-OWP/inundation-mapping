@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.7.3 - 2023-04-14 - [PR#880](https://github.com/NOAA-OWP/inundation-mapping/pull/880)
+
+Hotfix for addressing an error during the NRMSE calculation/aggregation step within `tools/rating_curve_comparison.py`. Also added the "n" variable to the agg_nwm_recurr_flow_elev_stats table. Addresses #878 
+
+### Changes  
+
+- `tools/rating_curve_comparison.py`: address error for computing nrmse when n=1; added the "n" variable (sample size) to the output metrics table
+
+<br/><br/>
 
 ## v4.3.5.1 - 2023-04-01 - [PR#867](https://github.com/NOAA-OWP/inundation-mapping/pull/867)
 
