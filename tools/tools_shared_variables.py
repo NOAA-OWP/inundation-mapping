@@ -10,11 +10,12 @@ FR_BENCHMARK_CATEGORIES = ['ble', 'ifc']
 BLE_MAGNITUDE_LIST = ['100yr', '500yr']
 IFC_MAGNITUDE_LIST = ['2yr', '5yr', '10yr', '25yr', '50yr', '100yr', '200yr', '500yr']
 AHPS_MAGNITUDE_LIST = ['action', 'minor', 'moderate', 'major']
+RAS2FIM_MAGNITUDE_LIST = ['2yr', '5yr', '10yr', '25yr', '50yr', '100yr']
 
-MAGNITUDE_DICT = {'ble': BLE_MAGNITUDE_LIST, 'ifc': IFC_MAGNITUDE_LIST, 'usgs': AHPS_MAGNITUDE_LIST, 'nws': AHPS_MAGNITUDE_LIST}
+MAGNITUDE_DICT = {'ble': BLE_MAGNITUDE_LIST, 'ifc': IFC_MAGNITUDE_LIST, 'usgs': AHPS_MAGNITUDE_LIST, 'nws': AHPS_MAGNITUDE_LIST, 'ras2fim': RAS2FIM_MAGNITUDE_LIST}
 PRINTWORTHY_STATS = ['CSI', 'TPR', 'TNR', 'FAR', 'MCC', 'TP_area_km2', 'FP_area_km2', 'TN_area_km2', 'FN_area_km2', 'contingency_tot_area_km2', 'TP_perc', 'FP_perc', 'TN_perc', 'FN_perc']
 GO_UP_STATS = ['CSI', 'TPR', 'MCC', 'TN_area_km2', 'TP_area_km2', 'TN_perc', 'TP_perc', 'TNR']
-GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc']
+GO_DOWN_STATS = ['FAR', 'FN_area_km2', 'FP_area_km2', 'FP_perc', 'FN_perc', 'PND']
 
 # Variables for eval_plots.py
 BAD_SITES = [
@@ -60,3 +61,16 @@ TRED_BOLD = '\033[31;1m'
 TWHITE = '\033[37m'
 WHITE_BOLD = '\033[37;1m'
 CYAN_BOLD = '\033[36;1m'
+
+# USGS gages acceptance criteria. Likely not constants, so not using all caps.
+# ANY CHANGE TO THESE VALUES SHOULD WARRANT A CODE VERSION CHANGE
+# https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
+acceptable_coord_acc_code_list = ['H','1','5','S','R','B','C','D','E', 5, 1]
+# https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
+acceptable_coord_method_code_list = ['C','D','W','X','Y','Z','N','M','L','G','R','F','S']
+# https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
+acceptable_alt_acc_thresh = 1.0
+# https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
+acceptable_alt_meth_code_list = ['A','D','F','I','J','L','N','R','W','X','Y','Z']
+# https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
+acceptable_site_type_list = ['ST']

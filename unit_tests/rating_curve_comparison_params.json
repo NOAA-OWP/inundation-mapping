@@ -1,0 +1,19 @@
+{
+	"valid_data":
+	{
+		"02020005":
+		[
+			"/outputs/fim_unit_test_data_do_not_remove/02020005/usgs_elev_table.csv",
+			"/outputs/fim_unit_test_data_do_not_remove/02020005/branches",
+			"/data/inputs/usgs_gages/usgs_rating_curves.csv",
+			"/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/tables/usgs_interpolated_elevation_stats_02020005.csv",
+			"/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/tables/nwm_recurrence_flow_elevations_02020005.csv",
+			"/outputs/fim_unit_test_data_do_not_remove/rating_curve_comparison/plots/FIM-USGS_rating_curve_comparison_02020005.png",
+			"/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/",
+			"/data/inputs/usgs_gages/catfim_flows_cms.csv",
+			"02020005",
+			false,
+			false
+		]
+	}
+}

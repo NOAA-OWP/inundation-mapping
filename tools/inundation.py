@@ -11,12 +11,13 @@ import fiona
 from shapely.geometry import shape
 from rasterio.mask import mask
 from rasterio.io import DatasetReader,DatasetWriter
-from rasterio.features import shapes
 from collections import OrderedDict
 import argparse
 from warnings import warn
 from gdal import BuildVRT
 import geopandas as gpd
+import sys
+import xarray as xr
 
 class hydroTableHasOnlyLakes(Exception): 
     """ Raised when a Hydro-Table only has lakes """
@@ -27,11 +28,21 @@ class NoForecastFound(Exception):
     """ Raised when no forecast is available for a given Hydro-Table """
     pass
 
-def inundate(
-             rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
-             subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,
-             depths=None,out_raster_profile=None,out_vector_profile=None,src_table=None,quiet=False
-            ):
+class hydroTableHasOnlyLakes(Exception): 
+    """ Raised when a Hydro-Table only has lakes """
+    pass
+
+
+class NoForecastFound(Exception):
+    """ Raised when no forecast is available for a given Hydro-Table """
+    pass
+
+def inundate(rem, catchments, catchment_poly, hydro_table, forecast,
+             mask_type, hucs = None, hucs_layerName = None,
+             subset_hucs = None, num_workers = 1, aggregate = False, 
+             inundation_raster = None, inundation_polygon = None,
+             depths = None, out_raster_profile = None, out_vector_profile = None,
+             src_table = None, quiet = False):
     """
 
     Run inundation on FIM >=3.0 outputs at job-level scale or aggregated scale
@@ -92,10 +103,6 @@ def inundate(
     -----
     - Specifying a subset of the domain in rem or catchments to inundate on is achieved by the HUCs file or the forecast file.
 
-    Examples
-    --------
-    >>> import inundation
-    >>> inundation.inundate(rem,catchments,hydro_table,forecast,inundation_raster)
     """
 
     # check for num_workers
@@ -163,13 +170,17 @@ def inundate(
     else:
         raise TypeError("Pass hydro table csv")
 
+        
     if catchmentStagesDict is not None:
         if src_table is not None:
             create_src_subset_csv(hydro_table,catchmentStagesDict,src_table)
 
         # make windows generator
-        window_gen = __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
-                                              depths,out_raster_profile,out_vector_profile,quiet,hucs=hucs,hucSet=hucSet)
+        window_gen = __make_windows_generator(rem, catchments, catchment_poly,
+                                              mask_type, catchmentStagesDict, inundation_raster,
+                                              inundation_polygon, depths, out_raster_profile,
+                                              out_vector_profile, quiet, 
+                                              hucs = hucs, hucSet = hucSet)
 
         # start up thread pool
         executor = ThreadPoolExecutor(max_workers=num_workers)
@@ -184,7 +195,6 @@ def inundate(
             except Exception as exc:
                 __vprint("Exception {} for {}".format(exc,results[future]),not quiet)
             else:
-
                 if results[future] is not None:
                     __vprint("... {} complete".format(results[future]),not quiet)
                 else:
@@ -197,31 +207,12 @@ def inundate(
         # power down pool
         executor.shutdown(wait=True)
 
-        # optional aggregation
-        if (aggregate) & (hucs is not None):
-            # inun grid vrt
-            if inundation_raster is not None:
-                inun_vrt = BuildVRT(splitext(inundation_raster)[0]+'.vrt',inundation_rasters)
-                inun_vrt = None
-                #_ = run('gdalbuildvrt -q -overwrite {} {}'.format(splitext(inundation_raster)[0]+'.vrt'," ".join(inundation_rasters)),shell=True)
-            # depths vrt
-            if depths is not None:
-                depths_vrt = BuildVRT(splitext(depths)[0]+'.vrt',depth_rasters,resampleAlg='bilinear')
-                depths_vrt = None
-                #_ = run('gdalbuildvrt -q -overwrite -r bilinear {} {}'.format(splitext(depths)[0]+'.vrt'," ".join(depth_rasters)),shell=True)
+    # close datasets
+    rem.close()
+    catchments.close()
 
-            # concat inun poly
-            if inundation_polygon is not None:
-                _ = run('ogrmerge.py -o {} {} -f GPKG -single -overwrite_ds'.format(inundation_polygon," ".join(inundation_polys)),shell=True)
+    return(inundation_rasters,depth_rasters,inundation_polys)
 
-        # close datasets
-        rem.close()
-        catchments.close()
-
-        return(0)
-
-    else:
-        return(1)
 
 def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profile,catchments_profile,hucCode,
                       catchmentStagesDict,depths,inundation_raster,inundation_polygon,
@@ -279,10 +270,8 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
         if out_vector_profile is None:
             out_vector_profile = {'crs' : crs , 'driver' : 'GPKG'}
 
-        out_vector_profile['schema'] = {
-                                         'geometry' : 'Polygon',
-                                         'properties' : OrderedDict([('HydroID' , 'int')])
-                                       }
+        out_vector_profile['schema'] = { 'geometry' : 'Polygon',
+                                         'properties' : OrderedDict([('HydroID' , 'int')]) }
 
         # open output inundation polygons
         if isinstance(inundation_polygon,str):
@@ -326,7 +315,7 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
 
         # make generator for inundation polygons
         inundation_polygon_generator = shapes(inundation_array,mask=inundation_array>0,connectivity=8,transform=window_transform)
-
+        
         # generate records
         records = []
         for i,(g,h) in enumerate(inundation_polygon_generator):
@@ -334,7 +323,7 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
             record['geometry'] = g
             record['properties'] = {'HydroID' : int(h)}
             records += [record]
-
+        
         # write out
         inundation_polygon.writerecords(records)
 
@@ -358,6 +347,13 @@ def __inundate_in_huc(rem_array,catchments_array,crs,window_transform,rem_profil
         ip_name = inundation_polygon.path
     except AttributeError:
         ip_name = None
+    
+    #print(ir_name)
+    #yield(ir_name,d_name,ip_name)
+    
+    if isinstance(depths,DatasetWriter): depths.close()
+    if isinstance(inundation_raster,DatasetWriter): inundation_raster.close()
+    if isinstance(inundation_polygon,fiona.Collection): inundation_polygon.close()
 
     return(ir_name,d_name,ip_name)
 
@@ -367,9 +363,11 @@ def __go_fast_mapping(rem,catchments,catchmentStagesDict,inundation,depths):
 
     for i,(r,cm) in enumerate(zip(rem,catchments)):
         if cm in catchmentStagesDict:
-
-            depth = catchmentStagesDict[cm] - r
-            depths[i] = max(depth,0) # set negative depths to 0
+            if r >= 0:
+                depth = catchmentStagesDict[cm] - r
+                depths[i] = max(depth,0) # set negative depths to 0
+            else:
+                depths[i] = 0
 
             if depths[i] > 0: # set positive depths to positive
                 inundation[i] *= -1
@@ -379,9 +377,21 @@ def __go_fast_mapping(rem,catchments,catchmentStagesDict,inundation,depths):
     return(inundation,depths)
 
 
-def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentStagesDict,inundation_raster,inundation_polygon,
-                             depths,out_raster_profile,out_vector_profile,quiet,hucs=None,hucSet=None):
+def __make_windows_generator(rem, 
+                             catchments,
+                             catchment_poly,
+                             mask_type,
+                             catchmentStagesDict,
+                             inundation_raster,
+                             inundation_polygon,
+                             depths,
+                             out_raster_profile,
+                             out_vector_profile,
+                             quiet,
+                             hucs = None,
+                             hucSet = None):
 
+    
     if hucs is not None:
 
         # get attribute name for HUC column
@@ -429,6 +439,8 @@ def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentSt
                     rem_array,window_transform = mask(rem,catchment_poly['geometry'],crop=True,indexes=1)
                     catchments_array,_ = mask(catchments,catchment_poly['geometry'],crop=True,indexes=1)
                     del catchment_poly
+                elif mask_type is None:
+                    pass
                 else:
                     print ("invalid mask type. Options are 'huc' or 'filter'")
             except ValueError: # shape doesn't overlap raster
@@ -436,10 +448,10 @@ def __make_windows_generator(rem,catchments,catchment_poly,mask_type,catchmentSt
 
             hucCode = huc['properties'][hucColName]
 
-            yield (rem_array,catchments_array,rem.crs.wkt,
-                   window_transform,rem.profile,catchments.profile,hucCode,
-                   catchmentStagesDict,depths,inundation_raster,
-                   inundation_polygon,out_raster_profile,out_vector_profile,quiet)
+            yield (rem_array, catchments_array, rem.crs.wkt,
+                   window_transform, rem.profile, catchments.profile, hucCode,
+                   catchmentStagesDict, depths, inundation_raster,
+                   inundation_polygon, out_raster_profile, out_vector_profile, quiet)
 
     else:
         hucCode = None
@@ -480,6 +492,41 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
 
     hydroTable = hydroTable[hydroTable["LakeID"] == -999]  # Subset hydroTable to include only non-lake catchments.
 
+    # raises error if hydroTable is empty due to all segments being lakes
+    if hydroTable.empty:
+        raise hydroTableHasOnlyLakes("All stream segments in HUC are within lake boundaries.")
+
+
+    if isinstance(forecast,str):
+
+        try:
+            forecast = pd.read_csv(
+                                   forecast,
+                                   dtype={'feature_id' : str , 'discharge' : float}
+                                  )
+            forecast.set_index('feature_id',inplace=True)
+        except UnicodeDecodeError:
+            forecast = read_nwm_forecast_file(forecast)
+    
+    elif isinstance(forecast,pd.DataFrame):
+        pass # consider checking for dtypes, indices, and columns
+    else:
+        raise TypeError("Pass path to forecast file csv or Pandas DataFrame")
+
+    # susbset hucs if passed
+    if subset_hucs is not None:
+        if isinstance(subset_hucs,list):
+            if len(subset_hucs) == 1:
+                try:
+                    subset_hucs = open(subset_hucs[0]).read().split('\n')
+                except FileNotFoundError:
+                    pass
+        elif isinstance(subset_hucs,str):
+                try:
+                    subset_hucs = open(subset_hucs).read().split('\n')
+                except FileNotFoundError:
+                    subset_hucs = [subset_hucs]
+
     if not hydroTable.empty:
 
         if isinstance(forecast,str):
@@ -516,36 +563,58 @@ def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
 
             hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
 
-        # join tables
-        try:
-            hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    # join tables
+    try:
+        hydroTable = hydroTable.join(forecast,on=['feature_id'],how='inner')
+    except AttributeError:
+        #print("FORECAST ERROR")
+        raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
 
-
-            # initialize dictionary
-            catchmentStagesDict = typed.Dict.empty(types.int32,types.float64)
-
-            # interpolate stages
-            for hid,sub_table in hydroTable.groupby(level='HydroID'):
-
-                interpolated_stage = np.interp(sub_table.loc[:,'discharge'].unique(),sub_table.loc[:,'discharge_cms'],sub_table.loc[:,'stage'])
-
-                # add this interpolated stage to catchment stages dict
-                h = round(interpolated_stage[0],4)
-
-                hid = types.int32(hid) ; h = types.float32(h)
-                catchmentStagesDict[hid] = h
-
-            # huc set
-            hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
-
-            return(catchmentStagesDict,hucSet)
-
-        except AttributeError:
-            print (f"No matching feature IDs between forecast and hydrotable for HUC(s): {subset_hucs}")
-            return(None,None)
     else:
-        print(f"All stream segments in HUC(s): {huc_error} are within lake boundaries.")
-        return(None,None)
+
+        # initialize dictionary
+        catchmentStagesDict = typed.Dict.empty(types.int32,types.float64)
+
+        # interpolate stages
+        for hid,sub_table in hydroTable.groupby(level='HydroID'):
+
+            interpolated_stage = np.interp(sub_table.loc[:,'discharge'].unique(),sub_table.loc[:,'discharge_cms'],sub_table.loc[:,'stage'])
+
+            # add this interpolated stage to catchment stages dict
+            h = round(interpolated_stage[0],4)
+
+            hid = types.int32(hid) ; h = types.float32(h)
+            catchmentStagesDict[hid] = h
+
+        # huc set
+        hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
+
+        return(catchmentStagesDict,hucSet)
+
+
+def read_nwm_forecast_file(forecast_file,rename_headers=True):
+        
+    """ Reads NWM netcdf comp files and converts to forecast data frame """
+
+    flows_nc = xr.open_dataset(forecast_file,decode_cf='feature_id',engine='netcdf4')
+    
+    flows_df = flows_nc.to_dataframe()
+    flows_df.reset_index(inplace=True)
+    
+    flows_df = flows_df[['streamflow','feature_id']]
+    
+    if rename_headers:
+        flows_df = flows_df.rename(columns={"streamflow": "discharge"})
+
+    convert_dict = {'feature_id': str,'discharge': float}
+    flows_df = flows_df.astype(convert_dict)
+    
+    flows_df.set_index('feature_id',inplace=True,drop=True)
+
+    flows_df.dropna(inplace=True)
+
+    return(flows_df)
+
 
 def __vprint(message,verbose):
     if verbose:
@@ -566,22 +635,53 @@ if __name__ == '__main__':
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Rapid inundation mapping for FOSS FIM. Operates in single-HUC and batch modes.')
-    parser.add_argument('-r','--rem', help='REM raster at job level or mosaic vrt. Must match catchments CRS.', required=True)
-    parser.add_argument('-c','--catchments',help='Catchments raster at job level or mosaic VRT. Must match rem CRS.',required=True)
-    parser.add_argument('-b','--catchment-poly',help='catchment_vector',required=True)
-    parser.add_argument('-t','--hydro-table',help='Hydro-table in csv file format',required=True)
-    parser.add_argument('-f','--forecast',help='Forecast discharges in CMS as CSV file',required=True)
-    parser.add_argument('-u','--hucs',help='Batch mode only: HUCs file to process at. Must match CRS of input rasters',required=False,default=None)
-    parser.add_argument('-l','--hucs-layerName',help='Batch mode only. Layer name in HUCs file to use',required=False,default=None)
-    parser.add_argument('-j','--num-workers',help='Batch mode only. Number of concurrent processes',required=False,default=1,type=int)
-    parser.add_argument('-s','--subset-hucs',help='Batch mode only. HUC code, series of HUC codes (no quotes required), or line delimited of HUCs to run within the hucs file that is passed',required=False,default=None,nargs='+')
-    parser.add_argument('-m', '--mask-type', help='Specify huc (FIM < 3) or filter (FIM >= 3) masking method', required=False,default="huc")
-    parser.add_argument('-a','--aggregate',help='Batch mode only. Aggregate outputs to VRT files. Currently, raises warning and sets to false if used.',required=False,action='store_true')
-    parser.add_argument('-i','--inundation-raster',help='Inundation Raster output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
-    parser.add_argument('-p','--inundation-polygon',help='Inundation polygon output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
-    parser.add_argument('-d','--depths',help='Depths raster output. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
-    parser.add_argument('-n','--src-table',help='Output table with the SRC lookup/interpolation. Only writes if designated. Appends HUC code in batch mode.',required=False,default=None)
-    parser.add_argument('-q','--quiet',help='Quiet terminal output',required=False,default=False,action='store_true')
+    parser.add_argument('-r', '--rem', 
+                        help='REM raster at job level or mosaic vrt. Must match catchments CRS.', 
+                        required=True)
+    parser.add_argument('-c', '--catchments',
+                        help='Catchments raster at job level or mosaic VRT. Must match rem CRS.',
+                        required=True)
+    parser.add_argument('-b', '--catchment-poly', help='catchment_vector',
+                        required=True)
+    parser.add_argument('-t', '--hydro-table', help='Hydro-table in csv file format', 
+                        required=True)
+    parser.add_argument('-f', '--forecast', help='Forecast discharges in CMS as CSV file',
+                        required=True)
+    parser.add_argument('-u', '--hucs',
+                        help='Batch mode only: HUCs file to process at. Must match CRS of input rasters',required=False, default=None)
+    parser.add_argument('-l', '--hucs-layerName', help='Batch mode only. Layer name in HUCs file to use',
+                        required=False, default=None)
+    parser.add_argument('-j', '--num-workers',help='Batch mode only. Number of concurrent processes',
+                        required=False, default=1, type=int)
+    parser.add_argument('-s', '--subset-hucs', help = """Batch mode only. HUC code, 
+            series of HUC codes (no quotes required), or line delimited of HUCs to run within 
+            the hucs file that is passed""",
+                        required=False, default=None, nargs='+')
+    parser.add_argument('-m', '--mask-type',
+                        help='Specify huc (FIM < 3) or filter (FIM >= 3) masking method',
+                        required=False, default="huc")
+    parser.add_argument('-a', '--aggregate',
+                        help="""Batch mode only. Aggregate outputs to VRT files.
+                        Currently, raises warning and sets to false if used.""",
+                        required=False, action='store_true')
+    parser.add_argument('-i', '--inundation-raster',
+                        help="""Inundation Raster output. Only writes if designated.
+                        Appends HUC code in batch mode.""",
+                        required=False, default=None)
+    parser.add_argument('-p', '--inundation-polygon',
+                        help="""Inundation polygon output. Only writes if designated. 
+                        Appends HUC code in batch mode.""",
+                        required=False, default=None)
+    parser.add_argument('-d', '--depths',
+                        help="""Depths raster output. Only writes if designated.
+                        Appends HUC code in batch mode.""",
+                        required=False, default=None)
+    parser.add_argument('-n', '--src-table',
+                        help="""Output table with the SRC lookup/interpolation.
+                        Only writes if designated. Appends HUC code in batch mode.""",
+                        required=False, default=None)
+    parser.add_argument('-q','--quiet', help='Quiet terminal output',
+                        required=False, default=False, action='store_true')
 
     # extract to dictionary
     args = vars(parser.parse_args())

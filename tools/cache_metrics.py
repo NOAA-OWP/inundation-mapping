@@ -9,7 +9,7 @@ from multiprocessing import Pool
 
 TEST_CASES_DIR = r'/data/test_cases_new/'  #TODO remove "_new"
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
-OUTPUTS_DIR = r'/data/outputs'
+OUTPUTS_DIR = r'/outputs'
 
 
 def process_alpha_test(args):
@@ -81,7 +81,7 @@ if __name__ == '__main__':
         bench_cat_test_case_list = os.listdir(bench_cat_test_case_dir)
 
         for test_id in bench_cat_test_case_list:
-            if 'validation' and 'other' not in test_id:
+            if 'validation' not in test_id:
 
                 current_huc = test_id.split('_')[0]
                 if test_id.split('_')[1] in bench_cat:

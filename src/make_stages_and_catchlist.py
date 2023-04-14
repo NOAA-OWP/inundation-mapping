@@ -12,17 +12,23 @@ def make_stages_and_catchlist(flows_filename, catchments_filename, stages_filena
     flows = gpd.read_file(flows_filename)
     catchments = gpd.read_file(catchments_filename)
 
+    # Reconcile flows and catchments hydroids
+    flows      = flows.merge(catchments[['HydroID']], on='HydroID', how='inner')
+    catchments = catchments.merge(flows[['HydroID']], on='HydroID', how='inner')
+
+    stages_max = stages_max + stages_interval
+    stages = np.round(np.arange(stages_min,stages_max,stages_interval),4)
 
     hydroIDs = flows['HydroID'].tolist()
     len_of_hydroIDs = len(hydroIDs)
     slopes = flows['S0'].tolist()
     lengthkm = flows['LengthKm'].tolist()
-    areasqkm = catchments['areasqkm'].tolist()
 
-
-    stages_max = stages_max + stages_interval
-    stages = np.round(np.arange(stages_min,stages_max,stages_interval),4)
-
+    try:
+        areasqkm = catchments['areasqkm'].tolist()
+    except KeyError:
+        areasqkm = catchments['geometry'].area/ 10**6
+        
     with open(stages_filename,'w') as f:
         f.write("Stage\n")
         for stage in stages:
