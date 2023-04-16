@@ -279,7 +279,7 @@ if __name__ == '__main__':
     slope_min              = float(environ['slope_min'])
     lakes_buffer_input     = float(environ['lakes_buffer_dist_meters'])
     
-    # Parse arguments.
+   # Parse arguments.
     parser = argparse.ArgumentParser(description='splitflows.py')
     parser.add_argument('-f', '--flows-filename', help='flows-filename',required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename',required=True)
@@ -288,8 +288,18 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename',required=True)
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename',required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename',required=True)
+    # parser.add_argument('-m', '--max-length')
+    # parser.add_argument('-t', '--slope-min')
+    # parser.add_argument('-b', '--lakes-buffer-input')
+    
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
+
+    # args['max_length'] = float(args['max_length'])
+    # args['slope_min'] = float(args['slope_min'])
+    # args['lakes_buffer_input'] = float(args['lakes_buffer_input'])
+
+    # split_flows(**args)
 
     split_flows(max_length, slope_min, lakes_buffer_input, **args)

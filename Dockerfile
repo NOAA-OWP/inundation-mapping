@@ -1,5 +1,5 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.6.3 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.1.2 AS builder
 WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
@@ -47,7 +47,7 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d
 
 
 # Base Image that has GDAL, PROJ, etc
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.6.3
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.1.2
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies

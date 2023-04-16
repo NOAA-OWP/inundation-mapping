@@ -480,7 +480,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             for downstream_ID in downstream_IDs:
                 # Stop if lowest reach is not in a lake
                 # if int(ser.iloc[0]):
-                if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==downstream_ID]) == -9999:
+                if tmp_self.Lake[tmp_self.From_Node.astype(int)==downstream_ID].iloc[0] == -9999:
                     continue
                 else:
                     # Remove reach from tmp_self
@@ -499,7 +499,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             for upstream_ID in upstream_IDs:
                 # Stop if uppermost reach is not in a lake
                 # if int(ser.iloc[0]):
-                if int(tmp_self.Lake[tmp_self.From_Node.astype(int)==upstream_ID]) == -9999:
+                if tmp_self.Lake[tmp_self.From_Node.astype(int)==upstream_ID].iloc[0] == -9999:
                     continue
                 else:
                     if int(tmp_self.To_Node[tmp_self.From_Node.astype(int)==upstream_ID]) in nonlake_reaches:
@@ -801,7 +801,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         self['bids_temp'] = self.loc[:,branch_id_attribute].copy()
 
         # ensure the new stream order has the order from it's highest child
-        max_stream_order = self.groupby(branch_id_attribute).max()['order_'].copy()        
+        max_stream_order = self[[branch_id_attribute, 'order_']].groupby(branch_id_attribute).max()['order_'].copy()
 
         self = self.dissolve(by=branch_id_attribute)
         self.rename(columns={'bids_temp' : branch_id_attribute},inplace=True)
