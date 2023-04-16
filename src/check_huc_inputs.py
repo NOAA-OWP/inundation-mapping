@@ -67,9 +67,9 @@ def __check_for_membership(hucs,accepted_hucs_set):
             raise KeyError("HUC {} not found in available inputs. Edit HUC inputs or acquire datasets and try again".format(huc))
 
 
-def check_hucs(hucs):
+def check_hucs(hucs, inputsDir):
     
-    huc_list_path = os.path.join(os.environ['inputsDir'],'huc_lists')
+    huc_list_path = os.path.join(inputsDir, 'huc_lists')
     accepted_hucs = __read_included_files(huc_list_path)
     list_hucs = __read_input_hucs(hucs)
     __check_for_membership(list_hucs, accepted_hucs)
@@ -87,6 +87,7 @@ if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(description='Checks input hucs for availability within inputs')
     parser.add_argument('-u','--hucs',help='Line-delimited file or list of HUCs to check availibility for',required=True, nargs='+')
+    parser.add_argument('-i', '--inputsDir', help='Inputs directory', required=True)
 
     # extract to dictionary
     args = vars(parser.parse_args())

@@ -90,7 +90,7 @@ def variable_mannings_calc(args):
             df_src_trim = df_src[['HydroID','Stage','subdiv_applied','channel_n','overbank_n','Discharge (m3s-1)_subdiv']]
             df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_subdiv': 'subdiv_discharge_cms'})
             df_src_trim['discharge_cms'] = df_src_trim['subdiv_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
-            df_htable = pd.read_csv(htable_filename,dtype={'HUC': str})
+            df_htable = pd.read_csv(htable_filename,dtype={'HUC': str,'last_updated':object,'submitter':object,'obs_source':object})
 
             ## drop the previously modified discharge column to be replaced with updated version
             df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
@@ -191,7 +191,7 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
         number_of_jobs = available_cores - 2
         print("Provided job number exceeds the number of available cores. " + str(number_of_jobs) + " max jobs will be used instead.")
 
-    print(f"Computing subdivided SRC and applying variable Manning's n to channel/overbank for {len(procs_list)} hucs using {number_of_jobs} jobs")
+    print(f"Computing subdivided SRC and applying variable Manning's n to channel/overbank for {len(procs_list)} branches using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         if verbose:
             map_output = tqdm(pool.imap(variable_mannings_calc, procs_list), total=len(procs_list))
