@@ -190,7 +190,7 @@ def add_crosswalk(input_catchments_fileName,
                 update_id = output_flows.loc[output_flows.HydroID==short_id]['HydroID'].item()
 
             str_order = output_flows.loc[output_flows.HydroID==short_id]['order_'].item()
-            sml_segs = sml_segs.append({'short_id':short_id, 'update_id':update_id, 'str_order':str_order}, ignore_index=True)
+            sml_segs = pd.concat([sml_segs, pd.DataFrame({'short_id':[short_id], 'update_id':[update_id], 'str_order':[str_order]})], ignore_index=True)
 
     print("Number of short reaches [{} < {} and {} < {}] = {}".format("areasqkm", min_catchment_area, "LengthKm", min_stream_length, len(sml_segs)))
 
