@@ -479,7 +479,6 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             for downstream_ID in downstream_IDs:
                 # Stop if lowest reach is not in a lake
-                # if int(ser.iloc[0]):
                 if tmp_self.Lake[tmp_self.From_Node.astype(int)==downstream_ID].iloc[0] == -9999:
                     continue
                 else:
@@ -498,7 +497,6 @@ class StreamNetwork(gpd.GeoDataFrame):
             
             for upstream_ID in upstream_IDs:
                 # Stop if uppermost reach is not in a lake
-                # if int(ser.iloc[0]):
                 if tmp_self.Lake[tmp_self.From_Node.astype(int)==upstream_ID].iloc[0] == -9999:
                     continue
                 else:
