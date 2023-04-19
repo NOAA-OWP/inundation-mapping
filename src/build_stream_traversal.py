@@ -60,7 +60,7 @@ class build_stream_traversal_columns(object):
                 streams = streams.assign(hydro_id= lambda x: x.HUC8id + x.seqID)
                 streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
                 streams = streams.drop(columns=['HUC8id', 'seqID'])
-                streams[hydro_id] = streams[hydro_id].astype(int)
+                streams[hydro_id] = streams[hydro_id].astype(float).astype(int)
                 print ('Generated ' + hydro_id)
 
             # Check for TO/From Nodes; Assign if doesnt exist
