@@ -15,7 +15,7 @@ NOTE: Although the most current GDAL is version 3.6.3, something in 3.5 causes a
 - `Pipfile` and `Pipfile.lock`: Update Python versions
 - `src/`
     - `add_crosswalk.py`, `aggregate_by_huc.py`, `src_adjust_usgs_rating.py`, and `usgs_gage_unit_setup.py`: Change `df1.append(df2)` (deprecated) to `pd.concat([df1, df2])`
-    - `build_stream_traversal.py`: Fix bug
+    - `build_stream_traversal.py`: Add `dropna=True` to address change in NaN handling
     - `getRasterInfoNative.py`: Replace `import gdal` (deprecated) with `from osgeo import gdal`
     - `stream_branches.py`: Change deprecated indexing to `.iloc[0]` and avoid `groupby.max()` over geometry
 - `tools/inundation.py`: Cleans unused `from gdal`
