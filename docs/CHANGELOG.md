@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3.x.x - 2023-04-19 - [PR#889](https://github.com/NOAA-OWP/inundation-mapping/pull/889)
+## v4.3.9.0 - 2023-04-19 - [PR#889](https://github.com/NOAA-OWP/inundation-mapping/pull/889)
 
 Updates GDAL in base Docker image from 3.1.2 to 3.4.3 and updates all Python packages to latest versions, including Pandas v.2.0.0. Fixes resulting errors caused by deprecation and/or other changes in dependencies. 
 
@@ -21,6 +21,18 @@ NOTE: Although the most current GDAL is version 3.6.3, something in 3.5 causes a
 - `tools`
     - `inundation.py`: Cleans unused `from gdal`
     - `eval_plots.py`: deprecated dataframe.append fixed and deprecated python query pattern fixed.
+
+<br/><br/>
+
+## v4.3.8.0 - 2023-04-07 - [PR#881](https://github.com/NOAA-OWP/inundation-mapping/pull/881)
+
+Clips branch 0 to terminal segments of NWM streams using the `to` attribute of NWM streams (where `to=0`).
+
+### Changes
+
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: Added input arguments to `src/split_flows.py`
+    - `split_flows.py`: Added functionality to snap and trim branch 0 flows to terminal NWM streamlines
 
 <br/><br/>
 
