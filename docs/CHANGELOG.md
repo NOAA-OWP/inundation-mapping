@@ -6,6 +6,9 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Clips branch 0 to terminal segments of NWM streams using the `to` attribute of NWM streams (where `to=0`).
 
+### Changes
+
+- `src/`
     - `delineate_hydros_and_produce_HAND.sh`: Added input arguments to `src/split_flows.py`
     - `split_flows.py`: Added functionality to snap and trim branch 0 flows to terminal NWM streamlines
 
