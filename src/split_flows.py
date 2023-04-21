@@ -332,7 +332,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--max-length', help='Maximum split distance (meters)', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
     parser.add_argument('-b', '--lakes-buffer-input', help='Lakes buffer distance (meters)', required=True)
-    
+
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 

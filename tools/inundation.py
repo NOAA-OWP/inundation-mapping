@@ -476,16 +476,20 @@ def __append_huc_code_to_file_name(fileName,hucCode):
 def __subset_hydroTable_to_forecast(hydroTable,forecast,subset_hucs=None):
 
     if isinstance(hydroTable,str):
+        htable_req_cols = ['HUC','feature_id','HydroID','stage','discharge_cms','LakeID']
         hydroTable = pd.read_csv(
                                  hydroTable,
-                                 dtype={'HUC':str,'feature_id':str,
-                                         'HydroID':str,'stage':float,
-                                         'discharge_cms':float,
-                                         'LakeID' : int,
-                                         'last_updated':object, 
-                                         'submitter':object, 
-                                         'obs_source':object},
-                                 low_memory=False
+                                 dtype={'HUC':str,
+                                        'feature_id':str,
+                                        'HydroID':str,
+                                        'stage':float,
+                                        'discharge_cms':float,
+                                        'LakeID' : int,
+                                        'last_updated':object, 
+                                        'submitter':object, 
+                                        'obs_source':object},
+                                 low_memory=False,
+                                 usecols=htable_req_cols
                                 )
         huc_error = hydroTable.HUC.unique()
         hydroTable.set_index(['HUC','feature_id','HydroID'],inplace=True)
@@ -629,7 +633,8 @@ def create_src_subset_csv(hydro_table,catchmentStagesDict,src_table):
     src_df = pd.DataFrame.from_dict(catchmentStagesDict, orient='index')
     src_df.reset_index(inplace=True)
     src_df.columns = ['HydroID','stage_inund']
-    df_htable = pd.read_csv(hydro_table,dtype={'HydroID': int,'HUC': object, 'branch_id':int, 'last_updated':object, 'submitter':object, 'obs_source':object})
+    htable_req_cols = ['HUC','feature_id','HydroID','stage','discharge_cms','LakeID']
+    df_htable = pd.read_csv(hydro_table,dtype={'HydroID': int,'HUC': object, 'branch_id':int, 'last_updated':object, 'submitter':object, 'obs_source':object},usecols=htable_req_cols)
     df_htable = df_htable.merge(src_df,how='left',on='HydroID')
     df_htable['find_match'] = (df_htable['stage'] - df_htable['stage_inund']).abs()
     df_htable = df_htable.loc[df_htable.groupby('HydroID')['find_match'].idxmin()].reset_index(drop=True)
