@@ -18,7 +18,9 @@ NOTE: Although the most current GDAL is version 3.6.3, something in 3.5 causes a
     - `build_stream_traversal.py`: Add `dropna=True` to address change in NaN handling
     - `getRasterInfoNative.py`: Replace `import gdal` (deprecated) with `from osgeo import gdal`
     - `stream_branches.py`: Change deprecated indexing to `.iloc[0]` and avoid `groupby.max()` over geometry
-- `tools/inundation.py`: Cleans unused `from gdal`
+- `tools`
+    - `inundation.py`: Cleans unused `from gdal`
+    - `eval_plots.py`: deprecated dataframe.append fixed and deprecated python query pattern fixed.
 
 <br/><br/>
 
