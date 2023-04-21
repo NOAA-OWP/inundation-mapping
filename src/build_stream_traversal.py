@@ -52,7 +52,7 @@ class build_stream_traversal_columns(object):
                 stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint", "index_right": "HUC8id"})
                 streams = streams.join(stream_wbdjoin).drop(columns=['midpoint'])
 
-                streams['seqID'] = (streams.groupby('HUC8id').cumcount(ascending=True)+1).astype('str').str.zfill(4)
+                streams['seqID'] = (streams.groupby('HUC8id', dropna=False).cumcount(ascending=True)+1).astype('str').str.zfill(4)
                 streams = streams.loc[streams['HUC8id'].notna(),:]
                 if streams.HUC8id.dtype != 'str': streams.HUC8id = streams.HUC8id.astype(str)
                 if streams.seqID.dtype != 'str': streams.seqID = streams.seqID.astype(str)
@@ -60,7 +60,7 @@ class build_stream_traversal_columns(object):
                 streams = streams.assign(hydro_id= lambda x: x.HUC8id + x.seqID)
                 streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
                 streams = streams.drop(columns=['HUC8id', 'seqID'])
-                streams[hydro_id] = streams[hydro_id].astype(float).astype(int)
+                streams[hydro_id] = streams[hydro_id].astype(int)
                 print ('Generated ' + hydro_id)
 
             # Check for TO/From Nodes; Assign if doesnt exist
