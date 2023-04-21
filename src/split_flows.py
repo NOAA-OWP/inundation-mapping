@@ -31,17 +31,60 @@ from utils.shared_variables import FIM_ID
 from utils.fim_enums import FIM_exit_codes
 
 @mem_profile
-def split_flows(max_length, 
-                slope_min, 
-                lakes_buffer_input, 
-                flows_filename,
+def split_flows(flows_filename,
                 dem_filename, 
                 split_flows_filename, 
                 split_points_filename, 
                 wbd8_clp_filename, 
                 lakes_filename,
-                nwm_streams_filename):
+                nwm_streams_filename,
+                max_length, 
+                slope_min, 
+                lakes_buffer_input):
 
+    def snap_and_trim_flow(snapped_point, flows):
+        # Find nearest flow line
+        if len(flows) > 1:
+            sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows, max_distance=100)
+            if sjoin_nearest.empty:
+                return flows
+            
+            if len(sjoin_nearest) > 1:
+                sjoin_nearest = sjoin_nearest[sjoin_nearest['LINKNO'].isin(sjoin_nearest['DSLINKNO'])]
+            
+            nearest_index = int(sjoin_nearest['LINKNO'])
+            flow = flows[flows['LINKNO']==nearest_index]
+            flow.index = [0]
+
+        else:
+            flow = flows
+            nearest_index = None
+
+        # Snap to DEM flows
+        snapped_point['geometry'] = flow.interpolate(flow.project(snapped_point.geometry))[0]
+
+        # Trim flows to snapped point
+        # buffer here because python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
+        trimmed_line = shapely_ops_split(flow.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1))
+        # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
+        # Note to dear reader: last here is really the most upstream segment (see crevats above).  When we split we should get 3 segments, the most downstream one
+        # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.  We want that last one which is why we trimmed_line[len(trimmed_line)-1]
+        last_line_segment = pd.DataFrame({'id':['first'],'geometry':[trimmed_line.geoms[len(trimmed_line.geoms)-1].wkt]})
+        last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads) # can be last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment) # when we update geopandas verisons
+        last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flow.crs)
+
+        # replace geometry in merged flowine
+        flow_geometry = last_line_segment_geodataframe.iloc[0]['geometry']
+
+        if nearest_index is not None:
+            # Update geometry of line closest to snapped_point
+            flows.loc[flows['LINKNO']==nearest_index, 'geometry'] = flow_geometry
+        else:
+            flows['geometry'] = flow_geometry
+
+        return flows
+
+        
     toMetersConversion = 1e-3
 
     print('Loading data ...')
@@ -73,38 +116,40 @@ def split_flows(max_length,
     hydro_id = 'HydroID'
 
     # If loop addressing: https://github.com/NOAA-OWP/inundation-mapping/issues/560
-    # if we are processing branch 0, skip this step
-    if (os.path.split(os.path.dirname(nwm_streams_filename))[1] != '0'):
-        print ('trimming DEM stream to NWM branch terminus')
-        # read in nwm lines, explode to ensure linestrings are the only geometry
-        levelpath_lines = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
+    print ('trimming DEM stream to NWM branch terminus')
+    # read in nwm lines, explode to ensure linestrings are the only geometry
+    nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
 
-        # Dissolve the linestring (how much faith should I hold that these are digitized with flow?)
-        linestring_geo = levelpath_lines.iloc[0]['geometry']
-        if (len(levelpath_lines) > 1):
-            linestring_geo = ops.linemerge(levelpath_lines.dissolve(by='levpa_id').iloc[0]['geometry'])
+    # Dissolve levelpath if not branch 0
+    if 'levpa_id' in nwm_streams.columns:
+        if (len(nwm_streams) > 1):
+            # Dissolve the linestring (how much faith should I hold that these are digitized with flow?)
+            linestring_geo = ops.linemerge(nwm_streams.dissolve(by='levpa_id').iloc[0]['geometry'])
+        else:
+            linestring_geo = nwm_streams.iloc[0]['geometry']
 
         # Identify the end vertex (most downstream, should be last), transform into geodataframe
         terminal_nwm_point = []
         last = Point(linestring_geo.coords[-1])
         terminal_nwm_point.append({'ID':'terminal','geometry':last})
-        snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(levelpath_lines.crs)
+        snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-        # Snap to DEM flows
-        snapped_point['geometry'] = flows.interpolate(flows.project(snapped_point.geometry))
+        flows = snap_and_trim_flow(snapped_point, flows)
 
-        # Trim flows to snapped point
-        # buffer here because python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
-        trimmed_line = shapely_ops_split(flows.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1))
-        # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
-        # Note to dear reader: last here is really the most upstream segmennt (see crevats above).  When we split we should get 3 segments, the most downstream one
-        # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.  We want that last one which is why we trimmed_line[len(trimmed_line)-1]
-        last_line_segment = pd.DataFrame({'id':['first'],'geometry':[trimmed_line.geoms[len(trimmed_line.geoms)-1].wkt]})
-        last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads) # can be last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment) when we update geopandas verisons
-        last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flows.crs)
+    # If branch 0: loop over NWM terminal segments
+    else:
+        nwm_streams_terminal = nwm_streams[nwm_streams['to']==0]
+        if not nwm_streams_terminal.empty:
+            for i, row in nwm_streams_terminal.iterrows():
+                linestring_geo = row['geometry']
+                # Identify the end vertex (most downstream, should be last), transform into geodataframe
+                terminal_nwm_point = []
+                last = Point(linestring_geo.coords[-1])
+                terminal_nwm_point.append({'ID':'terminal','geometry':last})
+                snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-        # replace geometry in merged flowine
-        flows['geometry'] = last_line_segment_geodataframe.iloc[0]['geometry']
+                flows = snap_and_trim_flow(snapped_point, flows)
+
 
     # split at HUC8 boundaries
     print ('splitting stream segments at HUC8 boundaries')
@@ -276,7 +321,7 @@ def split_flows(max_length,
 
 if __name__ == '__main__':
     # Parse arguments.
-    parser = argparse.ArgumentParser(description='splitflows.py')
+    parser = argparse.ArgumentParser(description='split_flows.py')
     parser.add_argument('-f', '--flows-filename', help='flows-filename',required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename',required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename',required=True)
@@ -285,7 +330,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename',required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename',required=True)
     parser.add_argument('-m', '--max-length', help='Maximum split distance (meters)', required=True)
-    parser.add_argument('-t', '--slope-min', help='Slope minimum', required=True)
+    parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
     parser.add_argument('-b', '--lakes-buffer-input', help='Lakes buffer distance (meters)', required=True)
 
     # Extract to dictionary and assign to variables.
