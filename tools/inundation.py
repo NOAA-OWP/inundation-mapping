@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from numba import njit, typed, types
 from concurrent.futures import ThreadPoolExecutor,as_completed
-from subprocess import run
 from os.path import splitext
 import rasterio
 import fiona
@@ -14,9 +13,7 @@ from rasterio.io import DatasetReader,DatasetWriter
 from collections import OrderedDict
 import argparse
 from warnings import warn
-from gdal import BuildVRT
 import geopandas as gpd
-import sys
 import xarray as xr
 
 class hydroTableHasOnlyLakes(Exception): 

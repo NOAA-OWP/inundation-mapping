@@ -107,7 +107,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         calc_df.rename(columns={interval+"_0_year":'nwm_recur_flow_cms'}, inplace=True)
         # Subset calc_df for final output
         calc_df = calc_df[['location_id','hydroid','feature_id','levpa_id','huc','hand','discharge_cms','check_variance','nwm_recur_flow_cms','nwm_recur','layer']]
-        final_df = final_df.append(calc_df, ignore_index=True)
+        final_df = pd.concat([final_df, calc_df], ignore_index=True)
         # Log any negative HAND elev values and remove from database
         log_text += ('Warning: Negative HAND stage values -->\n')
         log_text += (calc_df[calc_df['hand']<0].to_string() +'\n')

@@ -32,7 +32,7 @@ class Gage2Branch(object):
             ahps_sites.rename(columns={'nwm_feature_id':'feature_id',
                                 'usgs_site_code':'location_id'}, inplace=True)
             ahps_sites = ahps_sites[ahps_sites.location_id.isna()] # Filter sites that are already in the USGS dataset
-            self.gages = self.gages.append(ahps_sites[['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states','geometry']])
+            self.gages = pd.concat([self.gages, ahps_sites[['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states','geometry']]])
 
         # Create gages attribute
         self.gages.location_id.fillna(usgs_gages.nws_lid, inplace=True)

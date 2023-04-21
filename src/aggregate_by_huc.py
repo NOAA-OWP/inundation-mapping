@@ -130,7 +130,7 @@ class HucDirectory(object):
             return
 
         usgs_elev_table = pd.read_csv(usgs_elev_filename, dtype=self.usgs_dtypes)
-        self.agg_usgs_elev_table = self.agg_usgs_elev_table.append(usgs_elev_table)
+        self.agg_usgs_elev_table = pd.concat([self.agg_usgs_elev_table, usgs_elev_table])
 
 
     def aggregate_hydrotables(self, branch_path, branch_id):
@@ -142,7 +142,7 @@ class HucDirectory(object):
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
         hydrotable['branch_id'] = branch_id
         hydrotable[['calb_applied']] = hydrotable[['calb_applied']].fillna(value=False)
-        self.agg_hydrotable = self.agg_hydrotable.append(hydrotable)
+        self.agg_hydrotable = pd.concat([self.agg_hydrotable, hydrotable])
 
     def aggregate_src_full_crosswalk(self, branch_path, branch_id):
 
@@ -152,7 +152,7 @@ class HucDirectory(object):
 
         src_cross = pd.read_csv(src_cross_filename, dtype=self.src_crosswalked_dtypes)
         src_cross['branch_id'] = branch_id
-        self.agg_src_cross = self.agg_src_cross.append(src_cross)
+        self.agg_src_cross = pd.concat([self.agg_src_cross, src_cross])
 
 
     def agg_function(self,usgs_elev_flag,hydro_table_flag,src_cross_flag):

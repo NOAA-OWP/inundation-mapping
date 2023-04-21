@@ -2,6 +2,28 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.9.0 - 2023-04-19 - [PR#889](https://github.com/NOAA-OWP/inundation-mapping/pull/889)
+
+Updates GDAL in base Docker image from 3.1.2 to 3.4.3 and updates all Python packages to latest versions, including Pandas v.2.0.0. Fixes resulting errors caused by deprecation and/or other changes in dependencies. 
+
+NOTE: Although the most current GDAL is version 3.6.3, something in 3.5 causes an issue in TauDEM `aread8` (this has been submitted as https://github.com/dtarb/TauDEM/issues/254)
+
+### Changes
+
+- `Dockerfile`: Upgrade package versions and fix `tzdata`
+- `fim_post_processing.sh`: Fix typo
+- `Pipfile` and `Pipfile.lock`: Update Python versions
+- `src/`
+    - `add_crosswalk.py`, `aggregate_by_huc.py`, `src_adjust_usgs_rating.py`, and `usgs_gage_unit_setup.py`: Change `df1.append(df2)` (deprecated) to `pd.concat([df1, df2])`
+    - `build_stream_traversal.py`: Add `dropna=True` to address change in NaN handling
+    - `getRasterInfoNative.py`: Replace `import gdal` (deprecated) with `from osgeo import gdal`
+    - `stream_branches.py`: Change deprecated indexing to `.iloc[0]` and avoid `groupby.max()` over geometry
+- `tools`
+    - `inundation.py`: Cleans unused `from gdal`
+    - `eval_plots.py`: deprecated dataframe.append fixed and deprecated python query pattern fixed.
+
+<br/><br/>
+
 ## v4.3.8.0 - 2023-04-07 - [PR#881](https://github.com/NOAA-OWP/inundation-mapping/pull/881)
 
 Clips branch 0 to terminal segments of NWM streams using the `to` attribute of NWM streams (where `to=0`).
