@@ -52,11 +52,13 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
                                      nwm_catchments = params["nwm_catchments"],
                                      subset_nwm_catchments = params["subset_nwm_catchments"],
                                      nld_lines = params["nld_lines"],
+                                     nld_lines_preprocessed = params["nld_lines_preprocessed"],
                                      landsea = params["landsea"],
                                      nwm_streams = params["nwm_streams"],
                                      subset_landsea = params["subset_landsea"],
                                      nwm_headwaters = params["nwm_headwaters"],
                                      subset_nld_lines = params["subset_nld_lines"],
+                                     subset_nld_lines_preprocessed = params["subset_nld_lines_preprocessed"],
                                      wbd_buffer_distance = params["wbd_buffer_distance"],
                                      levee_protected_areas = params["levee_protected_areas"],
                                      subset_levee_protected_areas = params["subset_levee_protected_areas"])
