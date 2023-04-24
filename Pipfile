@@ -36,6 +36,8 @@ pyarrow = "==11.0.0"
 rtree = "==1.0.1"
 py7zr = "==0.20.4"
 scipy = "==1.10.1"
+dask = "==2023.4.0"
+py3dep = "==0.14.0"
 
 [requires]
 python_version = "3.8"
