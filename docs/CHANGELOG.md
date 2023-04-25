@@ -2,6 +2,22 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.x.x - 2023-04-xx - [PR#893](https://github.com/NOAA-OWP/inundation-mapping/pull/893)
+
+Fix existing unit tests, remove unwanted behavior in `check_unit_errors_test.py`, update `unit_tests/README.md`
+
+### Changes  
+
+- `unit_tests/`
+    - `README.md` : Split up headings for setting up unit tests/running unit tests & re-formatted code block.
+    - `check_unit_errors_test.py`: Fixed unwanted behavior of test leaving behind `sample_n.txt` files in `unit_errors/`
+    - `clip_vectors_to_wbd_params.json`: Update parameters
+    - `clip_vectors_to_wbd_test.py`: Update arguments
+    - `pyproject.toml`: Ignore RuntimeWarning, to suppress pytest failure. 
+    - `usgs_gage_crosswalk_test.py`: Enhance readability of arguments in `gage_crosswalk.run_crosswalk` call
+
+<br/><br/>
+
 ## v4.3.9.0 - 2023-04-19 - [PR#889](https://github.com/NOAA-OWP/inundation-mapping/pull/889)
 
 Updates GDAL in base Docker image from 3.1.2 to 3.4.3 and updates all Python packages to latest versions, including Pandas v.2.0.0. Fixes resulting errors caused by deprecation and/or other changes in dependencies. 
