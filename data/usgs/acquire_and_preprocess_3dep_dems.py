@@ -7,24 +7,22 @@ import os
 import subprocess
 import sys
 import traceback
-import shutil
 from rasterio.enums import Resampling
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 from itertools import product
-import fiona
-from fiona.crs import to_string
 import shapely
-from shapely.geometry import shape, box, Polygon, MultiPolygon
-from gdal import BuildVRT, BuildVRTOptions
+from shapely.geometry import box, Polygon, MultiPolygon
+from osgeo.gdal import BuildVRT, BuildVRTOptions
 import dask
 from tqdm.dask import TqdmCallback
 import py3dep
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+import xarray as xr
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from tqdm import tqdm
-
+from typing import Union
 sys.path.append('/foss_fim/src')
 import utils.shared_variables as sv
 import utils.shared_functions as sf
@@ -35,38 +33,43 @@ from utils.shared_functions import FIM_Helpers as fh
 # This URL is part of a series of vrt data available from USGS via an S3 Bucket.
 # for more info see: "http://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Elevation/". The odd folder numbering is
 # a translation of arc seconds with 13m  being 1/3 arc second or 10 meters.
-__USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt'  # 10m = 13 (1/3 arc second)
+# __USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt'  # 10m = 13 (1/3 arc second)
 
 
-def acquire_and_preprocess_3dep_dems(extent_file_path,
-                                     target_output_folder_path = '', 
-                                     number_of_jobs = 1, 
-                                     retry = False):
+def acquire_and_preprocess_3dep_dems(extent_file_path:str,
+                                     dem_resolution:int,
+                                     target_output_folder_path:str = '', 
+                                     number_of_jobs:int = 1, 
+                                     retry:bool = False,
+                                     tile_size:Union[int,float] = 1000,
+                                     ndv:Union[float,int] = sv.elev_raster_ndv,
+                                     wbd_buffer:Union[float,int]=2000
+                                    ):
     
     '''
     Overview
     ----------
     This will download 3dep rasters from USGS using USGS vrts.
     By default USGS 3Dep stores all their rasters in lat/long (northing and easting).
-    By us downloading the rasters using WBD HUC4 clips and gdal, we an accomplish a few extra
+    By us downloading the rasters using WBD huc clips and gdal, we an accomplish a few extra
     steps.
         1) Ensure the projection types that are downloaded are consistant and controlled.
            We are going to download them as NAD83 basic (espg: 4269) which is consistant
            with other data sources, even though FIM defaults to ESRI:102039. We will
            change that as we add the clipped version per HUC8.
         2) ensure we are adjusting blocksizes, compression and other raster params
-        3) Create the 3dep rasters in the size we want (default at HUC4 for now)
+        3) Create the 3dep rasters in the size we want (default at huc for now)
         
     Notes:
         - As this is a very low use tool, all values such as the USGS vrt path, output
-          folder paths, huc unit level (huc4), etc are all hardcoded
+          folder paths, huc unit level (huc), etc are all hardcoded
         
     Parameters
     ----------
         - extent_file_path (str):
             Location of where the extent files that are to be used as clip extent against
             the USGS 3Dep vrt url.
-            ie) \data\inputs\wbd\HUC4
+            ie) \data\inputs\wbd\huc
             
         - target_output_folder_path (str):
             The output location of the new 3dep dem files. When the param is not submitted,
@@ -83,10 +86,10 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     # Validation
     total_cpus_available = os.cpu_count() - 1
     if number_of_jobs > total_cpus_available:
-        raise ValueError('The number of jobs {number_of_jobs}'\
+        raise ValueError(f'The number of jobs {number_of_jobs}'\
                           'exceeds your machine\'s available CPU count minus one. '\
                           'Please lower the number of jobs '\
-                          'values accordingly.'.format(number_of_jobs)
+                          'values accordingly.'
                         )
 
     if (not os.path.exists(extent_file_path)):
@@ -119,16 +122,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     logging.info(msg)
    
     # download dems, setting projection, block size, etc
-    # __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
-    retrieve_and_reproject_3dep_for_huc( wbd, 
-                                         huc4s,
-                                         tile_size,
-                                         dem_resolution,
-                                         output_dir,
-                                         ndv,
-                                         num_workers,
-                                         wbd_buffer,
-                                         retry_3dep)
+    __download_usgs_dems(extent_file_names, dem_resolution, tile_size, wbd_buffer, target_output_folder_path, number_of_jobs, retry)
 
     polygonize(target_output_folder_path)
     
@@ -138,27 +132,30 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
-def retrieve_and_reproject_3dep_for_huc( wbd, 
-                                         huc4s:(str,list),
-                                         tile_size:(int,float),
-                                         dem_resolution:(float,int),
-                                         output_dir=None,
-                                         ndv=sv.elev_raster_ndv,
-                                         num_workers=1,
-                                         wbd_buffer=2000,
-                                         retry_3dep=False
+def retrieve_and_reproject_3dep_for_huc( extent_file:str,
+                                         tile_size:Union[int,float],
+                                         dem_resolution:int,
+                                         target_output_folder_path:str=None,
+                                         ndv:Union[float,int]=sv.elev_raster_ndv,
+                                         number_of_jobs:int=1,
+                                         wbd_buffer:Union[float,int]=2000,
+                                         retry:bool=False
                                        ):
 
     def __fishnet_geometry(geometry,cell_size_meters=1000,cell_buffer=10):
         
-        xmin, ymin, xmax, ymax = geometry.bounds
+        xmin, ymin, xmax, ymax = geometry.bounds.values[0]
 
-        grid_cells = [ box(x0, y0, x0-(cell_size_meters+cell_buffer), y0+(cell_size_meters+cell_buffer))
+        grid_cells = [ gpd.GeoSeries(data=box(x0, y0, 
+                                              x0-(cell_size_meters+cell_buffer), 
+                                              y0+(cell_size_meters+cell_buffer)), 
+                                     crs=geometry.crs)
                        for x0, y0 in product( np.arange(xmin,xmax + cell_size_meters,cell_size_meters),
                        np.arange(ymin,ymax + cell_size_meters,cell_size_meters) )
                      ]
 
-        grid_cells = [gc.intersection(geometry) for gc in grid_cells]
+
+        grid_cells = [gc.intersection(geometry)[0] for gc in grid_cells]
 
         check_intersection = lambda g: (not g.is_empty) & g.is_valid & ( isinstance(g,Polygon) | isinstance(g,MultiPolygon) )
 
@@ -171,84 +168,31 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
     print('Retrieving and Processing 3DEP Data ...')
 
     # directory location
-    os.makedirs(output_dir,exist_ok=True)
+    os.makedirs(target_output_folder_path,exist_ok=True)
 
-    if isinstance(huc4s,str):
-        huc4s = {huc4s}
-    elif isinstance(huc4s,list):
-        huc4s = set(huc4s)
-    
-    huc_length = 4
+    extent = gpd.read_file(extent_file)
 
-    huc_layer = f'WBDHU{huc_length}'
-    huc_attribute = f'HUC{huc_length}'
-    
-    # load wbd
-    if isinstance(wbd,fiona.Collection):
-        pass
-    elif isinstance(wbd,str):
-        #wbd = gpd.read_file(wbd,layer=huc_layer)
-        wbd = fiona.open(wbd,layer=huc_layer)
-    else:
-        raise TypeError("Pass Fiona Collection or file path to vector file for wbd argument.")
-    
-    # get wbd crs
-    wbd_crs = to_string(wbd.crs)
-    
-    # building inputs
-    geometry_boxes = list()
-    hucs = list()
-    huc4_output_dirs = list()
-    for row in tqdm(wbd,total=len(wbd),desc=' Loading relevant geometries'):
-        
-        # get hucs
-        huc = row['properties'][huc_attribute]
-        current_huc4 = huc[0:4]
-        
-        # skip if not in huc4 set
-        if current_huc4 not in huc4s:
-            continue
-        
-        # get geometry
-        geometry = shape(row['geometry'])
+    huc = str.split(os.path.splitext(os.path.basename(extent_file))[0],'_')[1]
 
-        # huc4 output dir
-        huc4_output_dir = os.path.join(output_dir,f'{current_huc4}_{int(dem_resolution)}m')
-        
-        if not retry_3dep:
-            # remove
-            shutil.rmtree(huc4_output_dir,ignore_errors=True)
-        
-            # re-create
-            os.makedirs(huc4_output_dir,exist_ok=True)
+    # get geometry
+    geometry = extent['geometry']
 
-        # buffer
-        geometry = geometry.buffer(wbd_buffer)
-        
-        # fishnet geometry
-        gbs = __fishnet_geometry(geometry,tile_size,dem_resolution*4)
-        geometry_boxes += gbs
-        hucs += [huc] * len(gbs)
-        huc4_output_dirs += [huc4_output_dir] * len(gbs)
+    # buffer
+    geometry = geometry.buffer(wbd_buffer)
+    
+    # fishnet geometry
+    gbs = __fishnet_geometry(geometry,tile_size,dem_resolution*4)
+    geometry_boxes = gbs
+
+    target_output_folder_paths = [target_output_folder_path] * len(gbs)
+    hucs = [huc] * len(gbs)
 
     number_of_boxes = len(geometry_boxes)
-
-    """
-    g=gpd.GeoDataFrame({'geometry':geometry_boxes, 'idx':[i for i in range(number_of_boxes)] })
-    g.to_file('/data/inputs/dem_3dep_rasters/test.gpkg',driver='GPKG',index=False)
-    print(g)
-    
-    g2=gpd.GeoDataFrame({'geometry': [geometry]})
-    g2.to_file('/data/inputs/dem_3dep_rasters/test_wbd.gpkg',driver='GPKG',index=False)
-    print(g2)
-    breakpoint()"""
-
-    #input_dict[huc] = geometry
     input_dict = [ geometry_boxes, 
                    [dem_resolution for _ in range(number_of_boxes)], 
-                   [wbd_crs for _ in range(number_of_boxes)],
+                   [geometry.crs for _ in range(number_of_boxes)],
                    [ndv for _ in range(number_of_boxes)],
-                   huc4_output_dirs,
+                   target_output_folder_paths,
                    hucs,
                    [int(idx) for idx in range(number_of_boxes)]
                  ]
@@ -257,8 +201,8 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
     def __get_tile_from_nhd(geometry,huc):
 
         # open
-        huc4 = huc[:4]
-        nhd_dem_fp = os.path.join('data','inputs','nhdplus_rasters',f'HRNHDPlusRasters{huc4}','elev_m.tif')
+        huc = huc[:4]
+        nhd_dem_fp = os.path.join('data','inputs','nhdplus_rasters',f'HRNHDPlusRasters{huc}','elev_m.tif')
         nhd_dem = xr.open_rasterio(nhd_dem_fp)
         
         # clipping
@@ -273,16 +217,13 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         return(nhd_dem)
 
 
-    def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,output_dir,huc,idx):
+    def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,target_output_folder_path,huc,idx):
 
         max_retries = 5; retries = 0
         nhd_failed, failed_3dep = False, False
         while True:
             try:
                 
-                # for testing only
-                #if (not retry_3dep) & (idx in {0,9}): nhd_failed, failed_3dep = True, True ; dem = None ;break
-
                 dem = py3dep.get_map( 'DEM',
                                       geometry=geometry,
                                       resolution=dem_resolution,
@@ -290,7 +231,6 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
                                     )
                 break
             
-            #except (ReadTimeout,HTTPError,RasterioIOError,pygeoogc.exceptions.ServiceUnavailable) as e:
             except Exception as e:
                 
                 print(f'{e} - idx: {idx} | retries: {retries}')
@@ -321,7 +261,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
             log_dict['dem_resolution'] = dem_resolution
             log_dict['wbd_crs'] = wbd_crs
             log_dict['ndv'] = ndv
-            log_dict['output_dir'] = output_dir
+            log_dict['target_output_folder_path'] = target_output_folder_path
             log_dict['huc'] = huc
             
         
@@ -342,11 +282,11 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
 
         # write out
         #print(f'{huc} writing')
-        if output_dir:
+        if target_output_folder_path:
         
             # make file name
-            #dem_file_name = dask.delayed(os.path.join)(output_dir,f'dem_3dep_{huc}_{i}.tif')
-            dem_file_name = os.path.join(output_dir,f'dem_3dep_{huc}_{int(dem_resolution)}m_{idx}.tif')
+            #dem_file_name = dask.delayed(os.path.join)(target_output_folder_path,f'dem_3dep_{huc}_{i}.tif')
+            dem_file_name = os.path.join(target_output_folder_path,f'dem_3dep_{huc}_{int(dem_resolution)}m_{idx}.tif')
             
             # write file
             #dem = dem.rio.to_raster(dem_file_name,windowed=True,compute=False)
@@ -354,9 +294,9 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
 
             return(log_dict)
     
-    if retry_3dep:
-        log_file_paths = ( os.path.join(output_dir,f'{huc4}_{int(dem_resolution)}m','log_file.csv') for huc4 in huc4s )
-        input_logs = ( pd.read_csv(log_file_path,index_col=False) for log_file_path in log_file_paths )
+    if retry:
+        log_file_paths = [ os.path.join(target_output_folder_path,f'{huc}_{int(dem_resolution)}m','log_file.csv') for huc in hucs ]
+        input_logs = [ pd.read_csv(log_file_path,index_col=False) for log_file_path in log_file_paths ]
         input_log_save = pd.concat(input_logs)
         input_log_save = input_log_save.reset_index(drop=True)
         
@@ -372,9 +312,9 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         
         input_log = gpd.GeoDataFrame(input_log,geometry='geometry')
         
-        input_log = input_log.loc[:,['geometry','dem_resolution','wbd_crs','ndv','output_dir','huc','idx']]
+        input_log = input_log.loc[:,['geometry','dem_resolution','wbd_crs','ndv','target_output_folder_path','huc','idx']]
         input_log = input_log.loc[~input_log.isna().any(axis=1),:]
-        input_log = input_log.astype({'dem_resolution':float,'wbd_crs':str,'ndv':float,'output_dir':str,'huc':str,'idx':int})
+        input_log = input_log.astype({'dem_resolution':float,'wbd_crs':str,'ndv':float,'target_output_folder_path':str,'huc':str,'idx':int})
 
         input_dict = input_log.T.values.tolist()
 
@@ -383,7 +323,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
     
     retrieve_message = ' Retrieve and process tiles'
     
-    if retry_3dep:
+    if retry:
         retrieve_message = ' RETRY:' + retrieve_message
     
     with TqdmCallback(desc=retrieve_message):
@@ -392,7 +332,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
     output_log = pd.DataFrame(res)
 
     # impute new log entries into original log files
-    if retry_3dep:
+    if retry:
         input_log_save = input_log_save.loc[~input_log_save.loc[:,'idx'].isin(output_log.loc[:,'idx']),:]
         output_log = pd.concat( (input_log_save,output_log))
         output_log.sort_values('idx',inplace=True,axis=0,ignore_index=True)
@@ -405,24 +345,24 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
     print(f'3DEP failed tiles: {failed_3dep} | NHD failed tiles: {failed_nhd} | Both failed tiles: {failed_both}')
 
     # save new log files
-    for huc4 in huc4s:
-        log_file_path = os.path.join(output_dir,f'{huc4}_{int(dem_resolution)}m','log_file.csv')
+    for huc in hucs:
+        log_file_path = os.path.join(target_output_folder_path,f'{huc}_{int(dem_resolution)}m','log_file.csv')
         
-        huc4_output_log = output_log.loc[output_log.loc[:,'huc'] == huc4,:]
-        huc4_output_log.to_csv(log_file_path,index=False)
+        huc_output_log = output_log.loc[output_log.loc[:,'huc'] == huc,:]
+        huc_output_log.to_csv(log_file_path,index=False)
 
     # merge into vrt and then tiff
-    huc4_directories = [os.path.basename(f) for f in input_dict[4] ]
-    huc4_directories = list(set(huc4_directories))
+    huc_directories = [os.path.basename(f) for f in input_dict[4] ]
+    huc_directories = list(set(huc_directories))
     
-    for huc4_dir in tqdm(huc4_directories,desc=' Merging tiles'):
+    for huc_dir in tqdm(huc_directories,desc=' Merging tiles'):
         
-        huc4_dir = os.path.join(output_dir,huc4_dir)
+        huc_dir = os.path.join(target_output_folder_path,huc_dir)
         
-        if not os.path.isdir(huc4_dir):
+        if not os.path.isdir(huc_dir):
             continue
         
-        huc4 = os.path.basename(huc4_dir)
+        huc = os.path.basename(huc_dir)
 
         opts = BuildVRTOptions( xRes=dem_resolution,
                                 yRes=dem_resolution,
@@ -431,8 +371,8 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
                                 resampleAlg='bilinear'
                               )
         
-        sourceFiles = glob(os.path.join(huc4_dir,'*.tif'))
-        destVRT = os.path.join(output_dir,f'dem_3dep_{huc4}.vrt')
+        sourceFiles = glob(os.path.join(huc_dir,'*.tif'))
+        destVRT = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.vrt')
         
         if os.path.exists(destVRT):
             os.remove(destVRT)
@@ -444,7 +384,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
         merge_tiff = False
         if merge_tiff:
             
-            destTiff = os.path.join(output_dir,f'dem_3dep_{huc4}.tif')
+            destTiff = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.tif')
             
             if os.path.exists(destTiff):
                 os.remove(destTiff)
@@ -459,7 +399,7 @@ def retrieve_and_reproject_3dep_for_huc( wbd,
             #gdal_merge([ '','-o',destTiff, '-ot', 'Float32', '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512','-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','BIGTIFF=YES', '-ps', f'{dem_resolution}', f'{dem_resolution}',destVRT])
 
 
-def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry):
+def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, output_folder_path, number_of_jobs, retry):
     
     '''
     Process:
@@ -484,28 +424,25 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     print(f"==========================================================")
     print(f"-- Downloading USGS DEMs Starting")
     
-    base_cmd =  'gdalwarp {0} {1}'
-    base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
-    base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
-    base_cmd += ' -t_srs {3} -cblend 6'
-   
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
         executor_dict = {}
         
         for idx, extent_file in enumerate(extent_files):
-            
-            download_dem_args = { 
-                                'extent_file': extent_file,
-                                'output_folder_path': output_folder_path,
-                                'download_url': __USGS_3DEP_10M_VRT_URL,
-                                'base_cmd':base_cmd,
-                                'retry': retry
+            download_dem_args = {
+                                 'extent_file': extent_file,
+                                 'tile_size': tile_size,
+                                 'dem_resolution': dem_resolution,
+                                 'target_output_folder_path': output_folder_path,
+                                 'ndv': sv.elev_raster_ndv,
+                                 'number_of_jobs': number_of_jobs,
+                                 'wbd_buffer': wbd_buffer,
+                                 'retry': retry
                                 }
         
             try:
-                future = executor.submit(download_usgs_dem_file, **download_dem_args)
+                # future = executor.submit(download_usgs_dem_file, **download_dem_args)
+                future = executor.submit(retrieve_and_reproject_3dep_for_huc, **download_dem_args)
                 executor_dict[future] = extent_file
             except Exception as ex:
                 
@@ -527,100 +464,6 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     print(f"==========================================================")    
     
         
-# def download_usgs_dem_file(extent_file, 
-#                            output_folder_path, 
-#                            download_url,
-#                            base_cmd,
-#                            retry):
-
-#     '''
-#     Process:
-#     ----------    
-#         Downloads just one dem file from USGS. This is setup as a method
-#         to allow for multi-processing.
-
-        
-#     Parameters:
-#     ----------
-#         - extent_file (str)
-#              When the dem is downloaded, it is clipped against this extent (.gkpg) file.
-#         - output_folder_path (str)
-#              Location of where the output file will be stored
-#         - download_url (str)
-#              URL for the USGS download site (note: Should include '/vsicurl/' at the 
-#              front of the URL)
-#         - base_cmd (str)
-#              The basic GDAL command with string formatting wholes for key values.
-#              See the cmd variable below.
-#              ie)
-#                 base_cmd =  'gdalwarp {0} {1}'
-#                 base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
-#                 base_cmd +=  ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-#                 base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
-#                 base_cmd +=  ' -t_srs {3} -cblend 6'
-#         - retry (bool)
-#              If True, and the file exists (and is over 0k), downloading will be skipped.
-        
-#     '''
-    
-#     basic_file_name = os.path.basename(extent_file).split('.')[0]
-#     target_file_name_raw = f"{basic_file_name}_dem.tif" # as downloaded
-#     target_path_raw = os.path.join(output_folder_path,
-#                                     target_file_name_raw)
-    
-#     # File might exist from a previous failed run. If it was aborted or failed
-#     # on a previous attempt, it's size less than 1mg, so delete it.
-#     # 
-#     # IMPORTANT:
-#     #
-#     # it might be compromised on a previous run but GREATER 1mg (part written).
-#     # That scenerio is not handled as we can not tell if it completed.
-    
-#     if (retry) and (os.path.exists(target_path_raw)):
-#         if (os.stat(target_path_raw).st_size < 1000000):
-#             os.remove(target_path_raw)
-#         else:
-#             msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
-#             print(msg)  
-#             logging.info(msg)
-#             return
-    
-#     msg = f" - Downloading -- {target_file_name_raw} - Started"
-#     print(msg)
-#     logging.info(msg)
-            
-#     cmd = base_cmd.format(download_url,
-#                             target_path_raw,
-#                             extent_file,
-#                             sv.DEFAULT_FIM_PROJECTION_CRS)
-#     #PREP_PROJECTION_EPSG
-#     #fh.vprint(f"cmd is {cmd}", self.is_verbose, True)
-#     #print(f"cmd is {cmd}")
-    
-#     # didn't use Popen becuase of how it interacts with multi proc
-#     # was creating some issues. Run worked much better.
-#     process = subprocess.run(cmd, shell = True,
-#                                 stdout = subprocess.PIPE, 
-#                                 stderr = subprocess.PIPE,
-#                                 check = True,
-#                                 universal_newlines=True) 
-
-#     msg = process.stdout
-#     print(msg)
-#     logging.info(msg)
-    
-#     if (process.stderr != ""):
-#         if ("ERROR" in process.stderr.upper()):
-#             msg = f" - Downloading -- {target_file_name_raw}"\
-#                     f"  ERROR -- details: ({process.stderr})"
-#             print(msg)
-#             logging.error(msg)
-#             os.remove(target_path_raw)
-#     else:
-#         msg = f" - Downloading -- {target_file_name_raw} - Complete"
-#         print(msg)
-#         logging.info(msg)
-
 
 def polygonize(target_output_folder_path):
     """
@@ -695,7 +538,7 @@ if __name__ == '__main__':
     # Parse arguments.
     
     # sample usage (min params):
-    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC6_ESPG_5070/ -t /data/inputs/3dep_dems/10m_5070/ -r -j 20
+    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC6_5070/ -t /data/inputs/3dep_dems/10m_5070/ -r -j 20 -d 10
     
     # Notes:
     #   - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
@@ -721,7 +564,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems')
 
     parser.add_argument('-e','--extent_file_path', help='location the gpkg files that will'\
-                        ' are being used as clip regions (aka.. huc4_*.gpkg or whatever).'\
+                        ' are being used as clip regions (aka.. huc_*.gpkg or whatever).'\
                         ' All gpkgs in this folder will be used.', required=True)
 
     parser.add_argument('-j','--number_of_jobs', help='Number of (jobs) cores/processes to used.', 
@@ -733,6 +576,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-t','--target_output_folder_path', help='location of where the 3dep files'\
                         ' will be saved', required=False, default='')
+    
+    parser.add_argument('-d', '--dem_resolution', help='DEM resolution in meters', type=int, default=10, required=False)
 
 
     # Extract to dictionary and assign to variables.
