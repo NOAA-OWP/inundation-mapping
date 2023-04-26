@@ -122,9 +122,9 @@ def acquire_and_preprocess_3dep_dems(extent_file_path:str,
     logging.info(msg)
    
     # download dems, setting projection, block size, etc
-    __download_usgs_dems(extent_file_names, dem_resolution, tile_size, wbd_buffer, target_output_folder_path, number_of_jobs, retry)
+    # __download_usgs_dems(extent_file_names, dem_resolution, tile_size, wbd_buffer, target_output_folder_path, number_of_jobs, retry)
 
-    polygonize(target_output_folder_path)
+    polygonize(target_output_folder_path, dem_resolution)
     
     end_time = datetime.now()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
@@ -202,7 +202,7 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
 
         # open
         huc = huc[:4]
-        nhd_dem_fp = os.path.join('data','inputs','nhdplus_rasters',f'HRNHDPlusRasters{huc}','elev_m.tif')
+        nhd_dem_fp = os.path.join('/data','inputs','nhdplus_rasters',f'HRNHDPlusRasters{huc}','elev_m.tif')
         nhd_dem = xr.open_rasterio(nhd_dem_fp)
         
         # clipping
@@ -294,6 +294,54 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
 
             return(log_dict)
     
+    def __build_VRT_and_TIFF(input_dict):
+        # merge into vrt and then tiff
+        huc_directories = [os.path.basename(f) for f in input_dict[4] ]
+        huc_directories = list(set(huc_directories))
+        
+        for huc_dir in tqdm(huc_directories,desc=' Merging tiles'):
+            
+            huc_dir = os.path.join(target_output_folder_path,huc_dir)
+            
+            if not os.path.isdir(huc_dir):
+                continue
+            
+            huc = os.path.basename(huc_dir)
+
+            opts = BuildVRTOptions( xRes=dem_resolution,
+                                    yRes=dem_resolution,
+                                    srcNodata='nan',
+                                    VRTNodata=ndv,
+                                    resampleAlg='bilinear'
+                                )
+            
+            sourceFiles = glob(os.path.join(huc_dir,'*.tif'))
+            destVRT = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.vrt')
+            
+            if os.path.exists(destVRT):
+                os.remove(destVRT)
+            
+            vrt = BuildVRT(destName=destVRT, srcDSOrSrcDSTab=sourceFiles,options=opts)
+            vrt = None
+            
+            # for some reason gdal_merge won't work
+            merge_tiff = False
+            if merge_tiff:
+                
+                destTiff = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.tif')
+                
+                if os.path.exists(destTiff):
+                    os.remove(destTiff)
+
+                subprocess.call( [ 'gdal_merge.py','-o',destTiff, '-ot', 'Float32',
+                                '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512',
+                                '-co','TILED=YES', '-co', 'COMPRESS=LZW','-q','-co',
+                                'BIGTIFF=YES', '-ps', f'{dem_resolution}',f'{dem_resolution}',
+                                '-n',str(ndv), '-a_nodata',str(ndv),'-init',str(ndv),
+                                destVRT
+                            ])
+                #gdal_merge([ '','-o',destTiff, '-ot', 'Float32', '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512','-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','BIGTIFF=YES', '-ps', f'{dem_resolution}', f'{dem_resolution}',destVRT])
+
     if retry:
         log_file_paths = [ os.path.join(target_output_folder_path,f'{huc}_{int(dem_resolution)}m','log_file.csv') for huc in hucs ]
         input_logs = [ pd.read_csv(log_file_path,index_col=False) for log_file_path in log_file_paths ]
@@ -351,52 +399,7 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
         huc_output_log = output_log.loc[output_log.loc[:,'huc'] == huc,:]
         huc_output_log.to_csv(log_file_path,index=False)
 
-    # merge into vrt and then tiff
-    huc_directories = [os.path.basename(f) for f in input_dict[4] ]
-    huc_directories = list(set(huc_directories))
-    
-    for huc_dir in tqdm(huc_directories,desc=' Merging tiles'):
-        
-        huc_dir = os.path.join(target_output_folder_path,huc_dir)
-        
-        if not os.path.isdir(huc_dir):
-            continue
-        
-        huc = os.path.basename(huc_dir)
-
-        opts = BuildVRTOptions( xRes=dem_resolution,
-                                yRes=dem_resolution,
-                                srcNodata='nan',
-                                VRTNodata=ndv,
-                                resampleAlg='bilinear'
-                              )
-        
-        sourceFiles = glob(os.path.join(huc_dir,'*.tif'))
-        destVRT = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.vrt')
-        
-        if os.path.exists(destVRT):
-            os.remove(destVRT)
-        
-        vrt = BuildVRT(destName=destVRT, srcDSOrSrcDSTab=sourceFiles,options=opts)
-        vrt = None
-        
-        # for some reason gdal_merge won't work
-        merge_tiff = False
-        if merge_tiff:
-            
-            destTiff = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.tif')
-            
-            if os.path.exists(destTiff):
-                os.remove(destTiff)
-
-            subprocess.call( [ 'gdal_merge.py','-o',destTiff, '-ot', 'Float32',
-                               '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512',
-                               '-co','TILED=YES', '-co', 'COMPRESS=LZW','-q','-co',
-                               'BIGTIFF=YES', '-ps', f'{dem_resolution}',f'{dem_resolution}',
-                               '-n',str(ndv), '-a_nodata',str(ndv),'-init',str(ndv),
-                               destVRT
-                           ])
-            #gdal_merge([ '','-o',destTiff, '-ot', 'Float32', '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512','-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','BIGTIFF=YES', '-ps', f'{dem_resolution}', f'{dem_resolution}',destVRT])
+    __build_VRT_and_TIFF(input_dict)
 
 
 def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, output_folder_path, number_of_jobs, retry):
@@ -465,9 +468,14 @@ def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, ou
     
         
 
-def polygonize(target_output_folder_path):
+def polygonize(target_output_folder_path, dem_resolution):
     """
     Create a polygon of 3DEP domain from individual HUC6 DEMS which are then dissolved into a single polygon
+
+    Parameters
+    ----------
+    target_output_folder_path (str):
+    dem_resolution (int):
     """
     dem_domain_file = os.path.join(target_output_folder_path, 'HUC6_dem_domain.gpkg')
 
@@ -475,29 +483,42 @@ def polygonize(target_output_folder_path):
     print(msg)
     logging.info(msg)
             
-    dem_files = glob.glob(os.path.join(target_output_folder_path, '*_dem.tif'))
-    dem_gpkgs = gpd.GeoDataFrame()
+    dem_files = glob.glob(os.path.join(target_output_folder_path, f'dem_3dep_*_{dem_resolution}m_*.tif'))
 
-    for n, dem_file in enumerate(dem_files):
+    def __polygonize_single(dem_file):
+        """
+        Polygonizes a single .tif file
+
+        Parameters
+        ----------
+        dem_file (str): path to .tif file
+        """
+        
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
         edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
 
-        # Calculate a constant valued raster from valid DEM cells
-        if not os.path.exists(edge_tif):
-            subprocess.run(['gdal_calc.py', '-A', dem_file, f'--outfile={edge_tif}', '--calc=where(A > -900, 1, 0)', '--co', 'BIGTIFF=YES', '--co', 'NUM_THREADS=ALL_CPUS', '--co', 'TILED=YES', '--co', 'COMPRESS=LZW', '--co', 'SPARSE_OK=TRUE', '--type=Byte', '--quiet'])
+        if not os.path.exists(edge_gpkg):
+            # Calculate a constant valued raster from valid DEM cells
+            if not os.path.exists(edge_tif):
+                subprocess.run(['gdal_calc.py', '-A', dem_file, f'--outfile={edge_tif}', '--calc=where(A > -900, 1, 0)', '--co', 'BIGTIFF=YES', '--co', 'NUM_THREADS=ALL_CPUS', '--co', 'TILED=YES', '--co', 'COMPRESS=LZW', '--co', 'SPARSE_OK=TRUE', '--type=Byte', '--quiet'])
 
-        # Polygonize constant valued raster
-        subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+            # Polygonize constant valued raster
+            subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+
+            os.remove(edge_tif)
 
         gdf = gpd.read_file(edge_gpkg)
 
-        if n == 0:
-            dem_gpkgs = gdf
-        else:
-            dem_gpkgs = dem_gpkgs.append(gdf)
+        return gdf
 
-        os.remove(edge_tif)
-        
+    # Polygonize TIFs
+    polygonize = [dask.delayed(__polygonize_single)(dem_file) for dem_file in dem_files]
+
+    with TqdmCallback(desc='Polygonizing tiles'):
+        polygonized = dask.compute(*polygonize)
+
+    dem_gpkgs = pd.concat(polygonized)
+
     dem_gpkgs['DN'] = 1
     dem_dissolved = dem_gpkgs.dissolve(by='DN')
     dem_dissolved.to_file(dem_domain_file, driver='GPKG')
