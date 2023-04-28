@@ -3,7 +3,7 @@
 
 #TODO standardize this script
 
-import gdal
+from osgeo import gdal
 import os.path
 import sys
 from osgeo import osr

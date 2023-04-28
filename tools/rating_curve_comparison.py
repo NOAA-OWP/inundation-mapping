@@ -303,7 +303,6 @@ def aggregate_metrics(output_dir,procs_list,stat_groups):
         #         usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False, mode='a',header=False)
         #     else:
         #         usgs_recurr_stats.to_csv(agg_usgs_interp_elev_stats,index=False)
-
         if os.path.isfile(huc[4]):
             nwm_recurr_data = pd.read_csv(huc[4],dtype={'location_id': str,
                                                         'feature_id': str})
@@ -661,7 +660,7 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
 
     # Calculate nrmse
     def NRMSE(x):
-        if x['n'][0] == 1:      # when n==1, NRME equation will return an `inf` 
+        if x['n'].values == 1:      # when n==1, NRME equation will return an `inf` 
             return x['sum_y_diff'] ** 0.5
         else:
             return ((x['sum_y_diff'] / x['n']) ** 0.5) / (x['y_max'] - x['y_min'])
@@ -681,7 +680,7 @@ def calculate_rc_stats_elev(rc,stat_groups=None):
     percent_bias = station_rc.apply(lambda x: 100 * (x["yhat_minus_y"].sum() / x[usgs_elev].sum()))\
         .reset_index(stat_groups, drop = False).rename({0: "percent_bias"}, axis=1)
 
-    rc_stat_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [nrmse, mean_abs_y_diff, mean_y_diff, percent_bias])
+    rc_stat_table = reduce(lambda x,y: pd.merge(x,y, on=stat_groups, how='outer'), [n, nrmse, mean_abs_y_diff, mean_y_diff, percent_bias])
 
     return rc_stat_table
 
