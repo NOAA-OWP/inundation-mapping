@@ -43,7 +43,8 @@ def acquire_and_preprocess_3dep_dems(extent_file_path:str,
                                      retry:bool = False,
                                      tile_size:Union[int,float] = 1000,
                                      ndv:Union[float,int] = sv.elev_raster_ndv,
-                                     wbd_buffer:Union[float,int]=2000
+                                     wbd_buffer:Union[float,int] = 2000,
+                                     vrt_resolution:Union[float,int]=10
                                     ):
     
     '''
@@ -97,11 +98,12 @@ def acquire_and_preprocess_3dep_dems(extent_file_path:str,
                           ' not set to a valid path')
     
     if (target_output_folder_path is None) or (target_output_folder_path == ""):
-        target_output_folder_path = os.environ['usgs_3dep_dems_10m']
-    
-    if (not os.path.exists(target_output_folder_path)):
-        raise ValueError(f"Output folder path {target_output_folder_path} does not exist" )
-   
+        target_output_folder_path = '/data/input/usgs/3dep_dems/10m'
+
+    if not os.path.exists(target_output_folder_path):    
+        # Create the output folder if nonexistent
+        os.makedirs(target_output_folder_path,exist_ok=True)
+
     # -------------------
     # setup logs
     start_time = datetime.now()
@@ -122,7 +124,7 @@ def acquire_and_preprocess_3dep_dems(extent_file_path:str,
     logging.info(msg)
    
     # download dems, setting projection, block size, etc
-    # __download_usgs_dems(extent_file_names, dem_resolution, tile_size, wbd_buffer, target_output_folder_path, number_of_jobs, retry)
+    __download_usgs_dems(extent_file_names, dem_resolution, tile_size, wbd_buffer, target_output_folder_path, number_of_jobs, vrt_resolution, retry)
 
     polygonize(target_output_folder_path, dem_resolution)
     
@@ -139,6 +141,7 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
                                          ndv:Union[float,int]=sv.elev_raster_ndv,
                                          number_of_jobs:int=1,
                                          wbd_buffer:Union[float,int]=2000,
+                                         vrt_resolution:int=10,
                                          retry:bool=False
                                        ):
 
@@ -164,45 +167,11 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
 
         return(grid_cells)
 
-
-    print('Retrieving and Processing 3DEP Data ...')
-
-    # directory location
-    os.makedirs(target_output_folder_path,exist_ok=True)
-
-    extent = gpd.read_file(extent_file)
-
-    huc = str.split(os.path.splitext(os.path.basename(extent_file))[0],'_')[1]
-
-    # get geometry
-    geometry = extent['geometry']
-
-    # buffer
-    geometry = geometry.buffer(wbd_buffer)
-    
-    # fishnet geometry
-    gbs = __fishnet_geometry(geometry,tile_size,dem_resolution*4)
-    geometry_boxes = gbs
-
-    target_output_folder_paths = [target_output_folder_path] * len(gbs)
-    hucs = [huc] * len(gbs)
-
-    number_of_boxes = len(geometry_boxes)
-    input_dict = [ geometry_boxes, 
-                   [dem_resolution for _ in range(number_of_boxes)], 
-                   [geometry.crs for _ in range(number_of_boxes)],
-                   [ndv for _ in range(number_of_boxes)],
-                   target_output_folder_paths,
-                   hucs,
-                   [int(idx) for idx in range(number_of_boxes)]
-                 ]
-
-
     def __get_tile_from_nhd(geometry,huc):
 
         # open
         huc = huc[:4]
-        nhd_dem_fp = os.path.join('/data','inputs','nhdplus_rasters',f'HRNHDPlusRasters{huc}','elev_m.tif')
+        nhd_dem_fp = os.path.join(f'/data/inputs/nhdplus_rasters/HRNHDPlusRasters{huc}/elev_m.tif')
         nhd_dem = xr.open_rasterio(nhd_dem_fp)
         
         # clipping
@@ -218,7 +187,11 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
 
 
     def __retrieve_and_process_single_3dep_dem(geometry,dem_resolution,wbd_crs,ndv,target_output_folder_path,huc,idx):
-
+        
+        # make file name
+        #dem_file_name = dask.delayed(os.path.join)(target_output_folder_path,f'dem_3dep_{huc}_{i}.tif')
+        dem_file_name = os.path.join(target_output_folder_path, 'DEMs', f'dem_3dep_{huc}_{int(dem_resolution)}m_{idx}.tif')
+            
         max_retries = 5; retries = 0
         nhd_failed, failed_3dep = False, False
         while True:
@@ -283,11 +256,6 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
         # write out
         #print(f'{huc} writing')
         if target_output_folder_path:
-        
-            # make file name
-            #dem_file_name = dask.delayed(os.path.join)(target_output_folder_path,f'dem_3dep_{huc}_{i}.tif')
-            dem_file_name = os.path.join(target_output_folder_path,f'dem_3dep_{huc}_{int(dem_resolution)}m_{idx}.tif')
-            
             # write file
             #dem = dem.rio.to_raster(dem_file_name,windowed=True,compute=False)
             dem = dem.rio.to_raster(dem_file_name,windowed=True,compute=True)
@@ -296,27 +264,19 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
     
     def __build_VRT_and_TIFF(input_dict):
         # merge into vrt and then tiff
-        huc_directories = [os.path.basename(f) for f in input_dict[4] ]
-        huc_directories = list(set(huc_directories))
+        hucs = list(set(input_dict[5]))
         
-        for huc_dir in tqdm(huc_directories,desc=' Merging tiles'):
+        for huc in tqdm(hucs,desc=' Merging tiles'):
             
-            huc_dir = os.path.join(target_output_folder_path,huc_dir)
-            
-            if not os.path.isdir(huc_dir):
-                continue
-            
-            huc = os.path.basename(huc_dir)
-
-            opts = BuildVRTOptions( xRes=dem_resolution,
-                                    yRes=dem_resolution,
+            opts = BuildVRTOptions( xRes=vrt_resolution,
+                                    yRes=vrt_resolution,
                                     srcNodata='nan',
                                     VRTNodata=ndv,
                                     resampleAlg='bilinear'
                                 )
             
-            sourceFiles = glob(os.path.join(huc_dir,'*.tif'))
-            destVRT = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.vrt')
+            sourceFiles = glob.glob(os.path.join(target_output_folder_path,'DEMs','*.tif'))
+            destVRT = os.path.join(target_output_folder_path,f'dem_{dem_resolution}m_3dep_{huc}_at_{vrt_resolution}m.vrt')
             
             if os.path.exists(destVRT):
                 os.remove(destVRT)
@@ -328,7 +288,7 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
             merge_tiff = False
             if merge_tiff:
                 
-                destTiff = os.path.join(target_output_folder_path,f'dem_3dep_{huc}.tif')
+                destTiff = os.path.join(target_output_folder_path, 'DEMs', f'dem_3dep_{huc}.tif')
                 
                 if os.path.exists(destTiff):
                     os.remove(destTiff)
@@ -342,29 +302,63 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
                             ])
                 #gdal_merge([ '','-o',destTiff, '-ot', 'Float32', '-co', 'BLOCKXSIZE=512','-co', 'BLOCKYSIZE=512','-co','TILED=YES', '-co', 'COMPRESS=LZW','-co','BIGTIFF=YES', '-ps', f'{dem_resolution}', f'{dem_resolution}',destVRT])
 
+
+    print('Retrieving and Processing 3DEP Data ...')
+
+    huc = str.split(os.path.splitext(os.path.basename(extent_file))[0],'_')[1]
+
+    log_file_dir = os.path.join(target_output_folder_path,f'{huc}_{int(dem_resolution)}m')
+
+    extent = gpd.read_file(extent_file)
+
+    # get geometry
+    geometry = extent['geometry']
+
+    # buffer
+    geometry = geometry.buffer(wbd_buffer)
+    
+    # fishnet geometry
+    gbs = __fishnet_geometry(geometry,tile_size,dem_resolution*4)
+    geometry_boxes = gbs
+
+    target_output_folder_paths = [target_output_folder_path] * len(gbs)
+    hucs = [huc] * len(gbs)
+
+    number_of_boxes = len(geometry_boxes)
+    input_dict = [ geometry_boxes, 
+                   [dem_resolution for _ in range(number_of_boxes)], 
+                   [geometry.crs for _ in range(number_of_boxes)],
+                   [ndv for _ in range(number_of_boxes)],
+                   target_output_folder_paths,
+                   hucs,
+                   [int(idx) for idx in range(number_of_boxes)]
+                 ]
+
+    os.makedirs(log_file_dir, exist_ok=True)
+    log_file_path = os.path.join(log_file_dir,'log_file.csv')
     if retry:
-        log_file_paths = [ os.path.join(target_output_folder_path,f'{huc}_{int(dem_resolution)}m','log_file.csv') for huc in hucs ]
-        input_logs = [ pd.read_csv(log_file_path,index_col=False) for log_file_path in log_file_paths ]
-        input_log_save = pd.concat(input_logs)
-        input_log_save = input_log_save.reset_index(drop=True)
-        
         def convert_to_shape(string):
             try:
                 return(shapely.wkt.loads(string))
             except TypeError:
                 return(Polygon())
-        
-        input_log = input_log_save.copy()
 
-        input_log.loc[:,'geometry'] = input_log.loc[:,'geometry'].apply(convert_to_shape)
-        
-        input_log = gpd.GeoDataFrame(input_log,geometry='geometry')
-        
-        input_log = input_log.loc[:,['geometry','dem_resolution','wbd_crs','ndv','target_output_folder_path','huc','idx']]
-        input_log = input_log.loc[~input_log.isna().any(axis=1),:]
-        input_log = input_log.astype({'dem_resolution':float,'wbd_crs':str,'ndv':float,'target_output_folder_path':str,'huc':str,'idx':int})
+        if os.path.exists(log_file_path):
+            input_log = pd.read_csv(log_file_path,index_col=False)
+            input_log_save = pd.concat(input_log)
+            input_log_save = input_log_save.reset_index(drop=True)
+            
+            input_log = input_log_save.copy()
 
-        input_dict = input_log.T.values.tolist()
+            input_log.loc[:,'geometry'] = input_log.loc[:,'geometry'].apply(convert_to_shape)
+            
+            input_log = gpd.GeoDataFrame(input_log,geometry='geometry')
+            
+            input_log = input_log.loc[:,['geometry','dem_resolution','wbd_crs','ndv','target_output_folder_path','huc','idx']]
+            input_log = input_log.loc[~input_log.isna().any(axis=1),:]
+            input_log = input_log.astype({'dem_resolution':float,'wbd_crs':str,'ndv':float,'target_output_folder_path':str,'huc':str,'idx':int})
+
+            input_dict = input_log.T.values.tolist()
 
     # make list of operations to complete
     operations = [ dask.delayed(__retrieve_and_process_single_3dep_dem)(*inputs) for inputs in zip(*input_dict) ]
@@ -381,28 +375,26 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
 
     # impute new log entries into original log files
     if retry:
-        input_log_save = input_log_save.loc[~input_log_save.loc[:,'idx'].isin(output_log.loc[:,'idx']),:]
-        output_log = pd.concat( (input_log_save,output_log))
+        if os.path.exists(log_file_path):
+            input_log_save = input_log_save.loc[~input_log_save.loc[:,'idx'].isin(output_log.loc[:,'idx']),:]
+            output_log = pd.concat( (input_log_save,output_log))
+
         output_log.sort_values('idx',inplace=True,axis=0,ignore_index=True)
         output_log = output_log.reset_index(drop=True)
     
-    failed_3dep = output_log.loc[:,'3DEP Failed'].sum()
-    failed_nhd = output_log.loc[:,'NHD Failed'].sum()
-    failed_both = output_log.loc[:,'Both failed'].sum()
-    
-    print(f'3DEP failed tiles: {failed_3dep} | NHD failed tiles: {failed_nhd} | Both failed tiles: {failed_both}')
-
-    # save new log files
-    for huc in hucs:
-        log_file_path = os.path.join(target_output_folder_path,f'{huc}_{int(dem_resolution)}m','log_file.csv')
+        failed_3dep = output_log.loc[:,'3DEP Failed'].sum()
+        failed_nhd = output_log.loc[:,'NHD Failed'].sum()
+        failed_both = output_log.loc[:,'Both failed'].sum()
         
-        huc_output_log = output_log.loc[output_log.loc[:,'huc'] == huc,:]
-        huc_output_log.to_csv(log_file_path,index=False)
+        print(f'3DEP failed tiles: {failed_3dep} | NHD failed tiles: {failed_nhd} | Both failed tiles: {failed_both}')
+
+        # save new log files
+        output_log.to_csv(log_file_path,index=False)
 
     __build_VRT_and_TIFF(input_dict)
 
 
-def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, output_folder_path, number_of_jobs, retry):
+def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, output_folder_path, number_of_jobs, vrt_resolution, retry):
     
     '''
     Process:
@@ -440,6 +432,7 @@ def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, ou
                                  'ndv': sv.elev_raster_ndv,
                                  'number_of_jobs': number_of_jobs,
                                  'wbd_buffer': wbd_buffer,
+                                 'vrt_resolution':vrt_resolution,
                                  'retry': retry
                                 }
         
@@ -452,7 +445,7 @@ def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, ou
                 summary = traceback.StackSummary.extract(
                         traceback.walk_stack(None))
                 print(f"*** {ex}")                
-                print(''.join(summary.format()))    
+                print(''.join(summary.format()))
                 
                 logging.critical(f"*** {ex}")
                 logging.critical(''.join(summary.format()))
@@ -464,8 +457,7 @@ def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, ou
 
     print(f"-- Downloading USGS DEMs Completed")
     logging.info(f"-- Downloading USGS DEMs Completed")
-    print(f"==========================================================")    
-    
+    print(f"==========================================================")
         
 
 def polygonize(target_output_folder_path, dem_resolution):
@@ -474,16 +466,18 @@ def polygonize(target_output_folder_path, dem_resolution):
 
     Parameters
     ----------
-    target_output_folder_path (str):
-    dem_resolution (int):
+    target_output_folder_path: str
+        Folder where outputs will be saved
+    dem_resolution: int
+        Cell size of DEM raster in meters
     """
-    dem_domain_file = os.path.join(target_output_folder_path, 'HUC6_dem_domain.gpkg')
+    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_domain.gpkg')
 
     msg = f" - Polygonizing -- {dem_domain_file} - Started"
     print(msg)
     logging.info(msg)
             
-    dem_files = glob.glob(os.path.join(target_output_folder_path, f'dem_3dep_*_{dem_resolution}m_*.tif'))
+    dem_files = glob.glob(os.path.join(target_output_folder_path, 'DEMs', f'dem_3dep_*_{dem_resolution}m_*.tif'))
 
     def __polygonize_single(dem_file):
         """
@@ -491,7 +485,8 @@ def polygonize(target_output_folder_path, dem_resolution):
 
         Parameters
         ----------
-        dem_file (str): path to .tif file
+        dem_file: str
+            Path to .tif file
         """
         
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
@@ -599,6 +594,7 @@ if __name__ == '__main__':
                         ' will be saved', required=False, default='')
     
     parser.add_argument('-d', '--dem_resolution', help='DEM resolution in meters', type=int, default=10, required=False)
+    parser.add_argument('-v', '--vrt-resolution', help='VRT resolution in meters', type=int, default=10, required=False)
 
 
     # Extract to dictionary and assign to variables.
