@@ -157,16 +157,31 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
         echo -e $startDiv"Populate PostgreSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
         echo
 
+        echo 
+        post_proc_start_time_1=`date +%s` 
+
         ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
+
+        echo "Duration of Populate PostgreSQL"
+        Calc_Duration $post_proc_start_time_1
+        echo
+
 
         echo "Loading Point Data"
         echo
-        ogr2ogr -overwrite -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
+        post_proc_start_time_2=`date +%s`
+        echo 
 
+        ogr2ogr -overwrite -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
+        
+        echo "Duration of loading point data"
+        Calc_Duration $post_proc_start_time_2
+        echo
+        
         Tcount
     fi
 else
-    echo "Skipping Populate PostgrSQL database"
+    echo "Skipping Populate PostgreSQL database"
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
@@ -174,7 +189,7 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tstart
     echo
     echo -e $startDiv"Performing SRC adjustments using benchmark point database"
-    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit
+    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -debug -j $jobLimit
     Tcount
     date -u
 fi

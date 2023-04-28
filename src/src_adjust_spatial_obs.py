@@ -26,6 +26,7 @@ CALIBRATION_DB_HOST = os.getenv("CALIBRATION_DB_HOST")
 CALIBRATION_DB_NAME = os.getenv("CALIBRATION_DB_NAME")
 CALIBRATION_DB_USER_NAME = os.getenv("CALIBRATION_DB_USER_NAME")
 CALIBRATION_DB_PASS = os.getenv("CALIBRATION_DB_PASS")
+outputsDir = os.getenv("outputsDir")
 
 '''
 The script imports a PostgreSQL database containing observed FIM extent points and associated flow data. This script attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow.
@@ -152,7 +153,8 @@ def find_points_in_huc(huc_id, conn):
     water_edge_df = gpd.GeoDataFrame.from_postgis(huc_pt_query, con=conn, 
                                                   params=[huc_id], crs=DEFAULT_FIM_PROJECTION_CRS,
                                                   parse_dates=['coll_time'])
-    water_edge_df = water_edge_df.drop(columns=['st_x','st_y'])
+
+    water_edge_df = water_edge_df.drop(columns=['st_x','st_y']) 
     
     return water_edge_df
 
@@ -263,6 +265,11 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
             huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
         
+            # write parquet file using built in geopandas ".to_parquet() method" 
+            # parquet_filepath = os.path.join(fim_directory, huc, 'waters_edge_def' + huc + '.parquet')
+            parquet_filepath = os.path.join(fim_directory, huc, 'waters_edge_df_' + huc + '.parquet')
+            water_edge_df.to_parquet(parquet_filepath, index=False)
+
         for branch_id in os.listdir(huc_branches_dir):
             branch_dir = os.path.join(huc_branches_dir,branch_id)
             ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
