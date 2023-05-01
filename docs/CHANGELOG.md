@@ -2,6 +2,24 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.x - 2023-05-01 - [PR#888](https://github.com/NOAA-OWP/inundation-mapping/pull/888)
+
+`aggregate_by_huc.py` was taking a long time to process. Most HUCs can aggregate their branches into one merged hydrotable.csv in just 22 seconds, but a good handful took over 2 mins and a few took over 7 mins. When multiplied by 2,138 HUCs it was super slow. Multi-proc has not been added and it now takes appx 40 mins at 80 cores. 
+
+An error logging system was also added to track errors that may have occurred during processing. 
+
+Covers issue [888](https://github.com/NOAA-OWP/inundation-mapping/issues/888).
+
+### Changes  
+- `fim_pipeline.sh` - added a duration counter at the end of processing HUCs
+- `fim_post_processing.sh` - added a job limit (number of procs), did a little cleanup, and added a warning note about usage of job limits in this script, 
+- `src`
+    - `aggregate_by_huc.py`: Added multi proc, made it useable for non external script calls, added a logging system for errors only.
+    - `indentify_src_bankful.py`: typo fix.
+
+<br/><br/>
+
+
 ## v4.3.9.0 - 2023-04-19 - [PR#889](https://github.com/NOAA-OWP/inundation-mapping/pull/889)
 
 Updates GDAL in base Docker image from 3.1.2 to 3.4.3 and updates all Python packages to latest versions, including Pandas v.2.0.0. Fixes resulting errors caused by deprecation and/or other changes in dependencies. 
