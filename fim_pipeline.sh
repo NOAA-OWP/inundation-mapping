@@ -58,6 +58,7 @@ fi
 echo
 echo "---- Unit (HUC) processing is complete"
 date -u
+Calc_Duration $pipeline_start_time
 
 ## POST PROCESSING
 
