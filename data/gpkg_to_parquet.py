@@ -34,25 +34,49 @@ WBD_National_data_file = f'{outputsDir}/rob_build_4_3_9_0-test/WBD_National.gpkg
 # Appears that EPSG:5070 is functionally equivalent to ESRI:102039: https://gis.stackexchange.com/questions/329123/crs-interpretation-in-qgis
 DEFAULT_FIM_PROJECTION_CRS = "EPSG:5070"
 
-###############################################################################################
-
-# How the PostgreSQL database was loaded previously:
-
-# "Populate PostgreSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
-# ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
-
-# fim_obs_pnt_data="/data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg"
-
-# "Loading Point Data"
-# ogr2ogr -overwrite -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
 
 ###############################################################################################
+# PSEUDOCODE OVERVIEW - Path Forward
 
-# Tried running this ogr2ogr command from inside a running Docker container, in the /outputs/rob_build_4_3_9_0-test directory  
 
-# ogr2ogr -overwrite -nln hucs -t_srs EPSG:5070 -f Parquet WBD_National.gpkg WBDHU8
+# Load huc8 boundaries into GeoDataFrame , ignoring irrevelant fidlds
+    # include_fields=['HUC8', 'geometry']
+    # WBD_National_df = gpd.read_file(WBD_National_data_file, layer='WBDHU8', ignore_fields=['tnmid', 'metasourceid', 'sourcedatadesc', 'sourceoriginator',
+    #                                                                                         'sourcefeatureid', 'loaddate', 'referencegnis_ids', 'areaacres',
+    #                                                                                         'areasqkm', 'states', 'name', 'globalid', 'shape_Length',
+    #                                                                                         'shape_Area', 'fimid', 'fossid'])
 
-# Fails since the Parquet driver is only supported in GDAL v 3.5 (GeoParquet beta release 1.0 in GDAL v3.6)
+# Load points layer (usgs_nws_benchmark_points) into GeoDataFrame , ignoring irrelevant fields
+    # include_fields=['flow', 'magnitude', 'submitter', 'coll_time', 'flow_unit', 'layer', 'path', 'geometry']
+    # fim_obs_pnt_df = gpd.read_file(fim_obs_pnt_data_file, layer='usgs_nws_benchmark_points', ignore_fields=['Join_Count', 'TARGET_FID',
+    #                                                                                                         'DN', 'ORIG_FID', 'ID', 'AreaSqKM', 'Shape_Leng', 'Shape_Area'] )
+
+
+#TODO Find HUCS with points?
+# hucs_with_points = df .....
+
+
+# Iterate over the HUCS with points
+# for row in hucs_with_points.iterrows()
+#   
+
+    # Create a new GeoDataFrame for each huc boundary (set the bbox)
+
+    # Populate the geometry column with points 
+
+    # GeoDataFrame Spatial Join (left inner join) (from this join, the HUC8 column is added, and we can verify all points are same huc8)
+        # x = points.sjoin(one_huc, how='inner', predicate='within')
+    
+    # Drop columns from join that aren't used/needed (only index_right)
+        # drop_column_list = ['Join_Count', 'TARGET_FID', 'DN', 'ORIG_FID', 'ID', 'AreaSqKM', 'Shape_Leng', 'Shape_Area', 'index_right', 'tnmid', 'metasourceid', 'sourcedatadesc', 'sourceoriginator', 'sourcefeatureid', 'loaddate', 'referencegnis_ids', 'areaacres', 'areasqkm', 'states', 'name', 'globalid', 'shape_Length', 'shape_Area', 'fimid', 'fossid' ] # 'path'? 
+        # <gdf>.drop(['index_right'], axis=1, inplace=True)
+
+    # Save each HUC GeoDataFrame to a geoparquet file containing all of the points per huc 
+        # huc_number =  points_and_huc_joined['HUC8'].values[0]
+        # parquet_filepath = os.path.join('/home/outputs/usgs_nws_benchmark_points/' + huc_number + '.parquet')
+        # points_and_huc_joined.to_parquet(parquet_filepath, index=False)
+
+
 ###############################################################################################
 # Performance
 
@@ -81,53 +105,8 @@ DEFAULT_FIM_PROJECTION_CRS = "EPSG:5070"
 # print("Time of importing benchmark points into a gpd :", tend - tstart)
 
 
-###############################################################################################
-# PSEUDOCODE OVERVIEW
-# Path Forward
-###############################################################################################
-
-# Load huc8 boundaries into GeoDataFrame
-# WBDHU8_WBD_National_df = gpd.read_file(WBD_National_data_file, layer="WBDHU8")
-
-# Load points layer (usgs_nws_benchmark_points) into GeoDataFrame
-# fim_obs_pnt_df = gpd.read_file(fim_obs_pnt_data_file, layer="usgs_nws_benchmark_points")
-
-# GeoDataFrame Spatial Join (left inner join)
-
-
-# Create a GeoDataFrame for each HUC with all of the points associated with it
-
-
-# Save the GeoDataFrame to a geoparquet file with all of the points for each huc 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # #########################################################################################################
+
 # READ PARQUET Using pyarrow library's parquet subpackage (pq)
 
 

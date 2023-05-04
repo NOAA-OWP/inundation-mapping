@@ -124,73 +124,12 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     date -u
 fi
 
-## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
-if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
-    if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file),"
-        echo "but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
-        exit 1
-    else
-
-        source $CALB_DB_KEYS_FILE
-
-        ## This makes the local variables from the calb_db_keys files
-        ## into global variables that can be used in other files, including python.
-
-        ## Why not just leave the word export in front of each of the keys in the
-        ## calb_db_keys.env? Because that file is used against docker-compose        
-        ## when we start up that part of the sytem and it does not like the word
-        ## export.
-
-        # Pick up the docker parent host machine name and override the one coming from the config file (aws only)
-        if [ "$isAWS" = "1" ]; then
-            CALIBRATION_DB_HOST=$(curl http://169.254.169.254/latest/meta-data/local-ipv4 -s)
-        fi
-
-        export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
-        export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
-        export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
-        export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
-        export DEFAULT_FIM_PROJECTION_CRS=$DEFAULT_FIM_PROJECTION_CRS
-
-        Tstart
-        echo
-        echo -e $startDiv"Populate PostgreSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
-        echo
-
-        echo 
-        post_proc_start_time_1=`date +%s` 
-
-        ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
-
-        echo "Duration of Populate PostgreSQL"
-        Calc_Duration $post_proc_start_time_1
-        echo
-
-
-        echo "Loading Point Data"
-        echo
-        post_proc_start_time_2=`date +%s`
-        echo 
-
-        ogr2ogr -overwrite -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
-        
-        echo "Duration of loading point data"
-        Calc_Duration $post_proc_start_time_2
-        echo
-        
-        Tcount
-    fi
-else
-    echo "Skipping Populate PostgreSQL database"
-fi
-
-## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [ "$skipcal" = "0" ]; then
     Tstart
     echo
-    echo -e $startDiv"Performing SRC adjustments using benchmark point database"
-    python3 $srcDir/src_adjust_spatial_obs_parquet.py -fim_dir $outputDestDir -j $jobLimit
+    echo -e $startDiv"Performing SRC adjustments using benchmark points (currently .parquet files, not PostGRES DB)"
+    python3 $srcDir/src_adjust_spatial_obs_parquet.py -fim_dir $outputDestDir -debug -j $jobLimit
     Tcount
     date -u
 fi
