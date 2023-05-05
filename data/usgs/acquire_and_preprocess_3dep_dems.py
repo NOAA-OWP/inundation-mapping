@@ -24,7 +24,6 @@ from datetime import datetime
 from tqdm import tqdm
 from typing import Union
 sys.path.append('/foss_fim/src')
-import utils.shared_variables as sv
 import utils.shared_functions as sf
 
 from utils.shared_functions import FIM_Helpers as fh
@@ -42,8 +41,8 @@ def acquire_and_preprocess_3dep_dems(extent_file_path:str,
                                      number_of_jobs:int = 1, 
                                      retry:bool = False,
                                      tile_size:Union[int,float] = 1000,
-                                     ndv:Union[float,int] = sv.elev_raster_ndv,
-                                     wbd_buffer:Union[float,int] = 2000,
+                                     ndv:Union[float,int] = os.environ['elev_raster_ndv'],
+                                     wbd_buffer:Union[float,int] = 5000,
                                      vrt_resolution:Union[float,int]=10
                                     ):
     
@@ -100,9 +99,10 @@ def acquire_and_preprocess_3dep_dems(extent_file_path:str,
     if (target_output_folder_path is None) or (target_output_folder_path == ""):
         target_output_folder_path = '/data/input/usgs/3dep_dems/10m'
 
-    if not os.path.exists(target_output_folder_path):    
+    dem_folder = os.path.join(target_output_folder_path, 'DEMs')
+    if not os.path.exists(dem_folder):    
         # Create the output folder if nonexistent
-        os.makedirs(target_output_folder_path,exist_ok=True)
+        os.makedirs(dem_folder, exist_ok=True)
 
     # -------------------
     # setup logs
@@ -113,20 +113,19 @@ def acquire_and_preprocess_3dep_dems(extent_file_path:str,
     __setup_logger(target_output_folder_path)
     logging.info(f"Downloading to {target_output_folder_path}")
     
-    
     # -------------------
     # processing
     
     # Get the WBD .gpkg files (or clip extent)
-    extent_file_names = fh.get_file_names(extent_file_path, 'gpkg')
+    extent_file_names = glob.glob(os.path.join(extent_file_path, 'HUC*.gpkg'))
     msg = f"Extent files coming from {extent_file_path}"
     print(msg)
     logging.info(msg)
    
     # download dems, setting projection, block size, etc
-    __download_usgs_dems(extent_file_names, dem_resolution, tile_size, wbd_buffer, target_output_folder_path, number_of_jobs, vrt_resolution, retry)
+    download_usgs_dems(extent_file_names, dem_resolution, tile_size, wbd_buffer, target_output_folder_path, number_of_jobs, vrt_resolution, ndv, retry)
 
-    polygonize(target_output_folder_path, dem_resolution)
+    polygonize(extent_file_names, target_output_folder_path, dem_resolution)
     
     end_time = datetime.now()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
@@ -138,7 +137,7 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
                                          tile_size:Union[int,float],
                                          dem_resolution:int,
                                          target_output_folder_path:str=None,
-                                         ndv:Union[float,int]=sv.elev_raster_ndv,
+                                         ndv:Union[float,int]=os.environ['elev_raster_ndv'],
                                          number_of_jobs:int=1,
                                          wbd_buffer:Union[float,int]=2000,
                                          vrt_resolution:int=10,
@@ -156,7 +155,6 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
                        for x0, y0 in product( np.arange(xmin,xmax + cell_size_meters,cell_size_meters),
                        np.arange(ymin,ymax + cell_size_meters,cell_size_meters) )
                      ]
-
 
         grid_cells = [gc.intersection(geometry)[0] for gc in grid_cells]
 
@@ -288,7 +286,7 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
             merge_tiff = False
             if merge_tiff:
                 
-                destTiff = os.path.join(target_output_folder_path, 'DEMs', f'dem_3dep_{huc}.tif')
+                destTiff = os.path.join(target_output_folder_path, f'dem_3dep_{huc}.tif')
                 
                 if os.path.exists(destTiff):
                     os.remove(destTiff)
@@ -394,7 +392,7 @@ def retrieve_and_reproject_3dep_for_huc( extent_file:str,
     __build_VRT_and_TIFF(input_dict)
 
 
-def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, output_folder_path, number_of_jobs, vrt_resolution, retry):
+def download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, output_folder_path, number_of_jobs, vrt_resolution, ndv, retry):
     
     '''
     Process:
@@ -429,7 +427,7 @@ def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, ou
                                  'tile_size': tile_size,
                                  'dem_resolution': dem_resolution,
                                  'target_output_folder_path': output_folder_path,
-                                 'ndv': sv.elev_raster_ndv,
+                                 'ndv': ndv,
                                  'number_of_jobs': number_of_jobs,
                                  'wbd_buffer': wbd_buffer,
                                  'vrt_resolution':vrt_resolution,
@@ -460,24 +458,19 @@ def __download_usgs_dems(extent_files, dem_resolution, tile_size, wbd_buffer, ou
     print(f"==========================================================")
         
 
-def polygonize(target_output_folder_path, dem_resolution):
+def polygonize(extent_file_names, target_output_folder_path, dem_resolution):
     """
     Create a polygon of 3DEP domain from individual HUC6 DEMS which are then dissolved into a single polygon
 
     Parameters
     ----------
+    extent_file_names: str
+        Filenames of extent files
     target_output_folder_path: str
         Folder where outputs will be saved
     dem_resolution: int
         Cell size of DEM raster in meters
     """
-    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_domain.gpkg')
-
-    msg = f" - Polygonizing -- {dem_domain_file} - Started"
-    print(msg)
-    logging.info(msg)
-            
-    dem_files = glob.glob(os.path.join(target_output_folder_path, 'DEMs', f'dem_3dep_*_{dem_resolution}m_*.tif'))
 
     def __polygonize_single(dem_file):
         """
@@ -507,6 +500,14 @@ def polygonize(target_output_folder_path, dem_resolution):
         return gdf
 
     # Polygonize TIFs
+    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_domain.gpkg')
+
+    msg = f" - Polygonizing -- {dem_domain_file} - Started"
+    print(msg)
+    logging.info(msg)
+            
+    dem_files = glob.glob(os.path.join(target_output_folder_path, 'DEMs', f'dem_3dep_*_{dem_resolution}m_*.tif'))
+
     polygonize = [dask.delayed(__polygonize_single)(dem_file) for dem_file in dem_files]
 
     with TqdmCallback(desc='Polygonizing tiles'):
@@ -582,23 +583,19 @@ if __name__ == '__main__':
     parser.add_argument('-e','--extent_file_path', help='location the gpkg files that will'\
                         ' are being used as clip regions (aka.. huc_*.gpkg or whatever).'\
                         ' All gpkgs in this folder will be used.', required=True)
-
     parser.add_argument('-j','--number_of_jobs', help='Number of (jobs) cores/processes to used.', 
                         required=False, default=1, type=int)
-
     parser.add_argument('-r','--retry', help='If included, it will skip files that already exist.'\
                         ' Default is all will be loaded/reloaded.', 
                         required=False, action='store_true', default=False)
-
     parser.add_argument('-t','--target_output_folder_path', help='location of where the 3dep files'\
                         ' will be saved', required=False, default='')
-    
-    parser.add_argument('-d', '--dem_resolution', help='DEM resolution in meters', type=int, default=10, required=False)
+    parser.add_argument('-w', '--wbd-buffer', help='WBD buffer in meters', type=float, default=5000, required=False)    
+    parser.add_argument('-d', '--dem-resolution', help='DEM resolution in meters', type=int, default=10, required=False)
     parser.add_argument('-v', '--vrt-resolution', help='VRT resolution in meters', type=int, default=10, required=False)
-
+    parser.add_argument('-n', '--ndv', help='DEM nodata value', required=False)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 
     acquire_and_preprocess_3dep_dems(**args)
-

@@ -129,7 +129,7 @@ date -u
 Tstart
 
 [ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && \
-gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM $tempHucDataDir/dem_meters.tif
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -srcnodata $elev_raster_ndv -dstnodata $elev_raster_ndv -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM $tempHucDataDir/dem_meters.tif
 
 Tcount
 

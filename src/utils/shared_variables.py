@@ -32,8 +32,6 @@ nhd_raster_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydro
 nhd_vector_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_GDB.zip"
 
 # --- Values ---- #
-elev_raster_ndv = -9999.0
-
 UNIT_ERRORS_MIN_NUMBER_THRESHOLD = 10
 UNIT_ERRORS_MIN_PERCENT_THRESHOLD = 10  # as in 10% (should be a whole number)
 

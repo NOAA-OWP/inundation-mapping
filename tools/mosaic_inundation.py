@@ -9,7 +9,6 @@ import sys
 from glob import glob
 from overlapping_inundation import OverlapWindowMerge
 from tqdm import tqdm
-from utils.shared_variables import elev_raster_ndv
 from utils.shared_functions import FIM_Helpers as fh
 
 def Mosaic_inundation( map_file,
@@ -17,7 +16,7 @@ def Mosaic_inundation( map_file,
                        mosaic_output = None,
                        mask = None,
                        unit_attribute_name = 'huc8',
-                       nodata = elev_raster_ndv,
+                       nodata = os.environ['elev_raster_ndv'],
                        workers = 1,
                        remove_inputs = False,
                        subset = None,
@@ -104,7 +103,7 @@ def Mosaic_inundation( map_file,
 # pretty fast anyways. This needs to be fixed.
 def mosaic_by_unit(inundation_maps_list,
                    mosaic_output,
-                   nodata = elev_raster_ndv,
+                   nodata = os.environ['elev_raster_ndv'],
                    workers = 1,
                    remove_inputs = False,
                    mask = None,
@@ -145,7 +144,7 @@ if __name__ == '__main__':
     parser.add_argument('-s','--subset', help='Subset units', 
                         required=False, default=None, type=str, nargs='+')
     parser.add_argument('-n','--nodata', help='Inundation Maps',
-                        required=False, default=elev_raster_ndv)
+                        required=False, default=os.environ['elev_raster_ndv'])
     parser.add_argument('-w','--workers', help='Number of Workers', 
                         required=False, default=4, type=int)
     parser.add_argument('-t','--mosaic-attribute', help='Mosaiced inundation Maps', 
