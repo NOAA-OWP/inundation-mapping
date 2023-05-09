@@ -52,7 +52,7 @@ cmd_args+=" -b $tempHucDataDir/nwm_subset_streams.gpkg"
 cmd_args+=" -d $hucNumber"
 cmd_args+=" -e $tempHucDataDir/nwm_headwater_points_subset.gpkg"
 cmd_args+=" -f $tempHucDataDir/wbd_buffered.gpkg"
-cmd_args+=" -s $tempHucDataDir/wbd_streams_buffered.gpkg"
+cmd_args+=" -s $tempHucDataDir/wbd_buffered_streams.gpkg"
 cmd_args+=" -g $tempHucDataDir/wbd.gpkg"
 cmd_args+=" -i $input_DEM"
 cmd_args+=" -j $input_DEM_domain"
@@ -178,13 +178,6 @@ date -u
 Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
-
-## PIT REMOVE BURNED DEM - PRIOR TO AGREE RECONDITIONING ##
-#echo -e $startDiv"Pit remove DEM $hucNumber $branch_zero_id"
-#date -u
-#Tstart
-#rd_depression_filling $tempHucDataDir/dem_meters.tif $tempHucDataDir/dem_meters.tif
-#Tcount
 
 ## DEM Reconditioning - BRANCH 0 (include all NWM streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
