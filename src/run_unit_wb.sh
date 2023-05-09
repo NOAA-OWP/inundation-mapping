@@ -171,6 +171,13 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
 
+## Rasterize Stream Orders ##
+echo -e $startDiv"Rasterizing stream orders $hucNumber $branch_zero_id"
+date -u
+Tstart
+python3 -m memory_profiler $srcDir/rasterize_vector_attributes.py -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_ -i $tempHucDataDir/dem_meters.tif -o $tempHucDataDir/nwm_subset_stream_orders.gpkg
+Tcount
+
 ## DEM Reconditioning ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
