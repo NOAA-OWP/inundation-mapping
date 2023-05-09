@@ -523,7 +523,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
                                         'dadj_w_m': stage_based_att_dict[lid][threshold]['datum_adj_wse_m'],
                                         'lid_alt_ft': stage_based_att_dict[lid][threshold]['lid_alt_ft'],
                                         'lid_alt_m': stage_based_att_dict[lid][threshold]['lid_alt_m']})
-                csv_df = csv_df.append(line_df)
+                csv_df = pd.concat([csv_df, line_df])
                 
             except Exception as e:
                 print(e)
