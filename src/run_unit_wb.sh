@@ -52,6 +52,7 @@ cmd_args+=" -b $tempHucDataDir/nwm_subset_streams.gpkg"
 cmd_args+=" -d $hucNumber"
 cmd_args+=" -e $tempHucDataDir/nwm_headwater_points_subset.gpkg"
 cmd_args+=" -f $tempHucDataDir/wbd_buffered.gpkg"
+cmd_args+=" -s $tempHucDataDir/wbd_streams_buffered.gpkg"
 cmd_args+=" -g $tempHucDataDir/wbd.gpkg"
 cmd_args+=" -i $input_DEM"
 cmd_args+=" -j $input_DEM_domain"
@@ -85,7 +86,7 @@ Tcount
 echo -e $startDiv"Generating Level Paths for $hucNumber"
 date -u
 Tstart
-$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -b $branch_id_attribute -r "ID" -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg
+$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -s $tempHucDataDir/wbd_streams_buffered.gpkg -b $branch_id_attribute -r "ID" -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg
 
 # test if we received a non-zero code back from derive_level_paths.py
 subscript_exit_code=$?
@@ -177,6 +178,13 @@ date -u
 Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
+
+## PIT REMOVE BURNED DEM - PRIOR TO AGREE RECONDITIONING ##
+#echo -e $startDiv"Pit remove DEM $hucNumber $branch_zero_id"
+#date -u
+#Tstart
+#rd_depression_filling $tempHucDataDir/dem_meters.tif $tempHucDataDir/dem_meters.tif
+#Tcount
 
 ## DEM Reconditioning - BRANCH 0 (include all NWM streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.

@@ -8,7 +8,7 @@ import sys
 from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
 
-def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribute,
+def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network, branch_id_attribute,
                        out_stream_network_dissolved=None, huc_id=None,
                        headwaters_outfile=None, catchments=None, waterbodies=None,
                        catchments_outfile=None,
@@ -136,7 +136,10 @@ def Derive_level_paths(in_stream_network, out_stream_network, branch_id_attribut
     if out_stream_network is not None:
         if verbose:
             print("Writing stream branches ...")
-        stream_network.write(out_stream_network, index=True)
+        # clip stream network to the wbd_buffered domain (avoids issues with reaches that extend outside buffer)
+        wbd_buffer = gpd.read_file(buffer_wbd_streams)
+        stream_network_out = gpd.clip(stream_network,wbd_buffer)
+        stream_network_out.to_file(out_stream_network, index=True, driver='GPKG')
     
     if out_stream_network_dissolved is not None:
         stream_network = stream_network.trim_branches_in_waterbodies(branch_id_attribute=branch_id_attribute,
@@ -167,6 +170,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Create stream network level paths')
     parser.add_argument('-i','--in-stream-network', help='Input stream network', required=True)
+    parser.add_argument('-s','--buffer-wbd-streams', help='Input wbd buffer for stream network', required=True)
     parser.add_argument('-b','--branch-id-attribute', help='Name of the branch attribute desired', required=True)
     parser.add_argument('-u','--huc-id', help='Current HUC ID', required=False, default=None)
     parser.add_argument('-r','--reach-id-attribute', help='Reach ID attribute to use in source file', required=False, default='HydroID')
