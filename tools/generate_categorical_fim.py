@@ -327,7 +327,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
 
             if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
-                lid_usgs_elev = acceptable_usgs_elev_df.loc[(acceptable_usgs_elev_df['nws_lid'] == lid.upper()) & ('levpa_id' != 0), 'dem_adj_elevation'].values[0]
+                lid_usgs_elev = acceptable_usgs_elev_df.loc[(acceptable_usgs_elev_df['nws_lid'] == lid.upper()) & (acceptable_usgs_elev_df['levpa_id'] != 0), 'dem_adj_elevation'].values[0]
             else:
                 lid_usgs_elev = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
         except IndexError:  # Occurs when LID is missing from table
