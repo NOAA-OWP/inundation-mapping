@@ -190,7 +190,7 @@ NOAA's National Water Center welcomes anyone to contribute to the Inundation Map
 
 ### Credits and References
 1. [Office of Water Prediction (OWP)](https://water.noaa.gov/)
-2. [National Flood Interoperability Experiment(NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
+2. [National Flood Interoperability Experiment (NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
 3. Garousi‐Nejad, I., Tarboton, D. G.,Aboutalebi, M., & Torres‐Rua, A.(2019). Terrain analysis enhancements to the Height Above Nearest Drainage flood inundation mapping method. Water Resources Research, 55 , 7983–8009.
 4. [Zheng, X., D.G. Tarboton, D.R. Maidment, Y.Y. Liu, and P. Passalacqua. 2018. “River Channel Geometry and Rating Curve Estimation Using Height above the Nearest Drainage.” Journal of the American Water Resources Association 54 (4): 785–806.](https://doi.org/10.1111/1752-1688.12661)
 5. [Liu, Y. Y., D. R. Maidment, D. G. Tarboton, X. Zheng and S. Wang, (2018), "A CyberGIS Integration and Computation Framework for High-Resolution Continental-Scale Flood Inundation Mapping," JAWRA Journal of the American Water Resources Association, 54(4): 770-784.](https://doi.org/10.1111/1752-1688.12660)
