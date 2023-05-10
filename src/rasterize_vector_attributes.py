@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import numpy as np
 import geopandas as gpd
 import rasterio as rio
 from rasterio import features
@@ -9,7 +10,7 @@ from utils.shared_functions import mem_profile
 @mem_profile
 def rasterize_vector_attributes(input_vector:str, input_vector_attribute:str, input_raster:str, output_raster:str):
     """
-    Rasterizes NWM streams by order
+    Rasterizes NWM streams by order. Rasterizes each order independently then takes the maximum value in each cell.
 
     Parameters
     ----------
@@ -28,11 +29,20 @@ def rasterize_vector_attributes(input_vector:str, input_vector_attribute:str, in
     with rio.open(input_raster) as rst:
         meta = rst.meta.copy()
         input_ds = rst.read(1)
+        input_shape = input_ds.shape
 
-    # this is where we create a generator of geom, value pairs to use in rasterizing
-    shapes = ((geom,int(value)) for geom, value in zip(input_vector['geometry'], input_vector[input_vector_attribute]))
+    del input_ds
 
-    burned = features.rasterize(shapes=shapes, fill=0, out_shape=input_ds.shape, transform=meta['transform'])
+    orders = input_vector[input_vector_attribute].unique()
+    orders = np.sort(orders)
+
+    for i, order in enumerate(orders):
+        vector_order = input_vector[input_vector[input_vector_attribute]==order]
+
+        if i == 0:
+            burned = features.rasterize(shapes=((geom,int(value)) for geom, value in zip(vector_order['geometry'], vector_order[input_vector_attribute])), fill=0, out_shape=input_shape, transform=meta['transform'])
+        else:
+            burned = np.maximum(burned, features.rasterize(shapes=((geom,int(value)) for geom, value in zip(vector_order['geometry'], vector_order[input_vector_attribute])), fill=0, out_shape=input_shape, transform=meta['transform']))
 
     with rio.open(output_raster, 'w', **meta) as out:
         out.write_band(1, burned)
