@@ -157,13 +157,6 @@ Tstart
 python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $tempHucDataDir/dem_meters.tif -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif -out $tempHucDataDir/dem_meters.tif
 Tcount
 
-## RASTERIZE REACH BOOLEAN (1 & 0) ##
-echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
-date -u
-Tstart
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
-Tcount
-
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $branch_zero_id"
 date -u
@@ -171,11 +164,11 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
 
-## Rasterize Stream Orders ##
+## RASTERIZE STREAM ORDERS ##
 echo -e $startDiv"Rasterizing stream orders $hucNumber $branch_zero_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/rasterize_vector_attributes.py -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_ -i $tempHucDataDir/dem_meters.tif -o $tempHucDataDir/nwm_subset_stream_orders.gpkg
+python3 -m memory_profiler $srcDir/rasterize_vector_attributes.py -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_ -i $tempHucDataDir/dem_meters.tif -o $tempCurrentBranchDataDir/nwm_subset_streams_orders_$branch_zero_id.tif
 Tcount
 
 ## DEM Reconditioning ##
@@ -184,7 +177,7 @@ Tcount
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/agreedem.py -r $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+python3 -m memory_profiler $srcDir/agreedem.py -r $tempCurrentBranchDataDir/nwm_subset_streams_orders_$branch_zero_id.tif -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
