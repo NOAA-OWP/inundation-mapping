@@ -3,6 +3,5 @@ message: "If you use this software, please cite it as below."
 authors:
 - family-names: "NOAA Office of Water Prediction"
 title: "Inundation Mapping"
-doi: None
 url: "https://github.com/NOAA-OWP/inundation-mapping"
 date-released: 2023
