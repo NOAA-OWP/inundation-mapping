@@ -190,7 +190,7 @@ NOAA's National Water Center welcomes anyone to contribute to the Inundation Map
 
 ### Credits and References
 1. [Office of Water Prediction (OWP)](https://water.noaa.gov/)
-2. [Fernando Aristizabal, Fernando Salas, Gregory Petrochenkov, Trevor Grout, Brian Avant, Bradford Bates, Ryan Spies, Nick Chadwick, Zachary Wills, Jasmeet Judge. 2023. "Extending Height Above Nearest Drainage to Model Multiple Fluvial Sources in Flood Inundation Mapping Applications for the U.S. National Water Model.' Water Resources Research.](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2022WR032039).
+2. [Fernando Aristizabal, Fernando Salas, Gregory Petrochenkov, Trevor Grout, Brian Avant, Bradford Bates, Ryan Spies, Nick Chadwick, Zachary Wills, Jasmeet Judge. 2023. "Extending Height Above Nearest Drainage to Model Multiple Fluvial Sources in Flood Inundation Mapping Applications for the U.S. National Water Model.' Water Resources Research](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2022WR032039).
 3. [National Flood Interoperability Experiment (NFIE)](https://web.corral.tacc.utexas.edu/nfiedata/)
 4. Garousi‐Nejad, I., Tarboton, D. G.,Aboutalebi, M., & Torres‐Rua, A.(2019). Terrain analysis enhancements to the Height Above Nearest Drainage flood inundation mapping method. Water Resources Research, 55 , 7983–8009.
 5. [Zheng, X., D.G. Tarboton, D.R. Maidment, Y.Y. Liu, and P. Passalacqua. 2018. “River Channel Geometry and Rating Curve Estimation Using Height above the Nearest Drainage.” Journal of the American Water Resources Association 54 (4): 785–806.](https://doi.org/10.1111/1752-1688.12661)
