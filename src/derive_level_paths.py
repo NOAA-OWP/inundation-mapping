@@ -136,10 +136,7 @@ def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network
     if out_stream_network is not None:
         if verbose:
             print("Writing stream branches ...")
-        # clip stream network to the wbd_buffered domain (avoids issues with reaches that extend outside buffer)
-        wbd_buffer = gpd.read_file(buffer_wbd_streams)
-        stream_network_out = gpd.clip(stream_network,wbd_buffer)
-        stream_network_out.to_file(out_stream_network, index=True, driver='GPKG')
+        stream_network.write(out_stream_network, index=True)
     
     if out_stream_network_dissolved is not None:
         stream_network = stream_network.trim_branches_in_waterbodies(branch_id_attribute=branch_id_attribute,
@@ -155,6 +152,11 @@ def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network
         stream_network = stream_network.remove_branches_in_waterbodies(waterbodies=waterbodies,
                                                                        out_vector_files=out_stream_network_dissolved,
                                                                        verbose=False)
+        # clip dissolved stream network to the wbd_buffered domain (avoids issues with reaches that extend outside buffer)
+        wbd_buffer = gpd.read_file(buffer_wbd_streams)
+        stream_network_out = gpd.read_file(out_stream_network_dissolved)
+        stream_network_out = gpd.clip(stream_network_out,wbd_buffer)
+        stream_network_out.to_file(out_stream_network_dissolved, index=True, driver='GPKG')
                                        
     if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(feature_attribute=branch_id_attribute,

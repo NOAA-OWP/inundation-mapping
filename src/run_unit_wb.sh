@@ -169,7 +169,7 @@ Tcount
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
 date -u
 Tstart
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg $tempHucDataDir/flows_grid_boolean.tif
+gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
 Tcount
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
