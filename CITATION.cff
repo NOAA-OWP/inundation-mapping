@@ -1,11 +1,14 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-- family-names:"National Oceanic and Atmospheric Administration Office of Water Prediction"
-  given-names: "National Water Center"
-  orcid: "https://orcid.org/0000-0003-2525-4712"
-title: "Generalized Mainstems (GMS): An improvement of the Height Above Nearest Drainage Method (HAND) for flood inundation mapping (FIM) that uses processing units of unit stream order"
-version: alpha
-doi: None
-date-released: pending
-url: "https://github.com/NOAA-OWP/fim_4"
+- family-names: "NOAA"
+  given-names: "Office of Water Prediction"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+- family-names: "Bot"
+  given-names: "Hew"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+title: "My Research Software"
+version: 2.0.4
+doi: 10.5281/zenodo.1234
+date-released: 2017-12-18
+url: "https://github.com/github-linguist/linguist"
