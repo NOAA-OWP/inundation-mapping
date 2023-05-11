@@ -654,6 +654,18 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage = datum_adj_wse_m - lid_usgs_elev
     
+    print("datum_adj_wse ft")
+    print(datum_adj_wse)
+    print("datum_adj_wse m")
+    print(datum_adj_wse_m)
+    print("hand_stage m")
+    print(hand_stage)
+    print("lid_usgs_elev m")
+    print(lid_usgs_elev)
+    print("lid_altitude ft")
+    print(lid_altitude)
+    
+    
     # Produce extent tif hand_stage. Multiprocess across branches.
     branches = os.listdir(branch_dir)
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
