@@ -173,7 +173,7 @@ If you are on a machine that has a particularly slow internet connection, you ma
 ----
 ## Citing This Work
 
-Please cite this work in your research and projects according to the CITATION.cff file found in the root of this repository.
+Please cite this work in your research and projects according to the `CITATION.cff` file found in the root of this repository.
 
 ----
 ### Known Issues & Getting Help
