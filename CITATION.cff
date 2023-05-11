@@ -4,4 +4,5 @@ authors:
 - family-names: "NOAA Office of Water Prediction"
 title: "Inundation Mapping"
 url: "https://github.com/NOAA-OWP/inundation-mapping"
+version: 4.3.9.0
 date-released: 2023
