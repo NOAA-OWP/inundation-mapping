@@ -767,7 +767,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
             #Reproject to huc 8 crs
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
-            metadata_gdf = metadata_gdf.append(site_gdf, ignore_index = True)
+            metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index = True)
     
     #Trim metadata to only have certain fields.
     if not retain_attributes:
@@ -1210,7 +1210,7 @@ def get_rating_curve(rating_curve_url, location_ids):
                 curve_df['wrds_timestamp'] = response.headers['Date']
 
                 #Append rating curve to DataFrame containing all curves
-                all_curves = all_curves.append(curve_df)
+                all_curves = pd.concat([all_curves, curve_df])
             else:
                 continue
 
