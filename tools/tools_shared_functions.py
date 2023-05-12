@@ -658,7 +658,7 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
     params['upstream_trace_distance'] = upstream_trace_distance
     params['downstream_trace_distance'] = downstream_trace_distance
     #Request data from url
-    response = requests.get(url, params = params)
+    response = requests.get(url, params = params, verify=False)
 #    print(response)
 #    print(url)
     if response.ok:
@@ -767,7 +767,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
             #Reproject to huc 8 crs
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
-            metadata_gdf = metadata_gdf.append(site_gdf, ignore_index = True)
+            metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index = True)
     
     #Trim metadata to only have certain fields.
     if not retain_attributes:
@@ -927,7 +927,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
-    response = requests.get(url, params = params)
+    response = requests.get(url, params = params, verify=False)
     if response.ok:
         thresholds_json = response.json()
         #Get metadata
@@ -1141,7 +1141,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     params['tar_vertical_unit'] = 'm' #Target vertical height
     
     #Call the API
-    response = requests.get(datum_url, params = params)
+    response = requests.get(datum_url, params = params, verify=False)
 
     #If successful get the navd adjustment
     if response:
@@ -1184,7 +1184,7 @@ def get_rating_curve(rating_curve_url, location_ids):
     url = f'{rating_curve_url}/{joined_location_ids}'
     
     #Call the API 
-    response = requests.get(url)
+    response = requests.get(url, verify=False)
 
     #If successful
     if response.ok:
