@@ -1,6 +1,31 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.9.2 - 2023-05-12 - [PR#902](https://github.com/NOAA-OWP/inundation-mapping/pull/902)
+
+This merge fixes several sites in Stage-Based CatFIM sites that showed overinundation. The cause was found to be the result of Stage-Based CatFIM code pulling the wrong value from the `usgs_elev_table.csv`. Priority is intended to go to the `dem_adj_elevation` value that is not from branch 0, however there was a flaw in the prioritization logic. Also includes a change to `requests` usage that is in response to an apparent IT SSL change. This latter change was necessary in order to run CatFIM. Also added a check to make sure the `dem_adj_thalweg` is not too far off the official elevation, and continues if it is.
+
+### Changes  
+- `/tools/generate_categorical_fim.py`: fixed pandas bug where the non-branch zero `dem_adj_elevation` value was not being properly indexed. Also added a check to make sure the `dem_adj_thalweg` is not too far off the official elevation, and continues if it is.
+- ` /tools/tools_shared_functions.py`: added `verify=False` to `requests` library calls because connections to WRDS was being refused (likely because of new IT protocols).
+
+<br/><br/>
+
+## v4.3.9.1 - 2023-05-12 - [PR#893](https://github.com/NOAA-OWP/inundation-mapping/pull/893)
+
+Fix existing unit tests, remove unwanted behavior in `check_unit_errors_test.py`, update `unit_tests/README.md`
+
+### Changes  
+
+- `unit_tests/`
+    - `README.md` : Split up headings for setting up unit tests/running unit tests & re-formatted code block.
+    - `check_unit_errors_test.py`: Fixed unwanted behavior of test leaving behind `sample_n.txt` files in `unit_errors/`
+    - `clip_vectors_to_wbd_params.json`: Update parameters
+    - `clip_vectors_to_wbd_test.py`: Update arguments
+    - `pyproject.toml`: Ignore RuntimeWarning, to suppress pytest failure. 
+    - `usgs_gage_crosswalk_test.py`: Enhance readability of arguments in `gage_crosswalk.run_crosswalk` call
+
+<br/><br/>
 
 ## v4.3.x - 2023-05-01 - [PR#888](https://github.com/NOAA-OWP/inundation-mapping/pull/888)
 
