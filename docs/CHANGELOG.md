@@ -2,6 +2,24 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.X.X - 2023-05-12 - [PR#903](https://github.com/NOAA-OWP/inundation-mapping/pull/903)
+
+These changes address some known issues where the DEM derived flowlines follow the incorrect flow path (smaller stream order). The revised code adds a new workflow to generate a new flow direction raster separately for input to the `run_by_branch.sh` workflow (branch 0 remains unchanged). This modification helps ensure that the DEM derived flowlines follow the desired NWM flow line when generating the DEM derived flowlines at the branch level. Addresses #823 
+
+### Changes  
+- `config/deny_branch_zero.lst`: removed `LandSea_subset_{}.tif` and `flowdir_d8_burned_filled_{}.tif` from the "keep" list as these files are now kept in the huc root folder.
+- `config/deny_unit.lst`: added file cleanups for newly generated branch input files stored in the huc root folder (`dem_burned.tif`, `dem_burned_filled.tif`, `flowdir_d8_burned_filled.tif`, `flows_grid_boolean.tif`, `wbd_buffered_streams.gpkg`)
+- `src/clip_vectors_to_wbd.py`: saving the `wbd_streams_buffer` as an output gpkg for input to `derive_level_paths.py`
+- `src/derive_level_paths.py`: added a new step to clip the `out_stream_network_dissolved` with the `buffer_wbd_streams` polygon. this resolves errors with the edge case scenarios where a NWM flow line intersects the WBD buffer polygon
+- `src/run_unit_wb.sh`: Introduce new processing steps to generate separate outputs for input to branch 0 vs. all other branches. Remove the branch zero `outputs_cleanup.py` as the branches are no longer pointing to files stored in the branch 0 directory (stored in huc directory)
+   - Rasterize reach boolean (1 & 0) for all branches (not branch 0): using the `nwm_subset_streams_levelPaths_dissolved.gpkg` to define the branch levelpath flow lines
+   - AGREEDEM reconditioning for all branches (not branch 0)
+   - Pit remove burned DEM for all branches (not branch 0)
+   - D8 flow direction generation for all branches (not branch 0)
+- `src/run_by_branch.sh`: changed `clip_rasters_to_branches.py` input file location for `$tempHucDataDir/flowdir_d8_burned_filled.tif` (newly created file)
+
+<br/><br/>
+
 ## v4.3.9.0 - 2023-04-19 - [PR#889](https://github.com/NOAA-OWP/inundation-mapping/pull/889)
 
 Updates GDAL in base Docker image from 3.1.2 to 3.4.3 and updates all Python packages to latest versions, including Pandas v.2.0.0. Fixes resulting errors caused by deprecation and/or other changes in dependencies. 
