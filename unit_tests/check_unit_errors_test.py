@@ -48,17 +48,16 @@ class test_check_unit_errors(unittest.TestCase):
         params = self.params["valid_data"].copy()
         
         num_dummy_files_reqd = UNIT_ERRORS_MIN_NUMBER_THRESHOLD - 1
-        ue_folder_existed = self.__create_temp_unit_errors_folder_files(params["fim_dir"], 
-                                                                        num_dummy_files_reqd)
+
+        self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
+
         expected_output = 0
         actual_output = src.check_unit_errors(params["fim_dir"], num_dummy_files_reqd)
         
         err_msg = "Number of dummy files IS NOT less than the overall min number of error files."
         assert expected_output == actual_output, err_msg
         
-        if (ue_folder_existed):
-            self.__remove_temp_unit_errors_folder(params["fim_dir"])
-        
+        self.__remove_temp_unit_errors_folder(params["fim_dir"])
             
     def test_check_unit_errors_fail_above_min_errors(self):
 
@@ -91,8 +90,7 @@ class test_check_unit_errors(unittest.TestCase):
         
         num_dummy_files_reqd = UNIT_ERRORS_MIN_NUMBER_THRESHOLD * 2
             
-        ue_folder_existed = self.__create_temp_unit_errors_folder_files(params["fim_dir"],
-                                                                            num_dummy_files_reqd)
+        self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
             
         num_total_units = math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD)) + 1
         expected_output = 0
@@ -101,10 +99,7 @@ class test_check_unit_errors(unittest.TestCase):
         err_msg = "Number of dummy files IS NOT more than the overall min number of error files"
         assert expected_output == actual_output, err_msg
             
-        if (ue_folder_existed):
-            self.__remove_temp_unit_errors_folder(params["fim_dir"]) 
-            
-        # We have to put the unit_errors folders back to the way is was.
+        # We have to put the unit_errors folders back to the way is was.           
         self.__remove_temp_unit_errors_folder(params["fim_dir"])
 
 
