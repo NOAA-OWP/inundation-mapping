@@ -38,7 +38,7 @@ def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network
         # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
         # Later, we can look at creating custom sys exit codes 
         # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file.")
-        print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
+        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # values_exluded of 1 and 2 mean where are dropping stream orders 1 and 2. We are leaving those
@@ -47,7 +47,8 @@ def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network
 
     # if there are no reaches at this point (due to filtering)
     if (len(stream_network) == 0):
-        print("No branches exist but branch zero processing will continue. This could be due to stream order filtering.")
+        print("No branches exist but branch zero processing will continue (Exit 63). This could be due to stream order filtering.")
+        #sys.exit(FIM_exit_codes.NO_BRANCH_LEVELPATHS_EXIST.value)  # will send a 63 back
         return
                                                  
     inlets_attribute = 'inlet_id'
