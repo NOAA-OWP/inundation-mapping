@@ -68,9 +68,8 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
                     # Import boolean river raster and apply same NODATA mask as dem
                     # layer. In case rivers extend beyond valid data regions of DEM.
                     river_raw_data_window = rivers.read(1, window = window)
-                    river_raw_data_window_boolean = np.where(river_raw_data_window > 0, 1, river_raw_data_window)
                     river_data_window = np.where(elev_mask_window == True, river_raw_data_window, 0)
-                    river_data_window_boolean = np.where(elev_mask_window == True, river_raw_data_window_boolean, 0)
+
                     #---------------------------------------------------------------
                     # 2. From Hellweger documentation: Compute the smooth drop/raise
                     # grid (smogrid). The cells in the smooth drop/raise grid
@@ -80,7 +79,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
 
                     # Assign smooth distance and calculate the smogrid.
                     smooth_dist = -1 * smooth_drop # in meters.
-                    smogrid_window = (river_data_window_boolean * elev_data_window) + (river_data_window * smooth_dist)
+                    smogrid_window = river_data_window*(elev_data_window + smooth_dist)
 
                     # Write out raster
                     raster.write(smogrid_window.astype('float32'), indexes = 1, window = window)
@@ -188,17 +187,14 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
                             vectdist_data_window = vectdist.read(1, window = window)
                             vectallo_data_window = vectallo.read(1, window = window)
                             river_raw_data_window = rivers.read(1, window = window)
-                            river_raw_data_window_boolean = np.where(river_raw_data_window > 0, 1, river_raw_data_window)
 
                             bufallo_data_window = np.where(bufallo_data_window == -32768., elev_data_window, bufallo_data_window)
 
                             vectallo_data_window = np.where(vectallo_data_window == -32768., elev_data_window-10, vectallo_data_window)
 
                             river_raw_data_window = river_raw_data_window.astype(np.float32)
-                            river_raw_data_window_boolean = river_raw_data_window_boolean.astype(np.float32)
 
                             river_data_window = np.where(elev_mask_window == True, river_raw_data_window, -20.0)
-                            river_data_window_boolean = np.where(elev_mask_window == True, river_raw_data_window_boolean, -20.0)
                             #------------------------------------------------------------------
                             # 6. From Hellweger documentation: Compute the smooth modified
                             # elevation grid (smoelev). The cells in the smooth modified
@@ -219,7 +215,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
                             # Define sharp drop distance and calculate the sharp drop grid where
                             # only river cells are dropped by the sharp_dist amount.
                             sharp_dist = -1 * sharp_drop # in meters.
-                            shagrid_window = (smoelev_window * river_data_window_boolean) + (sharp_dist * river_data_window)
+                            shagrid_window = (smoelev_window + sharp_dist) * river_data_window
 
                             #------------------------------------------------------------------
                             # 8. From Hellweger documentation: Compute the modified elevation
