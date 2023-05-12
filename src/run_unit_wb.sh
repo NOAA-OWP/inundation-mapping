@@ -164,20 +164,13 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 Tcount
 
-## RASTERIZE STREAM ORDERS ##
-echo -e $startDiv"Rasterizing stream orders $hucNumber $branch_zero_id"
-date -u
-Tstart
-python3 -m memory_profiler $srcDir/rasterize_vector_attributes.py -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_ -i $tempHucDataDir/dem_meters.tif -o $tempCurrentBranchDataDir/nwm_subset_streams_orders_$branch_zero_id.tif
-Tcount
-
 ## DEM Reconditioning ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/agreedem.py -r $tempCurrentBranchDataDir/nwm_subset_streams_orders_$branch_zero_id.tif -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+python3 -m memory_profiler $srcDir/burn_streams_by_order.py -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000 -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_
 Tcount
 
 ## PIT REMOVE BURNED DEM ##
