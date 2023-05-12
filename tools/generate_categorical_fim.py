@@ -662,24 +662,6 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage = datum_adj_wse_m - lid_usgs_elev
     
-    print("stage ft")
-    print(stage)
-    print("datum_adj_ft")
-    print(datum_adj_ft)
-    print("lid_altitude ft")
-    print(lid_altitude)
-    print("datum_adj_wse ft")
-    print(datum_adj_wse)
-    
-    print("datum_adj_wse m")
-    print(datum_adj_wse_m)
-    print("lid_usgs_elev m")
-    print(lid_usgs_elev)
-    print("hand_stage m")
-    print(hand_stage)
-    
-    
-    
     # Produce extent tif hand_stage. Multiprocess across branches.
     branches = os.listdir(branch_dir)
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
@@ -778,7 +760,6 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
 
 
 if __name__ == '__main__':
-    print("HIIIIIIIIIIIIII")
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
     parser.add_argument('-f', '--fim_run_dir', help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_0_9_2',
