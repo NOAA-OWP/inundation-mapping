@@ -40,7 +40,8 @@ Example:
 docker run --rm -it --name mytest \
 	-v /home/abcd/projects/dev/innudation-mapping/:/foss_fim \
 	-v /abcd_share/foss_fim/outputs/:/outputs \
-	-v /abcs_share/foss_fim/:/data \
+	-v /abcd_share/foss_fim/:/data \
+	-v /abcd_share/foss_fim/outputs_temp/:/fim_temp \
 	fim_4:dev_20220208_8eba0ee
 ```
 
