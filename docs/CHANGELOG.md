@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3.x.x - 2023-04-xx - [PR#893](https://github.com/NOAA-OWP/inundation-mapping/pull/893)
+## v4.3.9.1 - 2023-05-12 - [PR#893](https://github.com/NOAA-OWP/inundation-mapping/pull/893)
 
 Fix existing unit tests, remove unwanted behavior in `check_unit_errors_test.py`, update `unit_tests/README.md`
 
