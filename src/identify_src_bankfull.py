@@ -176,7 +176,7 @@ def multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, ver
         number_of_jobs = available_cores - 2
         print("Provided job number exceeds the number of available cores. " + str(number_of_jobs) + " max jobs will be used instead.")
 
-    print(f"Identifying bankfull stage for {len(procs_list)} hucs using {number_of_jobs} jobs")
+    print(f"Identifying bankfull stage for {len(procs_list)} branches using {number_of_jobs} jobs")
     with Pool(processes=number_of_jobs) as pool:
         #progress_bar = tqdm(total=len(procs_list[0]))
         if verbose:
