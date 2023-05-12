@@ -8,8 +8,6 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 An error logging system was also added to track errors that may have occurred during processing. 
 
-Covers issue [888](https://github.com/NOAA-OWP/inundation-mapping/issues/888).
-
 ### Changes  
 - `fim_pipeline.sh` - added a duration counter at the end of processing HUCs
 - `fim_post_processing.sh` - added a job limit (number of procs), did a little cleanup, and added a warning note about usage of job limits in this script, 
