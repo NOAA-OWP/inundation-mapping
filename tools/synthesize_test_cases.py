@@ -74,13 +74,11 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
     additional_header_info_prefix = ['version', 'nws_lid', 'magnitude', 'huc']
     list_to_write = [additional_header_info_prefix + metrics_to_write + ['full_json_path'] + ['flow'] + ['benchmark_source'] + ['extent_config'] + ["calibrated"]]
 
-    # add in composite of versions
+    # add in composite of versions (used for previous FIM3 versions)
     if "official" in iteration_list:
         composite_versions = [v.replace('_ms', '_comp') for v in prev_versions_to_include_list if '_ms' in v]
         prev_versions_to_include_list += composite_versions
 
-    print("iteration_list:")
-    print(iteration_list)
     # Iterate through 5 benchmark sources 
     for benchmark_source in ['ble', 'nws', 'usgs', 'ifc','ras2fim']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
@@ -91,7 +89,6 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
             
             # Iterate through available test cases
             for test_case in test_cases_list:
-                print(test_case)
                 try:
                     # Get HUC id
                     int(test_case.split('_')[0])
@@ -151,7 +148,6 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
             for test_case in test_cases_list:
-                print(test_case)
                 try:
                     # Get HUC id
                     int(test_case.split('_')[0])
