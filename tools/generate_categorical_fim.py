@@ -327,7 +327,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation']
 
             if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
-                lid_usgs_elev = acceptable_usgs_elev_df.loc[(acceptable_usgs_elev_df['nws_lid'] == lid.upper()) & ('levpa_id' != 0), 'dem_adj_elevation'].values[0]
+                lid_usgs_elev = acceptable_usgs_elev_df.loc[(acceptable_usgs_elev_df['nws_lid'] == lid.upper()) & (acceptable_usgs_elev_df['levpa_id'] != 0), 'dem_adj_elevation'].values[0]
             else:
                 lid_usgs_elev = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'].values[0]
         except IndexError:  # Occurs when LID is missing from table
@@ -454,7 +454,14 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             all_messages.append([f'{lid}:no stage values available'])
             continue
         interval_list = np.arange(min(stage_list), max(stage_list) + past_major_interval_cap, 1.0)  # Go an extra 10 ft beyond the max stage, arbitrary
-        # For each flood category
+        
+        # Check for large discrepancies between the elevation values from WRDS and HAND. Otherwise this causes bad mapping.
+        elevation_diff = lid_usgs_elev - (lid_altitude*0.3048)
+        if abs(elevation_diff) > 10:
+            all_messages.append([f'{lid}:large discrepancy in elevation estimates from gage and HAND'])
+            continue
+        
+            # For each flood category
         for category in flood_categories:
             
             # Pull stage value and confirm it's valid, then process
@@ -477,6 +484,7 @@ def iterate_through_huc_stage_based(workspace, huc, fim_dir, huc_dictionary, thr
             if huc in missing_huc_files:
                 all_messages.append([f'{lid}:missing some HUC data'])
                 
+        
         # Now that the "official" category maps are made, produce the incremental maps.
         with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
             try:
@@ -752,7 +760,6 @@ def produce_stage_based_catfim_tifs(stage, datum_adj_ft, branch_dir, lid_usgs_el
 
 
 if __name__ == '__main__':
-    
     # Parse arguments
     parser = argparse.ArgumentParser(description = 'Run Categorical FIM')
     parser.add_argument('-f', '--fim_run_dir', help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_0_9_2',

@@ -46,8 +46,11 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
         gage_crosswalk = GageCrosswalk(params["usgs_gages_filename"], params["branch_id"])
 
         # Run crosswalk
-        gage_crosswalk.run_crosswalk(params["input_catchment_filename"], params["input_flows_filename"], 
-                            params["dem_filename"], params["dem_adj_filename"], params["output_table_filename"])
+        gage_crosswalk.run_crosswalk(params["input_catchment_filename"], \
+                                     params["input_flows_filename"], \
+                                     params["dem_filename"], \
+                                     params["dem_adj_filename"], \
+                                     params["output_table_filename"])
 
         # Make sure that the usgs_elev_table.csv was written
         msg = f'{params["output_table_filename"]} does not exist'
