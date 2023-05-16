@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-from typing import Union
 import numpy as np
 import geopandas as gpd
 import rasterio as rio
@@ -16,7 +15,7 @@ def burn_streams_by_order(streams_vector:str, streams_order_attribute:str, dem:s
     ----------
     streams_vector: str
         Vector file of features to be rasterized
-    streams_order_attributes: str
+    streams_order_attribute: str
         Vector attribute to be rasterized
     output_raster: str
         Filename to save rasterized vector
@@ -42,11 +41,13 @@ def burn_streams_by_order(streams_vector:str, streams_order_attribute:str, dem:s
     orders = streams_vector[streams_order_attribute].unique()
     orders = np.sort(orders)
 
+    with rio.open(dem) as rst:
+        meta = rst.meta.copy()
+
     for i, order in enumerate(orders):
         rasterize_by_stream_order(streams_vector, streams_order_attribute, order, dem, output_raster)
 
-        print(f'Burning stream order {order}')
-        agreedem(output_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data)
+        agreedem(output_raster, order, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data)
 
         with rio.open(output_raster) as out:
             out_data = out.read(1)
@@ -55,9 +56,6 @@ def burn_streams_by_order(streams_vector:str, streams_order_attribute:str, dem:s
             burned = out_data
         else:
             burned = np.minimum(burned, out_data)
-
-    with rio.open(dem) as rst:
-        meta = rst.meta.copy()
 
     with rio.open(output_raster, 'w', **meta) as out:
         out.write_band(1, burned)
@@ -71,8 +69,10 @@ def rasterize_by_stream_order(input_vector:gpd.GeoDataFrame, input_vector_attrib
     ----------
     input_vector: geopandas.GeoDataFrame
         Vector file of features to be rasterized
-    input_vector_attributes: str
+    input_vector_attribute: str
         Vector attribute to be rasterized
+    input_vector_attribute_value: str
+        Value of input_vector_attribute
     input_raster: str
         Raster with same properties (e.g., width and height) as the desired output
     output_raster: str
@@ -91,7 +91,7 @@ def rasterize_by_stream_order(input_vector:gpd.GeoDataFrame, input_vector_attrib
 
     temp_vector = input_vector[input_vector[input_vector_attribute]==input_vector_attribute_value]
 
-    burned = features.rasterize(shapes=((geom,int(value)) for geom, value in zip(temp_vector['geometry'], temp_vector[input_vector_attribute])), fill=0, out_shape=input_shape, transform=meta['transform'])
+    burned = features.rasterize(shapes=((geom, 1) for geom, value in zip(temp_vector['geometry'], temp_vector[input_vector_attribute])), fill=0, out_shape=input_shape, transform=meta['transform'])
 
     if output_raster != '':
         with rio.open(output_raster, 'w', **meta) as out:
