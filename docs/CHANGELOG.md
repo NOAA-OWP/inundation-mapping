@@ -2,6 +2,43 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.x.x - 2023-05-16 - [PR#904](https://github.com/NOAA-OWP/inundation-mapping/pull/904)
+
+`pandas.append` was deprecated in our last Pandas upgrade (v4.3.9.0). This PR updates the remaining instances of `pandas.append` to `pandas.concat`.
+
+The file `tools/thalweg_drop_check.py` had an instance of `pandas.append` but was deleted as it is no longer used or necessary.
+
+### Changes
+
+The following files had instances of `pandas.append` changed to `pandas.concat`:
+- `data/`
+    - `nws/preprocess_ahps_nws.py`
+    - `usgs/`
+        - `acquire_and_preprocess_3dep_dems.py`
+        - `preprocess_ahps_usgs.py`
+- `src/`
+    - `add_crosswalk.py`
+    - `adjust_headwater_streams.py`
+    - `aggregate_vector_inputs.py`
+    - `reset_mannings.py`
+- `tools/`
+    - `aggregate_mannings_calibration.py`
+    - `eval_plots.py`
+    - `generate_categorical_fim.py`
+    - `generate_categorical_fim_flows.py`
+    - `plots/`
+        - `eval_plots.py`
+        - `utils/shared_functions.py`
+    - `rating_curve_comparison.py`
+    - `rating_curve_get_usgs_curves.py`
+    - `tools_shared_functions.py`
+
+### Removals
+
+- `tools/thalweg_drop_check.py`
+
+<br/><br/>
+
 ## v4.3.11.0 - 2023-05-12 - [PR#903](https://github.com/NOAA-OWP/inundation-mapping/pull/903)
 
 These changes address some known issues where the DEM derived flowlines follow the incorrect flow path (address issues with stream order 1 and 2 only). The revised code adds a new workflow to generate a new flow direction raster separately for input to the `run_by_branch.sh` workflow (branch 0 remains unchanged). This modification helps ensure that the DEM derived flowlines follow the desired NWM flow line when generating the DEM derived flowlines at the branch level. 
