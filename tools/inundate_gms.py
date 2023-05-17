@@ -58,7 +58,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     
     # make inundate generator
     inundate_input_generator = __inundate_gms_generator( hucs_branches,
-                                                         number_of_branches,
                                                          hydrofabric_dir,
                                                          inundation_raster,
                                                          inundation_polygon,
@@ -83,7 +82,7 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     idx = 0
     for future in tqdm(as_completed(executor_generator),
                        total=len(executor_generator),
-                       desc="Inundating branches with {} workers".format(num_workers),
+                       desc=f"Inundating branches with {num_workers} workers",
                        disable=(not verbose) ):
         
         hucCode, branch_id = executor_generator[future]
@@ -151,7 +150,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
 
 
 def __inundate_gms_generator( hucs_branches,
-                              number_of_branches,
                               hydrofabric_dir,
                               inundation_raster,
                               inundation_polygon,
@@ -164,13 +162,14 @@ def __inundate_gms_generator( hucs_branches,
         huc = str(row[0])
         branch_id = str(row[1])
 
-        huc_dir = os.path.join(hydrofabric_dir, huc, 'branches')
+        huc_dir = os.path.join(hydrofabric_dir, huc)
+        branch_dir = os.path.join(huc_dir, 'branches', branch_id)
 
-        rem_file_name = 'rem_zeroed_masked_{}.tif'.format(branch_id)
-        rem_branch = os.path.join( huc_dir, branch_id, rem_file_name )
+        rem_file_name = f'rem_zeroed_masked_{branch_id}.tif'
+        rem_branch = os.path.join( branch_dir, rem_file_name )
 
         catchments_file_name = f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif'
-        catchments_branch = os.path.join( huc_dir, branch_id, catchments_file_name )
+        catchments_branch = os.path.join( branch_dir, catchments_file_name )
         
         # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
         hydroTable_huc = os.path.join( huc_dir, 'hydrotable.csv' )
@@ -186,10 +185,10 @@ def __inundate_gms_generator( hucs_branches,
             hydroTable_branch = hydroTable_all.loc[hydroTable_all['branch_id'] == int(branch_id)]
         else:
             # Earlier FIM4 versions only have branch level hydrotables
-            hydroTable_branch = os.path.join( huc_dir, branch_id, 'hydroTable_{}.csv'.format(branch_id) )
+            hydroTable_branch = os.path.join( branch_dir, f'hydroTable_{branch_id}.csv' )
 
         xwalked_file_name = f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg'
-        catchment_poly = os.path.join( huc_dir, branch_id, xwalked_file_name )
+        catchment_poly = os.path.join( branch_dir, xwalked_file_name )
         
     
         # branch output
