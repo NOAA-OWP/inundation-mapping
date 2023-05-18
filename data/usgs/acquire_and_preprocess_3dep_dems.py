@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import traceback
+import pandas as pd
 import geopandas as gpd
 
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
@@ -309,7 +310,7 @@ def polygonize(target_output_folder_path):
         if n == 0:
             dem_gpkgs = gdf
         else:
-            dem_gpkgs = dem_gpkgs.append(gdf)
+            dem_gpkgs = pd.concat([dem_gpkgs, gdf])
 
         os.remove(edge_tif)
         

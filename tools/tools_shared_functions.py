@@ -1210,7 +1210,7 @@ def get_rating_curve(rating_curve_url, location_ids):
                 curve_df['wrds_timestamp'] = response.headers['Date']
 
                 #Append rating curve to DataFrame containing all curves
-                all_curves = all_curves.append(curve_df)
+                all_curves = pd.concat([all_curves, curve_df])
             else:
                 continue
 

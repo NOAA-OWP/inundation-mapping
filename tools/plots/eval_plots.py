@@ -103,7 +103,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
         #Set extent configuration to MS (instead of FR)
         fim_1_rows['extent_config'] = 'MS'
         #Append duplicate FIM 1 rows to original dataframe
-        csv_df = csv_df.append(fim_1_rows, ignore_index = True)
+        csv_df = pd.concat([csv_df, fim_1_rows], ignore_index = True)
         
     #If versions are supplied then filter out    
     if versions:
@@ -282,7 +282,7 @@ def eval_plots(metrics_csv, workspace, versions = [], stats = ['CSI','FAR','TPR'
                 #Join to dataset
                 dataset_with_subset = dataset.merge(subset, on = 'nws_lid')
                 #Append rows to final_join dataframe
-                final_join = final_join.append(dataset_with_subset)
+                final_join = pd.concat([final_join, dataset_with_subset])
         
         #Modify version field
         final_join['version'] = final_join.version.str.split('_nws|_usgs').str[0]

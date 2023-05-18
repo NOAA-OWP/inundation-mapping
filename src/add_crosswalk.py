@@ -9,8 +9,6 @@ import json
 import argparse
 import sys
 from utils.shared_functions import getDriver
-# sys.path.append('/foss_fim/src')
-# sys.path.append('/foss_fim/config')
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 from memory_profiler import profile
