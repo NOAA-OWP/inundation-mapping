@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3.x.x - 2023-05-16 - [PR#904](https://github.com/NOAA-OWP/inundation-mapping/pull/904)
+## v4.3.11.1 - 2023-05-16 - [PR#904](https://github.com/NOAA-OWP/inundation-mapping/pull/904)
 
 `pandas.append` was deprecated in our last Pandas upgrade (v4.3.9.0). This PR updates the remaining instances of `pandas.append` to `pandas.concat`.
 
