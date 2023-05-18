@@ -241,7 +241,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         full_csv_path = os.path.join(attributes_dir, csv)
         # Huc has to be read in as string to preserve leading zeros.
         temp_df = pd.read_csv(full_csv_path, dtype={'huc':str})
-        all_csv_df = pd.concat(all_csv_df, temp_df], ignore_index = True)
+        all_csv_df = pd.concat([all_csv_df, temp_df], ignore_index = True)
     # Write to file
     all_csv_df.to_csv(os.path.join(workspace, 'nws_lid_attributes.csv'), index = False)
    
