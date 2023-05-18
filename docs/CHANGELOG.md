@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.x.x - 2023-05-18 - [PR#917](https://github.com/NOAA-OWP/inundation-mapping/pull/917)
+
+There is a growing number of files that need to be pushed up to HydroVis S3 during a production release, counting the new addition of rating curve comparison reports.
+
+Earlier, we were running a number of aws cli scripts one at a time. This tool simplies it and pushes all of the QA and supporting files. Note.. the HAND files from a release, will continue to be pushed by /data/aws/s3.py as it filters out files to be sent to HV s3.
+
+### Additions  
+
+- `data\aws`
+     - `push-hv-data-support-files.sh`: As described above. See file for command args.
+
+<br/><br/>
+
 
 ## v4.3.11.1 - 2023-05-16 - [PR#904](https://github.com/NOAA-OWP/inundation-mapping/pull/904)
 
