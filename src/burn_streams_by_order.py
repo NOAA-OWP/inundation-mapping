@@ -7,7 +7,7 @@ import rasterio as rio
 from rasterio import features
 from agreedem import agreedem
 
-def burn_streams_by_order(streams_vector:str, streams_order_attribute:str, dem:str, output_raster:str, workspace:str, buffer_dist:float, smooth_drop:float, sharp_drop:float, delete_intermediate_data:bool):
+def burn_streams_by_order(streams_vector:str, streams_order_attribute:str, dem:str, output_raster:str, workspace:str, buffer_dist:float, smooth_drop:float, sharp_drop:float, delete_intermediate_data:bool = False):
     """
     Burn NWM streams by order. Rasterizes each order independently then burns them into the DEM using AGREE methodology, takes the minimum elevation value in each cell.
 
@@ -47,7 +47,7 @@ def burn_streams_by_order(streams_vector:str, streams_order_attribute:str, dem:s
     for i, order in enumerate(orders):
         rasterize_by_stream_order(streams_vector, streams_order_attribute, order, dem, output_raster)
 
-        agreedem(output_raster, order, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data)
+        agreedem(output_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, order, delete_intermediate_data)
 
         with rio.open(output_raster) as out:
             out_data = out.read(1)
@@ -103,7 +103,7 @@ def rasterize_by_stream_order(input_vector:gpd.GeoDataFrame, input_vector_attrib
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Rasterizes NWM streams by order')
     parser.add_argument('-v', '--streams-vector', help='Streams vector', type=str, required=True)
-    parser.add_argument('-a', '--streams-order-attribute', help='Input vector attribute', type=str, required=False)
+    parser.add_argument('-a', '--streams-order-attribute', help='Input vector attribute', type=str, required=False, default='order_')
     parser.add_argument('-d', '--dem',  help = 'DEM raster in meters', required = True)
     parser.add_argument('-w', '--workspace', help = 'Workspace', required = True)
     parser.add_argument('-o',  '--output-raster', help = 'Path to output raster', type=str, required = True)

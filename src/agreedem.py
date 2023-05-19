@@ -8,7 +8,7 @@ from utils.shared_functions import mem_profile
 
 
 @mem_profile
-def agreedem(rivers_raster, order, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data):
+def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, order=1, delete_intermediate_data=False):
     '''
     Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html). Whiteboxtools is used to calculate intermediate allocation and proximity rasters.
 
@@ -28,6 +28,8 @@ def agreedem(rivers_raster, order, dem, output_raster, workspace, buffer_dist, s
         Smooth drop distance (in meters). Typically this has been 10m.
     sharp_drop : FLOAT
         Sharp drop distance (in meters). Typically this has been 1000m.
+    order: int
+        Stream order (defaults to 1)
     delete_intermediate_data: BOOL
         If True all intermediate data is deleted, if False (default) no intermediate datasets are deleted.
 
@@ -257,6 +259,7 @@ if __name__ == '__main__':
     parser.add_argument('-b',  '--buffer', help = 'Buffer distance (m) on either side of channel', required = True)
     parser.add_argument('-sm', '--smooth', help = 'Smooth drop (m)', required = True)
     parser.add_argument('-sh', '---sharp', help = 'Sharp drop (m)', required = True)
+    parser.add_argument('-a', '--order', help='Stream order attribute', required=False, type=int, default=1)
     parser.add_argument('-t',  '--del',  help = 'Optional flag to delete intermediate datasets', action = 'store_true')
 
     #Extract to dictionary and assign to variables.
@@ -270,7 +273,8 @@ if __name__ == '__main__':
     buffer_dist = float(args['buffer'])
     smooth_drop = float(args['smooth'])
     sharp_drop =  float(args['sharp'])
+    order = args['order']
     delete_intermediate_data = args['del']
 
     #Run agreedem
-    agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data)
+    agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, order, delete_intermediate_data)

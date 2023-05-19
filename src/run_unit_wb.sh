@@ -190,7 +190,7 @@ Tcount
 ## DEM Reconditioning - BRANCH 0 (include all NWM streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
+echo -e $startDiv"Hydroenforce DEM using AGREE by stream order $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
 date -u
 Tstart
 python3 -m memory_profiler $srcDir/burn_streams_by_order.py -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000 -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_
