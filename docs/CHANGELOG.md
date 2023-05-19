@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3.11.1 - 2023-05-19 - [PR#918](https://github.com/NOAA-OWP/inundation-mapping/pull/918)
+## v4.3.11.x - 2023-05-19 - [PR#918](https://github.com/NOAA-OWP/inundation-mapping/pull/918)
 
 This fix addresses a bug that was preventing `burn_in_levees.py` from running. The if statement in run_unit_wb.sh preceeding `burn_in_levees.py` was checking for the existence of a filepath that doesn't exist.
 
