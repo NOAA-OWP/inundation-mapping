@@ -84,7 +84,7 @@ aws_cmd_cp="aws s3 cp"
 aws_src="/data/catfim/"$runName"_stage_based/mapping/stage_based_catfim.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -93,7 +93,7 @@ echo
 aws_src="/data/catfim/"$runName"_stage_based/mapping/stage_based_catfim_sites.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -103,7 +103,7 @@ echo
 aws_src="/data/catfim/"$runName"_flow_based/mapping/flow_based_catfim.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -112,7 +112,7 @@ echo
 aws_src="/data/catfim/"$runName"_flow_based/mapping/flow_based_catfim_sites.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -122,7 +122,7 @@ echo
 aws_src="/data/fim_performance/"$runName"/fim_performance_polys.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -131,7 +131,7 @@ echo
 aws_src="/data/fim_performance/"$runName"/fim_performance_points.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -140,7 +140,7 @@ echo
 aws_src="/data/fim_performance/"$runName"/fim_performance_catchments.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -150,7 +150,7 @@ echo
 aws_src="/data/fim_performance/"$runName"/rating_curve_comparison/agg_nwm_recurr_flow_elev_stats_location_id.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
@@ -159,7 +159,7 @@ echo
 aws_src="/data/inputs/usgs_gages/usgs_rating_curves.csv"
 aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
-aws_cmd=$aws_cmd_cp" "$aws_src" "$aws_target
+aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "aws s3 cp $aws_src $aws_target"
 echo 
