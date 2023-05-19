@@ -193,7 +193,7 @@ Tcount
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/agreedem.py -r $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+python3 -m memory_profiler $srcDir/burn_streams_by_order.py -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000 -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_
 Tcount
 
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##

@@ -8,7 +8,7 @@ from utils.shared_functions import mem_profile
 
 
 @mem_profile
-def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data):
+def agreedem(rivers_raster, order, dem, output_raster, workspace, buffer_dist, smooth_drop, sharp_drop, delete_intermediate_data):
     '''
     Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html). Whiteboxtools is used to calculate intermediate allocation and proximity rasters.
 
@@ -79,7 +79,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
 
                     # Assign smooth distance and calculate the smogrid.
                     smooth_dist = -1 * smooth_drop # in meters.
-                    smogrid_window = river_data_window*(elev_data_window + smooth_dist)
+                    smogrid_window = river_data_window*(elev_data_window + order*smooth_dist)
 
                     # Write out raster
                     raster.write(smogrid_window.astype('float32'), indexes = 1, window = window)
@@ -215,7 +215,7 @@ def agreedem(rivers_raster, dem, output_raster, workspace, buffer_dist, smooth_d
                             # Define sharp drop distance and calculate the sharp drop grid where
                             # only river cells are dropped by the sharp_dist amount.
                             sharp_dist = -1 * sharp_drop # in meters.
-                            shagrid_window = (smoelev_window + sharp_dist) * river_data_window
+                            shagrid_window = (smoelev_window + order*sharp_dist) * river_data_window
 
                             #------------------------------------------------------------------
                             # 8. From Hellweger documentation: Compute the modified elevation

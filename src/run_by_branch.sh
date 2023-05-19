@@ -60,12 +60,19 @@ Tstart
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy<<<$($srcDir/getRasterInfoNative.py $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
 Tcount
 
-## RASTERIZE REACH BOOLEAN (1 & 0) ##
-echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
-date -u
-Tstart
-gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
-Tcount
+# ## RASTERIZE REACH BOOLEAN (1 & 0) ##
+# echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
+# date -u
+# Tstart
+# gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
+# Tcount
+
+# ## Rasterize Stream Orders ##
+# echo -e $startDiv"Rasterizing stream orders $hucNumber $current_branch_id"
+# date -u
+# Tstart
+# python3 -m memory_profiler $srcDir/rasterize_vector_attributes.py -v $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg -a order_ -i $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif -o $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_orders_$current_branch_id.tif
+# Tcount
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
