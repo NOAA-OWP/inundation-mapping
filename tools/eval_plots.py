@@ -460,7 +460,7 @@ def eval_plots(metrics_csv, workspace, versions = [],
         #Set extent configuration to MS (instead of FR)
         fim_1_rows['extent_config'] = 'MS'
         #Append duplicate FIM 1 rows to original dataframe
-        csv_df = csv_df.append(fim_1_rows, ignore_index = True)
+        csv_df = pd.concat([csv_df, fim_1_rows], ignore_index = True)
 
     # If versions are supplied then filter out
     if versions:

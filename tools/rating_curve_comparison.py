@@ -107,7 +107,7 @@ def generate_rating_curve_metrics(args):
             if hydrotable.empty:
                 hydrotable = branch_hydrotable
             else:
-                hydrotable = hydrotable.append(branch_hydrotable)
+                hydrotable = pd.concat([hydrotable, branch_hydrotable])
 
         # Join rating curves with elevation data
         #elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
@@ -136,10 +136,10 @@ def generate_rating_curve_metrics(args):
                 limited_hydrotable_default = hydrotable.filter(items=['location_id','elevation_ft', 'default_discharge_cfs','HydroID', 'levpa_id', 'dem_adj_elevation'])
                 limited_hydrotable_default['discharge_cfs'] = limited_hydrotable_default.default_discharge_cfs
                 limited_hydrotable_default['source'] = "FIM_default"
-                rating_curves = limited_hydrotable.append(select_usgs_gages)
-                rating_curves = rating_curves.append(limited_hydrotable_default)
+                rating_curves = pd.concat([limited_hydrotable, select_usgs_gages])
+                rating_curves = pd.concat([rating_curves, limited_hydrotable_default])
             else:
-                rating_curves = limited_hydrotable.append(select_usgs_gages)
+                rating_curves = pd.concat([limited_hydrotable, select_usgs_gages])
 
             # Add stream order
             stream_orders = hydrotable.filter(items=['location_id','order_']).drop_duplicates()
@@ -164,7 +164,7 @@ def generate_rating_curve_metrics(args):
 
             # Append catfim data (already set up in format similar to nwm_recurr_intervals_all)
             cat_fim = pd.read_csv(catfim_flows_filename, dtype={'feature_id':str})
-            nwm_recurr_intervals_all = nwm_recurr_intervals_all.append(cat_fim)
+            nwm_recurr_intervals_all = pd.concat([nwm_recurr_intervals_all, cat_fim])
 
             # Convert discharge to cfs and filter
             nwm_recurr_intervals_all['discharge_cfs'] = nwm_recurr_intervals_all.discharge_cms * 35.3147
@@ -229,7 +229,7 @@ def generate_rating_curve_metrics(args):
 
                 # Melt dataframe
                 usgs_pred_elev = pd.melt(usgs_pred_elev, id_vars=['location_id','feature_id','recurr_interval','discharge_cfs','HUC','HUC4','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
-                nwm_recurr_data_table = nwm_recurr_data_table.append(usgs_pred_elev)
+                nwm_recurr_data_table = pd.concat([nwm_recurr_data_table, usgs_pred_elev])
 
                 # Interpolate FIM elevation at USGS observations
                 # fim_rc = fim_rc.merge(usgs_crosswalk, on="location_id")
@@ -247,7 +247,7 @@ def generate_rating_curve_metrics(args):
                 # usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
                 #
                 # if not usgs_rc.empty:
-                #     usgs_recurr_data = usgs_recurr_data.append(usgs_rc)
+                #     usgs_recurr_data = pd.concat([usgs_recurr_data, usgs_rc])
 
             # Generate stats for all sites in huc
             # if not usgs_recurr_data.empty:
@@ -794,7 +794,7 @@ def evaluate_results(sierra_results=[], labels=[], save_location=''):
 
     # Combine all dataframes into one
     all_results = sierra_results[0]
-    all_results = all_results.append(sierra_results[1:])
+    all_results = pd.concat([all_results, sierra_results[1:]])
 
     # Melt results for boxplotting
     all_results_melted = all_results.melt(id_vars=["location_id", '_version'], 

@@ -119,7 +119,7 @@ def write_categorical_flow_files(metadata, workspace):
                 data['location_id'] = usgs_code
                 data = data.rename(columns = {'discharge':'discharge_cms'})
                 #Append site data to master DataFrame
-                all_data = all_data.append(data, ignore_index = True)
+                all_data = pd.concat([all_data, data], ignore_index = True)
     
     #Write CatFIM flows to file
     final_data = all_data[['feature_id','discharge_cms', 'recurr_interval']]
@@ -207,7 +207,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
                 chunk_list, chunk_df = get_metadata(metadata_url, select_by, chunk, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
                 #Append chunk data to metadata_list/df
                 metadata_list.extend(chunk_list)
-                metadata_df = metadata_df.append(chunk_df)
+                metadata_df = pd.concat([metadata_df, chunk_df])
         else:
             #If selector has less than max sites, then get metadata.
             metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector, must_include = None, upstream_trace_distance = None, downstream_trace_distance = None )
@@ -274,7 +274,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time = 1.0):
         curve['navd88_datum'] = navd88_datum
         curve['elevation_navd88'] = curve['stage'] + navd88_datum
         #Append all rating curves to a dataframe
-        all_rating_curves = all_rating_curves.append(curve)
+        all_rating_curves = pd.concat([all_rating_curves, curve])
 
     #Rename columns and add attribute indicating if rating curve exists
     sites_gdf.rename(columns = {'nwm_feature_id':'feature_id','usgs_site_code':'location_id'}, inplace = True)
