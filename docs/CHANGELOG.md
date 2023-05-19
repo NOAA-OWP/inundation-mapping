@@ -2,6 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.3.11.1 - 2023-05-19 - [PR#918](https://github.com/NOAA-OWP/inundation-mapping/pull/918)
+
+This fix addresses a bug that was preventing `burn_in_levees.py` from running. The if statement in run_unit_wb.sh preceeding `burn_in_levees.py` was checking for the existence of a filepath that doesn't exist.
+
+### Changes  
+- `src/run_unit_wb.sh`: fixed the if statement filepath to check for the presence of levee features to burn into the DEM
+
+<br/><br/>
+
 ## v4.3.11.0 - 2023-05-12 - [PR#903](https://github.com/NOAA-OWP/inundation-mapping/pull/903)
 
 These changes address some known issues where the DEM derived flowlines follow the incorrect flow path (address issues with stream order 1 and 2 only). The revised code adds a new workflow to generate a new flow direction raster separately for input to the `run_by_branch.sh` workflow (branch 0 remains unchanged). This modification helps ensure that the DEM derived flowlines follow the desired NWM flow line when generating the DEM derived flowlines at the branch level. 
