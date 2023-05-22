@@ -86,7 +86,7 @@ Tcount
 echo -e $startDiv"Generating Level Paths for $hucNumber"
 date -u
 Tstart
-$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -s $tempHucDataDir/wbd_buffered_streams.gpkg -b $branch_id_attribute -r "ID" -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg
+$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -s $tempHucDataDir/wbd.gpkg -b $branch_id_attribute -r "ID" -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg
 
 # test if we received a non-zero code back from derive_level_paths.py
 #subscript_exit_code=$?

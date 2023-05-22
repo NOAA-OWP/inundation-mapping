@@ -563,6 +563,38 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
+    def remove_branches_outside_huc(self,
+                                       huc,
+                                       out_vector_files=None,
+                                       verbose=False
+                                       ):
+        """
+        Removes branches completely outside HUC boundary
+        """
+
+        if verbose:
+            print('Removing branches outside HUC')
+
+        # load HUC boundary
+        if isinstance(huc,str) and isfile(huc):
+            huc = gpd.read_file(huc)
+
+        if isinstance(huc,gpd.GeoDataFrame):
+            # Find branches intersecting HUC
+            sjoined = gpd.sjoin(self, huc, predicate='intersects')
+            drop_indices = self.index[~self.index.isin(sjoined.index)]
+            self.drop(drop_indices, inplace=True)
+
+            if out_vector_files is not None:
+                
+                if verbose:
+                    print("Writing pruned branches ...")
+                
+                self.write(out_vector_files, index=False)
+
+        return(self)
+
+
     def derive_stream_branches(self,toNode_attribute='ToNode',
                                fromNode_attribute='FromNode',
                                upstreams=None,

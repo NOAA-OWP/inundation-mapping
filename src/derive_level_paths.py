@@ -8,7 +8,7 @@ import sys
 from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
 
-def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network, branch_id_attribute,
+def Derive_level_paths(in_stream_network, huc, out_stream_network, branch_id_attribute,
                        out_stream_network_dissolved=None, huc_id=None,
                        headwaters_outfile=None, catchments=None, waterbodies=None,
                        catchments_outfile=None,
@@ -153,11 +153,9 @@ def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network
         stream_network = stream_network.remove_branches_in_waterbodies(waterbodies=waterbodies,
                                                                        out_vector_files=out_stream_network_dissolved,
                                                                        verbose=False)
-        # clip dissolved stream network to the wbd_buffered domain (avoids issues with reaches that extend outside buffer)
-        wbd_buffer = gpd.read_file(buffer_wbd_streams)
-        stream_network_out = gpd.read_file(out_stream_network_dissolved)
-        stream_network_out = gpd.clip(stream_network_out,wbd_buffer)
-        stream_network_out.to_file(out_stream_network_dissolved, index=True, driver='GPKG')
+        stream_network = stream_network.remove_branches_outside_huc(huc=huc,
+                                                                    out_vector_files=out_stream_network_dissolved,
+                                                                    verbose=False)
                                        
     if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(feature_attribute=branch_id_attribute,
@@ -173,7 +171,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Create stream network level paths')
     parser.add_argument('-i','--in-stream-network', help='Input stream network', required=True)
-    parser.add_argument('-s','--buffer-wbd-streams', help='Input wbd buffer for stream network', required=True)
+    parser.add_argument('-s','--huc', help='HUC boundary', required=True)
     parser.add_argument('-b','--branch-id-attribute', help='Name of the branch attribute desired', required=True)
     parser.add_argument('-u','--huc-id', help='Current HUC ID', required=False, default=None)
     parser.add_argument('-r','--reach-id-attribute', help='Reach ID attribute to use in source file', required=False, default='HydroID')
