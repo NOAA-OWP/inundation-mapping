@@ -86,7 +86,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 
@@ -95,7 +95,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 # ----------------------
@@ -105,7 +105,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 
@@ -114,7 +114,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 # ----------------------
@@ -124,7 +124,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 
@@ -133,7 +133,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 
@@ -142,7 +142,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 # ----------------------
@@ -152,7 +152,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 
@@ -161,7 +161,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
-eval "aws s3 cp $aws_src $aws_target"
+eval "${aws_cmd}"
 echo 
 
 
