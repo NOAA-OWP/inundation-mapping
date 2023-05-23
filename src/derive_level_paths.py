@@ -8,7 +8,7 @@ import sys
 from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
 
-def Derive_level_paths(in_stream_network, huc, out_stream_network, branch_id_attribute,
+def Derive_level_paths(in_stream_network, huc, wbd_buffer_streams, out_stream_network, branch_id_attribute,
                        out_stream_network_dissolved=None, huc_id=None,
                        headwaters_outfile=None, catchments=None, waterbodies=None,
                        catchments_outfile=None,
@@ -142,6 +142,11 @@ def Derive_level_paths(in_stream_network, huc, out_stream_network, branch_id_att
     if out_stream_network_dissolved is not None:
         stream_network = stream_network.trim_branches_in_waterbodies(branch_id_attribute=branch_id_attribute,
                                                     verbose=verbose)
+        
+        # clip dissolved stream network to the wbd_buffered domain (avoids issues with reaches that extend outside buffer)
+        stream_network = stream_network.clip_branches_to_wbd_buffer_streams(wbd_buffer_streams=wbd_buffer_streams,
+                                                            out_vector_files=out_stream_network_dissolved,
+                                                            verbose=False)
 
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(branch_id_attribute=branch_id_attribute,
@@ -172,6 +177,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create stream network level paths')
     parser.add_argument('-i','--in-stream-network', help='Input stream network', required=True)
     parser.add_argument('-s','--huc', help='HUC boundary', required=True)
+    parser.add_argument('-a', '--wbd-buffer-streams', help='WBD buffer for streams', required=True)
     parser.add_argument('-b','--branch-id-attribute', help='Name of the branch attribute desired', required=True)
     parser.add_argument('-u','--huc-id', help='Current HUC ID', required=False, default=None)
     parser.add_argument('-r','--reach-id-attribute', help='Reach ID attribute to use in source file', required=False, default='HydroID')

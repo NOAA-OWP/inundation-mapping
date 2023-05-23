@@ -563,6 +563,49 @@ class StreamNetwork(gpd.GeoDataFrame):
         return(self)
 
 
+    def clip_branches_to_wbd_buffer_streams(self,
+                            wbd_buffer_streams,
+                            out_vector_files=None,
+                            verbose=False
+                            ):
+        """
+        Clips non-outlet branches to WBD buffer for streams
+        """
+
+        if verbose:
+            print('Clipping non-outlet branches at WBD buffer for streams')
+
+        # load WBD buffer for streams
+        if isinstance(wbd_buffer_streams,str) and isfile(wbd_buffer_streams):
+            wbd_buffer_streams = gpd.read_file(wbd_buffer_streams)
+
+        if isinstance(wbd_buffer_streams, gpd.GeoDataFrame):
+            self_outlets = self[~self['to'].isin(self['ID'])]
+            self_nonoutlets = self[self['to'].isin(self['ID'])]
+
+            # Clip branches to wbd_buffer_streams
+            self_nonoutlets_clipped = self_nonoutlets.clip(wbd_buffer_streams)
+
+            branch_id_attribute = self.branch_id_attribute 
+            attribute_excluded = self.attribute_excluded
+            values_excluded = self.values_excluded
+        
+            self = StreamNetwork(
+                             pd.concat([self_outlets, self_nonoutlets_clipped]),
+                             branch_id_attribute=branch_id_attribute,
+                             attribute_excluded=attribute_excluded,
+                             values_excluded=values_excluded)
+                    
+            if out_vector_files is not None:
+                
+                if verbose:
+                    print("Writing clipped branches ...")
+                
+                self.write(out_vector_files, index=False)
+
+        return(self)
+
+
     def remove_branches_outside_huc(self,
                                        huc,
                                        out_vector_files=None,
@@ -588,7 +631,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             if out_vector_files is not None:
                 
                 if verbose:
-                    print("Writing pruned branches ...")
+                    print("Writing unremoved branches ...")
                 
                 self.write(out_vector_files, index=False)
 
