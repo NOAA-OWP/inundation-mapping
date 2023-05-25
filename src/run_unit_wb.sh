@@ -170,15 +170,15 @@ Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
 Tcount
 
-## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ] 
-then 
-    echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
-    date -u
-    Tstart
-    gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
-    Tcount
-fi
+# ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ] 
+# then 
+#     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
+#     date -u
+#     Tstart
+#     gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
+#     Tcount
+# fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $branch_zero_id"
@@ -196,17 +196,17 @@ Tstart
 python3 -m memory_profiler $srcDir/burn_streams_by_order.py -d $tempHucDataDir/dem_meters.tif -w $tempCurrentBranchDataDir -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif -b $agree_DEM_buffer -sm 10 -sh 1000 -v $tempHucDataDir/nwm_subset_streams.gpkg -a order_
 Tcount
 
-## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
-# Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
-# This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-if [ "$levelpaths_exist" = "1" ] 
-then 
-    echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
-    date -u
-    Tstart
-    python3 -m memory_profiler $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif -d $tempHucDataDir/dem_meters.tif -w $tempHucDataDir -o $tempHucDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
-    Tcount
-fi
+# ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
+# # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
+# if [ "$levelpaths_exist" = "1" ] 
+# then 
+#     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
+#     date -u
+#     Tstart
+#     python3 -m memory_profiler $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif -d $tempHucDataDir/dem_meters.tif -w $tempHucDataDir -o $tempHucDataDir/dem_burned.tif -b $agree_DEM_buffer -sm 10 -sh 1000
+#     Tcount
+# fi
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
@@ -215,15 +215,15 @@ Tstart
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 Tcount
 
-## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ] 
-then 
-    echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
-    date -u
-    Tstart
-    rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
-    Tcount
-fi
+# ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ] 
+# then 
+#     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
+#     date -u
+#     Tstart
+#     rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+#     Tcount
+# fi
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
@@ -232,15 +232,15 @@ Tstart
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 Tcount
 
-## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ] 
-then 
-    echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
-    date -u
-    Tstart
-    mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempHucDataDir/dem_burned_filled.tif -p $tempHucDataDir/flowdir_d8_burned_filled.tif
-    Tcount
-fi
+# ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ] 
+# then 
+#     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
+#     date -u
+#     Tstart
+#     mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempHucDataDir/dem_burned_filled.tif -p $tempHucDataDir/flowdir_d8_burned_filled.tif
+#     Tcount
+# fi
 
 ## MAKE A COPY OF THE DEM FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"

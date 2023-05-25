@@ -144,9 +144,9 @@ def Derive_level_paths(in_stream_network, huc, wbd_buffer_streams, out_stream_ne
                                                     verbose=verbose)
         
         # clip dissolved stream network to the wbd_buffered domain (avoids issues with reaches that extend outside buffer)
-        stream_network = stream_network.clip_branches_to_wbd_buffer_streams(wbd_buffer_streams=wbd_buffer_streams,
-                                                            out_vector_files=out_stream_network_dissolved,
-                                                            verbose=False)
+        # stream_network = stream_network.clip_branches_to_wbd_buffer_streams(wbd_buffer_streams=wbd_buffer_streams,
+                                                            # out_vector_files=out_stream_network_dissolved,
+                                                            # verbose=False)
 
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(branch_id_attribute=branch_id_attribute,
