@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.3x.x - 2023-05-25 - [PR#920](https://github.com/NOAA-OWP/inundation-mapping/pull/920)
+## v4.3.11.3 - 2023-05-25 - [PR#920](https://github.com/NOAA-OWP/inundation-mapping/pull/920)
 
 Fixes a bug in CatFIM script where a bracket was missing on a pandas `concat` statement.
 
