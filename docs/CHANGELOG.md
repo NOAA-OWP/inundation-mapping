@@ -15,6 +15,15 @@ Earlier, we were running a number of aws cli scripts one at a time. This tool si
 <br/><br/>
 
 
+## v4.3.11.2 - 2023-05-19 - [PR#918](https://github.com/NOAA-OWP/inundation-mapping/pull/918)
+
+This fix addresses a bug that was preventing `burn_in_levees.py` from running. The if statement in run_unit_wb.sh preceeding `burn_in_levees.py` was checking for the existence of a filepath that doesn't exist.
+
+### Changes  
+- `src/run_unit_wb.sh`: fixed the if statement filepath to check for the presence of levee features to burn into the DEM
+
+<br/><br/>
+
 ## v4.3.11.1 - 2023-05-16 - [PR#904](https://github.com/NOAA-OWP/inundation-mapping/pull/904)
 
 `pandas.append` was deprecated in our last Pandas upgrade (v4.3.9.0). This PR updates the remaining instances of `pandas.append` to `pandas.concat`.

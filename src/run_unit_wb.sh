@@ -159,7 +159,7 @@ echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwr
 date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f $tempCurrentBranchDataDir/nld_subset_levees.tif ] && \
+[ -f $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif ] && \
 python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $tempHucDataDir/dem_meters.tif -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif -out $tempHucDataDir/dem_meters.tif
 Tcount
 
