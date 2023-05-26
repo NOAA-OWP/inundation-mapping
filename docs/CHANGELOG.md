@@ -5,7 +5,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 There is a growing number of files that need to be pushed up to HydroVis S3 during a production release, counting the new addition of rating curve comparison reports.
 
-Earlier, we were running a number of aws cli scripts one at a time. This tool simplies it and pushes all of the QA and supporting files. Note.. the HAND files from a release, will continue to be pushed by /data/aws/s3.py as it filters out files to be sent to HV s3.
+Earlier, we were running a number of aws cli scripts one at a time. This tool simplies it and pushes all of the QA and supporting files. Note: the HAND files from a release, will continue to be pushed by `/data/aws/s3.py` as it filters out files to be sent to HV s3.
 
 ### Additions  
 
