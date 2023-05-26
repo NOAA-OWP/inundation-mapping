@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.x.x - 2023-05-26 - [PR#919](https://github.com/NOAA-OWP/inundation-mapping/pull/919)
+
+Auto Bot asked for the python package of "requests" be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.
+
+### Changes  
+- `Pipfile.lock`: as described
+
+<br/><br/>
+
 ## v4.3.11.4 - 2023-05-18 - [PR#917](https://github.com/NOAA-OWP/inundation-mapping/pull/917)
 
 There is a growing number of files that need to be pushed up to HydroVis S3 during a production release, counting the new addition of rating curve comparison reports.
@@ -22,15 +31,6 @@ Fixes a bug in CatFIM script where a bracket was missing on a pandas `concat` st
 ### Changes  
 - `/tools/generate_categorical_fim.py`: fixes `concat` statement where bracket was missing.
 
-
-<br/><br/>
-
-## v4.3.x.x - 2023-05-26 - [PR#919](https://github.com/NOAA-OWP/inundation-mapping/pull/919)
-
-Auto Bot asked for the python package of "requests" be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.
-
-### Changes  
-- `Pipfile.lock`: as described
 
 <br/><br/>
 
