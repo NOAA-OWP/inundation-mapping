@@ -315,7 +315,7 @@ def filter_dataframe(dataframe, unique_field):
         #Query filtered dataframe and only include data associated with the common sites for that magnitude
         filtered_common_sites = dataframe.query(f'magnitude == "{magnitude}" & {unique_field} in @common_sites_per_magnitude')
         #Append the data for each magnitude to a final dataframe that will contain data for all common sites for all magnitudes.
-        final_filtered_dataframe = final_filtered_dataframe.append(filtered_common_sites, ignore_index = True)            
+        final_filtered_dataframe = pd.concat([final_filtered_dataframe, filtered_common_sites], ignore_index = True)            
     
     return final_filtered_dataframe, all_unique_sites
 
