@@ -3,10 +3,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.3.x.x - 2023-05-26 - [PR#919](https://github.com/NOAA-OWP/inundation-mapping/pull/919)
 
-Auto Bot asked for the python package of "requests" be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.
+Auto Bot asked for the python package of `requests` be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.
 
 ### Changes  
-- `Pipfile.lock`: as described
+- `Pipfile.lock`: as described.
 
 <br/><br/>
 
