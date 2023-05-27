@@ -31,7 +31,7 @@ dem_lateral_thalweg_adj_{}.tif
 dem_meters_{}.tif
 dem_thalwegCond_{}.tif
 flowaccum_d8_burned_filled_{}.tif
-flowdir_d8_burned_filled_{}.tif
+#flowdir_d8_burned_filled_{}.tif
 flowdir_d8_burned_filled_flows_{}.tif
 flows_grid_boolean_{}.tif
 flows_points_pixels_{}.gpkg
