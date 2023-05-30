@@ -355,7 +355,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
     all_attributes = pd.DataFrame()
     for i in attribute_files:
         attribute_df = pd.read_csv(i, dtype={'huc':str})
-        all_attributes = all_attributes.append(attribute_df)
+        all_attributes = pd.concat([all_attributes, attribute_df])
     
     if not all_attributes.empty:
         all_attributes.to_csv(destination / 'attributes.csv', index = False)    

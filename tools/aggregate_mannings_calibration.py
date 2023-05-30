@@ -32,7 +32,7 @@ def aggregate_parameter_sets(huc_list_path,calibration_stat_folder,summary_file,
                     total_area_stats = total_area_stats.loc[['true_positives_count', 'true_negatives_count', 'false_positives_count', 'false_negatives_count','masked_count', 'cell_area_m2', 'CSI'],:]
                     total_area_stats = total_area_stats.reset_index()
                     total_area_stats_table = pd.DataFrame({'metric': total_area_stats.iloc[:,0], 'value': total_area_stats.iloc[:,1], 'stream_order': stream_order, 'mannings_n': mannings_value, 'huc': huc, 'interval': flood_recurrence})
-                    mannings_summary_table = mannings_summary_table.append(total_area_stats_table, ignore_index=True)
+                    mannings_summary_table = pd.concat([mannings_summary_table, total_area_stats_table], ignore_index=True)
 
     mannings_summary_table.to_csv(summary_file,index=False)
 
