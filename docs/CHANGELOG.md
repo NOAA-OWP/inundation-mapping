@@ -1,13 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.11.6 - 2023-05-26 - [PR#919](https://github.com/NOAA-OWP/inundation-mapping/pull/919)
+
+Auto Bot asked for the python package of `requests` be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.
+
+### Changes  
+- `Pipfile.lock`: as described.
+
+<br/><br/>
+
 ## v4.3.11.5 - 2023-05-30 - [PR#911](https://github.com/NOAA-OWP/inundation-mapping/pull/911)
 
 This fix addresses bugs found when using the recently added functionality in `tools/synthesize_test_cases.py` along with the `PREV` argument. The `-pfiles` argument now performs as expected for both `DEV` and `PREV` processing. Addresses #871 
 
 ### Changes  
 `tools/synthesize_test_cases.py`: multiple changes to enable all expected functionality with the `-pfiles` and `-pcsv` arguments
-
 
 <br/><br/>
 
@@ -34,6 +42,7 @@ Fixes a bug in CatFIM script where a bracket was missing on a pandas `concat` st
 
 
 <br/><br/>
+
 
 ## v4.3.11.2 - 2023-05-19 - [PR#918](https://github.com/NOAA-OWP/inundation-mapping/pull/918)
 
