@@ -34,7 +34,7 @@ The available versions can be found by running
 aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --request-payer requester
 ```
 
-Example: download a directory of outputs for a single HUC8:
+Download a directory of outputs for a single HUC8:
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
     /your_local_folder_name/12090301 --request-payer requester
