@@ -1,16 +1,6 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.x.x - 2023-06-06 - [PR#929](https://github.com/NOAA-OWP/inundation-mapping/pull/929)
-
-Bug fix for AWS S3 data download in README.
-
-### Changes  
-
-- 'README.md': Updates URL to list data versions available on AWS S3.
-
-<br/><br/>
-
 ## v4.3.11.6 - 2023-05-26 - [PR#919](https://github.com/NOAA-OWP/inundation-mapping/pull/919)
 
 Auto Bot asked for the python package of `requests` be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.
