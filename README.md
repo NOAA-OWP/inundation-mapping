@@ -29,18 +29,18 @@ This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket.
 
 #### Examples
 
-List bucket folder structure:
+The available versions can be found by running
 ```
-aws s3 ls s3://noaa-nws-owp-fim/ --request-payer requester
+aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --request-payer requester
 ```
 
-Download a directory of outputs for a HUC8:
+Download a directory of outputs for a single HUC8:
 ```
-aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_0_18_02/12090301 \
+aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
     /your_local_folder_name/12090301 --request-payer requester
 ```
-By adjusting pathing, you can also download entire directories such as the fim_4_0_18_0 folder.
-**Note**: There may be newer editions than fim_4_0_18_0, and it is recommended to adjust the command above for the latest version.
+By adjusting pathing, you can also download entire directories such as the fim_4_3_11_0 folder.
+**Note**: There may be newer editions than fim_4_3_11_0, and it is recommended to adjust the command above for the latest version.
 
 
 ## Running the Code
