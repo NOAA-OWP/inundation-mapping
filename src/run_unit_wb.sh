@@ -319,6 +319,9 @@ echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration $branch_processing_start_time
 echo
 
+# WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
+echo "$hucNumber completed in $(Calc_Time $huc_start_time)" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.log"
+
 date -u
 echo "---- HUC processing for $hucNumber is complete"
 Calc_Duration $huc_start_time
