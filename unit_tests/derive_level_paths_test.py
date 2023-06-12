@@ -42,6 +42,7 @@ class test_Derive_level_paths(unittest.TestCase):
         # so we skip them here.
         # Returns GeoDataframe (the nwm_subset_streams_levelPaths_dissolved.gpkg)
         actual_df = src.Derive_level_paths(in_stream_network = params["in_stream_network"],
+                                           buffer_wbd_streams = params["buffer_wbd_streams"],
                                            out_stream_network = params["out_stream_network"],
                                            branch_id_attribute = params["branch_id_attribute"],
                                            out_stream_network_dissolved = params["out_stream_network_dissolved"],
