@@ -10,7 +10,7 @@ Update unit tests to throw no failures, 25 passed, 3 skipped.
 ### Additions
 - `src/`
     - `bash_functions.env`: Add `Calc_Time` function.
-    - `run_unit_wb.sh`: Add line to log processing time to `$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.log`.
+    - `run_unit_wb.sh`: Add line to log processing time to `$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv`.
 
 ### Changes
 - `src/`
