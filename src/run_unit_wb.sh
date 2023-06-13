@@ -320,7 +320,7 @@ Calc_Duration $branch_processing_start_time
 echo
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
-echo "$hucNumber completed in $(Calc_Time $huc_start_time)" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.log"
+echo "$hucNumber, $(Calc_Time $huc_start_time)" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"
