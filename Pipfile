@@ -7,6 +7,7 @@ name = "pypi"
 pandas = "*"
 rasterio = "*"
 geopandas = "*"
+openpyxl = "*"
 
 [dev-packages]
 

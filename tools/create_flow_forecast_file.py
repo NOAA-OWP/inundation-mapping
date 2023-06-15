@@ -3,8 +3,9 @@
 import os
 import geopandas as gpd
 import argparse
+import fiona
 
-def create_flow_forecast_file(ble_geodatabase, nwm_geodatabase, output_parent_dir, ble_xs_layer_name = 'XS', ble_huc_layer_name = 'S_HUC_Ar', ble_huc_id_field = 'HUC_CODE', nwm_stream_layer_name = 'RouteLink_FL_2020_04_07', nwm_feature_id_field ='ID'):
+def create_flow_forecast_file(huc, ble_geodatabase, nwm_geodatabase, output_parent_dir, ble_xs_layer_name = 'XS', nwm_stream_layer_name = 'nwm_streams', nwm_feature_id_field ='ID'):
     '''
     This function will create a forecast flow file using ble data. It will import the ble XS layer and will intersect it with a nwm streams layer. It will the perform an intersection with the BLE XS layer and the nwm river layer. It will then calculate the median flow for the 100 and 500 year events for each nwm segment and convert flow from CFS to CMS. Individual forecast files (.csv) will be created  with two columns (nwm segment ID and Flow (CMS)) for the 100 year and the 500 year event. Flow field names are set to the default field names within the BLE submittal. As differing versions of the NWM river layer have different names for the ID field, this field will need to be specified as an argument to the function. Output flow forecast files will be automatically named to be compatible with current FIM code and will be written out in specific folder structures.
 
@@ -20,8 +21,6 @@ def create_flow_forecast_file(ble_geodatabase, nwm_geodatabase, output_parent_di
        The cross section layer in the ble geodatabase to be imported. Default is 'XS' (sometimes it is 'XS_1D')
     ble_huc_layer_name : STRING
        The huc layer in the ble geodatabase.  Default is 'S_HUC_Ar' (sometimes it is 'S_HUC_ar' )
-    ble_huc_id_field : STRING
-       The attribute field within the ble_huc_layer_name containing the huc code. Default is 'HUC_CODE'. Assumes only 1 unique code.
     nwm_stream_layer_name : STRING
        The stream centerline layer name (or partial layer name) for the NWM geodatabase.  Default is 'RouteLink_FL_2020_04_07'.
     nwm_feature_id_field : STRING
@@ -32,11 +31,11 @@ def create_flow_forecast_file(ble_geodatabase, nwm_geodatabase, output_parent_di
 
     '''
     # Read the ble xs layer into a geopandas dataframe.
+    layers = fiona.listlayers(ble_geodatabase)
+    if ble_xs_layer_name not in layers:
+        ble_xs_layer_name = 'XS_1D'
+    
     xs_layer = gpd.read_file(ble_geodatabase,layer = ble_xs_layer_name)
-
-    # Read ble huc layer into a geopandas dataframe and extract the huc code. By default it assumes only one HUC in the layer (typically always the case).
-    huc_layer = gpd.read_file(ble_geodatabase, layer = ble_huc_layer_name)
-    [huc] = huc_layer[ble_huc_id_field].unique()
 
     # Read in the NWM stream layer into a geopandas dataframe using the bounding box option based on the extents of the BLE XS layer.
     nwm_river_layer = gpd.read_file(nwm_geodatabase, bbox = xs_layer, layer = nwm_stream_layer_name)
@@ -88,8 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--nwm-geodatabase',  help = 'NWM geodatabase (.gdb file extension).', required = True)
     parser.add_argument('-o', '--output-parent-dir', help = 'Output directory where forecast files will be stored. Two subdirectories are created (100yr and 500yr) and in each subdirectory a forecast file is written', required = True)
     parser.add_argument('-xs', '--ble-xs-layer-name', help = 'BLE cross section layer. Default layer is "XS" (sometimes it is "XS_1D").', required = False, default = 'XS')
-    parser.add_argument('-hu', '--ble-huc-layer-name', help = 'BLE huc layer. Default layer is "S_HUC_Ar" (sometimes it is "S_HUC_ar").', required = False, default = 'S_HUC_Ar')
-    parser.add_argument('-huid', '--ble-huc-id-field', help = 'BLE id field in the ble-huc-layer-name. Default field is "HUC_CODE".', required = False, default = 'HUC_CODE')
+    parser.add_argument('-hu', '--huc', help = 'HUC', required = True)
     parser.add_argument('-l', '--nwm-stream-layer-name', help = 'NWM streams layer. Default layer is "RouteLink_FL_2020_04_07")', required = False, default = 'RouteLink_FL_2020_04_07')
     parser.add_argument('-f', '--nwm-feature-id-field', help = 'id field for nwm streams. Not required if NWM v2.1 is used (default id field is "ID")', required = False, default = 'ID')
     # Extract to dictionary and assign to variables.
