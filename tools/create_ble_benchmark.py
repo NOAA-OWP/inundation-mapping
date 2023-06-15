@@ -12,7 +12,7 @@ from glob import glob
 from preprocess_benchmark import preprocess_benchmark_static
 
 
-def create_ble_benchmark(input_file, save_folder, reference_raster, benchmark_folder=None):
+def create_ble_benchmark(input_file:str, save_folder:str, reference_raster:str, benchmark_folder:str, huc:str = None):
     """
     This function will download and preprocess BLE benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
     
@@ -24,8 +24,8 @@ def create_ble_benchmark(input_file, save_folder, reference_raster, benchmark_fo
         Path to save folder
     reference_raster: str
         Path to reference raster
-    out_raster_path: str, optional
-        Path to the output raster. The default is None.
+    benchmark_folder: str
+        Path to the benchmark folder
 
     Returns
     -------
@@ -41,23 +41,24 @@ def create_ble_benchmark(input_file, save_folder, reference_raster, benchmark_fo
 
     data = pd.read_csv(input_file, header=None, names=['size', 'units', 'URL'])
 
+    if huc is not None:
+        data = data[data['URL'].str.contains(huc)]
+
     # Subset Spatial Data URLs
-    spatial_df = data[data['URL'].str.contains('SpatialData') & data['URL'].str.contains('13020102')] #TODO: Remove hard-coded HUC
+    spatial_df = data[data['URL'].str.contains('SpatialData')]
+    spatial_df = spatial_df.reset_index()
 
     # Convert size to MiB
     spatial_df['MiB'] = np.where(spatial_df['units']=='GiB', spatial_df['size'] * 1000, spatial_df['size'])
 
-    spatial_df = spatial_df.reset_index()
-
     spatial_df = download_and_extract_rasters(spatial_df, save_folder)
 
-
-    # TODO: tools/preprocess_benchmark.py
     for i, row in spatial_df.iterrows():
         for benchmark_raster in row['rasters']:
             magnitude = '100yr' if 'BLE_DEP01PCT' in benchmark_raster else '500yr'
 
-            out_raster_dir = os.path.join(benchmark_folder, magnitude)
+            # benchmark_folder = /data/test_cases/ble_test_cases/validation_data_ble
+            out_raster_dir = os.path.join(benchmark_folder, row['HUC'], magnitude)
             if not os.path.exists(out_raster_dir):
                 os.makedirs(out_raster_dir)
                 
@@ -114,22 +115,14 @@ def download_and_extract_rasters(spatial_df, save_folder):
 
             # Find depth rasters
             for depth_raster in depth_rasters:
-                out_file = os.path.join(save_folder, f'{depth_raster}_{huc}.tif')
+                out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
 
                 if not os.path.exists(out_file):
                     # Read raster data from GDB
                     print(f'Reading {depth_raster} for {huc}')
                     depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
-                    data_ds = gdal.Open(depth_raster_path, gdal.GA_ReadOnly)
-                    data = data_ds.ReadAsArray()
 
-                    # Save as GeoTIFF
-                    driver = gdal.GetDriverByName('GTiff')
-                    out_ds = driver.Create(out_file, data.shape[1], data.shape[0], 1, gdal.GDT_Float32)
-                    out_ds.SetGeoTransform(data_ds.GetGeoTransform())
-                    out_ds.SetProjection(data_ds.GetProjection())
-                    out_ds.GetRasterBand(1).WriteArray(data)
-                    out_ds = None
+                    extract_raster(depth_raster_path, out_file)
 
                 out_list.append(out_file)
 
@@ -141,6 +134,34 @@ def download_and_extract_rasters(spatial_df, save_folder):
 
     return spatial_df
 
+def extract_raster(in_raster, out_raster):
+    """
+    Extract raster from GDB and save to out_raster
+
+    Parameters
+    ----------
+    in_raster: str
+        Path to input raster
+    out_raster: str
+        Path to output raster
+
+    Returns
+    -------
+    None
+    """
+    
+    data_ds = gdal.Open(in_raster, gdal.GA_ReadOnly)
+    data = data_ds.ReadAsArray()
+    nodata = data_ds.GetRasterBand(1).GetNoDataValue()
+
+    driver = gdal.GetDriverByName('GTiff')
+    out_ds = driver.Create(out_raster, data.shape[1], data.shape[0], 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(data_ds.GetGeoTransform())
+    out_ds.SetProjection(data_ds.GetProjection())
+    out_ds.GetRasterBand(1).WriteArray(data)
+    out_ds.GetRasterBand(1).SetNoDataValue(nodata)
+    out_ds = None
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create BLE benchmark files')
@@ -148,6 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--save-folder', type=str, help='Output folder', required=True)
     parser.add_argument('-r', '--reference-raster', type=str, help='Reference raster', required=True)
     parser.add_argument('-o', '--benchmark-folder', type=str, help='Benchmark folder', required=True)
+    parser.add_argument('-u', '--huc', type=str, help='Run a single HUC', required=False)
 
     args = vars(parser.parse_args())
 
