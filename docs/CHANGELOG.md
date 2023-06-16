@@ -3,9 +3,11 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.3.11.7 - 2023-06-12 - [PR#932](https://github.com/NOAA-OWP/inundation-mapping/pull/932)
 
-Write to a csv file with processing time of `run_unit_wb.sh`, add/update bash functions in `bash_functions.env`, and modify error handling in `src/check_huc_inputs.py`. Update unit tests to throw no failures, `25 passed, 3 skipped`.
+Write to a csv file with processing time of `run_unit_wb.sh`, update PR Template, add/update bash functions in `bash_functions.env`, and modify error handling in `src/check_huc_inputs.py`. Update unit tests to throw no failures, `25 passed, 3 skipped`.
 
 ### Changes
+- `.github/`
+    - `PULL_REQUEST_TEMPLATE.md` : Update PR Checklist into Issuer Checklist and Merge Checklist  
 - `src/`
     - `run_unit_wb.sh`: Add line to log processing time to `$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv`
     - `check_huc_inputs.py`: Modify error handling. Correctly print HUC number if it is not valid (within `included_huc*.lst`)
