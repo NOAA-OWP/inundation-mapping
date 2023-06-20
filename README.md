@@ -29,14 +29,14 @@ This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket.
 
 #### Examples
 
-`Note: All examples are based on linux pathing. Also.. for each sample below, remove the slash before running the command.`
+`Note: All examples are based on linux pathing. Also, for each sample below, remove the line break slash(s) "\" before running the command.`
 
-The available input, test_cases, and output versions can be found by running
+The available inputs, test_cases, and output versions can be found by running
 ```
 aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --request-payer requester
 ```
 
-Download a directory of outputs for a single HUC8:
+Download a directory of sample outputs for a single HUC8:
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
     /your_local_folder_name/12090301 --request-payer requester
@@ -57,23 +57,23 @@ By adjusting pathing, you can also download entire directories such as the fim_4
     - Linux: `chgrp -R fim <path/to/repository>`
 
 ### Folder Structure
-You are welcome to setup your folder structure in any pattern you like. For example purposes, we will use a folder structure like this:
+You are welcome to set up your folder structure in any pattern you like. For example purposes, we will use a folder structure like this:
 Starting with a base folder, e.g /home/my_user/projects/ add the following folders:
 - fim
    - code
    - data
-		- inputs
-		- outputs
+      - inputs
+      - outputs
 
 ### Input Data
-Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at s3://noaa-nws-owp-fim/hand_fim/inputs. It is appx 400GB and it needs to be in the `data` folder or your preferred `data` folder name and location.
+Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at s3://noaa-nws-owp-fim/hand_fim/inputs. It is appx 400GB and it needs to be in your `data` folder.
 
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/inputs /home/my_user/projects/fim/data/inputs --request-payer requester --dry-run
 ```
-** Note**: Notice the `--dry-run` option? When you start that command, it will give you a large list showing you exactly which files are to be downloaded and where they will be saved. We recommend starting that command, then quickly aborting it (CTRL-C) so you don't get the full list, but you can see that your chosen pathing on your machine is correct.  When you are happy with the pathing, run aws s3 command again and leave off the `--dry-run` argument.
+** Note**: Notice the `--dry-run` option? When you include that argument in the command, it will give you a large list showing you exactly which files are to be downloaded and where they will be saved. We recommend including that argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dry-run` argument.
 
-The S3 inputs directory has all of the files you need to run FIM. It includes some publicly available data sources plus some non-publicly availible data.
+The S3 inputs directory has all of the folders\files you need to run FIM. It includes some publicly available and some non-publicly availible data.
 
 ### Getting FIM source code
 (note: based on pathing described above)
