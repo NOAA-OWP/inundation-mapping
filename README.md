@@ -29,9 +29,9 @@ This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket.
 
 #### Examples
 
-`Note: All examples are based on linux pathing. Also, for each sample below, remove the line break slash(s) "\" before running the command.`
+`Note: All examples are based on linux pathing. Also, for each sample below, remove the line breaks [backslash(s) "\"] before running the command.`
 
-The available inputs, test_cases, and output versions can be found by running
+The available inputs, test_cases, and output versions can be found by running:
 ```
 aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --request-payer requester
 ```
@@ -41,7 +41,7 @@ Download a directory of sample outputs for a single HUC8:
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
     /your_local_folder_name/12090301 --request-payer requester
 ```
-By adjusting pathing, you can also download entire directories such as the fim_4_3_11_0 folder.
+By adjusting pathing, you can also download entire directories such as the fim_4_3_11_0 folder. An entire output FIM set, such as fim_4_3_11_0, is appx 1.1 TB.
 **Note**: There may be newer editions than fim_4_3_11_0, and it is recommended to adjust the command above for the latest version.
 
 ## Setting up your Environment
@@ -57,7 +57,7 @@ By adjusting pathing, you can also download entire directories such as the fim_4
     - Linux: `chgrp -R fim <path/to/repository>`
 
 ### Folder Structure
-You are welcome to set up your folder structure in any pattern you like. For example purposes, we will use a folder structure like this:
+You are welcome to set up your folder structure in any pattern you like. For example purposes, we will use a folder structure shown below.
 Starting with a base folder, e.g /home/my_user/projects/ add the following folders:
 - fim
    - code
@@ -71,12 +71,12 @@ Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP 
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/inputs /home/my_user/projects/fim/data/inputs --request-payer requester --dry-run
 ```
-** Note**: Notice the `--dry-run` option? When you include that argument in the command, it will give you a large list showing you exactly which files are to be downloaded and where they will be saved. We recommend including that argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dry-run` argument.
+**Note**: Notice the `--dry-run` option? When you include that argument in the command, it will give you a large list showing you exactly which files are to be downloaded and where they will be saved. We recommend including that argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dry-run` argument.
 
 The S3 inputs directory has all of the folders\files you need to run FIM. It includes some publicly available and some non-publicly availible data.
 
 ### Getting FIM source code
-(note: based on pathing described above)
+(based on sample pathing described above)
 
 ``` path to your "code" folder. e.g.
 cd /home/my_user/projects/code
@@ -92,18 +92,19 @@ It will auto create a subfolder named `inundation-mapping` with the code inside 
 ## Running the Code
 
 ### Configuration
-This software is configurable via parameters found in the `config` directory. Copy files before editing and remove "template" pattern from the filename.
-Make sure to set the config folder group to 'fim' recursively using the chown command. Each development version will include a calibrated parameter set of manning’s n values.
-- `params_template.env`
+
+There are two ways, which can be used together, to configure the system and/or data processing. Some configuration is based on input arguments when running `fim_pipeline.sh` described below in the "Produce HAND Hydrofabric" section. Another configuration option is based on using a file named `params_template.env`, found in the `config` directory. Copy the `params_template.env` file before editing and remove the word "template" from the filename. The `params.env` file includes, among other options, a calibrated parameter set of manning’s n values. The new `params.env` becomes one of the arguments submitted when running `fim_pipeline.sh`.
+
+Make sure to set the config folder group to 'fim' recursively using the chown command.
 
 This system has an optional tool called the `calibration database tool`. In order to use this system, you have three options:  
 1.  Install the calibration database service, found in the [calibration tools README.md](https://github.com/NOAA-OWP/inundation-mapping/tree/dev/tools/calibration-db).
 2.  Disable it by providing the `-skipcal` command line option to `fim_pipeline.sh` or `fim_preprocessing.sh`.
-3.  Disable it in the `params_template.env` file. See [calibration tool README](https://github.com/NOAA-OWP/inundation-mapping/blob/dev/tools/calibration-db/README.md) for more details.
+3.  Disable it in the `params.env` file. See [calibration tool README](https://github.com/NOAA-OWP/inundation-mapping/blob/dev/tools/calibration-db/README.md) for more details.
 
 ### Start/run the Docker Container
 
-Since all of the dependencies are managed in utilizing a Docker container, we must issue the [`docker run`](https://docs.docker.com/engine/reference/run/#clean-up---rm) command to start a container as the run-time environment. The container is launched from a Docker Image which was built in [Installation](#installation) step 2. The correct input file pathing is necessary for the `/data` volume mount (`-v`) for the `<input_path>`. The `<input_path>` should contain a subdirectory named `/inputs` (similar to `s3://noaa-nws-owp-fim/hand_fim`). If the pathing is set correctly, we do not need to adjust the `params_template.env` file, and can use the default file paths provided.
+Since all of the dependencies are managed by utilizing a Docker container, we must issue the [`docker run`](https://docs.docker.com/engine/reference/commandline/run/) command to start a container as the run-time environment. The container is launched from a Docker image which was built in [Installation](#installation). The `-v <input_path>:/data` and must contain a subdirectory named `inputs` (similar to `s3://noaa-nws-owp-fim/hand_fim`). If the pathing is set correctly, we do not need to adjust the `params_template.env` file, and can use the default file paths provided.
 
 
 ```bash 
@@ -118,7 +119,7 @@ For example:
 docker run --rm -it --name robs_container \
     -v /home/projects/fim/code/inundation-mapping/:/foss_fim \
     -v /home/projects/fim/data/outputs/:/outputs \
-    -v /home/projects/fim/data:/data \
+    -v /home/projects/fim/data/:/data \
     fim_4:dev_20230620
 ```
 
@@ -130,6 +131,7 @@ fim_pipeline.sh -u <huc8> -n <name_your_run>
 - Manditory arguments:
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited (.lst) file. To run the entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a HUC list file of your choice.  Depending on the performance of your server, especially the number of CPU cores, running the full domain can take multiple days.
     - `-n` is a name of your run (only alphanumeric)
+    - While not mandiatory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
 - Outputs can be found under ```/outputs/<name_your_run>```.
 
 Processing of HUC's in FIM4 comes in three pieces. 
@@ -138,8 +140,8 @@ OR you can run each of the sections independently if you like.
 
 The three sections are:
 1. `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 
-2. `fim_process_unit_wb.sh` : This script processes one and exactly one HUC8 plus all of it's related branches. While it can only process one, you can run this script multiple times, each with different HUC (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates when more than one HUC number has been supplied either by command line arguments or via a HUC list. For each HUC provided, `fim_pipeline.sh` will `fim_process_unit_wb.sh`. Using the `fim_process_unit_wb.sh`  script allows for a run / rerun of a HUC, or running other HUCs at different times / days or even different docker containers.
-3. `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the group in sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, running or re-running this script can only be done after running `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
+2. `fim_process_unit_wb.sh` : This script processes one and exactly one HUC8 plus all of it's related branches. While it can only process one, you can run this script multiple times, each with different HUC (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates when more than one HUC number has been supplied either by command line arguments or via a HUC list. For each HUC provided, `fim_pipeline.sh` will run  `fim_process_unit_wb.sh`. Using the `fim_process_unit_wb.sh`  script allows for a run / rerun of a HUC, or running other HUCs at different times / days or even different docker containers.
+3. `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the HUC group in sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, running or re-running this script can only be done after running `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
 
 Running the `fim_pipeline.sh` is a quicker process than running all three steps independently, but you can run some sections more than once if you like.
 
@@ -149,19 +151,9 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 ```
 /foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
 ```
-    Note: This tool is deprecated, updates will be coming soon.
+    Sorry, this tool is deprecated, updates will be coming soon.
 
-- `-u` can be a single HUC4, series of HUC4s (e.g. 1209 1210), path to line-delimited file with HUC4s.
-- Please run `/foss_fim/src/acquire_and_preprocess_inputs.py --help` for more information.
-- See United States Geological Survey (USGS) National Hydrography Dataset Plus High Resolution (NHDPlusHR) [site](https://www.usgs.gov/core-science-systems/ngp/national-hydrography/nhdplus-high-resolution) for more information
 
-#### Reproject NHDPlus High-Res Rasters and Convert to Meters.
-```
-/foss_fim/src/preprocess_rasters.py
-```
-    Note: This tool is deprecated, updates will be coming soon.
-
-----
 ### Evaluating Inundation Map Performance
 After `fim_pipeline.sh` completes, or combinations of the three major steps described above, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
 
