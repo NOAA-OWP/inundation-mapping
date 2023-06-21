@@ -46,11 +46,11 @@ ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="
 # ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="$current_branch_id" $tempCurrentBranchDataDir/nwm_headwaters_$current_branch_id.gpkg $tempHucDataDir/nwm_headwaters.gpkg
 Tcount
 
-## GET RASTERS FROM BRANCH ZERO AND CLIP TO CURRENT BRANCH BUFFER ##
+## GET RASTERS FROM ROOT HUC DIRECTORY AND CLIP TO CURRENT BRANCH BUFFER ##
 echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 date -u
 Tstart
-$srcDir/clip_rasters_to_branches.py -d $current_branch_id -b $tempHucDataDir/branch_polygons.gpkg -i $branch_id_attribute -r $tempHucDataDir/dem_meters.tif $tempBranchDataDir/$branch_zero_id/flowdir_d8_burned_filled_$branch_zero_id.tif -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled.tif -v
+$srcDir/clip_rasters_to_branches.py -d $current_branch_id -b $tempHucDataDir/branch_polygons.gpkg -i $branch_id_attribute -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/flowdir_d8_burned_filled.tif -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled.tif -v
 Tcount
 
 ## GET RASTER METADATA

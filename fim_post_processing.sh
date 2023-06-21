@@ -55,7 +55,19 @@ if [ ! -d "$outputDestDir" ]; then
     exit 1
 fi
 
+
+#############################################
+#
+# PLEASE DO NOT USE the job limits coming in from the runtime_args.env
+# Most of the time, post processing will not be run on the same servers
+# that is running fim_process_unit_wb.sh and the processing power
+# used to run fim_post_processing.sh will be different (hence.. different job limit)
+#
+#############################################
+
 if [ "$jobLimit" = "" ]; then jobLimit=1; fi
+
+
 
 # Clean out the other post processing files before starting
 rm -rdf $outputDestDir/logs/src_optimization
@@ -84,16 +96,13 @@ post_proc_start_time=`date +%s`
 echo -e $startDiv"Start branch aggregation"
 python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir -f "branch_ids.csv" -o $fim_inputs
 
-## GET NON ZERO EXIT CODES FOR UNITS ##
-## No longer applicable
-
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 echo -e $startDiv"Start non-zero exit code checking"
 find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo "Processing usgs gage aggregation"
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev
+echo "Processing usgs gage aggregation"   
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -j $jobLimit
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
@@ -196,12 +205,10 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
 fi
 
 ## AGGREGATE BRANCH TABLES ##
-# TODO: How do we skip aggregation if there is a branch error
-# maybe against the non_zero logs above
 echo 
 echo -e $startDiv"Aggregating branch hydrotables"
 Tstart
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable -j $jobLimit
 Tcount
 date -u
 
@@ -215,7 +222,7 @@ date -u
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo "---- End of fim_post_processing, fim_post_processing complete"
+echo "---- End of fim_post_processing"
 echo "---- Ended: `date -u`"
 Calc_Duration $post_proc_start_time
 echo

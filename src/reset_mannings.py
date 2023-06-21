@@ -165,7 +165,7 @@ def identify_small_reaches(stream_network,min_catchment_area=None,min_stream_len
                 update_id = stream_network.loc[stream_network.HydroID==short_id]['HydroID'].item()
 
             str_order = stream_network.loc[stream_network.HydroID==short_id]['order_'].item()
-            sml_segs = sml_segs.append({'short_id':short_id, 'update_id':update_id, 'str_order':str_order}, ignore_index=True)
+            sml_segs = pd.concat([sml_segs, {'short_id':short_id, 'update_id':update_id, 'str_order':str_order}], ignore_index=True)
 
     #print("Number of short reaches [{} < {} and {} < {}] = {}".format("areasqkm", min_catchment_area, "LengthKm", min_stream_length, len(sml_segs)))
     
