@@ -190,7 +190,7 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tstart
     echo
     echo -e $startDiv"Performing SRC adjustments using benchmark point database"
-    python3 $srcDir/src_adjust_spatial_obs_parquet.py -fim_dir $outputDestDir -j $jobLimit
+    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit
     Tcount
     date -u
 fi

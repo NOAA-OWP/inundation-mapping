@@ -241,8 +241,8 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
         
             # write parquet file using built in geopandas ".to_parquet() method" 
-            # parquet_filepath = os.path.join(fim_directory, huc, 'waters_edge_def' + huc + '.parquet')
-            # water_edge_df.to_parquet(parquet_filepath, index=False)
+            parquet_filepath = os.path.join(fim_directory, huc, 'waters_edge_def_' + huc + '.parquet')
+            water_edge_df.to_parquet(parquet_filepath, index=False)
 
         for branch_id in os.listdir(huc_branches_dir):
             branch_dir = os.path.join(huc_branches_dir, branch_id)
