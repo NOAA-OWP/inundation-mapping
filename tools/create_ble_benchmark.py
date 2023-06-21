@@ -13,7 +13,7 @@ from preprocess_benchmark import preprocess_benchmark_static
 from create_flow_forecast_file import create_flow_forecast_file
 
 
-def create_ble_benchmark(input_file:str, save_folder:str, reference_raster:str, benchmark_folder:str, ble_geodatabase:str, nwm_geodatabase:str, output_parent_dir:str, huc:str = None):
+def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, benchmark_folder:str, nwm_geodatabase:str, ble_xs_layer_name:str, nwm_stream_layer_name:str, nwm_feature_id_field:str, huc:str = None):
     """
     This function will download and preprocess BLE benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
     
@@ -23,7 +23,7 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_raster:str, 
         Path to input file (e.g. EBFE_urls_20230608.csv)
     save_folder: str
         Path to save folder
-    reference_raster: str
+    reference_folder: str
         Path to reference raster
     benchmark_folder: str
         Path to the benchmark folder
@@ -38,39 +38,39 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_raster:str, 
 
     # EBFE_urls_20230608.xlsx acquired from FEMA (fethomps@usgs.gov)
 
-    # data = pd.read_csv(input_file, header=None, names=['size', 'units', 'URL'])
     data = pd.read_excel(input_file, header=None, names=['size', 'units', 'URL'])
-
-    if huc is not None:
-        data = data[data['URL'].str.contains(huc)]
 
     # Subset Spatial Data URLs
     spatial_df = data[data['URL'].str.contains('SpatialData')]
+    if huc is not None:
+        spatial_df = spatial_df[spatial_df['URL'].str.contains(huc)]
+
     spatial_df = spatial_df.reset_index()
 
     # Convert size to MiB
     spatial_df['MiB'] = np.where(spatial_df['units']=='GiB', spatial_df['size'] * 1000, spatial_df['size'])
 
-    spatial_df = download_and_extract_rasters(spatial_df, save_folder)
+    spatial_df, ble_geodatabase = download_and_extract_rasters(spatial_df, save_folder)
 
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
+        reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif')
         for benchmark_raster in row['rasters']:
             magnitude = '100yr' if 'BLE_DEP01PCT' in benchmark_raster else '500yr'
 
-            # benchmark_folder = /data/test_cases/ble_test_cases/validation_data_ble
             out_raster_dir = os.path.join(benchmark_folder, huc, magnitude)
             if not os.path.exists(out_raster_dir):
                 os.makedirs(out_raster_dir)
                 
-            out_raster_path = os.path.join(out_raster_dir, f"ble_huc_{row['HUC']}_extent_{magnitude}.tif")
+            out_raster_path = os.path.join(out_raster_dir, f"ble_huc_{huc}_extent_{magnitude}.tif")
             
+            # Make benchmark inundation raster
             preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path)
 
-            create_flow_forecast_file(huc, ble_geodatabase, nwm_geodatabase, output_parent_dir, ble_xs_layer_name = 'XS', nwm_stream_layer_name = 'nwm_streams', nwm_feature_id_field ='ID')
+            create_flow_forecast_file(huc, ble_geodatabase, nwm_geodatabase, benchmark_folder, ble_xs_layer_name, nwm_stream_layer_name, nwm_feature_id_field)
 
 
-def download_and_extract_rasters(spatial_df, save_folder):
+def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     """
     Download and extract rasters from URLs in spatial_df. Extracted rasters will be saved to save_folder.
 
@@ -89,29 +89,33 @@ def download_and_extract_rasters(spatial_df, save_folder):
         List of paths to extracted rasters
     """
     depth_rasters = ['BLE_DEP0_2PCT', 'BLE_DEP01PCT']
+
+    # Download and unzip each file
     hucs = []
     huc_names = []
     out_files = []
-
-    # Download and unzip each file
     for i, row in spatial_df.iterrows():
         # Extract HUC and HUC Name from URL
-        huc, huc_name = os.path.basename(os.path.dirname(row['URL'])).split('_')
+        url = row['URL']
+        huc, huc_name = os.path.basename(os.path.dirname(url)).split('_')
         hucs.append(huc)
         huc_names.append(huc_name)
 
         # Download and unzip file
-        save_file = os.path.join(save_folder, os.path.basename(row['URL']))
+        save_file = os.path.join(save_folder, os.path.basename(url))
         if not os.path.exists(save_file):
-            http_response = urlopen(row['URL'])
+            http_response = urlopen(url)
             zipfile = ZipFile(BytesIO(http_response.read()))
             zipfile.extractall(path=save_file)
 
-        gdb_folder = os.path.join(save_file, 'Spatial')
-        gdb_list = glob(os.path.join(gdb_folder, '*.gdb'))
+        gdb_list = glob(os.path.join(save_file, '*.gdb'))
+        if len(gdb_list) == 0:
+            gdb_list = glob(os.path.join(save_file, 'Spatial', '*.gdb'))
+            
         if len(gdb_list) == 1:
             out_list = []
-            src_ds = gdal.Open(gdb_list[0])
+            ble_geodatabase = gdb_list[0]
+            src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
             subdatasets = src_ds.GetSubDatasets()
 
             # Find depth rasters
@@ -133,9 +137,9 @@ def download_and_extract_rasters(spatial_df, save_folder):
     spatial_df['HUC_Name'] = huc_names
     spatial_df['rasters'] = out_files
 
-    return spatial_df
+    return spatial_df, ble_geodatabase
 
-def extract_raster(in_raster, out_raster):
+def extract_raster(in_raster: str, out_raster: str):
     """
     Extract raster from GDB and save to out_raster
 
@@ -168,12 +172,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create BLE benchmark files')
     parser.add_argument('-i', '--input-file', type=str, help='Input file', required=True)
     parser.add_argument('-s', '--save-folder', type=str, help='Output folder', required=True)
-    parser.add_argument('-r', '--reference-raster', type=str, help='Reference raster', required=True)
+    parser.add_argument('-r', '--reference-folder', type=str, help='Reference folder', required=True)
     parser.add_argument('-o', '--benchmark-folder', type=str, help='Benchmark folder', required=True)
-    parser.add_argument('-b', '--ble-geodatabase', type=str, help='BLE geodatabase', required=True)
     parser.add_argument('-n', '--nwm-geodatabase', type=str, help='NWM geodatabase', required=True)
-    parser.add_argument('-f', '--output-parent-dir', type=str, help='Output parent directory', required=True)
-    parser.add_argument('-u', '--huc', type=str, help='Run a single HUC', required=False)
+    parser.add_argument('-u', '--huc', type=str, help='Run a single HUC. If not supplied, it will run all HUCs in the input file', required=False)
+    parser.add_argument('-xs', '--ble-xs-layer-name', help='BLE cross section layer. Default layer is "XS" (sometimes it is "XS_1D").', required=False, default='XS')
+    parser.add_argument('-l', '--nwm-stream-layer-name', help='NWM streams layer. Default layer is "RouteLink_FL_2020_04_07")', required=False, default='nwm_streams')
+    parser.add_argument('-id', '--nwm-feature-id-field', help='id field for nwm streams. Not required if NWM v2.1 is used (default id field is "ID")', required=False, default='ID')
 
     args = vars(parser.parse_args())
 
