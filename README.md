@@ -65,6 +65,7 @@ Starting with a base folder, e.g `/home/my_user/projects/` add the following fol
    - `data`
       - `inputs`
       - `outputs`
+      - `outputs_temp`
 
 ### Input Data
 Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at `s3://noaa-nws-owp-fim/hand_fim/inputs`. It is appx 400GB and it needs to be in your `data` folder.
@@ -111,6 +112,7 @@ Since all of the dependencies are managed by utilizing a Docker container, we mu
 docker run --rm -it --name <your_container_name> \
     -v <path/to/repository>/:/foss_fim \
     -v <desired_output_path>/:/outputs \
+    -v <desired_outputs_temp_path>/:/fim_temp \
     -v <input_path>:/data \
     <image_name>:<tag>
 ```
@@ -119,18 +121,20 @@ For example:
 docker run --rm -it --name robs_container \
     -v /home/projects/fim/code/inundation-mapping/:/foss_fim \
     -v /home/projects/fim/data/outputs/:/outputs \
+    -v /home/projects/fim/data/outputs_temp/:/fim_temp \
     -v /home/projects/fim/data/:/data \
     fim_4:dev_20230620
 ```
 
 ### Produce HAND Hydrofabric
 ```
-fim_pipeline.sh -u <huc8> -n <name_your_run>
+fim_pipeline.sh -u <huc8> -n <name_your_run> -o
 ```
 - There are a wide number of options and defaulted values, for details run ```fim_pipeline.sh -h```.
 - Manditory arguments:
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited (.lst) file. To run the entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a HUC list file of your choice.  Depending on the performance of your server, especially the number of CPU cores, running the full domain can take multiple days.
-    - `-n` is a name of your run (only alphanumeric)
+    - `-n` is a name of your run (only alphanumeric). This becoems the name of the folder in your `outputs` folder.
+    - `-o` is an optional param but means "overwrite". Add this argument if you want to allow the command to overwrite the folder created as part of the `-n` (name) argument.
     - While not mandiatory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
 - Outputs can be found under ```/outputs/<name_your_run>```.
 
