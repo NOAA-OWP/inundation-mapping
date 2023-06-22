@@ -11,7 +11,7 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 # FIM Version 4 
 
 ## Accessing Data through ESIP S3 Bucket
-The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.  You will need permission from ESIP to access this data. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) for assistance.
+The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.  Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) if you experience issues with permissions.
 
 AWS Region: `US East (N. Virginia) us-east-1`
 
@@ -87,14 +87,13 @@ cd /home/my_user/projects/code
 git clone https://github.com/NOAA-OWP/inundation-mapping.git
 ```
 
-It will auto create a subfolder named `inundation-mapping` with the code inside that. Your docker mounts will need to be to this `inundation-mapping` folder. 
-
+It will auto create a subfolder named `inundation-mapping` where the code will be. Your Docker mounts should include this `inundation-mapping` folder. 
 
 ## Running the Code
 
 ### Configuration
 
-There are two ways, which can be used together, to configure the system and/or data processing. Some configuration is based on input arguments when running `fim_pipeline.sh` described below in the "Produce HAND Hydrofabric" section. Another configuration option is based on using a file named `params_template.env`, found in the `config` directory. Copy the `params_template.env` file before editing and remove the word "template" from the filename. The `params.env` file includes, among other options, a calibrated parameter set of manning’s n values. The new `params.env` becomes one of the arguments submitted when running `fim_pipeline.sh`.
+There are two ways, which can be used together, to configure the system and/or data processing. Some configuration is based on input arguments when running `fim_pipeline.sh` described below in the "Produce HAND Hydrofabric" section. Another configuration option is based on using a file named `params_template.env`, found in the `config` directory. To use this latter technique, copy the `params_template.env` file before editing and remove the word "template" from the filename. The `params.env` file includes, among other options, a calibrated parameter set of Manning’s n values. The new `params.env` becomes one of the arguments submitted when running `fim_pipeline.sh`.
 
 Make sure to set the config folder group to 'fim' recursively using the chown command.
 
@@ -135,7 +134,7 @@ fim_pipeline.sh -u <huc8> -n <name_your_run>
     - While not mandiatory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
 - Outputs can be found under ```/outputs/<name_your_run>```.
 
-Processing of HUC's in FIM4 comes in three pieces. 
+Processing of HUCs in FIM4 occurs in three sections. 
 You can run `fim_pipeline.sh` which automatically runs all of three major section, 
 OR you can run each of the sections independently if you like. 
 
