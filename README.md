@@ -149,7 +149,7 @@ Running the `fim_pipeline.sh` is a quicker process than running all three steps 
 To test in HUCs other than the provided HUCs, the following processes can be followed to acquire and preprocess additional NHDPlus rasters and vectors. After these steps are run, the "Produce HAND Hydrofabric" step can be run for the new HUCs.
 
 ```
-/foss_fim/src/acquire_and_preprocess_inputs.py -u <huc4s_to_process>
+/foss_fim/src/acquire_and_preprocess_inputs.py -u <huc8s_to_process>
 ```
     Sorry, this tool is deprecated, updates will be coming soon.
 
