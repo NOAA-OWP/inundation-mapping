@@ -27,11 +27,11 @@ AWS Resource Name: `arn:aws:s3:::noaa-nws-owp-fim`
 
 This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket. Read more about what that means [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html). If you are using compute resources in the same region as the S3 Bucket, then there is no cost.
 
-#### Examples
+### Examples
 
-`Note: All examples are based on linux pathing. Also, for each sample below, remove the line breaks [backslash(s) "\"] before running the command.`
+**Note:** All examples are based on linux pathing. Also, for each sample below, remove the line breaks [backslash(s) "\"] before running the command.
 
-The available inputs, test_cases, and output versions can be found by running:
+The available inputs, test cases, and versioned FIM outputs can be found by running:
 ```
 aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --request-payer requester
 ```
@@ -41,8 +41,9 @@ Download a directory of sample outputs for a single HUC8:
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
     /your_local_folder_name/12090301 --request-payer requester
 ```
-By adjusting pathing, you can also download entire directories such as the fim_4_3_11_0 folder. An entire output FIM set, such as fim_4_3_11_0, is appx 1.1 TB.
-**Note**: There may be newer editions than fim_4_3_11_0, and it is recommended to adjust the command above for the latest version.
+By adjusting pathing, you can also download entire directories such as the `fim_4_3_11_0` folder. An entire output FIM set (e.g. `fim_4_3_11_0`) is approximately 1.1 TB.
+
+**Note**: There may be newer editions than `fim_4_3_11_0`, and it is recommended to adjust the command above for the latest version.
 
 ## Setting up your Environment
 ### Dependencies
@@ -58,22 +59,22 @@ By adjusting pathing, you can also download entire directories such as the fim_4
 
 ### Folder Structure
 You are welcome to set up your folder structure in any pattern you like. For example purposes, we will use a folder structure shown below.
-Starting with a base folder, e.g /home/my_user/projects/ add the following folders:
-- fim
-   - code
-   - data
-      - inputs
-      - outputs
+Starting with a base folder, e.g `/home/my_user/projects/` add the following folders:
+- `fim`
+   - `code`
+   - `data`
+      - `inputs`
+      - `outputs`
 
 ### Input Data
-Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at s3://noaa-nws-owp-fim/hand_fim/inputs. It is appx 400GB and it needs to be in your `data` folder.
+Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at `s3://noaa-nws-owp-fim/hand_fim/inputs`. It is appx 400GB and it needs to be in your `data` folder.
 
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/inputs /home/my_user/projects/fim/data/inputs --request-payer requester --dry-run
 ```
-**Note**: Notice the `--dry-run` option? When you include that argument in the command, it will give you a large list showing you exactly which files are to be downloaded and where they will be saved. We recommend including that argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dry-run` argument.
+**Note**: When you include the `--dry-run` argument in the command, a large list will be returned showing you exactly which files are to be downloaded and where they will be saved. We recommend including this argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dry-run` argument.
 
-The S3 inputs directory has all of the folders\files you need to run FIM. It includes some publicly available and some non-publicly availible data.
+The S3 inputs directory has all of the folders and files you need to run FIM. It includes some publicly available and some non-publicly availible data.
 
 ### Getting FIM source code
 (based on sample pathing described above)
