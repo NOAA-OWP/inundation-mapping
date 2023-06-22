@@ -1,22 +1,6 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.x.x - 2023-06-20 - [PR#935](https://github.com/NOAA-OWP/inundation-mapping/pull/935)
-
-Updated the `README.md` for the following edits:
-1) Include a sample folder structure to increase clarity on download pathing.
-2) Update docker run command notes, which had an error in it earlier.
-3) Add some notes about downloading source code in relation to folder pathing.
-4) Add more details on where to get `S3 input` data and where to save it to.
-5) Updated notes on options for the calibration database system.
-
-This PR is based on [Issue 934](https://github.com/NOAA-OWP/inundation-mapping/issues/934)
-
-### Changes  
-`README.md`: as described above
-
-<br><br>
-
 ## v4.3.11.7 - 2023-06-12 - [PR#932](https://github.com/NOAA-OWP/inundation-mapping/pull/932)
 
 Write to a csv file with processing time of `run_unit_wb.sh`, update PR Template, add/update bash functions in `bash_functions.env`, and modify error handling in `src/check_huc_inputs.py`. Update unit tests to throw no failures, `25 passed, 3 skipped`.
