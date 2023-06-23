@@ -67,6 +67,11 @@ def process_points(args):
     optional_outputs = args[8]
 
     ## Define coords variable to be used in point raster value attribution.
+    
+    # TODO 
+    # We can get the x,y coords directly from the GDF by indexing the geometry column by .x & .y
+    ## points_and_huc_joined.iloc[0:1,:].geometry.y
+    
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
 
     water_edge_df.to_crs(DEFAULT_FIM_PROJECTION_CRS)
@@ -197,6 +202,10 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     # log_file.write('#########################################################\n')
 
     # huc_list = []
+
+    # TODO 
+    # Check whether the huc in the fim_out_huc_list has an associated .parquet file in the calib_point_files_directory
+    # log if not, proceed if so 
 
     # # Iterate over files in calib_point_files_directory containing all of the preprocessed <huc#>.parquet files
     # for huc_file in os.listdir(calib_point_files_directory):
