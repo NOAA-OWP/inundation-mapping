@@ -46,6 +46,29 @@ By adjusting pathing, you can also download entire directories such as the `fim_
 **Note**: There may be newer editions than `fim_4_3_11_0`, and it is recommended to adjust the command above for the latest version.
 
 ## Setting up your Environment
+
+### Folder Structure
+You are welcome to set up your folder structure in any pattern you like. For example purposes, we will use a folder structure shown below.
+Starting with a base folder, e.g `/home/projects/` add the following folders:
+- `fim`
+   - `code`
+   - `data`
+      - `inputs`
+      - `outputs`
+      - `outputs_temp`
+### Getting FIM source code
+(based on sample pathing described above)
+
+``` path to your "code" folder. e.g.
+cd /home/projects/fim/code
+```
+
+``` download the current FIM inundation mapping code
+git clone https://github.com/NOAA-OWP/inundation-mapping.git
+```
+
+Git will auto create a subfolder named `inundation-mapping` where the code will be. Your Docker mounts should include this `inundation-mapping` folder. 
+
 ### Dependencies
 [Docker](https://docs.docker.com/get-docker/)
 
@@ -57,44 +80,21 @@ By adjusting pathing, you can also download entire directories such as the `fim_
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
     - Linux: `chgrp -R fim <path/to/repository>`
 
-### Folder Structure
-You are welcome to set up your folder structure in any pattern you like. For example purposes, we will use a folder structure shown below.
-Starting with a base folder, e.g `/home/my_user/projects/` add the following folders:
-- `fim`
-   - `code`
-   - `data`
-      - `inputs`
-      - `outputs`
-      - `outputs_temp`
-
 ### Input Data
 Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at `s3://noaa-nws-owp-fim/hand_fim/inputs`. It is appx 400GB and it needs to be in your `data` folder.
 
 ```
-aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/inputs /home/my_user/projects/fim/data/inputs --request-payer requester --dry-run
+aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/inputs /home/projects/fim/data/inputs --request-payer requester --dry-run
 ```
 **Note**: When you include the `--dry-run` argument in the command, a large list will be returned showing you exactly which files are to be downloaded and where they will be saved. We recommend including this argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dry-run` argument.
 
 The S3 inputs directory has all of the folders and files you need to run FIM. It includes some publicly available and some non-publicly availible data.
 
-### Getting FIM source code
-(based on sample pathing described above)
-
-``` path to your "code" folder. e.g.
-cd /home/my_user/projects/code
-```
-
-``` download the current FIM inundation mapping code
-git clone https://github.com/NOAA-OWP/inundation-mapping.git
-```
-
-It will auto create a subfolder named `inundation-mapping` where the code will be. Your Docker mounts should include this `inundation-mapping` folder. 
-
 ## Running the Code
 
 ### Configuration
 
-There are two ways, which can be used together, to configure the system and/or data processing. Some configuration is based on input arguments when running `fim_pipeline.sh` described below in the "Produce HAND Hydrofabric" section. Another configuration option is based on using a file named `params_template.env`, found in the `config` directory. To use this latter technique, copy the `params_template.env` file before editing and remove the word "template" from the filename. The `params.env` file includes, among other options, a calibrated parameter set of Manning’s n values. The new `params.env` becomes one of the arguments submitted when running `fim_pipeline.sh`.
+There are two ways, which can be used together, to configure the system and/or data processing. Some configuration is based on input arguments when running `fim_pipeline.sh` described below in the "Produce HAND Hydrofabric" section. Another configuration option is based on using a file named `params_template.env`, found in the `config` directory. To use this latter technique, copy the `params_template.env` file before editing and remove the word "template" from the filename. The `params.env` file includes, among other options, a calibrated parameters set of Manning’s n values. The new `params.env` becomes one of the arguments submitted when running `fim_pipeline.sh`.
 
 Make sure to set the config folder group to `fim` recursively using the chown command.
 
@@ -105,7 +105,7 @@ This system has an optional tool called the `calibration database tool`. In orde
 
 ### Start/run the Docker Container
 
-Since all of the dependencies are managed by utilizing a Docker container, we must issue the [`docker run`](https://docs.docker.com/engine/reference/commandline/run/) command to start a container as the run-time environment. The container is launched from a Docker image which was built in [Installation](#installation). The `-v <input_path>:/data` and must contain a subdirectory named `inputs` (similar to `s3://noaa-nws-owp-fim/hand_fim`). If the pathing is set correctly, we do not need to adjust the `params_template.env` file, and can use the default file paths provided.
+Since all of the dependencies are managed by utilizing a Docker container, we must issue the [`docker run`](https://docs.docker.com/engine/reference/commandline/run/) command to start a container as the run-time environment. The container is launched from a Docker image which was built in [Installation](#installation). The `-v <input_path>:/data` must contain a subdirectory named `inputs` (similar to `s3://noaa-nws-owp-fim/hand_fim`). If the pathing is set correctly, we do not need to adjust the `params_template.env` file, and can use the default file paths provided.
 
 
 ```bash 
