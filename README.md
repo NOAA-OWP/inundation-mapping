@@ -131,11 +131,11 @@ docker run --rm -it --name robs_container \
 fim_pipeline.sh -u <huc8> -n <name_your_run> -o
 ```
 - There are a wide number of options and defaulted values, for details run ```fim_pipeline.sh -h```.
-- Manditory arguments:
+- Mandatory arguments:
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited (.lst) file. To run the entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a HUC list file of your choice.  Depending on the performance of your server, especially the number of CPU cores, running the full domain can take multiple days.
     - `-n` is a name of your run (only alphanumeric). This becomes the name of the folder in your `outputs` folder.
     - `-o` is an optional param but means "overwrite". Add this argument if you want to allow the command to overwrite the folder created as part of the `-n` (name) argument.
-    - While not manditory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
+    - While not mandatory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
 - Outputs can be found under ```/outputs/<name_your_run>```.
 
 Processing of HUCs in FIM4 occurs in three sections. 
