@@ -11,7 +11,7 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 # FIM Version 4 
 
 ## Accessing Data through ESIP S3 Bucket
-The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools.  Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) if you experience issues with permissions.
+The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) if you experience issues with permissions.
 
 AWS Region: `US East (N. Virginia) us-east-1`
 
@@ -133,9 +133,9 @@ fim_pipeline.sh -u <huc8> -n <name_your_run> -o
 - There are a wide number of options and defaulted values, for details run ```fim_pipeline.sh -h```.
 - Manditory arguments:
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited (.lst) file. To run the entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a HUC list file of your choice.  Depending on the performance of your server, especially the number of CPU cores, running the full domain can take multiple days.
-    - `-n` is a name of your run (only alphanumeric). This becoems the name of the folder in your `outputs` folder.
+    - `-n` is a name of your run (only alphanumeric). This becomes the name of the folder in your `outputs` folder.
     - `-o` is an optional param but means "overwrite". Add this argument if you want to allow the command to overwrite the folder created as part of the `-n` (name) argument.
-    - While not mandiatory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
+    - While not manditory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
 - Outputs can be found under ```/outputs/<name_your_run>```.
 
 Processing of HUCs in FIM4 occurs in three sections. 
