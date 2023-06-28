@@ -9,9 +9,6 @@ import numpy as np
 from dotenv import load_dotenv
 
 
-import pyarrow as pa
-import pyarrow.parquet as pq
-
 ###############################################################################################
 # Overview:
 # Read two .gpkg files into two GeoDataFrames
@@ -39,7 +36,7 @@ DEFAULT_FIM_PROJECTION_CRS = "EPSG:5070"
 # PSEUDOCODE OVERVIEW - Path Forward
 
 
-# Load huc8 boundaries into GeoDataFrame , ignoring irrevelant fidlds
+# Load huc8 boundaries into GeoDataFrame , ignoring irrevelant fields
     # include_fields=['HUC8', 'geometry']
     # WBD_National_df = gpd.read_file(WBD_National_data_file, layer='WBDHU8', ignore_fields=['tnmid', 'metasourceid', 'sourcedatadesc', 'sourceoriginator',
     #                                                                                         'sourcefeatureid', 'loaddate', 'referencegnis_ids', 'areaacres',

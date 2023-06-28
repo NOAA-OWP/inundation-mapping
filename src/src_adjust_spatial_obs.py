@@ -229,15 +229,15 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n')
     log_file.write('#########################################################\n')
 
-    ## Ensure HUC id is either HUC8
-    # huc_list = []
-    # for huc in huc_list_db:
-    #     ## zfill to the appropriate scale to ensure leading zeros are present, if necessary.
-    #     if len(huc) == 7:
-    #         huc = huc.zfill(8)
-    #     if huc not in huc_list:
-    #         huc_list.append(huc)
-    #         log_file.write(str(huc) + '\n')
+    # Ensure HUC id is either HUC8
+    huc_list = []
+    for huc in huc_list_db:
+        ## zfill to the appropriate scale to ensure leading zeros are present, if necessary.
+        if len(huc) == 7:
+            huc = huc.zfill(8)
+        if huc not in huc_list:
+            huc_list.append(huc)
+            log_file.write(str(huc) + '\n')
 
     procs_list = []  # Initialize proc list for mulitprocessing.
 
@@ -264,11 +264,6 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
             water_edge_df.to_csv(huc_debug_pts_out)
             huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
-        
-            # write parquet file using built in geopandas ".to_parquet() method" 
-            # parquet_filepath = os.path.join(fim_directory, huc, 'waters_edge_def' + huc + '.parquet')
-            # parquet_filepath = os.path.join(fim_directory, huc, 'waters_edge_df_' + huc + '.parquet')
-            # water_edge_df.to_parquet(parquet_filepath, index=False)
 
         for branch_id in os.listdir(huc_branches_dir):
             branch_dir = os.path.join(huc_branches_dir,branch_id)

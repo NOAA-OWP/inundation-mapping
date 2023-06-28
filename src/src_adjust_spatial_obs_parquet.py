@@ -4,12 +4,9 @@ import argparse
 import datetime as dt
 import geopandas as gpd
 import multiprocessing
-# import numpy as np
 import os
-# import pandas as pd
 import rasterio
 import sys
-import time
 
 from dotenv import load_dotenv
 from multiprocessing import Pool
@@ -17,24 +14,23 @@ from src_roughness_optimization import update_rating_curve
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH, DEFAULT_FIM_PROJECTION_CRS
 
 #import variables from .env file
-load_dotenv()
-outputsDir = os.getenv("outputsDir")
-
-calib_point_files_directory = '/outputs/usgs_nws_benchmark_points'
+load_dotenv('/foss_fim/src/bash_variables.env')
+outputsDir             = os.getenv("outputsDir")
+input_calib_points_dir = os.getenv('input_calib_points_dir')
 
 '''
-The script imports a PostgreSQL database containing observed FIM extent points and associated flow data. This script attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow.
+The script imports .parquet files per HUC8 containing observed FIM extent points and associated flow data. 
+This script attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow.
 
 Processing
-- Define CRS to use for initial geoprocessing and read wbd_path and points_layer.
-- Define paths to hydroTable.csv, HAND raster, catchments raster, and synthetic rating curve JSON.
-- Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
+- Define CRS to use for initial geoprocessing and read wbd_path and points_filepath.
+- Define paths to hydroTable.csv, HAND raster, catchments raster, and synthetic rating curve JSON. - Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
 - Define coords variable to be used in point raster value attribution and use point geometry to determine catchment raster pixel values
 - Check that there are valid obs in the water_edge_df (not empty) and convert pandas series to dataframe to pass to update_rating_curve
 - Call update_rating_curve() to perform the rating curve calibration.
 
 Inputs
-- points_layer:         .gpkg layer containing observed/truth FIM extent points and associated flow value 
+- points_filepath:      .parquet file containing observed/truth FIM extent points and associated flow value 
 - fim_directory:        fim directory containing individual HUC output dirs
 - wbd_path:             path the watershed boundary dataset layer (HUC polygon boundaries)
 - job_number:           number of multi-processing jobs to use
@@ -45,9 +41,9 @@ Outputs
 '''
 
 def process_points(args):
-
     '''
-    The function ingests geodataframe and attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow
+    This function ingests geodataframe and attributes the point data with its hydroid and HAND values before passing 
+    a dataframe to the src_roughness_optimization.py workflow
 
     Processing
     - Extract x,y coordinates from geometry
@@ -66,15 +62,10 @@ def process_points(args):
     htable_path = args[7]
     optional_outputs = args[8]
 
-    ## Define coords variable to be used in point raster value attribution.
-    
-    # TODO 
-    # We can get the x,y coords directly from the GDF by indexing the geometry column by .x & .y
-    ## points_and_huc_joined.iloc[0:1,:].geometry.y
-    
+    ## Define coords variable to be used in point raster value attribution.  
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
 
-    water_edge_df.to_crs(DEFAULT_FIM_PROJECTION_CRS)
+    water_edge_df = water_edge_df.set_crs(DEFAULT_FIM_PROJECTION_CRS, allow_override=True)
     
     ## Use point geometry to determine HAND raster pixel values.
     with rasterio.open(hand_path) as hand_src, rasterio.open(catchments_path) as catchments_src:
@@ -125,39 +116,54 @@ def process_points(args):
         '''
     return(log_text)
 
-# def find_hucs_with_points(conn, fim_out_huc_list):
-#     '''
-#     The function queries the PostgreSQL database and returns a list of all the HUCs that contain calb point data.
 
-#     Processing
-#     - Query the PostgreSQL database for all unique huc ids
+def find_points_in_huc(huc_id):
+    '''
+    This function loads the .parquet file containing all points attributed with the input huc id into a GeoDataFrame.
 
-#     Inputs
-#     - conn:         connection to PostgreSQL db
+    Processing
+    - Query the PostgreSQL database for points attributed with huc id.
+    - Reads the filtered database result into a pandas geodataframe
 
-#     Outputs
-#     - hucs_wpoints: list with all unique huc ids
-#     '''
+    Inputs
+    - conn:         connection to PostgreSQL db
+    - huc_id:       HUC id to query the db
 
-#     cursor = conn.cursor()
-#     '''
-#     cursor.execute("""
-#         SELECT DISTINCT H.huc8
-#         FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom);
-#     """)
-#     '''
-#     cursor.execute("SELECT DISTINCT H.huc8 FROM points P JOIN hucs H ON ST_Contains(H.geom, P.geom) WHERE H.huc8 = ANY(%s);", (fim_out_huc_list,))
-#     hucs_fetch = cursor.fetchall() # list with tuple with the attributes defined above (need to convert to df?)
-#     hucs_wpoints = []
-#     for huc in hucs_fetch:
-#         hucs_wpoints.append(huc[0])
-#     cursor.close()
-#     return hucs_wpoints
+    Outputs
+    - water_edge_df: geodataframe with point data
+    '''
+    
+    # The CRS Projection is set when initially writing .parquet files (call to script: write_parquet_from_calib_pts.py)
+    water_edge_filepath = os.path.join(input_calib_points_dir, f'{huc_id}.parquet')
+    
+    water_edge_df = gpd.read_parquet(water_edge_filepath)
+    
+    print('type of water_edge_df is: ', type(water_edge_df))
+    print('crs of water_edge_df is: ', water_edge_df.crs)
+    
+    return water_edge_df
+
+
+def find_hucs_with_points(points_file_dir, fim_out_huc_list):
+    '''
+    This function queries a filepath with .parquet files of HUCs containing calibration points (generated from /data/write_parquet_from_calib_pts.py)
+    and returns a list of all the HUCs in <fim_out_huc_list> that contain calibration point data.
+    '''
+
+    files_in_points_file_dir = os.listdir(points_file_dir)
+    
+    # Use list comprehension to slice .parquet off filename, and also prune non-parquet files in directory 
+    hucs_in_points_file_dir = [i[:-8] for i in files_in_points_file_dir if i.endswith('.parquet')]
+    # Use list comprehension to only keep hucs in both the points_file_dir & fim_out_huc_list
+    hucs_wpoints = [x for x in hucs_in_points_file_dir if x in fim_out_huc_list]
+
+    return hucs_wpoints
+
 
 def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_file):
     '''
-    The function obtains all points within a given huc, locates the corresponding FIM output files for each huc (confirms all necessary files exist),
-        and then passes a proc list of huc organized data to process_points function.
+    The function obtains all points within a given huc, locates the corresponding FIM output files for each huc
+    (confirms all necessary files exist), and then passes a proc list of huc organized data to process_points function.
 
     Processing
     - Query the PostgreSQL database for all unique huc ids that have calb points
@@ -171,66 +177,47 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     Outputs
     - procs_list:           passes multiprocessing list of input args for process_points function input
     '''
+
+    print("Finding all fim_output hucs that contain calibration points...")
+    fim_out_huc_list  = [ item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item)) ]
+
+    fim_out_huc_list.remove('logs')
+
+    ## Record run time and close log file
+    run_time_start = dt.datetime.now()
+    log_file.write('Finding all hucs that contain calibration points...' + '\n')
+    huc_list_db = find_hucs_with_points(input_calib_points_dir, fim_out_huc_list)
     
-    # log_file.write('Connecting to database via host\n')    
-    # conn = connect() # Connect to the PostgreSQL db once
-    
-    # if (conn is None):
-    #     msg = "unable to connect to calibration db\n"
-    #     print(msg)
-    #     log_file.write(msg)
-    #     return
-    
-    # log_file.write('Connected to database via host\n')
+    run_time_end = dt.datetime.now()
+    task_run_time = run_time_end - run_time_start
 
-    # print("Finding all fim_output hucs that contain calibration points...")
-    # fim_out_huc_list  = [ item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item)) ]
+    log_file.write('HUC SEARCH TASK RUN TIME: ' + str(task_run_time) + '\n')
+    print(f"{len(huc_list_db)} hucs found in point database" + '\n')
+    log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n')
+    log_file.write('#########################################################\n')
 
-    # fim_out_huc_list.remove('logs')
+    huc_list = []
+            
+    # Ensure HUC id has 8 characters
+    huc_list = []
+    for huc in huc_list_db:
+        ## zfill to the appropriate scale to ensure leading zeros are present, if necessary.
+        if len(huc) == 7:
+            huc = huc.zfill(8)
+        if huc not in huc_list:
+            huc_list.append(huc)
+            log_file.write(str(huc) + '\n')
 
-    # ## Record run time and close log file
-    # run_time_start = dt.datetime.now()
-    # log_file.write('Finding all hucs that contain calibration points...' + '\n')
-    # # huc_list_db = find_hucs_with_points(conn, fim_out_huc_list)
-    
-    # run_time_end = dt.datetime.now()
-    # task_run_time = run_time_end - run_time_start
+    # Initialize procs list for mulitprocessing.
+    procs_list = []
 
-    # log_file.write('HUC SEARCH TASK RUN TIME: ' + str(task_run_time) + '\n')
-    # print(f"{len(huc_list_db)} hucs found in point database" + '\n')
-    # log_file.write(f"{len(huc_list_db)} hucs found in point database" + '\n')
-    # log_file.write('#########################################################\n')
-
-    # huc_list = []
-
-    # TODO 
-    # Check whether the huc in the fim_out_huc_list has an associated .parquet file in the calib_point_files_directory
-    # log if not, proceed if so 
-
-    # # Iterate over files in calib_point_files_directory containing all of the preprocessed <huc#>.parquet files
-    # for huc_file in os.listdir(calib_point_files_directory):
-    #     ## Ensure HUC id has 8 numbers, zfill to the ensure leading zeros are present
-    #     huc_number = huc_file.rstrip(".parquet")
-    #     if len(huc_number) == 7:
-    #         huc_number = huc_number.zfill(8)
-    #     if huc_number not in huc_list:
-    #         huc_list.append(huc_number)
-    #         log_file.write(str(huc_number) + '\n')
-
-    procs_list = []  # Initialize procs list for mulitprocessing.
-
-    huc_list = ['12040103']
-    # sort huc_list for helping track progress in future print statments
+    huc_list = ['12040103'] # Used for testing
+    # Sort huc_list for helping track progress in future print statments
     huc_list.sort() 
+    ## Define paths to relevant HUC HAND data.
     for huc in huc_list:
-        ## Define paths to relevant HUC HAND data.
         huc_branches_dir = os.path.join(fim_directory, huc, 'branches')
-        
-        # water_edge_df = find_points_in_huc(huc, conn).reset_index()
-
-        points_within_huc_file = os.path.join(calib_point_files_directory, f"{huc}.parquet")
-        water_edge_df = gpd.read_parquet(points_within_huc_file)
-
+        water_edge_df = find_points_in_huc(huc)
         print(f"{len(water_edge_df)} points found in " + str(huc))
         log_file.write(f"{len(water_edge_df)} points found in " + str(huc) + '\n')
 
@@ -248,9 +235,8 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
             water_edge_df.to_csv(huc_debug_pts_out)
             huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
-        
             # write parquet file using built in geopandas ".to_parquet() method" 
-            parquet_filepath = os.path.join(fim_directory, huc, 'waters_edge_def_' + huc + '.parquet')
+            parquet_filepath = os.path.join(fim_directory, huc, 'debug_waters_edge_df_' + huc + '.parquet')
             water_edge_df.to_parquet(parquet_filepath, index=False)
 
         for branch_id in os.listdir(huc_branches_dir):
@@ -290,8 +276,8 @@ def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
         job_number = available_cores - 1
-        print("Provided job number exceeds the number of available cores. " \
-            + str(job_number) + " max jobs will be used instead.")
+        print(f"Provided job number exceeds the number of available cores. " \
+            + {job_number} + " max jobs will be used instead.")
 
     if ds_thresh_override != DOWNSTREAM_THRESHOLD:
         print('ALERT!! - Using a downstream distance threshold value ('
@@ -331,7 +317,7 @@ def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM
 if __name__ == '__main__':
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Adjusts rating curve given a shapefile containing points of known water boundary.')
-    #parser.add_argument('-db','--points-layer',help='Path to points layer containing known water boundary locations',required=True)
+    parser.add_argument('-db','--points-filepath',help='Path to points layer containing known water boundary locations',required=True)
     parser.add_argument('-fim_dir','--fim-directory',
                         help='Parent directory of FIM-required datasets.', required=True)
     parser.add_argument('-debug','--extra-outputs',
@@ -346,7 +332,7 @@ if __name__ == '__main__':
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
-    #points_layer = args['points_layer']
+    points_filepath = args['points_filepath']
     fim_directory = args['fim_directory']
     debug_outputs_option = args['extra_outputs']
     ds_thresh_override = args['downstream_thresh']
