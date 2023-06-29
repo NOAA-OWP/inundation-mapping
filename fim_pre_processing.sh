@@ -11,7 +11,7 @@ usage ()
     echo '          -zd <branch zero deny list file>'
     echo '          -jh <number of jobs for HUCs>'
     echo '          -jb <number of jobs for branches>'
-    echo '          -skipcal <skip the PostGres calibration process>'
+    echo '          -skipcal <skip the calibration points process>'
     echo '          -isaws ]'
     echo ''
     echo 'REQUIRED:'
@@ -49,7 +49,7 @@ usage ()
     echo '                         NOTE: Make sure that the multiplication of jh and jb subtract 2 (jh x jb -2) does not'
     echo '                         exceed the total number of cores available.'
     echo '  -o               : Overwrite outputs if already exist'
-    echo '  -skipcal         : If this param is included, post gres calibration system will be skipped'    
+    echo '  -skipcal         : If this param is included, updating the S.R.C. via the calibration points will be skipped'    
     echo '  -isaws           : If this param is included, the code will use AWS objects where possible'
     echo '                   : Note: This feature is not yet implemented'
     echo

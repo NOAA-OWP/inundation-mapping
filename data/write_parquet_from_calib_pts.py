@@ -3,33 +3,50 @@
 import os
 import time
 import datetime as dt
-import pandas as pd
 import geopandas as gpd
-import numpy as np
 import argparse
+import logging
 
 from dotenv import load_dotenv
 from multiprocessing import Pool
 
+######################################################################################################
+#                                                                                                    #
+#    Overview:                                                                                       #
+#      Read two .gpkg files into two separate GeoDataFrames                                          #
+#      Create a new GeoDataFrame per HUC8 with all associated calibration point data                 #
+#      Write each new GeoDataFrame with HUC id and calibration points to a Parquet/GeoParquet file   #
+#    Usage:                                                                                          #
+#      This script must be run in a Docker container with the correct volume mount to the /data      #
+#      directory containing the default input files, and optionally, the output path.                #
+#          eg: -v /efs-drives/fim-dev-efs/fim-data/:/data                                            #
+#                                                                                                    #
+######################################################################################################
+
 load_dotenv('/foss_fim/src/bash_variables.env')
-# inputsDir = os.getenv('inputsDir')
-# CALIBRATION_DB_PATH = os.getenv(f'{inputsDir}/rating_curve/water_edge_database/calibration_points')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 input_WBD_gdb              = os.getenv('input_WBD_gdb')
 input_calib_points_dir     = os.getenv('input_calib_points_dir')
 
-###############################################################################################
-# Overview:
-#   Read two .gpkg files into two separate GeoDataFrames
-#   Create a new GeoDataFrame per HUC8 with all the point data
-#   Write each new GeoDataFrame with HUC id and calibration points to a Parquet/GeoParquet file
-# Usage:
-#   This script must be run in a Docker container with the correct volume mount to the /data
-#   directory containing the input files, and output path.
-#       eg: -v /efs-drives/fim-dev-efs/fim-data/:/data
-
-###############################################################################################
-
+def __setup_logger():
+    # Set logging to file and stderr
+    # The log file will include the date, so be mindful the logs when running this script multiple times on the same day 
+    curr_date = dt.datetime.now().strftime("%m_%d_%Y")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        handlers=[
+            logging.FileHandler(os.path.join(input_calib_points_dir,f"write_parquet_from_calib_pts_{curr_date}.log")),
+            logging.StreamHandler()
+        ]
+    )
+    
+    # Print start time
+    dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    logging.info(f'==========================================================================')
+    logging.info(f"\n write_parquet_from_calib_pts.py")
+    logging.info(f"\n \t Started: {dt_string} \n")
+    
 
 def load_WBD_gpkg_into_GDF(WBD_National_gpkg_file):
     huc_polygons_df = gpd.read_file(WBD_National_gpkg_file, layer='WBDHU8',
@@ -62,8 +79,9 @@ def create_single_huc_gdf_and_write_parquet_file(args):
     
     # If there are no calibration points within the HUC boundary, skip current HUC
     if len(huc_with_points_gdf) == 0: 
-        print(f'HUC # {huc} does not contain any calibration points, skipping...')
-        return 
+        logging.info(f'HUC # {huc} does not contain any calibration points, skipping...')
+        time.sleep(.1)
+        return
     
     # Drop index_right column created by join
     huc_with_points_gdf.drop(['index_right'], axis=1, inplace=True)
@@ -75,42 +93,39 @@ def create_single_huc_gdf_and_write_parquet_file(args):
     parquet_filepath = os.path.join(output_dir, f'{huc}.parquet')
     huc_gdf.to_parquet(parquet_filepath, index=False)
     
-    print(f'HUC # {huc} calibartion points written to file: \n' \
+    logging.info(f'HUC # {huc} calibration points written to file: \n' \
         f' \t {output_dir}/{huc}.parquet')
 
 
 def create_parquet_directory(output_dir):
     if os.path.isdir(output_dir) == False:
         os.mkdir(output_dir)
-        print(f"Created directory: {output_dir}, .parquet files will be written there.")
+        logging.info(f"Created directory: {output_dir}, .parquet files will be written there.")
     elif os.path.isdir(output_dir) == True:
-        print(f"Output Direcrtory: {output_dir} exists, .parquet files will be written there.")
+        logging.info(f"Output Direcrtory: {output_dir} exists, .parquet files will be written there.")
 
 
 def create_parquet_files(points_data_file_name,
-                            wbd_layer,
-                            output_dir,
                             number_of_jobs,
+                            output_dir=input_calib_points_dir,
+                            wbd_layer=input_WBD_gdb,
                             huc_list=None,
                             all_hucs=False):
     
     # Validation
-    total_cpus_available = os.cpu_count() -1
-    
+    total_cpus_available = os.cpu_count()
     if number_of_jobs > total_cpus_available:
-        raise ValueError(f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -1: ' \
-                        f'{total_cpus_available}, please provide a lower value for -j')
+        logging.info(f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -1: ' \
+                        f'{total_cpus_available -1} will be used instead.')
+        number_of_jobs = total_cpus_available -1
     
-    # Print start time
+    # Set start_time and setup logger
     start_time = dt.datetime.now()
-    dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f'==========================================================================')
-    print (f"\n write_parquet_from_calib_pts.py")
-    print(f"\n \t Started: {dt_string} \n")
+    __setup_logger()
     
     create_parquet_directory(output_dir)
     
-    print(f'Loading .gpkg files into GeoDataFrame....')
+    logging.info(f'Loading .gpkg files into GeoDataFrames....')
     huc_polygons_df  = load_WBD_gpkg_into_GDF(wbd_layer)
     fim_obs_point_df = load_fim_obs_points_into_GDF(points_data_file_name)
     
@@ -122,8 +137,8 @@ def create_parquet_files(points_data_file_name,
     # Print timing
     load_gdf_end_time = dt.datetime.now()
     load_duration = load_gdf_end_time - start_time
-    print(f"Finished loading input .gpkg files into GeoDataFrames.\n",
-            f"\t TIME: {str(load_duration).split('.')[0]} \n")
+    logging.info("Finished loading input .gpkg files into GeoDataFrames.")
+    print(f"\t TIME: {str(load_duration).split('.')[0]} ")
     
     # Only use provided HUCs
     if huc_list is not None:
@@ -142,37 +157,42 @@ def create_parquet_files(points_data_file_name,
         # Slice off the .parquet file format to get just the HUC number of all files with the .parquet extension
         hucs_to_parquet_list = [i[:-8] for i in current_hucs_in_output_dir if i.endswith('.parquet')]
     
+    logging.info(f"Submitting {len(hucs_to_parquet_list)} HUCS.")
+        
     # Build arguments (procs_list) for each process (create_single_huc_gdf_and_write_parquet_file)
     procs_list = []
     for huc in hucs_to_parquet_list:
         procs_list.append([huc, output_dir, huc_polygons_df, fim_obs_point_df])
     
     # Parallelize each huc in hucs_to_parquet_list
-    print(f'Parallelizing HUC level GeoDataFrame creation and .parquet file writes')
+    logging.info(f'Parallelizing HUC level GeoDataFrame creation and .parquet file writes')
     with Pool(processes=number_of_jobs) as pool:
-            pool.map(create_single_huc_gdf_and_write_parquet_file, procs_list)
+                pool.map(create_single_huc_gdf_and_write_parquet_file, procs_list)
     
     # Get time metrics
     end_time = dt.datetime.now()
     dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print (f"\n Ended: {dt_string} \n")
+    logging.info(f"\n Ended: {dt_string} \n")
 
     # Calculate duration
     time_duration = end_time - start_time
-    print(f'==========================================================================')
-    print(f"\t Completed writing all .parquet files \n" \
+    logging.info(f'==========================================================================')
+    logging.info(f"\t Completed writing all .parquet files \n" \
         f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
-    print(f'==========================================================================')
+    logging.info(f'==========================================================================')
 
 
 if __name__ == '__main__':
     '''
-    Sample Usage:  python3 /foss_fim/data/write_parquet_from_calib_pts.py                                       \
-                        -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg \
-                        -wbd /data/inputs/wbd/WBD_National.gpkg                                                 \
-                        -o /data/inputs/rating_curve/water_edge_database/calibration_points                     \
-                        -j 6                                                                                    \
-                        -u "12040103,04100003"                            **OR**                                \
+    Sample Usage:   python3 /foss_fim/data/write_parquet_from_calib_pts.py                                       \
+                        -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg  \
+                        -j 6                                                                                     \
+                        -o /data/inputs/rating_curve/water_edge_database/calibration_points                      \
+                        -wbd /data/inputs/wbd/WBD_National.gpkg                                                  \
+                        -u "12040103,04100003"
+                        
+                    python3 /foss_fim/data/write_parquet_from_calib_pts.py                                       \
+                        -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg  \
                         -a
     '''
 
@@ -180,13 +200,15 @@ if __name__ == '__main__':
     
     parser.add_argument('-p','--points_data_file_name', help='REQUIRED: Complete relative filepath of a .gpkg file with fim calibration points.', 
                         type=str, required=True)
+    
+    parser.add_argument('-o', '--output_dir', help='REQUIRED: path to send .parquet file/files ', type=str, required=False, default=input_calib_points_dir)
+        
+    parser.add_argument('-j','--number_of_jobs', help='OPTIONAL: number of cores/processes (default=4). This is a memory intensive' \
+                        'script, and the multiprocessing will crash if too many cpus are used. It is recommended to provide half the amount of available cores.',
+                        type=int, required=False, default=4)
 
     parser.add_argument('-wbd','--wbd_layer', help='REQUIRED: A directory of where a .gpkg file exists, containing HUC boundary polygons', 
                         type=str, required=False, default=input_WBD_gdb)
-    
-    parser.add_argument('-o', '--output_dir', help='REQUIRED: path to send .parquet file/files ', type=str, required=True, default=input_calib_points_dir)
-        
-    parser.add_argument('-j','--number_of_jobs', help='OPTIONAL: number of cores/processes (default=6)', type=int, required=False, default=6)
     
     parser.add_argument('-u','--huc_list', help='OPTIONAL: HUC list - String with comma seperated HUC numbers. *DO NOT include spaces*. Provide certain HUCs if' \
                         'points were added/updated only within a few known HUCs.', type=str, required=False, default=None)
