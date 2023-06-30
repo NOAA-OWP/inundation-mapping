@@ -7,6 +7,7 @@ import geopandas as gpd
 import argparse
 import logging
 
+from pathlib import Path
 from dotenv import load_dotenv
 from multiprocessing import Pool
 
@@ -99,7 +100,7 @@ def create_single_huc_gdf_and_write_parquet_file(args):
 
 def create_parquet_directory(output_dir):
     if os.path.isdir(output_dir) == False:
-        os.mkdir(output_dir)
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
         logging.info(f"Created directory: {output_dir}, .parquet files will be located there.")
     elif os.path.isdir(output_dir) == True:
         logging.info(f"Output Direcrtory: {output_dir} exists, .parquet files will be located there.")
