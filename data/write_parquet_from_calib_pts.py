@@ -29,25 +29,30 @@ DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 input_WBD_gdb              = os.getenv('input_WBD_gdb')
 input_calib_points_dir     = os.getenv('input_calib_points_dir')
 
-def __setup_logger():
+def __setup_logger(output_dir):
     # Set logging to file and stderr
-    # The log file will include the date, so be mindful the logs when running this script multiple times on the same day 
+    # The log file will include the date, so be mindful the logs when running this script multiple times on the same day
     curr_date = dt.datetime.now().strftime("%m_%d_%Y")
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
-        handlers=[
-            logging.FileHandler(os.path.join(input_calib_points_dir,f"write_parquet_from_calib_pts_{curr_date}.log")),
-            logging.StreamHandler()
-        ]
-    )
-    
+
+    log_file_name = f"write_parquet_from_calib_pts_{curr_date}.log"
+
+    log_file_path = os.path.join(output_dir, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.INFO)
+
     # Print start time
     dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     logging.info(f'==========================================================================')
     logging.info(f"\n write_parquet_from_calib_pts.py")
     logging.info(f"\n \t Started: {dt_string} \n")
-    
+
 
 def load_WBD_gpkg_into_GDF(WBD_National_gpkg_file):
     huc_polygons_df = gpd.read_file(WBD_National_gpkg_file, layer='WBDHU8',
@@ -122,7 +127,7 @@ def create_parquet_files(points_data_file_name,
     
     # Set start_time and setup logger
     start_time = dt.datetime.now()
-    __setup_logger()
+    __setup_logger(output_dir)
     
     create_parquet_directory(output_dir)
     
