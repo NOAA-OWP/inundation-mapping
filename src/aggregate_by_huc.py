@@ -117,6 +117,20 @@ class HucDirectory(object):
                                     'Discharge (m3s-1)_subdiv':float}
         self.agg_src_cross = pd.DataFrame(columns=list(self.src_crosswalked_dtypes.keys()))
 
+        self.ras_dtypes = {'location_id':str,
+                            'nws_lid':str,
+                            'feature_id':int,
+                            'HydroID':int,
+                            'levpa_id':str,
+                            'dem_elevation':float,
+                            'dem_adj_elevation':float,
+                            'order_':str,
+                            'LakeID':object,
+                            'HUC8':str,
+                            'snap_distance':float}
+        self.agg_ras_elev_table = pd.DataFrame(columns=list(self.ras_dtypes.keys()))
+        
+
     def iter_branches(self):
 
         if self.limit_branches:
@@ -159,13 +173,24 @@ class HucDirectory(object):
         src_cross['branch_id'] = branch_id
         self.agg_src_cross = pd.concat([self.agg_src_cross, src_cross])
 
-    def agg_function(self, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id):
+    def ras_elev_table(self, branch_path):
+
+        ras_elev_filename = join(branch_path, 'ras_elev_table.csv')
+        if not os.path.isfile(ras_elev_filename):
+            return
+
+        ras_elev_table = pd.read_csv(ras_elev_filename, dtype=self.ras_dtypes)
+        self.agg_ras_elev_table = pd.concat([self.agg_ras_elev_table, ras_elev_table])
+
+    def agg_function(self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id):
         
         try:
             #try catch and its own log file output in error only.
             for branch_id, branch_path in self.iter_branches():
                 if usgs_elev_flag:
                     self.usgs_elev_table(branch_path)
+                if ras_elev_flag:
+                    self.ras_elev_table(branch_path)
 
                 ## Other aggregate funtions can go here
                 if hydro_table_flag:
@@ -198,6 +223,15 @@ class HucDirectory(object):
                 if not self.agg_src_cross.empty:
                     self.agg_src_cross.to_csv(src_crosswalk_file, index=False)
 
+            if ras_elev_flag:
+                print('yes')
+                ras_elev_table_file = join(self.huc_dir_path, 'ras_elev_table.csv')
+                if os.path.isfile(ras_elev_table_file):
+                    os.remove(ras_elev_table_file)
+
+                if not self.agg_ras_elev_table.empty:
+                    self.agg_ras_elev_table.to_csv(ras_elev_table_file, index=False)
+
             #print(f"agg_by_huc for huc id {huc_id} is done")
             
         except Exception:
@@ -207,19 +241,20 @@ class HucDirectory(object):
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(self.fim_directory, usgs_elev_flag,
-                        hydro_table_flag, src_cross_flag, huc_id, errMsg)
+                        hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg)
            
 
 
 # ==============================
 # This is done independantly in each worker and does not attempt to write to a shared file
 # as those can collide with multi proc
-def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id, errMsg):
+def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg):
     
     file_name = f"agg_by_huc_{huc_id}"
     if (usgs_elev_flag): file_name+= "_elev"
     if (hydro_table_flag): file_name+= "_hydro"
     if (src_cross_flag): file_name+= "_src_cross"
+    if (ras_elev_flag): file_name+= "_ras"
     file_name+= "_error.log"
     
     log_path = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
@@ -231,7 +266,7 @@ def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, h
 
 
 def aggregate_by_huc(fim_directory, fim_inputs, usgs_elev_flag,
-                     hydro_table_flag, src_cross_flag, num_job_workers):
+                     hydro_table_flag, src_cross_flag, ras_elev_flag, num_job_workers):
     
     assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
 
@@ -258,6 +293,7 @@ def aggregate_by_huc(fim_directory, fim_inputs, usgs_elev_flag,
         if (usgs_elev_flag): agg_type+= "_elev"
         if (hydro_table_flag): agg_type+= "_hydro"
         if (src_cross_flag): agg_type+= "_src_cross"
+        if (ras_elev_flag): agg_type+= "_ras"
         filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
         for f in filelist:
             os.remove(f)
@@ -288,6 +324,7 @@ def aggregate_by_huc(fim_directory, fim_inputs, usgs_elev_flag,
                     args_agg = { 'usgs_elev_flag': usgs_elev_flag,
                                  'hydro_table_flag': hydro_table_flag,
                                  'src_cross_flag': src_cross_flag,
+                                 'ras_elev_flag': ras_elev_flag,
                                  'huc_id': huc_id}       
 
                     future = executor.submit(huc_dir.agg_function, **args_agg)
@@ -309,6 +346,7 @@ def aggregate_by_huc(fim_directory, fim_inputs, usgs_elev_flag,
                     args_agg = { 'usgs_elev_flag': usgs_elev_flag,
                                 'hydro_table_flag': hydro_table_flag,
                                 'src_cross_flag': src_cross_flag,
+                                'ras_elev_flag': ras_elev_flag,
                                 'huc_id': huc_id}       
                     future = executor.submit(huc_dir.agg_function, **args_agg)
                     executor_dict[future] = huc_id
@@ -319,7 +357,7 @@ def aggregate_by_huc(fim_directory, fim_inputs, usgs_elev_flag,
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(fim_directory, usgs_elev_flag,
-                        hydro_table_flag, src_cross_flag, huc_id, errMsg)
+                        hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg)
             #sys.exit(1)
     
         # Send the executor to the progress bar and wait for all MS tasks to finish
@@ -351,6 +389,8 @@ if __name__ == '__main__':
     parser.add_argument('-htable','--hydro_table_flag', help='Perform aggregate on branch hydrotables',
                         required=False, default=False, action='store_true')
     parser.add_argument('-src','--src_cross_flag', help='Perform aggregate on branch src crosswalk files',
+                        required=False, default=False, action='store_true')
+    parser.add_argument('-ras','--ras_elev_flag', help='Perform aggregate on branch ras2fim elev tables',
                         required=False, default=False, action='store_true')
     parser.add_argument('-j','--num_job_workers', help='Number of processes to use',
                         required=False, default=1, type=int)

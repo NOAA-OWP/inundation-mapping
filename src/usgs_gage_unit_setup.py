@@ -8,6 +8,7 @@ import pandas as pd
 import argparse
 import warnings
 from utils.shared_functions import mem_profile
+from utils.shared_variables import PREP_CRS
 warnings.simplefilter("ignore")
 
 class Gage2Branch(object):
@@ -17,16 +18,34 @@ class Gage2Branch(object):
         self.usgs_gage_filename = usgs_gage_filename
         self.ras_locs_filename = ras_locs_filename
         self.ahps_filename = ahps_filename
-        self.huc8 = huc8
+        self.huc8 = str(huc8)
         self.load_gages()
 
     def load_gages(self):
 
-        # Read USGS gage file and RAS2FIM locations file
-        usgs_gages = gpd.read_file(self.usgs_gage_filename)
-        ras_locs = gpd.read_file(self.ras_locs_filename)
-        ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
-        gages_locs = pd.concat([usgs_gages, ras_locs[['feature_id', 'HUC8', 'location_type', 'source', 'wrds_timestamp', 'navd88_datum', 'elevation_navd88', 'geometry']]])
+        # Read USGS gage file a
+        usgs_gages = gpd.read_file(self.usgs_gage_filename,dtype={'location_id': object})
+        #usgs_gages['source'] = 'usgs_gage'
+
+        # Read RAS2FIM point locations file
+        # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64). 
+        # Need the raw data to store the 'huc8' attribute as an object to avoid issues with integers truncating the leading zero from some hucs
+        ras_locs = gpd.read_file(self.ras_locs_filename,dtype={'huc8': 'object'}) 
+        ras_locs = ras_locs[['feature_id', 'huc8', 'source', 'wrds_timestamp', 'navd88_datum', 'geometry']]
+        ras_locs['location_id'] =  ras_locs['feature_id']
+        #ras_locs.crs = usgs_gages.crs
+        ras_locs.to_crs(usgs_gages.crs, inplace=True)
+
+        if ras_locs.huc8.dtype == 'int64':
+            ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]
+            ras_locs['HUC8'] = str(self.huc8)
+            ras_locs = ras_locs.drop('huc8', axis=1)
+        elif ras_locs.huc8.dtype == 'int64':
+            ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
+
+        # Concat USGS points and RAS2FIM points
+        gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
+        #gages_locs.to_crs(PREP_CRS, inplace=True)
 
         # Filter USGS gages and RAS locations to huc
         self.gages = gages_locs[(gages_locs.HUC8 == self.huc8)]
@@ -38,6 +57,7 @@ class Gage2Branch(object):
             ahps_sites.rename(columns={'nwm_feature_id':'feature_id',
                                 'usgs_site_code':'location_id'}, inplace=True)
             ahps_sites = ahps_sites[ahps_sites.location_id.isna()] # Filter sites that are already in the USGS dataset
+            ahps_sites['source'] = 'ahps_site'
             self.gages = pd.concat([self.gages, ahps_sites[['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states','geometry']]])
 
         # Create gages attribute
