@@ -224,7 +224,6 @@ class HucDirectory(object):
                     self.agg_src_cross.to_csv(src_crosswalk_file, index=False)
 
             if ras_elev_flag:
-                print('yes')
                 ras_elev_table_file = join(self.huc_dir_path, 'ras_elev_table.csv')
                 if os.path.isfile(ras_elev_table_file):
                     os.remove(ras_elev_table_file)

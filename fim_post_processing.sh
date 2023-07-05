@@ -102,7 +102,7 @@ find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 echo "Processing usgs gage aggregation"   
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -j $jobLimit
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -ras -j $jobLimit
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then

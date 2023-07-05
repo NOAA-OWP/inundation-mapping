@@ -41,12 +41,17 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     start_time = dt.datetime.now()
     print('Reading RAS2FIM rating curves from csv...')
     log_text = 'Processing database for RAS2FIM flow/WSE at NWM flow recur intervals...\n'
-    col_filter = ["location_id", "flow", "stage", "elevation_navd88"]
-    ras_rc_df = pd.read_csv(ras_rc_filepath, dtype={'location_id': object}, usecols=col_filter)#, nrows=30000)
+    col_filter = ["feature_id", "flow", "stage", "navd88_datum", "elevation_navd88"]
+    ras_rc_df = pd.read_csv(ras_rc_filepath, dtype={'feature_id': object}, usecols=col_filter)#, nrows=30000)
+    ras_rc_df.rename(columns={'feature_id':'location_id'}, inplace=True)
+    #ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
     print('Duration (read ras_rc_csv): {}'.format(dt.datetime.now() - start_time))
     
     # convert WSE navd88 values to meters
-    ras_rc_df['elevation_navd88_m'] = ras_rc_df['elevation_navd88'] / 3.28084
+    #ras_rc_df.rename(columns={'elevation_navd88':'elevation_navd88_m'}, inplace=True) # ras2fim elevation data already in meters
+    ras_rc_df['elevation_navd88_m'] = ras_rc_df['navd88_datum'] + (ras_rc_df['stage'] * 0.3048)
+    ras_rc_df = ras_rc_df.drop(columns=["elevation_navd88","navd88_datum"])
+    #ras_rc_df['elevation_navd88_m'] = ras_rc_df['elevation_navd88'] / 3.28084
     
     # read in the aggregate RAS elev table csv
     start_time = dt.datetime.now()
@@ -106,7 +111,7 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
         calc_df['layer'] = '_ras2fim-gage____' + interval+"-year"
         calc_df.rename(columns={interval+"_0_year":'nwm_recur_flow_cms'}, inplace=True)
         # Subset calc_df for final output
-        calc_df = calc_df[['location_id','hydroid','feature_id','levpa_id','huc','hand','discharge_cms','check_variance','nwm_recur_flow_cms','nwm_recur','layer']]
+        calc_df = calc_df[['location_id','hydroid','feature_id','levpa_id','huc','hand','discharge_cms','check_variance','nwm_recur_flow_cms','nwm_recur','layer','source']]
         final_df = pd.concat([final_df, calc_df], ignore_index=True)
         # Log any negative HAND elev values and remove from database
         log_text += ('Warning: Negative HAND stage values -->\n')
@@ -116,13 +121,12 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
         log_text += ('Warning: Large variance (>10%) between NWM flow and closest RAS2FIM flow -->\n')
         log_text += (calc_df[calc_df['check_variance']>0.1].to_string() +'\n')
         final_df = final_df[final_df['check_variance']<0.1]
-        final_df.rename(columns={'source':'submitter'}, inplace=True)
         # Get datestamp from ras2fim rating curve file to use as coll_time attribute in hydroTable.csv
         datestamp = check_file_age(ras_rc_filepath)
         final_df['coll_time'] = str(datestamp)[:15]
 
     # Rename attributes (for ingest to update_rating_curve) and output csv with the RAS2FIM RC database
-    final_df.rename(columns={'discharge_cms':'flow'}, inplace=True)  
+    final_df.rename(columns={'discharge_cms':'flow','source':'submitter'}, inplace=True)  
     final_df.to_csv(os.path.join(log_dir,"ras2fim_rc_nwm_recurr.csv"),index=False)
 
     # Output log text to log file

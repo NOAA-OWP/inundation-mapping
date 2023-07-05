@@ -68,8 +68,12 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
     ## Determine calibration data type for naming calb dataframe column
     if source_tag == 'point_obs':
         calb_type = 'calb_coef_spatial'
-    if source_tag == 'usgs_rating':
+    elif source_tag == 'usgs_rating':
         calb_type = 'calb_coef_usgs'
+    elif source_tag == 'ras2fim_rating':
+        calb_type = 'calb_coef_ras2fim'
+    else:
+        log_text += "ERROR - unknown calibration data source type: " + str(source_tag) + '\n'
 
     ## Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
     df_htable = pd.read_csv(htable_path, dtype={'HUC': object, 'last_updated':object, 'submitter':object, 'obs_source':object})
