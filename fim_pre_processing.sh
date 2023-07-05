@@ -15,9 +15,9 @@ usage ()
     echo '          -isaws ]'
     echo ''
     echo 'REQUIRED:'
-    echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
+    echo '  -u/--hucList    : HUC8s to run; more than one HUC8 should be passed in quotes (space delimited).'
     echo '                    A line delimited file, with a .lst extension, is also acceptable.'
-    echo '                    HUCs must present in inputs directory.'
+    echo '                    HUC8s must present in inputs directory.'
     echo '  -n/--runName    : A name to tag the output directories and log files.'
     echo 
     echo 'OPTIONS:'

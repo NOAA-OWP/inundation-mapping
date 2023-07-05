@@ -16,7 +16,7 @@ from multiprocessing import Pool
 #    Overview:                                                                                       #
 #      Read two .gpkg files into two separate GeoDataFrames                                          #
 #      Create a new GeoDataFrame per HUC8 with all associated calibration point data                 #
-#      Write each new GeoDataFrame with HUC id and calibration points to a Parquet/GeoParquet file   #
+#      Write each new GeoDataFrame with HUC id and calibration points to a .parquet file             #
 #    Usage:                                                                                          #
 #      This script must be run in a Docker container with the correct volume mount to the /data      #
 #      directory containing the default input files, and optionally, the output path.                #
@@ -31,6 +31,7 @@ input_calib_points_dir     = os.getenv('input_calib_points_dir')
 
 def __setup_logger(output_dir):
     # Set logging to file and stderr
+    
     # The log file will include the date, so be mindful the logs when running this script multiple times on the same day
     curr_date = dt.datetime.now().strftime("%m_%d_%Y")
 
@@ -55,6 +56,16 @@ def __setup_logger(output_dir):
 
 
 def load_WBD_gpkg_into_GDF(WBD_National_gpkg_file):
+    '''
+    The function reads .gpkg file and returns a GeoDataFrame containing HUC boundaries.
+
+    Inputs
+    - WBD_National_gpkg_file:          .gpkg file containing HUC8 boundary polygons
+
+    Outputs
+    - huc_polygons_df:                 GeoDataFrame
+    '''
+    
     huc_polygons_df = gpd.read_file(WBD_National_gpkg_file, layer='WBDHU8',
                                     ignore_fields=['tnmid', 'metasourceid', 'sourcedatadesc', 'sourceoriginator',
                                                     'sourcefeatureid', 'loaddate', 'referencegnis_ids', 'areaacres',
@@ -65,6 +76,16 @@ def load_WBD_gpkg_into_GDF(WBD_National_gpkg_file):
 
 
 def load_fim_obs_points_into_GDF(fim_obs_points_data_file):
+    '''
+    The function reads .gpkg file and returns a GeoDataFrame containing calibration points.
+
+    Inputs
+    - fim_obs_points_data_file:        .gpkg file containing calibration points
+
+    Outputs
+    - fim_obs_point_df:                GeoDataFrame 
+    '''
+    
     fim_obs_point_df = gpd.read_file(fim_obs_points_data_file, layer='usgs_nws_benchmark_points',
                                      ignore_fields=['Join_Count', 'TARGET_FID', 'DN', 'ORIG_FID',
                                                     'ID', 'AreaSqKM', 'Shape_Leng', 'Shape_Area'] )
@@ -73,14 +94,35 @@ def load_fim_obs_points_into_GDF(fim_obs_points_data_file):
 
 
 def create_single_huc_gdf_and_write_parquet_file(args):
+    '''
+    The function writes a .parquet file for the 'huc' argument provided.
+
+    Inputs
+    - huc:                  HUC8 to write a parquet file (<HUC8>.parquet)
+    - output_dir:           Directory in which to write the file.
+    - wbd_GDF:              GeoDataFrame containing watershed (HUC8) boundaries.
+    - pnt_GDF:              GeoDataFrame containing points.
+
+    Processing
+    - Find the HUC8 polygon from the wbd_GDF containing all HUC8 boundary polygons.
+    - Create a new GeoDataFrame with all of the calibration points contained within a HUC8 boundary.
+    - Drop index_right created by join and set the CRS projection as set in src/bash_variables.env.
+    - Write the new GeoDataFrame containing all of the points and a new HUC8 column to a .parquet file.
+
+    Outputs
+    - none:                 While this function doesn't 'return' any output, it does write a new file.
+    '''
+    
     # We have to explicitly unpack the args from pool.map()
     huc        = args[0]
     output_dir = args[1]
     wbd_GDF    = args[2]
     pnt_GDF    = args[3]
     
+    # Get the row within the wbd_GDF containing the watershed boundary polygon
     one_huc = wbd_GDF.loc[wbd_GDF['HUC8'] == huc]
 
+    # Create a new GeoDataFrame with an inner spatial join of all points with a HUC8 boundary.
     huc_with_points_gdf = pnt_GDF.sjoin(one_huc, how='inner', predicate='within')
     
     # If there are no calibration points within the HUC boundary, skip current HUC
@@ -104,6 +146,16 @@ def create_single_huc_gdf_and_write_parquet_file(args):
 
 
 def create_parquet_directory(output_dir):
+    '''
+    The function creates an output directory to write the .parquet files if the filepath provided as an argument doesn't exist.
+
+    Inputs
+    - output_dir:               Filepath to create a directory.
+
+    Outputs
+    - none:                     While no return value, a new directory is created if it does not exist.
+    '''
+    
     if os.path.isdir(output_dir) == False:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         logging.info(f"Created directory: {output_dir}, .parquet files will be located there.")
@@ -117,6 +169,30 @@ def create_parquet_files(points_data_file_name,
                             wbd_layer=input_WBD_gdb,
                             huc_list=None,
                             all_hucs=False):
+    '''
+    The function is the main driver of the program to iterate and parallelize writing HUC8.parquet files.
+
+    Inputs
+    - points_data_file_name:            Filepath to a .gpkg file containing calibration points.
+    - number_of_jobs:                   Amount of cpus used for parallelization.
+    - output_dir:                       Directory to write .parquet files.
+    - wbd_layer:                        Filepath to a .gpkg containing HUC8 boundary polygons.
+    - huc_list:                         Optional: list of hucs to write .parquet files based on points.
+    - all_hucs:                         Optional: use all HUC8s located wbd_layer argument.
+
+    Processing
+    - Validate number_of_jobs based on cpus availabe on current system.
+    - Set up logging.
+    - Create output directory.
+    - Decipher what HUCs to use for the hucs_to_parquet_list based on provided arguments.
+    - Build arguments via procs_list to each parallel call to create_single_huc_gdf_and_write_parquet_file.
+    - Parallelize the processing of GeoDataFrame creation and .parquet writing of the hucs_to_parquet_list 
+        using multiprocessing.Pool.
+
+    Outputs
+    - parquet files:       
+    - log file
+    '''
     
     # Validation
     total_cpus_available = os.cpu_count()
