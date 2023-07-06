@@ -283,22 +283,22 @@ if __name__ == '__main__':
     parser.add_argument('-p','--points_data_file_name', help='REQUIRED: Complete relative filepath of a .gpkg file with fim calibration points.', 
         type=str, required=True)
     
-    parser.add_argument('-o', '--output_dir', help='REQUIRED: path to send .parquet file/files ',
-        type=str, required=False, default=input_calib_points_dir)
+    parser.add_argument('-o', '--output_dir', help=f'OPTIONAL: path to send .parquet file/files. Default location specifed as the "input_calib_points_dir" ' \
+        'variable in src/bash_variables.env', type=str, required=False, default=input_calib_points_dir)
         
-    parser.add_argument('-j','--number_of_jobs', help='OPTIONAL: number of cores/processes (default=4). This is a memory intensive' \
-        'script, and the multiprocessing will crash if too many cpus are used. It is recommended to provide half the amount' \
-        'of available cores.', type=int, required=False, default=4)
+    parser.add_argument('-j','--number_of_jobs', help='OPTIONAL: number of cores/processes (default=4). This is a memory intensive '                         \
+        'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide half the amount'                                 \
+        'of available CPUs.', type=int, required=False, default=4)
 
-    parser.add_argument('-wbd','--wbd_layer', help='REQUIRED: A directory of where a .gpkg file exists, containing HUC boundary polygons', 
-        type=str, required=False, default=input_WBD_gdb)
+    parser.add_argument('-wbd','--wbd_layer', help='OPTIONAL: A directory of where a .gpkg file exists, containing HUC boundary polygons. '                  \
+        'Default filepath is specified as the "input_WBD_gdb" variable in src/bash_variables.env', type=str, required=False, default=input_WBD_gdb)
     
-    parser.add_argument('-u','--huc_list', help='OPTIONAL: HUC list - String with comma seperated HUC numbers. *DO NOT include spaces*.' \
+    parser.add_argument('-u','--huc_list', help='OPTIONAL: HUC list - String with comma seperated HUC numbers. *DO NOT include spaces*.'                     \
         'Provide certain HUCs if points were added/updated only within a few known HUCs.', type=str, required=False, default=None)
     
-    parser.add_argument('-a', '--all_hucs', help='OPTIONAL: Provide -a flag if new calibration points were added to many HUCs which currently' \
-        'do not have .parquet files.  All HUC polygons in the provided <wbd_layer file> will be checked for calibration points in the ' \
-        '<points_data_file_name>. If not provided, either the HUCs in the huc_list argument or the current HUCs with files in <output_dir>' \
+    parser.add_argument('-a', '--all_hucs', help='OPTIONAL: Provide the -a flag if new calibration points were added to many HUCs which currently'           \
+        'do not have .parquet files.  All HUC polygons in the file provided to -wbd argument will be checked for calibration points contained in '           \
+        '<points_data_file_name>. If not provided, either the HUCs in the huc_list argument (-u) or the current HUCs with files in <output_dir>'             \
         'will be used.', required=False, action='store_true')
     
     args = vars(parser.parse_args())
