@@ -66,7 +66,7 @@ def process_points(args):
     ## Define coords variable to be used in point raster value attribution.
     coords = [(x,y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
 
-    water_edge_df = water_edge_df.set_crs(DEFAULT_FIM_PROJECTION_CRS, allow_override=True)
+    water_edge_df = water_edge_df.to_crs(DEFAULT_FIM_PROJECTION_CRS)
     
     ## Use point geometry to determine HAND raster pixel values.
     with rasterio.open(hand_path) as hand_src, rasterio.open(catchments_path) as catchments_src:
@@ -240,7 +240,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
             huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
             # write parquet file using ".to_parquet() method" 
-            parquet_filepath = os.path.join(fim_directory, huc, 'debug_waters_edge_df_' + huc + '.parquet')
+            parquet_filepath = os.path.join(fim_directory, huc, 'debug_water_edge_df_' + huc + '.parquet')
             water_edge_df.to_parquet(parquet_filepath, index=False)
         
         for branch_id in os.listdir(huc_branches_dir):
