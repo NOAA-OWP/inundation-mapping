@@ -94,14 +94,13 @@ The S3 inputs directory has all of the folders and files you need to run FIM. It
 
 ### Configuration
 
-There are two ways, which can be used together, to configure the system and/or data processing. Some configuration is based on input arguments when running `fim_pipeline.sh` described below in the "Produce HAND Hydrofabric" section. Another configuration option is based on using a file named `params_template.env`, found in the `config` directory. To use this latter technique, copy the `params_template.env` file before editing and remove the word "template" from the filename. The `params.env` file includes, among other options, a calibrated parameters set of Manning’s n values. The new `params.env` becomes one of the arguments submitted when running `fim_pipeline.sh`.
+There are two ways, which can be used together, to configure the system and/or data processing. Some configuration is based on input arguments when running `fim_pipeline.sh` described below in the "Produce HAND Hydrofabric" section. Another configuration option is based on using a file named `params_template.env`, found in the `config` directory. To use this latter technique, copy the `params_template.env` file before editing and remove the word "template" from the filename. The `params_template.env` file includes, among other options, a calibrated parameters set of Manning’s n values. The new `params.env` becomes one of the arguments submitted when running `fim_pipeline.sh`.
 
 Make sure to set the config folder group to `fim` recursively using the chown command.
 
-This system has an optional tool called the `calibration database tool`. In order to use this system, you have three options:  
-1.  Install the calibration database service, found in the [calibration tools README.md](https://github.com/NOAA-OWP/inundation-mapping/tree/dev/tools/calibration-db).
-2.  Disable it by providing the `-skipcal` command line option to `fim_pipeline.sh` or `fim_preprocessing.sh`.
-3.  Disable it in the `params.env` file. See [calibration tool README](https://github.com/NOAA-OWP/inundation-mapping/blob/dev/tools/calibration-db/README.md) for more details.
+This application has an default optional tool called the `calibration points tool`. In order to disable its' use, you can:  
+1.  Disable it by providing the `-skipcal` command line option to `fim_pipeline.sh` or `fim_pre_processing.sh`.
+2.  Disable it in the [`params_template.env`](/config/params_template.env) file by setting `src_adjust_spatial="FALSE"`.
 
 ### Start/run the Docker Container
 
@@ -208,7 +207,7 @@ If you are on a machine that has a particularly slow internet connection, you ma
 ----
 ## Citing This Work
 
-Please cite this work in your research and projects according to the `CITATION.cff` file found in the root of this repository.
+Please cite this work in your research and projects according to the [`CITATION.cff`](/CITATION.cff) file.
 
 ----
 ### Known Issues & Getting Help
