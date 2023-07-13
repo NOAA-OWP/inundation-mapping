@@ -46,7 +46,7 @@ usage ()
     echo '                    use the word NONE as this value for this parameter.'    
     echo '  -jh/--jobLimit   : Max number of concurrent HUC jobs to run. Default 1 job at time.'
     echo '  -jb/--jobBranchLimit : Max number of concurrent Branch jobs to run. Default 1 job at time.' 
-    echo '                         NOTE: Make sure that the multiplication of jh and jb subtract 2 (jh x jb -2) does not'
+    echo '                         NOTE: Make sure that the multiplication of jh and jb plus 2 (jh x jb + 2) does not'
     echo '                         exceed the total number of cores available.'
     echo '  -o               : Overwrite outputs if already exist'
     echo '  -skipcal         : If this param is included, updating the S.R.C. via the calibration points will be skipped'    
