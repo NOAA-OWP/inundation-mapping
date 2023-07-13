@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.x.x - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
+
+ras2fim product had a need to run the acquire 3dep script to pull down some HUC8 DEMs. The old script was geared to HUC6 but could handle HUC8's but needed a few enhancements. ras2fim also did not need polys made from the DEMs, so  switch was added for that.
+
+Also, the earlier version on the "retry" feature would check the file size and if it was smaller than a particular size, it would attempt to reload it.  The size test has now been removed. If a file fails to download, the user will need to look at the log out, then remove the file before attempting again. Why? So the user can see why it failed and decide action from there.
+
+Note: later, as needed, we might upgrade it to handle more than just 10m (which it is hardcoded against).
+
+### Changes  
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`:  As described above.
+ - `fim_pipeline.sh`:  a minor styling fix (added a couple of lines for readability)
+ - `fim_pre_processing.sh`: a user message was incorrect. 
+
+<br/><br/>
+
+
 ## v4.3.12.0 - 2023-07-05 - [PR#940](https://github.com/NOAA-OWP/inundation-mapping/pull/940)
 
 Refactor Point Calibration Database for synthetic rating curve adjustment to use `.parquet` files instead of a PostgreSQL database. 
