@@ -238,6 +238,33 @@ def add_crosswalk(input_catchments_fileName,
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
+##############################################################################
+    ## Missing bathy test
+    print(sys.argv[1:])
+    missing_bathy_df = pd.DataFrame.from_dict(
+        {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269],
+         'missing_xs_area':[1448.25, 2155.88, 1057.73, 1569.73, 2262.68, 1292.2, 1180.27],
+         'missing_wet_perimeter':[0.59, 1.54, 1.31, 1.23, 1.44, 0.68, 0.73]})
+    output_src = output_src.merge(missing_bathy_df, on='feature_id', how='left')
+    output_src['Volume (m3)'] = output_src['Volume (m3)'] + (output_src['missing_xs_area'] * (output_src['LENGTHKM'] * 1000))
+    output_src['BedArea (m2)'] = output_src['BedArea (m2)'] + (output_src['missing_wet_perimeter'] * (output_src['LENGTHKM'] * 1000))
+    ## Recalc discharge with adjusted geometries
+    output_src['WettedPerimeter (m)'] = output_src['WettedPerimeter (m)'] + output_src['missing_wet_perimeter']
+    output_src['WetArea (m2)'] = output_src['WetArea (m2)'] + output_src['missing_xs_area']
+    output_src['HydraulicRadius (m)'] = output_src['WetArea (m2)']/output_src['WettedPerimeter (m)']
+    output_src['HydraulicRadius (m)'].fillna(0, inplace=True)
+    output_src['Discharge (m3s-1)'] = output_src['WetArea (m2)']* \
+        pow(output_src['HydraulicRadius (m)'],2.0/3)* \
+        pow(output_src['SLOPE'],0.5)/output_src['ManningN']
+    output_src.loc[output_src['Stage']==0,['Discharge (m3s-1)']] = 0
+
+
+    # processing.run("qgis:rastercalculator", 
+    # {'EXPRESSION':'1 / cos("pittsburgh_bathy_depth_5070_meters_slope@1" * 3.14159 / 180) - 1',
+    # 'LAYERS':['/home/rdp-user/Documents/pittsburgh/pittsburgh_bathy_depth_5070_meters_slope.tif'],
+    # 'CELLSIZE':0,'EXTENT':None,'CRS':None,'OUTPUT':'/home/rdp-user/Documents/pittsburgh/pittsburgh_bathy_missing_wetarea.tif'})
+##############################################################################
+ 
     ## bathy estimation integration in synthetic rating curve calculations
     #if (bathy_src_calc == True and extent == 'MS'):
     #    output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
