@@ -270,7 +270,7 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputsDir/usgs_gages/usgs_gages.gpkg -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -ras $inputsDir/rating_curve/ras2fim_exports/rating_curves_12090301_063023/reformat_ras_rating_curve_points.gpkg -o $tempHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputsDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id 
+    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputsDir/usgs_gages/usgs_gages.gpkg -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -ras $inputsDir/rating_curve/ras2fim_exports/reformat_ras_rating_curve_points.gpkg -o $tempHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputsDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id 
     Tcount
 fi
 

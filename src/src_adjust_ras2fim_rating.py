@@ -41,17 +41,16 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     start_time = dt.datetime.now()
     print('Reading RAS2FIM rating curves from csv...')
     log_text = 'Processing database for RAS2FIM flow/WSE at NWM flow recur intervals...\n'
-    col_filter = ["feature_id", "flow", "stage", "navd88_datum", "elevation_navd88"]
+    col_filter = ["feature_id", "flow", "stage", "elevation_navd88"]
     ras_rc_df = pd.read_csv(ras_rc_filepath, dtype={'feature_id': object}, usecols=col_filter)#, nrows=30000)
     ras_rc_df.rename(columns={'feature_id':'location_id'}, inplace=True)
     #ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
     print('Duration (read ras_rc_csv): {}'.format(dt.datetime.now() - start_time))
     
     # convert WSE navd88 values to meters
-    #ras_rc_df.rename(columns={'elevation_navd88':'elevation_navd88_m'}, inplace=True) # ras2fim elevation data already in meters
-    ras_rc_df['elevation_navd88_m'] = ras_rc_df['navd88_datum'] + (ras_rc_df['stage'] * 0.3048)
-    ras_rc_df = ras_rc_df.drop(columns=["elevation_navd88","navd88_datum"])
-    #ras_rc_df['elevation_navd88_m'] = ras_rc_df['elevation_navd88'] / 3.28084
+    ras_rc_df.rename(columns={'elevation_navd88':'elevation_navd88_ft'}, inplace=True) # assume ras2fim elevation data in feet
+    ras_rc_df['elevation_navd88_m'] = ras_rc_df['elevation_navd88_ft'] * 0.3048
+    ras_rc_df = ras_rc_df.drop(columns=["elevation_navd88_ft"])
     
     # read in the aggregate RAS elev table csv
     start_time = dt.datetime.now()

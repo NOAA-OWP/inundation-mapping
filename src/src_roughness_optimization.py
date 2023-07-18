@@ -58,8 +58,8 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
     - output_src_json:      src.json file with new SRC discharge values
 
     '''
-    #print("Processing huc --> " + str(huc))
-    log_text = "\nProcessing huc --> " + str(huc) + '  branch id: ' + str(branch_id) + '\n'
+    print("Processing " + str(source_tag) + " calibration for huc --> " + str(huc) + '  branch id: ' + str(branch_id))
+    log_text = "\nProcessing " + str(source_tag) + " calibration for huc --> " + str(huc) + '  branch id: ' + str(branch_id) + '\n'
     log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
@@ -97,7 +97,7 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
         df_prev_adj_htable.rename(columns={'submitter':'submitter_prev','last_updated':'last_updated_prev','calb_coef_final':'calb_coef_final_prev','obs_source':'obs_source_prev'}, inplace=True)
         df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
         # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
-        df_prev_adj = df_prev_adj_htable[df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating", na=False)] 
+        df_prev_adj = df_prev_adj_htable[df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating|ras2fim_rating", na=False)] 
         log_text += 'HUC: ' + str(huc) + '  Branch: ' + str(branch_id) + ': found previous hydroTable calibration attributes --> retaining previous calb attributes for blending...\n'
     
     # Delete previous adj columns to prevent duplicate variable issues (if src_roughness_optimization.py was previously applied)
@@ -244,9 +244,9 @@ def update_rating_curve(fim_directory, water_edge_median_df, htable_path, huc, b
                     input_catchments = gpd.read_file(catchments_poly_path)
                     ## Create new "src_calibrated" column for viz query
                     if 'src_calibrated' in input_catchments.columns: # check if this attribute already exists and drop if needed
-                        input_catchments.drop(['src_calibrated'], axis=1, inplace=True, errors='ignore')
+                        input_catchments.drop(['src_calibrated','obs_source','calb_coef_final'], axis=1, inplace=True, errors='ignore')
                     df_nmerge['src_calibrated'] = np.where(df_nmerge['calb_coef_final'].notnull(), 'True', 'False')
-                    output_catchments = input_catchments.merge(df_nmerge[['HydroID','src_calibrated']], how='left', on='HydroID')
+                    output_catchments = input_catchments.merge(df_nmerge[['HydroID','src_calibrated','obs_source','calb_coef_final']], how='left', on='HydroID')
                     output_catchments['src_calibrated'].fillna('False', inplace=True)
                     output_catchments.to_file(catchments_poly_path,driver="GPKG",index=False) # overwrite the previous layer
                     df_nmerge.drop(['src_calibrated'], axis=1, inplace=True, errors='ignore')
