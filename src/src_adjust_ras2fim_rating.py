@@ -54,8 +54,8 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     
     # read in the aggregate RAS elev table csv
     start_time = dt.datetime.now()
-    cross_df = ras_elev_df[["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation", "source"]].copy()
-    cross_df.rename(columns={'dem_adj_elevation':'hand_datum', 'HydroID':'hydroid', 'HUC8':'huc'}, inplace=True)
+    cross_df = ras_elev_df[["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_elevation", "source"]].copy()
+    cross_df.rename(columns={'dem_elevation':'hand_datum', 'HydroID':'hydroid', 'HUC8':'huc'}, inplace=True)
     
     # filter null location_id rows from cross_df 
     cross_df = cross_df[cross_df.location_id.notnull()]

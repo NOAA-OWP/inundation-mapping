@@ -110,7 +110,7 @@ if [ "$src_bankfull_toggle" = "True" ]; then
 fi
 
 ## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
-if [ "$src_subdiv_toggle" = "True" ]; then
+if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC channel/overbank subdivision routine"
     # Run SRC Subdivision & Variable Roughness routine
     Tstart

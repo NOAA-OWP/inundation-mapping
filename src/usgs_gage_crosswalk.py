@@ -102,7 +102,7 @@ class GageCrosswalk(object):
         elev_table = elev_table[elev_table['location_id'].notna()]
 
         ras_elev_table = elev_table[elev_table['source'] == 'RAS2FIM']
-        ras_elev_table = ras_elev_table[["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation","source"]]
+        ras_elev_table = ras_elev_table[["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_elevation", "dem_adj_elevation","source"]]
         if not ras_elev_table.empty:
             ras_elev_table.to_csv(join(output_directory, 'ras_elev_table.csv'), index=False)
 
