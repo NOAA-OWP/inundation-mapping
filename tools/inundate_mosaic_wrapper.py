@@ -17,7 +17,7 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
                                  log_file, output_fileNames, num_workers, keep_intermediate, verbose):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps. Possible outputs include inundation rasters
-    encoded by hydroid (negative hydroid for dry and positive hydroid for wet), polygons depicting extent, and depth rasters. The
+    encoded by HydroID (negative HydroID for dry and positive HydroID for wet), polygons depicting extent, and depth rasters. The
     function requires a flow file organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be
     present in the flow file.
     
@@ -25,7 +25,7 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
         hydrofabric_dir (str): Directory path to hydrofabric directory where FIM outputs were written by fim_pipeline.
         huc (str): The HUC for which to produce mosaicked inundation files.
         flow_file (str): Directory path to flow file to be used for inundation. feature_ids in flow_file should be present in supplied HUC.
-        inundation_raster (str): Full path to output inundation raster (encoded by positive and negative hydroids). Optional.
+        inundation_raster (str): Full path to output inundation raster (encoded by positive and negative HydroIDs). Optional.
         inuntation_polygon (str): Full path to output inundation polygon. Optional.
         depths_raster (str): Full path to output depths_raster. Pixel values will be in meters. Optional.
         log_file (str): Full path to log file to write logs to. Optional. Not tested.
@@ -94,24 +94,29 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
     print("Mosaicking complete.")
     
     if inundation_polygon != None:
-        print("Producing merged polygon...")
-        # Open depth_grid using rasterio.
-        inundation_raster_src = rasterio.open(inundation_raster)
-        inundation_array = inundation_raster_src.read(1)
-
-        # Use numpy.where operation to reclassify depth_array on the condition that the pixel values are > 0.
-        reclass_inundation_array = np.where((inundation_array>0) & (inundation_array != inundation_raster_src.nodata), 1, 0).astype('uint8')
-
-        # Aggregate shapes
-        results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(reclass_inundation_array, mask=reclass_inundation_array>0)))
-
-        # Convert list of shapes to polygon, then dissolve
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=inundation_raster_src.crs)
-        extent_poly_diss = extent_poly.dissolve(by='extent')
-        extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
         
-        # Write polygon
-        extent_poly_diss.to_file(inundation_polygon, driver='GPKG')
+        with rasterio.open(inundation_raster) as src:
+            # Open inundation_raster using rasterio.
+            image = src.read(1)
+            mask = image > 0
+            print("Producing merged polygon...")
+        
+            # Use numpy.where operation to reclassify depth_array on the condition that the pixel values are > 0.
+            reclass_inundation_array = np.where((image>0) & (image != src.nodata), 1, 0).astype('uint8')
+    
+    
+            results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
+
+            # Aggregate shapes
+            results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(reclass_inundation_array, mask=reclass_inundation_array>0,transform=src.transform)))
+    
+            # Convert list of shapes to polygon, then dissolve
+            extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
+            extent_poly_diss = extent_poly.dissolve(by='extent')
+            extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
+            
+            # Write polygon
+            extent_poly_diss.to_file(inundation_polygon, driver='GPKG')
     
     
 if __name__ == '__main__':
@@ -135,4 +140,4 @@ if __name__ == '__main__':
     # Extract to dictionary and run
     produce_mosaicked_inundation( **vars(parser.parse_args()) )
 
-    print(f'Script finished in {round(timer() - start, 2)} seconds.')
+    print(f'Completed in {round(timer() - start, 2)/60} minutes.')
