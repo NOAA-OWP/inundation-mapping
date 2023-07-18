@@ -212,7 +212,7 @@ def add_crosswalk(input_catchments_fileName,
     # set nans to 0
     input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
 
-    output_src = input_src_base.drop(columns=['CatchId'])
+    output_src = input_src_base.drop(columns=['CatchId']).copy()
     if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
 
     # update rating curves
@@ -245,7 +245,10 @@ def add_crosswalk(input_catchments_fileName,
         {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269],
          'missing_xs_area':[1448.25, 2155.88, 1057.73, 1569.73, 2262.68, 1292.2, 1180.27],
          'missing_wet_perimeter':[0.59, 1.54, 1.31, 1.23, 1.44, 0.68, 0.73]})
+    ## Merge in missing bathy data and fill Nans
     output_src = output_src.merge(missing_bathy_df, on='feature_id', how='left')
+    output_src['missing_xs_area'] = output_src['missing_xs_area'].fillna(0.0)
+    output_src['missing_wet_perimeter'] = output_src['missing_wet_perimeter'].fillna(0.0)
     output_src['Volume (m3)'] = output_src['Volume (m3)'] + (output_src['missing_xs_area'] * (output_src['LENGTHKM'] * 1000))
     output_src['BedArea (m2)'] = output_src['BedArea (m2)'] + (output_src['missing_wet_perimeter'] * (output_src['LENGTHKM'] * 1000))
     ## Recalc discharge with adjusted geometries
