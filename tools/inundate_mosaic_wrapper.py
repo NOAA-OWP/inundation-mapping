@@ -25,7 +25,7 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
         hydrofabric_dir (str): Directory path to hydrofabric directory where FIM outputs were written by fim_pipeline.
         huc (str): The HUC for which to produce mosaicked inundation files.
         flow_file (str): Directory path to flow file to be used for inundation. feature_ids in flow_file should be present in supplied HUC.
-        inundation_raster (str): Full path to output inundation raster (encoded by positive and negative HydroIDs). Optional.
+        inundation_raster (str): Full path to output inundation raster (encoded by positive and negative HydroIDs).
         inuntation_polygon (str): Full path to output inundation polygon. Optional.
         depths_raster (str): Full path to output depths_raster. Pixel values will be in meters. Optional.
         log_file (str): Full path to log file to write logs to. Optional. Not tested.
