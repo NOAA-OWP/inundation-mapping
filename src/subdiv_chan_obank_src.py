@@ -158,6 +158,7 @@ def subdiv_mannings_eq(df_src):
     ## Calcuate the total of the subdivided discharge (channel + overbank)
     df_src.drop(['Discharge (m3s-1)_subdiv'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
     df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
+    df_src['Discharge (m3s-1)_subdiv'].loc[df_src['Stage']==0,['Discharge (m3s-1)_subdiv']] = 0
     return(df_src)
 
 def generate_src_plot(df_src, plt_out_dir):
