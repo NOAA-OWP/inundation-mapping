@@ -159,7 +159,7 @@ echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters (*Overwr
 date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f $tempCurrentBranchDataDir/nld_subset_levees.tif ] && \
+[ -f $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif ] && \
 python3 -m memory_profiler $srcDir/burn_in_levees.py -dem $tempHucDataDir/dem_meters.tif -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif -out $tempHucDataDir/dem_meters.tif
 Tcount
 
@@ -318,6 +318,9 @@ fi
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration $branch_processing_start_time
 echo
+
+# WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
+echo "$hucNumber, $(Calc_Time $huc_start_time)" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"
