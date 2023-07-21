@@ -147,6 +147,14 @@ python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable -
 Tcount
 date -u
 
+## PERFORM MANUAL CALIBRATION
+Tstart
+echo
+echo -e $startDiv"Performing manual calibration"
+python3 $srcDir/src_manual_calibration.py -fim_dir $outputDestDir -calb_file /foss_fim/data/manual_calibration_coefficients.csv
+Tcount
+date -u
+
 echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
