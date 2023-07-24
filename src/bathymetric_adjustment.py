@@ -12,13 +12,22 @@ sys.path.append('/foss_fim/tools')
 from synthesize_test_cases import progress_bar_handler
 
 
-def correct_rating_for_bathymetry(fim_huc_dir, bathy_file, verbose):
+def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
 
-    log_text = f'Calculating bathymetry adjustment: {re.search("/d{8}", fim_huc_dir).group()}\n'
+    log_text = f'Calculating bathymetry adjustment: {huc}\n'
 
     # Load wbd and use it as a mask to pull the bathymetry data
+    fim_huc_dir = join(fim_dir, huc)
     wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'))
 #    bathy_data = gpd.read_file(bathy_file, mask=wbd_clp)
+    ##### TEMP TEST DATA #############
+    bathy_data = pd.DataFrame.from_dict(
+        {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269],
+#        {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269, 3821269], # testing duplicate feature ids
+        'missing_wet_perimeter_m_m2':[1448.25, 2155.88, 1057.73, 1569.73, 2262.68, 1292.2, 1180.27],
+        'missing_wet_perimeter':[0.59, 1.54, 1.31, 1.23, 1.44, 0.68, 0.73],
+        'Bathymetry_source':['USACE eHydro']*7})
+    #################################
 
     # Get src_full from each branch
     src_all_branches = []
@@ -31,20 +40,24 @@ def correct_rating_for_bathymetry(fim_huc_dir, bathy_file, verbose):
     # Update src parameters with bathymetric data
     for src in src_all_branches:
 
-        log_text += f'Recalculating hydraulic geometry for SRC: {src}\n'
         src_df = pd.read_csv(src)
+        branch = re.search('[\d[1]|\d{10}]', src).group()
+        log_text += f'  Branch: {branch}\n'
 
-        ##### TEMP TEST DATA #############
-        bathy_data = pd.DataFrame.from_dict(
-            {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269],
-            'missing_wet_perimeter_m_m2':[1448.25, 2155.88, 1057.73, 1569.73, 2262.68, 1292.2, 1180.27],
-            'missing_wet_perimeter':[0.59, 1.54, 1.31, 1.23, 1.44, 0.68, 0.73],
-            'Bathymetry_source':['USACE eHydro']*7})
-        #################################
-
-
+        if bathy_data.empty:
+            log_text += '  There were no bathymetry feature_ids for this branch'
+            src_df['Bathymetry_source'] = [""]* len(src_df)
+            src_df.to_csv(src, index=False)
+            return log_text
+    
         # Merge in missing bathy data and fill Nans
-        src_df = src_df.merge(bathy_data, on='feature_id', how='left')
+        try:
+            src_df = src_df.merge(bathy_data, on='feature_id', how='left', validate='many_to_one')
+        # If there's more than one feature_id in the bathy data, just take the mean
+        except pd.errors.MergeError:
+            reconciled_bathy_data = bathy_data.groupby('feature_id').mean()
+            reconciled_bathy_data['Bathymetry_source'] = bathy_data.groupby('feature_id').first()['Bathymetry_source']
+            src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
         src_df['missing_wet_perimeter_m_m2'] = src_df['missing_wet_perimeter_m_m2'].fillna(0.0)
         src_df['missing_wet_perimeter'] = src_df['missing_wet_perimeter'].fillna(0.0)
         # Add missing hydraulic geometry into base parameters
@@ -61,11 +74,11 @@ def correct_rating_for_bathymetry(fim_huc_dir, bathy_file, verbose):
         # Force zero stage to have zero discharge
         src_df.loc[src_df['Stage']==0,['Discharge (m3s-1)']] = 0
         # Calculate number of adjusted HydroIDs
-        count = len(src_df.loc[(src_df['Stage']==0) and (src_df['Bathymetry_source'] == 'USACE eHydro')])
+        count = len(src_df.loc[(src_df['Stage']==0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
 
         # Write src back to file
         src_df.to_csv(src, index=False)
-        log_text += f'Successfully recalculated {count} HydroIDs\n'
+        log_text += f'  Successfully recalculated {count} HydroIDs\n'
     return log_text
 
 
@@ -90,24 +103,25 @@ def multi_process_hucs(fim_dir, bathy_file, output_suffix, number_of_jobs, verbo
         hucs = [h for h in os.listdir(fim_dir) if re.match('\d{8}', h)]
         for huc in hucs:
             
-            arg_keeper = { # fim_huc_dir, bathy_file, verbose
-                                'fim_huc_dir': join(fim_dir, huc),
-                                'bathy_file': bathy_file,
-                                'verbose': verbose,
-                                }
+            arg_keeper = { 
+                        'fim_dir': fim_dir,
+                        'huc': huc,
+                        'bathy_file': bathy_file,
+                        'verbose': verbose,
+                        }
+            future = executor.submit(correct_rating_for_bathymetry, **arg_keeper)
+            executor_dict[future] = huc
 
-            try:
-                future = executor.submit(correct_rating_for_bathymetry, **arg_keeper)
-                executor_dict[huc] = future
-            except Exception as ex:
-                print(f"Error in bathymetry adjustment: {ex}")
-                traceback.print_exc(file=log_file)
-
-        # Send the executor to the progress bar and wait for all MS tasks to finish
+        # Send the executor to the progress bar and wait for all tasks to finish
         progress_bar_handler(executor_dict, True, f"Running BARC on {len(hucs)} HUCs")
         # Get the returned logs and write to the log file
-        for huc in executor_dict.keys():
-            log_file.write(executor_dict[huc])
+        for future in executor_dict.keys():
+            try:
+                log_file.write(future.result())
+            except Exception as ex:
+                print(f"WARNING: {huc} BARC failed for some reason")
+                log_file.write( f"ERROR --> {huc} BARC failed (details: *** {ex} )\n")
+                traceback.print_exc(file=log_file)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
