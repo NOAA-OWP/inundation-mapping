@@ -87,7 +87,7 @@ def variable_mannings_calc(args):
             df_src.to_csv(in_src_bankfull_filename,index=False)
 
             ## Output new hydroTable with updated discharge and ManningN column
-            df_src_trim = df_src[['HydroID','Stage','subdiv_applied','channel_n','overbank_n','Discharge (m3s-1)_subdiv']]
+            df_src_trim = df_src[['HydroID','Stage', 'Bathymetry_source', 'subdiv_applied','channel_n','overbank_n','Discharge (m3s-1)_subdiv']]
             df_src_trim = df_src_trim.rename(columns={'Stage':'stage','Discharge (m3s-1)_subdiv': 'subdiv_discharge_cms'})
             df_src_trim['discharge_cms'] = df_src_trim['subdiv_discharge_cms'] # create a copy of vmann modified discharge (used to track future changes)
             df_htable = pd.read_csv(htable_filename,dtype={'HUC': str,'last_updated':object,'submitter':object,'obs_source':object})
