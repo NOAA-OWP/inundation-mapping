@@ -4,6 +4,7 @@ import sys, os, traceback, re
 from os.path import join
 import pandas as pd
 import geopandas as gpd
+import datetime as dt
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
@@ -12,6 +13,8 @@ from synthesize_test_cases import progress_bar_handler
 
 
 def correct_rating_for_bathymetry(fim_huc_dir, bathy_file, verbose):
+
+    log_text = f'Calculating bathymetry adjustment: {re.search("/d{8}", fim_huc_dir).group()}\n'
 
     # Load wbd and use it as a mask to pull the bathymetry data
     wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'))
@@ -28,12 +31,13 @@ def correct_rating_for_bathymetry(fim_huc_dir, bathy_file, verbose):
     # Update src parameters with bathymetric data
     for src in src_all_branches:
 
+        log_text += f'Recalculating hydraulic geometry for SRC: {src}\n'
         src_df = pd.read_csv(src)
 
         ##### TEMP TEST DATA #############
         bathy_data = pd.DataFrame.from_dict(
             {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269],
-            'missing_xs_area':[1448.25, 2155.88, 1057.73, 1569.73, 2262.68, 1292.2, 1180.27],
+            'missing_wet_perimeter_m_m2':[1448.25, 2155.88, 1057.73, 1569.73, 2262.68, 1292.2, 1180.27],
             'missing_wet_perimeter':[0.59, 1.54, 1.31, 1.23, 1.44, 0.68, 0.73],
             'Bathymetry_source':['USACE eHydro']*7})
         #################################
@@ -41,14 +45,14 @@ def correct_rating_for_bathymetry(fim_huc_dir, bathy_file, verbose):
 
         # Merge in missing bathy data and fill Nans
         src_df = src_df.merge(bathy_data, on='feature_id', how='left')
-        src_df['missing_xs_area'] = src_df['missing_xs_area'].fillna(0.0)
+        src_df['missing_wet_perimeter_m_m2'] = src_df['missing_wet_perimeter_m_m2'].fillna(0.0)
         src_df['missing_wet_perimeter'] = src_df['missing_wet_perimeter'].fillna(0.0)
         # Add missing hydraulic geometry into base parameters
-        src_df['Volume (m3)'] = src_df['Volume (m3)'] + (src_df['missing_xs_area'] * (src_df['LENGTHKM'] * 1000))
+        src_df['Volume (m3)'] = src_df['Volume (m3)'] + (src_df['missing_wet_perimeter_m_m2'] * (src_df['LENGTHKM'] * 1000))
         src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (src_df['missing_wet_perimeter'] * (src_df['LENGTHKM'] * 1000))
         # Recalc discharge with adjusted geometries
         src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter']
-        src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area']
+        src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_wet_perimeter_m_m2']
         src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)']/src_df['WettedPerimeter (m)']
         src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
         src_df['Discharge (m3s-1)'] = src_df['WetArea (m2)']* \
@@ -56,13 +60,27 @@ def correct_rating_for_bathymetry(fim_huc_dir, bathy_file, verbose):
             pow(src_df['SLOPE'],0.5)/src_df['ManningN']
         # Force zero stage to have zero discharge
         src_df.loc[src_df['Stage']==0,['Discharge (m3s-1)']] = 0
+        # Calculate number of adjusted HydroIDs
+        count = len(src_df.loc[(src_df['Stage']==0) and (src_df['Bathymetry_source'] == 'USACE eHydro')])
 
         # Write src back to file
         src_df.to_csv(src, index=False)
-        print(src)
+        log_text += f'Successfully recalculated {count} HydroIDs\n'
+    return log_text
 
 
 def multi_process_hucs(fim_dir, bathy_file, output_suffix, number_of_jobs, verbose, src_plot_option):
+
+    # Set up log file
+    print('Writing progress to log file here: ' + str(join(fim_dir,'logs','bathymetric_adjustment' + output_suffix + '.log')))
+    print('This may take a few minutes...')
+    ## Create a time var to log run time
+    begin_time = dt.datetime.now()
+
+    ## initiate log file
+    log_file = open(join(fim_dir,'logs','bathymetric_adjustment' + output_suffix + '.log'),"w")
+    log_file.write('START TIME: ' + str(begin_time) + '\n')
+    log_file.write('#########################################################\n\n')
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
@@ -80,15 +98,23 @@ def multi_process_hucs(fim_dir, bathy_file, output_suffix, number_of_jobs, verbo
 
             try:
                 future = executor.submit(correct_rating_for_bathymetry, **arg_keeper)
-                executor_dict[future] = huc
+                executor_dict[huc] = future
             except Exception as ex:
-                print(f"*** {ex}")
-                traceback.print_exc()
-                sys.exit(1)
+                print(f"Error in bathymetry adjustment: {ex}")
+                traceback.print_exc(file=log_file)
 
         # Send the executor to the progress bar and wait for all MS tasks to finish
         progress_bar_handler(executor_dict, True, f"Running BARC on {len(hucs)} HUCs")
+        # Get the returned logs and write to the log file
+        for huc in executor_dict.keys():
+            log_file.write(executor_dict[huc])
 
+    ## Record run time and close log file
+    end_time = dt.datetime.now()
+    log_file.write('END TIME: ' + str(end_time) + '\n')
+    tot_run_time = end_time - begin_time
+    log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
+    log_file.close()
 
 if __name__ == '__main__':
 
