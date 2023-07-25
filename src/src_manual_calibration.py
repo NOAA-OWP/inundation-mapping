@@ -45,54 +45,77 @@ htable_dtypes = {'HydroID':int,
                 'subdiv_discharge_cms':float,
                 'discharge_cms':float}
 
-def manual_calibration(fim_directory, calibration_file):
+def manual_calibration(fim_directory:str, calibration_file:str):
     """
-    This function is a wrapper for the manual calibration process.
-    It takes in a CSV of manual coefficients and outputs a new rating curve.
+    Performs manual calibration using a CSV of manual coefficients to output a new rating curve. Coefficient values between 0 and 1 increase the discharge value (and decrease inundation) for each stage in the rating curve while values greater than 1 decrease the discharge value (and increase inundation). The original rating curve is saved with a suffix of '_pre-manual' before the new rating curve is written.
+
+    Parameters
+    ----------
+    fim_directory : str
+        Path to the parent directory of FIM-required datasets.
+    calibration_file : str
+        Path to the manual calibration file. This file should be a CSV with the following columns:
+            HUC8: str
+                HUC8 code
+            feature_id: int
+                NWM feature_id
+            calb_coef_manual: float
+                Manual calibration coefficient for each HUC8 and feature_id combination.
     """
 
     # Get list of HUCs
-    fim_inputs = pd.read_csv(f'{fim_directory}/fim_inputs.csv', header=None, names=['HUC', 'branch_id'], dtype={'HUC':str, 'branch_id':int})
+    fim_inputs = pd.read_csv(os.path.join(fim_directory, 'fim_inputs.csv'), 
+                             header=None,
+                             names=['HUC', 'branch_id'],
+                             dtype={'HUC':str, 'branch_id':int})
 
     fim_inputs_hucs = fim_inputs['HUC'].unique()
 
     # Read manual calibration table
-    manual_calib_df = pd.read_csv(calibration_file, dtype={'HUC8':str, 'feature_id':int, 'calb_coef_manual':float})
+    if os.path.exists(calibration_file):
+        manual_calib_df = pd.read_csv(calibration_file, dtype={'HUC8':str, 'feature_id':int, 'calb_coef_manual':float})
 
-    # Find HUCs with manual calibration coefficients
-    calib_hucs = manual_calib_df['HUC8'].unique()
-    hucs = np.intersect1d(fim_inputs_hucs, calib_hucs)
+        if manual_calib_df['calb_coef_manual'].min() >= 0:
+            # Find HUCs with manual calibration coefficients
+            calib_hucs = manual_calib_df['HUC8'].unique()
+            hucs = np.intersect1d(fim_inputs_hucs, calib_hucs)
 
-    for huc in hucs:
-        print(f'Updating hydrotable for {huc}')
+            for huc in hucs:
+                print(f'Updating hydrotable for {huc}')
 
-        # Read hydrotable
-        htable_file = os.path.join(fim_directory, huc, 'hydrotable.csv')
-        htable_file_split = os.path.splitext(htable_file)
-        htable_file_original = htable_file_split[0] + '_pre-manual' + htable_file_split[1]
+                # Read hydrotable
+                htable_file = os.path.join(fim_directory, huc, 'hydrotable.csv')
+                htable_file_split = os.path.splitext(htable_file)
+                htable_file_original = htable_file_split[0] + '_pre-manual' + htable_file_split[1]
 
-        if not os.path.exists(htable_file_original):
-            # Save a copy of the original hydrotable
-            os.rename(htable_file, htable_file_original)
+                if not os.path.exists(htable_file_original):
+                    # Save a copy of the original hydrotable
+                    os.rename(htable_file, htable_file_original)
 
-        df_htable = pd.read_csv(htable_file_original, dtype=htable_dtypes)
+                df_htable = pd.read_csv(htable_file_original, dtype=htable_dtypes)
 
-        df_htable = df_htable.rename(columns={'discharge_cms':'postcalb_discharge_cms'})
+                df_htable = df_htable.rename(columns={'discharge_cms':'postcalb_discharge_cms'})
 
-        df_htable = df_htable.merge(manual_calib_df, how='left', on='feature_id')
-        df_htable.drop(columns=['HUC8'], inplace=True)
+                df_htable = df_htable.merge(manual_calib_df, how='left', on='feature_id')
+                df_htable.drop(columns=['HUC8'], inplace=True)
 
-        # Calculate new discharge_cms with manual calibration coefficient
-        df_htable['discharge_cms'] = np.where(df_htable['calb_coef_manual'].isnull(), df_htable['postcalb_discharge_cms'], df_htable['postcalb_discharge_cms']/df_htable['calb_coef_manual'])
+                # Calculate new discharge_cms with manual calibration coefficient
+                df_htable['discharge_cms'] = np.where(df_htable['calb_coef_manual'].isnull(), df_htable['postcalb_discharge_cms'], df_htable['postcalb_discharge_cms']/df_htable['calb_coef_manual'])
 
-        # Write new rating curve
-        ## Export a new hydroTable.csv and overwrite the previous version
-        df_htable.to_csv(htable_file, index=False)
+                # Write new rating curve
+                ## Export a new hydroTable.csv and overwrite the previous version
+                df_htable.to_csv(htable_file, index=False)
+
+        else:
+            raise ValueError(f'Manual calibration coefficients must be greater than 0. Minimum value found: {manual_calib_df["calb_coef_manual"].min()}')
+
+    else:
+        raise FileNotFoundError(f'No calibration file found at {calibration_file}. Skipping manual calibration.')
 
 
 if __name__ == '__main__':
     ## Parse arguments.
-    parser = argparse.ArgumentParser(description=f'Run manual calibration process.')
+    parser = argparse.ArgumentParser(description=f'Manually calibrate rating curve')
     parser.add_argument('-fim_dir', '--fim-directory',
                         help='Parent directory of FIM-required datasets.', required=True)
     parser.add_argument('-calb_file', '--calibration-file',
@@ -102,6 +125,5 @@ if __name__ == '__main__':
     args                 = vars(parser.parse_args())
     fim_directory        = args['fim_directory']
     calibration_file     = args['calibration_file']
-
 
     manual_calibration(fim_directory, calibration_file)
