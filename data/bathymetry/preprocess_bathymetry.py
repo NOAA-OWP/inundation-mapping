@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import rasterio
+import pandas as pd
 import geopandas as gpd
 import numpy as np
 from rasterstats import zonal_stats
 from osgeo import gdal
 from osgeo import gdal_array
 from argparse import ArgumentParser
+import os
 
 def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     """
@@ -19,9 +21,9 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     bathy_gdal = gdal_array.OpenArray(bathy_m)
 
     # how to read these in?
+    bathy_bounds = gpd.read_file(survey_gdb, layer = bathy_bounds)
     nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask = bathy_bounds)
     nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask = bathy_bounds)
-    bathy_bounds = gpd.read_file(survey_gdb, layer = bathy_bounds)
     bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
 
     # Find missing volume from depth tif
@@ -31,7 +33,8 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     zs_area.rename(columns = {"sum":"missing_volume_m3"}, inplace = True)
 
     # Derive slope tif
-    slope_tif = gdal.DEMProcessing('bathy_slope.tif', bathy_gdal , 'slope', format = 'GTiff')
+    output_folder = os.path.dirname(output)
+    slope_tif = gdal.DEMProcessing(output_folder +'bathy_slope.tif', bathy_gdal , 'slope', format = 'GTiff')
     slope_tif = slope_tif.GetRasterBand(1).ReadAsArray()
     slope_tif[np.where(slope_tif == -9999.)] = np.nan
     missing_bed_area = (1 / np.cos(slope_tif*np.pi/180)) - 1
@@ -62,6 +65,10 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     bathy_nwm_streams['Sheet_Name'] = bathy_bounds.loc[0, 'Sheet_Name']
 
     # Export geopackage with bathymetry
+    if os.path.exists(output):
+        print(f"{output} already exists. Concatinating now...")
+        existing_bathy_file = gpd.read_file(output)
+        bathy_nwm_streams = pd.concat([existing_bathy_file, bathy_nwm_streams])
     bathy_nwm_streams.to_file(output, index = False)
 
 if __name__ == '__main__':
@@ -80,3 +87,4 @@ if __name__ == '__main__':
     output = args['output']
 
     preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output)
+    print("success :)")
