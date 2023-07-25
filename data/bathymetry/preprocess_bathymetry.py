@@ -20,7 +20,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     bathy_m = bathy_ft/3.28084
     bathy_gdal = gdal_array.OpenArray(bathy_m)
 
-    # how to read these in?
+    # Read in shapefiles
     bathy_bounds = gpd.read_file(survey_gdb, layer = bathy_bounds)
     nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask = bathy_bounds)
     nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask = bathy_bounds)
