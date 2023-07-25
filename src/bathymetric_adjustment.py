@@ -6,8 +6,7 @@ import pandas as pd
 import geopandas as gpd
 import datetime as dt
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
 sys.path.append('/foss_fim/tools')
 from synthesize_test_cases import progress_bar_handler
 
