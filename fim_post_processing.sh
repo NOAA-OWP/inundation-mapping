@@ -148,12 +148,14 @@ Tcount
 date -u
 
 ## PERFORM MANUAL CALIBRATION
-Tstart
-echo
-echo -e $startDiv"Performing manual calibration"
-python3 $srcDir/src_manual_calibration.py -fim_dir $outputDestDir -calb_file /foss_fim/data/manual_calibration_coefficients.csv
-Tcount
-date -u
+if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
+    echo
+    echo -e $startDiv"Performing manual calibration"
+    Tstart
+    python3 $srcDir/src_manual_calibration.py -fim_dir $outputDestDir -calb_file $man_calb_file
+    Tcount
+    date -u
+fi
 
 echo
 echo -e $startDiv"Combining crosswalk tables"
