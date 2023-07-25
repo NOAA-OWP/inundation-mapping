@@ -119,8 +119,8 @@ def multi_process_hucs(fim_dir, bathy_file, output_suffix, number_of_jobs, verbo
             try:
                 log_file.write(future.result())
             except Exception as ex:
-                print(f"WARNING: {huc} BARC failed for some reason")
-                log_file.write( f"ERROR --> {huc} BARC failed (details: *** {ex} )\n")
+                print(f"WARNING: {executor_dict[future]} BARC failed for some reason")
+                log_file.write( f"ERROR --> {executor_dict[future]} BARC failed (details: *** {ex} )\n")
                 traceback.print_exc(file=log_file)
 
     ## Record run time and close log file
