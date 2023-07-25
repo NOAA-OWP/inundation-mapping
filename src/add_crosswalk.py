@@ -211,6 +211,7 @@ def add_crosswalk(input_catchments_fileName,
 
     # set nans to 0
     input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
+    input_src_base['Bathymetry_source'] = pd.NA
 
     output_src = input_src_base.drop(columns=['CatchId']).copy()
     if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
@@ -250,6 +251,8 @@ def add_crosswalk(input_catchments_fileName,
     output_hydro_table['default_WetArea (m2)'] = output_src['WetArea (m2)']
     output_hydro_table['default_HydraulicRadius (m)'] = output_src['HydraulicRadius (m)']
     output_hydro_table['default_ManningN'] = output_src['ManningN']
+    ## Placeholder vars for BARC
+    output_hydro_table['Bathymetry_source'] = pd.NA
     ## Placeholder vars for subdivision routine
     output_hydro_table['subdiv_applied'] = False
     output_hydro_table['overbank_n'] = pd.NA
