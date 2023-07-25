@@ -1,6 +1,56 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.12.0 - 2023-07-05 - [PR#940](https://github.com/NOAA-OWP/inundation-mapping/pull/940)
+
+Refactor Point Calibration Database for synthetic rating curve adjustment to use `.parquet` files instead of a PostgreSQL database. 
+
+### Additions
+- `data/`
+    -`write_parquet_from_calib_pts.py`: Script to write `.parquet` files based on calibration points contained in a .gpkg file. 
+
+### Changes  
+- `src/`
+    - `src_adjust_spatial_obs.py`: Refactor to remove PostgreSQL and use `.parquet` files.
+    - `src_roughness_optimization.py`: Line up comments and add newline at EOF. 
+    - `bash_variables.env`: Update formatting, and add `{}` to inherited `.env` variables for proper variable expansion in Python scripts.  
+- `/config`
+    - `params_template.env`: Update comment.
+- `fim_pre_processing.sh`: In usage statement, remove references to PostGRES calibration tool.
+- `fim_post_processing.sh`: Remove connection to and loading of PostgreSQL database. 
+- `.gitignore`: Add newline.
+- `README.md`: Remove references to PostGRES calibration tool.
+
+### Removals
+- `config/` 
+    - `calb_db_keys_template.env`: No longer necessary without PostGRES Database.
+
+- `/tools/calibration-db` : Removed directory including files below. 
+    - `README.md`
+    - `docker-compose.yml`
+    - `docker-entrypoint-enitdb.d/init-db.sh`
+
+<br/><br/>
+
+## v4.3.11.7 - 2023-06-12 - [PR#932](https://github.com/NOAA-OWP/inundation-mapping/pull/932)
+
+Write to a csv file with processing time of `run_unit_wb.sh`, update PR Template, add/update bash functions in `bash_functions.env`, and modify error handling in `src/check_huc_inputs.py`. Update unit tests to throw no failures, `25 passed, 3 skipped`.
+
+### Changes
+- `.github/`
+    - `PULL_REQUEST_TEMPLATE.md` : Update PR Checklist into Issuer Checklist and Merge Checklist  
+- `src/`
+    - `run_unit_wb.sh`: Add line to log processing time to `$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv`
+    - `check_huc_inputs.py`: Modify error handling. Correctly print HUC number if it is not valid (within `included_huc*.lst`)
+    - `bash_functions.env`: Add `Calc_Time` function, add `local` keyword to functionally scoped variables in `Calc_Duration`
+- `unit_tests/`
+    - `derive_level_paths_test.py`: Update - new parameter (`buffer_wbd_streams`)
+    - `derive_level_paths_params.json`: Add new parameter (`buffer_wbd_streams`)
+    - `clip_vectors_to_wbd_test.py`: Update - new parameter (`wbd_streams_buffer_filename`)
+    - `clip_vectors_to_wbd_params.json`: Add new parameter (`wbd_streams_buffer_filename`) & Fix pathing for `nwm_headwaters`
+
+<br/><br/>
+
 ## v4.3.11.6 - 2023-05-26 - [PR#919](https://github.com/NOAA-OWP/inundation-mapping/pull/919)
 
 Auto Bot asked for the python package of `requests` be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.

@@ -64,7 +64,8 @@ def __check_for_membership(hucs,accepted_hucs_set):
             raise KeyError(msg)
         
         if huc not in accepted_hucs_set:
-            raise KeyError("HUC {} not found in available inputs. Edit HUC inputs or acquire datasets and try again".format(huc))
+            msg = f"HUC {huc} not found in available inputs. Edit HUC inputs or acquire datasets and try again."
+            raise KeyError(msg)
 
 
 def check_hucs(hucs, inputsDir):

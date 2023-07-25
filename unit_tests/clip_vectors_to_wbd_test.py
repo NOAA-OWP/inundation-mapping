@@ -45,6 +45,7 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
                                      hucCode = params["hucCode"],
                                      subset_nwm_headwaters = params["subset_nwm_headwaters"],                               
                                      wbd_buffer_filename = params["wbd_buffer_filename"],
+                                     wbd_streams_buffer_filename = params["wbd_streams_buffer_filename"],
                                      wbd_filename = params["wbd_filename"],
                                      dem_filename = params["dem_filename"],
                                      dem_domain = params["dem_domain"],
