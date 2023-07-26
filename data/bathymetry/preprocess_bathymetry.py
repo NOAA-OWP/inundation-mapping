@@ -17,6 +17,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     with rasterio.open(tif) as bathy_ft:
         bathy_affine = bathy_ft.transform
         bathy_ft = bathy_ft.read(1)
+        bathy_ft[np.where(bathy_ft == -9999.)] = np.nan
     bathy_m = bathy_ft/3.28084
     bathy_gdal = gdal_array.OpenArray(bathy_m)
 
@@ -27,7 +28,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
 
     # Find missing volume from depth tif
-    zs_area = zonal_stats(nwm_catchments, bathy_m, stats = ["sum"], affine= bathy_affine, geojson_out = True)
+    zs_area = zonal_stats(nwm_catchments, bathy_m, stats = ["sum"], affine= bathy_affine, geojson_out = True, nodata=-9999.)
     zs_area = gpd.GeoDataFrame.from_features(zs_area)
     zs_area = zs_area.set_crs(nwm_streams.crs)
     zs_area.rename(columns = {"sum":"missing_volume_m3"}, inplace = True)
@@ -72,7 +73,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
         existing_bathy_file = gpd.read_file(output)
         bathy_nwm_streams = pd.concat([existing_bathy_file, bathy_nwm_streams])
     bathy_nwm_streams.to_file(output, index = False)
-    print(f"Added {num_streams} new NWM features to the dataset: \n{output}")
+    print(f"Added {num_streams} new NWM features")
 
 if __name__ == '__main__':
     
