@@ -48,15 +48,13 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
 
     # Clip streams to survey bounds and find new reach lengths
     nwm_streams_clip = nwm_streams.clip(bathy_bounds)
-    nwm_streams_clip["original_Length"] = nwm_streams_clip["Length"]
     nwm_streams_clip["Length"] = nwm_streams_clip.length
 
     # Merge data into nwm streams file and remove extremely small reaches
     bathy_nwm_streams = nwm_streams_clip.merge(zs_area[['missing_volume_m3', 'ID']], on='ID')
     bathy_nwm_streams = bathy_nwm_streams.merge(zs_slope[['missing_bed_area_m2', 'ID']], on='ID')
-    river_length = bathy_nwm_streams["Length"].sum()
-    min_length = river_length*0.05
-    bathy_nwm_streams = bathy_nwm_streams[bathy_nwm_streams['Length'] > bathy_nwm_streams["original_Length"]*0.05]
+    max_order = bathy_nwm_streams["order_"].max()
+    bathy_nwm_streams = bathy_nwm_streams.loc[bathy_nwm_streams['order_'] >= (max_order-1)]
 
     # Calculate wetted perimeter and cross sectional area
     bathy_nwm_streams['missing_xs_area_m2'] = bathy_nwm_streams['missing_volume_m3']/bathy_nwm_streams['Length']
