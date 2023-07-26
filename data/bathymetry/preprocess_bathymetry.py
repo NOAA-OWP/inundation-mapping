@@ -33,9 +33,10 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     zs_area.rename(columns = {"sum":"missing_volume_m3"}, inplace = True)
 
     # Derive slope tif
-    output_folder = os.path.dirname(output)
-    slope_tif = gdal.DEMProcessing(output_folder +'bathy_slope.tif', bathy_gdal , 'slope', format = 'GTiff')
+    output_slope_tif = os.paht.join(os.path.dirname(tif), 'bathy_slope.tif')
+    slope_tif = gdal.DEMProcessing(output_slope_tif, bathy_gdal , 'slope', format = 'GTiff')
     slope_tif = slope_tif.GetRasterBand(1).ReadAsArray()
+    os.remove(output_slope_tif)
     slope_tif[np.where(slope_tif == -9999.)] = np.nan
     missing_bed_area = (1 / np.cos(slope_tif*np.pi/180)) - 1
 
