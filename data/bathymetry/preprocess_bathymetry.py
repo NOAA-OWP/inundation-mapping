@@ -66,11 +66,13 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     bathy_nwm_streams['Sheet_Name'] = bathy_bounds.loc[0, 'Sheet_Name']
 
     # Export geopackage with bathymetry
+    num_streams = len(bathy_nwm_streams)
     if os.path.exists(output):
         print(f"{output} already exists. Concatinating now...")
         existing_bathy_file = gpd.read_file(output)
         bathy_nwm_streams = pd.concat([existing_bathy_file, bathy_nwm_streams])
     bathy_nwm_streams.to_file(output, index = False)
+    print(f"Added {num_streams} new NWM features to the dataset: \n{output}")
 
 if __name__ == '__main__':
     
