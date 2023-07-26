@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import shutil
 import argparse
 import numpy as np
 import pandas as pd
