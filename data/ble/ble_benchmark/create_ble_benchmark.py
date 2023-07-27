@@ -15,18 +15,20 @@ from create_flow_forecast_file import create_flow_forecast_file
 
 def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, benchmark_folder:str, nwm_geodatabase:str, ble_xs_layer_name:str, nwm_stream_layer_name:str, nwm_feature_id_field:str, huc:str = None):
     """
-    This function will download and preprocess BLE benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
+    Downloads and preprocesses BLE benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
+
+    As the reference_raster is required for preprocessing, it is assumed that fim_pipeline.py has previously been run for the HUCs being processed.
     
     Parameters
     ----------
     input_file: str
-        Path to input file (e.g. EBFE_urls_20230608.csv)
+        Path to input file (XLSX or CSV) with list of URL(s) to files to download (e.g. EBFE_urls_20230608.xlsx)
     save_folder: str
-        Path to save folder
+        Path to save folder where the downloaded ZIP files and extracted depth rasters will be saved (e.g., /data/temp/ble_downloads). This folder will be created if it doesn't exist.
     reference_folder: str
-        Path to reference raster
+        Path to reference raster (e.g., /data/outputs/fim_4_3_12_0). This folder must exist (e.g., created by running fim_pipeline.py).
     benchmark_folder: str
-        Path to the benchmark folder
+        Path to the benchmark folder (e.g., /data/test_cases/ble_test_cases/validation_data_ble). This folder will be created if it doesn't exist.
 
     Returns
     -------
@@ -37,8 +39,11 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, 
         os.makedirs(save_folder)
 
     # EBFE_urls_20230608.xlsx acquired from FEMA (fethomps@usgs.gov)
-
-    data = pd.read_excel(input_file, header=None, names=['size', 'units', 'URL'])
+    ext = os.path.splitext(input_file)[1]
+    if ext == '.xlsx':
+        data = pd.read_excel(input_file, header=None, names=['size', 'units', 'URL'])
+    elif ext == '.csv':
+        data = pd.read_csv(input_file, header=None, names=['size', 'units', 'URL'])
 
     # Subset Spatial Data URLs
     spatial_df = data[data['URL'].str.contains('SpatialData')]
@@ -54,7 +59,7 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, 
 
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
-        reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif')
+        reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif') # reference_raster is used to set the metadata for benchmark_raster
         for benchmark_raster in row['rasters']:
             magnitude = '100yr' if 'BLE_DEP01PCT' in benchmark_raster else '500yr'
 
@@ -88,6 +93,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     out_files: list
         List of paths to extracted rasters
     """
+    
     depth_rasters = ['BLE_DEP0_2PCT', 'BLE_DEP01PCT']
 
     # Download and unzip each file
@@ -139,6 +145,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
     return spatial_df, ble_geodatabase
 
+
 def extract_raster(in_raster: str, out_raster: str):
     """
     Extract raster from GDB and save to out_raster
@@ -183,3 +190,5 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     create_ble_benchmark(**args)
+
+    # python /foss_fim/data/ble/ble_benchmark.py -i /data/ble/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gdb -l RouteLink_FL_2020_04_07 -u 12090301
