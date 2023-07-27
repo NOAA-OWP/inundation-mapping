@@ -23,8 +23,8 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
 
     # Read in shapefiles
     bathy_bounds = gpd.read_file(survey_gdb, layer = bathy_bounds)
+    nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask = bathy_bounds)
     nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask = bathy_bounds)
-    nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask = nwm_catchments)
     bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
 
     # Find missing volume from depth tif
