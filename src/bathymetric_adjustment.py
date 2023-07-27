@@ -19,6 +19,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     fim_huc_dir = join(fim_dir, huc)
     wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'))
     bathy_data = gpd.read_file(bathy_file, mask=wbd8_clp)
+    bathy_data.rename(columns={'ID':'feature_id'}, inplace=True)
 
     # Get src_full from each branch
     src_all_branches = []
@@ -32,7 +33,9 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     for src in src_all_branches:
 
         src_df = pd.read_csv(src)
-        branch = re.search('[\d[1]|\d{10}]', src).group()
+        if 'Bathymetry_source' in src_df.columns:
+            src_df.drop(columns='Bathymetry_source', inplace=True)
+        branch = re.search('branches/(\d{10}|0)/', src).group()[9:-1]
         log_text += f'  Branch: {branch}\n'
 
         if bathy_data.empty:
@@ -43,12 +46,18 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     
         # Merge in missing bathy data and fill Nans
         try:
-            src_df = src_df.merge(bathy_data, on='feature_id', how='left', validate='many_to_one')
+            src_df = src_df.merge(bathy_data[['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']], 
+                                  on='feature_id', how='left', validate='many_to_one')
         # If there's more than one feature_id in the bathy data, just take the mean
         except pd.errors.MergeError:
-            reconciled_bathy_data = bathy_data.groupby('feature_id').mean()
-            reconciled_bathy_data['Bathymetry_source'] = bathy_data.groupby('feature_id').first()['Bathymetry_source']
+            reconciled_bathy_data = bathy_data.groupby('feature_id')[['missing_xs_area_m2', 'missing_wet_perimeter_m']].mean()
+            reconciled_bathy_data['Bathymetry_source'] = bathy_data.groupby('feature_id')['Bathymetry_source'].first()
             src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
+        # Exit if there are no recalculations to be made
+        if ~src_df['Bathymetry_source'].any(axis=None):
+            log_text += f'    No matching feature_ids in this branch\n'
+            continue
+
         src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
         src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
         # Add missing hydraulic geometry into base parameters
@@ -69,7 +78,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
 
         # Write src back to file
         src_df.to_csv(src, index=False)
-        log_text += f'  Successfully recalculated {count} HydroIDs\n'
+        log_text += f'    Successfully recalculated {count} HydroIDs\n'
     return log_text
 
 
@@ -95,8 +104,8 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
     wbd = gpd.read_file(wbd, mask=buffered_bathy)             # HUCs that could also have bathymetric reaches included
     hucs_with_bathy = wbd.HUC8.to_list()
     hucs = [h for h in fim_hucs if h in hucs_with_bathy]
-    log_file.write(f"Identified {len(hucs)} that have bathymetric data: {hucs}\n")
-    print(f"Identified {len(hucs)} that have bathymetric data\n")
+    log_file.write(f"Identified {len(hucs)} HUCs that have bathymetric data: {hucs}\n")
+    print(f"Identified {len(hucs)} HUCs that have bathymetric data\n")
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
@@ -137,7 +146,7 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Bathymetric Adjustment")
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-bathy','--bathy_file',help="Path to geopackage with preprocessed bathymetic data",required=True,type=str)
-    parser.add_argument('-buffer','--wbd-buffer',help="Buffer to apply to bathymetry data to find applicable HUCs",required=True,type=str)
+    parser.add_argument('-buffer','--wbd-buffer',help="Buffer to apply to bathymetry data to find applicable HUCs",required=True,type=int)
     parser.add_argument('-wbd','--wbd',help="Buffer to apply to bathymetry data to find applicable HUCs",required=True,type=str)
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",default="",required=False,type=str)
     parser.add_argument('-j','--number-of-jobs',help='OPTIONAL: number of workers (default=8)',required=False,default=8,type=int)
@@ -147,11 +156,10 @@ if __name__ == '__main__':
 
     fim_dir = args['fim_dir']
     bathy_file = args['bathy_file']
-    wbd_buffer = args['wbd_buffer']
+    wbd_buffer = int(args['wbd_buffer'])
     wbd = args['wbd']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     verbose = bool(args['verbose'])
-    src_plot_option = bool(args['src_plot_option'])
 
-    multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose, src_plot_option)
+    multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose)
