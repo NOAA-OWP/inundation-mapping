@@ -18,15 +18,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     # Load wbd and use it as a mask to pull the bathymetry data
     fim_huc_dir = join(fim_dir, huc)
     wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'))
-#    bathy_data = gpd.read_file(bathy_file, mask=wbd_clp)
-    ##### TEMP TEST DATA #############
-    bathy_data = pd.DataFrame.from_dict(
-        {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269],
-#        {'feature_id':[3786927, 11050844, 11050846, 3824135, 3824131, 3821271, 3821269, 3821269], # testing duplicate feature ids
-        'missing_wet_perimeter_m_m2':[1448.25, 2155.88, 1057.73, 1569.73, 2262.68, 1292.2, 1180.27],
-        'missing_wet_perimeter':[0.59, 1.54, 1.31, 1.23, 1.44, 0.68, 0.73],
-        'Bathymetry_source':['USACE eHydro']*7})
-    #################################
+    bathy_data = gpd.read_file(bathy_file, mask=wbd8_clp)
 
     # Get src_full from each branch
     src_all_branches = []
@@ -57,14 +49,14 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
             reconciled_bathy_data = bathy_data.groupby('feature_id').mean()
             reconciled_bathy_data['Bathymetry_source'] = bathy_data.groupby('feature_id').first()['Bathymetry_source']
             src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
-        src_df['missing_wet_perimeter_m_m2'] = src_df['missing_wet_perimeter_m_m2'].fillna(0.0)
-        src_df['missing_wet_perimeter'] = src_df['missing_wet_perimeter'].fillna(0.0)
+        src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
+        src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
         # Add missing hydraulic geometry into base parameters
-        src_df['Volume (m3)'] = src_df['Volume (m3)'] + (src_df['missing_wet_perimeter_m_m2'] * (src_df['LENGTHKM'] * 1000))
-        src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (src_df['missing_wet_perimeter'] * (src_df['LENGTHKM'] * 1000))
+        src_df['Volume (m3)'] = src_df['Volume (m3)'] + (src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000))
+        src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000))
         # Recalc discharge with adjusted geometries
-        src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter']
-        src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_wet_perimeter_m_m2']
+        src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
+        src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
         src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)']/src_df['WettedPerimeter (m)']
         src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
         src_df['Discharge (m3s-1)'] = src_df['WetArea (m2)']* \
@@ -81,7 +73,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     return log_text
 
 
-def multi_process_hucs(fim_dir, bathy_file, output_suffix, number_of_jobs, verbose, src_plot_option):
+def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose):
 
     # Set up log file
     print('Writing progress to log file here: ' + str(join(fim_dir,'logs','bathymetric_adjustment' + output_suffix + '.log')))
@@ -89,17 +81,28 @@ def multi_process_hucs(fim_dir, bathy_file, output_suffix, number_of_jobs, verbo
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
 
-    ## initiate log file
+    ## Initiate log file
     log_file = open(join(fim_dir,'logs','bathymetric_adjustment' + output_suffix + '.log'),"w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
+
+    # Find applicable HUCs to apply bathymetric adjustment
+    # NOTE: This block can be removed if we have estimated bathymetry data for
+    # the whole domain later.
+    fim_hucs = [h for h in os.listdir(fim_dir) if re.match('\d{8}', h)]
+    bathy_gdf = gpd.read_file(bathy_file)
+    buffered_bathy = bathy_gdf.geometry.buffer(wbd_buffer)    # We buffer the bathymetric data to get adjacent 
+    wbd = gpd.read_file(wbd, mask=buffered_bathy)             # HUCs that could also have bathymetric reaches included
+    hucs_with_bathy = wbd.HUC8.to_list()
+    hucs = [h for h in fim_hucs if h in hucs_with_bathy]
+    log_file.write(f"Identified {len(hucs)} that have bathymetric data: {hucs}\n")
+    print(f"Identified {len(hucs)} that have bathymetric data\n")
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
         # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
         executor_dict = {}
-        hucs = [h for h in os.listdir(fim_dir) if re.match('\d{8}', h)]
         for huc in hucs:
             
             arg_keeper = { 
@@ -134,18 +137,21 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Bathymetric Adjustment")
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-bathy','--bathy_file',help="Path to geopackage with preprocessed bathymetic data",required=True,type=str)
+    parser.add_argument('-buffer','--wbd-buffer',help="Buffer to apply to bathymetry data to find applicable HUCs",required=True,type=str)
+    parser.add_argument('-wbd','--wbd',help="Buffer to apply to bathymetry data to find applicable HUCs",required=True,type=str)
     parser.add_argument('-suff','--output-suffix',help="Suffix to append to the output log file (e.g. '_global_06_011')",default="",required=False,type=str)
     parser.add_argument('-j','--number-of-jobs',help='OPTIONAL: number of workers (default=8)',required=False,default=8,type=int)
     parser.add_argument('-vb','--verbose',help='OPTIONAL: verbose progress bar',required=False,default=None,action='store_true')
-    parser.add_argument('-plots','--src-plot-option',help='OPTIONAL flag: use this flag to create src plots for all hydroids. WARNING - long runtime',default=False,required=False, action='store_true')
 
     args = vars(parser.parse_args())
 
     fim_dir = args['fim_dir']
     bathy_file = args['bathy_file']
+    wbd_buffer = args['wbd_buffer']
+    wbd = args['wbd']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = bool(args['src_plot_option'])
 
-    multi_process_hucs(fim_dir, bathy_file, output_suffix, number_of_jobs, verbose, src_plot_option)
+    multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose, src_plot_option)

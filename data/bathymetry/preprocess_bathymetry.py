@@ -64,6 +64,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
     bathy_nwm_streams['SurveyDateStamp'] = bathy_bounds.loc[0, 'SurveyDateStamp']
     bathy_nwm_streams['SurveyId'] = bathy_bounds.loc[0, 'SurveyId']
     bathy_nwm_streams['Sheet_Name'] = bathy_bounds.loc[0, 'Sheet_Name']
+    bathy_nwm_streams.assign(Bathymetry_source='USACE eHydro')
 
     # Export geopackage with bathymetry
     num_streams = len(bathy_nwm_streams)
