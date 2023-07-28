@@ -10,7 +10,7 @@ from osgeo import gdal_array
 from argparse import ArgumentParser
 import os
 
-def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
+def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_threshold):
     """
     will need to read in tif from Q-GIS mesh to raster and bathy bounds from SurveyJob layer in survey geodatabase
     """
@@ -18,6 +18,8 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output):
         bathy_affine = bathy_ft.transform
         bathy_ft = bathy_ft.read(1)
         bathy_ft[np.where(bathy_ft == -9999.)] = np.nan
+    survey_min_depth = np.nanmin(bathy_ft)
+    assert survey_min_depth < min_depth_threshold, f"The minimum depth value of the survey is {survey_min_depth} which exceeds the minimum depth threshold. This may indicate depth values are based on a datum." 
     bathy_m = bathy_ft/3.28084
     bathy_gdal = gdal_array.OpenArray(bathy_m)
 
@@ -83,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('-survey_gdb','--survey_gdb', help='Survey Geodatabase Ex. AL_LP_EMS_20150809_CS_005_065_SORT.gbd', required=True,type=str)
     parser.add_argument('-bathy_bounds','--bathy_bounds', help='Survey Bounds Layer Ex. SurveyJob.gpkg', default = 'SurveyJob', required=False,type=str)
     parser.add_argument('-output','--output', help='output geopackage location', required=True,type=str)
+    parser.add_argument('-min_depth_threshold','--min_depth_threshold', help='minimum expected depth value', required=False,type=int, default= 10)
 
     args = vars(parser.parse_args())
 
@@ -90,6 +93,7 @@ if __name__ == '__main__':
     survey_gdb = args['survey_gdb']
     bathy_bounds = args['bathy_bounds']
     output = args['output']
+    min_depth_threshold = args['min_depth_threshold']
 
-    preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output)
+    preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_threshold)
     print("success :)")
