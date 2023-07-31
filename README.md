@@ -25,7 +25,7 @@ AWS Resource Name: `arn:aws:s3:::noaa-nws-owp-fim`
 
 ### Accessing Data using the AWS CLI
 
-This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket. Read more about what that means [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html). If you are using compute resources in the same region as the S3 Bucket, then there is no cost.
+This S3 Bucket (`s3://noaa-nws-owp-fim`) is set to avoid having AWS credentials loaded. Read more about the use of the `--no-sign-request` [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-options.html#:~:text=%2D%2Dno%2Dsign%2Drequest,prevents%20credentials%20from%20being%20loaded.). There should be no cost associated with using this S3 Bucket.
 
 ### Examples
 
@@ -33,13 +33,13 @@ This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket.
 
 The available inputs, test cases, and versioned FIM outputs can be found by running:
 ```
-aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --request-payer requester
+aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --no-sign-request
 ```
 
 Download a directory of sample outputs for a single HUC8:
 ```
 aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
-    /your_local_folder_name/12090301 --request-payer requester
+    /your_local_folder_name/12090301 --no-sign-request
 ```
 By adjusting pathing, you can also download entire directories such as the `fim_4_3_11_0` folder. An entire output FIM set (e.g. `fim_4_3_11_0`) is approximately 1.1 TB.
 
@@ -84,9 +84,9 @@ Git will auto create a subfolder named `inundation-mapping` where the code will 
 Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at `s3://noaa-nws-owp-fim/hand_fim/inputs`. It is appx 400GB and it needs to be in your `data` folder.
 
 ```
-aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/inputs /home/projects/fim/data/inputs --request-payer requester --dry-run
+aws s3 cp --recursive s3://noaa-nws-owp-fim/hand_fim/inputs /home/projects/fim/data/inputs --no-sign-request --dryrun
 ```
-**Note**: When you include the `--dry-run` argument in the command, a large list will be returned showing you exactly which files are to be downloaded and where they will be saved. We recommend including this argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dry-run` argument.
+**Note**: When you include the `--dryrun` argument in the command, a large list will be returned showing you exactly which files are to be downloaded and where they will be saved. We recommend including this argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dryrun` argument.
 
 The S3 inputs directory has all of the folders and files you need to run FIM. It includes some publicly available and some non-publicly availible data.
 
