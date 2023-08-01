@@ -20,6 +20,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         bathy_ft[np.where(bathy_ft == -9999.)] = np.nan
     survey_min_depth = np.nanmin(bathy_ft)
     assert survey_min_depth < min_depth_threshold, f"The minimum depth value of the survey is {survey_min_depth} which exceeds the minimum depth threshold. This may indicate depth values are based on a datum." 
+    assert survey_min_depth > 0, f"The minimum depth value of the survey is {survey_min_depth}, negative values may indicate a problem with the datum conversion or survey."
     bathy_m = bathy_ft/3.28084
     bathy_gdal = gdal_array.OpenArray(bathy_m)
 
