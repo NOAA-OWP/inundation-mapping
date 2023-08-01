@@ -34,7 +34,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     zs_area = zonal_stats(nwm_catchments, bathy_m, stats = ["sum"], affine= bathy_affine, geojson_out = True, nodata=np.nan)
     zs_area = gpd.GeoDataFrame.from_features(zs_area)
     zs_area = zs_area.set_crs(nwm_streams.crs)
-    zs_area.rename(columns = {"sum":"missing_volume_m3"}, inplace = True)
+    zs_area = zs_area.rename(columns = {"sum":"missing_volume_m3"})
 
     # Derive slope tif
     output_slope_tif = os.path.join(os.path.dirname(tif), 'bathy_slope.tif')
@@ -47,7 +47,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     # Find missing bed area from slope tif
     zs_slope = zonal_stats(nwm_catchments, missing_bed_area, stats = ["sum"], affine= bathy_affine, geojson_out = True, nodata=np.nan)
     zs_slope = gpd.GeoDataFrame.from_features(zs_slope)
-    zs_slope.rename(columns = {"sum":"missing_bed_area_m2"}, inplace = True)
+    zs_slope = zs_slope.rename(columns = {"sum":"missing_bed_area_m2"})
 
     # Clip streams to survey bounds and find new reach lengths
     nwm_streams_clip = nwm_streams.clip(bathy_bounds)
@@ -71,7 +71,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
 
     # Export geopackage with bathymetry
     num_streams = len(bathy_nwm_streams)
-    bathy_nwm_streams.to_crs(epsg=5070, inplace=True)
+    bathy_nwm_streams = bathy_nwm_streams.to_crs(epsg=5070)
     if os.path.exists(output):
         print(f"{output} already exists. Concatinating now...")
         existing_bathy_file = gpd.read_file(output)

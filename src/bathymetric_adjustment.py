@@ -19,7 +19,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     fim_huc_dir = join(fim_dir, huc)
     wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'))
     bathy_data = gpd.read_file(bathy_file, mask=wbd8_clp)
-    bathy_data.rename(columns={'ID':'feature_id'}, inplace=True)
+    bathy_data = bathy_data.rename(columns={'ID':'feature_id'})
 
     # Get src_full from each branch
     src_all_branches = []
@@ -34,7 +34,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
 
         src_df = pd.read_csv(src)
         if 'Bathymetry_source' in src_df.columns:
-            src_df.drop(columns='Bathymetry_source', inplace=True)
+            src_df = src_df.drop(columns='Bathymetry_source')
         branch = re.search('branches/(\d{10}|0)/', src).group()[9:-1]
         log_text += f'  Branch: {branch}\n'
 
@@ -67,7 +67,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
         src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
         src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)']/src_df['WettedPerimeter (m)']
-        src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
+        src_df = src_df['HydraulicRadius (m)'].fillna(0)
         src_df['Discharge (m3s-1)'] = src_df['WetArea (m2)']* \
             pow(src_df['HydraulicRadius (m)'],2.0/3)* \
             pow(src_df['SLOPE'],0.5)/src_df['ManningN']
