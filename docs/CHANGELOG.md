@@ -1,6 +1,55 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.x.x - 2023-08-02 - [PR#954](https://github.com/NOAA-OWP/inundation-mapping/pull/954)
+
+Resolves the causes of two warnings in pandas and geopandas: (1) `FutureWarning` from taking the `int()` of single-length Series and (2) `SettingWithCopyWarning` resulting from the use of `inplace=True`.
+
+### Changes
+
+Removed `inplace=True` from
+- `data/`
+    - `usgs/preprocess_ahps_usgs.py`
+    - `write_parquet_from_calib_pts.py`
+- `src/`
+    - `add_crosswalk.py`
+    - `aggregate_vector_inputs.py`
+    - `bathy_src_adjust_topwidth.py`
+    - `clip_vectors_to_wbd.py`
+    - `crosswalk_nwm_demDerived.py`
+    - `derive_level_paths.py`
+    - `finalize_srcs.py`
+    - `identify_src_bankfull.py`
+    - `src_adjust_usgs_rating.py`
+    - `src_roughness_optimization.py`
+    - `stream_branches.py`
+    - `subdiv_chan_obank_src.py`
+    - `subset_catch_list_by_branch_id.py`
+    - `usgs_gage_unit_setup.py`
+    - `utils/shared_functions.py`
+- `tools/`
+    - `adjust_rc_with_feedback.py`
+    - `aggregate_csv_files.py`
+    - `combine_crosswalk_tables.py`
+    - `cygnss_preprocessing.py`
+    - `eval_plots_stackedbar.py`
+    - `inundation.py`
+    - `make_boxes_from_bounds.py`
+    - `mosaic_inundation.py`
+    - `nesdis_preprocessing.py`
+    - `plots.py`
+    - `rating_curve_comparison.py`
+    - `vary_mannings_n_composite.py`
+
+Fixed single-length Series in
+- `src/`
+    - `split_flows.py`
+    - `stream_branches.py`
+
+- ``src/stream_branches.py``: Fixed class methods
+
+<br/><br/>
+
 ## v4.3.12.0 - 2023-07-05 - [PR#940](https://github.com/NOAA-OWP/inundation-mapping/pull/940)
 
 Refactor Point Calibration Database for synthetic rating curve adjustment to use `.parquet` files instead of a PostgreSQL database. 
