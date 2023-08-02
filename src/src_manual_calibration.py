@@ -46,20 +46,31 @@ htable_dtypes = {'HydroID':int,
 
 def manual_calibration(fim_directory:str, calibration_file:str):
     """
-    Performs manual calibration using a CSV of manual coefficients to output a new rating curve. Coefficient values between 0 and 1 increase the discharge value (and decrease inundation) for each stage in the rating curve while values greater than 1 decrease the discharge value (and increase inundation). The original rating curve is saved with a suffix of '_pre-manual' before the new rating curve is written.
+    Perform manual calibration.
+     
+    Use a CSV of coefficients to output a new rating curve. 
+    Coefficient values between 0 and 1 increase the discharge value 
+    (and decrease inundation) for each stage in the rating curve while 
+    values greater than 1 decrease the discharge value (and increase 
+    inundation).
+    
+    The original rating curve is saved with a suffix of '_pre-manual' 
+    before the new rating curve is written.
 
     Parameters
     ----------
     fim_directory : str
         Path to the parent directory of FIM-required datasets.
     calibration_file : str
-        Path to the manual calibration file. This file should be a CSV with the following columns:
+        Path to the manual calibration file. This file should be a CSV 
+        with the following columns:
             HUC8: str
                 HUC8 code
             feature_id: int
                 NWM feature_id
             calb_coef_manual: float
-                Manual calibration coefficient for each HUC8 and feature_id combination.
+                Manual calibration coefficient for each HUC8 and 
+                feature_id combination.
     """
 
     # Get list of HUCs
@@ -72,7 +83,9 @@ def manual_calibration(fim_directory:str, calibration_file:str):
 
     # Read manual calibration table
     if os.path.exists(calibration_file):
-        manual_calib_df = pd.read_csv(calibration_file, dtype={'HUC8':str, 'feature_id':int, 'calb_coef_manual':float})
+        manual_calib_df = pd.read_csv(calibration_file, dtype={'HUC8':str,
+                                                               'feature_id':int,
+                                                               'calb_coef_manual':float})
 
         if manual_calib_df['calb_coef_manual'].min() >= 0:
             # Find HUCs with manual calibration coefficients
@@ -99,10 +112,11 @@ def manual_calibration(fim_directory:str, calibration_file:str):
                 df_htable.drop(columns=['HUC8'], inplace=True)
 
                 # Calculate new discharge_cms with manual calibration coefficient
-                df_htable['discharge_cms'] = np.where(df_htable['calb_coef_manual'].isnull(), df_htable['postcalb_discharge_cms'], df_htable['postcalb_discharge_cms']/df_htable['calb_coef_manual'])
+                df_htable['discharge_cms'] = np.where(df_htable['calb_coef_manual'].isnull(), 
+                                                      df_htable['postcalb_discharge_cms'], 
+                                                      df_htable['postcalb_discharge_cms']/df_htable['calb_coef_manual'])
 
-                # Write new rating curve
-                ## Export a new hydroTable.csv and overwrite the previous version
+                # Write new hydroTable.csv rating curve (overwrites the previous file)
                 df_htable.to_csv(htable_file, index=False)
 
         else:
@@ -126,3 +140,7 @@ if __name__ == '__main__':
     calibration_file     = args['calibration_file']
 
     manual_calibration(fim_directory, calibration_file)
+
+    # Usage example:
+    # python /foss_fim/src/src_manual_calibration.py -fim_dir /outputs/dev-manual-calibration \
+    # -calb_file /data/inputs/rating_curve/manual_calibration_coefficients.csv
