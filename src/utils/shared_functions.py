@@ -95,7 +95,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
                         keep_flag = True
                         break
             if not keep_flag:
-                gdf.drop(index, inplace=True)  # Delete from dataframe.
+                gdf = gdf.drop(index)  # Delete from dataframe.
 
     # Overwrite geopackage.
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')

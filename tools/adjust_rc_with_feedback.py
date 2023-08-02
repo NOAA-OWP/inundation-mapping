@@ -21,7 +21,7 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_htable = pd.read_csv(htable_path)
     if 'orig_discharge_cms' in df_htable.columns:
         df_htable = df_htable[['HydroID','feature_id','stage','orig_discharge_cms','HydraulicRadius (m)','WetArea (m2)','SLOPE','default_ManningN','HUC','LakeID']]
-        df_htable.rename(columns={'orig_discharge_cms':'discharge_cms','default_ManningN':'ManningN'}, inplace=True)
+        df_htable = df_htable.rename(columns={'orig_discharge_cms':'discharge_cms','default_ManningN':'ManningN'})
     else:
         df_htable = df_htable[['HydroID','feature_id','stage','discharge_cms','HydraulicRadius (m)','WetArea (m2)','SLOPE','ManningN','HUC','LakeID']]
 
@@ -42,7 +42,7 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     #print(df_hydro_feat.to_string())
 
     ## Calculate roughness using Manning's equation
-    df_gmed.rename(columns={'ManningN':'ManningN_default','hydroid':'HydroID'}, inplace=True) # rename the previous ManningN column
+    df_gmed = df_gmed.rename(columns={'ManningN':'ManningN_default','hydroid':'HydroID'}) # rename the previous ManningN column
     df_gmed['hydroid_ManningN'] = df_gmed['WetArea_m2']* \
     pow(df_gmed['HydraulicRadius_m'],2.0/3)* \
     pow(df_gmed['SLOPE'],0.5)/df_gmed['flow']
@@ -70,7 +70,7 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
 
     # Create df with the most recent collection time entry
     df_updated = df_gmed.groupby(["HydroID"])[['coll_time']].max()
-    df_updated.rename(columns={'coll_time':'last_updated'}, inplace=True)
+    df_updated = df_updated.rename(columns={'coll_time':'last_updated'})
 
     # cacluate median ManningN to handle cases with multiple hydroid entries
     df_mann = df_gmed.groupby(["HydroID"])[['hydroid_ManningN']].median()
@@ -79,10 +79,10 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
 
     # Create a df with the median hydroid_ManningN value per feature_id
     df_mann_featid = df_gmed.groupby(["feature_id"])[['hydroid_ManningN']].median()
-    df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'}, inplace=True)
+    df_mann_featid = df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'})
 
     # Rename the original hydrotable variables to allow new calculations to use the primary var name
-    df_htable.rename(columns={'ManningN':'default_ManningN','discharge_cms':'orig_discharge_cms'}, inplace=True)
+    df_htable = df_htable.rename(columns={'ManningN':'default_ManningN','discharge_cms':'orig_discharge_cms'})
 
     ## Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a singel hydroid)
     df_nrange = df_gmed.groupby('HydroID').agg({'hydroid_ManningN': ['median', 'min', 'max','count']})

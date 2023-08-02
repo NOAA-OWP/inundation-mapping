@@ -132,7 +132,7 @@ def create_single_huc_gdf_and_write_parquet_file(args):
         return
     
     # Drop index_right column created by join
-    huc_with_points_gdf.drop(['index_right'], axis=1, inplace=True)
+    huc_with_points_gdf = huc_with_points_gdf.drop(['index_right'], axis=1)
     
     # Set the crs projection
     huc_gdf = huc_with_points_gdf.set_crs(DEFAULT_FIM_PROJECTION_CRS, allow_override=True)

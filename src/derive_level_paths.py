@@ -121,7 +121,7 @@ def Derive_level_paths(in_stream_network, buffer_wbd_streams, out_stream_network
                                       left_on=reach_id_attribute,
                                       right_on=reach_id_attribute)
 
-        catchments.reset_index(drop=True, inplace=True)
+        catchments = catchments.reset_index(drop=True)
 
         catchments.to_file(catchments_outfile, index=False, driver='GPKG')
 

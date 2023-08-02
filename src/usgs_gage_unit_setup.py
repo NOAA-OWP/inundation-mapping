@@ -29,8 +29,8 @@ class Gage2Branch(object):
         if self.ahps_filename:
             ahps_sites = gpd.read_file(self.ahps_filename)
             ahps_sites = ahps_sites[ahps_sites.HUC8 == self.huc8] # filter to HUC8
-            ahps_sites.rename(columns={'nwm_feature_id':'feature_id',
-                                'usgs_site_code':'location_id'}, inplace=True)
+            ahps_sites = ahps_sites.rename(columns={'nwm_feature_id':'feature_id',
+                                'usgs_site_code':'location_id'})
             ahps_sites = ahps_sites[ahps_sites.location_id.isna()] # Filter sites that are already in the USGS dataset
             self.gages = pd.concat([self.gages, ahps_sites[['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states','geometry']]])
 
@@ -86,12 +86,12 @@ class Gage2Branch(object):
 
             gage_file = os.path.join(fim_dir, huc_dir, 'usgs_subset_gages.gpkg')
             if not os.path.isfile(gage_file):
-                fim_inputs.drop(fim_inputs.loc[fim_inputs.huc == huc_dir].index, inplace=True)
+                fim_inputs = fim_inputs.drop(fim_inputs.loc[fim_inputs.huc == huc_dir].index)
                 continue
 
             gages = gpd.read_file(gage_file)
             level_paths = gages.levpa_id
-            fim_inputs.drop(fim_inputs.loc[(fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))].index, inplace=True)
+            fim_inputs = fim_inputs.drop(fim_inputs.loc[(fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))].index)
         
         fim_inputs.to_csv(fim_inputs_filename, index=False, header=False)
 

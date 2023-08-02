@@ -84,7 +84,7 @@ def generate_rating_curve_metrics(args):
     elev_table = pd.read_csv(elev_table_filename,dtype={'location_id': object, 'feature_id':object,'HydroID':object, 'levpa_id':object})
     
     # Filter out null and non-integer location_id entries (the crosswalk steps tries to fill AHPS only sites with the nws_lid)
-    elev_table.dropna(subset=['location_id'], inplace=True)
+    elev_table = elev_table.dropna(subset=['location_id'])
     elev_table = elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
 
     # Read in the USGS gages rating curve database csv
@@ -99,9 +99,9 @@ def generate_rating_curve_metrics(args):
             branch_hydrotable = pd.read_csv(join(branches_folder, str(branch), f'hydroTable_{branch}.csv'),dtype={'HydroID':object,'feature_id':object,'obs_source':object,'last_updated':object,'submitter':object})
             # Only pull SRC for hydroids that are in this branch
             branch_hydrotable = branch_hydrotable.loc[branch_hydrotable.HydroID.isin(branch_elev_table.HydroID)]
-            branch_hydrotable.drop(columns=['order_'], inplace=True)
+            branch_hydrotable = branch_hydrotable.drop(columns=['order_'])
             # Join SRC with elevation data
-            branch_elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
+            branch_elev_table = branch_elev_table.rename(columns={'feature_id':'fim_feature_id'})
             branch_hydrotable = branch_hydrotable.merge(branch_elev_table, on="HydroID")
             # Append to full rating curve dataframe
             if hydrotable.empty:
@@ -110,7 +110,7 @@ def generate_rating_curve_metrics(args):
                 hydrotable = pd.concat([hydrotable, branch_hydrotable])
 
         # Join rating curves with elevation data
-        #elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
+        #elev_table = elev_table.rename(columns={'feature_id':'fim_feature_id'})
         #hydrotable = hydrotable.merge(elev_table, on="HydroID")
         if 'location_id' in hydrotable.columns:
             relevant_gages = list(hydrotable.location_id.unique())
@@ -172,7 +172,7 @@ def generate_rating_curve_metrics(args):
 
             # Identify unique gages
             usgs_crosswalk = hydrotable.filter(items=['location_id', 'feature_id']).drop_duplicates()
-            usgs_crosswalk.dropna(subset=['location_id'], inplace=True)
+            usgs_crosswalk = usgs_crosswalk.dropna(subset=['location_id'])
 
             nwm_recurr_data_table = pd.DataFrame()
             usgs_recurr_data = pd.DataFrame()
@@ -750,7 +750,7 @@ def calculate_rc_diff(rc):
     # Calculate water surface elevation difference at recurrence intervals
     rc_unmelt["yhat_minus_y"] = rc_unmelt[src_elev] - rc_unmelt[usgs_elev]
     # Remove duplicate location_id-recurr_interval pairs and pivot 
-    rc_unmelt.set_index(['location_id', 'recurr_interval'], inplace=True, verify_integrity=False)
+    rc_unmelt = rc_unmelt.set_index(['location_id', 'recurr_interval'], verify_integrity=False)
     rc_unmelt = (rc_unmelt[~rc_unmelt.index.duplicated(keep='first')]
         .reset_index()
         .pivot(index='location_id', columns='recurr_interval', values='yhat_minus_y'))

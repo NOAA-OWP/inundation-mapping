@@ -61,7 +61,7 @@ def variable_mannings_calc(args):
             print('Skipping --> ' + str(huc) + '  branch id: ' + str(branch_id))
             log_text += 'WARNING --> ' + str(huc) + '  branch id: ' + str(branch_id) + in_src_bankfull_filename + ' does not contain the specified bankfull column: ' + 'Stage_bankfull'  + '\n'
         else:
-            df_src_orig.drop(['channel_n','overbank_n','subdiv_applied','Discharge (m3s-1)_subdiv','Volume_chan (m3)','Volume_obank (m3)','BedArea_chan (m2)','BedArea_obank (m2)','WettedPerimeter_chan (m)','WettedPerimeter_obank (m)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case vmann was previously performed)
+            df_src_orig = df_src_orig.drop(['channel_n','overbank_n','subdiv_applied','Discharge (m3s-1)_subdiv','Volume_chan (m3)','Volume_obank (m3)','BedArea_chan (m2)','BedArea_obank (m2)','WettedPerimeter_chan (m)','WettedPerimeter_obank (m)'], axis=1, errors='ignore') # drop these cols (in case vmann was previously performed)
             
             ## Calculate subdiv geometry variables
             print('Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id))
@@ -93,7 +93,7 @@ def variable_mannings_calc(args):
             df_htable = pd.read_csv(htable_filename,dtype={'HUC': str,'last_updated':object,'submitter':object,'obs_source':object})
 
             ## drop the previously modified discharge column to be replaced with updated version
-            df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
+            df_htable = df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore') 
             df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
 
             ## Output new hydroTable csv
@@ -133,7 +133,7 @@ def subdiv_geometry(df_src):
 
 def subdiv_mannings_eq(df_src):
     ## Calculate discharge (channel) using Manning's equation
-    df_src.drop(['WetArea_chan (m2)','HydraulicRadius_chan (m)','Discharge_chan (m3s-1)','Velocity_chan (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src = df_src.drop(['WetArea_chan (m2)','HydraulicRadius_chan (m)','Discharge_chan (m3s-1)','Velocity_chan (m/s)'], axis=1, errors='ignore') # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)']/df_src['LENGTHKM']/1000
     df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)']/df_src['WettedPerimeter_chan (m)']
     df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
@@ -144,10 +144,10 @@ def subdiv_mannings_eq(df_src):
     df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
 
     ## Calculate discharge (overbank) using Manning's equation
-    df_src.drop(['WetArea_obank (m2)','HydraulicRadius_obank (m)','Discharge_obank (m3s-1)','Velocity_obank (m/s)'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src = df_src.drop(['WetArea_obank (m2)','HydraulicRadius_obank (m)','Discharge_obank (m3s-1)','Velocity_obank (m/s)'], axis=1, errors='ignore') # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)']/df_src['LENGTHKM']/1000
     df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)']/df_src['WettedPerimeter_obank (m)']
-    df_src.replace([np.inf, -np.inf], np.nan, inplace=True) # need to replace inf instances (divide by 0)
+    df_src = df_src.replace([np.inf, -np.inf], np.nan) # need to replace inf instances (divide by 0)
     df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
     df_src['Discharge_obank (m3s-1)'] = df_src['WetArea_obank (m2)']* \
     pow(df_src['HydraulicRadius_obank (m)'],2.0/3)* \
@@ -156,7 +156,7 @@ def subdiv_mannings_eq(df_src):
     df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
 
     ## Calcuate the total of the subdivided discharge (channel + overbank)
-    df_src.drop(['Discharge (m3s-1)_subdiv'], axis=1, inplace=True, errors='ignore') # drop these cols (in case subdiv was previously performed)
+    df_src = df_src.drop(['Discharge (m3s-1)_subdiv'], axis=1, errors='ignore') # drop these cols (in case subdiv was previously performed)
     df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
     return(df_src)
 

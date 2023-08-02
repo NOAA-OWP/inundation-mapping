@@ -29,7 +29,7 @@ def cygnss_preprocessing(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:
     
     # load bounding box file
     bounding_boxes['event_date'] = pd.to_datetime(bounding_boxes['event_date'],utc=True)
-    bounding_boxes.reset_index(drop=True,inplace=True)
+    bounding_boxes = bounding_boxes.reset_index(drop=True)
     
     wbdcol_name = 'HUC'+wbd_layer[-1]
 
@@ -83,7 +83,7 @@ def cygnss_preprocessing(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:
 
     # unique dates and hourly samples
     unique_forecast_df = forecast_df.drop(columns='huc').drop_duplicates()
-    unique_forecast_df.reset_index(inplace=True,drop=True)
+    unique_forecast_df = unique_forecast_df.reset_index(drop=True)
 
     dates = unique_forecast_df["date_time"].map(lambda t: t.date())
     unique_dates, hourly_samples_per_date = np.unique(dates,return_counts=True)
@@ -91,17 +91,17 @@ def cygnss_preprocessing(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:
     unique_dict = dict(zip(unique_dates,hourly_samples_per_date))
     
     final_forecast_df = forecast_df.groupby(pd.Grouper(key='date_time',freq='d')).first().dropna()
-    final_forecast_df.set_index(pd.to_datetime(final_forecast_df.index.date,utc=True),drop=True,inplace=True)
+    final_forecast_df = final_forecast_df.set_index(pd.to_datetime(final_forecast_df.index.date,utc=True),drop=True)
     forecast_df_dates = forecast_df.copy()
     forecast_df_dates.date_time = forecast_df.date_time.dt.date
     final_forecast_df = final_forecast_df.merge(forecast_df,left_index=True, right_on='date_time')
 
-    final_forecast_df.reset_index(drop=True,inplace=True)
+    final_forecast_df = final_forecast_df.reset_index(drop=True)
     final_forecast_df['date_time'] = final_forecast_df.date_time.dt.date
 
-    final_forecast_df.drop(columns={'huc_x','Name_x','forecast_file_x','forecast_url_x','forecast_url_y'},inplace=True)
+    final_forecast_df = final_forecast_df.drop(columns={'huc_x','Name_x','forecast_file_x','forecast_url_x','forecast_url_y'})
 
-    final_forecast_df.rename(columns={'Name_y':'Name','huc_y':'huc','forecast_file_y':'forecast_file'},inplace=True)
+    final_forecast_df = final_forecast_df.rename(columns={'Name_y':'Name','huc_y':'huc','forecast_file_y':'forecast_file'})
     
     def update_daily(daily_nwm_forecast_df,current_date,daily_mean_forecast_files,final_forecast_df):
         daily_mean = daily_nwm_forecast_df.mean(axis=1).rename('discharge')
@@ -135,7 +135,7 @@ def cygnss_preprocessing(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:
             if daily_nwm_forecast_df is None:
                 ii = 0
                 daily_nwm_forecast_df = pd.DataFrame(np.empty((len(current_nwm_forecast_df),unique_dict[current_date])))
-                daily_nwm_forecast_df.set_index(current_nwm_forecast_df.index,inplace=True,drop=True)
+                daily_nwm_forecast_df = daily_nwm_forecast_df.set_index(current_nwm_forecast_df.index,drop=True)
             
             daily_nwm_forecast_df.loc[:,ii] = current_nwm_forecast_df.discharge
             #daily_nwm_forecast_df.rename(columns={ii:current_date_time})

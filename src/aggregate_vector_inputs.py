@@ -37,7 +37,7 @@ def identify_nwm_ms_streams(nwm_streams_filename,ahps_filename,nwm_streams_all_f
     nwm_streams = nwm_streams.explode(index_parts=True)
 
     # Trace down from headwaters
-    nwm_streams.set_index('ID',inplace=True,drop=False)
+    nwm_streams = nwm_streams.set_index('ID',drop=False)
 
     Q = deque(nwm_streams.loc[nwm_streams['is_headwater'],'ID'].tolist())
     visited = set()
@@ -60,7 +60,7 @@ def identify_nwm_ms_streams(nwm_streams_filename,ahps_filename,nwm_streams_all_f
     nwm_streams_ms = nwm_streams.loc[nwm_streams['is_relevant_stream'],:]
     ms_segments = nwm_streams_ms.ID.to_list()
 
-    nwm_streams.reset_index(drop=True,inplace=True)
+    nwm_streams = nwm_streams.reset_index(drop=True)
 
     # Add column to FR nwm layer to indicate MS segments
     nwm_streams['mainstem'] = np.where(nwm_streams.ID.isin(ms_segments), 1, 0)

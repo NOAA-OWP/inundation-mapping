@@ -52,8 +52,8 @@ def Crosswalk_nwm_demDerived(nwm_streams, demDerived, wbd=None, node_prefix=None
                                                          verbose=verbose)
     
     # merge crosswalk table
-    crosswalk_table.rename(columns={'ID':'feature_id'},inplace=True)
-    demDerived.drop(columns='feature_id',inplace=True,errors='raise')
+    crosswalk_table = crosswalk_table.rename(columns={'ID':'feature_id'})
+    demDerived = demDerived.drop(columns='feature_id',errors='raise')
     demDerived['HydroID'] = demDerived['HydroID'].astype(int)
     demDerived = demDerived.merge(crosswalk_table, how='left', left_on='HydroID', right_index=True)
 
@@ -124,7 +124,7 @@ def Add_traversal_to_NWM(nwm_streams,node_prefix=None,outfile=None,verbose=False
     #nwm_streams = nwm_streams.dissolve_by_branch(branch_id_attribute='levpa_id', attribute_excluded=None,
     #                                             values_excluded=None, verbose=verbose)
     
-    nwm_streams.reset_index(drop=True,inplace=True)
+    nwm_streams = nwm_streams.reset_index(drop=True)
 
     if outfile is not None:
         nwm_streams.write(outfile,index=False,verbose=verbose)

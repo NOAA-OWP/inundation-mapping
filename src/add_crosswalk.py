@@ -246,7 +246,7 @@ def add_crosswalk(input_catchments_fileName,
 
     # make hydroTable
     output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Number of Cells','SurfaceArea (m2)','BedArea (m2)','TopWidth (m)','LENGTHKM','AREASQKM','WettedPerimeter (m)','HydraulicRadius (m)','WetArea (m2)','Volume (m3)','SLOPE','ManningN','Stage','Discharge (m3s-1)']]
-    output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
+    output_hydro_table = output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'})
     ## Set placeholder variables to be replaced in post-processing (as needed). Create here to ensure consistent column vars
     ## These variables represent the original unmodified values
     output_hydro_table['default_discharge_cms'] = output_src['Discharge (m3s-1)']
@@ -281,7 +281,7 @@ def add_crosswalk(input_catchments_fileName,
     output_hydro_table = output_hydro_table.rename(columns={'HUC8':'HUC'})
     if output_hydro_table.HUC.dtype != 'str': output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
 
-    output_hydro_table.drop(columns=FIM_ID,inplace=True)
+    output_hydro_table = output_hydro_table.drop(columns=FIM_ID)
     if output_hydro_table.feature_id.dtype != 'int': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str': output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
 

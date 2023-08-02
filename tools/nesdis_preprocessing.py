@@ -28,7 +28,7 @@ def nesdis_preprocessing(bounding_boxes_file,wbd=None,projection_of_boxes='EPSG:
     bounding_boxes['event_end'] = pd.to_datetime(bounding_boxes['event_end'],utc=True)
     bounding_boxes['additional_date'] = pd.to_datetime(bounding_boxes['additional_date'],utc=True)
 
-    bounding_boxes.reset_index(drop=True,inplace=True)
+    bounding_boxes = bounding_boxes.reset_index(drop=True)
     
     wbdcol_name = 'HUC'+wbd_layer[-1]
 

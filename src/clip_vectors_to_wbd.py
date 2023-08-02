@@ -127,7 +127,7 @@ def subset_vector_layers(subset_nwm_lakes,
     nwm_streams = gpd.read_file(nwm_streams, mask = wbd)
 
      # NWM can have duplicate records, but appear to always be identical duplicates
-    nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+    nwm_streams = nwm_streams.drop_duplicates(subset="ID", keep="first")
 
     if len(nwm_streams) > 0:
         nwm_streams = gpd.clip(nwm_streams, wbd_streams_buffer)

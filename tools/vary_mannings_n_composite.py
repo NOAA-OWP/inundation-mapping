@@ -64,7 +64,7 @@ def variable_mannings_calc(args):
     else:
         try:
             if 'comp_ManningN' in df_src.columns:
-                df_src.drop(['channel_n','overbank_n','comp_ManningN','vmann_on','Discharge (m3s-1)_varMann'], axis=1, inplace=True) # drop these cols (in case vmann was previously performed)
+                df_src = df_src.drop(['channel_n','overbank_n','comp_ManningN','vmann_on','Discharge (m3s-1)_varMann'], axis=1) # drop these cols (in case vmann was previously performed)
             
             ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
             df_src = df_src.merge(df_mann,  how='left', on='feature_id')
@@ -87,7 +87,7 @@ def variable_mannings_calc(args):
             wet_area = 'WetArea (m2)'
 
             ## Calculate Q using Manning's equation
-            #df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
+            #df_src = df_src.rename(columns={'Discharge (m3s-1)'}) # rename the previous Discharge column
             df_src['Discharge (m3s-1)_varMann'] = df_src[wet_area]* \
             pow(df_src[hydr_radius],2.0/3)* \
             pow(df_src['SLOPE'],0.5)/df_src['comp_ManningN']
@@ -114,12 +114,12 @@ def variable_mannings_calc(args):
 
             ## Check if BARC ran
             # if not set(['orig_discharge_cms']).issubset(df_htable.columns):
-            #     df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
-            #     df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
+            #     df_htable = df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'})
+            #     df_htable = df_htable.rename(columns={'ManningN':'orig_ManningN'})
             # else:
 
             ## drop the previously modified discharge column to be replaced with updated version
-            df_htable.drop(['vmann_on','discharge_cms','ManningN','vmann_discharge_cms','vmann_ManningN'], axis=1, inplace=True) 
+            df_htable = df_htable.drop(['vmann_on','discharge_cms','ManningN','vmann_discharge_cms','vmann_ManningN'], axis=1) 
             df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
 
             df_htable['vmann_on'] = np.where(df_htable['LakeID']>0, False, df_htable['vmann_on']) # reset the ManningN value back to the original if vmann=false
