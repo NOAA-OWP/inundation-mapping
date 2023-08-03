@@ -206,7 +206,7 @@ def run_prep(fim_dir,bankfull_flow_filepath,number_of_jobs,verbose,src_plot_opti
     log_file.write('#########################################################\n\n')
 
     ## List of columns in SRC_full_crosswalk to read in (ignores other columns that may have been added by previous post-proccessing runs)
-    src_usecols=['Stage','Number of Cells','SurfaceArea (m2)','BedArea (m2)','Volume (m3)','SLOPE','LENGTHKM','AREASQKM','ManningN','HydroID','NextDownID','order_','TopWidth (m)','WettedPerimeter (m)','WetArea (m2)','HydraulicRadius (m)','Discharge (m3s-1)','feature_id']
+    src_usecols=['Stage','Number of Cells','SurfaceArea (m2)','BedArea (m2)','Volume (m3)','SLOPE','LENGTHKM','AREASQKM','ManningN','HydroID','NextDownID','order_','TopWidth (m)','WettedPerimeter (m)','WetArea (m2)','HydraulicRadius (m)','Discharge (m3s-1)','feature_id', 'Bathymetry_source']
 
     df_bflows = pd.read_csv(bankfull_flow_filepath,dtype={'feature_id': int})
     huc_list  = os.listdir(fim_dir)

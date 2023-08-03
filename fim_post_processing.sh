@@ -100,6 +100,15 @@ find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "
 echo "Processing usgs gage aggregation"   
 python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -j $jobLimit
 
+## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
+if [ "$bathymetry_adjust" = "True" ]; then
+    echo -e $startDiv"Performing Bathymetry Adjustment routine"
+    # Run bathymetry adjustment routine
+    Tstart
+    python3 $srcDir/bathymetric_adjustment.py -fim_dir $outputDestDir -bathy $inputsDir/bathymetry/bathymetry_adjustment_data.gpkg -buffer $wbd_buffer -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
+    Tcount
+fi
+
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
     echo -e $startDiv"Estimating bankfull stage in SRCs"

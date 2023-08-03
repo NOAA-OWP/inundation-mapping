@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.14.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Additions  
+
+- `data/bathymetry/preprocess_bathymetry.py`: preprocesses the eHydro datasets.
+- `src/bathymetric_adjustment.py`: adjusts synthetic rating curves for HUCs where preprocessed bathymetry is available.
+
+### Changes  
+
+- `config/params_template.env`: added a toggle for the bathymetric adjustment routine: `bathymetry_adjust`
+- `fim_post_processing.sh`: added the new `bathymetric_adjustment.py` to the postprocessing lineup
+- `src/`
+    - `add_crosswalk.py`, `aggregate_by_huc.py`, & `subdiv_chan_obank_src.py`: accounting for the new Bathymetry_source field in SRCs
+
+<br/><br/>
+
 ## v4.3.13.0 - 2023-07-26 - [PR#952](https://github.com/NOAA-OWP/inundation-mapping/pull/952)
 
 Adds a feature to manually calibrate rating curves for specified NWM `feature_id`s using a CSV of manual coefficients to output a new rating curve. Manual calibration is applied after any/all other calibrations. Coefficient values between 0 and 1 increase the discharge value (and decrease inundation) for each stage in the rating curve while values greater than 1 decrease the discharge value (and increase inundation).
