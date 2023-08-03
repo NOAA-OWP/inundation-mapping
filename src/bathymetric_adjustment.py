@@ -139,7 +139,7 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
     log_file.write('#########################################################\n\n')
 
     # Exit program if the bathymetric data doesn't exist
-    if not os.path.exists():
+    if not os.path.exists(bathy_file):
         statement = f'The input bathymetry file {bathy_file} does not exist. Exiting...'
         log_file.write(statement)
         print(statement)
