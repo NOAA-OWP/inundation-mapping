@@ -67,7 +67,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
         src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
         src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)']/src_df['WettedPerimeter (m)']
-        src_df = src_df['HydraulicRadius (m)'].fillna(0)
+        src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
         src_df['Discharge (m3s-1)'] = src_df['WetArea (m2)']* \
             pow(src_df['HydraulicRadius (m)'],2.0/3)* \
             pow(src_df['SLOPE'],0.5)/src_df['ManningN']
