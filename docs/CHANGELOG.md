@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.12.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
+## v4.3.14.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
 
 The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
 
