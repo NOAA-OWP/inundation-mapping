@@ -10,9 +10,39 @@ from osgeo import gdal_array
 from argparse import ArgumentParser
 import os
 
+"""
+To use this script you will need to create a tif file from the eHydro depth survey tin file.
+    To create depth tif:
+        1. Download eHydro survey data from USACE Hydrographic Surveys and open the tin file in Q-GIS.
+        2. Run rasterize mesh tool on tin file, e.g.
+        processing.run("native:meshrasterize", {'INPUT':'ESRI_TIN:"C:/Users/riley.mcdermott/
+        Documents/Bathymetry_PA/AL_LP_EMS_20150809_CS_005_065_SORT/AL_LP_EMS_20150809_CS_005_065_SORT_tin/
+        tdenv9.adf"','DATASET_GROUPS':[0],'DATASET_TIME':{'type': 'static'},'EXTENT':None,'PIXEL_SIZE':1,
+        'CRS_OUTPUT':QgsCoordinateReferenceSystem('EPSG:5070'),'OUTPUT':'C:/Users/riley.mcdermott/Documents
+        /Bathymetry_PA/Allegheny_USACE_Depth_ft.tif'})
+"""
 def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_threshold):
-    """
-    will need to read in tif from Q-GIS mesh to raster and bathy bounds from SurveyJob layer in survey geodatabase
+    """ Function for calculating missing reach averaged cross sectional 
+    area and wetted perimeter by NWM feature_id.
+
+        Parameters
+        ----------
+        tif : str
+            Path to depth tif file from rasterized USACE eHydro survey tin, e.g.
+            "/data/inputs/bathymetry/HU_01_TRY_20211108_CS_5043_30.tif".
+        bathy_bounds : str
+            Name of survey extent vector layer within given geodatabase, 
+            defaults to 'SurveyJob'.
+        survey_gdb : str
+            Path to survey geodatabase containing vector survey extent layer, e.g.
+            "/data/inputs/bathymetry/HU_01_TRY_20211108_CS_5043_30.gdb".
+        output : str
+            Path to output location for NWM flows geopackage, e.g.
+            "/data/inputs/bathymetry/bathymetry_adjustment_data.gpkg".
+        min_depth_threshold : int
+            Highest value allowed for the minimum depth of the survey 
+            in feet (Checks for data referenced to a datum).
+
     """
     with rasterio.open(tif) as bathy_ft:
         bathy_affine = bathy_ft.transform
