@@ -201,6 +201,7 @@ echo "--- Number of HUCs to process is $num_hucs"
 # make dirs
 if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
+    chmod 777 $outputDestDir
     mkdir -p $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
