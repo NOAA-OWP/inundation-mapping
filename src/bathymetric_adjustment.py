@@ -12,6 +12,26 @@ from synthesize_test_cases import progress_bar_handler
 
 
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
+    """Function for correcting synthetic rating curves. It will correct each branch's
+    SRCs in serial based on the feature_ids in the input bathy_file.
+
+        Parameters
+        ----------
+        fim_dir : str
+            Directory path for fim_pipeline output.
+        huc : str
+            HUC-8 string.
+        bathy_file : str
+            Path to bathymetric adjustment geopackage, e.g. 
+            "/data/inputs/bathymetry/bathymetry_adjustment_data.gpkg".
+        verbose : bool
+            Verbose printing.
+
+        Returns
+        ----------
+        log_text : str
+            
+    """
 
     log_text = f'Calculating bathymetry adjustment: {huc}\n'
 
@@ -83,6 +103,29 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
 
 
 def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose):
+    """Function for correcting synthetic rating curves. It will correct each branch's
+    SRCs in serial based on the feature_ids in the input bathy_file.
+
+        Parameters
+        ----------
+        fim_dir : str
+            Directory path for fim_pipeline output.
+        bathy_file : str
+            Path to bathymetric adjustment geopackage, e.g. 
+            "/data/inputs/bathymetry/bathymetry_adjustment_data.gpkg".
+        wbd_buffer : int
+            Distance in meters to buffer wbd dataset when searching for relevant HUCs.
+        wbd : str
+            Path to wbd input data, e.g. 
+            "/data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg".
+        output_suffix : str
+            Output filename suffix. 
+        number_of_jobs : int
+            Number of CPU cores to parallelize HUC processing.
+        verbose : bool
+            Verbose printing.
+
+    """
 
     # Set up log file
     print('Writing progress to log file here: ' + str(join(fim_dir,'logs','bathymetric_adjustment' + output_suffix + '.log')))
@@ -94,6 +137,13 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
     log_file = open(join(fim_dir,'logs','bathymetric_adjustment' + output_suffix + '.log'),"w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
+
+    # Exit program if the bathymetric data doesn't exist
+    if not os.path.exists():
+        statement = f'The input bathymetry file {bathy_file} does not exist. Exiting...'
+        log_file.write(statement)
+        print(statement)
+        sys.exit(0)
 
     # Find applicable HUCs to apply bathymetric adjustment
     # NOTE: This block can be removed if we have estimated bathymetry data for
