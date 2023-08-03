@@ -193,6 +193,34 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
 
 if __name__ == '__main__':
 
+    """
+    Parameters
+    ----------
+    fim_dir : str
+        Directory path for fim_pipeline output. Log file will be placed in 
+        fim_dir/logs/bathymetric_adjustment.log.
+    bathy_file : str
+        Path to bathymetric adjustment geopackage, e.g. 
+        "/data/inputs/bathymetry/bathymetry_adjustment_data.gpkg".
+    wbd_buffer : int
+        Distance in meters to buffer wbd dataset when searching for relevant HUCs.
+    wbd : str
+        Path to wbd input data, e.g. 
+        "/data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg".
+    output_suffix : str
+        Optional. Output filename suffix. Defaults to no suffix. 
+    number_of_jobs : int
+        Optional. Number of CPU cores to parallelize HUC processing. Defaults to 8.
+    verbose : bool
+        Optional flag for enabling verbose printing.
+
+    Sample Usage
+    ----------
+    python3 /foss_fim/src/bathymetric_adjustment.py -fim_dir /outputs/fim_run_dir -bathy /data/inputs/bathymetry/bathymetry_adjustment_data.gpkg 
+        -buffer 5000 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
+
+    """
+
     parser = ArgumentParser(description="Bathymetric Adjustment")
     parser.add_argument('-fim_dir','--fim-dir', help='FIM output dir', required=True,type=str)
     parser.add_argument('-bathy','--bathy_file',help="Path to geopackage with preprocessed bathymetic data",required=True,type=str)
