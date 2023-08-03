@@ -19,6 +19,39 @@ The enhancements in this PR include the new modules for pre-processing bathymetr
 
 <br/><br/>
 
+## v4.3.13.0 - 2023-07-26 - [PR#952](https://github.com/NOAA-OWP/inundation-mapping/pull/952)
+
+Adds a feature to manually calibrate rating curves for specified NWM `feature_id`s using a CSV of manual coefficients to output a new rating curve. Manual calibration is applied after any/all other calibrations. Coefficient values between 0 and 1 increase the discharge value (and decrease inundation) for each stage in the rating curve while values greater than 1 decrease the discharge value (and increase inundation).
+
+Manual calibration is performed if `manual_calb_toggle="True"` and the file specified by `man_calb_file` (with `HUC8`, `feature_id`, and `calb_coef_manual` fields) exists. The original HUC-level `hydrotable.csv` (after calibration) is saved with a suffix of `_pre-manual` before the new rating curve is written.
+
+### Additions
+
+- `src/src_manual_calibration.py`: Adds functionality for manual calibration by CSV file
+
+### Changes
+
+- `config/params_template.env`: Adds `manual_calb_toggle` and `man_calb_file` parameters
+- `fim_post_processing.sh`: Adds check for toggle and if `man_calb_file` exists before running manual calibration
+
+<br/><br/>
+
+## v4.3.12.1 - 2023-07-21 - [PR#950](https://github.com/NOAA-OWP/inundation-mapping/pull/950)
+
+Fixes a couple of bugs that prevented inundation using HUC-level hydrotables. Update associated unit tests.
+
+### Changes
+
+- `tools/inundate_gms.py`: Fixes a file path error and Pandas DataFrame indexing error.
+- `unit_tests/tools/inundate_gms_test.py`: Do not skip this test, refactor to check that all branch inundation rasters exist.
+- `unit_tests/tools/inundate_gms_params.json`: Only test 1 HUC, update forecast filepath, use 4 'workers'.
+
+### Removals
+
+- `unit_tests/tools/inundate_gms_unittests.py`: No longer used. Holdover from legacy unit tests.
+
+<br/><br/>
+
 ## v4.3.12.0 - 2023-07-05 - [PR#940](https://github.com/NOAA-OWP/inundation-mapping/pull/940)
 
 Refactor Point Calibration Database for synthetic rating curve adjustment to use `.parquet` files instead of a PostgreSQL database. 

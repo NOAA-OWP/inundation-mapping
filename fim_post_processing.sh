@@ -156,6 +156,16 @@ python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable -
 Tcount
 date -u
 
+## PERFORM MANUAL CALIBRATION
+if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
+    echo
+    echo -e $startDiv"Performing manual calibration"
+    Tstart
+    python3 $srcDir/src_manual_calibration.py -fim_dir $outputDestDir -calb_file $man_calb_file
+    Tcount
+    date -u
+fi
+
 echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
