@@ -211,8 +211,9 @@ def add_crosswalk(input_catchments_fileName,
 
     # set nans to 0
     input_src_base.loc[input_src_base['Stage']==0,['Discharge (m3s-1)']] = 0
+    input_src_base['Bathymetry_source'] = pd.NA
 
-    output_src = input_src_base.drop(columns=['CatchId'])
+    output_src = input_src_base.drop(columns=['CatchId']).copy()
     if output_src.HydroID.dtype != 'int': output_src.HydroID = output_src.HydroID.astype(int)
 
     # update rating curves
@@ -238,14 +239,10 @@ def add_crosswalk(input_catchments_fileName,
     output_crosswalk = output_src[['HydroID','feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
-    ## bathy estimation integration in synthetic rating curve calculations
-    #if (bathy_src_calc == True and extent == 'MS'):
-    #    output_src = bathy_rc_lookup(output_src,input_bathy_fileName,output_bathy_fileName,output_bathy_streamorder_fileName,output_bathy_thalweg_fileName,output_bathy_xs_lookup_fileName)
-    #else:
-    #    print('Note: NOT using bathy estimation approach to modify the SRC...')
-
     # make hydroTable
-    output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Number of Cells','SurfaceArea (m2)','BedArea (m2)','TopWidth (m)','LENGTHKM','AREASQKM','WettedPerimeter (m)','HydraulicRadius (m)','WetArea (m2)','Volume (m3)','SLOPE','ManningN','Stage','Discharge (m3s-1)']]
+    output_hydro_table = output_src.loc[:,['HydroID','feature_id','NextDownID','order_','Number of Cells','SurfaceArea (m2)',
+        'BedArea (m2)','TopWidth (m)','LENGTHKM','AREASQKM','WettedPerimeter (m)','HydraulicRadius (m)','WetArea (m2)',
+        'Volume (m3)','SLOPE','ManningN','Stage','Discharge (m3s-1)']]
     output_hydro_table.rename(columns={'Stage' : 'stage','Discharge (m3s-1)':'discharge_cms'},inplace=True)
     ## Set placeholder variables to be replaced in post-processing (as needed). Create here to ensure consistent column vars
     ## These variables represent the original unmodified values
@@ -254,6 +251,8 @@ def add_crosswalk(input_catchments_fileName,
     output_hydro_table['default_WetArea (m2)'] = output_src['WetArea (m2)']
     output_hydro_table['default_HydraulicRadius (m)'] = output_src['HydraulicRadius (m)']
     output_hydro_table['default_ManningN'] = output_src['ManningN']
+    ## Placeholder vars for BARC
+    output_hydro_table['Bathymetry_source'] = pd.NA
     ## Placeholder vars for subdivision routine
     output_hydro_table['subdiv_applied'] = False
     output_hydro_table['overbank_n'] = pd.NA

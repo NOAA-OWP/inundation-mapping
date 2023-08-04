@@ -273,10 +273,10 @@ def aggregate_by_huc(fim_directory, fim_inputs, usgs_elev_flag,
     # Validation
     total_cpus_available = os.cpu_count() - 2
     if num_job_workers > total_cpus_available:
-        raise ValueError('The number of jobs {number_of_jobs}'\
+        raise ValueError(f'The number of jobs {num_job_workers}'\
                           'exceeds your machine\'s available CPU count minus two. '\
                           'Please lower the number of jobs '\
-                          'values accordingly.'.format(num_job_workers)
+                          'values accordingly.'
                         )
    
     # create log folder, might end up empty but at least create the folder
