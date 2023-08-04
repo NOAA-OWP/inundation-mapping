@@ -410,12 +410,11 @@ if __name__ == '__main__':
 
         # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
         executor_dict = {}
-        does, doesnot = 0, 0
+
         for test_case_class in all_test_cases:
             
             if not os.path.exists(test_case_class.fim_dir):
                 continue
-
 
             fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
 
@@ -441,7 +440,6 @@ if __name__ == '__main__':
         #wait(executor_dict.keys())
 
     # Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
-
     if model == 'MS' and fr_run_dir:
 
         # Rebuild all test cases list with the FR version, loop through them and apply the alpha test

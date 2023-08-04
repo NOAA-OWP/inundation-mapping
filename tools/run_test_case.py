@@ -311,13 +311,22 @@ class test_case(benchmark):
             # FIM v3 and before
             else:
                 fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
-                inundate_result = inundate(self.rem, self.catchments, self.catchment_poly, self.hydro_table,
+                inundate_result = inundate(self.rem,
+                                           self.catchments,
+                                           self.catchment_poly,
+                                           self.hydro_table,
                                            benchmark_flows,
-                    self.mask_type, hucs=self.hucs, hucs_layerName=self.hucs_layerName,
-                    subset_hucs=self.huc,num_workers=1,aggregate=False,
-                    inundation_raster=inundation_path,inundation_polygon=None,
-                    depths=None,out_raster_profile=None,out_vector_profile=None,
-                    quiet=True)
+                                           self.mask_type,
+                                           hucs=self.hucs,
+                                           hucs_layerName=self.hucs_layerName,
+                                           subset_hucs=self.huc,
+                                           num_workers=1,
+                                           aggregate=False,
+                                           inundation_raster=inundation_path,
+                                           inundation_polygon=None,
+                                           depths=None,out_raster_profile=None,
+                                           out_vector_profile=None,
+                                           quiet=True)
                 if inundate_result != 0:
                     return inundate_result
 
