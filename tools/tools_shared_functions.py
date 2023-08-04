@@ -418,7 +418,7 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
         agreement_map = agreement_map.rio.write_nodata(10, encoded=True)
-        agreement_map.rio.to_raster(agreement_raster)
+        agreement_map.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
 
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
@@ -491,7 +491,7 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
                     layer_agreement_raster = os.path.join(os.path.split(agreement_raster)[0],
                                                           poly_handle + '_agreement.tif')
                     agreement_map = agreement_map.rio.write_nodata(10, encoded=True)
-                    agreement_map.rio.to_raster(layer_agreement_raster)
+                    agreement_map.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
 
                 # Update stats table dictionary
                 stats_table_dictionary.update({poly_handle: cross_walk_gval_fim(metric_df=metrics_table,
