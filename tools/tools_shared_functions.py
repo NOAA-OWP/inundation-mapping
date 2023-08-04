@@ -296,9 +296,9 @@ def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: i
         0] if cell_area is not None else None
 
     total_pop_and_mask_pop = total_population + masked_count if masked_count > 0 else None
-    metric_df['masked_count'] = masked_count if masked_count > 0 else None
-    metric_df['masked_perc'] = (masked_count / total_pop_and_mask_pop) * 100 if masked_count > 0 else None
-    metric_df['masked_area_km2'] = (masked_count * cell_area) / sq_km_converter if masked_count > 0 else None
+    metric_df['masked_count'] = masked_count if masked_count > 0 else 0
+    metric_df['masked_perc'] = (masked_count / total_pop_and_mask_pop) * 100 if masked_count > 0 else 0
+    metric_df['masked_area_km2'] = (masked_count * cell_area) / sq_km_converter if masked_count > 0 else 0
     metric_df['predPositive_perc'] = (predPositive / total_population) * 100 if total_population > 0 else "NA"
     metric_df['predNegative_perc'] = (predNegative / total_population) * 100 if total_population > 0 else "NA"
     metric_df['obsPositive_perc'] = (obsPositive / total_population) * 100 if total_population > 0 else "NA"
