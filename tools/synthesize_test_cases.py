@@ -90,7 +90,7 @@ def create_master_metrics_csv(master_metrics_csv_output, dev_versions_to_include
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
         test_cases_list = [d for d in os.listdir(benchmark_test_case_dir) if re.match('\d{8}_\w{3,7}', d)]
 
-        if benchmark_source in ['ble', 'ifc','ras2fim']:
+        if benchmark_source in ['ble', 'ifc', 'ras2fim']:
             magnitude_list = MAGNITUDE_DICT[benchmark_source]
             
             # Iterate through available test cases
@@ -384,6 +384,8 @@ if __name__ == '__main__':
     # Create a list of all test_cases for which we have validation data
     all_test_cases = test_case.list_all_test_cases(version = fim_version, archive = archive_results,
             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category])
+
+    # print('all test cases', all_test_cases)
     
     # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
     if prev_metrics_csv != None and pfiles == True:
@@ -391,7 +393,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
-    if prev_metrics_csv != None:
+    if prev_metrics_csv is not None:
         if not os.path.exists(prev_metrics_csv):
             print(f"Error: File does not exist at {prev_metrics_csv}")
             sys.exit(1)
@@ -415,10 +417,12 @@ if __name__ == '__main__':
 
         # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
         executor_dict = {}
+        does, doesnot = 0, 0
         for test_case_class in all_test_cases:
             
             if not os.path.exists(test_case_class.fim_dir):
                 continue
+
 
             fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
 
@@ -427,7 +431,7 @@ if __name__ == '__main__':
                                 'model': model,
                                 'mask_type': 'huc',
                                 'overwrite': overwrite,
-                                'verbose':gms_verbose if model == 'GMS' else verbose,
+                                'verbose': gms_verbose if model == 'GMS' else verbose,
                                 'gms_workers': job_number_branch
                                 }
 
@@ -444,6 +448,7 @@ if __name__ == '__main__':
         #wait(executor_dict.keys())
 
     # Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
+
     if model == 'MS' and fr_run_dir:
 
         # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
@@ -501,7 +506,7 @@ if __name__ == '__main__':
     else:
         dev_versions_to_include_list = previous_fim_list
 
-    if master_metrics_csv is not None:
+    if master_metrics_csv is None:
         # Do aggregate_metrics.
         print("Creating master metrics CSV...")
 
