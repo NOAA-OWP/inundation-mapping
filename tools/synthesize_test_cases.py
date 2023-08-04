@@ -502,7 +502,7 @@ if __name__ == '__main__':
     else:
         iteration_list = ['official'] # only iterating through official model results
 
-    if master_metrics_csv is None:
+    if master_metrics_csv is not None:
         # Do aggregate_metrics.
         print("Creating master metrics CSV...")
 
