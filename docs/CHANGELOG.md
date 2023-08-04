@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.14.1 - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
+
+ras2fim product had a need to run the acquire 3dep script to pull down some HUC8 DEMs. The old script was geared to HUC6 but could handle HUC8's but needed a few enhancements. ras2fim also did not need polys made from the DEMs, so a switch was added for that.
+
+The earlier version on the "retry" feature would check the file size and if it was smaller than a particular size, it would attempt to reload it.  The size test has now been removed. If a file fails to download, the user will need to look at the log out, then remove the file before attempting again. Why? So the user can see why it failed and decide action from there.
+
+Note: later, as needed, we might upgrade it to handle more than just 10m (which it is hardcoded against).
+
+Additional changes to README to reflect how users can access ESIP's S3 as well as a one line addition to change file permissions in fim_process_unit_wb.sh.
+
+### Changes  
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`:  As described above.
+ - `fim_pipeline.sh`:  a minor styling fix (added a couple of lines for readability)
+ - `fim_pre_processing.sh`: a user message was incorrect & chmod 777 $outputDestDir. 
+ - `fim_process_unit_wb.sh`: chmod 777 for /output/<run_name> directory.
+ - `README.md`: --no-sign-request instead of --request-payer requester for ESIP S3 access.
+
+<br/><br/>
+
 ## v4.3.14.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
 
 The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
