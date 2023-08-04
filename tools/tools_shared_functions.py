@@ -4,7 +4,6 @@ import os
 import json
 import pathlib
 from pathlib import Path
-import traceback
 
 import requests
 import numpy as np
@@ -23,7 +22,6 @@ import rioxarray as rxr
 import xarray as xr
 from geocube.api.core import make_geocube
 from gval import CatStats
-
 
 
 def get_env_paths():
@@ -343,43 +341,7 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
 
     """
 
-    # try:
-        # For now keep same memory footprint
-        # benchmark_raster = rxr.open_rasterio(benchmark_raster_path)
-        # replace_nodata = benchmark_raster.rio.nodata
-        # benchmark_raster = benchmark_raster.rio.write_nodata(10)
-        # cell_area = np.abs(np.prod(benchmark_raster.rio.resolution()))
-        #
-        # if replace_nodata:
-        #     benchmark_raster.data = xr.where(benchmark_raster == replace_nodata, 10, benchmark_raster)
-        #
-        # candidate_raster = rxr.open_rasterio(benchmark_raster_path)
-        # replace_nodata = candidate_raster.rio.nodata
-        # candidate_raster = candidate_raster.rio.write_nodata(10)
-        #
-        # if replace_nodata:
-        #     candidate_raster.data = xr.where(candidate_raster == replace_nodata, 10, candidate_raster)
-        #
-        # # Transform predicted raster to binary format
-        # candidate_raster.data = xr.where((candidate_raster >= 0) & (candidate_raster != 10), 1, candidate_raster)
-        # candidate_raster.data = xr.where((candidate_raster < 0) & (candidate_raster != 10), 0, candidate_raster)
-        #
-        # # Create pairing dictionary to reflect desired encodings
-        # pairing_dictionary = {
-        #     (0, 0): 0,
-        #     (0, 1): 1,
-        #     (0, 10): 10,
-        #     (1, 0): 2,
-        #     (1, 1): 3,
-        #     (1, 10): 10,
-        #     (4, 0): 4,
-        #     (4, 1): 4,
-        #     (4, 10): 10,
-        #     (10, 0): 10,
-        #     (10, 1): 10,
-        #     (10, 10): 10
-        # }
-
+    # Load benchmark and candidate data
     benchmark_raster = rxr.open_rasterio(benchmark_raster_path, mask_and_scale=True)
     cell_area = np.abs(np.prod(benchmark_raster.rio.resolution()))
     candidate_raster = rxr.open_rasterio(candidate_raster_path, mask_and_scale=True)
@@ -544,9 +506,6 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
 
     return stats_table_dictionary
 
-    # except:
-    #
-    #     print(traceback.print_exc())
 ########################################################################
 ########################################################################
 #Functions related to categorical fim and ahps evaluation
@@ -589,7 +548,7 @@ def get_metadata(metadata_url, select_by, selector, must_include = None, upstrea
     params['upstream_trace_distance'] = upstream_trace_distance
     params['downstream_trace_distance'] = downstream_trace_distance
     #Request data from url
-    response = requests.get(url, params = params)
+    response = requests.get(url, params = params, verify=False)
 #    print(response)
 #    print(url)
     if response.ok:
@@ -698,7 +657,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes = False):
             #Reproject to huc 8 crs
             site_gdf = site_gdf.to_crs(huc8.crs)
             #Append site geodataframe to metadata geodataframe
-            metadata_gdf = metadata_gdf.append(site_gdf, ignore_index = True)
+            metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index = True)
     
     #Trim metadata to only have certain fields.
     if not retain_attributes:
@@ -858,7 +817,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold = 'all'):
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
-    response = requests.get(url, params = params)
+    response = requests.get(url, params = params, verify=False)
     if response.ok:
         thresholds_json = response.json()
         #Get metadata
@@ -1072,7 +1031,7 @@ def ngvd_to_navd_ft(datum_info, region = 'contiguous'):
     params['tar_vertical_unit'] = 'm' #Target vertical height
     
     #Call the API
-    response = requests.get(datum_url, params = params)
+    response = requests.get(datum_url, params = params, verify=False)
 
     #If successful get the navd adjustment
     if response:
@@ -1115,7 +1074,7 @@ def get_rating_curve(rating_curve_url, location_ids):
     url = f'{rating_curve_url}/{joined_location_ids}'
     
     #Call the API 
-    response = requests.get(url)
+    response = requests.get(url, verify=False)
 
     #If successful
     if response.ok:
@@ -1141,7 +1100,7 @@ def get_rating_curve(rating_curve_url, location_ids):
                 curve_df['wrds_timestamp'] = response.headers['Date']
 
                 #Append rating curve to DataFrame containing all curves
-                all_curves = all_curves.append(curve_df)
+                all_curves = pd.concat([all_curves, curve_df])
             else:
                 continue
 

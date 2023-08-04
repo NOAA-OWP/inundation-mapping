@@ -15,6 +15,7 @@ def subset_vector_layers(subset_nwm_lakes,
                          hucCode,
                          subset_nwm_headwaters,
                          wbd_buffer_filename,
+                         wbd_streams_buffer_filename,
                          wbd_filename,
                          dem_filename,
                          dem_domain,
@@ -53,6 +54,7 @@ def subset_vector_layers(subset_nwm_lakes,
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
     wbd_buffer.to_file(wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
+    wbd_streams_buffer.to_file(wbd_streams_buffer_filename, driver=getDriver(wbd_streams_buffer_filename), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
 
     # Clip ocean water polygon for future masking ocean areas (where applicable)
     landsea = gpd.read_file(landsea, mask=wbd_buffer)
@@ -151,6 +153,8 @@ if __name__ == '__main__':
     parser.add_argument('-e','--subset-nwm-headwaters', help='NWM headwaters subset', 
                         required=True, default=None)
     parser.add_argument('-f','--wbd_buffer_filename', help='Buffered HUC boundary', 
+                        required=True)
+    parser.add_argument('-s','--wbd_streams_buffer_filename', help='Buffered HUC boundary (streams)', 
                         required=True)
     parser.add_argument('-g','--wbd-filename', help='HUC boundary', required=True)
     parser.add_argument('-i','--dem-filename', help='DEM filename', required=True)

@@ -41,7 +41,7 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
     #     print (f"nws lid(s) {missing_nws_lids} missing from aggregate dataset in huc {huc}")
 
     # Combine NWM headwaters and AHPS sites to be snapped to NHDPlus HR segments
-    headwater_pts = headwater_limited.append(nws_lid_limited)
+    headwater_pts = pd.concat([headwater_limited, nws_lid_limited])
     headwater_pts = headwater_pts.reset_index(drop=True)
 
     if headwater_pts is not None:
@@ -159,7 +159,7 @@ def adjust_headwaters(huc,nhd_streams,nwm_headwaters,nws_lids,headwater_id):
         del nhd_headwater_streams_adj
 
         try:
-            combined_pts = snapped_ahps_points.append(nhd_headwater_points_adj)
+            combined_pts = pd.concat([snapped_ahps_points, nhd_headwater_points_adj])
         except:
             combined_pts = nhd_headwater_points_adj.copy()
 

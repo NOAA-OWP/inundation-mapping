@@ -55,6 +55,15 @@ if [ ! -d "$outputDestDir" ]; then
     exit 1
 fi
 
+#########################################################################################
+#                                                                                       #
+# PLEASE DO NOT USE the job limits coming in from the runtime_args.env                  #
+# Most of the time, post processing will not be run on the same servers                 #
+# that is running fim_process_unit_wb.sh and the processing power                       #
+# used to run fim_post_processing.sh will be different (hence.. different job limit)    #
+#                                                                                       #
+#########################################################################################
+
 if [ "$jobLimit" = "" ]; then jobLimit=1; fi
 
 # Clean out the other post processing files before starting
@@ -71,7 +80,6 @@ source $outputDestDir/params.env
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
-
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo "---- Start of fim_post_processing"
@@ -84,16 +92,22 @@ post_proc_start_time=`date +%s`
 echo -e $startDiv"Start branch aggregation"
 python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir -f "branch_ids.csv" -o $fim_inputs
 
-## GET NON ZERO EXIT CODES FOR UNITS ##
-## No longer applicable
-
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 echo -e $startDiv"Start non-zero exit code checking"
 find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo "Processing usgs gage aggregation"
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev
+echo "Processing usgs gage aggregation"   
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -j $jobLimit
+
+## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
+if [ "$bathymetry_adjust" = "True" ]; then
+    echo -e $startDiv"Performing Bathymetry Adjustment routine"
+    # Run bathymetry adjustment routine
+    Tstart
+    python3 $srcDir/bathymetric_adjustment.py -fim_dir $outputDestDir -bathy $inputsDir/bathymetry/bathymetry_adjustment_data.gpkg -buffer $wbd_buffer -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
+    Tcount
+fi
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
@@ -124,70 +138,33 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     date -u
 fi
 
-## CONNECT TO CALIBRATION POSTGRESQL DATABASE (OPTIONAL) ##
-if [ "$src_adjust_spatial" = "True" ] && [ "$skipcal" = "0" ]; then
-    if [ ! -f $CALB_DB_KEYS_FILE ]; then
-        echo "ERROR! - the src_adjust_spatial parameter in the params_template.env (or equiv) is set to "True" (see parameter file),"
-        echo "but the provided calibration database access keys file does not exist: $CALB_DB_KEYS_FILE"
-        exit 1
-    else
-        source $CALB_DB_KEYS_FILE
-
-        ## This makes the local variables from the calb_db_keys files
-        ## into global variables that can be used in other files, including python.
-
-        ## Why not just leave the word export in front of each of the keys in the
-        ## calb_db_keys.env? Because that file is used against docker-compose        
-        ## when we start up that part of the sytem and it does not like the word
-        ## export.
-
-        # Pick up the docker parent host machine name and override the one coming from the config file (aws only)
-        if [ "$isAWS" = "1" ]; then
-            CALIBRATION_DB_HOST=$(curl http://169.254.169.254/latest/meta-data/local-ipv4 -s)
-        fi
-
-        export CALIBRATION_DB_HOST=$CALIBRATION_DB_HOST
-        export CALIBRATION_DB_NAME=$CALIBRATION_DB_NAME
-        export CALIBRATION_DB_USER_NAME=$CALIBRATION_DB_USER_NAME
-        export CALIBRATION_DB_PASS=$CALIBRATION_DB_PASS
-        export DEFAULT_FIM_PROJECTION_CRS=$DEFAULT_FIM_PROJECTION_CRS
-
-        Tstart
-        echo
-        echo -e $startDiv"Populate PostgreSQL database with benchmark FIM extent points and HUC attributes (the calibration database)"
-        echo
-
-        ogr2ogr -overwrite -nln hucs -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $inputsDir/wbd/WBD_National.gpkg WBDHU8
-
-        echo "Loading Point Data"
-        echo
-        ogr2ogr -overwrite -t_srs $DEFAULT_FIM_PROJECTION_CRS -f PostgreSQL PG:"host=$CALIBRATION_DB_HOST dbname=$CALIBRATION_DB_NAME user=$CALIBRATION_DB_USER_NAME password=$CALIBRATION_DB_PASS" $fim_obs_pnt_data usgs_nws_benchmark_points -nln points
-
-        Tcount
-    fi
-else
-    echo "Skipping Populate PostgrSQL database"
-fi
-
-## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINT DATABASE (POSTGRESQL) ##
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [ "$skipcal" = "0" ]; then
     Tstart
     echo
-    echo -e $startDiv"Performing SRC adjustments using benchmark point database"
+    echo -e $startDiv"Performing SRC adjustments using benchmark point .parquet files"
     python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit
     Tcount
     date -u
 fi
 
 ## AGGREGATE BRANCH TABLES ##
-# TODO: How do we skip aggregation if there is a branch error
-# maybe against the non_zero logs above
 echo 
 echo -e $startDiv"Aggregating branch hydrotables"
 Tstart
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable -j $jobLimit
 Tcount
 date -u
+
+## PERFORM MANUAL CALIBRATION
+if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
+    echo
+    echo -e $startDiv"Performing manual calibration"
+    Tstart
+    python3 $srcDir/src_manual_calibration.py -fim_dir $outputDestDir -calb_file $man_calb_file
+    Tcount
+    date -u
+fi
 
 echo
 echo -e $startDiv"Combining crosswalk tables"
@@ -199,7 +176,7 @@ date -u
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo "---- End of fim_post_processing, fim_post_processing complete"
+echo "---- End of fim_post_processing"
 echo "---- Ended: `date -u`"
 Calc_Duration $post_proc_start_time
 echo

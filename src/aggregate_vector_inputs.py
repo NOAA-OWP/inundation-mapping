@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-# sys.path.append('/foss_fim/src')
+import pandas as pd
 import geopandas as gpd
 from utils.shared_variables import PREP_PROJECTION
 from utils.shared_functions import getDriver
@@ -282,7 +282,7 @@ def subset_stream_networks(args, huc):
             nhd_huc8_intersections['pt_type'] = 'nhd_huc8_intersections'
             nhd_huc8_intersections = nhd_huc8_intersections.rename(columns={"NHDPlusID": headwater_pts_id})
             nhd_huc8_intersections = nhd_huc8_intersections[column_order]
-            adj_nhd_headwater_points_all = adj_nhd_headwater_points.append(nhd_huc8_intersections)
+            adj_nhd_headwater_points_all = pd.concat([adj_nhd_headwater_points, nhd_huc8_intersections])
             adj_nhd_headwater_points_all = adj_nhd_headwater_points_all.reset_index(drop=True)
 
             adj_nhd_streams_all_fileName = os.path.join(nhdplus_vectors_dir,huc,'NHDPlusBurnLineEvent' + str(huc) + '_adj.gpkg')

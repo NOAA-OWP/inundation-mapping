@@ -107,7 +107,7 @@ def process_generate_flows(huc, huc_dictionary, threshold_url, all_lists, worksp
         csv_df = pd.DataFrame()
         for threshold in flood_categories:
             line_df = pd.DataFrame({'nws_lid': [lid], 'name':name, 'WFO': wfo, 'rfc':rfc, 'huc':[huc], 'state':state, 'county':county, 'magnitude': threshold, 'q':flows[threshold], 'q_uni':flows['units'], 'q_src':flow_source, 'stage':stages[threshold], 'stage_uni':stages['units'], 's_src':stage_source, 'wrds_time':wrds_timestamp, 'nrldb_time':nrldb_timestamp,'nwis_time':nwis_timestamp, 'lat':[lat], 'lon':[lon]})
-            csv_df = csv_df.append(line_df)
+            csv_df = pd.concat([csv_df, line_df])
         #Round flow and stage columns to 2 decimal places.
         csv_df = csv_df.round({'q':2,'stage':2})
 
@@ -241,7 +241,7 @@ def generate_catfim_flows(workspace, nwm_us_search, nwm_ds_search, stage_based, 
         full_csv_path = os.path.join(attributes_dir, csv)
         # Huc has to be read in as string to preserve leading zeros.
         temp_df = pd.read_csv(full_csv_path, dtype={'huc':str})
-        all_csv_df = all_csv_df.append(temp_df, ignore_index = True)
+        all_csv_df = pd.concat([all_csv_df, temp_df], ignore_index = True)
     # Write to file
     all_csv_df.to_csv(os.path.join(workspace, 'nws_lid_attributes.csv'), index = False)
    

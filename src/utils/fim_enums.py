@@ -25,5 +25,6 @@ class FIM_exit_codes(Enum):
 
     UNIT_NO_BRANCHES = 60
     NO_FLOWLINES_EXIST = 61
-    EXCESS_UNIT_ERRORS = 62    
+    EXCESS_UNIT_ERRORS = 62
+    NO_BRANCH_LEVELPATHS_EXIST = 63    
             

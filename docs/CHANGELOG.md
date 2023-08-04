@@ -1,6 +1,254 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.14.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Additions  
+
+- `data/bathymetry/preprocess_bathymetry.py`: preprocesses the eHydro datasets.
+- `src/bathymetric_adjustment.py`: adjusts synthetic rating curves for HUCs where preprocessed bathymetry is available.
+
+### Changes  
+
+- `config/params_template.env`: added a toggle for the bathymetric adjustment routine: `bathymetry_adjust`
+- `fim_post_processing.sh`: added the new `bathymetric_adjustment.py` to the postprocessing lineup
+- `src/`
+    - `add_crosswalk.py`, `aggregate_by_huc.py`, & `subdiv_chan_obank_src.py`: accounting for the new Bathymetry_source field in SRCs
+
+<br/><br/>
+
+## v4.3.13.0 - 2023-07-26 - [PR#952](https://github.com/NOAA-OWP/inundation-mapping/pull/952)
+
+Adds a feature to manually calibrate rating curves for specified NWM `feature_id`s using a CSV of manual coefficients to output a new rating curve. Manual calibration is applied after any/all other calibrations. Coefficient values between 0 and 1 increase the discharge value (and decrease inundation) for each stage in the rating curve while values greater than 1 decrease the discharge value (and increase inundation).
+
+Manual calibration is performed if `manual_calb_toggle="True"` and the file specified by `man_calb_file` (with `HUC8`, `feature_id`, and `calb_coef_manual` fields) exists. The original HUC-level `hydrotable.csv` (after calibration) is saved with a suffix of `_pre-manual` before the new rating curve is written.
+
+### Additions
+
+- `src/src_manual_calibration.py`: Adds functionality for manual calibration by CSV file
+
+### Changes
+
+- `config/params_template.env`: Adds `manual_calb_toggle` and `man_calb_file` parameters
+- `fim_post_processing.sh`: Adds check for toggle and if `man_calb_file` exists before running manual calibration
+
+<br/><br/>
+
+## v4.3.12.1 - 2023-07-21 - [PR#950](https://github.com/NOAA-OWP/inundation-mapping/pull/950)
+
+Fixes a couple of bugs that prevented inundation using HUC-level hydrotables. Update associated unit tests.
+
+### Changes
+
+- `tools/inundate_gms.py`: Fixes a file path error and Pandas DataFrame indexing error.
+- `unit_tests/tools/inundate_gms_test.py`: Do not skip this test, refactor to check that all branch inundation rasters exist.
+- `unit_tests/tools/inundate_gms_params.json`: Only test 1 HUC, update forecast filepath, use 4 'workers'.
+
+### Removals
+
+- `unit_tests/tools/inundate_gms_unittests.py`: No longer used. Holdover from legacy unit tests.
+
+<br/><br/>
+
+## v4.3.12.0 - 2023-07-05 - [PR#940](https://github.com/NOAA-OWP/inundation-mapping/pull/940)
+
+Refactor Point Calibration Database for synthetic rating curve adjustment to use `.parquet` files instead of a PostgreSQL database. 
+
+### Additions
+- `data/`
+    -`write_parquet_from_calib_pts.py`: Script to write `.parquet` files based on calibration points contained in a .gpkg file. 
+
+### Changes  
+- `src/`
+    - `src_adjust_spatial_obs.py`: Refactor to remove PostgreSQL and use `.parquet` files.
+    - `src_roughness_optimization.py`: Line up comments and add newline at EOF. 
+    - `bash_variables.env`: Update formatting, and add `{}` to inherited `.env` variables for proper variable expansion in Python scripts.  
+- `/config`
+    - `params_template.env`: Update comment.
+- `fim_pre_processing.sh`: In usage statement, remove references to PostGRES calibration tool.
+- `fim_post_processing.sh`: Remove connection to and loading of PostgreSQL database. 
+- `.gitignore`: Add newline.
+- `README.md`: Remove references to PostGRES calibration tool.
+
+### Removals
+- `config/` 
+    - `calb_db_keys_template.env`: No longer necessary without PostGRES Database.
+
+- `/tools/calibration-db` : Removed directory including files below. 
+    - `README.md`
+    - `docker-compose.yml`
+    - `docker-entrypoint-enitdb.d/init-db.sh`
+
+<br/><br/>
+
+## v4.3.11.7 - 2023-06-12 - [PR#932](https://github.com/NOAA-OWP/inundation-mapping/pull/932)
+
+Write to a csv file with processing time of `run_unit_wb.sh`, update PR Template, add/update bash functions in `bash_functions.env`, and modify error handling in `src/check_huc_inputs.py`. Update unit tests to throw no failures, `25 passed, 3 skipped`.
+
+### Changes
+- `.github/`
+    - `PULL_REQUEST_TEMPLATE.md` : Update PR Checklist into Issuer Checklist and Merge Checklist  
+- `src/`
+    - `run_unit_wb.sh`: Add line to log processing time to `$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv`
+    - `check_huc_inputs.py`: Modify error handling. Correctly print HUC number if it is not valid (within `included_huc*.lst`)
+    - `bash_functions.env`: Add `Calc_Time` function, add `local` keyword to functionally scoped variables in `Calc_Duration`
+- `unit_tests/`
+    - `derive_level_paths_test.py`: Update - new parameter (`buffer_wbd_streams`)
+    - `derive_level_paths_params.json`: Add new parameter (`buffer_wbd_streams`)
+    - `clip_vectors_to_wbd_test.py`: Update - new parameter (`wbd_streams_buffer_filename`)
+    - `clip_vectors_to_wbd_params.json`: Add new parameter (`wbd_streams_buffer_filename`) & Fix pathing for `nwm_headwaters`
+
+<br/><br/>
+
+## v4.3.11.6 - 2023-05-26 - [PR#919](https://github.com/NOAA-OWP/inundation-mapping/pull/919)
+
+Auto Bot asked for the python package of `requests` be upgraded from 2.28.2 to 2.31.0. This has triggered a number of packages to upgrade.
+
+### Changes  
+- `Pipfile.lock`: as described.
+
+<br/><br/>
+
+## v4.3.11.5 - 2023-05-30 - [PR#911](https://github.com/NOAA-OWP/inundation-mapping/pull/911)
+
+This fix addresses bugs found when using the recently added functionality in `tools/synthesize_test_cases.py` along with the `PREV` argument. The `-pfiles` argument now performs as expected for both `DEV` and `PREV` processing. Addresses #871 
+
+### Changes  
+`tools/synthesize_test_cases.py`: multiple changes to enable all expected functionality with the `-pfiles` and `-pcsv` arguments
+
+<br/><br/>
+
+## v4.3.11.4 - 2023-05-18 - [PR#917](https://github.com/NOAA-OWP/inundation-mapping/pull/917)
+
+There is a growing number of files that need to be pushed up to HydroVis S3 during a production release, counting the new addition of rating curve comparison reports.
+
+Earlier, we were running a number of aws cli scripts one at a time. This tool simplies it and pushes all of the QA and supporting files. Note: the HAND files from a release, will continue to be pushed by `/data/aws/s3.py` as it filters out files to be sent to HV s3.
+
+### Additions  
+
+- `data\aws`
+     - `push-hv-data-support-files.sh`: As described above. See file for command args.
+
+<br/><br/>
+
+
+## v4.3.11.3 - 2023-05-25 - [PR#920](https://github.com/NOAA-OWP/inundation-mapping/pull/920)
+
+Fixes a bug in CatFIM script where a bracket was missing on a pandas `concat` statement.
+
+### Changes  
+- `/tools/generate_categorical_fim.py`: fixes `concat` statement where bracket was missing.
+
+
+<br/><br/>
+
+
+## v4.3.11.2 - 2023-05-19 - [PR#918](https://github.com/NOAA-OWP/inundation-mapping/pull/918)
+
+This fix addresses a bug that was preventing `burn_in_levees.py` from running. The if statement in run_unit_wb.sh preceeding `burn_in_levees.py` was checking for the existence of a filepath that doesn't exist.
+
+### Changes  
+- `src/run_unit_wb.sh`: fixed the if statement filepath to check for the presence of levee features to burn into the DEM
+
+<br/><br/>
+
+## v4.3.11.1 - 2023-05-16 - [PR#904](https://github.com/NOAA-OWP/inundation-mapping/pull/904)
+
+`pandas.append` was deprecated in our last Pandas upgrade (v4.3.9.0). This PR updates the remaining instances of `pandas.append` to `pandas.concat`.
+
+The file `tools/thalweg_drop_check.py` had an instance of `pandas.append` but was deleted as it is no longer used or necessary.
+
+### Changes
+
+The following files had instances of `pandas.append` changed to `pandas.concat`:
+- `data/`
+    - `nws/preprocess_ahps_nws.py`
+    - `usgs/`
+        - `acquire_and_preprocess_3dep_dems.py`
+        - `preprocess_ahps_usgs.py`
+- `src/`
+    - `add_crosswalk.py`
+    - `adjust_headwater_streams.py`
+    - `aggregate_vector_inputs.py`
+    - `reset_mannings.py`
+- `tools/`
+    - `aggregate_mannings_calibration.py`
+    - `eval_plots.py`
+    - `generate_categorical_fim.py`
+    - `generate_categorical_fim_flows.py`
+    - `plots/`
+        - `eval_plots.py`
+        - `utils/shared_functions.py`
+    - `rating_curve_comparison.py`
+    - `rating_curve_get_usgs_curves.py`
+    - `tools_shared_functions.py`
+
+### Removals
+
+- `tools/thalweg_drop_check.py`
+
+<br/><br/>
+
+## v4.3.11.0 - 2023-05-12 - [PR#903](https://github.com/NOAA-OWP/inundation-mapping/pull/903)
+
+These changes address some known issues where the DEM derived flowlines follow the incorrect flow path (address issues with stream order 1 and 2 only). The revised code adds a new workflow to generate a new flow direction raster separately for input to the `run_by_branch.sh` workflow (branch 0 remains unchanged). This modification helps ensure that the DEM derived flowlines follow the desired NWM flow line when generating the DEM derived flowlines at the branch level. 
+
+### Changes  
+- `config/deny_branch_zero.lst`: removed `LandSea_subset_{}.tif` and `flowdir_d8_burned_filled_{}.tif` from the "keep" list as these files are now kept in the huc root folder.
+- `config/deny_unit.lst`: added file cleanups for newly generated branch input files stored in the huc root folder (`dem_burned.tif`, `dem_burned_filled.tif`, `flowdir_d8_burned_filled.tif`, `flows_grid_boolean.tif`, `wbd_buffered_streams.gpkg`)
+- `src/clip_vectors_to_wbd.py`: saving the `wbd_streams_buffer` as an output gpkg for input to `derive_level_paths.py`
+- `src/derive_level_paths.py`: added a new step to clip the `out_stream_network_dissolved` with the `buffer_wbd_streams` polygon. this resolves errors with the edge case scenarios where a NWM flow line intersects the WBD buffer polygon
+- `src/run_unit_wb.sh`: Introduce new processing steps to generate separate outputs for input to branch 0 vs. all other branches. Remove the branch zero `outputs_cleanup.py` as the branches are no longer pointing to files stored in the branch 0 directory (stored in huc directory)
+   - Rasterize reach boolean (1 & 0) for all branches (not branch 0): using the `nwm_subset_streams_levelPaths_dissolved.gpkg` to define the branch levelpath flow lines
+   - AGREEDEM reconditioning for all branches (not branch 0)
+   - Pit remove burned DEM for all branches (not branch 0)
+   - D8 flow direction generation for all branches (not branch 0)
+- `src/run_by_branch.sh`: changed `clip_rasters_to_branches.py` input file location for `$tempHucDataDir/flowdir_d8_burned_filled.tif` (newly created file)
+
+<br/><br/>
+
+## v4.3.10.0 - 2023-05-12 - [PR#888](https://github.com/NOAA-OWP/inundation-mapping/pull/888)
+
+`aggregate_by_huc.py` was taking a long time to process. Most HUCs can aggregate their branches into one merged hydrotable.csv in just 22 seconds, but a good handful took over 2 mins and a few took over 7 mins. When multiplied by 2,138 HUCs it was super slow. Multi-proc has not been added and it now takes appx 40 mins at 80 cores. 
+
+An error logging system was also added to track errors that may have occurred during processing. 
+
+### Changes  
+- `fim_pipeline.sh` - added a duration counter at the end of processing HUCs
+- `fim_post_processing.sh` - added a job limit (number of procs), did a little cleanup, and added a warning note about usage of job limits in this script, 
+- `src`
+    - `aggregate_by_huc.py`: Added multi proc, made it useable for non external script calls, added a logging system for errors only.
+    - `indentify_src_bankful.py`: typo fix.
+
+<br/><br/>
+
+## v4.3.9.2 - 2023-05-12 - [PR#902](https://github.com/NOAA-OWP/inundation-mapping/pull/902)
+
+This merge fixes several sites in Stage-Based CatFIM sites that showed overinundation. The cause was found to be the result of Stage-Based CatFIM code pulling the wrong value from the `usgs_elev_table.csv`. Priority is intended to go to the `dem_adj_elevation` value that is not from branch 0, however there was a flaw in the prioritization logic. Also includes a change to `requests` usage that is in response to an apparent IT SSL change. This latter change was necessary in order to run CatFIM. Also added a check to make sure the `dem_adj_thalweg` is not too far off the official elevation, and continues if it is.
+
+### Changes  
+- `/tools/generate_categorical_fim.py`: fixed pandas bug where the non-branch zero `dem_adj_elevation` value was not being properly indexed. Also added a check to make sure the `dem_adj_thalweg` is not too far off the official elevation, and continues if it is.
+- ` /tools/tools_shared_functions.py`: added `verify=False` to `requests` library calls because connections to WRDS was being refused (likely because of new IT protocols).
+
+<br/><br/>
+
+## v4.3.9.1 - 2023-05-12 - [PR#893](https://github.com/NOAA-OWP/inundation-mapping/pull/893)
+
+Fix existing unit tests, remove unwanted behavior in `check_unit_errors_test.py`, update `unit_tests/README.md`
+
+### Changes  
+
+- `unit_tests/`
+    - `README.md` : Split up headings for setting up unit tests/running unit tests & re-formatted code block.
+    - `check_unit_errors_test.py`: Fixed unwanted behavior of test leaving behind `sample_n.txt` files in `unit_errors/`
+    - `clip_vectors_to_wbd_params.json`: Update parameters
+    - `clip_vectors_to_wbd_test.py`: Update arguments
+    - `pyproject.toml`: Ignore RuntimeWarning, to suppress pytest failure. 
+    - `usgs_gage_crosswalk_test.py`: Enhance readability of arguments in `gage_crosswalk.run_crosswalk` call
+
+<br/><br/>
 
 ## v4.3.9.0 - 2023-04-19 - [PR#889](https://github.com/NOAA-OWP/inundation-mapping/pull/889)
 

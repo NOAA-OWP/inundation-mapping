@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 
-import os
+import os, glob, re, traceback
+from datetime import datetime
 from os.path import join
-import pandas as pd
-import re
+
 import argparse
+import pandas as pd
+
+from concurrent.futures import ProcessPoolExecutor
+from utils.shared_functions import progress_bar_handler
 
 class HucDirectory(object):
 
-    def __init__(self, path, limit_branches=[]):
+    def __init__(self, fim_directory, huc_id, limit_branches=[]):
 
-        self.dir = path
-        self.name = os.path.basename(path)
+        self.fim_directory = fim_directory
+        self.huc_dir_path = join(fim_directory, huc_id)
         self.limit_branches = limit_branches
 
         self.usgs_dtypes = {'location_id':str,
@@ -117,11 +121,11 @@ class HucDirectory(object):
 
         if self.limit_branches:
             for branch in self.limit_branches:
-                yield (branch, join(self.dir, 'branches', branch))
+                yield (branch, join(self.huc_dir_path, 'branches', branch))
 
         else:
-            for branch in os.listdir(join(self.dir, 'branches')):
-                yield (branch, join(self.dir, 'branches', branch))
+            for branch in os.listdir(join(self.huc_dir_path, 'branches')):
+                yield (branch, join(self.huc_dir_path, 'branches', branch))
 
     def usgs_elev_table(self, branch_path):
 
@@ -144,6 +148,7 @@ class HucDirectory(object):
         hydrotable[['calb_applied']] = hydrotable[['calb_applied']].fillna(value=False)
         self.agg_hydrotable = pd.concat([self.agg_hydrotable, hydrotable])
 
+
     def aggregate_src_full_crosswalk(self, branch_path, branch_id):
 
         src_cross_filename = join(branch_path, f'src_full_crosswalked_{branch_id}.csv')
@@ -154,74 +159,202 @@ class HucDirectory(object):
         src_cross['branch_id'] = branch_id
         self.agg_src_cross = pd.concat([self.agg_src_cross, src_cross])
 
+    def agg_function(self, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id):
+        
+        try:
+            #try catch and its own log file output in error only.
+            for branch_id, branch_path in self.iter_branches():
+                if usgs_elev_flag:
+                    self.usgs_elev_table(branch_path)
 
-    def agg_function(self,usgs_elev_flag,hydro_table_flag,src_cross_flag):
+                ## Other aggregate funtions can go here
+                if hydro_table_flag:
+                    self.aggregate_hydrotables(branch_path, branch_id)
+                if src_cross_flag:
+                    self.aggregate_src_full_crosswalk(branch_path, branch_id)
 
-        for branch_id, branch_path in self.iter_branches():
+            ## After all of the branches are visited, the code below will write the aggregates
             if usgs_elev_flag:
-                self.usgs_elev_table(branch_path)
+                usgs_elev_table_file = join(self.huc_dir_path, 'usgs_elev_table.csv')
+                if os.path.isfile(usgs_elev_table_file):
+                    os.remove(usgs_elev_table_file)
 
-            ## Other aggregate funtions can go here
+                if not self.agg_usgs_elev_table.empty:
+                    self.agg_usgs_elev_table.to_csv(usgs_elev_table_file, index=False)
+
             if hydro_table_flag:
-                self.aggregate_hydrotables(branch_path, branch_id)
+                hydrotable_file = join(self.huc_dir_path, 'hydrotable.csv')
+                if os.path.isfile(hydrotable_file):
+                    os.remove(hydrotable_file)
+
+                if not self.agg_hydrotable.empty:
+                    self.agg_hydrotable.to_csv(hydrotable_file, index=False)
+
             if src_cross_flag:
-                self.aggregate_src_full_crosswalk(branch_path, branch_id)
+                src_crosswalk_file = join(self.huc_dir_path, 'src_full_crosswalked.csv')
+                if os.path.isfile(src_crosswalk_file):
+                    os.remove(src_crosswalk_file)
 
-        ## After all of the branches are visited, the code below will write the aggregates
-        if usgs_elev_flag:
-            usgs_elev_table_file = join(self.dir, 'usgs_elev_table.csv')
-            if os.path.isfile(usgs_elev_table_file):
-                os.remove(usgs_elev_table_file)
+                if not self.agg_src_cross.empty:
+                    self.agg_src_cross.to_csv(src_crosswalk_file, index=False)
 
-            if not self.agg_usgs_elev_table.empty:
-                self.agg_usgs_elev_table.to_csv(usgs_elev_table_file, index=False)
-
-        if hydro_table_flag:
-            hydrotable_file = join(self.dir, 'hydrotable.csv')
-            if os.path.isfile(hydrotable_file):
-                os.remove(hydrotable_file)
-
-            if not self.agg_hydrotable.empty:
-                self.agg_hydrotable.to_csv(hydrotable_file, index=False)
-
-        if src_cross_flag:
-            src_crosswalk_file = join(self.dir, 'src_full_crosswalked.csv')
-            if os.path.isfile(src_crosswalk_file):
-                os.remove(src_crosswalk_file)
-
-            if not self.agg_src_cross.empty:
-                self.agg_src_cross.to_csv(src_crosswalk_file, index=False)
+            #print(f"agg_by_huc for huc id {huc_id} is done")
+            
+        except Exception:
+            
+            errMsg = "--------------------------------------" \
+                     f"\n huc_id {huc_id} has an error - outside multi proc\n"
+            errMsg = errMsg + traceback.format_exc()
+            print(errMsg, flush=True)
+            log_error(self.fim_directory, usgs_elev_flag,
+                        hydro_table_flag, src_cross_flag, huc_id, errMsg)
+           
 
 
+# ==============================
+# This is done independantly in each worker and does not attempt to write to a shared file
+# as those can collide with multi proc
+def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id, errMsg):
+    
+    file_name = f"agg_by_huc_{huc_id}"
+    if (usgs_elev_flag): file_name+= "_elev"
+    if (hydro_table_flag): file_name+= "_hydro"
+    if (src_cross_flag): file_name+= "_src_cross"
+    file_name+= "_error.log"
+    
+    log_path = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
+    file_path =  os.path.join(log_path, file_name)
+    
+    f = open(file_path, "a")
+    f.write(errMsg)
+    f.close()
+
+
+def aggregate_by_huc(fim_directory, fim_inputs, usgs_elev_flag,
+                     hydro_table_flag, src_cross_flag, num_job_workers):
+    
+    assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
+
+    # -------------------
+    # Validation
+    total_cpus_available = os.cpu_count() - 2
+    if num_job_workers > total_cpus_available:
+        raise ValueError(f'The number of jobs {num_job_workers}'\
+                          'exceeds your machine\'s available CPU count minus two. '\
+                          'Please lower the number of jobs '\
+                          'values accordingly.'
+                        )
+   
+    # create log folder, might end up empty but at least create the folder
+    # Yes.. this is duplicate in the log function
+    log_folder = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
+    if (os.path.exists(log_folder) == False):
+        os.mkdir(log_folder)
+    else:
+        # empty only ones with this type (we want to keep others that 
+        # might have been called with different types. aka.. once for -elev
+        # and another for -hydro)
+        agg_type = ""
+        if (usgs_elev_flag): agg_type+= "_elev"
+        if (hydro_table_flag): agg_type+= "_hydro"
+        if (src_cross_flag): agg_type+= "_src_cross"
+        filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
+        for f in filelist:
+            os.remove(f)
+
+    start_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"started: {dt_string}")
+   
+    # Set up multiprocessor
+    with ProcessPoolExecutor(max_workers = num_job_workers) as executor:
+
+        # Loop through all applicable HUCs, build the agg_function arguments, and submit them to the process pool
+        executor_dict = {}
+    
+        try:    
+            if fim_inputs:
+                fim_inputs_csv = pd.read_csv(fim_inputs, header=None, names=['huc', 'levpa_id'],dtype=str)
+                huc_list = fim_inputs_csv.huc.unique()
+    
+                # with multi proc, it won't be 100% in order as different hucs
+                # process faster, but it does help a little
+                huc_list_sorted = sorted(huc_list) 
+                for huc_id in huc_list_sorted:
+
+                    branches = fim_inputs_csv.loc[fim_inputs_csv.huc == huc_id, 'levpa_id'].tolist()
+                    huc_dir = HucDirectory(fim_directory, huc_id, limit_branches=branches)
+
+                    args_agg = { 'usgs_elev_flag': usgs_elev_flag,
+                                 'hydro_table_flag': hydro_table_flag,
+                                 'src_cross_flag': src_cross_flag,
+                                 'huc_id': huc_id}       
+
+                    future = executor.submit(huc_dir.agg_function, **args_agg)
+                    executor_dict[future] = huc_id
+
+            else:
+                huc_list = [d for d in os.listdir(fim_directory) if re.match('\d{8}', d)]
+                
+                # with multi proc, it won't be 100% in order as different hucs
+                # process faster, but it does help a little
+                huc_list_sorted = sorted(huc_list)
+                for huc_id in huc_list_sorted:
+
+                    if (huc_id.isnumeric() == False):
+                        continue;
+                    
+                    huc_dir = HucDirectory(fim_directory, huc_id)
+                    
+                    args_agg = { 'usgs_elev_flag': usgs_elev_flag,
+                                'hydro_table_flag': hydro_table_flag,
+                                'src_cross_flag': src_cross_flag,
+                                'huc_id': huc_id}       
+                    future = executor.submit(huc_dir.agg_function, **args_agg)
+                    executor_dict[future] = huc_id
+
+        except Exception:
+            errMsg = "--------------------------------------" \
+                     f"\n huc_id {huc_id} has an error - outside multi proc\n"
+            errMsg = errMsg + traceback.format_exc()
+            print(errMsg, flush=True)
+            log_error(fim_directory, usgs_elev_flag,
+                        hydro_table_flag, src_cross_flag, huc_id, errMsg)
+            #sys.exit(1)
+    
+        # Send the executor to the progress bar and wait for all MS tasks to finish
+        progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")      
+
+
+    end_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print (f"ended: {dt_string}")
+
+    # Calculate duration
+    time_duration = end_time - start_time
+    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print()
+
+
+    
 if __name__ == '__main__':
+
+    # Note: This processing is done here for all hucs and branches at once instead of 
+    # at each individual huc processing due to some hydrotable's being adjusted 
+    # in post processing.
 
     parser = argparse.ArgumentParser(description='Aggregates usgs_elev_table.csv at the HUC level')
     parser.add_argument('-fim','--fim_directory', help='Input FIM Directory', required=True)
     parser.add_argument('-i','--fim_inputs', help='Input fim_inputs CSV file', required=False)
-    parser.add_argument('-elev','--usgs_elev', help='Perform aggregate on branch usgs elev tables', required=False, default=False, action='store_true')
-    parser.add_argument('-htable','--hydro_table', help='Perform aggregate on branch hydrotables', required=False, default=False, action='store_true')
-    parser.add_argument('-src','--src_cross', help='Perform aggregate on branch src crosswalk files', required=False, default=False, action='store_true')
+    parser.add_argument('-elev','--usgs_elev_flag', help='Perform aggregate on branch usgs elev tables',
+                        required=False, default=False, action='store_true')
+    parser.add_argument('-htable','--hydro_table_flag', help='Perform aggregate on branch hydrotables',
+                        required=False, default=False, action='store_true')
+    parser.add_argument('-src','--src_cross_flag', help='Perform aggregate on branch src crosswalk files',
+                        required=False, default=False, action='store_true')
+    parser.add_argument('-j','--num_job_workers', help='Number of processes to use',
+                        required=False, default=1, type=int)
 
     args = vars(parser.parse_args())
 
-    fim_directory = args['fim_directory']
-    fim_inputs = args['fim_inputs']
-    usgs_elev_flag = args['usgs_elev']
-    hydro_table_flag = args['hydro_table']
-    src_cross_flag = args['src_cross']
-    assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
-
-    if fim_inputs:
-        fim_inputs = pd.read_csv(fim_inputs, header=None, names=['huc', 'levpa_id'],dtype=str)
-
-        for huc in fim_inputs.huc.unique():
-
-            branches = fim_inputs.loc[fim_inputs.huc == huc, 'levpa_id'].tolist()
-            huc = HucDirectory(join(fim_directory, huc), limit_branches=branches)
-            huc.agg_function(usgs_elev_flag,hydro_table_flag,src_cross_flag)
-
-    else:
-        for huc_dir in [d for d in os.listdir(fim_directory) if re.match('\d{8}', d)]:
-
-            huc = HucDirectory(join(fim_directory, huc_dir))
-            huc.agg_function(usgs_elev_flag,hydro_table_flag,src_cross_flag)
+    aggregate_by_huc(**args)

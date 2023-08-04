@@ -168,7 +168,7 @@
                 "sha256:f206e6a01a8167b441bf886ff022eb20e0f085b09300f49f3018f566c14d918a",
                 "sha256:f465b8ab54ecde6b8654672a50a4c3699aafd8e2de0dfcd84ed53f8a34c1734a"
             ],
-            "markers": "python_version >= '3.8' and python_version < '4'",
+            "markers": "python_version < '4' and python_full_version >= '3.8.0'",
             "version": "==2.0.0"
         },
         "boto3": {
@@ -1129,7 +1129,7 @@
                 "sha256:57ab779797c25a7ba68e97bcfb5d7740f2b5e8a83b5e8102b10438041a7eac5d",
                 "sha256:75779164661cec02a8758a5311e18bb8eb70c4e86c6b699403100f1585a12a36"
             ],
-            "markers": "python_version >= '3.8'",
+            "markers": "python_full_version >= '3.8.0'",
             "version": "==0.4.4"
         },
         "jupyter-server-ydoc": {
@@ -1396,7 +1396,7 @@
                 "sha256:f883a22a56a84dba3b588696a2b8a1ab0d2c3d41be53264115c71b0a942d8fdb",
                 "sha256:fbdeeb58c0cf0595efe89c05c224e0a502d1aa6a8696e68a73c3efc6bc354304"
             ],
-            "markers": "python_version >= '3.8'",
+            "markers": "python_full_version >= '3.8.0'",
             "version": "==3.7.1"
         },
         "matplotlib-inline": {
