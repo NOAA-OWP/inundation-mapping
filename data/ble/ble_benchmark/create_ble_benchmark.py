@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+from datetime import datetime
 import argparse
 import numpy as np
 import pandas as pd
@@ -13,9 +14,19 @@ from preprocess_benchmark import preprocess_benchmark_static
 from create_flow_forecast_file import create_flow_forecast_file
 
 
-def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, benchmark_folder:str, nwm_geopackage:str, ble_xs_layer_name:str, nwm_stream_layer_name:str, nwm_feature_id_field:str, huc:str = None):
+def create_ble_benchmark(input_file: str, 
+                         save_folder: str,
+                         reference_folder: str,
+                         benchmark_folder: str,
+                         nwm_geopackage: str,
+                         ble_xs_layer_name: str,
+                         nwm_stream_layer_name: str,
+                         nwm_feature_id_field: str,
+                         huc: str = None):
     """
-    Downloads and preprocesses BLE benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
+    Downloads and preprocesses BLE benchmark datasets for purposes of evaluating FIM output. 
+    A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. 
+    The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
 
     As the reference_raster is required for preprocessing, it is assumed that fim_pipeline.py has previously been run for the HUCs being processed.
     
@@ -24,7 +35,8 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, 
     input_file: str
         Path to input file (XLSX or CSV) with list of URL(s) to files to download (e.g. EBFE_urls_20230608.xlsx)
     save_folder: str
-        Path to save folder where the downloaded ZIP files and extracted depth rasters will be saved (e.g., /data/temp/ble_downloads). This folder will be created if it doesn't exist.
+        Path to save folder where the downloaded ZIP files and extracted depth rasters will be saved (e.g., /data/temp/ble_downloads). 
+        This folder will be created if it doesn't exist.
     reference_folder: str
         Path to reference raster (e.g., /data/outputs/fim_4_3_12_0). This folder must exist (e.g., created by running fim_pipeline.py).
     benchmark_folder: str
@@ -59,7 +71,8 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, 
 
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
-        reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif') # reference_raster is used to set the metadata for benchmark_raster
+        # reference_raster is used to set the metadata for benchmark_raster
+        reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif') 
         for benchmark_raster in row['rasters']:
             magnitude = '100yr' if 'BLE_DEP01PCT' in benchmark_raster else '500yr'
 
@@ -72,7 +85,8 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, 
             # Make benchmark inundation raster
             preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path)
 
-            create_flow_forecast_file(huc, ble_geodatabase, nwm_geopackage, benchmark_folder, ble_xs_layer_name, nwm_stream_layer_name, nwm_feature_id_field)
+            create_flow_forecast_file(huc, ble_geodatabase, nwm_geopackage, benchmark_folder, 
+                                      ble_xs_layer_name, nwm_stream_layer_name, nwm_feature_id_field)
 
 
 def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
@@ -100,6 +114,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     hucs = []
     huc_names = []
     out_files = []
+    out_list = []
     for i, row in spatial_df.iterrows():
         # Extract HUC and HUC Name from URL
         url = row['URL']
@@ -116,10 +131,9 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
         gdb_list = glob(os.path.join(save_file, '*.gdb'))
         if len(gdb_list) == 0:
-            gdb_list = glob(os.path.join(save_file, 'Spatial', '*.gdb'))
+            gdb_list = glob(os.path.join(save_file, 'Spatial Files', '*.gdb'))
             
         if len(gdb_list) == 1:
-            out_list = []
             ble_geodatabase = gdb_list[0]
             src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
             subdatasets = src_ds.GetSubDatasets()
@@ -177,7 +191,15 @@ def extract_raster(in_raster: str, out_raster: str):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Create BLE benchmark files')
+    parser = argparse.ArgumentParser(description='Create BLE benchmark files', 
+                                     usage='''python3 /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py
+                                                -i /data/temp/ble_test/EBFE_urls_20230608.xlsx
+                                                -s /data/temp/ble_test/intermediate
+                                                -r /data/outputs/my_run/
+                                                -o /data/temp/ble_test
+                                                -n /data/inputs/nwm_hydrofabric/nwm_flows.gpkg
+                                                -u 12030105
+                                            ''')
     parser.add_argument('-i', '--input-file', type=str, help='Input file', required=True)
     parser.add_argument('-s', '--save-folder', type=str, help='Output folder', required=True)
     parser.add_argument('-r', '--reference-folder', type=str, help='Reference folder', required=True)
@@ -190,6 +212,12 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
+    start_time = datetime.now()
+    print('Pulling BLE Benchmark data...  \n')
+    
     create_ble_benchmark(**args)
 
-    # python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py -i /foss_fim/data/ble/ble_benchmark/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gdb -l RouteLink_FL_2020_04_07 -u 12090301
+    end_time = datetime.now()
+    print('\n Finished Pulling BLE Benchmark data \n',
+          'Total Time: ', end_time - start_time)
+
