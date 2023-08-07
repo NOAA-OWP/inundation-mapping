@@ -105,7 +105,7 @@ if [ "$bathymetry_adjust" = "True" ]; then
     echo -e $startDiv"Performing Bathymetry Adjustment routine"
     # Run bathymetry adjustment routine
     Tstart
-    python3 $srcDir/bathymetric_adjustment.py -fim_dir $outputDestDir -bathy $inputsDir/bathymetry/bathymetry_adjustment_data.gpkg -buffer $wbd_buffer -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
+ python3 $srcDir/bathymetric_adjustment.py -fim_dir $outputDestDir -bathy $bathymetry_file -buffer $wbd_buffer -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
     Tcount
 fi
 
