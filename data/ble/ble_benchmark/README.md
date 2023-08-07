@@ -32,13 +32,13 @@ options:
   -xs BLE_XS_LAYER_NAME, --ble-xs-layer-name BLE_XS_LAYER_NAME
                         BLE cross section layer. Default layer is "XS" (sometimes it is "XS_1D").
   -l NWM_STREAM_LAYER_NAME, --nwm-stream-layer-name NWM_STREAM_LAYER_NAME
-                        NWM streams layer. Default layer is "RouteLink_FL_2020_04_07".
+                        NWM streams layer. Default layer is "nwm_streams".
   -id NWM_FEATURE_ID_FIELD, --nwm-feature-id-field NWM_FEATURE_ID_FIELD
                         ID field for NWM streams. Not required if NWM v2.1 is used (default id field is "ID").
 
 ## Example
 
-python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py -i /foss_fim/data/ble/ble_benchmark/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gpkg -l RouteLink_FL_2020_04_07 -u 12090301
+python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py -i /foss_fim/data/ble/ble_benchmark/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gpkg -l nwm_streams -u 12090301
 
 ## Notes
 

@@ -100,6 +100,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     hucs = []
     huc_names = []
     out_files = []
+    out_list = []
     for i, row in spatial_df.iterrows():
         # Extract HUC and HUC Name from URL
         url = row['URL']
@@ -114,12 +115,9 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
             zipfile = ZipFile(BytesIO(http_response.read()))
             zipfile.extractall(path=save_file)
 
-        gdb_list = glob(os.path.join(save_file, '*.gdb'))
-        if len(gdb_list) == 0:
-            gdb_list = glob(os.path.join(save_file, 'Spatial', '*.gdb'))
+        gdb_list = glob(os.path.join(save_file, '**', '*.gdb'), recursive=True)
             
         if len(gdb_list) == 1:
-            out_list = []
             ble_geodatabase = gdb_list[0]
             src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
             subdatasets = src_ds.GetSubDatasets()
@@ -185,11 +183,11 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--nwm-geopackage', type=str, help='NWM streams geopackage', required=True)
     parser.add_argument('-u', '--huc', type=str, help='Run a single HUC. If not supplied, it will run all HUCs in the input file', required=False)
     parser.add_argument('-xs', '--ble-xs-layer-name', help='BLE cross section layer. Default layer is "XS" (sometimes it is "XS_1D").', required=False, default='XS')
-    parser.add_argument('-l', '--nwm-stream-layer-name', help='NWM streams layer. Default layer is "RouteLink_FL_2020_04_07"', required=False, default='nwm_streams')
+    parser.add_argument('-l', '--nwm-stream-layer-name', help='NWM streams layer. Default layer is "nwm_streams"', required=False, default='nwm_streams')
     parser.add_argument('-id', '--nwm-feature-id-field', help='id field for nwm streams. Not required if NWM v2.1 is used (default id field is "ID")', required=False, default='ID')
 
     args = vars(parser.parse_args())
 
     create_ble_benchmark(**args)
 
-    # python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py -i /foss_fim/data/ble/ble_benchmark/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gdb -l RouteLink_FL_2020_04_07 -u 12090301
+    # python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py -i /data/inputs/ble/ble_benchmark/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gdb -l nwm_streams -u 12090301
