@@ -13,7 +13,7 @@ from preprocess_benchmark import preprocess_benchmark_static
 from create_flow_forecast_file import create_flow_forecast_file
 
 
-def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, benchmark_folder:str, nwm_geodatabase:str, ble_xs_layer_name:str, nwm_stream_layer_name:str, nwm_feature_id_field:str, huc:str = None):
+def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, benchmark_folder:str, nwm_geopackage:str, ble_xs_layer_name:str, nwm_stream_layer_name:str, nwm_feature_id_field:str, huc:str = None):
     """
     Downloads and preprocesses BLE benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
 
@@ -72,7 +72,7 @@ def create_ble_benchmark(input_file:str, save_folder:str, reference_folder:str, 
             # Make benchmark inundation raster
             preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path)
 
-            create_flow_forecast_file(huc, ble_geodatabase, nwm_geodatabase, benchmark_folder, ble_xs_layer_name, nwm_stream_layer_name, nwm_feature_id_field)
+            create_flow_forecast_file(huc, ble_geodatabase, nwm_geopackage, benchmark_folder, ble_xs_layer_name, nwm_stream_layer_name, nwm_feature_id_field)
 
 
 def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
@@ -181,14 +181,14 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--save-folder', type=str, help='Output folder', required=True)
     parser.add_argument('-r', '--reference-folder', type=str, help='Reference folder', required=True)
     parser.add_argument('-o', '--benchmark-folder', type=str, help='Benchmark folder', required=True)
-    parser.add_argument('-n', '--nwm-geodatabase', type=str, help='NWM geodatabase', required=True)
+    parser.add_argument('-n', '--nwm-geopackage', type=str, help='NWM streams geopackage', required=True)
     parser.add_argument('-u', '--huc', type=str, help='Run a single HUC. If not supplied, it will run all HUCs in the input file', required=False)
     parser.add_argument('-xs', '--ble-xs-layer-name', help='BLE cross section layer. Default layer is "XS" (sometimes it is "XS_1D").', required=False, default='XS')
-    parser.add_argument('-l', '--nwm-stream-layer-name', help='NWM streams layer. Default layer is "RouteLink_FL_2020_04_07")', required=False, default='nwm_streams')
+    parser.add_argument('-l', '--nwm-stream-layer-name', help='NWM streams layer. Default layer is "RouteLink_FL_2020_04_07"', required=False, default='nwm_streams')
     parser.add_argument('-id', '--nwm-feature-id-field', help='id field for nwm streams. Not required if NWM v2.1 is used (default id field is "ID")', required=False, default='ID')
 
     args = vars(parser.parse_args())
 
     create_ble_benchmark(**args)
 
-    # python /foss_fim/data/ble/ble_benchmark.py -i /data/ble/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gdb -l RouteLink_FL_2020_04_07 -u 12090301
+    # python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py -i /foss_fim/data/ble/ble_benchmark/EBFE_urls_20230608.xlsx -s /data/temp/ble_benchmark -r /data/outputs/fim_4_3_12_0 -o /data/test_cases/ble_test_cases/validation_data_ble -n /data/inputs/nwm_hydrofabric/nwm_flows.gdb -l RouteLink_FL_2020_04_07 -u 12090301
