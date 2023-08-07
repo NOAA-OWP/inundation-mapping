@@ -137,7 +137,8 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
                 out_list.append(out_file)
 
-        out_files.append(out_list)
+        if len(out_list) > 0:
+            out_files.append(out_list)
 
     spatial_df['HUC'] = hucs
     spatial_df['HUC_Name'] = huc_names
