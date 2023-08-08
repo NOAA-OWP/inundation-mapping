@@ -1,6 +1,6 @@
 ## Update BLE benchmark data
     
-Downloads and preprocesses Base Level Engineering (BLE) benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The outputs will be a CSV table of flows with [`feature_id`, `discharge`] columns and a boolean (True/False) TIF inundation extent raster raster with inundated areas (True or 1) and dry areas (False or 0).
+Downloads and preprocesses FEMA [Base Level Engineering](https://webapps.usgs.gov/infrm/estbfe/) (BLE) benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The outputs will be a CSV table of flows with [`feature_id`, `discharge`] columns and a boolean (True/False) TIF inundation extent raster raster with inundated areas (True or 1) and dry areas (False or 0).
 
 As the `reference_raster` is required for preprocessing, it is assumed that `fim_pipeline.py` has previously been run for the HUCs being processed.
     
