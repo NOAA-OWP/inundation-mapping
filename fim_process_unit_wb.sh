@@ -124,14 +124,15 @@ if [ "$err_exists" = "1" ]; then
     cp $hucLogFileName $outputDestDir/unit_errors
 fi
 
-# Here we're using the mv command to move the contents of the temp directory into the specified output directory
+# Move the contents of the temp directory into the outputs directory and update file permissions
+mv -f $tempHucDataDir $outputHucDataDir
+find $outputHucDataDir -type d -exec chmod 777 {} +
+
 echo "============================================================================================="
 echo 
-mv -f $tempHucDataDir $outputHucDataDir
 echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
 echo
 echo "============================================================================================="
-
 
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0
