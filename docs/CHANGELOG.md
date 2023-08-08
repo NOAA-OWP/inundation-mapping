@@ -6,9 +6,9 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
 
 ### Changes  
--`data/bathymetry/preprocess_bathymetry.py`: added data source column to output geopackage attribute table.
--`fim_post_processing.sh`: changed -bathy input reference location.
--`config/params_template.env`: added export to bathymetry_file
+- `data/bathymetry/preprocess_bathymetry.py`: added data source column to output geopackage attribute table.
+- `fim_post_processing.sh`: changed -bathy input reference location.
+- `config/params_template.env`: added export to bathymetry_file
 
 <br/><br/>
 
