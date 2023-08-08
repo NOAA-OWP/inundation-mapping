@@ -191,10 +191,10 @@ def extract_raster(in_raster: str, out_raster: str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create BLE benchmark files', 
                                      usage='''python3 /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py
-                                                -i /data/temp/ble_test/EBFE_urls_20230608.xlsx
-                                                -s /data/temp/ble_test/intermediate
+                                                -i /data/inputs/ble/ble_benchmark/EBFE_urls_20230608.xlsx
+                                                -s /data/temp/ble_benchmark
                                                 -r /data/outputs/my_run/
-                                                -o /data/temp/ble_test
+                                                -o /data/test_cases/ble_test_cases/validation_data_ble
                                                 -n /data/inputs/nwm_hydrofabric/nwm_flows.gpkg
                                                 -u 12030105
                                             ''')

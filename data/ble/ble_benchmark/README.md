@@ -24,7 +24,7 @@ Create BLE benchmark files
 options:
   -h, --help            show this help message and exit
   -i INPUT_FILE, --input-file INPUT_FILE
-                        Input file
+                        Input file (.xlsx or .csv) a version resides in inputs/ble/ble_benchmark
   -s SAVE_FOLDER, --save-folder SAVE_FOLDER
                         Output folder
   -r REFERENCE_FOLDER, --reference-folder REFERENCE_FOLDER
