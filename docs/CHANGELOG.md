@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.14.1 - 2023-08-08 - [PR##956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
+
+Integrating GVAL in to the evaluation of agreement maps and contingency tables.
+
+- `Dockerfile`: Add dependencies for GVAL
+- `Pipfile`: Add GVAL and update related dependencies
+- `Pipfile.lock`: Setup for Docker Image builds
+- `run_test_case.py`: Remove unused arguments and cleanup
+- `synthesize_test_cases.py`: Fix None comparisons and cleanup
+- `tools/shared_functions.py`: Add GVAL crosswalk function, add rework create_stats_from_raster, create and create_stats_from_contingency_table
+
 ## v4.3.14.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
 
 The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
