@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.x.x - 2023-08-08 - [PR#960](https://github.com/NOAA-OWP/inundation-mapping/pull/960)
+
+Provides a scripted procedure for updating BLE benchmark data including downloading, extracting, and processing raw BLE data into benchmark inundation files (inundation rasters and discharge tables).
+
+### Additions
+
+- `data/ble/ble_benchmark/`
+    - `Dockerfile`, `Pipfile`, and `Pipfile.lock`: creates a new Docker image with necessary Python packages
+    - `README.md`: contains installation and usage information
+    - `create_ble_benchmark.py`: main script to generate BLE benchmark data
+
+### Changes
+
+- `data/ble/ble_benchmark/`
+    - `create_flow_forecast_file.py` and `preprocess_benchmark.py`: moved from /tools
+
+<br/><br/>
+
 ## v4.3.14.1 - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
 
 ras2fim product had a need to run the acquire 3dep script to pull down some HUC8 DEMs. The old script was geared to HUC6 but could handle HUC8's but needed a few enhancements. ras2fim also did not need polys made from the DEMs, so a switch was added for that.
