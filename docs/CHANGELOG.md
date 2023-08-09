@@ -11,6 +11,7 @@ Integrating GVAL in to the evaluation of agreement maps and contingency tables.
 - `run_test_case.py`: Remove unused arguments and cleanup
 - `synthesize_test_cases.py`: Fix None comparisons and cleanup
 - `tools/shared_functions.py`: Add GVAL crosswalk function, add rework create_stats_from_raster, create and create_stats_from_contingency_table
+- `unit_tests/tools/inundate_gms_test.py`: Bug fix
 
 ## v4.3.14.1 - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
 
