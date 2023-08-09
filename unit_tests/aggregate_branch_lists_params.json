@@ -1,6 +1,5 @@
 {
-	"valid_data":
-	{
+	"valid_data": {
 		"output_dir": "/data/outputs/fim_unit_test_data_do_not_remove/",
 		"file_name": "branch_ids.csv",
 		"output_file_name": "/data/outputs/fim_unit_test_data_do_not_remove/test.csv"

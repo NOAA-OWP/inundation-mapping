@@ -1,25 +1,20 @@
 {
-	"valid_specific_branch_data":
-	{
+	"valid_specific_branch_data": {
 		"src_dir": "/data/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000009",
 		"deny_list": "/foss_fim/config/deny_branches.lst",
 		"branch_id": "3246000009",
 		"verbose": true
 	},
-
-	"valid_directory_data":
-	{
+	"valid_directory_data": {
 		"src_dir": "/data/outputs/fim_unit_test_data_do_not_remove",
 		"deny_list": "/foss_fim/config/deny_branches.lst",
 		"branch_id": "0",
 		"verbose": true
 	},
-
-	"skip_clean":
-	{
+	"skip_clean": {
 		"src_dir": "/data/outputs/fim_unit_test_data_do_not_remove",
 		"deny_list": "None",
 		"branch_id": "",
 		"verbose": true
-	}	
+	}
 }
