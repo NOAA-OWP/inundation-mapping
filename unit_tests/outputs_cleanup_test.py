@@ -54,9 +54,7 @@ class test_outputs_cleanup(unittest.TestCase):
             verbose=params["verbose"],
         )
 
-        assert (
-            self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) == True
-        )
+        assert self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) == True
 
     def test_remove_deny_list_files_huc_level_success(self):
         """
@@ -82,9 +80,7 @@ class test_outputs_cleanup(unittest.TestCase):
             verbose=params["verbose"],
         )
 
-        assert (
-            self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) == True
-        )
+        assert self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) == True
 
     def test_remove_deny_list_skip_cleaning_success(self):
         """

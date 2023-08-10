@@ -2,10 +2,11 @@
 
 from enum import Enum
 
+
 class FIM_exit_codes(Enum):
     '''
     This particular enum class allows for special system exit codes to be issued to tell different
-    code layers about what has happened. Currently, most of our code uses just sys.exit(0) and 
+    code layers about what has happened. Currently, most of our code uses just sys.exit(0) and
     sys.exit(1)<which is an error>.
     The list of enums lower (which can grow as needed) allows for more status to be return.
     - Notes about system exit codes:
@@ -26,5 +27,4 @@ class FIM_exit_codes(Enum):
     UNIT_NO_BRANCHES = 60
     NO_FLOWLINES_EXIST = 61
     EXCESS_UNIT_ERRORS = 62
-    NO_BRANCH_LEVELPATHS_EXIST = 63    
-            
+    NO_BRANCH_LEVELPATHS_EXIST = 63

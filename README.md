@@ -4,7 +4,7 @@ This repository includes flood inundation mapping software configured to work wi
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids. This repository also includes functionality to generate flood inundation maps (FIMs) and evaluate FIM accuracy.
 
-#### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/cahaba/wiki).
+#### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/inundation-mapping/wiki).
 
 ---
 

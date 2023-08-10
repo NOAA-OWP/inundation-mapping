@@ -1,7 +1,7 @@
 #!/bin/sh
 
 umask 002
-cd /cahaba
+cd /foss_fim
 
 echo "Starting Code Standardizer"
 

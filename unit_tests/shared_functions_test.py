@@ -27,9 +27,7 @@ class test_shared_functions(unittest.TestCase):
         Pass in a file name with the single identifier and get the single adjusted file name back
         """
 
-        params = self.params[
-            "append_append_id_to_file_name_single_identifier_valid"
-        ].copy()
+        params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy()
 
         actual_output = src.append_id_to_file_name(
             file_name=ut_helpers.json_concat(params, "outputDestDir", "file_name"),
@@ -38,9 +36,7 @@ class test_shared_functions(unittest.TestCase):
 
         err_msg = "actual output does not match expected output"
 
-        expected_output = ut_helpers.json_concat(
-            params, "outputDestDir", "expected_output"
-        )
+        expected_output = ut_helpers.json_concat(params, "outputDestDir", "expected_output")
 
         assert expected_output == actual_output, err_msg
 
@@ -49,9 +45,7 @@ class test_shared_functions(unittest.TestCase):
         Pass in a file name with the list of identifiers and get a file name back with multiple identifers added
         """
 
-        params = self.params[
-            "append_append_id_to_file_name_identifier_list_valid"
-        ].copy()
+        params = self.params["append_append_id_to_file_name_identifier_list_valid"].copy()
 
         actual_output = src.append_id_to_file_name(
             file_name=ut_helpers.json_concat(params, "outputDestDir", "file_name"),
@@ -60,9 +54,7 @@ class test_shared_functions(unittest.TestCase):
 
         err_msg = "actual output does not match expected output"
 
-        expected_output = ut_helpers.json_concat(
-            params, "outputDestDir", "expected_output"
-        )
+        expected_output = ut_helpers.json_concat(params, "outputDestDir", "expected_output")
 
         assert expected_output == actual_output, err_msg
 
@@ -71,13 +63,9 @@ class test_shared_functions(unittest.TestCase):
         Pass in an non existant file name and get None back
         """
 
-        params = self.params[
-            "append_append_id_to_file_name_single_identifier_valid"
-        ].copy()
+        params = self.params["append_append_id_to_file_name_single_identifier_valid"].copy()
 
-        actual_output = src.append_id_to_file_name(
-            None, identifier=params["identifier"]
-        )
+        actual_output = src.append_id_to_file_name(None, identifier=params["identifier"])
 
         error_msg = "actual output should not have a value"
 

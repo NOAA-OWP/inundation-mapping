@@ -6,6 +6,7 @@ import rasterio
 import argparse
 import warnings
 from utils.shared_functions import mem_profile
+
 warnings.simplefilter("ignore")
 
 
@@ -29,19 +30,25 @@ warnings.simplefilter("ignore")
         ID of the current branch i.e. '3246000257'
 '''
 
-class GageCrosswalk(object):
 
+class GageCrosswalk(object):
     def __init__(self, usgs_subset_gages_filename, branch_id):
-        
         self.branch_id = branch_id
         self.gages = self._load_gages(usgs_subset_gages_filename)
 
-    def run_crosswalk(self, input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_table_filename):
-        '''Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to 
+    def run_crosswalk(
+        self,
+        input_catchment_filename,
+        input_flows_filename,
+        dem_filename,
+        dem_adj_filename,
+        output_table_filename,
+    ):
+        '''Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to
         the dem-derived flows 3) sample both dems at the snapped points 4) write the crosswalked points
         to usgs_elev_table.csv
         '''
-        
+
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
@@ -60,18 +67,19 @@ class GageCrosswalk(object):
         print(f"{num_gages} gage{'' if num_gages == 1 else 's'} in branch {self.branch_id}")
         self.write(output_table_filename)
 
-
     def _load_gages(self, gages_filename):
         '''Reads gage geopackage from huc level and filters based on current branch id'''
 
         usgs_gages = gpd.read_file(gages_filename)
-        return  usgs_gages[usgs_gages.levpa_id == self.branch_id]
+        return usgs_gages[usgs_gages.levpa_id == self.branch_id]
 
     def catchment_sjoin(self, input_catchment_filename):
         '''Spatial joins gages to FIM catchments'''
 
-        input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID':int})
-        self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
+        input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID': int})
+        self.gages = gpd.sjoin(
+            self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner'
+        )
 
     def snap_to_dem_derived_flows(self, input_flows_filename):
         '''Joins to dem derived flow line and produces snap_distance and geometry_snapped for sampling DEMs on the thalweg'''
@@ -79,17 +87,22 @@ class GageCrosswalk(object):
         input_flows = gpd.read_file(input_flows_filename)
         input_flows['geometry_ln'] = input_flows.geometry
         self.gages = self.gages.merge(input_flows[['HydroID', 'geometry_ln']], on='HydroID')
-        
+
         # Snap each point to its feature_id line
-        self.gages['geometry_snapped'], self.gages['snap_distance'] = self.gages.apply(self.snap_to_line, axis=1,result_type='expand').T.values
+        self.gages['geometry_snapped'], self.gages['snap_distance'] = self.gages.apply(
+            self.snap_to_line, axis=1, result_type='expand'
+        ).T.values
         self.gages.geometry_snapped = self.gages.geometry_snapped.astype('geometry')
 
     def sample_dem(self, dem_filename, column_name):
         '''Sample an input DEM at snapped points. Make sure to run self.gages.set_geometry("geometry_snapped") before runnig
         this method, otherwise the DEM will be sampled at the actual gage locations.'''
 
-        coord_list = [(x,y) for x,y in zip(self.gages['geometry_snapped'].x , self.gages['geometry_snapped'].y)]
-        
+        coord_list = [
+            (x, y)
+            for x, y in zip(self.gages['geometry_snapped'].x, self.gages['geometry_snapped'].y)
+        ]
+
         with rasterio.open(dem_filename) as dem:
             self.gages[column_name] = [x[0] for x in dem.sample(coord_list)]
 
@@ -98,7 +111,9 @@ class GageCrosswalk(object):
 
         # Prep and write out file
         elev_table = self.gages.copy()
-        elev_table.loc[elev_table['location_id'] == elev_table['nws_lid'], 'location_id'] = None # set location_id to None where there isn't a gage
+        elev_table.loc[
+            elev_table['location_id'] == elev_table['nws_lid'], 'location_id'
+        ] = None  # set location_id to None where there isn't a gage
         elev_table = elev_table[elev_table['location_id'].notna()]
 
         if not elev_table.empty:
@@ -113,15 +128,28 @@ class GageCrosswalk(object):
 
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(description='Crosswalk USGS sites to HydroID and get elevations')
-    parser.add_argument('-gages','--usgs-gages-filename', help='USGS gage subset at the huc level', required=True)
-    parser.add_argument('-flows','--input-flows-filename', help='DEM derived streams', required=True)
-    parser.add_argument('-cat','--input-catchment-filename', help='DEM derived catchments', required=True)
-    parser.add_argument('-dem','--dem-filename',help='DEM',required=True)
-    parser.add_argument('-dem_adj','--dem-adj-filename', help='Thalweg adjusted DEM', required=True)
-    parser.add_argument('-outtable','--output-table-filename', help='Table to append data', required=True)
-    parser.add_argument('-b','--branch-id', help='Branch ID used to filter the gages', type=str, required=True)
+    parser = argparse.ArgumentParser(
+        description='Crosswalk USGS sites to HydroID and get elevations'
+    )
+    parser.add_argument(
+        '-gages', '--usgs-gages-filename', help='USGS gage subset at the huc level', required=True
+    )
+    parser.add_argument(
+        '-flows', '--input-flows-filename', help='DEM derived streams', required=True
+    )
+    parser.add_argument(
+        '-cat', '--input-catchment-filename', help='DEM derived catchments', required=True
+    )
+    parser.add_argument('-dem', '--dem-filename', help='DEM', required=True)
+    parser.add_argument(
+        '-dem_adj', '--dem-adj-filename', help='Thalweg adjusted DEM', required=True
+    )
+    parser.add_argument(
+        '-outtable', '--output-table-filename', help='Table to append data', required=True
+    )
+    parser.add_argument(
+        '-b', '--branch-id', help='Branch ID used to filter the gages', type=str, required=True
+    )
 
     args = vars(parser.parse_args())
 
@@ -133,11 +161,19 @@ if __name__ == '__main__':
     output_table_filename = args['output_table_filename']
     branch_id = args['branch_id']
 
-    assert os.path.isfile(usgs_gages_filename), f"The input file {usgs_gages_filename} does not exist."
+    assert os.path.isfile(
+        usgs_gages_filename
+    ), f"The input file {usgs_gages_filename} does not exist."
 
     # Instantiate class
     gage_crosswalk = GageCrosswalk(usgs_gages_filename, branch_id)
-    gage_crosswalk.run_crosswalk(input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_table_filename)
+    gage_crosswalk.run_crosswalk(
+        input_catchment_filename,
+        input_flows_filename,
+        dem_filename,
+        dem_adj_filename,
+        output_table_filename,
+    )
 
 """
 Examples:

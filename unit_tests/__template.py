@@ -54,16 +54,14 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
             hucCode=params["hucCode"],
             nwm_streams_filename=params["nwm_streams"],
             etc=params["a_number"],
-            etc=params["a_list"],
+            etc2=params["a_list"],
         )
 
         # This is what we are actually testing-
         # An assert that evaluates as True passes, one that evaluates to False fails.
         # A message (string) can be added after the assert statement to provide detail on the case being tested, and
         # why it failed.
-        assert (
-            os.path.exists(params["nwm_streams"]) == True
-        ), "The nwm_streams file does not exist"
+        assert os.path.exists(params["nwm_streams"]) == True, "The nwm_streams file does not exist"
 
     # EXAMPLE SUCCESSFUL TEST CASE WHICH CAPTURES AN EXCEPTION (FAILURE)
 
@@ -83,5 +81,5 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
                 hucCode=params["hucCode"],
                 nwm_streams_filename=params["nwm_streams"],
                 etc=params["a_number"],
-                etc=params["a_list"],
+                etc2=params["a_list"],
             )

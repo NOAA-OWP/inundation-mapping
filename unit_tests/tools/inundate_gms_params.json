@@ -1,6 +1,5 @@
 {
-	"valid_data_inudation_raster_single_huc":
-	{
+	"valid_data_inudation_raster_single_huc": {
 		"hydrofabric_dir": "/data/outputs/fim_unit_test_data_do_not_remove/",
 		"forecast": "/data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_2_0_cms.csv",
 		"num_workers": 4,

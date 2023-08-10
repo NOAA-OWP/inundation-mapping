@@ -41,8 +41,7 @@ class test_split_flows(unittest.TestCase):
             os.remove(params["split_points_filename"])
 
         error_msg = (
-            params["split_flows_filename"]
-            + " does exist, when it should not (post os.remove call)"
+            params["split_flows_filename"] + " does exist, when it should not (post os.remove call)"
         )
         assert os.path.exists(params["split_flows_filename"]) == False, error_msg
 

@@ -1,0 +1,63 @@
+[project]
+name = 'Inundation Mapping'
+description = """\
+    Flood inundation mapping software configured to work with the U.S. National Water Model, \
+    operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) \
+    National Water Center (NWC). \
+    This software uses the Height Above Nearest Drainage (HAND) method to generate \
+    Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids. \
+    This repository also includes functionality to generate flood inundation maps (FIMs) \
+    and evaluate FIM accuracy. \
+    """
+authors = [
+    {name = "Fernando Aristizabal", email = "fernando.aristizabal@noaa.gov"},
+    {name = "Fernando Salas", email = "fernando.salas@noaa.gov"},
+    {name = "Carson Pruitt", email = "carson.pruitt@noaa.gov"}
+]
+requires-python = ">=3.8"
+keywords = ["flood inundation", "mapping"]
+license = {path = "./LICENSE"}
+version = "4.4.0"
+
+[project.urls]
+Source = "https://github.com/NOAA-OWP/inundation-mapping"
+Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
+
+
+# - Tools - 
+
+[tool.black]
+line_length = 100
+skip-string-normalization = true
+skip-magic-trailing-comma = true
+exclude = '''
+/(
+    \.git
+)/
+'''
+
+[tool.isort]
+profile = 'black'
+multi_line_output = 3
+line_length = 100 # It should be the same as in `tool.black.line-length` above
+lines_after_imports = 2
+skip_gitignore = true
+
+[tool.flake8]
+count = true
+doctests = true
+max-complexity = 20
+max-line-length = 100  # It should be the same as in `tool.black.line-length` above
+extend-ignore = """
+    E203, 
+    E266, 
+    E501, 
+    W503,
+    W391 
+    F403, 
+    F401,
+    """
+per-file-ignores = """
+    tools/plots/eval_plots.py: C901, F841
+    /unit_tests/*.py: E712
+    """

@@ -49,9 +49,7 @@ class test_check_unit_errors(unittest.TestCase):
 
         num_dummy_files_reqd = UNIT_ERRORS_MIN_NUMBER_THRESHOLD - 1
 
-        self.__create_temp_unit_errors_folder_files(
-            params["fim_dir"], num_dummy_files_reqd
-        )
+        self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
 
         expected_output = 0
         actual_output = src.check_unit_errors(params["fim_dir"], num_dummy_files_reqd)
@@ -72,9 +70,7 @@ class test_check_unit_errors(unittest.TestCase):
 
         num_dummy_files_reqd = UNIT_ERRORS_MIN_NUMBER_THRESHOLD + 1
 
-        self.__create_temp_unit_errors_folder_files(
-            params["fim_dir"], num_dummy_files_reqd
-        )
+        self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
 
         with pytest.raises(Exception) as e_info:
             src.check_unit_errors(params["fim_dir"], num_dummy_files_reqd)
@@ -91,13 +87,10 @@ class test_check_unit_errors(unittest.TestCase):
 
         num_dummy_files_reqd = UNIT_ERRORS_MIN_NUMBER_THRESHOLD * 2
 
-        self.__create_temp_unit_errors_folder_files(
-            params["fim_dir"], num_dummy_files_reqd
-        )
+        self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
 
         num_total_units = (
-            math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD))
-            + 1
+            math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD)) + 1
         )
         expected_output = 0
         actual_output = src.check_unit_errors(params["fim_dir"], num_total_units)
@@ -121,13 +114,10 @@ class test_check_unit_errors(unittest.TestCase):
 
         num_dummy_files_reqd = UNIT_ERRORS_MIN_NUMBER_THRESHOLD * 2
 
-        self.__create_temp_unit_errors_folder_files(
-            params["fim_dir"], num_dummy_files_reqd
-        )
+        self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
 
         num_total_units = (
-            math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD))
-            - 10
+            math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD)) - 10
         )
 
         with pytest.raises(Exception) as e_info:

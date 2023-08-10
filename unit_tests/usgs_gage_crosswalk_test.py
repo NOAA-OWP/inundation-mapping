@@ -43,9 +43,7 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
         assert os.path.exists(params["output_table_filename"]) == False, msg
 
         # Instantiate and run GageCrosswalk
-        gage_crosswalk = GageCrosswalk(
-            params["usgs_gages_filename"], params["branch_id"]
-        )
+        gage_crosswalk = GageCrosswalk(params["usgs_gages_filename"], params["branch_id"])
 
         # Run crosswalk
         gage_crosswalk.run_crosswalk(

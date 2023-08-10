@@ -4,21 +4,22 @@ import pandas as pd
 import geopandas as gpd
 from tqdm import tqdm
 
+
 class ESRI_REST(object):
     """
     This class was built for querying ESRI REST endpoints for the purpose of downloading datasets.
     See /data/nld/levee_download.py for an example useage.
     """
-    
+
     def __init__(self, query_url, params, verbose=True):
         self.query_url = query_url
         self.params = params
         self.verbose = verbose
         self.exceededTransferLimit = True
         self.feature_count = 0
-    
+
     @classmethod
-    def query(cls, query_url:str, save_file:str=None, **kwargs):
+    def query(cls, query_url: str, save_file: str = None, **kwargs):
         '''
         Classmethod for easily queries on ESRI feature services. See /data/nld/levee_download.py for example usage.
 
@@ -37,7 +38,7 @@ class ESRI_REST(object):
         Returns
         -------
         gdf_complete: geopandas.GeoDataFrame
-            GeoDataFrame containing all of the features returned by the query. `None` is returned if the 
+            GeoDataFrame containing all of the features returned by the query. `None` is returned if the
             save_file parameter is set.
         '''
         # Query the input URL using the kwargs as URL parameters
@@ -48,7 +49,7 @@ class ESRI_REST(object):
             gdf_complete.to_file(save_file, driver="GPKG", index=False)
         else:
             return gdf_complete
-        
+
     def _query_rest(self):
         '''
         Method that sets up multiple REST calls when there are more features than the transfer limit
@@ -57,7 +58,7 @@ class ESRI_REST(object):
         Returns
         -------
         gdf_complete: geopandas.GeoDataFrame
-            GeoDataFrame containing all of the features returned by the query. 
+            GeoDataFrame containing all of the features returned by the query.
         '''
         gdf_list = []
         record_count = 0
@@ -69,13 +70,17 @@ class ESRI_REST(object):
             print(f"Features returned: {self.feature_count}")
             if 'resultRecordCount' in self.params.keys():
                 print(f"Request max record count: {self.params['resultRecordCount']}")
-                print(f"Total API calls: {-(self.feature_count//-self.params['resultRecordCount'])}")
+                print(
+                    f"Total API calls: {-(self.feature_count//-self.params['resultRecordCount'])}"
+                )
             else:
                 print(f"Service max record count: {self.metadata['maxRecordCount']}")
                 print(f"Total API calls: {-(self.feature_count//-self.metadata['maxRecordCount'])}")
         # Call the REST API repeatedly until all of the features have been collected, i.e. the transfer
         # limit has no longer been exceeded
-        with tqdm(total=self.feature_count, desc='Feature download progress', disable=not self.verbose) as pbar:
+        with tqdm(
+            total=self.feature_count, desc='Feature download progress', disable=not self.verbose
+        ) as pbar:
             while (self.exceededTransferLimit) and (backup_counter < 9999):
                 # Set the resultOffset to the number of records that's already been downloaded
                 self.params['resultOffset'] = record_count
@@ -111,14 +116,16 @@ class ESRI_REST(object):
         # This very nondescript error was returned when querying a polygon layer.
         # Setting resultRecordCount to a lower value fixed the error.
         elif 'error' in r_dict.keys():
-            print("There was an error with the query. It may have been caused by requesting too many features. Try setting resultRecordCount to a lower value.")
+            print(
+                "There was an error with the query. It may have been caused by requesting too many features. Try setting resultRecordCount to a lower value."
+            )
             raise Exception(r_dict['error']['message'], f"code: {r_dict['error']['code']}")
         else:
             self.exceededTransferLimit = False
         # Read the response into a GeoDataFrame
         sub_gdf = gpd.read_file(self.response.text)
         return sub_gdf
-    
+
     def _api_call(self, url, params=None):
         '''
         Helper method for calling the API and checking that the response is ok.
@@ -128,11 +135,10 @@ class ESRI_REST(object):
         self.response = requests.get(url, params=params)
         if not self.response.ok:
             raise Exception(f"The following URL recieved a bad response.\n{self.response.url}")
-    
-    def _meta_query(self):
 
+    def _meta_query(self):
         # Get the service metadata
-        self._api_call(self.query_url[:self.query_url.rfind('query')], self.params)
+        self._api_call(self.query_url[: self.query_url.rfind('query')], self.params)
         self.metadata = self.response.json()
         # Get the record count returned by the query
         params = self.params.copy()
