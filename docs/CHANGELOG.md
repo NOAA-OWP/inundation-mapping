@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.14.2 - 2023-08-08 - [PR#959](https://github.com/NOAA-OWP/inundation-mapping/pull/959)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Changes  
+- `data/bathymetry/preprocess_bathymetry.py`: added data source column to output geopackage attribute table.
+- `fim_post_processing.sh`: changed -bathy input reference location.
+- `config/params_template.env`: added export to bathymetry_file
+
+<br/><br/>
+
 ## v4.3.14.1 - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
 
 ras2fim product had a need to run the acquire 3dep script to pull down some HUC8 DEMs. The old script was geared to HUC6 but could handle HUC8's but needed a few enhancements. ras2fim also did not need polys made from the DEMs, so a switch was added for that.
