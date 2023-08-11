@@ -466,6 +466,7 @@
                 "sha256:f87f746ee241d30d6ed93969de31e5ffd09a2961a051e60ae6bddde9ec3583aa"
             ],
             "markers": "python_full_version >= '3.7.0'",
+
             "version": "==3.2.0"
         },
         "click": {
@@ -796,6 +797,7 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==4.42.0"
+
         },
         "fqdn": {
             "hashes": [
@@ -1398,6 +1400,7 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==3.7.1"
+
         },
         "matplotlib-inline": {
             "hashes": [
@@ -1566,7 +1569,7 @@
                 "sha256:25e861299e5303a0477568557c4045eccc7a34c17fc08e7959558707b9ebe548",
                 "sha256:f9b179cd4b2d7bca965f900a2ebf0db4a12ebff2f36a711cb66861e4ae158e55"
             ],
-            "markers": "python_full_version >= '3.8.0'",
+            "markers": "python_version >= '3.8'",
             "version": "==0.8.0"
         },
         "nbconvert": {
@@ -2590,6 +2593,7 @@
             ],
             "markers": "python_version >= '3.6'",
             "version": "==24.0.1"
+
         },
         "pyzstd": {
             "hashes": [
