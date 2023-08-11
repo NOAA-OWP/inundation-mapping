@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.14.2 - 2023-08-08 - [PR##956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
+## v4.3.15.0 - 2023-08-08 - [PR##956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
 
 Integrating GVAL in to the evaluation of agreement maps and contingency tables.
 
