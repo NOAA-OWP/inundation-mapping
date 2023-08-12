@@ -41,16 +41,14 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     start_time = dt.datetime.now()
     print('Reading RAS2FIM rating curves from csv...')
     log_text = 'Processing database for RAS2FIM flow/WSE at NWM flow recur intervals...\n'
-    col_filter = ["feature_id", "flow", "WaterSurfaceElevation"]
-    ras_rc_df = pd.read_csv(ras_rc_filepath, dtype={'feature_id': object}, usecols=col_filter)#, nrows=30000)
-    ras_rc_df.rename(columns={'feature_id':'location_id'}, inplace=True)
+    col_filter = ["fid_xs", "flow", "wse"]
+    ras_rc_df = pd.read_csv(ras_rc_filepath, dtype={'fid_xs': object}, usecols=col_filter)#, nrows=30000)
+    ras_rc_df.rename(columns={'fid_xs':'location_id'}, inplace=True)
     #ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
     print('Duration (read ras_rc_csv): {}'.format(dt.datetime.now() - start_time))
     
     # convert WSE navd88 values to meters
-    ras_rc_df.rename(columns={'WaterSurfaceElevation':'wse_navd88_ft'}, inplace=True) # assume ras2fim elevation data in feet
-    ras_rc_df['wse_navd88_m'] = ras_rc_df['wse_navd88_ft'] * 0.3048
-    ras_rc_df = ras_rc_df.drop(columns=["wse_navd88_ft"])
+    ras_rc_df.rename(columns={'wse':'wse_navd88_m','flow':'discharge_cms'}, inplace=True) # assume ras2fim elevation data in feet
     
     # read in the aggregate RAS elev table csv
     start_time = dt.datetime.now()
@@ -59,10 +57,6 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     
     # filter null location_id rows from cross_df 
     cross_df = cross_df[cross_df.location_id.notnull()]
-    
-    # convert RAS2FIM flow from cfs to cms
-    ras_rc_df['discharge_cms'] = ras_rc_df.flow / 35.3147
-    ras_rc_df = ras_rc_df.drop(columns=["flow"])
     
     # merge ras2fim ratings with crosswalk attributes
     ras_rc_df = ras_rc_df.merge(cross_df, how='left', on='location_id')
@@ -194,7 +188,6 @@ def branch_proc_list(ras_df,run_dir,debug_outputs_option,log_file):
 def run_prep(run_dir,ras_rc_filepath,nwm_recurr_filepath,debug_outputs_option,job_number):
     ## Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
-    assert os.path.isfile(ras_rc_filepath), 'ERROR: could not find the input ras2fim rating curve file location: ' + str(ras_rc_filepath)
 
     ## Create an aggregate dataframe with all ras_elev_table.csv entries for hucs in fim_dir
     print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files...')

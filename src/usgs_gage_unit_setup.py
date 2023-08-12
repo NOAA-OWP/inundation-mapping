@@ -31,17 +31,18 @@ class Gage2Branch(object):
         # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64). 
         # Need the raw data to store the 'huc8' attribute as an object to avoid issues with integers truncating the leading zero from some hucs
         ras_locs = gpd.read_file(self.ras_locs_filename,dtype={'huc8': 'object'}) 
-        ras_locs = ras_locs[['feature_id', 'huc8', 'source', 'wrds_timestamp', 'navd88_datum', 'geometry']]
-        ras_locs['location_id'] =  ras_locs['feature_id']
+        ras_locs = ras_locs[['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'wrds_timestamp', 'geometry']]
+        ras_locs['location_id'] =  ras_locs['fid_xs']
         #ras_locs.crs = usgs_gages.crs
         ras_locs.to_crs(usgs_gages.crs, inplace=True)
+        ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
 
-        if ras_locs.huc8.dtype == 'int64':
-            ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]
-            ras_locs['HUC8'] = str(self.huc8)
-            ras_locs = ras_locs.drop('huc8', axis=1)
-        elif ras_locs.huc8.dtype == 'int64':
-            ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
+        # if ras_locs.huc8.dtype == 'int64':
+        #     ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]
+        #     ras_locs['HUC8'] = str(self.huc8)
+        #     ras_locs = ras_locs.drop('huc8', axis=1)
+        # elif ras_locs.huc8.dtype == 'int64':
+        #     ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
 
         # Concat USGS points and RAS2FIM points
         gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
