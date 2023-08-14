@@ -14,7 +14,7 @@ from inundate_gms import Inundate_gms
 
 
 def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_raster, inundation_polygon, depths_raster,
-                                 log_file, output_fileNames, num_workers, keep_intermediate, verbose):
+                                 log_file, output_fileNames, num_workers, remove_intermediate, verbose):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps. Possible outputs include inundation rasters
     encoded by HydroID (negative HydroID for dry and positive HydroID for wet), polygons depicting extent, and depth rasters. The
@@ -87,7 +87,7 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
                         unit_attribute_name = 'huc8',
                         nodata = -9999,
                         workers = 1,
-                        remove_inputs = False,
+                        remove_inputs = remove_intermediate,
                         subset = None,
                         verbose = verbose )
     
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('-l','--log-file',help='Log-file to store level-path exceptions. Not tested.',required=False,default=None)
     parser.add_argument('-o','--output-fileNames',help='Output CSV file with filenames for inundation rasters, inundation polygons, and depth rasters. Not tested.',required=False,default=None)
     parser.add_argument('-w','--num-workers', help='Number of workers.', required=False,default=1, type=int)
-    parser.add_argument('-k','--keep-intermediate',help='Keep intermediate products, i.e. individual branch inundation. Not tested.',required=False,default=False,action='store_true')
+    parser.add_argument('-r','--remove-intermediate',help='Keep intermediate products, i.e. individual branch inundation.',required=False,default=False,action='store_true')
     parser.add_argument('-v','--verbose',help='Verbose printing. Not tested.',required=False,default=False,action='store_true')
     
     start = timer()
