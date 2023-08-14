@@ -73,12 +73,12 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
                                      hucs = huc,
                                      inundation_raster = inundation_raster,
                                      inundation_polygon = None,
-                                     depths_raster = depths_raster,
+                                     depths_raster = None,
                                      verbose = verbose,
                                      log_file = None,
                                      output_fileNames = None )
 
-    print("Mosaicking for " + huc + "...")
+    print("Mosaicking extent for " + huc + "...")
     # Call Mosaic_inundation
     Mosaic_inundation( map_file,
                         mosaic_attribute = 'inundation_rasters',
@@ -91,12 +91,37 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
                         subset = None,
                         verbose = verbose )
     
-    print("Mosaicking complete.")
+    # Produce depths if instructed
+    if depths_raster != None:
+        print("Computing depths for " + huc + "...")
+        map_file = Inundate_gms(  hydrofabric_dir = hydrofabric_dir, 
+                                 forecast = flow_file, 
+                                 num_workers = num_workers,
+                                 hucs = huc,
+                                 inundation_raster = None,
+                                 inundation_polygon = None,
+                                 depths_raster = depths_raster,
+                                 verbose = verbose,
+                                 log_file = None,
+                                 output_fileNames = None )
+        print("Mosaicking depths for " + huc + "...")
+        Mosaic_inundation( map_file,
+                    mosaic_attribute = 'depths_rasters',
+                    mosaic_output = depths_raster,
+                    mask = os.path.join(huc_dir,'wbd.gpkg'),
+                    unit_attribute_name = 'huc8',
+                    nodata = -9999,
+                    workers = 1,
+                    remove_inputs = remove_intermediate,
+                    subset = None,
+                    verbose = verbose )
+    else:
+        pass
     
     if inundation_polygon != None:
         mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon)
                 
-    
+    print("Mosaicking complete.")
     
 if __name__ == '__main__':
 
