@@ -1,6 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
 ## v4.x.x.x - 2023-07-18 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/948)
 
 Adds a script to produce inundation maps (extent TIFs, polygons, and depth grids) given a flow file and hydrofabric outputs. This is meant to make it easier to team members and external collaborators to produce inundation maps.
@@ -9,6 +10,122 @@ Adds a script to produce inundation maps (extent TIFs, polygons, and depth grids
 - `data/`
     - `/tools/inundate_mosaic_wrapper.py`: The script that performs the inundation and mosaicking processes.
   
+<br/><br/>
+
+=======
+## v4.3.15.1 - 2023-08-08 - [PR#960](https://github.com/NOAA-OWP/inundation-mapping/pull/960)
+
+Provides a scripted procedure for updating BLE benchmark data including downloading, extracting, and processing raw BLE data into benchmark inundation files (inundation rasters and discharge tables).
+
+### Additions
+
+- `data/ble/ble_benchmark/`
+    - `Dockerfile`, `Pipfile`, and `Pipfile.lock`: creates a new Docker image with necessary Python packages
+    - `README.md`: contains installation and usage information
+    - `create_ble_benchmark.py`: main script to generate BLE benchmark data
+
+### Changes
+
+- `data/ble/ble_benchmark/`
+    - `create_flow_forecast_file.py` and `preprocess_benchmark.py`: moved from /tools
+
+<br/><br/>
+
+## v4.3.15.0 - 2023-08-08 - [PR##956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
+
+Integrating GVAL in to the evaluation of agreement maps and contingency tables.
+
+- `Dockerfile`: Add dependencies for GVAL
+- `Pipfile`: Add GVAL and update related dependencies
+- `Pipfile.lock`: Setup for Docker Image builds
+- `run_test_case.py`: Remove unused arguments and cleanup
+- `synthesize_test_cases.py`: Fix None comparisons and cleanup
+- `tools/shared_functions.py`: Add GVAL crosswalk function, add rework create_stats_from_raster, create and create_stats_from_contingency_table
+- `unit_tests/tools/inundate_gms_test.py`: Bug fix
+
+<br/><br/>
+
+## v4.3.14.2 - 2023-08-08 - [PR#959](https://github.com/NOAA-OWP/inundation-mapping/pull/959)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Changes  
+- `data/bathymetry/preprocess_bathymetry.py`: added data source column to output geopackage attribute table.
+- `fim_post_processing.sh`: changed -bathy input reference location.
+- `config/params_template.env`: added export to bathymetry_file
+
+<br/><br/>
+
+## v4.3.14.1 - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
+
+ras2fim product had a need to run the acquire 3dep script to pull down some HUC8 DEMs. The old script was geared to HUC6 but could handle HUC8's but needed a few enhancements. ras2fim also did not need polys made from the DEMs, so a switch was added for that.
+
+The earlier version on the "retry" feature would check the file size and if it was smaller than a particular size, it would attempt to reload it.  The size test has now been removed. If a file fails to download, the user will need to look at the log out, then remove the file before attempting again. Why? So the user can see why it failed and decide action from there.
+
+Note: later, as needed, we might upgrade it to handle more than just 10m (which it is hardcoded against).
+
+Additional changes to README to reflect how users can access ESIP's S3 as well as a one line addition to change file permissions in fim_process_unit_wb.sh.
+
+### Changes  
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`:  As described above.
+ - `fim_pipeline.sh`:  a minor styling fix (added a couple of lines for readability)
+ - `fim_pre_processing.sh`: a user message was incorrect & chmod 777 $outputDestDir. 
+ - `fim_process_unit_wb.sh`: chmod 777 for /output/<run_name> directory.
+ - `README.md`: --no-sign-request instead of --request-payer requester for ESIP S3 access.
+
+<br/><br/>
+
+## v4.3.14.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Additions  
+
+- `data/bathymetry/preprocess_bathymetry.py`: preprocesses the eHydro datasets.
+- `src/bathymetric_adjustment.py`: adjusts synthetic rating curves for HUCs where preprocessed bathymetry is available.
+
+### Changes  
+
+- `config/params_template.env`: added a toggle for the bathymetric adjustment routine: `bathymetry_adjust`
+- `fim_post_processing.sh`: added the new `bathymetric_adjustment.py` to the postprocessing lineup
+- `src/`
+    - `add_crosswalk.py`, `aggregate_by_huc.py`, & `subdiv_chan_obank_src.py`: accounting for the new Bathymetry_source field in SRCs
+
+<br/><br/>
+
+## v4.3.13.0 - 2023-07-26 - [PR#952](https://github.com/NOAA-OWP/inundation-mapping/pull/952)
+
+Adds a feature to manually calibrate rating curves for specified NWM `feature_id`s using a CSV of manual coefficients to output a new rating curve. Manual calibration is applied after any/all other calibrations. Coefficient values between 0 and 1 increase the discharge value (and decrease inundation) for each stage in the rating curve while values greater than 1 decrease the discharge value (and increase inundation).
+
+Manual calibration is performed if `manual_calb_toggle="True"` and the file specified by `man_calb_file` (with `HUC8`, `feature_id`, and `calb_coef_manual` fields) exists. The original HUC-level `hydrotable.csv` (after calibration) is saved with a suffix of `_pre-manual` before the new rating curve is written.
+
+### Additions
+
+- `src/src_manual_calibration.py`: Adds functionality for manual calibration by CSV file
+
+### Changes
+
+- `config/params_template.env`: Adds `manual_calb_toggle` and `man_calb_file` parameters
+- `fim_post_processing.sh`: Adds check for toggle and if `man_calb_file` exists before running manual calibration
+
+<br/><br/>
+
+## v4.3.12.1 - 2023-07-21 - [PR#950](https://github.com/NOAA-OWP/inundation-mapping/pull/950)
+
+Fixes a couple of bugs that prevented inundation using HUC-level hydrotables. Update associated unit tests.
+
+### Changes
+
+- `tools/inundate_gms.py`: Fixes a file path error and Pandas DataFrame indexing error.
+- `unit_tests/tools/inundate_gms_test.py`: Do not skip this test, refactor to check that all branch inundation rasters exist.
+- `unit_tests/tools/inundate_gms_params.json`: Only test 1 HUC, update forecast filepath, use 4 'workers'.
+
+### Removals
+
+- `unit_tests/tools/inundate_gms_unittests.py`: No longer used. Holdover from legacy unit tests.
+
 <br/><br/>
 
 

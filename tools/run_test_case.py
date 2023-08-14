@@ -10,6 +10,7 @@ from inundate_gms import Inundate_gms
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from utils.shared_functions import FIM_Helpers as fh
 
+
 class benchmark(object):
 
     AHPS_BENCHMARK_CATEGORIES = AHPS_BENCHMARK_CATEGORIES
@@ -310,27 +311,34 @@ class test_case(benchmark):
             # FIM v3 and before
             else:
                 fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
-                inundate_result = inundate(self.rem, self.catchments, self.catchment_poly, self.hydro_table, benchmark_flows,
-                    self.mask_type,hucs=self.hucs,hucs_layerName=self.hucs_layerName,
-                    subset_hucs=self.huc,num_workers=1,aggregate=False,
-                    inundation_raster=inundation_path,inundation_polygon=None,
-                    depths=None,out_raster_profile=None,out_vector_profile=None,
-                    quiet=True)
+                inundate_result = inundate(self.rem,
+                                           self.catchments,
+                                           self.catchment_poly,
+                                           self.hydro_table,
+                                           benchmark_flows,
+                                           self.mask_type,
+                                           hucs=self.hucs,
+                                           hucs_layerName=self.hucs_layerName,
+                                           subset_hucs=self.huc,
+                                           num_workers=1,
+                                           aggregate=False,
+                                           inundation_raster=inundation_path,
+                                           inundation_polygon=None,
+                                           depths=None,out_raster_profile=None,
+                                           out_vector_profile=None,
+                                           quiet=True)
                 if inundate_result != 0:
                     return inundate_result
 
         # Create contingency rasters and stats
         fh.vprint("Begin creating contingency rasters and stats", verbose)
         if os.path.isfile(predicted_raster_path):
-            compute_contingency_stats_from_rasters( predicted_raster_path,
-                                                    benchmark_rast,
-                                                    agreement_raster,
-                                                    stats_csv=stats_csv,
-                                                    stats_json=stats_json,
-                                                    mask_values=[],
-                                                    stats_modes_list=self.stats_modes_list,
-                                                    test_id=self.test_id,
-                                                    mask_dict=mask_dict_indiv )
+            compute_contingency_stats_from_rasters(predicted_raster_path,
+                                                   benchmark_rast,
+                                                   agreement_raster,
+                                                   stats_csv=stats_csv,
+                                                   stats_json=stats_json,
+                                                   mask_dict=mask_dict_indiv)
         return
 
 

@@ -61,7 +61,7 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
     profile.update(transform = new_transform)
     profile.update(dtype = rasterio.int8)
     profile.update(nodata = 2) #Update NODATA to some integer so we can keep int8 datatype. There are no NODATA in the raster dataset
-    profile.update (width = new_width)
+    profile.update(width = new_width)
     profile.update(height = new_height)
 
     # Write out preprocessed benchmark array to raster if path is supplied
