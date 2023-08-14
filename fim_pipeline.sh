@@ -14,7 +14,9 @@ For more details on
 
 Processing of HUC''s in FIM4 comes in three pieces. You can run `fim_pipeline.sh` which automatically runs all of three major section, but you can run each of the sections independently if you like. The three sections are:
 - `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 
+
 - `fim_process_unit_wb.sh` : This script processes one and exactly one HUC8 plus all of it''s related branches. While it can only process one, you can run this script multiple times, each with different HUC (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates when more than one HUC number has been supplied either by command line arguments or via a HUC list. For each HUC provided, `fim_pipeline.sh` will `fim_process_unit_wb.sh`. Using the `fim_process_unit_wb.sh`  script allows for a run / rerun of a HUC, or running other HUCs at different times / days or even different docker containers.
+
 - `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the group in sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, running or re-running this script can only be done after running `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
 
 Running the `fim_pipeline.sh` is a quicker process than running all three steps independently.
@@ -58,6 +60,7 @@ fi
 echo
 echo "---- Unit (HUC) processing is complete"
 date -u
+Calc_Duration $pipeline_start_time
 
 ## POST PROCESSING
 
