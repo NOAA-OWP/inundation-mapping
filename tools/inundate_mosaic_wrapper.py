@@ -126,7 +126,7 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
 if __name__ == '__main__':
 
     # Parse arguments
-    parser = argparse.ArgumentParser(description='Inundate GMS')
+    parser = argparse.ArgumentParser(description='Helpful utility to produce mosaicked inundation extents (raster and poly) and depths.')
     parser.add_argument('-y','--hydrofabric_dir', help='Directory path to FIM hydrofabric by processing unit.', required=True)
     parser.add_argument('-u','--huc',help='List of HUCS to run',required=True,default="",type=str,)
     parser.add_argument('-f','--flow_file',help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns MUST be supplied.',required=True)
