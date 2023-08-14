@@ -9,7 +9,7 @@ from shapely.geometry.polygon import Polygon
 from shapely.geometry.multipolygon import MultiPolygon
 from timeit import default_timer as timer
 sys.path.append('/foss_fim/tools')
-from mosaic_inundation import Mosaic_inundation
+from mosaic_inundation import Mosaic_inundation, mosaic_final_inundation_extent_to_poly
 from inundate_gms import Inundate_gms
 
 
@@ -94,28 +94,8 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
     print("Mosaicking complete.")
     
     if inundation_polygon != None:
-        with rasterio.open(inundation_raster) as src:
-            # Open inundation_raster using rasterio.
-            image = src.read(1)
-            mask = image > 0
-            print("Producing merged polygon...")
-        
-            # Use numpy.where operation to reclassify depth_array on the condition that the pixel values are > 0.
-            reclass_inundation_array = np.where((image>0) & (image != src.nodata), 1, 0).astype('uint8')
-    
-    
-            results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(image, mask=mask,transform=src.transform)))
-
-            # Aggregate shapes
-            results = ({'properties': {'extent': 1}, 'geometry': s} for i, (s, v) in enumerate(shapes(reclass_inundation_array, mask=reclass_inundation_array>0,transform=src.transform)))
-    
-            # Convert list of shapes to polygon, then dissolve
-            extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
-            extent_poly_diss = extent_poly.dissolve(by='extent')
-            extent_poly_diss["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon else feature for feature in extent_poly_diss["geometry"]]
-            
-            # Write polygon
-            extent_poly_diss.to_file(inundation_polygon, driver='GPKG')
+        mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon)
+                
     
     
 if __name__ == '__main__':
