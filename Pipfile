@@ -37,9 +37,10 @@ pyarrow = "==11.0.0"
 rtree = "==1.0.1"
 py7zr = "==0.20.4"
 scipy = "==1.10.1"
-dask = "==2023.4.0"
-py3dep = "==0.14.0"
+dask = {extras = ["complete"], version = "2023.5.0"}
+rioxarray = "0.13.4"
 gval = "==0.1.2"
+py3dep = "*"
 
 [requires]
 python_version = "3.8"
