@@ -144,7 +144,7 @@ if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ 
     echo    
     echo -e $startDiv"Performing SRC adjustments using ras2fim rating curve database"
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
-    python3 $srcDir/src_adjust_ras2fim_rating.py -run_dir $outputDestDir -ras_rc $ras_rating_curve_csv -nwm_recur $nwm_recur_file -j $jobLimit -debug
+    python3 $srcDir/src_adjust_ras2fim_rating.py -run_dir $outputDestDir -ras_rc $ras_rating_curve_csv -nwm_recur $nwm_recur_file -j $jobLimit
     Tcount
     date -u
 fi

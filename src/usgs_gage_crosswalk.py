@@ -50,6 +50,15 @@ class GageCrosswalk(object):
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
+        
+        ###self.gages = self.gages[self.gages['curve'] == 'yes']
+        # Dissolve on geometry to remove duplicate points
+        #self.gages = self.gages.dissolve(by='geometry')
+        #geometry_types = set(type(geometry) for geometry in self.gages.geometry)
+        #print("Geometry types present in the GeoDataFrame:")
+        #for geometry_type in geometry_types:
+        #    print(geometry_type) 
+
         # Snap to dem derived flow lines
         self.snap_to_dem_derived_flows(input_flows_filename)
         # Sample DEM and thalweg adjusted DEM
@@ -65,7 +74,7 @@ class GageCrosswalk(object):
         '''Reads gage geopackage from huc level and filters based on current branch id'''
 
         usgs_gages = gpd.read_file(gages_filename)
-        return  usgs_gages[usgs_gages.levpa_id == self.branch_id]
+        return  usgs_gages[(usgs_gages.levpa_id == self.branch_id)]
 
     def catchment_sjoin(self, input_catchment_filename):
         '''Spatial joins gages to FIM catchments'''
@@ -100,15 +109,16 @@ class GageCrosswalk(object):
         elev_table = self.gages.copy()
         elev_table.loc[elev_table['location_id'] == elev_table['nws_lid'], 'location_id'] = None # set location_id to None where there isn't a gage
         elev_table = elev_table[elev_table['location_id'].notna()]
+        elev_table.source = elev_table.source.apply(str.lower)
 
         # filter for just ras2fim entries
-        ras_elev_table = elev_table[elev_table['source'] == 'RAS2FIM']
+        ras_elev_table = elev_table[elev_table['source'] == 'ras2fim']
         ras_elev_table = ras_elev_table[["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_elevation", "dem_adj_elevation","source", "stream_stn"]]
         if not ras_elev_table.empty:
             ras_elev_table.to_csv(join(output_directory, 'ras_elev_table.csv'), index=False)
 
         # filter for just usgs entries
-        usgs_elev_table = elev_table[elev_table['source'] != 'RAS2FIM']
+        usgs_elev_table = elev_table[elev_table['source'] != 'ras2fim']
         if not usgs_elev_table.empty:
             usgs_elev_table.to_csv(join(output_directory, 'usgs_elev_table.csv'), index=False)
 

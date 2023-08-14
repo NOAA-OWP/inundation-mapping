@@ -7,6 +7,7 @@ import geopandas as gpd
 import pandas as pd
 import argparse
 import warnings
+from shapely.geometry import Point
 from utils.shared_functions import mem_profile
 from utils.shared_variables import PREP_CRS
 warnings.simplefilter("ignore")
@@ -25,7 +26,7 @@ class Gage2Branch(object):
 
         # Read USGS gage file a
         usgs_gages = gpd.read_file(self.usgs_gage_filename,dtype={'location_id': object})
-        #usgs_gages['source'] = 'usgs_gage'
+        usgs_gages['source'] = 'usgs_gage'
 
         # Read RAS2FIM point locations file
         # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64). 
@@ -33,9 +34,13 @@ class Gage2Branch(object):
         ras_locs = gpd.read_file(self.ras_locs_filename,dtype={'huc8': 'object'}) 
         ras_locs = ras_locs[['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'wrds_timestamp', 'geometry']]
         ras_locs['location_id'] =  ras_locs['fid_xs']
+        
         #ras_locs.crs = usgs_gages.crs
         ras_locs.to_crs(usgs_gages.crs, inplace=True)
         ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
+        ras_locs['geometry'] = ras_locs.representative_point()
+        #filtered_geometries = [geometry for geometry in ras_locs.geometry if isinstance(geometry, Point)]
+        #ras_locs = gpd.GeoDataFrame(geometry=filtered_geometries)
 
         # if ras_locs.huc8.dtype == 'int64':
         #     ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]
