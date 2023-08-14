@@ -43,7 +43,7 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
         parent_dir = os.path.split(output_file)[0]
         if not os.path.exists(parent_dir):
             print("Parent directory for " + os.path.split(output_file)[1] + " does not exist. The parent directory will be produced.")
-            os.mkdir(parent_dir)
+            os.makedirs(parent_dir)
     
     # Check that hydrofabric_dir exists
     if not os.path.exists(hydrofabric_dir):
@@ -94,7 +94,6 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
     print("Mosaicking complete.")
     
     if inundation_polygon != None:
-        
         with rasterio.open(inundation_raster) as src:
             # Open inundation_raster using rasterio.
             image = src.read(1)

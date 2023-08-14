@@ -26,12 +26,10 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
             _ = (i for i in hucs)
         except TypeError:
             raise ValueError("hucs argument must be an iterable")
-    
     if isinstance(hucs,str):
         hucs = [hucs]
 
     num_workers = int(num_workers)
-
     # log file
     if log_file is not None:
         if os.path.exists(log_file):
@@ -42,7 +40,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     #if log_file:
         #logging.basicConfig(filename=log_file, level=logging.INFO)
         #logging.info('HUC8,BranchID,Exception')
-
     # load fim inputs
     hucs_branches = pd.read_csv( os.path.join(hydrofabric_dir,'fim_inputs.csv'),
                                  header=None,
@@ -64,8 +61,7 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
                                                          inundation_polygon,
                                                          depths_raster,
                                                          forecast,
-                                                         verbose=False )
-
+                                                         verbose=True )
     # start up process pool
     # better results with Process pool
     executor = ProcessPoolExecutor(max_workers = num_workers)
@@ -76,7 +72,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
     depths_raster_fileNames = [None] * number_of_branches
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
-       
     executor_generator = { 
                 executor.submit(inundate,**inp) : ids for inp,ids in inundate_input_generator 
                 }          
@@ -146,7 +141,6 @@ def Inundate_gms( hydrofabric_dir, forecast, num_workers = 1,
 
     if output_fileNames is not None:
         output_fileNames_df.to_csv(output_fileNames,index=False)
-
     return(output_fileNames_df)
 
 
@@ -160,7 +154,6 @@ def __inundate_gms_generator( hucs_branches,
 
     # iterate over branches
     for idx,row in hucs_branches.iterrows():
-        
         huc = str(row[0])
         branch_id = str(row[1])
 
@@ -171,7 +164,6 @@ def __inundate_gms_generator( hucs_branches,
 
         catchments_file_name = f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif'
         catchments_branch = os.path.join( huc_dir, branch_id, catchments_file_name )
-        
         # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
         hydroTable_huc = os.path.join( huc_dir, 'hydrotable.csv' )
         if os.path.isfile(hydroTable_huc):
@@ -191,7 +183,6 @@ def __inundate_gms_generator( hucs_branches,
         xwalked_file_name = f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg'
         catchment_poly = os.path.join( huc_dir, branch_id, xwalked_file_name )
         
-    
         # branch output
         # Some other functions that call in here already added a huc, so only add it if not yet there
         if (inundation_raster is not None) and (huc not in inundation_raster):
@@ -211,7 +202,6 @@ def __inundate_gms_generator( hucs_branches,
 
         # identifiers
         identifiers = (huc,branch_id)
-
         #print(f"inundation_branch_raster is {inundation_branch_raster}")
 
         # inundate input
