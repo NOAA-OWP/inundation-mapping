@@ -13,6 +13,38 @@ from mosaic_inundation import Mosaic_inundation, mosaic_final_inundation_extent_
 from inundate_gms import Inundate_gms
 
 
+def inundate_and_mosaic(hydrofabric_dir, huc, flow_file, inundation_raster, depths_raster, log_file, output_fileNames, 
+                        num_workers, remove_intermediate, verbose, mosaic_attribute, huc_dir):
+    
+    """
+    Helper function. Refer to produce_mosaicked_inundation for arg descriptions.
+    """
+    
+    map_file = Inundate_gms(  hydrofabric_dir = hydrofabric_dir, 
+                                     forecast = flow_file, 
+                                     num_workers = num_workers,
+                                     hucs = huc,
+                                     inundation_raster = inundation_raster,
+                                     inundation_polygon = None,
+                                     depths_raster = depths_raster,
+                                     verbose = verbose,
+                                     log_file = None,
+                                     output_fileNames = None )
+
+    print("Mosaicking extent for " + huc + "...")
+    # Call Mosaic_inundation
+    Mosaic_inundation( map_file,
+                        mosaic_attribute = mosaic_attribute,
+                        mosaic_output = inundation_raster if depths_raster == None else depths_raster,
+                        mask = os.path.join(huc_dir,'wbd.gpkg'),
+                        unit_attribute_name = 'huc8',
+                        nodata = -9999,
+                        workers = 1,
+                        remove_inputs = remove_intermediate,
+                        subset = None,
+                        verbose = verbose )
+    
+
 def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_raster, inundation_polygon, depths_raster,
                                  log_file, output_fileNames, num_workers, remove_intermediate, verbose):
     """
@@ -67,54 +99,18 @@ def produce_mosaicked_inundation(hydrofabric_dir, huc, flow_file, inundation_ras
     huc_dir = os.path.join(hydrofabric_dir, huc)
     print("Running inundate for " + huc + "...")
     # Call Inundate_gms
-    map_file = Inundate_gms(  hydrofabric_dir = hydrofabric_dir, 
-                                     forecast = flow_file, 
-                                     num_workers = num_workers,
-                                     hucs = huc,
-                                     inundation_raster = inundation_raster,
-                                     inundation_polygon = None,
-                                     depths_raster = None,
-                                     verbose = verbose,
-                                     log_file = None,
-                                     output_fileNames = None )
-
-    print("Mosaicking extent for " + huc + "...")
-    # Call Mosaic_inundation
-    Mosaic_inundation( map_file,
-                        mosaic_attribute = 'inundation_rasters',
-                        mosaic_output = inundation_raster,
-                        mask = os.path.join(huc_dir,'wbd.gpkg'),
-                        unit_attribute_name = 'huc8',
-                        nodata = -9999,
-                        workers = 1,
-                        remove_inputs = remove_intermediate,
-                        subset = None,
-                        verbose = verbose )
+    fn_inundation_raster, fn_depths_raster, mosaic_attribute = inundation_raster, None, 'inundation_rasters'
+    
+    inundate_and_mosaic(hydrofabric_dir, huc, flow_file, fn_inundation_raster, fn_depths_raster,
+                                 log_file, output_fileNames, num_workers, remove_intermediate, verbose, mosaic_attribute, huc_dir)
     
     # Produce depths if instructed
     if depths_raster != None:
         print("Computing depths for " + huc + "...")
-        map_file = Inundate_gms(  hydrofabric_dir = hydrofabric_dir, 
-                                 forecast = flow_file, 
-                                 num_workers = num_workers,
-                                 hucs = huc,
-                                 inundation_raster = None,
-                                 inundation_polygon = None,
-                                 depths_raster = depths_raster,
-                                 verbose = verbose,
-                                 log_file = None,
-                                 output_fileNames = None )
-        print("Mosaicking depths for " + huc + "...")
-        Mosaic_inundation( map_file,
-                    mosaic_attribute = 'depths_rasters',
-                    mosaic_output = depths_raster,
-                    mask = os.path.join(huc_dir,'wbd.gpkg'),
-                    unit_attribute_name = 'huc8',
-                    nodata = -9999,
-                    workers = 1,
-                    remove_inputs = remove_intermediate,
-                    subset = None,
-                    verbose = verbose )
+        fn_inundation_raster, fn_depths_raster, mosaic_attribute = None, depths_raster, 'depths_rasters'
+
+        inundate_and_mosaic(hydrofabric_dir, huc, flow_file, fn_inundation_raster, fn_depths_raster,
+                                     log_file, output_fileNames, num_workers, remove_intermediate, verbose, mosaic_attribute, huc_dir)
     else:
         pass
     
@@ -144,4 +140,4 @@ if __name__ == '__main__':
     # Extract to dictionary and run
     produce_mosaicked_inundation( **vars(parser.parse_args()) )
 
-    print(f'Completed in {round(timer() - start, 2)/60} minutes.')
+    print(f'Completed in {round((timer() - start)/60, 2)} minutes.')
