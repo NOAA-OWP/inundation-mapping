@@ -12,7 +12,6 @@ Adds a script to produce inundation maps (extent TIFs, polygons, and depth grids
   
 <br/><br/>
 
-=======
 ## v4.3.15.1 - 2023-08-08 - [PR#960](https://github.com/NOAA-OWP/inundation-mapping/pull/960)
 
 Provides a scripted procedure for updating BLE benchmark data including downloading, extracting, and processing raw BLE data into benchmark inundation files (inundation rasters and discharge tables).
