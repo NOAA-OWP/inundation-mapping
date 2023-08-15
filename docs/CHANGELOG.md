@@ -9,6 +9,7 @@ Adds a script to produce inundation maps (extent TIFs, polygons, and depth grids
 ### Additions
 - `data/`
     - `/tools/inundate_mosaic_wrapper.py`: The script that performs the inundation and mosaicking processes.
+    - `/tools/mosaic_inundation.py`: Add function (mosaic_final_inundation_extent_to_poly).
   
 <br/><br/>
 
