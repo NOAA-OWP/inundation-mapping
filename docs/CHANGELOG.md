@@ -1,6 +1,34 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.16.0 - 2023-08-15 - [PR#965](https://github.com/NOAA-OWP/inundation-mapping/pull/965)
+
+This feature branch includes new functionality to perform an additional layer of HAND SRC calibration using ras2fim rating curve and point data. The calibration workflow for ras2fim data follows the same general logic as the existing USGS rating curve calibration routine. 
+
+### Additions
+
+- `src/src_adjust_ras2fim_rating.py`: New python script to perform the data prep steps for running the SRC calibration routine: 
+1) merge the `ras_elev_table.csv` data and the ras2fim cross section rating curve data (`reformat_ras_rating_curve_table.csv`) 
+2) sample the ras2fim rating curve at NWM recurrence flow intervals (2, 5, 10, 25, 50, 100yr)
+3) pass inputs to the `src_roughness_optimization.py` workflow
+
+### Changes
+
+- `config/deny_branches.lst`: Added `ras_elev_table.csv` to keep list. Needed for `fim_post_processing.sh`
+- `config/deny_unit.lst`: Added `ras_elev_table.csv` to keep list. Needed for `fim_post_processing.sh`
+- `config/params_template.env`: Added new block for ras2fim SRC calibration parameters (can turn on/off each of the three SRC calibration routines individually); also reconfigured docstrings for calibration parameters)
+- `fim_post_processing.sh`: Added routines to create ras2fim calibration data and then run the SRC calibration workflow with ras2fim data
+- `src/add_crosswalk.py`: Added placeholder variable (`calb_coef_ras2fim`) in all `hydrotable.csv` files
+- `src/aggregate_by_huc.py`: Added new blocks to perform huc-branch aggregation for all `ras_elev_table.csv` files
+- `src/run_by_branch.sh`: Revised input variable (changed from csv file to directory) for `usgs_gage_crosswalk.py` to facilitate both `usgs_elev_table.csv` and ras_elev_table.csv` outputs
+- `src/run_unit_wb.sh`: Revised inputs and output variables for `usgs_gage_unit_setup.py` and `usgs_gage_crosswalk.py`
+- `src/src_roughness_optimization.py`: Added code blocks to ingest ras2fim rating curve data; added new attributes/renamed output variables to catchments gpkg output
+- `src/usgs_gage_crosswalk.py`: Added code block to process ras2fim point locations alongside existing USGS gage point locations; outputs a separate csv if ras2fim points exist within the huc
+- `src/usgs_gage_unit_setup.py`: Added code block to ingest and process raw ras2fim point locations gpkg file (same general workflow to usgs gages); all valid points (USGS and RAS2FIM) are exported to the huc level `usgs_subset_gages.gpkg`
+- `tools/inundate_nation.py`: Added functionality to allow user to pass in a single HUC for faster spot checking of NWM recurr inundation maps
+
+<br/><br/>
+
 ## v4.3.15.1 - 2023-08-08 - [PR#960](https://github.com/NOAA-OWP/inundation-mapping/pull/960)
 
 Provides a scripted procedure for updating BLE benchmark data including downloading, extracting, and processing raw BLE data into benchmark inundation files (inundation rasters and discharge tables).
