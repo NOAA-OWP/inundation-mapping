@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.16.0 - 2023-08-15 - [PR#965](https://github.com/NOAA-OWP/inundation-mapping/pull/965)
+## v4.4.0.0 - 2023-08-15 - [PR#965](https://github.com/NOAA-OWP/inundation-mapping/pull/965)
 
 This feature branch includes new functionality to perform an additional layer of HAND SRC calibration using ras2fim rating curve and point data. The calibration workflow for ras2fim data follows the same general logic as the existing USGS rating curve calibration routine. 
 
