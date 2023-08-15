@@ -1,6 +1,49 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.15.1 - 2023-08-08 - [PR#960](https://github.com/NOAA-OWP/inundation-mapping/pull/960)
+
+Provides a scripted procedure for updating BLE benchmark data including downloading, extracting, and processing raw BLE data into benchmark inundation files (inundation rasters and discharge tables).
+
+### Additions
+
+- `data/ble/ble_benchmark/`
+    - `Dockerfile`, `Pipfile`, and `Pipfile.lock`: creates a new Docker image with necessary Python packages
+    - `README.md`: contains installation and usage information
+    - `create_ble_benchmark.py`: main script to generate BLE benchmark data
+
+### Changes
+
+- `data/ble/ble_benchmark/`
+    - `create_flow_forecast_file.py` and `preprocess_benchmark.py`: moved from /tools
+
+<br/><br/>
+
+## v4.3.15.0 - 2023-08-08 - [PR##956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
+
+Integrating GVAL in to the evaluation of agreement maps and contingency tables.
+
+- `Dockerfile`: Add dependencies for GVAL
+- `Pipfile`: Add GVAL and update related dependencies
+- `Pipfile.lock`: Setup for Docker Image builds
+- `run_test_case.py`: Remove unused arguments and cleanup
+- `synthesize_test_cases.py`: Fix None comparisons and cleanup
+- `tools/shared_functions.py`: Add GVAL crosswalk function, add rework create_stats_from_raster, create and create_stats_from_contingency_table
+- `unit_tests/tools/inundate_gms_test.py`: Bug fix
+
+<br/><br/>
+
+## v4.3.14.2 - 2023-08-08 - [PR#959](https://github.com/NOAA-OWP/inundation-mapping/pull/959)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Changes  
+- `data/bathymetry/preprocess_bathymetry.py`: added data source column to output geopackage attribute table.
+- `fim_post_processing.sh`: changed -bathy input reference location.
+- `config/params_template.env`: added export to bathymetry_file
+
+<br/><br/>
+
 ## v4.3.14.1 - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
 
 ras2fim product had a need to run the acquire 3dep script to pull down some HUC8 DEMs. The old script was geared to HUC6 but could handle HUC8's but needed a few enhancements. ras2fim also did not need polys made from the DEMs, so a switch was added for that.
