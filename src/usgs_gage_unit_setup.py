@@ -35,12 +35,12 @@ class Gage2Branch(object):
         ras_locs = ras_locs[['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'wrds_timestamp', 'geometry']]
         ras_locs['location_id'] =  ras_locs['fid_xs']
         
-        #ras_locs.crs = usgs_gages.crs
+        # Convert ras locs crs to match usgs gage crs
         ras_locs.to_crs(usgs_gages.crs, inplace=True)
         ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
+
+        # Convert Multipoint geometry to Point geometry 
         ras_locs['geometry'] = ras_locs.representative_point()
-        #filtered_geometries = [geometry for geometry in ras_locs.geometry if isinstance(geometry, Point)]
-        #ras_locs = gpd.GeoDataFrame(geometry=filtered_geometries)
 
         # if ras_locs.huc8.dtype == 'int64':
         #     ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]

@@ -50,14 +50,6 @@ class GageCrosswalk(object):
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
-        
-        ###self.gages = self.gages[self.gages['curve'] == 'yes']
-        # Dissolve on geometry to remove duplicate points
-        #self.gages = self.gages.dissolve(by='geometry')
-        #geometry_types = set(type(geometry) for geometry in self.gages.geometry)
-        #print("Geometry types present in the GeoDataFrame:")
-        #for geometry_type in geometry_types:
-        #    print(geometry_type) 
 
         # Snap to dem derived flow lines
         self.snap_to_dem_derived_flows(input_flows_filename)
