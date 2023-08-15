@@ -79,7 +79,7 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     merge_df = ras_rc_df.merge(nwm_recur_df, how='left', on='feature_id')
     
     # NWM recurr intervals
-    recurr_intervals = ("2","5","10","25","50","100")
+    recurr_intervals = ["100"] # "2","5","10","25","50","100"
     final_df = pd.DataFrame() # create empty dataframe to append flow interval dataframes
     for interval in recurr_intervals:
         log_text += ('\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n')

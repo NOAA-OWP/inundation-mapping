@@ -97,7 +97,7 @@ echo -e $startDiv"Start non-zero exit code checking"
 find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo "Processing usgs gage aggregation"   
+echo "Processing usgs & ras2fim elev table aggregation"   
 python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -ras -j $jobLimit
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
@@ -138,7 +138,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     date -u
 fi
 
-## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RAS2FIM CROSS SECTION RATING CURVES ##
 if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
     Tstart
     echo    
