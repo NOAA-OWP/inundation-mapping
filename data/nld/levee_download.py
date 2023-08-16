@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 
-import sys
 import os
 import re
-import geopandas as gpd
-from tqdm import tqdm
+import sys
 from datetime import datetime
+
+import geopandas as gpd
 from shapely.geometry import LineString, MultiLineString
+from tqdm import tqdm
+
 
 sys.path += ['/foss_fim/src', '/foss_fim/data', '/foss_fim/tools']
-from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
-from tools_shared_variables import INPUTS_DIR
 from esri import ESRI_REST
+from tools_shared_variables import INPUTS_DIR
+
+from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
+
 
 epsg_code = re.search('\d+$', DEFAULT_FIM_PROJECTION_CRS).group()
 today = datetime.now().strftime('%y%m%d')

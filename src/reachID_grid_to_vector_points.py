@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
-import numpy as np
 import argparse
+
 import geopandas as gpd
-from utils.shared_variables import PREP_PROJECTION
-from shapely.geometry import Point
+import numpy as np
 import rasterio
+from shapely.geometry import Point
+
 from utils.shared_functions import getDriver, mem_profile
+from utils.shared_variables import PREP_PROJECTION
+
 
 """
 USAGE:

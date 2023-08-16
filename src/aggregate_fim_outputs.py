@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-from multiprocessing import Pool
-import pandas as pd
+import csv
 import json
+import os
+import shutil
+from multiprocessing import Pool
+
+import pandas as pd
 import rasterio
 from rasterio.merge import merge
-from rasterio.warp import calculate_default_transform, reproject, Resampling
-import shutil
-import csv
+from rasterio.warp import Resampling, calculate_default_transform, reproject
+
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 

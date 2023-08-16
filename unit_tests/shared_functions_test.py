@@ -2,9 +2,10 @@
 
 import json
 import unittest
-import pytest
 
+import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+
 from utils.shared_functions import FIM_Helpers as src
 
 

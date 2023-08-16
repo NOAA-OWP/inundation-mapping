@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 
-import pandas as pd
+import argparse
+import json
 import os
 import re
-import json
-import numpy as np
-from glob import glob
-from tqdm import tqdm
-import argparse
 from collections import defaultdict
+from glob import glob
+
+import numpy as np
+import pandas as pd
+from tools_shared_functions import csi, far, mcc, tpr
 from tools_shared_variables import (
-    TEST_CASES_DIR,
-    PREVIOUS_FIM_DIR,
-    OUTPUTS_DIR,
-    INPUTS_DIR,
     AHPS_BENCHMARK_CATEGORIES,
+    INPUTS_DIR,
+    OUTPUTS_DIR,
+    PREVIOUS_FIM_DIR,
+    TEST_CASES_DIR,
 )
-from tools_shared_functions import csi, far, tpr, mcc
+from tqdm import tqdm
+
 
 # set display options
 pd.set_option('display.max_rows', None)
@@ -86,7 +88,7 @@ def Consolidate_metrics(
                                                 consolidated_metrics_df,
                                                 values=['FP_area_km2','FN_area_km2','TP_area_km2','contingency_tot_area_km2','obsPositive_area_km2'],
                                                 columns=['extent_config'],
-                                                index=['magnitude'], 
+                                                index=['magnitude'],
                                                 aggfunc=np.sum
                                                )
     print(consolidated_metrics_pivot);exit()"""

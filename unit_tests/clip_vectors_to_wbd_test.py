@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import json
+import os
 import unittest
-import pytest
 
+import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+
 import clip_vectors_to_wbd as src
 
 

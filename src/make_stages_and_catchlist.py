@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import sys
+
 import geopandas as gpd
 import numpy as np
-import sys
+
 from utils.shared_functions import mem_profile
 
 

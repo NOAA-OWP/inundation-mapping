@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 
-import os
 import glob
 import inspect
+import os
 import re
 import sys
-
 from concurrent.futures import as_completed
 from datetime import datetime, timezone
-from pathlib import Path
 from os.path import splitext
+from pathlib import Path
 
 import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
 import rasterio
-import utils.shared_variables as sv
-
 from pyproj.crs import CRS
-from rasterio.warp import calculate_default_transform, reproject, Resampling
+from rasterio.warp import Resampling, calculate_default_transform, reproject
 from tqdm import tqdm
+
+import utils.shared_variables as sv
 
 
 def getDriver(fileName):

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
+import os
 import shutil
 import sys
+
 
 # importing python folders in other direcories
 sys.path.append('/foss_fim/src/')
 import aggregate_branch_lists as agg
+
 
 #######
 #  Feb 16, 2023: This file is likely now deprecated. If it is used again, the aggregate_branch_lists file will need to

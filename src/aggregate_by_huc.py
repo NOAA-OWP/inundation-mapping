@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
-import os, glob, re, traceback
+import argparse
+import glob
+import os
+import re
+import traceback
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
-import argparse
 import pandas as pd
 
-from concurrent.futures import ProcessPoolExecutor
 from utils.shared_functions import progress_bar_handler
 
 

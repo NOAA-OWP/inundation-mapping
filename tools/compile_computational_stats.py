@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import pandas as pd
-import numpy as np
 from glob import iglob
 from os.path import join
+
+import numpy as np
+import pandas as pd
+
 
 # desired output for branches
 # dataframe columns: HUC, branch_id, exit status, ,time, ram,

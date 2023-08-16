@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import pandas as pd
-import geopandas as gpd
-from stream_branches import StreamNetwork
-from os.path import splitext
 import argparse
+from os.path import splitext
+
+import geopandas as gpd
+import pandas as pd
+
+from stream_branches import StreamNetwork
 
 
 def Subset_catch_list(

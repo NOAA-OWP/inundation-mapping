@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import pandas as pd
-from numba import njit, typed, types
+import argparse
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os.path import splitext
-import rasterio
-import fiona
-from shapely.geometry import shape
-from rasterio.mask import mask
-from rasterio.io import DatasetReader, DatasetWriter
-from collections import OrderedDict
-import argparse
 from warnings import warn
+
+import fiona
 import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
 import xarray as xr
+from numba import njit, typed, types
+from rasterio.io import DatasetReader, DatasetWriter
+from rasterio.mask import mask
+from shapely.geometry import shape
 
 
 class hydroTableHasOnlyLakes(Exception):
@@ -794,8 +795,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s',
         '--subset-hucs',
-        help="""Batch mode only. HUC code, 
-            series of HUC codes (no quotes required), or line delimited of HUCs to run within 
+        help="""Batch mode only. HUC code,
+            series of HUC codes (no quotes required), or line delimited of HUCs to run within
             the hucs file that is passed""",
         required=False,
         default=None,
@@ -827,7 +828,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-p',
         '--inundation-polygon',
-        help="""Inundation polygon output. Only writes if designated. 
+        help="""Inundation polygon output. Only writes if designated.
                         Appends HUC code in batch mode.""",
         required=False,
         default=None,

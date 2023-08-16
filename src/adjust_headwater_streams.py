@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 
-import geopandas as gpd
-import pandas as pd
-import numpy as np
 import argparse
+import warnings
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
 import pygeos
-from shapely.geometry import Point, LineString
+from shapely.geometry import LineString, Point
 from shapely.ops import split
 from shapely.wkb import dumps, loads
-from utils.shared_variables import PREP_PROJECTION
+
 from utils.shared_functions import getDriver
-import warnings
+from utils.shared_variables import PREP_PROJECTION
+
 
 warnings.simplefilter("ignore")
 

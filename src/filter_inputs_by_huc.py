@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import pandas as pd
 import argparse
+
+import pandas as pd
 
 
 def filter_inputs_by_huc(fim_inputs, hucs, fim_outputs):

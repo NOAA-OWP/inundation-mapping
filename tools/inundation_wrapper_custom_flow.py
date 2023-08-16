@@ -6,11 +6,13 @@
 # inundation outputs using outputs from fim_run. Note that the flow csv must be
 # formatted with "feature_id" & "discharge" columns. Flow must be in cubic m/s
 
-import os
-import sys
 import argparse
+import os
 import shutil
+import sys
+
 from inundation import inundate
+
 
 TEST_CASES_DIR = r'/data/inundation_review/inundation_custom_flow/'  # Will update.
 INPUTS_DIR = r'/data/inputs'

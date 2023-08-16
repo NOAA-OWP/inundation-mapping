@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import geopandas as gpd
 import argparse
+
+import geopandas as gpd
 
 
 def Edit_points(

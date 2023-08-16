@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
 # Import file management library
+import argparse
 import os
+from datetime import datetime
+
+import geopandas as gpd
 
 # Import data analysis library
 import pandas as pd
-import geopandas as gpd
-import argparse
-from datetime import datetime
-
 from pixel_counter import zonal_stats
-from tools_shared_functions import compute_stats_from_contingency_table
 from run_test_case import test_case
 from shapely.validation import make_valid
+from tools_shared_functions import compute_stats_from_contingency_table
 
 
 #####################################################

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import pandas as pd
-import numpy as np
-from glob import glob, iglob
 import argparse
 import os
+from glob import glob, iglob
+
+import numpy as np
+import pandas as pd
+
 
 ########################################################
 '''

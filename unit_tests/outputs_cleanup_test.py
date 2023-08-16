@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
+import io
+import json
 import os
 import sys
-import json
-from pathlib import Path
-import io
-from contextlib import redirect_stdout
 import unittest
-import pytest
+from contextlib import redirect_stdout
+from pathlib import Path
 
+import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+
 from utils.shared_functions import FIM_Helpers as fh
 
 

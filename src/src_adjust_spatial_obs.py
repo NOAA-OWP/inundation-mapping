@@ -2,21 +2,23 @@
 
 import argparse
 import datetime as dt
-import geopandas as gpd
 import multiprocessing
 import os
-import rasterio
 import sys
-
-from dotenv import load_dotenv
 from multiprocessing import Pool
+
+import geopandas as gpd
+import rasterio
+from dotenv import load_dotenv
+
 from src_roughness_optimization import update_rating_curve
 from utils.shared_variables import (
-    DOWNSTREAM_THRESHOLD,
-    ROUGHNESS_MIN_THRESH,
-    ROUGHNESS_MAX_THRESH,
     DEFAULT_FIM_PROJECTION_CRS,
+    DOWNSTREAM_THRESHOLD,
+    ROUGHNESS_MAX_THRESH,
+    ROUGHNESS_MIN_THRESH,
 )
+
 
 # Import variables from .env file
 load_dotenv('/foss_fim/src/bash_variables.env')
@@ -24,7 +26,7 @@ outputsDir = os.getenv("outputsDir")
 input_calib_points_dir = os.getenv("input_calib_points_dir")
 
 '''
-The script imports .parquet files per HUC8 containing observed FIM extent points and associated flow data. 
+The script imports .parquet files per HUC8 containing observed FIM extent points and associated flow data.
 This script attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow.
 
 Processing
@@ -36,7 +38,7 @@ Processing
 - Call update_rating_curve() to perform the rating curve calibration.
 
 Inputs
-- points_layer:         .gpkg layer containing observed/truth FIM extent points and associated flow value 
+- points_layer:         .gpkg layer containing observed/truth FIM extent points and associated flow value
 - fim_directory:        fim directory containing individual HUC output dirs
 - wbd_path:             path the watershed boundary dataset layer (HUC polygon boundaries)
 - job_number:           number of multi-processing jobs to use

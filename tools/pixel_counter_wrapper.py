@@ -1,9 +1,9 @@
 import argparse
-import pandas as pd
 import os
-from multiprocessing import Pool
 import traceback
+from multiprocessing import Pool
 
+import pandas as pd
 from pixel_counter import zonal_stats
 
 

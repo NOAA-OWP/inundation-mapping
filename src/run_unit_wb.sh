@@ -171,8 +171,8 @@ gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -c
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ] 
-then 
+if [ "$levelpaths_exist" = "1" ]
+then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
     date -u
     Tstart
@@ -199,8 +199,8 @@ Tcount
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-if [ "$levelpaths_exist" = "1" ] 
-then 
+if [ "$levelpaths_exist" = "1" ]
+then
     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
     date -u
     Tstart
@@ -216,8 +216,8 @@ rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif $
 Tcount
 
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ] 
-then 
+if [ "$levelpaths_exist" = "1" ]
+then
     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
     date -u
     Tstart
@@ -233,8 +233,8 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempCurrentBranchDataDir/dem_b
 Tcount
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ] 
-then 
+if [ "$levelpaths_exist" = "1" ]
+then
     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
     date -u
     Tstart
@@ -326,4 +326,3 @@ date -u
 echo "---- HUC processing for $hucNumber is complete"
 Calc_Duration $huc_start_time
 echo
-

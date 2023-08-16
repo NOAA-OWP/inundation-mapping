@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-import os, argparse, copy, sys
-import json
-import rasterio
-import numpy as np
-import pandas as pd
-
-from datetime import datetime
-from multiprocessing import Pool
+import argparse
 
 # from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 import concurrent.futures as cf
-from tqdm import tqdm
+import copy
+import json
+import os
+import sys
+from datetime import datetime
+from multiprocessing import Pool
 
+import numpy as np
+import pandas as pd
+import rasterio
+from inundate_gms import Inundate_gms
 from inundation import inundate
 from mosaic_inundation import Mosaic_inundation
-from inundate_gms import Inundate_gms
+from tqdm import tqdm
+
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
+
 
 ########################################################
 '''
@@ -349,7 +353,7 @@ class CompositeInundation(object):
                 output_file_name_split = os.path.split(args["output_name"])
                 if args["output_name"] == output_file_name_split[0]:
                     raise ValueError(
-                        """If submitting the -n (output file name), please ensure 
+                        """If submitting the -n (output file name), please ensure
                                         it has no pathing. You can also leave it blank if you like."""
                     )
 

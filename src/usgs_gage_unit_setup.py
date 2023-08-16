@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
-from posixpath import dirname
 import re
+import warnings
+from posixpath import dirname
+
 import geopandas as gpd
 import pandas as pd
-import argparse
-import warnings
+
 from utils.shared_functions import mem_profile
+
 
 warnings.simplefilter("ignore")
 

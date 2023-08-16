@@ -4,9 +4,10 @@ import argparse
 import logging
 import os
 import sys
-
 from datetime import datetime
+
 from osgeo import gdal
+
 
 sys.path.append('/foss_fim/src')
 from utils.shared_functions import FIM_Helpers as fh

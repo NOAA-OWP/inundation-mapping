@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 
-import sys
-import os
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import argparse
+import os
+import sys
 import traceback
-import rasterio
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+
 import geopandas as gpd
 import pandas as pd
+import rasterio
 from rasterio.features import shapes
-from shapely.geometry.polygon import Polygon
 from shapely.geometry.multipolygon import MultiPolygon
+from shapely.geometry.polygon import Polygon
+
 
 sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
-from utils.shared_functions import getDriver
-from mosaic_inundation import Mosaic_inundation
 from inundate_gms import Inundate_gms
+from mosaic_inundation import Mosaic_inundation
+
+from utils.shared_functions import getDriver
+from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
 def generate_categorical_fim(

@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 
+import json
 import math
 import os
 import shutil
-import json
 import unittest
-import pytest
 
-from utils.fim_enums import FIM_exit_codes
+import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+
+import check_unit_errors as src
+from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import (
     UNIT_ERRORS_MIN_NUMBER_THRESHOLD,
     UNIT_ERRORS_MIN_PERCENT_THRESHOLD,
 )
-import check_unit_errors as src
 
 
 class test_check_unit_errors(unittest.TestCase):

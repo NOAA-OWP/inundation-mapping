@@ -1,37 +1,39 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
 import csv
-import traceback
+import glob
+import os
 import sys
-from datetime import datetime
 import time
+import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+from datetime import datetime
 from pathlib import Path
+
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import rasterio
-from rasterio.warp import calculate_default_transform, reproject, Resampling
-import glob
 from generate_categorical_fim_flows import generate_catfim_flows
 from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
+from rasterio.warp import Resampling, calculate_default_transform, reproject
 from tools_shared_functions import (
-    get_thresholds,
-    get_nwm_segs,
-    get_datum,
-    ngvd_to_navd_ft,
     filter_nwm_segments_by_stream_order,
+    get_datum,
+    get_nwm_segs,
+    get_thresholds,
+    ngvd_to_navd_ft,
 )
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-import numpy as np
-from utils.shared_variables import VIZ_PROJECTION
 from tools_shared_variables import (
-    acceptable_coord_acc_code_list,
-    acceptable_coord_method_code_list,
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
     acceptable_site_type_list,
 )
+
+from utils.shared_variables import VIZ_PROJECTION
 
 
 def process_generate_categorical_fim(

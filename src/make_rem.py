@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-from numba import njit, typeof, typed, types
-import rasterio
-import numpy as np
 import argparse
 import os
-from osgeo import ogr, gdal
+
+import numpy as np
+import rasterio
+from numba import njit, typed, typeof, types
+from osgeo import gdal, ogr
 
 
 def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster):

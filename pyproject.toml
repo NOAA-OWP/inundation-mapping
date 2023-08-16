@@ -24,7 +24,7 @@ Source = "https://github.com/NOAA-OWP/inundation-mapping"
 Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 
 
-# - Tools - 
+# - Tools -
 
 [tool.black]
 line_length = 100
@@ -49,12 +49,12 @@ doctests = true
 max-complexity = 20
 max-line-length = 100  # It should be the same as in `tool.black.line-length` above
 extend-ignore = """
-    E203, 
-    E266, 
-    E501, 
+    E203,
+    E266,
+    E501,
     W503,
-    W391 
-    F403, 
+    W391
+    F403,
     F401,
     """
 per-file-ignores = """

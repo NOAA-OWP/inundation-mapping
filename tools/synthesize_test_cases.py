@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 
-import os, argparse, json, csv, ast, re, sys, traceback, signal
-import pandas as pd
+import argparse
+import ast
+import csv
+import json
+import os
+import re
+import signal
+import sys
+import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime
 from multiprocessing import Pool
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-from tqdm import tqdm
-from utils.shared_functions import FIM_Helpers as fh
+
+import pandas as pd
 from run_test_case import test_case
 from tools_shared_variables import (
-    TEST_CASES_DIR,
-    PREVIOUS_FIM_DIR,
-    OUTPUTS_DIR,
     AHPS_BENCHMARK_CATEGORIES,
     MAGNITUDE_DICT,
+    OUTPUTS_DIR,
+    PREVIOUS_FIM_DIR,
+    TEST_CASES_DIR,
 )
+from tqdm import tqdm
+
+from utils.shared_functions import FIM_Helpers as fh
 
 
 def create_master_metrics_csv(
@@ -333,7 +343,7 @@ if __name__ == '__main__':
            It also becomes the folder names inside the test_case folders when done.
        - the -vg param may not be working (will be assessed better on later releases).
        - The -m can be any path and any name.
-    
+
      To see your outputs in the test_case folder (hard coded path), you can check for outputs using
          (cd .... to your test_case folder), then command becomes  find . -name dev_fim_3_0_29_1_* -type d (Notice the
          the -name can be a wildcard for your -v param (or the whole -v value))

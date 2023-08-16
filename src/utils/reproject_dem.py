@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
 import os
-from osgeo import gdal
 import sys
 
+from osgeo import gdal
+
+
 sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION_CM
+import argparse
 import shutil
 from multiprocessing import Pool
-import argparse
+
+from utils.shared_variables import PREP_PROJECTION_CM
 
 
 def reproject_dem(args):

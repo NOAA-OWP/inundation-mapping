@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 from pathlib import Path
-import argparse
+
 import geopandas as gpd
+
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 

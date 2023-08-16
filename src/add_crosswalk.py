@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 
+import argparse
+import json
 import os
+import sys
+
 import geopandas as gpd
 import pandas as pd
+from memory_profiler import profile
 from numpy import unique
 from rasterstats import zonal_stats
-import json
-import argparse
-import sys
-from utils.shared_functions import getDriver
+
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
-from memory_profiler import profile
+
 
 # Feb 17, 2023
 # We want to explore using FR methodology as branch zero

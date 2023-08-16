@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
+import argparse
+import csv
 import json
 import os
-import csv
 
-import argparse
 
 TEST_CASES_DIR = r'/data/test_cases_new/'
 # TEMP = r'/data/temp'

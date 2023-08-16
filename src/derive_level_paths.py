@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-import geopandas as gpd
+import os
 import sys
+
+import geopandas as gpd
 
 from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes

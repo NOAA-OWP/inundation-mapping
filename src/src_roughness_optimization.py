@@ -1,18 +1,19 @@
 import argparse
-import geopandas as gpd
-from geopandas.tools import sjoin
-import os
-import rasterio
-import pandas as pd
-import numpy as np
-import sys
-import json
 import datetime as dt
-from collections import deque
+import json
 import multiprocessing
+import os
+import sys
+from collections import deque
 from multiprocessing import Pool
 
-from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MIN_THRESH, ROUGHNESS_MAX_THRESH
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
+from geopandas.tools import sjoin
+
+from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, ROUGHNESS_MIN_THRESH
 
 
 def update_rating_curve(
@@ -634,7 +635,7 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
             )  # reassign the branch_start var to evaluate on next iteration
             # use the code below to withold downstream hydroid_calb_coef values (use this for downstream evaluation tests)
             '''
-            lid_count = 0                                                                         
+            lid_count = 0
         if not pd.isna(df_nmerge.loc[index,'ahps_lid']):
             if df_nmerge.loc[index,'ahps_lid'] == prev_lid:
                 lid_count += 1

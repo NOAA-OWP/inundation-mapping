@@ -15,4 +15,3 @@ config/*.swp
 **/.DS_Store
 **/*_pytest.py
 .private/
-

@@ -1,38 +1,42 @@
 #!/usr/bin/env python3
-import time
-import pandas as pd
-import geopandas as gpd
-from pathlib import Path
-from tools_shared_functions import (
-    get_metadata,
-    get_datum,
-    ngvd_to_navd_ft,
-    get_rating_curve,
-    aggregate_wbd_hucs,
-    get_thresholds,
-    flow_data,
-)
-from dotenv import load_dotenv
-import os
-import numpy as np
 import argparse
+import os
 import sys
+import time
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
+from tools_shared_functions import (
+    aggregate_wbd_hucs,
+    flow_data,
+    get_datum,
+    get_metadata,
+    get_rating_curve,
+    get_thresholds,
+    ngvd_to_navd_ft,
+)
+
 
 sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION
 from tools_shared_variables import (
-    acceptable_coord_acc_code_list,
-    acceptable_coord_method_code_list,
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
     acceptable_site_type_list,
 )
+
+from utils.shared_variables import PREP_PROJECTION
+
 
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
 running script outside of business hours seems to be most consistent way
 to avoid API errors. Currently configured to get rating curve data within
-CONUS. Tidal API call may need to be modified to get datum conversions for 
+CONUS. Tidal API call may need to be modified to get datum conversions for
 AK, HI, PR/VI.
 '''
 

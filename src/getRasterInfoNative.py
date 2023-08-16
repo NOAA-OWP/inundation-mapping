@@ -3,10 +3,11 @@
 
 # TODO standardize this script
 
-from osgeo import gdal
 import os.path
 import sys
-from osgeo import osr
+
+from osgeo import gdal, osr
+
 
 """
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy <<< $(./getRasterInfoNative.py <raster.tif>)

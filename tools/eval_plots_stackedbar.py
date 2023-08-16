@@ -1,16 +1,18 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import sys
 import argparse
+import sys
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+
 sys.path.append('/foss_fim/tools/')
+import mpl_toolkits.axisartist as AA
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from tools_shared_variables import BAD_SITES
 
-from matplotlib.patches import Patch
-from matplotlib.lines import Line2D
-import mpl_toolkits.axisartist as AA
 
 mag_dict = {
     'action': '1_act',

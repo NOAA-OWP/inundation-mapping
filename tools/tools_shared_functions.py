@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 
-import os
 import json
-import rasterio
-import pandas as pd
-import geopandas as gpd
-import requests
-import numpy as np
+import os
 import pathlib
 import time
 from pathlib import Path
-import rasterio.shutil
-from rasterio.warp import calculate_default_transform, reproject, Resampling
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
 import rasterio.crs
-from rasterio import features
-from shapely.geometry import shape
-from shapely.geometry import Polygon
-from shapely.geometry import MultiPolygon
+import rasterio.shutil
+import requests
 from dotenv import load_dotenv
+from rasterio import features
+from rasterio.warp import Resampling, calculate_default_transform, reproject
+from shapely.geometry import MultiPolygon, Polygon, shape
 
 
 def get_env_paths():
@@ -454,12 +453,13 @@ def get_contingency_table_from_binary_rasters(
                                             {true_negatives: int, false_negatives: int, false_positives: int, true_positives: int}
 
     """
-    from rasterio.warp import reproject, Resampling
-    import rasterio
-    import numpy as np
     import os
-    import rasterio.mask
+
     import geopandas as gpd
+    import numpy as np
+    import rasterio
+    import rasterio.mask
+    from rasterio.warp import Resampling, reproject
     from shapely.geometry import box
 
     #    print("-----> Evaluating performance across the total area...")

@@ -10,25 +10,26 @@ Description:
 '''
 
 import argparse
-import build_stream_traversal
-import geopandas as gpd
-import numpy as np
 import os
-import pandas as pd
-import rasterio
 import sys
 import time
-
 from collections import OrderedDict
-from os import remove, environ, path
-from os.path import isfile, split, dirname
+from os import environ, path, remove
+from os.path import dirname, isfile, split
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
 from shapely import ops, wkt
-from shapely.geometry import Point, LineString, MultiPoint
+from shapely.geometry import LineString, MultiPoint, Point
 from shapely.ops import split as shapely_ops_split
 from tqdm import tqdm
+
+import build_stream_traversal
+from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
-from utils.fim_enums import FIM_exit_codes
 
 
 @mem_profile

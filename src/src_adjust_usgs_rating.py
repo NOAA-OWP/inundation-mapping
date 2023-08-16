@@ -1,15 +1,18 @@
 import argparse
-import os
-import pandas as pd
-import sys
-import json
 import datetime as dt
-from pathlib import Path
-from collections import deque
+import json
 import multiprocessing
+import os
+import sys
+from collections import deque
 from multiprocessing import Pool
-from utils.shared_functions import check_file_age, concat_huc_csv
+from pathlib import Path
+
+import pandas as pd
+
 from src_roughness_optimization import update_rating_curve
+from utils.shared_functions import check_file_age, concat_huc_csv
+
 
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database. The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value

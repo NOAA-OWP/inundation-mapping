@@ -1,10 +1,10 @@
 [Short description explaining the high-level reason for the pull request]
 
-### Additions  
+### Additions
 
-### Changes  
+### Changes
 
-### Removals 
+### Removals
 
 ### Testing
 
@@ -23,7 +23,7 @@ _You may update this checklist before and/or after creating the PR. If you're un
 - [ ] Passes all unit tests locally (inside interactive Docker container, at `/foss_fim/`, run: `pytest unit_tests/`)
 - [ ] New functions are documented (with a description, list of inputs, and expected output)
 - [ ] Placeholder code is flagged / future todos are captured in comments
-- [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x` 
+- [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x`
 - [ ] [Reviewers requested](https://help.github.com/articles/requesting-a-pull-request-review/)
 - [ ] Add yourself as an [assignee](https://docs.github.com/en/issues/tracking-your-work-with-issues/assigning-issues-and-pull-requests-to-other-github-users) in the PR  as well as the FIM Technical Lead
 

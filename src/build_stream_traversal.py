@@ -6,13 +6,15 @@ Required Arguments:
         wbd8          = HUC8 boundary dataset
         hydro_id       = name of ID column (string)
 '''
-import sys
 import argparse
+import sys
+
 import geopandas as gpd
 
 
 def trace():
-    import traceback, inspect
+    import inspect
+    import traceback
 
     tb = sys.exc_info()[2]
     tbinfo = traceback.format_tb(tb)[0]

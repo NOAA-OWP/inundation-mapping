@@ -17,7 +17,7 @@ branchId=$3
 branchLogFileName=$outputDestDir/logs/branch/"$hucNumber"_branch_"$branchId".log
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 
-/usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName 
+/usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName
 
 #exit ${PIPESTATUS[0]}
 return_codes=( "${PIPESTATUS[@]}" )
@@ -28,7 +28,7 @@ err_exists=0
 for code in "${return_codes[@]}"
 do
     # Make an extra copy of the branch log in a new folder
-    # Note: It was tricky to load in the fim_enum into bash, so we will just 
+    # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the code for now
     if [ $code -eq 0 ]; then
         echo
@@ -54,4 +54,4 @@ if [ "$err_exists" = "0" ]; then
 fi
 
 # We always return a success at this point (so we don't stop the loops / iterator)
-exit 0  
+exit 0

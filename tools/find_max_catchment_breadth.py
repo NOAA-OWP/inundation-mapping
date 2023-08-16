@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import os
-import pandas as pd
-import geopandas as gpd
-from glob import glob, iglob
 import argparse
+import os
+from glob import glob, iglob
+
+import geopandas as gpd
+import pandas as pd
 from shapely.geometry import Point
 
 

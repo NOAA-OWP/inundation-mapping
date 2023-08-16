@@ -1,6 +1,8 @@
-import os, fnmatch
-import pandas as pd
 import argparse
+import fnmatch
+import os
+
+import pandas as pd
 
 
 def locate(pattern, root_path):

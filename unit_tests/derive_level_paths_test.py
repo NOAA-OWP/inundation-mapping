@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import sys
-import json
 import unittest
-import pytest
 
+import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+
 
 # # importing python folders in other direcories
 sys.path.append("/foss_fim/src/")

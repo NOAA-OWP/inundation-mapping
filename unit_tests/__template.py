@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import json
+import os
 import unittest
+
 import pytest
-
-from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
-
 import Your_original_source_python_file_name as src
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 
 class test_Your_original_source_python_file_name(unittest.TestCase):

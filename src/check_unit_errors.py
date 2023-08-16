@@ -5,11 +5,12 @@ import math
 import os
 import sys
 
+from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import (
     UNIT_ERRORS_MIN_NUMBER_THRESHOLD,
     UNIT_ERRORS_MIN_PERCENT_THRESHOLD,
 )
-from utils.fim_enums import FIM_exit_codes
+
 
 """
     Calculates the number of units/hucs that errored during processing.
@@ -17,17 +18,17 @@ from utils.fim_enums import FIM_exit_codes
     this could respond with an abort processing code. It will also
     only throw that code if a minimum number of error exist.
     There should always be at least one (non_zero_exit_codes.log)
-    
-    Note: The percentage number as a whole number and the min number of 
+
+    Note: The percentage number as a whole number and the min number of
     errors are stored in the utils/shared_variables.py (kinda like constants)
-    
+
     Parameters
     ----------
     fim_dir : str
         Directory containing FIM output folders. (ie output_run_data_dir)
     number_of_input_hucs : int
         Number of hucs originally submitted for processing.
-    
+
     Returns
     ----------
     return_code of 0 (success) or 62 (from fim_enums)

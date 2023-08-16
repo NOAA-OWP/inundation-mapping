@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import pandas as pd
 import sys
-
-from os.path import join
 from glob import glob
+from os.path import join
+
+import pandas as pd
 
 
 def aggregate_branch_lists(output_dir, file_name, output_file_name):

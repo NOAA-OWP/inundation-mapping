@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import os
-import glob
 import argparse
+import glob
+import os
+
 import pandas as pd
 
 

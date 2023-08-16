@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 
-# standard library imports (https://docs.python.org/3/library/
-# (imports first, then "froms", in alpha order)
 import os
 import subprocess
 import sys
 
-sys.path.append('/foss_fim/src')
-from utils.shared_functions import FIM_Helpers as fh
-
-# third party imports
-# (imports first, then "froms", in alpha order)
 from dotenv import load_dotenv
 
-'''
-This implements all common variables related when communicating to AWS
-'''
+from utils.shared_functions import FIM_Helpers as fh
+
+
+sys.path.append('/foss_fim/src')
 
 
 class AWS_Base(object):
+
+    '''
+    This class implements all common variables related when communicating to AWS
+    '''
+
     def __init__(self, path_to_cred_env_file, *args, **kwargs):
         '''
         Overview

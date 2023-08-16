@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-import pandas as pd
+import os
 import sys
+
+import pandas as pd
 
 from stream_branches import StreamNetwork
 

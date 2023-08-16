@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import argparse
+
 import geopandas as gpd
 from shapely.geometry import Point
+
 from utils.shared_functions import getDriver
-import argparse
 
 
 def findHeadWaterPoints(flows):

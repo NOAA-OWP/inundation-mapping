@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 
 import os
+from collections import deque
+from os.path import isfile, splitext
+from random import sample
+
+import fiona
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import rasterio
-from rasterio.mask import mask
-from rasterio.io import DatasetReader
-from os.path import splitext, isfile
-import fiona
 from fiona.errors import DriverError
-from collections import deque
-import numpy as np
-from tqdm import tqdm
-from shapely.ops import linemerge, unary_union
-from shapely.geometry import MultiLineString, LineString, MultiPoint, Point
-from shapely.strtree import STRtree
-from random import sample
+from rasterio.io import DatasetReader
+from rasterio.mask import mask
 from scipy.stats import mode
+from shapely.geometry import LineString, MultiLineString, MultiPoint, Point
+from shapely.ops import linemerge, unary_union
+from shapely.strtree import STRtree
+from tqdm import tqdm
+
 from utils.shared_variables import PREP_CRS
 
 

@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-import datetime as dt
-import re
-import os
-import sys
-import pandas as pd
-import numpy as np
 import argparse
-import matplotlib.pyplot as plt
-import seaborn as sns
+import datetime as dt
+import os
+import re
 import shutil
+import sys
 import traceback
 import warnings
 from functools import reduce
 from multiprocessing import Pool
-from os.path import isfile, join, dirname, isdir
+from os.path import dirname, isdir, isfile, join
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from tqdm import tqdm
+
 
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)

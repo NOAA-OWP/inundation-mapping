@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-from shapely.geometry import box
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
-import pandas as pd
-import geopandas as gpd
 import argparse
-from inundation import inundate
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import geopandas as gpd
+import pandas as pd
+from inundation import inundate
+from shapely.geometry import box
+from tqdm import tqdm
 
 
 def inundate_events(

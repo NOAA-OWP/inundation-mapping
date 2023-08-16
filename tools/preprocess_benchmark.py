@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import rasterio
-from rasterio.warp import calculate_default_transform, reproject, Resampling
-import rasterio.mask
-import numpy as np
 import argparse
+
+import numpy as np
+import rasterio
+import rasterio.mask
+from rasterio.warp import Resampling, calculate_default_transform, reproject
 
 
 def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path=None):

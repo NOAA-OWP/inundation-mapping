@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # Why is this file here and it appears to be using duplicate export variables?
-# For AWS, we need to make a direct call to this files with two params, hucNumber first, 
+# For AWS, we need to make a direct call to this files with two params, hucNumber first,
 # then the runName same as the -n flag in fim_pipeline and fim_pre_processing.sh
 
 # This file will also catch any and all errors from src/run_unit_wb.sh file, even script aborts from that file
@@ -21,7 +21,7 @@ usage ()
     echo 'Produce FIM hydrofabric datasets for a single unit and branch scale.'
     echo 'NOTE: fim_pre_processing must have been already run and this tool'
     echo '      will not include post processing. Only single independent single'
-    echo '      huc and its branches.'    
+    echo '      huc and its branches.'
     echo 'Usage : There are no arg keys (aka.. no dashes)'
     echo '        you need the run name first, then the huc.'
     echo '        Arguments:'
@@ -99,7 +99,7 @@ for code in "${return_codes[@]}"
 do
     # Make an extra copy of the unit log into a new folder.
 
-    # Note: It was tricky to load in the fim_enum into bash, so we will just 
+    # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
     if [ $code -eq 0 ]; then
         echo
@@ -110,12 +110,12 @@ do
         err_exists=1
     elif [ $code -eq 61 ]; then
         echo
-        echo "***** Unit has no remaining valid flowlines *****"   
-        err_exists=1        
+        echo "***** Unit has no remaining valid flowlines *****"
+        err_exists=1
     else
         echo
         echo "***** An error has occured  *****"
-        err_exists=1        
+        err_exists=1
     fi
 done
 
@@ -129,7 +129,7 @@ mv -f $tempHucDataDir $outputHucDataDir
 find $outputHucDataDir -type d -exec chmod 777 {} +
 
 echo "============================================================================================="
-echo 
+echo
 echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
 echo
 echo "============================================================================================="

@@ -2,9 +2,11 @@
 
 
 import argparse
-from numba import njit, typed, types
-import rasterio
+
 import numpy as np
+import rasterio
+from numba import njit, typed, types
+
 from utils.shared_functions import mem_profile
 
 

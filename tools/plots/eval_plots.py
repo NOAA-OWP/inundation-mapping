@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-import pandas as pd
-from pathlib import Path
 import argparse
-from natsort import natsorted
+from pathlib import Path
+
 import geopandas as gpd
-from utils.shared_functions import filter_dataframe, boxplot, scatterplot, barplot
+import pandas as pd
+from natsort import natsorted
+
+from utils.shared_functions import barplot, boxplot, filter_dataframe, scatterplot
 
 
 def eval_plots(

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 
-from stream_branches import StreamBranchPolygons
 import argparse
+
 from tqdm import tqdm
+
+from stream_branches import StreamBranchPolygons
 
 
 if __name__ == '__main__':

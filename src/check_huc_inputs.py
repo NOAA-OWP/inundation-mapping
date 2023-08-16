@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 
-import os
 import argparse
-import string
+import os
 import pathlib
+import string
 from glob import glob
 from logging import exception
 

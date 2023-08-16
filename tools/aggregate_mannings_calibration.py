@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import os
-import pandas as pd
+import argparse
 import csv
 import json
-import argparse
+import os
+
+import pandas as pd
 
 
 def aggregate_parameter_sets(huc_list_path, calibration_stat_folder, summary_file, mannings_json):

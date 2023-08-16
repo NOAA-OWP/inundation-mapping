@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-import pandas as pd
+import os
 import pathlib
+
+import pandas as pd
 
 
 def generate_branch_list_csv(huc_id, branch_id, output_branch_csv):

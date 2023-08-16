@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import rasterio
-from rasterio.windows import from_bounds
-import numpy as np
-from functools import partial
-from affine import Affine
-from scipy.optimize import newton
-from threading import Lock
 import concurrent.futures
-from numba import njit
-import geopandas as gpd
-from rasterio.mask import mask
 import sys
 import warnings
+from functools import partial
+from threading import Lock
+
+import geopandas as gpd
+import numpy as np
+import rasterio
+from affine import Affine
+from numba import njit
+from rasterio.mask import mask
+from rasterio.windows import from_bounds
+from scipy.optimize import newton
 
 
 class OverlapWindowMerge:
@@ -452,10 +453,9 @@ def merge_data(
 
 
 if __name__ == '__main__':
-    import time
-
     # import tracemalloc
     import glob
+    import time
 
     # print('start', time.localtime())
     # project_path = r'../documentation/data'
@@ -466,7 +466,6 @@ if __name__ == '__main__':
     #                              (3, 3))
     # overlap.merge_rasters(project_path + '/merged_overlap.tif', nodata=0)
     # print('end', time.localtime())
-
     # tracemalloc.start()
     print('start', time.localtime())
     # project_path = r'../documentation/data'

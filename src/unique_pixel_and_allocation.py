@@ -4,11 +4,13 @@ Created on Fri Oct 16 07:51:56 2020
 
 @author: trevor.grout
 """
-import os
-import rasterio
-import numpy as np
 import argparse
+import os
+
+import numpy as np
+import rasterio
 import whitebox
+
 from utils.shared_functions import mem_profile
 
 

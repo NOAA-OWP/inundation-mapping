@@ -19,11 +19,11 @@ usage ()
     echo '                    A line delimited file, with a .lst extension, is also acceptable.'
     echo '                    HUC8s must present in inputs directory.'
     echo '  -n/--runName    : A name to tag the output directories and log files.'
-    echo 
+    echo
     echo 'OPTIONS:'
     echo '  -h/--help       : Help file'
     echo '  -c/--config     : Configuration file with bash environment variables to export'
-    echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'    
+    echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'
     echo '  -ud/--unitDenylist'
     echo '                    A file with a line delimited list of files in UNIT (HUC) directories to be removed'
     echo '                    upon completion (see config/deny_unit.lst for a starting point)'
@@ -31,25 +31,25 @@ usage ()
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -bd/--branchDenylist'
-    echo '                    A file with a line delimited list of files in BRANCHES directories to be removed' 
+    echo '                    A file with a line delimited list of files in BRANCHES directories to be removed'
     echo '                    upon completion of branch processing.'
     echo '                    (see config/deny_branches.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_branches.lst'   
+    echo '                    Default: /foss_fim/config/deny_branches.lst'
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
     echo '                    use the word NONE as this value for this parameter.'
     echo '  -zd/--branchZeroDenylist'
-    echo '                    A file with a line delimited list of files in BRANCH ZERO directories to' 
+    echo '                    A file with a line delimited list of files in BRANCH ZERO directories to'
     echo '                    be removed upon completion of branch zero processing.'
     echo '                    (see config/deny_branch_zero.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_branch_zero.lst'   
+    echo '                    Default: /foss_fim/config/deny_branch_zero.lst'
     echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
-    echo '                    use the word NONE as this value for this parameter.'    
+    echo '                    use the word NONE as this value for this parameter.'
     echo '  -jh/--jobLimit   : Max number of concurrent HUC jobs to run. Default 1 job at time.'
-    echo '  -jb/--jobBranchLimit : Max number of concurrent Branch jobs to run. Default 1 job at time.' 
+    echo '  -jb/--jobBranchLimit : Max number of concurrent Branch jobs to run. Default 1 job at time.'
     echo '                         NOTE: Make sure that the multiplication of jh and jb plus 2 (jh x jb + 2) does not'
     echo '                         exceed the total number of cores available.'
     echo '  -o               : Overwrite outputs if already exist'
-    echo '  -skipcal         : If this param is included, updating the S.R.C. via the calibration points will be skipped'    
+    echo '  -skipcal         : If this param is included, updating the S.R.C. via the calibration points will be skipped'
     echo '  -isaws           : If this param is included, the code will use AWS objects where possible'
     echo '                   : Note: This feature is not yet implemented'
     echo
@@ -80,7 +80,7 @@ in
     -jb|--jobBranchLimit)
         shift
         jobBranchLimit=$1
-        ;;        
+        ;;
     -h|--help)
         shift
         usage
@@ -96,7 +96,7 @@ in
     -zd|--branchZeroDenylist)
         shift
         deny_branch_zero_list=$1
-        ;;        
+        ;;
     -o)
         overwrite=1
         ;;
@@ -173,7 +173,7 @@ then
         usage
     else
         # only if the deny branch zero has been overwritten and file exists
-        has_deny_branch_zero_override=1 
+        has_deny_branch_zero_override=1
     fi
 else
     has_deny_branch_zero_override=1 # it is the value of NONE and is overridden
@@ -183,7 +183,7 @@ fi
 if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo
     echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
-    echo        
+    echo
     usage
 fi
 

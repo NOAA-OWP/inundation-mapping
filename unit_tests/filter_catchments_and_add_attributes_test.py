@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import inspect
+import json
 import os
 import sys
-
-import json
 import unittest
-import pytest
 
+import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+
 import filter_catchments_and_add_attributes as src
 
 

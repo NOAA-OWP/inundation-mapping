@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
-import pandas as pd
-import geopandas as gpd
-from collections import defaultdict
-from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 import argparse
-from dotenv import load_dotenv
 import os
 import sys
+from collections import defaultdict
+from pathlib import Path
+
+import geopandas as gpd
+import pandas as pd
+from dotenv import load_dotenv
+from tools_shared_functions import aggregate_wbd_hucs, get_metadata
+
 
 sys.path.append('/foss_fim/src')
 from utils.shared_variables import PREP_PROJECTION
+
 
 load_dotenv()
 # import variables from .env file

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
+import os
 import warnings
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
 
 
 def associate_levelpaths_with_levees(

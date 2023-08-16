@@ -13,14 +13,14 @@ usage ()
     echo 'Does not included the filtered HAND files from FIM.'
     echo 'Does included key files such as catfim, fim performance and sierra test files.'
     echo 'Note: Please look at the code as there are assumed directories and pathing.'
-    echo '      Also.. for now, please pre-run the aws configure script for creds.'    
+    echo '      Also.. for now, please pre-run the aws configure script for creds.'
     echo
     echo 'Usage : push-hv-data-support-files.sh [REQ: -n <run name> ]'
     echo '                                      [REQ: -hv <HV S3 bucket name>'
     echo ''
     echo 'REQUIRED:'
     echo '  -n/--runName       : A name of HAND output release.'
-    echo '  -hv/--HV_S3_bucket : The root HV S3 bucket name. ie) s3://{hv....}' 
+    echo '  -hv/--HV_S3_bucket : The root HV S3 bucket name. ie) s3://{hv....}'
     echo ''
     echo 'OPTIONS:'
     echo '  -h/--help       : help file'
@@ -87,7 +87,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 
 aws_src="/data/catfim/"$runName"_stage_based/mapping/stage_based_catfim_sites.csv"
@@ -96,7 +96,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 # ----------------------
 # Catfim Flow Based
@@ -106,7 +106,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 
 aws_src="/data/catfim/"$runName"_flow_based/mapping/flow_based_catfim_sites.csv"
@@ -115,7 +115,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 # ----------------------
 # Fim Performance
@@ -125,7 +125,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 
 aws_src="/data/fim_performance/"$runName"/fim_performance_points.csv"
@@ -134,7 +134,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 
 aws_src="/data/fim_performance/"$runName"/fim_performance_catchments.csv"
@@ -143,7 +143,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 # ----------------------
 # Sierra Test (Rating Curve Comparison Metrics)
@@ -153,7 +153,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 
 aws_src="/data/inputs/usgs_gages/usgs_rating_curves.csv"
@@ -162,7 +162,7 @@ aws_target=" "$HV_S3_bucket"/"$runName"/qa_datasets/"
 aws_cmd="${aws_cmd_cp} ${aws_src} ${aws_target}"
 echo "command is '"$aws_cmd"'"
 eval "${aws_cmd}"
-echo 
+echo
 
 
 echo "done coping files and folders to S3"

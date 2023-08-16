@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
-import geopandas as gpd
-import numpy as np
 import sys
 
-from utils.shared_variables import FIM_ID
-from utils.shared_functions import mem_profile
+import geopandas as gpd
+import numpy as np
+
 from utils.fim_enums import FIM_exit_codes
+from utils.shared_functions import mem_profile
+from utils.shared_variables import FIM_ID
 
 
 @mem_profile

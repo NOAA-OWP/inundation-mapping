@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-import rasterio
-import numpy as np
-import os
 import argparse
+import os
+
+import numpy as np
+import rasterio
 import whitebox
+
 from utils.shared_functions import mem_profile
 
 

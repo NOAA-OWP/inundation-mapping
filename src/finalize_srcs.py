@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import argparse
+import json
+
 import geopandas as gpd
 import pandas as pd
 from numpy import unique
-import json
-import argparse
+
 from utils.shared_functions import getDriver
 
 

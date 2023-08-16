@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 
-import os, re, shutil, json, sys
-import pandas as pd
+import json
+import os
+import re
+import shutil
+import sys
 
-from tools_shared_variables import (
-    TEST_CASES_DIR,
-    INPUTS_DIR,
-    PREVIOUS_FIM_DIR,
-    OUTPUTS_DIR,
-    AHPS_BENCHMARK_CATEGORIES,
-    MAGNITUDE_DICT,
-    elev_raster_ndv,
-)
+import pandas as pd
+from inundate_gms import Inundate_gms
 from inundation import inundate
 from mosaic_inundation import Mosaic_inundation
-from inundate_gms import Inundate_gms
 from tools_shared_functions import compute_contingency_stats_from_rasters
+from tools_shared_variables import (
+    AHPS_BENCHMARK_CATEGORIES,
+    INPUTS_DIR,
+    MAGNITUDE_DICT,
+    OUTPUTS_DIR,
+    PREVIOUS_FIM_DIR,
+    TEST_CASES_DIR,
+    elev_raster_ndv,
+)
+
 from utils.shared_functions import FIM_Helpers as fh
 
 

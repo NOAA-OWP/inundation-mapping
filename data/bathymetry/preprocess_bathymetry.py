@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-import rasterio
-import pandas as pd
+import os
+from argparse import ArgumentParser
+
 import geopandas as gpd
 import numpy as np
+import pandas as pd
+import rasterio
+from osgeo import gdal, gdal_array
 from rasterstats import zonal_stats
-from osgeo import gdal
-from osgeo import gdal_array
-from argparse import ArgumentParser
-import os
+
 
 """
 To use this script you will need to create a tif file from the eHydro depth survey tin file.

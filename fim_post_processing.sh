@@ -50,7 +50,7 @@ fi
 outputDestDir=$outputsDir/$runName
 
 ## Check for output destination directory ##
-if [ ! -d "$outputDestDir" ]; then 
+if [ ! -d "$outputDestDir" ]; then
     echo "Depends on output from units and branches. Please provide an output folder name that has hucs/branches run."
     exit 1
 fi
@@ -83,7 +83,7 @@ source $srcDir/bash_variables.env
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo "---- Start of fim_post_processing"
-echo "---- Started: `date -u`" 
+echo "---- Started: `date -u`"
 T_total_start
 post_proc_start_time=`date +%s`
 
@@ -97,7 +97,7 @@ echo -e $startDiv"Start non-zero exit code checking"
 find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo "Processing usgs gage aggregation"   
+echo "Processing usgs gage aggregation"
 python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -j $jobLimit
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
@@ -130,7 +130,7 @@ fi
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
     Tstart
-    echo    
+    echo
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
     python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputDestDir -usgs_rc $inputsDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
@@ -149,7 +149,7 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
 fi
 
 ## AGGREGATE BRANCH TABLES ##
-echo 
+echo
 echo -e $startDiv"Aggregating branch hydrotables"
 Tstart
 python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable -j $jobLimit

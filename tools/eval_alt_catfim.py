@@ -1,11 +1,11 @@
-import os
 import argparse
-from multiprocessing import Pool
 import csv
 import json
+import os
+from multiprocessing import Pool
 
-from tools_shared_variables import TEST_CASES_DIR
 from tools_shared_functions import compute_contingency_stats_from_rasters
+from tools_shared_variables import TEST_CASES_DIR
 
 
 def create_master_metrics_csv_alt(master_metrics_csv_output, json_list, version):

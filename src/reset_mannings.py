@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import pandas as pd
-import numpy as np
 import argparse
 import os
-from glob import iglob, glob
+from glob import glob, iglob
+
+import numpy as np
+import pandas as pd
+
 from stream_branches import StreamNetwork
 
 

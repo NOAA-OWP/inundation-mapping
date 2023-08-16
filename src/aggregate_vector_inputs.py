@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 
 import os
-import pandas as pd
-import geopandas as gpd
-from utils.shared_variables import PREP_PROJECTION
-from utils.shared_functions import getDriver
-from reduce_nhd_stream_density import subset_nhd_network
-from adjust_headwater_streams import adjust_headwaters
-from shapely.geometry import Point
-from concurrent.futures import ProcessPoolExecutor
 from collections import deque
+from concurrent.futures import ProcessPoolExecutor
+
+import geopandas as gpd
 import numpy as np
-from shapely.wkb import dumps, loads
+import pandas as pd
 import pygeos
+from reduce_nhd_stream_density import subset_nhd_network
+from shapely.geometry import Point
+from shapely.wkb import dumps, loads
+
+from adjust_headwater_streams import adjust_headwaters
+from utils.shared_functions import getDriver
+from utils.shared_variables import PREP_PROJECTION
 
 
 def identify_nwm_ms_streams(nwm_streams_filename, ahps_filename, nwm_streams_all_filename):

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import json
+import os
 import unittest
-import pytest
 
-from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+import pytest
 from rating_curve_comparison import generate_rating_curve_metrics
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 
 class test_rating_curve_comparison(unittest.TestCase):

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 from os import environ
+
 import geopandas as gpd
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag'])  # 10x
 thal_stg_limit = float(environ['thalweg_stg_search_max_limit'])  # 3m

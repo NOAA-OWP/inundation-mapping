@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 
-# standard library imports (https://docs.python.org/3/library/
-# (imports first, then "froms", in alpha order)
-from operator import truediv
+
+import argparse
 import os
-from pickle import FALSE
+import subprocess
 import sys
 from datetime import datetime
+from operator import truediv
+from pickle import FALSE
 
-# third party imports
-# (imports first, then "froms", in alpha order)
-import argparse
-import subprocess
+from aws_base import *
+
+from utils.shared_functions import FIM_Helpers as fh
+
 
 sys.path.append('/foss_fim/src')
-from aws_base import *
-from utils.shared_functions import FIM_Helpers as fh
 
 '''
 This file is for communicating to any AWS S3 buckets.

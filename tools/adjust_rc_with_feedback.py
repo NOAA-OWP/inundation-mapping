@@ -1,12 +1,14 @@
 import argparse
-import geopandas as gpd
-from geopandas.tools import sjoin
-import os
-import rasterio
-import pandas as pd
-import numpy as np
-import sys
 import json
+import os
+import sys
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
+from geopandas.tools import sjoin
+
 
 temp_workspace = r''
 HAND_CRS = 'EPSG:3857'

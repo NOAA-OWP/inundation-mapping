@@ -16,32 +16,32 @@ Output: a dataframe table with rows displayed by each polygon within the vector 
 displaying the pixel count of each raster attribute class in the polygon
 '''
 
-# Import raster and vector function libraries
-# from types import NoneType
-from osgeo import gdal, ogr
-from osgeo.gdalconst import *
+import argparse
+import copy
+import os
+import pathlib
+
+# Import file management library
+import sys
+import tempfile
 
 # Import numerical data library
 import numpy as np
 
-# Import file management library
-import sys
-import os
-
 # Import data analysis library
 import pandas as pd
-import argparse
-from pandas import DataFrame
-import copy
-import pathlib
-import tempfile
 
+# Import raster and vector function libraries
+# from types import NoneType
+from osgeo import gdal, ogr
+from osgeo.gdalconst import *
+from pandas import DataFrame
 from pixel_counter_functions import (
-    get_nlcd_counts,
-    get_levee_counts,
     get_bridge_counts,
-    get_nlcd_counts_inside_flood,
+    get_levee_counts,
     get_mask_value_counts,
+    get_nlcd_counts,
+    get_nlcd_counts_inside_flood,
 )
 
 

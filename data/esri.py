@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import requests
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
+import requests
 from tqdm import tqdm
 
 

@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-import pandas as pd
-from pathlib import Path
 import argparse
-from natsort import natsorted
-import geopandas as gpd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import re
 import glob
 import os
+import re
 import sys
+from pathlib import Path
+
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from natsort import natsorted
+
 
 sys.path.append('/foss_fim/src')
-from utils.shared_variables import VIZ_PROJECTION
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
+
+from utils.shared_variables import VIZ_PROJECTION
+
 
 # Get variables from .env file.
 load_dotenv()

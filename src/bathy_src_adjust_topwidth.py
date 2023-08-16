@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
-import sys
-import os
-import pandas as pd
-import numpy as np
 import argparse
-import matplotlib.pyplot as plt
-import seaborn as sns
-from multiprocessing import Pool
-from os.path import isfile, join, dirname, isdir
 import datetime as dt
+import os
 import sys
+from multiprocessing import Pool
 from os import environ
+from os.path import dirname, isdir, isfile, join
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
 
 sns.set_theme(style="whitegrid")
 # from utils.shared_functions import mem_profile

@@ -3,7 +3,7 @@
 : '
 fim_pipeline.sh -u <huc8> -n <name_your_run>
 
-For more details on 
+For more details on
 
 - There are a wide number of options and defaulted values, for details run ```fim_pipeline.sh -h```
 - Manditory arguments:
@@ -13,7 +13,7 @@ For more details on
 - Outputs can be found under ```/outputs/<name_your_run>```
 
 Processing of HUC''s in FIM4 comes in three pieces. You can run `fim_pipeline.sh` which automatically runs all of three major section, but you can run each of the sections independently if you like. The three sections are:
-- `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 
+- `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections.
 
 - `fim_process_unit_wb.sh` : This script processes one and exactly one HUC8 plus all of it''s related branches. While it can only process one, you can run this script multiple times, each with different HUC (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates when more than one HUC number has been supplied either by command line arguments or via a HUC list. For each HUC provided, `fim_pipeline.sh` will `fim_process_unit_wb.sh`. Using the `fim_process_unit_wb.sh`  script allows for a run / rerun of a HUC, or running other HUCs at different times / days or even different docker containers.
 
@@ -29,7 +29,7 @@ set -e
 
 echo
 echo "======================= Start of fim_pipeline.sh ========================="
-echo "---- Started: `date -u`" 
+echo "---- Started: `date -u`"
 
 ## LOAD AND VALIDATE INCOMING ARGUMENTS
 source $srcDir/bash_functions.env
@@ -45,11 +45,11 @@ pipeline_start_time=`date +%s`
 # Why an if and else? watch the number of colons
 if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
-        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList 
+        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     else
         parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     fi
-else 
+else
     if [ "$jobHucLimit" = "1" ]; then
         parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName ::: $hucList
     else
@@ -67,7 +67,7 @@ Calc_Duration $pipeline_start_time
 # Remove run from the fim_temp directory
 rm -d $workDir/$runName
 
-# Pipe into post processing 
+# Pipe into post processing
 . $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
 
 echo
@@ -75,4 +75,3 @@ echo "======================== End of fim_pipeline.sh ==========================
 date -u
 Calc_Duration $pipeline_start_time
 echo
-

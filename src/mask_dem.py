@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
-import pandas as pd
-import geopandas as gpd
+
 import fiona
+import geopandas as gpd
+import pandas as pd
 import rasterio as rio
 from rasterio.mask import mask
-import argparse
+
 from utils.shared_functions import mem_profile
 
 

@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
 
-import os
-import sys
-import re
-import pandas as pd, geopandas as gpd
-import numpy as np
 import argparse
-import matplotlib.pyplot as plt
-import seaborn as sns
+import logging
+import os
+import re
+import shutil
+import sys
+import time
+import traceback
+import warnings
 from functools import reduce
 from multiprocessing import Pool
 from os.path import isfile, join
-import shutil
-import traceback
-import logging
-import warnings
 from pathlib import Path
-import time
+
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import rasterio
 from rasterio import features as riofeatures
 from rasterio import plot as rioplot
 from shapely.geometry import Polygon
+
 
 """
     Plot Rating Curves and Compare to USGS Gages

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import geopandas as gpd
-import pandas as pd
-import numpy as np
 import argparse
+
+import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 
 def evaluate_continuity(

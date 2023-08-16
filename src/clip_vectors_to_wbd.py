@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import sys
-import geopandas as gpd
 import argparse
-import rasterio as rio
+import sys
+
 import fiona
+import geopandas as gpd
+import rasterio as rio
 from shapely.geometry import MultiPolygon, Polygon
-from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
+
 from utils.shared_functions import getDriver, mem_profile
+from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
 @mem_profile

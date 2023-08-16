@@ -70,7 +70,7 @@ Tcount
 echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
 date -u
 Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif 
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
 Tcount
 
 ## STREAMNET FOR REACHES ##

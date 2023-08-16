@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import sys
-import json
 import unittest
-import pytest
 
-from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 import inundation as src
+import pytest
+from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 
 class test_inundate(unittest.TestCase):

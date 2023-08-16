@@ -5,12 +5,14 @@
 # Purpose: This script provides the user to generate inundation outputs using
 # the NWM Recurrence Interval flow data for 1.5yr, 5yr, & 10yr events.
 
-import os
-import sys
-import csv
 import argparse
+import csv
+import os
 import shutil
+import sys
+
 from inundation import inundate
+
 
 INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
 INPUTS_DIR = r'/data/inputs'

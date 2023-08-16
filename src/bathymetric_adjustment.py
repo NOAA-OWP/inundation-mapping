@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 
-import sys, os, traceback, re
-from os.path import join
-import pandas as pd
-import geopandas as gpd
 import datetime as dt
+import os
+import re
+import sys
+import traceback
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor
+from os.path import join
+
+import geopandas as gpd
+import pandas as pd
+
 
 sys.path.append('/foss_fim/tools')
 from synthesize_test_cases import progress_bar_handler

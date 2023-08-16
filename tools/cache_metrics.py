@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
+import os
 import traceback
+from multiprocessing import Pool
 
 from run_test_case import run_alpha_test
-from multiprocessing import Pool
+
 
 TEST_CASES_DIR = r'/data/test_cases_new/'  # TODO remove "_new"
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
