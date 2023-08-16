@@ -11,7 +11,7 @@ from utils.shared_variables import elev_raster_ndv
 
 def produce_mosaicked_inundation(
     hydrofabric_dir,
-    huc,
+    hucs,
     flow_file,
     inundation_raster=None,
     inundation_polygon=None,
@@ -66,14 +66,15 @@ def produce_mosaicked_inundation(
         )
 
     # Check that huc folder exists in the hydrofabric_dir.
-    if not os.path.exists(os.path.join(hydrofabric_dir, huc)):
-        raise FileNotFoundError(
-            (
-                errno.ENOENT,
-                os.strerror(errno.ENOENT),
-                os.path.join(hydrofabric_dir, huc),
+    for huc in hucs:
+        if not os.path.exists(os.path.join(hydrofabric_dir, huc)):
+            raise FileNotFoundError(
+                (
+                    errno.ENOENT,
+                    os.strerror(errno.ENOENT),
+                    os.path.join(hydrofabric_dir, huc),
+                )
             )
-        )
 
     # Check that flow file exists
     if not os.path.exists(flow_file):
@@ -88,7 +89,6 @@ def produce_mosaicked_inundation(
             "Please lower the num_workers.".format(num_workers, total_cpus_available)
         )
 
-    huc_dir = os.path.join(hydrofabric_dir, huc)
     print("Running inundate for " + huc + "...")
 
     # Call Inundate_gms
@@ -96,13 +96,13 @@ def produce_mosaicked_inundation(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
         num_workers=num_workers,
-        hucs=huc,
+        hucs=hucs,
         inundation_raster=inundation_raster,
         depths_raster=depths_raster,
         verbose=verbose,
     )
 
-    print("Mosaicking extent for " + huc + "...")
+    print("Mosaicking extent...")
 
     mosaic_file_path_list = []
     polygon_raster = None
@@ -134,7 +134,7 @@ def produce_mosaicked_inundation(
             mosaic_file_path_list.append(mosaic_file_path)
 
     if polygon_raster is not None and inundation_polygon is not None:
-        print("Converting inundation raster to polygon for " + huc + "...")
+        print("Converting inundation raster to polygon...")
         mosaic_final_inundation_extent_to_poly(polygon_raster, inundation_polygon)
 
     print("Mosaicking complete.")
@@ -163,6 +163,7 @@ if __name__ == "__main__":
         required=True,
         default="",
         type=str,
+        nargs="+",
     )
     parser.add_argument(
         "-f",
