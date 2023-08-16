@@ -46,7 +46,8 @@ class test_inundate_gms(unittest.TestCase):
             if file.endswith(".tif"):
                 os.remove(os.path.join(params["hydrofabric_dir"], file))
 
-        os.remove(params["output_fileNames"])
+        if os.path.isfile(params["output_fileNames"]):
+            os.remove(params["output_fileNames"])
 
         # Test the Inundate_gms function
         output_fileNames_df = src.Inundate_gms(

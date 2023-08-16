@@ -532,6 +532,8 @@ if __name__ == '__main__':
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
     )
 
+    # print('all test cases', all_test_cases)
+
     # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
     if prev_metrics_csv != None and pfiles == True:
         print(
@@ -540,7 +542,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
-    if prev_metrics_csv != None:
+    if prev_metrics_csv is not None:
         if not os.path.exists(prev_metrics_csv):
             print(f"Error: File does not exist at {prev_metrics_csv}")
             sys.exit(1)
@@ -565,6 +567,7 @@ if __name__ == '__main__':
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
         executor_dict = {}
+
         for test_case_class in all_test_cases:
             if not os.path.exists(test_case_class.fim_dir):
                 continue

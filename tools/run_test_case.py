@@ -407,9 +407,6 @@ class test_case(benchmark):
                 agreement_raster,
                 stats_csv=stats_csv,
                 stats_json=stats_json,
-                mask_values=[],
-                stats_modes_list=self.stats_modes_list,
-                test_id=self.test_id,
                 mask_dict=mask_dict_indiv,
             )
         return
