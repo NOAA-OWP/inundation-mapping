@@ -326,12 +326,12 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
     ## Calculate group_calb_coef (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg
     #df_nmerge.sort_values(by=['NextDownID'], inplace=True)
     dist_accum = 0; hyid_count = 0; hyid_accum_count = 0; 
-    run_accum_mann = 0; group_calb_coef = 0; branch_start = 1                                        # initialize counter and accumulation variables
+    run_accum_mann = 0; group_calb_coef = 0; branch_start = 1                                       # initialize counter and accumulation variables
     lid_count = 0; prev_lid = 'x'
     for index, row in df_nmerge.iterrows():                                                         # loop through the df (parse by hydroid)
         if int(df_nmerge.loc[index,'branch_id']) != branch_start:                                   # check if start of new branch
             dist_accum = 0; hyid_count = 0; hyid_accum_count = 0;                                   # initialize counter vars
-            run_accum_mann = 0; group_calb_coef = 0                                                  # initialize counter vars
+            run_accum_mann = 0; group_calb_coef = 0                                                 # initialize counter vars
             branch_start = int(df_nmerge.loc[index,'branch_id'])                                    # reassign the branch_start var to evaluate on next iteration
             # use the code below to withold downstream hydroid_calb_coef values (use this for downstream evaluation tests)
             '''
@@ -346,14 +346,14 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
                 lid_count = 1
             prev_lid = df_nmerge.loc[index,'ahps_lid']
             '''
-        if np.isnan(df_nmerge.loc[index,'hydroid_calb_coef']):                                       # check if the hydroid_calb_coef value is nan (indicates a non-calibrated hydroid)
+        if np.isnan(df_nmerge.loc[index,'hydroid_calb_coef']):                                      # check if the hydroid_calb_coef value is nan (indicates a non-calibrated hydroid)
             df_nmerge.loc[index,'accum_dist'] = row['LENGTHKM'] + dist_accum                        # calculate accumulated river distance
             dist_accum += row['LENGTHKM']                                                           # add hydroid length to the dist_accum var
             hyid_count = 0                                                                          # reset the hydroid counter to 0
             df_nmerge.loc[index,'hyid_accum_count'] = hyid_accum_count                              # output the hydroid accum counter
-            if dist_accum < down_dist_thresh:                                                   # check if the accum distance is less than Xkm downstream from valid hydroid_calb_coef group value
+            if dist_accum < down_dist_thresh:                                                       # check if the accum distance is less than Xkm downstream from valid hydroid_calb_coef group value
                 if hyid_accum_count > 1:                                                            # only apply the group_calb_coef if there are 2 or more valid hydorids that contributed to the upstream group_calb_coef
-                    df_nmerge.loc[index,'group_calb_coef'] = group_calb_coef                          # output the group_calb_coef var
+                    df_nmerge.loc[index,'group_calb_coef'] = group_calb_coef                        # output the group_calb_coef var
             else:
                 run_avg_mann = 0                                                                    # reset the running average manningn variable (greater than 10km downstream)
         else:                                                                                       # performs the following for hydroids that have a valid hydroid_calb_coef value
@@ -361,10 +361,10 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
             df_nmerge.loc[index,'accum_dist'] = 0                                                   # output the accum_dist value (set to 0)
             if hyid_count == 1:                                                                     # checks if this the first in a series of valid hydroid_calb_coef values
                 run_accum_mann = 0; hyid_accum_count = 0                                            # initialize counter and running accumulated manningN value
-            group_calb_coef = (row['hydroid_calb_coef'] + run_accum_mann)/float(hyid_count)           # calculate the group_calb_coef (NOTE: this will continue to change as more hydroid values are accumulated in the "group" moving downstream)
-            df_nmerge.loc[index,'group_calb_coef'] = group_calb_coef                                  # output the group_calb_coef var 
+            group_calb_coef = (row['hydroid_calb_coef'] + run_accum_mann)/float(hyid_count)         # calculate the group_calb_coef (NOTE: this will continue to change as more hydroid values are accumulated in the "group" moving downstream)
+            df_nmerge.loc[index,'group_calb_coef'] = group_calb_coef                                # output the group_calb_coef var 
             df_nmerge.loc[index,'hyid_count'] = hyid_count                                          # output the hyid_count var 
-            run_accum_mann += row['hydroid_calb_coef']                                               # add current hydroid manningn value to the running accum mann var
+            run_accum_mann += row['hydroid_calb_coef']                                              # add current hydroid manningn value to the running accum mann var
             hyid_accum_count += 1                                                                   # increase the # of hydroid accum counter
             df_nmerge.loc[index,'hyid_accum_count'] = hyid_accum_count                              # output the hyid_accum_count var
 

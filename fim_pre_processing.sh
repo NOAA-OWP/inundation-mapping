@@ -11,13 +11,13 @@ usage ()
     echo '          -zd <branch zero deny list file>'
     echo '          -jh <number of jobs for HUCs>'
     echo '          -jb <number of jobs for branches>'
-    echo '          -skipcal <skip the PostGres calibration process>'
+    echo '          -skipcal <skip the calibration points process>'
     echo '          -isaws ]'
     echo ''
     echo 'REQUIRED:'
-    echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
+    echo '  -u/--hucList    : HUC8s to run; more than one HUC8 should be passed in quotes (space delimited).'
     echo '                    A line delimited file, with a .lst extension, is also acceptable.'
-    echo '                    HUCs must present in inputs directory.'
+    echo '                    HUC8s must present in inputs directory.'
     echo '  -n/--runName    : A name to tag the output directories and log files.'
     echo 
     echo 'OPTIONS:'
@@ -46,10 +46,10 @@ usage ()
     echo '                    use the word NONE as this value for this parameter.'    
     echo '  -jh/--jobLimit   : Max number of concurrent HUC jobs to run. Default 1 job at time.'
     echo '  -jb/--jobBranchLimit : Max number of concurrent Branch jobs to run. Default 1 job at time.' 
-    echo '                         NOTE: Make sure that the multiplication of jh and jb subtract 2 (jh x jb -2) does not'
+    echo '                         NOTE: Make sure that the multiplication of jh and jb plus 2 (jh x jb + 2) does not'
     echo '                         exceed the total number of cores available.'
     echo '  -o               : Overwrite outputs if already exist'
-    echo '  -skipcal         : If this param is included, post gres calibration system will be skipped'    
+    echo '  -skipcal         : If this param is included, updating the S.R.C. via the calibration points will be skipped'    
     echo '  -isaws           : If this param is included, the code will use AWS objects where possible'
     echo '                   : Note: This feature is not yet implemented'
     echo
@@ -201,6 +201,7 @@ echo "--- Number of HUCs to process is $num_hucs"
 # make dirs
 if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
+    chmod 777 $outputDestDir
     mkdir -p $tempRunDir
 else
     # remove these directories and files on a new or overwrite run

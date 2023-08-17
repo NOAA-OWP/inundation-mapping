@@ -20,6 +20,13 @@ import utils.shared_functions as sf
 
 from utils.shared_functions import FIM_Helpers as fh
 
+'''
+TODO:
+    - Change to change resolution (which means URL, block size also ahve to be parameterize)
+    - if creating polygons, take out some of the hardcoding.
+'''
+
+
 # local constants (until changed to input param)
 # This URL is part of a series of vrt data available from USGS via an S3 Bucket.
 # for more info see: "http://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Elevation/". The odd folder numbering is
@@ -30,14 +37,15 @@ __USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProd
 def acquire_and_preprocess_3dep_dems(extent_file_path,
                                      target_output_folder_path = '', 
                                      number_of_jobs = 1, 
-                                     retry = False):
+                                     retry = False,
+                                     skip_polygons = False):
     
     '''
     Overview
     ----------
     This will download 3dep rasters from USGS using USGS vrts.
     By default USGS 3Dep stores all their rasters in lat/long (northing and easting).
-    By us downloading the rasters using WBD HUC4 clips and gdal, we an accomplish a few extra
+    By us downloading the rasters using WBD HUC6 clips and gdal, we an accomplish a few extra
     steps.
         1) Ensure the projection types that are downloaded are consistant and controlled.
            We are going to download them as NAD83 basic (espg: 4269) which is consistant
@@ -47,15 +55,18 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
         3) Create the 3dep rasters in the size we want (default at HUC4 for now)
         
     Notes:
-        - As this is a very low use tool, all values such as the USGS vrt path, output
-          folder paths, huc unit level (huc4), etc are all hardcoded
+        - It really can be used for any huc size.
+        - As this is a very low use tool, most values such as the USGS vrt path, output
+          folder paths, etc are all hardcoded
+        - You can really submit any polys of any HUC size as it as long as it is 10m
+          resolution for now.
         
     Parameters
     ----------
         - extent_file_path (str):
             Location of where the extent files that are to be used as clip extent against
             the USGS 3Dep vrt url.
-            ie) \data\inputs\wbd\HUC4
+            ie) \data\inputs\wbd\HUC6
             
         - target_output_folder_path (str):
             The output location of the new 3dep dem files. When the param is not submitted,
@@ -67,6 +78,10 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
         - retry (True / False):
             If retry is True and the file exists (either the raw downloaded DEM and/or)
             the projected one, then skip it
+            
+        - skip_polygons (bool)
+             If True, then we will not attempt to create polygon files for each dem file.
+
     '''
     # -------------------
     # Validation
@@ -110,11 +125,16 @@ def acquire_and_preprocess_3dep_dems(extent_file_path,
     # download dems, setting projection, block size, etc
     __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
 
-    polygonize(target_output_folder_path)
+    if (skip_polygons == False):
+        polygonize(target_output_folder_path)
     
     end_time = datetime.now()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
-    print(f'---- NOTE: Remember to scan the log file for any failures')
+    
+    print()
+    print('---- NOTE: Remember to scan the log file for any failures. If you find errors in the'\
+          ' log file, delete the output file and retry')
+    print()
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
@@ -148,7 +168,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
     base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
     base_cmd += ' -t_srs {3} -cblend 6'
-   
+        
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
         executor_dict = {}
@@ -218,7 +238,7 @@ def download_usgs_dem_file(extent_file,
                 base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
                 base_cmd +=  ' -t_srs {3} -cblend 6'
         - retry (bool)
-             If True, and the file exists (and is over 0k), downloading will be skipped.
+             If True, and the file exists, downloading will be skipped.
         
     '''
     
@@ -227,22 +247,15 @@ def download_usgs_dem_file(extent_file,
     target_path_raw = os.path.join(output_folder_path,
                                     target_file_name_raw)
     
-    # File might exist from a previous failed run. If it was aborted or failed
-    # on a previous attempt, it's size less than 1mg, so delete it.
-    # 
-    # IMPORTANT:
-    #
-    # it might be compromised on a previous run but GREATER 1mg (part written).
-    # That scenerio is not handled as we can not tell if it completed.
+    # It does happen where the final output size can be very small (or all no-data)
+    # which is related to to the spatial extents of the dem and the vrt combined.
+    # so, super small .tifs are correct.
     
     if (retry) and (os.path.exists(target_path_raw)):
-        if (os.stat(target_path_raw).st_size < 1000000):
-            os.remove(target_path_raw)
-        else:
-            msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
-            print(msg)  
-            logging.info(msg)
-            return
+        msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
+        print(msg)  
+        logging.info(msg)
+        return
     
     msg = f" - Downloading -- {target_file_name_raw} - Started"
     print(msg)
@@ -364,6 +377,8 @@ if __name__ == '__main__':
     #     as/if needed (command line params)
     #   - The output path can be adjusted in case of a test reload of newer data for 3dep.
     #     The default is /data/input/usgs/3dep_dems/10m/
+    #   - Each output file will be the name of the input poly plus "_dem.tif". ie) if the wbd gpkg
+    #     is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
     #   - While you can (and should use more than one job number (if manageable by your server)),
     #     this tool is memory intensive and needs more RAM then it needs cores / cpus. Go ahead and 
     #     anyways and increase the job number so you are getting the most out of your RAM. Or
@@ -392,6 +407,9 @@ if __name__ == '__main__':
 
     parser.add_argument('-t','--target_output_folder_path', help='location of where the 3dep files'\
                         ' will be saved', required=False, default='')
+    
+    parser.add_argument('-sp','--skip_polygons', help='If this flag is included, polygons of the dems'\
+                        ' will not be made', required=False, action='store_true', default=False)    
 
 
     # Extract to dictionary and assign to variables.
