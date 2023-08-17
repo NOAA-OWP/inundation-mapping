@@ -1,11 +1,11 @@
 #!/bin/bash -e
 
-#This files pushs all support files required for a HV production release,
+# This script pushes all support files required for a HV production release,
 
-#When running this script, ensure the docker container is mounted to the dev_fim_share folders
+# When running this script, ensure the docker container is mounted to the dev_fim_share folders
 
-#Note: This files is rather unpolished and as it is Git, it must not included the
-#base HV S3 folder name or AWS credentials.
+# Note: This script does not contain base HV S3 folder name or AWS credentials as it is in Git.
+# Therefore, it is rather unpolished.
 
 usage ()
 {

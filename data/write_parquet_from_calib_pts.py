@@ -6,7 +6,6 @@ import logging
 import os
 import time
 from multiprocessing import Pool
-from pathlib import Path
 
 import geopandas as gpd
 from dotenv import load_dotenv
@@ -52,8 +51,8 @@ def __setup_logger(output_dir):
 
     # Print start time
     dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    logging.info(f'==========================================================================')
-    logging.info(f"\n write_parquet_from_calib_pts.py")
+    logging.info('==========================================================================')
+    logging.info("\n write_parquet_from_calib_pts.py")
     logging.info(f"\n \t Started: {dt_string} \n")
 
 
@@ -187,12 +186,12 @@ def create_parquet_directory(output_dir):
     - none:                     While no return value, a new directory is created if it does not exist.
     '''
 
-    if os.path.isdir(output_dir) == False:
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        logging.info(f"Created directory: {output_dir}, .parquet files will be located there.")
-    elif os.path.isdir(output_dir) == True:
+    if os.path.isdir(output_dir) is False:
+        os.mkdir(output_dir, exist_ok=True)
+        logging.info(f"Created directory: {output_dir}, .parquet files will be written there.")
+    elif os.path.isdir(output_dir) is True:
         logging.info(
-            f"Output Direcrtory: {output_dir} exists, .parquet files will be located there."
+            f"Output Direcrtory: {output_dir} exists, .parquet files will be written there."
         )
 
 
@@ -244,7 +243,7 @@ def create_parquet_files(
 
     create_parquet_directory(output_dir)
 
-    logging.info(f'Loading .gpkg files into GeoDataFrames....')
+    logging.info('Loading .gpkg files into GeoDataFrames....')
     huc_polygons_df = load_WBD_gpkg_into_GDF(wbd_layer)
     fim_obs_point_df = load_fim_obs_points_into_GDF(points_data_file_name)
 
@@ -252,13 +251,16 @@ def create_parquet_files(
     if (huc_polygons_df.crs == fim_obs_point_df.crs) is not True:
         raise ValueError(
             f'Provided: -p {points_data_file_name} crs & -wbd {wbd_layer} crs do not match, '
-            f'please make adjustments and re-run.'
+            'please make adjustments and re-run.'
         )
 
     # Print timing
     load_gdf_end_time = dt.datetime.now()
     load_duration = load_gdf_end_time - start_time
     logging.info("Finished loading input .gpkg files into GeoDataFrames.")
+    logging.info(f"\t TIME: {str(load_duration).split('.')[0]} ")
+
+    print("Finished loading input .gpkg files into GeoDataFrames.")
     print(f"\t TIME: {str(load_duration).split('.')[0]} ")
 
     # Only use provided HUCs
@@ -288,7 +290,7 @@ def create_parquet_files(
         procs_list.append([huc, output_dir, huc_polygons_df, fim_obs_point_df])
 
     # Parallelize each huc in hucs_to_parquet_list
-    logging.info(f'Parallelizing HUC level GeoDataFrame creation and .parquet file writes')
+    logging.info('Parallelizing HUC level GeoDataFrame creation and .parquet file writes')
     with Pool(processes=number_of_jobs) as pool:
         pool.map(create_single_huc_gdf_and_write_parquet_file, procs_list)
 
@@ -299,12 +301,15 @@ def create_parquet_files(
 
     # Calculate duration
     time_duration = end_time - start_time
-    logging.info(f'==========================================================================')
+    logging.info('==========================================================================')
     logging.info(
         f"\t Completed writing all .parquet files \n"
         f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}"
     )
-    logging.info(f'==========================================================================')
+    logging.info('==========================================================================')
+
+    print("\t Completed writing all .parquet files \n")
+    print(f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
 
 
 if __name__ == '__main__':
@@ -336,7 +341,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-o',
         '--output_dir',
-        help=f'OPTIONAL: path to send .parquet file/files. Default location specifed as the "input_calib_points_dir" '
+        help='OPTIONAL: path to send .parquet file/files. Default location specifed as the "input_calib_points_dir" '
         'variable in src/bash_variables.env',
         type=str,
         required=False,

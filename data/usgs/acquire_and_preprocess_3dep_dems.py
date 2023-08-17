@@ -13,14 +13,12 @@ from datetime import datetime
 import geopandas as gpd
 import pandas as pd
 
-
-# from tqdm import tqdm
-
-sys.path.append('/foss_fim/src')
 import utils.shared_functions as sf
 import utils.shared_variables as sv
 from utils.shared_functions import FIM_Helpers as fh
 
+
+sys.path.append('/foss_fim/src')
 
 '''
 TODO:
@@ -69,7 +67,7 @@ def acquire_and_preprocess_3dep_dems(
         - extent_file_path (str):
             Location of where the extent files that are to be used as clip extent against
             the USGS 3Dep vrt url.
-            ie) \data\inputs\wbd\HUC6
+            ie) /data/inputs/wbd/HUC6
 
         - target_output_folder_path (str):
             The output location of the new 3dep dem files. When the param is not submitted,
@@ -91,10 +89,10 @@ def acquire_and_preprocess_3dep_dems(
     total_cpus_available = os.cpu_count() - 1
     if number_of_jobs > total_cpus_available:
         raise ValueError(
-            'The number of jobs {number_of_jobs}'
-            'exceeds your machine\'s available CPU count minus one. '
-            'Please lower the number of jobs '
-            'values accordingly.'.format(number_of_jobs)
+            f'The number of jobs provided: {number_of_jobs} , '
+            f'exceeds your machine\'s available CPU count minus one. '
+            f'Please lower the number of jobs '
+            f'value accordingly.'
         )
 
     if not os.path.exists(extent_file_path):
@@ -127,7 +125,7 @@ def acquire_and_preprocess_3dep_dems(
     # download dems, setting projection, block size, etc
     __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
 
-    if skip_polygons == False:
+    if skip_polygons is False:
         polygonize(target_output_folder_path)
 
     end_time = datetime.now()
@@ -163,8 +161,8 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
 
     '''
 
-    print(f"==========================================================")
-    print(f"-- Downloading USGS DEMs Starting")
+    print("==========================================================")
+    print("-- Downloading USGS DEMs Starting")
 
     base_cmd = 'gdalwarp {0} {1}'
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
@@ -198,11 +196,11 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
                 sys.exit(1)
 
         # Send the executor to the progress bar and wait for all tasks to finish
-        sf.progress_bar_handler(executor_dict, f"Downloading USGG 3Dep Dems")
+        sf.progress_bar_handler(executor_dict, "Downloading USGG 3Dep Dems")
 
-    print(f"-- Downloading USGS DEMs Completed")
-    logging.info(f"-- Downloading USGS DEMs Completed")
-    print(f"==========================================================")
+    print("-- Downloading USGS DEMs Completed")
+    logging.info("-- Downloading USGS DEMs Completed")
+    print("==========================================================")
 
 
 def download_usgs_dem_file(extent_file, output_folder_path, download_url, base_cmd, retry):
@@ -412,7 +410,7 @@ if __name__ == '__main__':
         '-e',
         '--extent_file_path',
         help='location the gpkg files that will'
-        ' are being used as clip regions (aka.. huc4_*.gpkg or whatever).'
+        ' are being used as clip regions (ie: huc4_*.gpkg).'
         ' All gpkgs in this folder will be used.',
         required=True,
     )

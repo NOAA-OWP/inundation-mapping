@@ -10,9 +10,6 @@ import pandas as pd
 import rasterio
 import requests
 from dotenv import load_dotenv
-
-
-sys.path.append('/foss_fim/tools')
 from tools_shared_functions import (
     aggregate_wbd_hucs,
     flow_data,
@@ -28,6 +25,9 @@ from tools_shared_functions import (
     raster_to_feature,
     select_grids,
 )
+
+
+sys.path.append('/foss_fim/tools')
 
 
 def get_env_paths():
@@ -338,7 +338,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         # Filter out rows where grids do not exist
         df = df.query('path_exist == True')
         # Prior to renaming columns do a check to make sure single site (will add functionality for multi-sites later)
-        if not 'QCFS' in df.columns:
+        if 'QCFS' not in df.columns:
             f.write(f'{code} : Skipping because multisite\n')
             continue
         # Rename columns to match NWS AHPS data structure, this only applies to single USGS sites, if a multisite the columns are different from QCFS.
@@ -416,7 +416,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                 grid = grids[i]
                 extent = grids['extent']
                 # Make sure that flow and flow grid are valid
-                if not grid in ['No Map', 'No Threshold', 'No Flow']:
+                if grid not in ['No Map', 'No Threshold', 'No Flow']:
                     # Define output directory (to be created later)
                     outputdir = destination / huc / code / i
 

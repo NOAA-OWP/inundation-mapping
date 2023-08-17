@@ -6,18 +6,18 @@ import sys
 from datetime import datetime
 
 import geopandas as gpd
-from shapely.geometry import LineString, MultiLineString
-from tqdm import tqdm
-
-
-sys.path += ['/foss_fim/src', '/foss_fim/data', '/foss_fim/tools']
 from esri import ESRI_REST
+from shapely.geometry import LineString, MultiLineString
 from tools_shared_variables import INPUTS_DIR
+from tqdm import tqdm
 
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
-epsg_code = re.search('\d+$', DEFAULT_FIM_PROJECTION_CRS).group()
+sys.path += ['/foss_fim/src', '/foss_fim/data', '/foss_fim/tools']
+
+
+epsg_code = re.search(r'\d+$', DEFAULT_FIM_PROJECTION_CRS).group()
 today = datetime.now().strftime('%y%m%d')
 nld_vector_output = os.path.join(
     INPUTS_DIR, 'nld_vectors', f'System_Routes_NLDFS_5070_{today}.gpkg'

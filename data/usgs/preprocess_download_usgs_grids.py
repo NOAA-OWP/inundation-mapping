@@ -119,7 +119,7 @@ def obtain_usgs_data(workspace):
         code_metadata = usgs_site_metadata(code)
         # From code_metadata get the shortname and site_no associated with the code.
         shortname = code_metadata['SHORT_NAME']
-        site_no = code_metadata['SITE_NO']
+        # site_no = code_metadata['SITE_NO']
         # Define the output location for all grids and create if it doesn't exist.
         dest_dir = workspace / code.lower() / 'depth_grids'
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -148,8 +148,8 @@ def obtain_usgs_data(workspace):
                         urllib.request.urlretrieve(url, saved_grid_path)
                         message = f'{gridname} downloaded'
                         all_messages.append(message)
-                    except:
-                        message = f'{gridname} error downloading'
+                    except Exception as e:
+                        message = f'{gridname} error downloading. Exception: \n {repr(e)} \n'
                         all_messages.append(message)
                 # If file exists make note of it.
                 else:

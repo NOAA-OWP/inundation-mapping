@@ -9,7 +9,7 @@ from datetime import datetime
 from operator import truediv
 from pickle import FALSE
 
-from aws_base import *
+from aws_base import AWS_Base
 
 from utils.shared_functions import FIM_Helpers as fh
 

@@ -8,9 +8,10 @@ from datetime import datetime
 
 from osgeo import gdal
 
+from utils.shared_functions import FIM_Helpers as fh
+
 
 sys.path.append('/foss_fim/src')
-from utils.shared_functions import FIM_Helpers as fh
 
 
 def create_vrt_file(src_directory, vrt_file_name):
@@ -32,10 +33,10 @@ def create_vrt_file(src_directory, vrt_file_name):
     # -------------------
     # Validation
     if not os.path.exists(src_directory):
-        raise ValueError(f'src_directory value of {src_directory}' ' not set to a valid path')
+        raise ValueError(f'src_directory value of {src_directory} not set to a valid path')
 
     if (vrt_file_name is None) or (vrt_file_name == ""):
-        raise ValueError(f'vrt_file_name not defined.')
+        raise ValueError('vrt_file_name not defined.')
 
     if not vrt_file_name.endswith(".vrt"):
         vrt_file_name += ".vrt"

@@ -10,9 +10,6 @@ import numpy as np
 import pandas as pd
 import rasterio
 from dotenv import load_dotenv
-
-
-sys.path.append('/foss_fim/tools')
 from tools_shared_functions import (
     aggregate_wbd_hucs,
     flow_data,
@@ -29,6 +26,8 @@ from tools_shared_functions import (
     select_grids,
 )
 
+
+sys.path.append('/foss_fim/tools')
 
 ########################################################
 '''
@@ -88,7 +87,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
     for code in ahps_codes:
         f.write(f'{code} : Processing\n')
         print(f'processing {code}')
-        #'mnda2' is in Alaska outside of NWM domain.
+        # 'mnda2' is in Alaska outside of NWM domain.
         if code in ['mnda2']:
             f.write(f'{code} : skipping because outside of NWM domain\n')
             continue
@@ -295,7 +294,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
                 grid = grids[i]
                 extent = grids['extent']
                 # Make sure that flow and flow grid are valid
-                if not grid in ['No Map', 'No Threshold', 'No Flow']:
+                if grid not in ['No Map', 'No Threshold', 'No Flow']:
                     # define output directory (to be created later)
                     outputdir = destination / huc / code / i
 
