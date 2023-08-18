@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.3.15.2 - 2023-07-18 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/948)
+
+Adds a script to produce inundation maps (extent TIFs, polygons, and depth grids) given a flow file and hydrofabric outputs. This is meant to make it easier to team members and external collaborators to produce inundation maps.
+
+### Additions
+- `data/`
+    - `/tools/inundate_mosaic_wrapper.py`: The script that performs the inundation and mosaicking processes.
+    - `/tools/mosaic_inundation.py`: Add function (mosaic_final_inundation_extent_to_poly).
+  
+<br/><br/>
+
 ## v4.3.15.1 - 2023-08-08 - [PR#960](https://github.com/NOAA-OWP/inundation-mapping/pull/960)
 
 Provides a scripted procedure for updating BLE benchmark data including downloading, extracting, and processing raw BLE data into benchmark inundation files (inundation rasters and discharge tables).
@@ -115,6 +127,7 @@ Fixes a couple of bugs that prevented inundation using HUC-level hydrotables. Up
 - `unit_tests/tools/inundate_gms_unittests.py`: No longer used. Holdover from legacy unit tests.
 
 <br/><br/>
+
 
 ## v4.3.12.0 - 2023-07-05 - [PR#940](https://github.com/NOAA-OWP/inundation-mapping/pull/940)
 
