@@ -2,6 +2,19 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2023-08-17 - [PR#972](https://github.com/NOAA-OWP/inundation-mapping/pull/972)
+
+Adds functionality to `tools/inundate_mosaic_wrapper.py` and incorporates functionality into existing `inundation-mapping` scripts.
+
+### Changes
+
+- `tools/`
+    - inundate_mosaic_wrapper.py`: Refactors to call `Inundate_gms` only once; adds functionality to produce a mosaicked polygon from `depths_raster` without needing to generate the `inundation_raster`; removes `log_file` and `output_fileNames` as variables and input arguments; updates the help description for `keep_intermediate`.
+    - `composite_inundation.py`, `generate_categorical_fim_mapping.py', 'inundate_nation.py`, and `run_test_case.py`: Implements `produce_mosaicked_inundation()` from `tools/inundate_mosaic_wrapper.py`.
+    - `tools_shared_variables.py`: Change hardcoded `INPUT_DIR` to environment variable.
+
+<br/><br/>
+
 ## v4.3.15.2 - 2023-07-18 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/948)
 
 Adds a script to produce inundation maps (extent TIFs, polygons, and depth grids) given a flow file and hydrofabric outputs. This is meant to make it easier to team members and external collaborators to produce inundation maps.
