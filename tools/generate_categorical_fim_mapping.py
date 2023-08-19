@@ -22,20 +22,21 @@ def generate_categorical_fim(
     fim_run_dir,
     source_flow_dir,
     output_catfim_dir,
-    job_number_huc,
-    job_number_inundate,
-    log_file,
+    job_number_huc=1,
+    job_number_inundate=1,
+    log_file=None,
 ):
     source_flow_dir_list = os.listdir(source_flow_dir)
     output_flow_dir_list = os.listdir(fim_run_dir)
 
     # Log missing hucs
-    missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
-    missing_hucs = [huc for huc in missing_hucs if "." not in huc]
-    if len(missing_hucs) > 0:
-        f = open(log_file, "a+")
-        f.write(f"Missing hucs from output directory: {', '.join(missing_hucs)}\n")
-        f.close()
+    if log_file is not None:
+        missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
+        missing_hucs = [huc for huc in missing_hucs if "." not in huc]
+        if len(missing_hucs) > 0:
+            f = open(log_file, "a+")
+            f.write(f"Missing hucs from output directory: {', '.join(missing_hucs)}\n")
+            f.close()
 
     # Loop through matching huc directories in the source_flow directory
     matching_hucs = list(set(output_flow_dir_list) & set(source_flow_dir_list))
@@ -117,23 +118,26 @@ def run_inundation(
         )
 
     except Exception:
-        # Log errors and their tracebacks
-        f = open(log_file, "a+")
-        f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
-        f.close()
-
-    # Inundation.py appends the huc code to the supplied output_extent_grid.
-    # Modify output_extent_grid to match inundation.py saved filename.
-    # Search for this file, if it didn't create, send message to log file.
-    base_file_path, extension = os.path.splitext(output_extent_grid)
-    saved_extent_grid_filename = "{}_{}{}".format(base_file_path, huc, extension)
-    if not os.path.exists(saved_extent_grid_filename):
-        with open(log_file, "a+") as f:
+        if log_file is not None:
+            # Log errors and their tracebacks
+            f = open(log_file, "a+")
             f.write(
-                "FAILURE_huc_{}:{}:{} map failed to create\n".format(
-                    huc, ahps_site, magnitude
-                )
+                f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n"
             )
+            f.close()
+
+        # Inundation.py appends the huc code to the supplied output_extent_grid.
+        # Modify output_extent_grid to match inundation.py saved filename.
+        # Search for this file, if it didn't create, send message to log file.
+        base_file_path, extension = os.path.splitext(output_extent_grid)
+        saved_extent_grid_filename = "{}_{}{}".format(base_file_path, huc, extension)
+        if not os.path.exists(saved_extent_grid_filename):
+            with open(log_file, "a+") as f:
+                f.write(
+                    "FAILURE_huc_{}:{}:{} map failed to create\n".format(
+                        huc, ahps_site, magnitude
+                    )
+                )
 
 
 def post_process_huc_level(
@@ -426,19 +430,36 @@ if __name__ == "__main__":
         default="",
     )
     parser.add_argument(
-        "-j",
-        "--number-of-jobs",
-        help="Number of processes to use. Default is 1.",
+        "-a",
+        "--attributes-dir",
+        help="Path to directory containing attributes CSVs.",
+        required=False,
+        default="",
+        type=str,
+    )
+    parser.add_argument(
+        "-jh",
+        "--job-number-huc",
+        help="Number of processes to use for HUC processing. Default is 1.",
         required=False,
         default="1",
         type=int,
     )
     parser.add_argument(
-        "-depthtif",
-        "--write-depth-tiff",
-        help="Using this option will write depth TIFFs.",
+        "-jb",
+        "--job-number-inundate",
+        help="Number of processes to use for inundation. Default is 1.",
         required=False,
-        action="store_true",
+        default="1",
+        type=int,
+    )
+    parser.add_argument(
+        "-l",
+        "--log-file",
+        help="Path to log file",
+        required=False,
+        default=None,
+        type=str,
     )
 
     args = vars(parser.parse_args())
@@ -446,9 +467,17 @@ if __name__ == "__main__":
     fim_run_dir = args["fim_run_dir"]
     source_flow_dir = args["source_flow_dir"]
     output_catfim_dir = args["output_catfim_dir"]
-    number_of_jobs = int(args["number_of_jobs"])
-    depthtif = args["write_depth_tiff"]
+    attributes_dir = args["attributes_dir"]
+    job_number_huc = int(args["job_number_huc"])
+    job_number_inundate = int(args["job_number_inundate"])
+    log_file = args["log_file"]
 
     manage_catfim_mapping(
-        fim_run_dir, source_flow_dir, output_catfim_dir, number_of_jobs, depthtif
+        fim_run_dir,
+        source_flow_dir,
+        output_catfim_dir,
+        attributes_dir,
+        job_number_huc,
+        job_number_inundate,
+        log_file,
     )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, argparse, copy, sys
+import os, argparse, copy
 import json
 import rasterio
 import numpy as np
@@ -13,6 +13,7 @@ import concurrent.futures as cf
 from tqdm import tqdm
 
 from inundation import inundate
+from mosaic_inundation import Mosaic_inundation
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
@@ -27,7 +28,8 @@ Feb 15, 2023 - This file may be deprecated. At a minimum, it needs
 
 
 class InundateModel_HUC(object):
-    def __init__(self, source_directory, huc):
+    def __init__(self, model, source_directory, huc):
+        self.model = model
         self.source_directory = source_directory
         self.huc = huc
 
@@ -69,15 +71,6 @@ class InundateModel_HUC(object):
             output_raster_name, [self.huc, self.model]
         )
 
-        # adjust to add model and huc number
-        log_file = None
-        inundation_list_file = None
-        if log_file_path != None:
-            log_file = os.path.join(log_file_path, f"{self.huc}_error_logs.txt")
-            inundation_list_file = os.path.join(
-                log_file_path, f"{self.huc}_inundation_file_list.csv"
-            )
-
         if verbose:
             print(
                 f"... Creating an inundation map for the FIM4"
@@ -85,6 +78,10 @@ class InundateModel_HUC(object):
             )
 
         if self.model in ["fr", "ms"]:
+            if self.model == "ms":
+                extent_friendly = "mainstem (MS)"
+            elif self.model == "fr":
+                extent_friendly = "full-resolution (FR)"
             rem = os.path.join(source_huc_dir, "rem_zeroed_masked.tif")
             catchments = os.path.join(
                 source_huc_dir, "gw_catchments_reaches_filtered_addedAttributes.tif"
@@ -131,7 +128,7 @@ class InundateModel_HUC(object):
         else:  # gms
             mosaic_file_path = produce_mosaicked_inundation(
                 self.source_directory,
-                self.huc,
+                [self.huc],
                 flows_file,
                 inundation_raster=output_raster_name,
                 num_workers=num_workers_branches,
@@ -194,7 +191,7 @@ class Composite_HUC(object):
         # NOTE: Leave workers as 1, it fails to composite correctly if more than one.
         #    - Also. by adding the is_mosaic_for_gms_branches = False, Mosaic_inudation
         #      will not auto add the HUC into the output name (its default behaviour)
-        mosaic_file_path = Mosaic_inundation(
+        Mosaic_inundation(
             inundation_map_file_df,
             mosaic_attribute="inundation_rasters",
             mosaic_output=composite_file_output,
@@ -268,7 +265,7 @@ class CompositeInundation(object):
             dir_list_raw = []
             missing_dir_msg = "{} directory of {} does not exist"
             args["models"] = []
-            if args["fim_dir_ms"] != None:
+            if args["fim_dir_ms"] is not None:
                 args["models"].append("ms")
                 assert os.path.isdir(args["fim_dir_ms"]), missing_dir_msg.format(
                     "ms", args["fim_dir_ms"]
@@ -276,7 +273,7 @@ class CompositeInundation(object):
                 dir_list_raw.append(args["fim_dir_ms"])
                 dir_list_lowercase.append(args["fim_dir_ms"].lower())
 
-            if args["fim_dir_fr"] != None:
+            if args["fim_dir_fr"] is not None:
                 args["models"].append("fr")
                 assert os.path.isdir(args["fim_dir_fr"]), missing_dir_msg.format(
                     "fr", args["fim_dir_fr"]
@@ -284,7 +281,7 @@ class CompositeInundation(object):
                 dir_list_raw.append(args["fim_dir_fr"])
                 dir_list_lowercase.append(args["fim_dir_fr"].lower())
 
-            if args["gms_dir"] != None:
+            if args["gms_dir"] is not None:
                 args["models"].append("gms")
                 assert os.path.isdir(args["gms_dir"]), missing_dir_msg.format(
                     "gms", args["gms_dir"]
@@ -292,7 +289,9 @@ class CompositeInundation(object):
                 dir_list_raw.append(args["gms_dir"])
                 dir_list_lowercase.append(args["gms_dir"].lower())
 
-            if len(args["models"]) != 2:
+            if not len(args["models"]) != 2 or (
+                len(args["models"]) == 1 and not "gms" in args["models"]
+            ):
                 raise ValueError(
                     "Must submit exactly two directories (ms, fr and/or gms"
                 )
@@ -402,7 +401,8 @@ class CompositeInundation(object):
         # if len(huc_list == 1): # skip iterator
         if number_huc_workers == 1:
             for huc in sorted(huc_list):
-                Composite_HUC.composite_huc(huc, args)
+                args["current_huc"] = huc
+                Composite_HUC.composite_huc(args)
         else:
             print(f"Processing {len(huc_list)} hucs")
             args_list = []
@@ -429,7 +429,7 @@ class CompositeInundation(object):
                 try:
                     future.result()
                 except Exception as exc:
-                    print("{}, {}, {}".format(hucCode, exc.__class__.__name__, exc))
+                    print("{}, {}, {}".format(huc, exc.__class__.__name__, exc))
 
             print("All hucs have been processed")
 

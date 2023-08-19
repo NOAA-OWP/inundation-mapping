@@ -1,78 +1,27 @@
 import os, sys
 import argparse
 import errno
-import rasterio
-from rasterio.features import shapes
-import geopandas as gpd
-import numpy as np
-from shapely.geometry.polygon import Polygon
-from shapely.geometry.multipolygon import MultiPolygon
 from timeit import default_timer as timer
 
 sys.path.append("/foss_fim/tools")
 from mosaic_inundation import Mosaic_inundation, mosaic_final_inundation_extent_to_poly
 from inundate_gms import Inundate_gms
-
-
-def inundate_and_mosaic(
-    hydrofabric_dir,
-    huc,
-    flow_file,
-    inundation_raster,
-    depths_raster,
-    log_file,
-    output_fileNames,
-    num_workers,
-    remove_intermediate,
-    verbose,
-    mosaic_attribute,
-    huc_dir,
-):
-    """
-    Helper function. Refer to produce_mosaicked_inundation for arg descriptions.
-    """
-
-    map_file = Inundate_gms(
-        hydrofabric_dir=hydrofabric_dir,
-        forecast=flow_file,
-        num_workers=num_workers,
-        hucs=huc,
-        inundation_raster=inundation_raster,
-        inundation_polygon=None,
-        depths_raster=depths_raster,
-        verbose=verbose,
-        log_file=None,
-        output_fileNames=None,
-    )
-
-    print("Mosaicking extent for " + huc + "...")
-    # Call Mosaic_inundation
-    Mosaic_inundation(
-        map_file,
-        mosaic_attribute=mosaic_attribute,
-        mosaic_output=inundation_raster if depths_raster == None else depths_raster,
-        mask=os.path.join(huc_dir, "wbd.gpkg"),
-        unit_attribute_name="huc8",
-        nodata=-9999,
-        workers=1,
-        remove_inputs=remove_intermediate,
-        subset=None,
-        verbose=verbose,
-    )
+from utils.shared_variables import elev_raster_ndv
 
 
 def produce_mosaicked_inundation(
     hydrofabric_dir,
-    huc,
+    hucs,
     flow_file,
-    inundation_raster,
-    inundation_polygon,
-    depths_raster,
-    log_file,
-    output_fileNames,
-    num_workers,
-    remove_intermediate,
-    verbose,
+    inundation_raster=None,
+    inundation_polygon=None,
+    depths_raster=None,
+    mask=None,
+    unit_attribute_name="huc8",
+    num_workers=1,
+    remove_intermediate=True,
+    verbose=False,
+    is_mosaic_for_branches=False,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps. Possible outputs include inundation rasters
@@ -87,13 +36,14 @@ def produce_mosaicked_inundation(
         inundation_raster (str): Full path to output inundation raster (encoded by positive and negative HydroIDs).
         inuntation_polygon (str): Full path to output inundation polygon. Optional.
         depths_raster (str): Full path to output depths_raster. Pixel values will be in meters. Optional.
-        log_file (str): Full path to log file to write logs to. Optional. Not tested.
-        output_fileNames (str): Full path to CSV containing paths to output file names. Optional. Not tested.
         num_workers (int): Number of parallel jobs to run.
-        keep_intermediate (bool): Option to keep intermediate files. Not tested.
+        keep_intermediate (bool): Option to keep intermediate files.
         verbose (bool): Print verbose messages to screen. Not tested.
-
     """
+
+    # Check that inundation_raster or depths_raster is supplied
+    if inundation_raster is None and depths_raster is None:
+        raise ValueError("Must supply either inundation_raster or depths_raster.")
 
     # Check that output directory exists. Notify user that output directory will be created if not.
     for output_file in [inundation_raster, inundation_polygon, depths_raster]:
@@ -115,14 +65,15 @@ def produce_mosaicked_inundation(
         )
 
     # Check that huc folder exists in the hydrofabric_dir.
-    if not os.path.exists(os.path.join(hydrofabric_dir, huc)):
-        raise FileNotFoundError(
-            (
-                errno.ENOENT,
-                os.strerror(errno.ENOENT),
-                os.path.join(hydrofabric_dir, huc),
+    for huc in hucs:
+        if not os.path.exists(os.path.join(hydrofabric_dir, huc)):
+            raise FileNotFoundError(
+                (
+                    errno.ENOENT,
+                    os.strerror(errno.ENOENT),
+                    os.path.join(hydrofabric_dir, huc),
+                )
             )
-        )
 
     # Check that flow file exists
     if not os.path.exists(flow_file):
@@ -137,60 +88,60 @@ def produce_mosaicked_inundation(
             "Please lower the num_workers.".format(num_workers, total_cpus_available)
         )
 
-    huc_dir = os.path.join(hydrofabric_dir, huc)
     print("Running inundate for " + huc + "...")
+
     # Call Inundate_gms
-    fn_inundation_raster, fn_depths_raster, mosaic_attribute = (
-        inundation_raster,
-        None,
-        "inundation_rasters",
+    map_file = Inundate_gms(
+        hydrofabric_dir=hydrofabric_dir,
+        forecast=flow_file,
+        num_workers=num_workers,
+        hucs=hucs,
+        inundation_raster=inundation_raster,
+        depths_raster=depths_raster,
+        verbose=verbose,
     )
 
-    inundate_and_mosaic(
-        hydrofabric_dir,
-        huc,
-        flow_file,
-        fn_inundation_raster,
-        fn_depths_raster,
-        log_file,
-        output_fileNames,
-        num_workers,
-        remove_intermediate,
-        verbose,
-        mosaic_attribute,
-        huc_dir,
-    )
+    print("Mosaicking extent...")
 
-    # Produce depths if instructed
-    if depths_raster != None:
-        print("Computing depths for " + huc + "...")
-        fn_inundation_raster, fn_depths_raster, mosaic_attribute = (
-            None,
-            depths_raster,
-            "depths_rasters",
-        )
+    mosaic_file_path_list = []
+    polygon_raster = None
+    for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
+        mosaic_output = None
+        if mosaic_attribute == "inundation_rasters":
+            if inundation_raster is not None:
+                polygon_raster = inundation_raster
+                mosaic_output = inundation_raster
+        elif mosaic_attribute == "depths_rasters":
+            if depths_raster is not None:
+                polygon_raster = depths_raster
+                mosaic_output = depths_raster
 
-        inundate_and_mosaic(
-            hydrofabric_dir,
-            huc,
-            flow_file,
-            fn_inundation_raster,
-            fn_depths_raster,
-            log_file,
-            output_fileNames,
-            num_workers,
-            remove_intermediate,
-            verbose,
-            mosaic_attribute,
-            huc_dir,
-        )
-    else:
-        pass
+        if mosaic_output is not None:
+            # Call Mosaic_inundation
+            mosaic_file_path = Mosaic_inundation(
+                map_file.copy(),
+                mosaic_attribute=mosaic_attribute,
+                mosaic_output=mosaic_output,
+                mask=mask,
+                unit_attribute_name=unit_attribute_name,
+                nodata=elev_raster_ndv,
+                remove_inputs=remove_intermediate,
+                verbose=verbose,
+                is_mosaic_for_branches=is_mosaic_for_branches,
+            )
 
-    if inundation_polygon != None:
-        mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon)
+            mosaic_file_path_list.append(mosaic_file_path)
+
+    if polygon_raster is not None and inundation_polygon is not None:
+        print("Converting inundation raster to polygon...")
+        mosaic_final_inundation_extent_to_poly(polygon_raster, inundation_polygon)
 
     print("Mosaicking complete.")
+
+    if len(mosaic_file_path_list) == 1:
+        mosaic_file_path_list = mosaic_file_path_list[0]
+
+    return mosaic_file_path_list
 
 
 if __name__ == "__main__":
@@ -203,6 +154,7 @@ if __name__ == "__main__":
         "--hydrofabric_dir",
         help="Directory path to FIM hydrofabric by processing unit.",
         required=True,
+        type=str,
     )
     parser.add_argument(
         "-u",
@@ -211,19 +163,22 @@ if __name__ == "__main__":
         required=True,
         default="",
         type=str,
+        nargs="+",
     )
     parser.add_argument(
         "-f",
         "--flow_file",
         help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns MUST be supplied.',
         required=True,
+        type=str,
     )
     parser.add_argument(
         "-i",
         "--inundation-raster",
         help="Inundation raster output.",
-        required=True,
+        required=False,
         default=None,
+        type=str,
     )
     parser.add_argument(
         "-p",
@@ -231,6 +186,7 @@ if __name__ == "__main__":
         help="Inundation polygon output. Only writes if designated.",
         required=False,
         default=None,
+        type=str,
     )
     parser.add_argument(
         "-d",
@@ -238,20 +194,7 @@ if __name__ == "__main__":
         help="Depths raster output. Only writes if designated. Appends HUC code in batch mode.",
         required=False,
         default=None,
-    )
-    parser.add_argument(
-        "-l",
-        "--log-file",
-        help="Log-file to store level-path exceptions. Not tested.",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-o",
-        "--output-fileNames",
-        help="Output CSV file with filenames for inundation rasters, inundation polygons, and depth rasters. Not tested.",
-        required=False,
-        default=None,
+        type=str,
     )
     parser.add_argument(
         "-w",
@@ -264,9 +207,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-r",
         "--remove-intermediate",
-        help="Keep intermediate products, i.e. individual branch inundation.",
+        help="Remove intermediate products, i.e. individual branch inundation.",
         required=False,
-        default=False,
+        default=True,
         action="store_true",
     )
     parser.add_argument(
