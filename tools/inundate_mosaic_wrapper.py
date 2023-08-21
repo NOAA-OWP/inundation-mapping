@@ -4,9 +4,10 @@ import errno
 from timeit import default_timer as timer
 
 sys.path.append("/foss_fim/tools")
-from mosaic_inundation import Mosaic_inundation, mosaic_final_inundation_extent_to_poly
+from mosaic_inundation import Mosaic_inundation
 from inundate_gms import Inundate_gms
 from utils.shared_variables import elev_raster_ndv
+from utils.shared_functions import FIM_Helpers as fh
 
 
 def produce_mosaicked_inundation(
@@ -51,18 +52,17 @@ def produce_mosaicked_inundation(
             continue
         parent_dir = os.path.split(output_file)[0]
         if not os.path.exists(parent_dir):
-            print(
+            fh.vprint(
                 "Parent directory for "
                 + os.path.split(output_file)[1]
-                + " does not exist. The parent directory will be produced."
+                + " does not exist. The parent directory will be produced.",
+                verbose,
             )
             os.makedirs(parent_dir)
 
     # Check that hydrofabric_dir exists
     if not os.path.exists(hydrofabric_dir):
-        raise FileNotFoundError(
-            errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir
-        )
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
     # Check that huc folder exists in the hydrofabric_dir.
     for huc in hucs:
@@ -88,7 +88,7 @@ def produce_mosaicked_inundation(
             "Please lower the num_workers.".format(num_workers, total_cpus_available)
         )
 
-    print("Running inundate for " + huc + "...")
+    fh.vprint("Running inundate for " + huc + "...", verbose)
 
     # Call Inundate_gms
     map_file = Inundate_gms(
@@ -101,19 +101,16 @@ def produce_mosaicked_inundation(
         verbose=verbose,
     )
 
-    print("Mosaicking extent...")
+    fh.vprint("Mosaicking extent...", verbose)
 
     mosaic_file_path_list = []
-    polygon_raster = None
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
         if mosaic_attribute == "inundation_rasters":
             if inundation_raster is not None:
-                polygon_raster = inundation_raster
                 mosaic_output = inundation_raster
         elif mosaic_attribute == "depths_rasters":
             if depths_raster is not None:
-                polygon_raster = depths_raster
                 mosaic_output = depths_raster
 
         if mosaic_output is not None:
@@ -128,15 +125,12 @@ def produce_mosaicked_inundation(
                 remove_inputs=remove_intermediate,
                 verbose=verbose,
                 is_mosaic_for_branches=is_mosaic_for_branches,
+                inundation_polygon=inundation_polygon,
             )
 
             mosaic_file_path_list.append(mosaic_file_path)
 
-    if polygon_raster is not None and inundation_polygon is not None:
-        print("Converting inundation raster to polygon...")
-        mosaic_final_inundation_extent_to_poly(polygon_raster, inundation_polygon)
-
-    print("Mosaicking complete.")
+    fh.vprint("Mosaicking complete.", verbose)
 
     if len(mosaic_file_path_list) == 1:
         mosaic_file_path_list = mosaic_file_path_list[0]

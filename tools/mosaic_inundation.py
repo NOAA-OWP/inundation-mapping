@@ -4,10 +4,6 @@
 import argparse
 import os
 import pandas as pd
-import sys
-
-
-from glob import glob
 from overlapping_inundation import OverlapWindowMerge
 from tqdm import tqdm
 from utils.shared_variables import elev_raster_ndv
@@ -16,7 +12,7 @@ from utils.shared_functions import FIM_Helpers as fh
 
 def Mosaic_inundation(
     map_file,
-    mosaic_attribute="inundation_rasters",
+    mosaic_attribute,
     mosaic_output=None,
     mask=None,
     unit_attribute_name="huc8",
@@ -26,11 +22,8 @@ def Mosaic_inundation(
     subset=None,
     verbose=True,
     is_mosaic_for_branches=False,
+    inundation_polygon=None,
 ):
-    # Notes:
-    #    - If is_mosaic_for_branches is true, the mosaic output name
-    #      will add the HUC into the output name for overwrite resons.
-
     # check input
     if mosaic_attribute not in ("inundation_rasters", "depths_rasters"):
         raise ValueError("Pass inundation or depths for mosaic_attribute argument")
@@ -40,13 +33,9 @@ def Mosaic_inundation(
         inundation_maps_df = map_file
         del map_file
     elif isinstance(map_file, str):
-        inundation_maps_df = pd.read_csv(
-            map_file, dtype={unit_attribute_name: str, "branchID": str}
-        )
+        inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
     else:
-        raise TypeError(
-            "Pass Pandas Dataframe or file path string to csv for map_file argument"
-        )
+        raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
     # remove NaNs
     inundation_maps_df.dropna(axis=0, how="all", inplace=True)
@@ -80,7 +69,7 @@ def Mosaic_inundation(
         # Some processes may have already added the ag value (if it is a huc) to
         # the file name, so don't re-add it.
         # Only add the huc into the name if branches are being processed, as
-        # sometimes the mosiac is not for gms branches but maybe mosaic of an
+        # sometimes the mosaic is not for gms branches but maybe mosaic of an
         # fr set with a gms composite map.
 
         ag_mosaic_output = mosaic_output
@@ -99,6 +88,9 @@ def Mosaic_inundation(
 
     # inundation maps
     inundation_maps_df.reset_index(drop=True)
+
+    if inundation_polygon is not None:
+        mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
 
     # Return file name and path of the final mosaic output file.
     # Might be empty.
@@ -126,9 +118,7 @@ def mosaic_by_unit(
         else:
             threaded = False
 
-        overlap.merge_rasters(
-            mosaic_output, threaded=threaded, workers=workers, nodata=nodata
-        )
+        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
         if mask:
             fh.vprint("Masking ...", verbose)
@@ -143,7 +133,7 @@ def mosaic_by_unit(
                     os.remove(inun_map)
 
 
-def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon):
+def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon, driver="GPKG"):
     import numpy as np
     import rasterio
     from rasterio.features import shapes
@@ -158,15 +148,11 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
         print("Producing merged polygon...")
 
         # Use numpy.where operation to reclassify depth_array on the condition that the pixel values are > 0.
-        reclass_inundation_array = np.where(
-            (image > 0) & (image != src.nodata), 1, 0
-        ).astype("uint8")
+        reclass_inundation_array = np.where((image > 0) & (image != src.nodata), 1, 0).astype("uint8")
 
         results = (
             {"properties": {"extent": 1}, "geometry": s}
-            for i, (s, v) in enumerate(
-                shapes(image, mask=mask, transform=src.transform)
-            )
+            for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         )
 
         # Aggregate shapes
@@ -190,7 +176,7 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
         ]
 
         # Write polygon
-        extent_poly_diss.to_file(inundation_polygon, driver="GPKG")
+        extent_poly_diss.to_file(inundation_polygon, driver=driver)
 
 
 if __name__ == "__main__":
@@ -224,9 +210,7 @@ if __name__ == "__main__":
         required=False,
         default=elev_raster_ndv,
     )
-    parser.add_argument(
-        "-w", "--workers", help="Number of Workers", required=False, default=4, type=int
-    )
+    parser.add_argument("-w", "--workers", help="Number of Workers", required=False, default=4, type=int)
     parser.add_argument(
         "-t",
         "--mosaic-attribute",
@@ -260,7 +244,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-g",
         "--is-mosaic-for-branches",
-        help="If the mosaic is for branchs, include this arg",
+        help="If the mosaic is for branchs, include this arg. If is_mosaic_for_branches is true, the mosaic output name will add the HUC into the output name for overwrite reasons.",
         required=False,
         default=False,
         action="store_true",
