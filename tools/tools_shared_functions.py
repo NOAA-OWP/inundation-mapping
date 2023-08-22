@@ -118,9 +118,9 @@ def compute_contingency_stats_from_rasters(predicted_raster_path: str, benchmark
 
     # Get statistics table from two rasters.
     stats_dictionary = get_stats_table_from_binary_rasters(benchmark_raster_path,
-                                                                 predicted_raster_path,
-                                                                 agreement_raster,
-                                                                 mask_dict=mask_dict)
+                                                           predicted_raster_path,
+                                                           agreement_raster,
+                                                           mask_dict=mask_dict)
 
     for stats_mode in stats_dictionary:
 
@@ -135,7 +135,6 @@ def compute_contingency_stats_from_rasters(predicted_raster_path: str, benchmark
             stats_json = os.path.join(os.path.split(stats_csv)[0], stats_mode + '_stats.json')
             with open(stats_json, "w") as outfile:
                 json.dump(stats_dictionary[stats_mode], outfile)
-
 
     return stats_dictionary
 
@@ -180,17 +179,27 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     This generic function takes contingency table metrics as arguments and returns a dictionary of contingency table statistics.
     Much of the calculations below were taken from older Python files. This is evident in the inconsistent use of case.
 
-    Args:
-        true_negatives (int): The true negatives from a contingency table.
-        false_negatives (int): The false negatives from a contingency table.
-        false_positives (int): The false positives from a contingency table.
-        true_positives (int): The true positives from a contingency table.
-        cell_area (float or None): This optional argument allows for area-based statistics to be calculated, in the case that
-                                   contingency table metrics were derived from areal analysis.
+    Parameters
+    ----------
+    true_negatives: int
+        The true negatives from a contingency table.
+    false_negatives: int
+        The false negatives from a contingency table.
+    false_positives: int
+        The false positives from a contingency table.
+    true_positives: int
+        The true positives from a contingency table.
+    cell_area: float, default = None
+        This optional argument allows for area-based statistics to be calculated, in the case that contingency
+        table metrics were derived from areal analysis.
+    masked_count: int, default = None
+        Amount of pixels masked out of array
 
-    Returns:
-        stats_dictionary (dict): A dictionary of statistics. Statistic names are keys and statistic values are the values.
-                                 Refer to dictionary definition in bottom of function for statistic names.
+    Returns
+    -------
+    dict
+        A dictionary of statistics. Statistic names are keys and statistic values are the values.
+        Refer to dictionary definition in bottom of function for statistic names.
 
     """
 
@@ -213,7 +222,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
 def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: int) -> dict:
     """
     Crosswalks metrics made from GVAL to standard FIM names and conventions
-    
+
     Parameters
     ----------
     metric_df: pd.DataFrame
@@ -342,30 +351,41 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
     """
 
     # Load benchmark and candidate data
-    benchmark_raster = rxr.open_rasterio(benchmark_raster_path, mask_and_scale=True)
+    benchmark_raster = rxr.open_rasterio(benchmark_raster_path)
     cell_area = np.abs(np.prod(benchmark_raster.rio.resolution()))
-    candidate_raster = rxr.open_rasterio(candidate_raster_path, mask_and_scale=True)
-    candidate_raster.data = xr.where(candidate_raster >= 0, 1, candidate_raster)
-    candidate_raster.data = xr.where(candidate_raster < 0, 0, candidate_raster)
+    candidate_raster = rxr.open_rasterio(candidate_raster_path)
+    candidate_raster.data = xr.where(
+        (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster >= 0), 1, candidate_raster
+    )
+    candidate_raster.data = xr.where(
+        (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster < 0), 0, candidate_raster
+    )
+    candidate_raster.data = xr.where(
+        candidate_raster == candidate_raster.rio.nodata, 10, candidate_raster
+    )
+    candidate_raster = candidate_raster.rio.write_nodata(10)
+    benchmark_raster.data = xr.where(
+        benchmark_raster == benchmark_raster.rio.nodata, 10, benchmark_raster
+    )
+    benchmark_raster = benchmark_raster.rio.write_nodata(10)
 
     pairing_dictionary = {
         (0, 0): 0,
         (0, 1): 1,
-        (0, np.nan): np.nan,
+        (0, 10): 10,
         (1, 0): 2,
         (1, 1): 3,
-        (1, np.nan): np.nan,
+        (1, 10): 10,
         (4, 0): 4,
         (4, 1): 4,
-        (4, np.nan): np.nan,
-        (np.nan, 0): np.nan,
-        (np.nan, 1): np.nan,
-        (np.nan, np.nan): np.nan
+        (4, 10): 10,
+        (10, 0): 10,
+        (10, 1): 10,
+        (10, 10): 10
     }
 
-
     # Loop through exclusion masks and mask the agreement_array.
-    rasterized_mask_list = []
+    all_masks_df = None
     if mask_dict != {}:
         for poly_layer in mask_dict:
 
@@ -393,16 +413,22 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
 
                 poly_all_proj['mask'] = 4
 
-                rasterized_mask_list.append(make_geocube(poly_all_proj, ['mask'], like=candidate_raster))
+                if all_masks_df is not None:
+                    all_masks_df = pd.concat([all_masks_df, poly_all_proj])
+                else:
+                    all_masks_df = poly_all_proj
 
                 del poly_all, poly_all_proj
 
     og_data = candidate_raster.data
-    if len(rasterized_mask_list) > 0:
-        all_masks = xr.merge(rasterized_mask_list).to_array()
+    if all_masks_df is not None:
+        all_masks = make_geocube(all_masks_df, ['mask'], like=candidate_raster)
         # Hold on to original data
 
-        candidate_raster.data = xr.where((all_masks.data == 4) & (candidate_raster.isnull() == 0), 4, candidate_raster)
+        candidate_raster.data = xr.where(
+            (all_masks['mask'].data == 4) & (candidate_raster.isnull() == 0), 4, candidate_raster
+        )
+        del all_masks
 
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
@@ -442,7 +468,7 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
                                                                      cell_area=cell_area,
                                                                      masked_count=np.sum(agreement_map.data == 4))})
 
-    del agreement_map, crosstab_table, metrics_table, all_masks, rasterized_mask_list
+    del agreement_map, crosstab_table, metrics_table
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
@@ -473,7 +499,9 @@ def get_stats_table_from_binary_rasters(benchmark_raster_path: str,
 
                 mask = make_geocube(poly_all_proj, ['mask'], like=candidate_raster).to_array()
                 candidate_raster.data = og_data
-                candidate_raster.data = xr.where((mask.data != 4) & (candidate_raster.isnull() == 0), 4, candidate_raster)
+                candidate_raster.data = xr.where((mask.data != 4) & (candidate_raster.isnull() == 0), 4,
+                                                 candidate_raster)
+                del mask
 
                 poly_handle = poly_layer + '_b' + str(buffer_val) + 'm'
 
