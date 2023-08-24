@@ -73,13 +73,7 @@ def generate_categorical_fim(
                     magnitude_flows_csv = os.path.join(
                         ahps_site_parent,
                         magnitude,
-                        "ahps_"
-                        + ahps_site
-                        + "_huc_"
-                        + huc
-                        + "_flows_"
-                        + magnitude
-                        + ".csv",
+                        "ahps_" + ahps_site + "_huc_" + huc + "_flows_" + magnitude + ".csv",
                     )
                     if os.path.exists(magnitude_flows_csv):
                         output_extent_grid = os.path.join(
@@ -99,6 +93,12 @@ def generate_categorical_fim(
                                 job_number_inundate,
                             )
                         except Exception:
+                            if log_file is not None:
+                                # Log errors and their tracebacks
+                                f = open(log_file, "a+")
+                                f.write(f"{traceback.format_exc()}\n")
+                                f.close()
+
                             traceback.print_exc()
                             sys.exit(1)
 
@@ -121,9 +121,7 @@ def run_inundation(
         if log_file is not None:
             # Log errors and their tracebacks
             f = open(log_file, "a+")
-            f.write(
-                f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n"
-            )
+            f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
             f.close()
 
         # Inundation.py appends the huc code to the supplied output_extent_grid.
@@ -133,11 +131,7 @@ def run_inundation(
         saved_extent_grid_filename = "{}_{}{}".format(base_file_path, huc, extension)
         if not os.path.exists(saved_extent_grid_filename):
             with open(log_file, "a+") as f:
-                f.write(
-                    "FAILURE_huc_{}:{}:{} map failed to create\n".format(
-                        huc, ahps_site, magnitude
-                    )
-                )
+                f.write("FAILURE_huc_{}:{}:{} map failed to create\n".format(huc, ahps_site, magnitude))
 
 
 def post_process_huc_level(
@@ -155,9 +149,7 @@ def post_process_huc_level(
                 tifs_to_reformat_list.append(os.path.join(ahps_lid_dir, tif))
 
         # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
-        nws_lid_attributes_filename = os.path.join(
-            attributes_dir, ahps_lid + "_attributes.csv"
-        )
+        nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + "_attributes.csv")
 
         print(f"Reformatting TIFs {ahps_lid} for {huc_dir}")
         with ProcessPoolExecutor(max_workers=job_number_tif) as executor:
@@ -257,13 +249,9 @@ def post_process_cat_fim_for_viz(
             # Write/append aggregate diss_extent
             print(f"Merging layer: {layer}")
             if os.path.isfile(merged_layer):
-                diss_extent.to_file(
-                    merged_layer, driver=getDriver(merged_layer), index=False, mode="a"
-                )
+                diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, mode="a")
             else:
-                diss_extent.to_file(
-                    merged_layer, driver=getDriver(merged_layer), index=False
-                )
+                diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False)
             del diss_extent
 
             # shutil.rmtree(gpkg_dir)  # TODO
@@ -291,9 +279,7 @@ def reformat_inundation_maps(
         # Aggregate shapes
         results = (
             {"properties": {"extent": 1}, "geometry": s}
-            for i, (s, v) in enumerate(
-                shapes(image, mask=mask, transform=src.transform)
-            )
+            for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         )
 
         # Convert list of shapes to polygon
@@ -312,12 +298,9 @@ def reformat_inundation_maps(
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
         # Join attributes
-        nws_lid_attributes_table = pd.read_csv(
-            nws_lid_attributes_filename, dtype={"huc": str}
-        )
+        nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={"huc": str})
         nws_lid_attributes_table = nws_lid_attributes_table.loc[
-            (nws_lid_attributes_table.magnitude == magnitude)
-            & (nws_lid_attributes_table.nws_lid == ahps_lid)
+            (nws_lid_attributes_table.magnitude == magnitude) & (nws_lid_attributes_table.nws_lid == ahps_lid)
         ]
         extent_poly_diss = extent_poly_diss.merge(
             nws_lid_attributes_table,
@@ -340,8 +323,11 @@ def reformat_inundation_maps(
                 index=False,
             )
 
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"*** {e}")
+        traceback.print_exc()
+        sys.exit(1)
+
         # Log and clean out the gdb so it's not merged in later
 
 
@@ -361,6 +347,7 @@ def manage_catfim_mapping(
     attributes_dir,
     job_number_huc,
     job_number_inundate,
+    log_file,
 ):
     # Create output directory
     if not os.path.exists(output_catfim_dir):
@@ -406,9 +393,7 @@ def manage_catfim_mapping(
 
 if __name__ == "__main__":
     # Parse arguments
-    parser = argparse.ArgumentParser(
-        description="Categorical inundation mapping for FOSS FIM."
-    )
+    parser = argparse.ArgumentParser(description="Categorical inundation mapping for FOSS FIM.")
     parser.add_argument(
         "-r",
         "--fim-run-dir",

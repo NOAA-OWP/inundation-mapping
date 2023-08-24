@@ -17,6 +17,7 @@ def produce_mosaicked_inundation(
     inundation_raster=None,
     inundation_polygon=None,
     depths_raster=None,
+    map_filename=None,
     mask=None,
     unit_attribute_name="huc8",
     num_workers=1,
@@ -101,9 +102,15 @@ def produce_mosaicked_inundation(
         verbose=verbose,
     )
 
+    # Write map file if designated
+    if map_filename is not None:
+        if not os.path.isdir(os.path.dirname(map_filename)):
+            os.makedirs(os.path.dirname(map_filename))
+
+        map_file.to_csv(map_filename, index=False)
+
     fh.vprint("Mosaicking extent...", verbose)
 
-    mosaic_file_path_list = []
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
         if mosaic_attribute == "inundation_rasters":
@@ -113,29 +120,24 @@ def produce_mosaicked_inundation(
             if depths_raster is not None:
                 mosaic_output = depths_raster
 
-        if mosaic_output is not None:
-            # Call Mosaic_inundation
-            mosaic_file_path = Mosaic_inundation(
-                map_file.copy(),
-                mosaic_attribute=mosaic_attribute,
-                mosaic_output=mosaic_output,
-                mask=mask,
-                unit_attribute_name=unit_attribute_name,
-                nodata=elev_raster_ndv,
-                remove_inputs=remove_intermediate,
-                verbose=verbose,
-                is_mosaic_for_branches=is_mosaic_for_branches,
-                inundation_polygon=inundation_polygon,
-            )
-
-            mosaic_file_path_list.append(mosaic_file_path)
+    if mosaic_output is not None:
+        # Call Mosaic_inundation
+        mosaic_file_path = Mosaic_inundation(
+            map_file.copy(),
+            mosaic_attribute=mosaic_attribute,
+            mosaic_output=mosaic_output,
+            mask=mask,
+            unit_attribute_name=unit_attribute_name,
+            nodata=elev_raster_ndv,
+            remove_inputs=remove_intermediate,
+            verbose=verbose,
+            is_mosaic_for_branches=is_mosaic_for_branches,
+            inundation_polygon=inundation_polygon,
+        )
 
     fh.vprint("Mosaicking complete.", verbose)
 
-    if len(mosaic_file_path_list) == 1:
-        mosaic_file_path_list = mosaic_file_path_list[0]
-
-    return mosaic_file_path_list
+    return mosaic_file_path
 
 
 if __name__ == "__main__":
@@ -152,7 +154,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-u",
-        "--huc",
+        "--hucs",
         help="List of HUCS to run",
         required=True,
         default="",
@@ -191,6 +193,30 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
+        "-m",
+        "--map-filename",
+        help="Path to write output map file CSV (optional). Default is None.",
+        required=False,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "-k",
+        "--mask",
+        help="Name of mask file.",
+        required=False,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "-a",
+        "--unit_attribute_name",
+        help='Name of attribute column in map_file. Default is "huc8".',
+        required=False,
+        default="huc8",
+        type=str,
+    )
+    parser.add_argument(
         "-w",
         "--num-workers",
         help="Number of workers.",
@@ -203,7 +229,7 @@ if __name__ == "__main__":
         "--remove-intermediate",
         help="Remove intermediate products, i.e. individual branch inundation.",
         required=False,
-        default=True,
+        default=False,
         action="store_true",
     )
     parser.add_argument(
