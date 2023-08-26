@@ -131,7 +131,7 @@ def mosaic_by_unit(
         else:
             threaded = False
 
-        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
+        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=1, nodata=nodata)
 
         if mask:
             fh.vprint("Masking ...", verbose)

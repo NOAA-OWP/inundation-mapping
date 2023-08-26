@@ -111,10 +111,18 @@ def run_inundation(
     magnitude,
     log_file,
     fim_run_dir,
+    job_number_inundate,
 ):
     try:
+        print("Inundating and mosaicking for " + huc)
         produce_mosaicked_inundation(
-            fim_run_dir, huc, magnitude_flows_csv, inundation_raster=output_extent_grid
+            fim_run_dir,
+            huc,
+            magnitude_flows_csv,
+            inundation_raster=output_extent_grid,
+            num_workers=job_number_inundate,
+            mask=os.path.join(fim_run_dir, huc, "wbd.gpkg"),
+            verbose=True,
         )
 
     except Exception:
