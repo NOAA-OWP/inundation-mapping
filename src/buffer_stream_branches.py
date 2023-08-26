@@ -42,8 +42,8 @@ if __name__ == "__main__":
     # parse arguments
     parser = argparse.ArgumentParser(description="Generates branch polygons")
     parser.add_argument("-a", "--dem-domain", help="DEM domain file", required=False, type=str)
-    parser.add_argument("-s", "--streams", help="Streams file to branch", required=True)
-    parser.add_argument("-i", "--branch-id", help="Attribute with branch ids", required=True)
+    parser.add_argument("-s", "--streams-file", help="Streams file to branch", required=True)
+    parser.add_argument("-i", "--branch-id-attribute", help="Attribute with branch ids", required=True)
     parser.add_argument(
         "-d",
         "--buffer-distance",
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         type=int,
     )
     parser.add_argument(
-        "-b", "--branches", help="Branch polygons out file name", required=False, default=None
+        "-b", "--stream-polygons-file", help="Branch polygons out file name", required=False, default=None
     )
     parser.add_argument(
         "-v", "--verbose", help="Verbose printing", required=False, default=None, action="store_true"
