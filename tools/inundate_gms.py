@@ -304,6 +304,3 @@ if __name__ == '__main__':
     parser.add_argument(
         '-v', '--verbose', help='Verbose printing', required=False, default=None, action='store_true'
     )
-
-    # extract to dictionary and run
-    Inundate_gms(**vars(parser.parse_args()))

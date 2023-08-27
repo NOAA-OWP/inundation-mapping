@@ -137,6 +137,48 @@ def mosaic_by_unit(
                     os.remove(inun_map)
 
 
+def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon):
+    import geopandas as gpd
+    import numpy as np
+    import rasterio
+    from rasterio.features import shapes
+    from shapely.geometry.multipolygon import MultiPolygon
+    from shapely.geometry.polygon import Polygon
+
+    with rasterio.open(inundation_raster) as src:
+        # Open inundation_raster using rasterio.
+        image = src.read(1)
+        mask = image > 0
+        print("Producing merged polygon...")
+
+        # Use numpy.where operation to reclassify depth_array on the condition that the pixel values are > 0.
+        reclass_inundation_array = np.where((image > 0) & (image != src.nodata), 1, 0).astype('uint8')
+
+        results = (
+            {'properties': {'extent': 1}, 'geometry': s}
+            for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
+        )
+
+        # Aggregate shapes
+        results = (
+            {'properties': {'extent': 1}, 'geometry': s}
+            for i, (s, v) in enumerate(
+                shapes(reclass_inundation_array, mask=reclass_inundation_array > 0, transform=src.transform)
+            )
+        )
+
+        # Convert list of shapes to polygon, then dissolve
+        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
+        extent_poly_diss = extent_poly.dissolve(by='extent')
+        extent_poly_diss["geometry"] = [
+            MultiPolygon([feature]) if type(feature) == Polygon else feature
+            for feature in extent_poly_diss["geometry"]
+        ]
+
+        # Write polygon
+        extent_poly_diss.to_file(inundation_polygon, driver='GPKG')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mosaic GMS Inundation Rasters')
     parser.add_argument(
