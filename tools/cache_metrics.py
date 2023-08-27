@@ -5,10 +5,10 @@ import os
 import traceback
 from multiprocessing import Pool
 
-from run_test_case import run_alpha_test
+from run_test_case import Test_Case
 
 
-TEST_CASES_DIR = r'/data/test_cases_new/'  # TODO remove "_new"
+TEST_CASES_DIR = r'/data/test_cases/'
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
 OUTPUTS_DIR = r'/outputs'
 
@@ -22,13 +22,13 @@ def process_alpha_test(args):
 
     mask_type = 'huc'
 
-    if archive_results == False:
+    if archive_results is False:
         compare_to_previous = True
     else:
         compare_to_previous = False
 
     try:
-        run_alpha_test(
+        Test_Case.run_alpha_test(
             fim_run_dir,
             version,
             test_id,
@@ -54,11 +54,7 @@ if __name__ == '__main__':
         '-v', '--fim-version', help='Name of fim version to cache.', required=False, default="all"
     )
     parser.add_argument(
-        '-j',
-        '--job-number',
-        help='Number of processes to use. Default is 1.',
-        required=False,
-        default="1",
+        '-j', '--job-number', help='Number of processes to use. Default is 1.', required=False, default="1"
     )
     parser.add_argument(
         '-s',
@@ -99,7 +95,7 @@ if __name__ == '__main__':
 
     benchmark_category_list = []
 
-    if benchmark_category == None:
+    if benchmark_category is None:
         for d in test_cases_dir_list:
             if 'test_cases' in d:
                 benchmark_category_list.append(d.replace('_test_cases', ''))
@@ -140,9 +136,7 @@ if __name__ == '__main__':
 
                             print("Adding " + test_id + " to list of test_ids to process...")
                             if job_number > 1:
-                                procs_list.append(
-                                    [fim_run_dir, version, test_id, magnitude, archive_results]
-                                )
+                                procs_list.append([fim_run_dir, version, test_id, magnitude, archive_results])
                             else:
                                 process_alpha_test(
                                     [fim_run_dir, version, test_id, magnitude, archive_results]

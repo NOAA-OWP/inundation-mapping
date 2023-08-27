@@ -141,12 +141,9 @@ def manual_calibration(fim_directory: str, calibration_file: str):
 
 if __name__ == '__main__':
     ## Parse arguments.
-    parser = argparse.ArgumentParser(description=f'Manually calibrate rating curve')
+    parser = argparse.ArgumentParser(description='Manually calibrate rating curve')
     parser.add_argument(
-        '-fim_dir',
-        '--fim-directory',
-        help='Parent directory of FIM-required datasets.',
-        required=True,
+        '-fim_dir', '--fim-directory', help='Parent directory of FIM-required datasets.', required=True
     )
     parser.add_argument(
         '-calb_file', '--calibration-file', help='Path to manual calibration file', required=True

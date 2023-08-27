@@ -1,18 +1,19 @@
+#!/usr/bin/env python3
+
+import argparse
 import os
 
+# from rasterio import features
+import affine
 import geopandas as gpd
 import pandas as pd
+import rasterio
+import rasterio.mask
 from dotenv import load_dotenv
 from tools_shared_functions import get_metadata
 
 
 load_dotenv()
-import argparse
-
-# from rasterio import features
-import affine
-import rasterio
-import rasterio.mask
 
 
 def fimr_to_benchmark(fimr_path, output_path):
@@ -144,9 +145,7 @@ def fimr_to_benchmark(fimr_path, output_path):
 
         # Makeing the empty raster
         raster_shape = (int((maxy - miny) // 10), int((maxx - minx) // 10))
-        raster = rasterio.features.rasterize(
-            shapes, out_shape=raster_shape, transform=transform, fill=-999
-        )
+        raster = rasterio.features.rasterize(shapes, out_shape=raster_shape, transform=transform, fill=-999)
 
         with rasterio.open(
             out_path_raster,
@@ -180,11 +179,7 @@ if __name__ == '__main__':
         required=True,
     )
     parser.add_argument(
-        '-o',
-        '--output_path',
-        type=str,
-        help='output path for the flow file and FIMR rasters.',
-        required=True,
+        '-o', '--output_path', type=str, help='output path for the flow file and FIMR rasters.', required=True
     )
     args = vars(parser.parse_args())
 

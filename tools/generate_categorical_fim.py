@@ -33,7 +33,7 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
-from utils.shared_variables import VIZ_PROJECTION
+from src.utils.shared_variables import VIZ_PROJECTION
 
 
 def process_generate_categorical_fim(
@@ -129,9 +129,7 @@ def process_generate_categorical_fim(
 
         # Updating mapping status
         print('Updating mapping status...')
-        update_mapping_status(
-            str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based
-        )
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
 
     # FLOW-BASED
     else:
@@ -171,9 +169,7 @@ def process_generate_categorical_fim(
 
         # Updating mapping status
         print('Updating mapping status')
-        update_mapping_status(
-            str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based
-        )
+        update_mapping_status(str(output_mapping_dir), str(output_flows_dir), nws_sites_layer, stage_based)
 
     # Create CSV versions of the final geopackages.
     print('Creating CSVs. This may take several minutes.')
@@ -247,9 +243,7 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
     '''
     # Find all LIDs with empty mapping output folders
     subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
-    empty_nws_lids = [
-        Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())
-    ]
+    empty_nws_lids = [Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())]
 
     # Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
     mapping_df = pd.DataFrame({'nws_lid': empty_nws_lids})
@@ -265,9 +259,7 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
 
         # Switch mapped column to no for failed sites and update status
         flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
-        flows_df.loc[flows_df['did_it_map'] == 'no', 'status'] = (
-            flows_df['status'] + flows_df['map_status']
-        )
+        flows_df.loc[flows_df['did_it_map'] == 'no', 'status'] = flows_df['status'] + flows_df['map_status']
 
         #    # Perform pass for HUCs where mapping was skipped due to missing data  #TODO check with Brian
         #    if stage_based:
@@ -278,7 +270,8 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
         #        missing_mapping_hucs = list(set(flows_hucs) - set(mapping_hucs))
         #
         #    # Update status for nws_lid in missing hucs and change mapped attribute to 'no'
-        #    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] = flows_df['status'] + ' and all categories failed to map because missing HUC information'
+        #    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'status'] =
+        #           flows_df['status'] + ' and all categories failed to map because missing HUC information'
         #    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
 
         # Clean up GeoDataFrame and rename columns for consistency
@@ -287,8 +280,8 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
 
         # Write out to file
         flows_df.to_file(nws_sites_layer)
-    except:
-        print("No LIDs")
+    except Exception as e:
+        print(f"No LIDs, \n Exception: \n {repr(e)} \n")
 
 
 def produce_inundation_map_with_stage_and_feature_ids(
@@ -302,12 +295,12 @@ def produce_inundation_map_with_stage_and_feature_ids(
 
     # Use numpy.where operation to reclassify rem_path on the condition that the pixel values are <= to hand_stage and the catchments
     # value is in the hydroid_list.
-    reclass_rem_array = np.where(
-        (rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0
-    ).astype('uint8')
+    reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
+        'uint8'
+    )
     hydroid_mask = np.isin(catchments_array, hydroid_list)
     target_catchments_array = np.where(
-        (hydroid_mask == True) & (catchments_array != catchments_src.nodata), 1, 0
+        (hydroid_mask is True) & (catchments_array != catchments_src.nodata), 1, 0
     ).astype('uint8')
     masked_reclass_rem_array = np.where(
         (reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0
@@ -394,11 +387,11 @@ def iterate_through_huc_stage_based(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
         )
 
-        if stages == None:
+        if stages is None:
             all_messages.append([f'{lid}:error getting thresholds from WRDS API'])
             continue
         # Check if stages are supplied, if not write message and exit.
-        if all(stages.get(category, None) == None for category in flood_categories):
+        if all(stages.get(category, None) is None for category in flood_categories):
             all_messages.append([f'{lid}:missing threshold stages'])
             continue
 
@@ -406,29 +399,25 @@ def iterate_through_huc_stage_based(
             # Drop columns that offend acceptance criteria
             usgs_elev_df['acceptable_codes'] = (
                 usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-                & usgs_elev_df['usgs_data_coord_method_code'].isin(
-                    acceptable_coord_method_code_list
-                )
+                & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
                 & usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
                 & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
             )
 
             usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
             usgs_elev_df['acceptable_alt_error'] = np.where(
-                usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
-                True,
-                False,
+                usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
             )
 
             acceptable_usgs_elev_df = usgs_elev_df[
-                (usgs_elev_df['acceptable_codes'] == True)
-                & (usgs_elev_df['acceptable_alt_error'] == True)
+                (usgs_elev_df['acceptable_codes'] is True) & (usgs_elev_df['acceptable_alt_error'] is True)
             ]
         except Exception as e:
             # Not sure any of the sites actually have those USGS-related
             # columns in this particular file, so just assume it's fine to use
 
             # print("(Various columns related to USGS probably not in this csv)")
+            print(f"Exception: \n {repr(e)} \n")
             acceptable_usgs_elev_df = usgs_elev_df
 
         # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
@@ -437,9 +426,7 @@ def iterate_through_huc_stage_based(
                 acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
             ]
 
-            if (
-                len(matching_rows) == 2
-            ):  # It means there are two level paths, use the one that is not 0
+            if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
                 lid_usgs_elev = acceptable_usgs_elev_df.loc[
                     (acceptable_usgs_elev_df['nws_lid'] == lid.upper())
                     & (acceptable_usgs_elev_df['levpa_id'] != 0),
@@ -460,9 +447,7 @@ def iterate_through_huc_stage_based(
         stage_based_att_dict.update({lid: {}})
 
         # Find lid metadata from master list of metadata dictionaries.
-        metadata = next(
-            (item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False
-        )
+        metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
         lid_altitude = metadata['usgs_data']['altitude']
 
         # Filter out sites that don't have "good" data
@@ -565,16 +550,14 @@ def iterate_through_huc_stage_based(
                 datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
             except Exception as e:
                 e = str(e)
-                if crs == None:
+                if crs is None:
                     all_messages.append([f'{lid}:NOAA VDatum adjustment error, CRS is missing'])
                 if 'HTTPSConnectionPool' in e:
                     time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                     try:
                         datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
                     except Exception:
-                        all_messages.append(
-                            [f'{lid}:NOAA VDatum adjustment error, possible API issue']
-                        )
+                        all_messages.append([f'{lid}:NOAA VDatum adjustment error, possible API issue'])
                 if 'Invalid projection' in e:
                     all_messages.append(
                         [f'{lid}:NOAA VDatum adjustment error, invalid projection: crs={crs}']
@@ -587,16 +570,12 @@ def iterate_through_huc_stage_based(
 
         # Filter segments to be of like stream order.
         desired_order = metadata['nwm_feature_data']['stream_order']
-        segments = filter_nwm_segments_by_stream_order(
-            unfiltered_segments, desired_order, nwm_flows_df
-        )
+        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
         action_stage = stages['action']
         minor_stage = stages['minor']
         moderate_stage = stages['moderate']
         major_stage = stages['major']
-        stage_list = [
-            i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None
-        ]
+        stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
         # Create a list of stages, incrementing by 1 ft.
         if stage_list == []:
             all_messages.append([f'{lid}:no stage values available'])
@@ -608,9 +587,7 @@ def iterate_through_huc_stage_based(
         # Check for large discrepancies between the elevation values from WRDS and HAND. Otherwise this causes bad mapping.
         elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
         if abs(elevation_diff) > 10:
-            all_messages.append(
-                [f'{lid}:large discrepancy in elevation estimates from gage and HAND']
-            )
+            all_messages.append([f'{lid}:large discrepancy in elevation estimates from gage and HAND'])
             continue
 
             # For each flood category
@@ -618,14 +595,9 @@ def iterate_through_huc_stage_based(
             # Pull stage value and confirm it's valid, then process
             stage = stages[category]
 
-            if stage != None and datum_adj_ft != None and lid_altitude != None:
+            if stage is not None and datum_adj_ft is not None and lid_altitude is not None:
                 # Call function to execute mapping of the TIFs.
-                (
-                    messages,
-                    hand_stage,
-                    datum_adj_wse,
-                    datum_adj_wse_m,
-                ) = produce_stage_based_catfim_tifs(
+                (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_catfim_tifs(
                     stage,
                     datum_adj_ft,
                     branch_dir,
@@ -765,20 +737,8 @@ def generate_stage_based_categorical_fim(
 ):
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
-    (
-        huc_dictionary,
-        out_gdf,
-        metadata_url,
-        threshold_url,
-        all_lists,
-        nwm_flows_df,
-    ) = generate_catfim_flows(
-        workspace,
-        nwm_us_search,
-        nwm_ds_search,
-        stage_based=True,
-        fim_dir=fim_dir,
-        lid_to_run=lid_to_run,
+    (huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df) = generate_catfim_flows(
+        workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run
     )
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
@@ -918,18 +878,14 @@ def produce_stage_based_catfim_tifs(
         for branch in branches:
             # Define paths to necessary files to produce inundation grids.
             full_branch_path = os.path.join(branch_dir, branch)
-            rem_path = os.path.join(
-                fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif'
-            )
+            rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
             catchments_path = os.path.join(
                 fim_dir,
                 huc,
                 full_branch_path,
                 'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif',
             )
-            hydrotable_path = os.path.join(
-                fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv'
-            )
+            hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
 
             if not os.path.exists(rem_path):
                 messages.append([f"{lid}:rem doesn't exist"])
@@ -948,9 +904,7 @@ def produce_stage_based_catfim_tifs(
             # Determine hydroids at which to perform inundation
             for feature_id in segments:
                 try:
-                    subset_hydrotable_df = hydrotable_df[
-                        hydrotable_df['feature_id'] == int(feature_id)
-                    ]
+                    subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
                     hydroid_list += list(subset_hydrotable_df.HydroID.unique())
                 except IndexError:
                     pass
@@ -1065,8 +1019,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-a',
         '--stage_based',
-        help='Run stage-based CatFIM instead of flow-based?'
-        ' NOTE: flow-based CatFIM is the default.',
+        help='Run stage-based CatFIM instead of flow-based?' ' NOTE: flow-based CatFIM is the default.',
         required=False,
         default=False,
         action='store_true',
@@ -1078,9 +1031,7 @@ if __name__ == '__main__':
         required=False,
         default='/data/catfim/',
     )
-    parser.add_argument(
-        '-o', '--overwrite', help='Overwrite files', required=False, action="store_true"
-    )
+    parser.add_argument('-o', '--overwrite', help='Overwrite files', required=False, action="store_true")
     parser.add_argument(
         '-s',
         '--search',

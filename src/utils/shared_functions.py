@@ -15,6 +15,7 @@ import geopandas as gp
 import numpy as np
 import pandas as pd
 import rasterio
+from memory_profiler import profile
 from pyproj.crs import CRS
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from tqdm import tqdm
@@ -81,7 +82,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
 
     for index, row in gdf.iterrows():
         state = row["STATES"]
-        if state != None:  # Some polygons are empty in the STATES field.
+        if state is not None:  # Some polygons are empty in the STATES field.
             keep_flag = False  # Default to Fault, i.e. to delete the polygon.
             if state in sv.CONUS_STATE_LIST:
                 keep_flag = True
@@ -182,98 +183,10 @@ def update_raster_profile(args):
     dem_cm.close()
     dest.close()
 
-    if keep_intermediate == False:
+    if keep_intermediate is False:
         os.remove(elev_cm_filename)
 
     return elev_m_filename
-
-
-'''
-This function isn't currently used but is the preferred method for
-reprojecting elevation grids.
-
-Several USGS elev_cm.tifs have the crs value in their profile stored as the string "CRS.from_epsg(26904)"
-instead of the actual output of that command.
-
-Rasterio fails to properly read the crs but using gdal retrieves the correct projection.
-Until this issue is resolved use the reproject_dem function in reproject_dem.py instead.
-reproject_dem is not stored in the shared_functions.py because rasterio and
-gdal bindings are not entirely compatible: https://rasterio.readthedocs.io/en/latest/topics/switch.html
-
-'''
-
-
-def reproject_raster(input_raster_name, reprojection, blocksize=None, reprojected_raster_name=None):
-    # TODO: Might be removed (Nov 8, 2022), not in use
-
-    if blocksize is not None:
-        if isinstance(blocksize, int):
-            pass
-        elif isinstance(blocksize, str):
-            blocksize = int(blocksize)
-        elif isinstance(blocksize, float):
-            blocksize = int(blocksize)
-        else:
-            raise TypeError("Pass integer for blocksize")
-    else:
-        blocksize = 256
-
-    assert input_raster_name.endswith('.tif'), "input raster needs to be a tif"
-
-    reprojection = rasterio.crs.CRS.from_string(reprojection)
-
-    with rasterio.open(input_raster_name) as src:
-        # Check projection
-        if src.crs.to_string() != reprojection:
-            if src.crs.to_string().startswith('EPSG'):
-                epsg = src.crs.to_epsg()
-                proj_crs = CRS.from_epsg(epsg)
-                rio_crs = rasterio.crs.CRS.from_user_input(proj_crs).to_string()
-            else:
-                rio_crs = src.crs.to_string()
-
-            print(f"{input_raster_name} not projected")
-            print(f"Reprojecting from {rio_crs} to {reprojection}")
-
-            transform, width, height = calculate_default_transform(
-                src.crs, reprojection, src.width, src.height, *src.bounds
-            )
-            kwargs = src.meta.copy()
-            kwargs.update(
-                {
-                    'crs': reprojection,
-                    'transform': transform,
-                    'width': width,
-                    'height': height,
-                    'compress': 'lzw',
-                }
-            )
-
-            if reprojected_raster_name is None:
-                reprojected_raster_name = input_raster_name
-
-            assert reprojected_raster_name.endswith('.tif'), "output raster needs to be a tif"
-
-            with rasterio.open(
-                reprojected_raster_name,
-                'w',
-                **kwargs,
-                tiled=True,
-                blockxsize=blocksize,
-                blockysize=blocksize,
-                BIGTIFF='YES',
-            ) as dst:
-                reproject(
-                    source=rasterio.band(src, 1),
-                    destination=rasterio.band(dst, 1),
-                    src_transform=src.transform,
-                    src_crs=rio_crs,
-                    dst_transform=transform,
-                    dst_crs=reprojection.to_string(),
-                    resampling=Resampling.nearest,
-                )
-                del dst
-        del src
 
 
 def mem_profile(func):
@@ -323,12 +236,7 @@ def concat_huc_csv(fim_dir, csv_name):
                 # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
                 read_csv = pd.read_csv(
                     csv_file,
-                    dtype={
-                        'HUC8': object,
-                        'location_id': object,
-                        'feature_id': int,
-                        'levpa_id': object,
-                    },
+                    dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
                 )
                 # Add huc field to dataframe
                 read_csv['HUC8'] = huc
@@ -336,7 +244,7 @@ def concat_huc_csv(fim_dir, csv_name):
 
     # Create and return a concatenated pd dataframe
     if merged_csv:
-        print(f"Creating aggregate csv")
+        print("Creating aggregate csv")
         concat_df = pd.concat(merged_csv)
         return concat_df
 
@@ -465,9 +373,7 @@ class FIM_Helpers:
         '''
 
         if not os.path.isfile(file_name_and_path):
-            raise ValueError(
-                f"Sorry, file {file_name_and_path} does not exist. Check name and path."
-            )
+            raise ValueError(f"Sorry, file {file_name_and_path} does not exist. Check name and path.")
 
         line_values = []
 
@@ -510,7 +416,7 @@ class FIM_Helpers:
         '''
 
         if (not file_extension) and (len(file_extension.strip()) == 0):
-            raise ValueError(f"file_extension value not set")
+            raise ValueError("file_extension value not set")
 
         # remove the starting . if it exists
         if file_extension.startswith("."):

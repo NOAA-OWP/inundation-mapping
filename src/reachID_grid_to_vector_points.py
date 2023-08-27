@@ -51,24 +51,18 @@ def convert_grid_cells_to_points(raster, index_option, output_points_filename=Fa
             id[i - 1] = i
         i += 1
 
-    pointGDF = gpd.GeoDataFrame(
-        {'id': id, 'geometry': points}, crs=PREP_PROJECTION, geometry='geometry'
-    )
+    pointGDF = gpd.GeoDataFrame({'id': id, 'geometry': points}, crs=PREP_PROJECTION, geometry='geometry')
 
-    if output_points_filename == False:
+    if output_points_filename is False:
         return pointGDF
     else:
-        pointGDF.to_file(
-            output_points_filename, driver=getDriver(output_points_filename), index=False
-        )
+        pointGDF.to_file(output_points_filename, driver=getDriver(output_points_filename), index=False)
 
 
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Converts a raster to points')
-    parser.add_argument(
-        '-r', '--raster', help='Raster to be converted to points', required=True, type=str
-    )
+    parser.add_argument('-r', '--raster', help='Raster to be converted to points', required=True, type=str)
     parser.add_argument(
         '-i',
         '--index-option',

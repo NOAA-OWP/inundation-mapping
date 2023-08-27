@@ -9,27 +9,18 @@ from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import geopandas as gpd
 import pandas as pd
 import rasterio
+from inundate_gms import Inundate_gms
+from mosaic_inundation import Mosaic_inundation
 from rasterio.features import shapes
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 
-
-sys.path.append('/foss_fim/src')
-from inundate_gms import Inundate_gms
-from mosaic_inundation import Mosaic_inundation
-
-from utils.shared_functions import getDriver
-from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
+from src.utils.shared_functions import getDriver
+from src.utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
 def generate_categorical_fim(
-    fim_run_dir,
-    source_flow_dir,
-    output_catfim_dir,
-    job_number_huc,
-    job_number_inundate,
-    depthtif,
-    log_file,
+    fim_run_dir, source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, depthtif, log_file
 ):
     source_flow_dir_list = os.listdir(source_flow_dir)
     output_flow_dir_list = os.listdir(fim_run_dir)
@@ -258,9 +249,7 @@ def post_process_cat_fim_for_viz(
             # Write/append aggregate diss_extent
             print(f"Merging layer: {layer}")
             if os.path.isfile(merged_layer):
-                diss_extent.to_file(
-                    merged_layer, driver=getDriver(merged_layer), index=False, mode='a'
-                )
+                diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, mode='a')
             else:
                 diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False)
             del diss_extent
@@ -311,8 +300,7 @@ def reformat_inundation_maps(
         # Join attributes
         nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc': str})
         nws_lid_attributes_table = nws_lid_attributes_table.loc[
-            (nws_lid_attributes_table.magnitude == magnitude)
-            & (nws_lid_attributes_table.nws_lid == ahps_lid)
+            (nws_lid_attributes_table.magnitude == magnitude) & (nws_lid_attributes_table.nws_lid == ahps_lid)
         ]
         extent_poly_diss = extent_poly_diss.merge(
             nws_lid_attributes_table,
@@ -399,10 +387,7 @@ if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
     parser.add_argument(
-        '-r',
-        '--fim-run-dir',
-        help='Name of directory containing outputs of fim_run.sh',
-        required=True,
+        '-r', '--fim-run-dir', help='Name of directory containing outputs of fim_run.sh', required=True
     )
     parser.add_argument(
         '-s',

@@ -9,18 +9,12 @@ import pandas as pd
 
 
 def evaluate_continuity(
-    stream_network_file,
-    forecast_file,
-    stream_network_outfile=None,
-    confluences_only=False,
-    plot_file=None,
+    stream_network_file, forecast_file, stream_network_outfile=None, confluences_only=False, plot_file=None
 ):
     stream_network = gpd.read_file(stream_network_file)
     forecast = pd.read_csv(forecast_file)
 
-    stream_network = stream_network.merge(
-        forecast, how='left', left_on='feature_id', right_on='feature_id'
-    )
+    stream_network = stream_network.merge(forecast, how='left', left_on='feature_id', right_on='feature_id')
 
     stream_network['discharge'] = stream_network['discharge'].fillna(0)
 
@@ -34,9 +28,7 @@ def evaluate_continuity(
 
         if fromNode in toNodes:
             upstream_indices = stream_network['To_Node'] == fromNode
-            upstream_discharges = np.array(
-                stream_network.loc[upstream_indices, 'discharge'].tolist()
-            )
+            upstream_discharges = np.array(stream_network.loc[upstream_indices, 'discharge'].tolist())
             upstream_dictionary[hydroId] = upstream_discharges
 
             isconfluence = len(upstream_discharges) > 1
@@ -64,9 +56,7 @@ def evaluate_continuity(
         expected_discharges += [np.sum(upstream_discharges)]
         expected_dischages_dict[hydroId] = np.sum(upstream_discharges)
 
-    actual_discharges, expected_discharges = np.array(actual_discharges), np.array(
-        expected_discharges
-    )
+    actual_discharges, expected_discharges = np.array(actual_discharges), np.array(expected_discharges)
 
     # add to stream_network
     expected_discharges_df = pd.DataFrame.from_dict(
@@ -139,11 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stream-network-file', help='Stream Network', required=True)
     parser.add_argument('-f', '--forecast-file', help='Forecast File', required=True)
     parser.add_argument(
-        '-o',
-        '--stream-network-outfile',
-        help='Stream Network Outfile',
-        required=False,
-        default=None,
+        '-o', '--stream-network-outfile', help='Stream Network Outfile', required=False, default=None
     )
     parser.add_argument(
         '-c',

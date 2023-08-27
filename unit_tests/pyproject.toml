@@ -4,5 +4,5 @@ filterwarnings = [
     "ignore::UserWarning",
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
-    "ignore::RuntimeWarning"
+    "ignore::RuntimeWarning",
 ]

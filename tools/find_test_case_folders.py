@@ -26,14 +26,10 @@ def create_huc_list(input_root_search_folder, output_path, overwrite=False):
     '''
 
     if not os.path.exists(input_root_search_folder):
-        raise NotADirectoryError(
-            f"Sorry. Search_folder of {input_root_search_folder} does not exist"
-        )
+        raise NotADirectoryError(f"Sorry. Search_folder of {input_root_search_folder} does not exist")
 
     if os.path.exists(output_path) and not overwrite:
-        raise Exception(
-            f"Sorry. The file {output_path} already exists. Use 'overwrite' argument if desired."
-        )
+        raise Exception(f"Sorry. The file {output_path} already exists. Use 'overwrite' argument if desired.")
 
     hucs = set()
 
@@ -45,7 +41,7 @@ def create_huc_list(input_root_search_folder, output_path, overwrite=False):
         for test_id in [
             test_id
             for test_id in os.listdir(os.path.join(input_root_search_folder, test_case))
-            if re.match('\d{8}_\w{3,7}', test_id)
+            if re.match(r'\d{8}_\w{3,7}', test_id)
         ]:
             hucs.add(test_id[:8])
 

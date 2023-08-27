@@ -55,9 +55,7 @@ def variable_mannings_calc(args):
 
     ## Read the src_full_crosswalked.csv
     print('Calculating variable roughness: ' + str(huc) + '  branch id: ' + str(branch_id))
-    log_text = (
-        'Calculating variable roughness: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
-    )
+    log_text = 'Calculating variable roughness: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
     df_src = pd.read_csv(in_src_bankfull_filename, dtype={'feature_id': 'int64'})
 
     ## Check that the channel ratio column the user specified exists in the def
@@ -86,13 +84,7 @@ def variable_mannings_calc(args):
         try:
             if 'comp_ManningN' in df_src.columns:
                 df_src.drop(
-                    [
-                        'channel_n',
-                        'overbank_n',
-                        'comp_ManningN',
-                        'vmann_on',
-                        'Discharge (m3s-1)_varMann',
-                    ],
+                    ['channel_n', 'overbank_n', 'comp_ManningN', 'vmann_on', 'Discharge (m3s-1)_varMann'],
                     axis=1,
                     inplace=True,
                 )  # drop these cols (in case vmann was previously performed)
@@ -156,9 +148,7 @@ def variable_mannings_calc(args):
 
             ## Use the default discharge column when vmann is not being applied
             df_src['Discharge (m3s-1)_varMann'] = np.where(
-                df_src['vmann_on'] == False,
-                df_src['Discharge (m3s-1)'],
-                df_src['Discharge (m3s-1)_varMann'],
+                df_src['vmann_on'] == False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_varMann']
             )  # reset the discharge value back to the original if vmann=false
             df_src['comp_ManningN'] = np.where(
                 df_src['vmann_on'] == False, df_src['ManningN'], df_src['comp_ManningN']
@@ -215,7 +205,7 @@ def variable_mannings_calc(args):
 
             ## plot rating curves
             if src_plot_option:
-                if isdir(huc_output_dir) == False:
+                if isdir(huc_output_dir) is False:
                     os.mkdir(huc_output_dir)
                 generate_src_plot(df_src, huc_output_dir)
         except Exception as ex:
@@ -249,9 +239,7 @@ def generate_src_plot(df_src, plt_out_dir):
         f, ax = plt.subplots(figsize=(6.5, 6.5))
         ax.set_title(str(hydroid))
         sns.despine(f, left=True, bottom=True)
-        sns.scatterplot(
-            x='Discharge (m3s-1)', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue'
-        )
+        sns.scatterplot(x='Discharge (m3s-1)', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
         sns.scatterplot(
             x='Discharge (m3s-1)_varMann',
             y='Stage',
@@ -268,9 +256,7 @@ def generate_src_plot(df_src, plt_out_dir):
             "NWM Bankfull Approx: " + str(plot_df['Stage_bankfull'].median()),
         )
         ax.legend()
-        plt.savefig(
-            plt_out_dir + os.sep + str(hydroid) + '_vmann.png', dpi=175, bbox_inches='tight'
-        )
+        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_vmann.png', dpi=175, bbox_inches='tight')
         plt.close()
 
 
@@ -306,19 +292,12 @@ def multi_process(variable_mannings_calc, procs_list, log_file, verbose):
 
 
 def run_prep(
-    fim_dir,
-    channel_ratio_src_column,
-    mann_n_table,
-    output_suffix,
-    number_of_jobs,
-    verbose,
-    src_plot_option,
+    fim_dir, channel_ratio_src_column, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option
 ):
     procs_list = []
 
     print(
-        'Writing progress to log file here: '
-        + str(join(fim_dir, 'log_composite_n' + output_suffix + '.log'))
+        'Writing progress to log file here: ' + str(join(fim_dir, 'log_composite_n' + output_suffix + '.log'))
     )
     print('This may take a few minutes...')
     ## Create a time var to log run time
@@ -330,9 +309,7 @@ def run_prep(
     log_file.write('#########################################################\n\n')
 
     ## Check that the input fim_dir exists
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(
-        fim_dir
-    )
+    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the manning's roughness input filepath exists and then read to dataframe
     assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(
         mann_n_table
@@ -347,8 +324,7 @@ def run_prep(
         or 'feature_id' not in df_mann.columns
     ):
         print(
-            'Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> '
-            + df_mann
+            'Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann
         )
     else:
         print('Running the variable_mannings_calc function...')
@@ -357,13 +333,11 @@ def run_prep(
         huc_list = os.listdir(fim_dir)
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-            if re.match('\d{8}', huc):
+            if re.match(r'\d{8}', huc):
                 huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
                 for branch_id in os.listdir(huc_branches_dir):
                     branch_dir = os.path.join(huc_branches_dir, branch_id)
-                    in_src_bankfull_filename = join(
-                        branch_dir, 'src_full_crosswalked_' + branch_id + '.csv'
-                    )
+                    in_src_bankfull_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
                     htable_filename = join(branch_dir, 'hydroTable_' + branch_id + '.csv')
                     huc_plot_output_dir = join(branch_dir, 'src_plots')
 

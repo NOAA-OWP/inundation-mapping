@@ -208,9 +208,7 @@ class HucDirectory(object):
             )
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
-            log_error(
-                self.fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id, errMsg
-            )
+            log_error(self.fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id, errMsg)
 
 
 # ==============================
@@ -253,7 +251,7 @@ def aggregate_by_huc(
     # create log folder, might end up empty but at least create the folder
     # Yes.. this is duplicate in the log function
     log_folder = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
-    if os.path.exists(log_folder) == False:
+    if os.path.exists(log_folder) is False:
         os.mkdir(log_folder)
     else:
         # empty only ones with this type (we want to keep others that
@@ -281,9 +279,7 @@ def aggregate_by_huc(
 
         try:
             if fim_inputs:
-                fim_inputs_csv = pd.read_csv(
-                    fim_inputs, header=None, names=['huc', 'levpa_id'], dtype=str
-                )
+                fim_inputs_csv = pd.read_csv(fim_inputs, header=None, names=['huc', 'levpa_id'], dtype=str)
                 huc_list = fim_inputs_csv.huc.unique()
 
                 # with multi proc, it won't be 100% in order as different hucs
@@ -304,13 +300,13 @@ def aggregate_by_huc(
                     executor_dict[future] = huc_id
 
             else:
-                huc_list = [d for d in os.listdir(fim_directory) if re.match('\d{8}', d)]
+                huc_list = [d for d in os.listdir(fim_directory) if re.match(r'\d{8}', d)]
 
                 # with multi proc, it won't be 100% in order as different hucs
                 # process faster, but it does help a little
                 huc_list_sorted = sorted(huc_list)
                 for huc_id in huc_list_sorted:
-                    if huc_id.isnumeric() == False:
+                    if huc_id.isnumeric() is False:
                         continue
 
                     huc_dir = HucDirectory(fim_directory, huc_id)
@@ -331,15 +327,11 @@ def aggregate_by_huc(
             )
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
-            log_error(
-                fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id, errMsg
-            )
+            log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, huc_id, errMsg)
             # sys.exit(1)
 
         # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(
-            executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers"
-        )
+        progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
@@ -384,12 +376,7 @@ if __name__ == '__main__':
         action='store_true',
     )
     parser.add_argument(
-        '-j',
-        '--num_job_workers',
-        help='Number of processes to use',
-        required=False,
-        default=1,
-        type=int,
+        '-j', '--num_job_workers', help='Number of processes to use', required=False, default=1, type=int
     )
 
     args = vars(parser.parse_args())

@@ -180,13 +180,11 @@ def eval_plots(
 
         # Write out the filtered dataset and common sites to file
         dataset.to_csv(
-            output_workspace / (f"{dataset_name}_{configuration.lower()}_analyzed_data.csv"),
-            index=False,
+            output_workspace / (f"{dataset_name}_{configuration.lower()}_analyzed_data.csv"), index=False
         )
         sites_pd = pd.DataFrame.from_dict(sites, orient="index").transpose()
         sites_pd.to_csv(
-            output_workspace / (f"{dataset_name}_{configuration.lower()}_common_sites.csv"),
-            index=False,
+            output_workspace / (f"{dataset_name}_{configuration.lower()}_common_sites.csv"), index=False
         )
 
         # set the order of the magnitudes and define base resolution.
@@ -266,9 +264,7 @@ def eval_plots(
 
         # Create box plots for each metric in supplied stats.
         for stat in stats:
-            output_file = output_workspace / (
-                f"{stat.lower()}_{dataset_name}_{configuration.lower()}.png"
-            )
+            output_file = output_workspace / (f"{stat.lower()}_{dataset_name}_{configuration.lower()}.png")
             boxplot(
                 dataframe=dataset,
                 x_field="magnitude",
@@ -299,9 +295,7 @@ def eval_plots(
                 )
                 # Define arguments for scatterplot function.
                 title_text = f"CSI {magnitude}"
-                dest_file = (
-                    output_workspace / f"csi_scatter_{magnitude}_{configuration.lower()}.png"
-                )
+                dest_file = output_workspace / f"csi_scatter_{magnitude}_{configuration.lower()}.png"
                 scatterplot(
                     dataframe=plotdf,
                     x_field=f"CSI_{x_version}",
@@ -335,9 +329,7 @@ def eval_plots(
         ]
         # Get list of fields to keep in merge.
         preserved_evaluated_ahps_fields = ["nws_lid", "source", "geometry"] + [
-            i
-            for i in evaluated_ahps_extent.columns
-            if i.startswith(("action", "minor", "moderate", "major"))
+            i for i in evaluated_ahps_extent.columns if i.startswith(("action", "minor", "moderate", "major"))
         ]
 
         # Join tables to evaluated_ahps_extent

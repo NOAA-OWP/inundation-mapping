@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 
-# Created: 1/11/2021
-# Primary developer(s): ryan.spies@noaa.gov
-# Purpose: This script provides the user to input a customized flow entry to produce
-# inundation outputs using outputs from fim_run. Note that the flow csv must be
-# formatted with "feature_id" & "discharge" columns. Flow must be in cubic m/s
-
 import argparse
 import os
 import shutil
@@ -13,6 +7,12 @@ import sys
 
 from inundation import inundate
 
+
+# Created: 1/11/2021
+# Primary developer(s): ryan.spies@noaa.gov
+# Purpose: This script provides the user to input a customized flow entry to produce
+# inundation outputs using outputs from fim_run. Note that the flow csv must be
+# formatted with "feature_id" & "discharge" columns. Flow must be in cubic m/s
 
 TEST_CASES_DIR = r'/data/inundation_review/inundation_custom_flow/'  # Will update.
 INPUTS_DIR = r'/data/inputs'
@@ -94,9 +94,7 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
     shutil.copyfile(forecast, os.path.join(branch_test_case_dir_parent, input_flow_csv))
 
     # Run inundate.
-    print(
-        "-----> Running inundate() to produce modeled inundation extent for the " + input_flow_csv
-    )
+    print("-----> Running inundate() to produce modeled inundation extent for the " + input_flow_csv)
     inundate(
         rem,
         catchments,

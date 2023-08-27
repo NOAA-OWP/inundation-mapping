@@ -14,7 +14,7 @@ from datetime import datetime
 from multiprocessing import Pool
 
 import pandas as pd
-from run_test_case import test_case
+from run_test_case import Test_Case
 from tools_shared_variables import (
     AHPS_BENCHMARK_CATEGORIES,
     MAGNITUDE_DICT,
@@ -109,17 +109,13 @@ def create_master_metrics_csv(
 
     # add in composite of versions (used for previous FIM3 versions)
     if "official" in iteration_list:
-        composite_versions = [
-            v.replace('_ms', '_comp') for v in prev_versions_to_include_list if '_ms' in v
-        ]
+        composite_versions = [v.replace('_ms', '_comp') for v in prev_versions_to_include_list if '_ms' in v]
         prev_versions_to_include_list += composite_versions
 
     # Iterate through 5 benchmark sources
     for benchmark_source in ['ble', 'nws', 'usgs', 'ifc', 'ras2fim']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
-        test_cases_list = [
-            d for d in os.listdir(benchmark_test_case_dir) if re.match('\d{8}_\w{3,7}', d)
-        ]
+        test_cases_list = [d for d in os.listdir(benchmark_test_case_dir) if re.match(r'\d{8}_\w{3,7}', d)]
 
         if benchmark_source in ['ble', 'ifc', 'ras2fim']:
             magnitude_list = MAGNITUDE_DICT[benchmark_source]
@@ -200,9 +196,7 @@ def create_master_metrics_csv(
 
                     # Update filepaths based on whether the official or dev versions should be included
                     for iteration in iteration_list:
-                        if (
-                            iteration == "official"
-                        ):  # "official" refers to previous finalized model versions
+                        if iteration == "official":  # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(
                                 benchmark_test_case_dir, test_case, 'official_versions'
                             )
@@ -278,7 +272,7 @@ def create_master_metrics_csv(
                     pass
 
     # If previous metrics are provided: read in previously compiled metrics and join to calcaulated metrics
-    if prev_metrics_csv != None:
+    if prev_metrics_csv is not None:
         prev_metrics_df = pd.read_csv(prev_metrics_csv)
 
         # Put calculated metrics into a dataframe and set the headers
@@ -439,9 +433,7 @@ if __name__ == '__main__':
         required=False,
         default=None,
     )
-    parser.add_argument(
-        '-vr', '--verbose', help='Verbose', required=False, default=None, action='store_true'
-    )
+    parser.add_argument('-vr', '--verbose', help='Verbose', required=False, default=None, action='store_true')
     parser.add_argument(
         '-vg',
         '--gms-verbose',
@@ -507,7 +499,7 @@ if __name__ == '__main__':
     # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
     prev_versions_to_include_list = []
     dev_versions_to_include_list = []
-    if fim_version != "all" and pfiles == False:
+    if fim_version != "all" and pfiles is False:
         if config == 'PREV':  # official fim model results
             prev_versions_to_include_list = [fim_version]
         elif config == 'DEV':  # development fim model results
@@ -526,7 +518,7 @@ if __name__ == '__main__':
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
 
     # Create a list of all test_cases for which we have validation data
-    all_test_cases = test_case.list_all_test_cases(
+    all_test_cases = Test_Case.list_all_test_cases(
         version=fim_version,
         archive=archive_results,
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
@@ -535,9 +527,9 @@ if __name__ == '__main__':
     # print('all test cases', all_test_cases)
 
     # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
-    if prev_metrics_csv != None and pfiles == True:
+    if prev_metrics_csv is not None and pfiles is True:
         print(
-            f"Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently."
+            "Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently."
         )
         sys.exit(1)
 
@@ -554,7 +546,7 @@ if __name__ == '__main__':
         print()
 
     # Print whether the previous files will be cycled through
-    if pfiles == True:
+    if pfiles is True:
         print("ALERT: Metrics from previous directories will be compiled.")
         print()
     else:
@@ -600,7 +592,7 @@ if __name__ == '__main__':
     # Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
     if model == 'MS' and fr_run_dir:
         # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
-        all_test_cases = test_case.list_all_test_cases(
+        all_test_cases = Test_Case.list_all_test_cases(
             version=fr_run_dir,
             archive=archive_results,
             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
@@ -627,9 +619,7 @@ if __name__ == '__main__':
                     sys.exit(1)
 
             # Send the executor to the progress bar and wait for all FR tasks to finish
-            progress_bar_handler(
-                executor_dict, True, f"Running FR test cases with {job_number_huc} workers"
-            )
+            progress_bar_handler(executor_dict, True, f"Running FR test cases with {job_number_huc} workers")
             # wait(executor_dict.keys())
 
         # Loop through FR test cases, build composite arguments, and submit the composite method to the process pool
@@ -657,7 +647,7 @@ if __name__ == '__main__':
             )
 
     ## if using DEV version, include the testing versions the user included with the "-dc" flag
-    if dev_versions_to_compare != None:
+    if dev_versions_to_compare is not None:
         dev_versions_to_include_list += dev_versions_to_compare
 
     # Specify which results to iterate through

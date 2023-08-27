@@ -5,9 +5,7 @@ import os
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Checks final FIM outputs to identify missing HUCs'
-    )
+    parser = argparse.ArgumentParser(description='Checks final FIM outputs to identify missing HUCs')
     parser.add_argument('-i', '--huc-list-dir', help='list of HUCs to run', required=True)
     parser.add_argument('-o', '--output-folder', help='directory of HUCs completed', required=True)
 

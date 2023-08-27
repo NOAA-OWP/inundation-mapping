@@ -60,7 +60,7 @@ class test_generate_branch_list_csv(unittest.TestCase):
         params = self.params["invalid_bad_file_extension"].copy()
 
         # we expect this to fail. If it does fail with an exception, then this test is sucessful.
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(Exception):
             src.generate_branch_list_csv(
                 huc_id=params["huc_id"],
                 branch_id=params["branch_id"],

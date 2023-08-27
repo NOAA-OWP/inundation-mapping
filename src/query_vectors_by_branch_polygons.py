@@ -12,15 +12,9 @@ if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(description='Query vectors by unique attribute values')
     parser.add_argument(
-        '-a',
-        '--vector-attributes',
-        help='Vector with unique attributs',
-        required=True,
-        default=None,
+        '-a', '--vector-attributes', help='Vector with unique attributs', required=True, default=None
     )
-    parser.add_argument(
-        '-d', '--branch-ids', help='Branch ID value', required=True, default=None, nargs='+'
-    )
+    parser.add_argument('-d', '--branch-ids', help='Branch ID value', required=True, default=None, nargs='+')
     parser.add_argument('-i', '--attribute-id', help='Attribute Name', required=True, default=None)
     parser.add_argument(
         '-s',
@@ -39,12 +33,7 @@ if __name__ == '__main__':
         nargs="+",
     )
     parser.add_argument(
-        '-v',
-        '--verbose',
-        help='Verbose printing',
-        required=False,
-        default=None,
-        action='store_true',
+        '-v', '--verbose', help='Verbose printing', required=False, default=None, action='store_true'
     )
 
     # extract to dictionary
@@ -65,10 +54,7 @@ if __name__ == '__main__':
     #                                               values_excluded=None,attribute_excluded=None, verbose = verbose)
 
     for subset_vector, out_file in tqdm(
-        zip(subset_vectors, out_files),
-        disable=(not verbose),
-        total=len(subset_vectors),
-        desc="Query vectors",
+        zip(subset_vectors, out_files), disable=(not verbose), total=len(subset_vectors), desc="Query vectors"
     ):
         # if verbose:
         # print("Query \'{}\' by attribute in \'{}\' ...".format(out_file.split('/')[-1].split('.')[0],

@@ -47,9 +47,9 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
             os.remove(params["output_catchments_filename"])
 
         # Test that the files were deleted
-        assert os.path.exists(params["output_flows_filename"]) == False
+        assert os.path.exists(params["output_flows_filename"]) is False
 
-        assert os.path.exists(params["output_catchments_filename"]) == False
+        assert os.path.exists(params["output_catchments_filename"]) is False
 
         src.filter_catchments_and_add_attributes(
             input_catchments_filename=params["input_catchments_filename"],
@@ -61,6 +61,6 @@ class test_filter_catchments_and_add_attributes(unittest.TestCase):
         )
 
         # Test that the files were created by filer_catchments_and_add_attributes
-        assert os.path.exists(params["output_flows_filename"]) == True
+        assert os.path.exists(params["output_flows_filename"]) is True
 
-        assert os.path.exists(params["output_catchments_filename"]) == True
+        assert os.path.exists(params["output_catchments_filename"]) is True

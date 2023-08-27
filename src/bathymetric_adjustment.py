@@ -12,9 +12,7 @@ from os.path import join
 import geopandas as gpd
 import pandas as pd
 
-
-sys.path.append('/foss_fim/tools')
-from synthesize_test_cases import progress_bar_handler
+from tools.synthesize_test_cases import progress_bar_handler
 
 
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
@@ -60,7 +58,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         src_df = pd.read_csv(src)
         if 'Bathymetry_source' in src_df.columns:
             src_df = src_df.drop(columns='Bathymetry_source')
-        branch = re.search('branches/(\d{10}|0)/', src).group()[9:-1]
+        branch = re.search(r'branches/(\d{10}|0)/', src).group()[9:-1]
         log_text += f'  Branch: {branch}\n'
 
         if bathy_data.empty:
@@ -73,12 +71,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         try:
             src_df = src_df.merge(
                 bathy_data[
-                    [
-                        'feature_id',
-                        'missing_xs_area_m2',
-                        'missing_wet_perimeter_m',
-                        'Bathymetry_source',
-                    ]
+                    ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
                 ],
                 on='feature_id',
                 how='left',
@@ -92,12 +85,10 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
             reconciled_bathy_data['Bathymetry_source'] = bathy_data.groupby('feature_id')[
                 'Bathymetry_source'
             ].first()
-            src_df = src_df.merge(
-                reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one'
-            )
+            src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
         # Exit if there are no recalculations to be made
         if ~src_df['Bathymetry_source'].any(axis=None):
-            log_text += f'    No matching feature_ids in this branch\n'
+            log_text += '    No matching feature_ids in this branch\n'
             continue
 
         src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
@@ -110,9 +101,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
             src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
         )
         # Recalc discharge with adjusted geometries
-        src_df['WettedPerimeter (m)'] = (
-            src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
-        )
+        src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
         src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
         src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
         src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
@@ -125,9 +114,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         # Force zero stage to have zero discharge
         src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
         # Calculate number of adjusted HydroIDs
-        count = len(
-            src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')]
-        )
+        count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
 
         # Write src back to file
         src_df.to_csv(src, index=False)
@@ -135,9 +122,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     return log_text
 
 
-def multi_process_hucs(
-    fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose
-):
+def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
 
@@ -186,14 +171,10 @@ def multi_process_hucs(
     # Find applicable HUCs to apply bathymetric adjustment
     # NOTE: This block can be removed if we have estimated bathymetry data for
     # the whole domain later.
-    fim_hucs = [h for h in os.listdir(fim_dir) if re.match('\d{8}', h)]
+    fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
     bathy_gdf = gpd.read_file(bathy_file)
-    buffered_bathy = bathy_gdf.geometry.buffer(
-        wbd_buffer
-    )  # We buffer the bathymetric data to get adjacent
-    wbd = gpd.read_file(
-        wbd, mask=buffered_bathy
-    )  # HUCs that could also have bathymetric reaches included
+    buffered_bathy = bathy_gdf.geometry.buffer(wbd_buffer)  # We buffer the bathymetric data to get adjacent
+    wbd = gpd.read_file(wbd, mask=buffered_bathy)  # HUCs that could also have bathymetric reaches included
     hucs_with_bathy = wbd.HUC8.to_list()
     hucs = [h for h in fim_hucs if h in hucs_with_bathy]
     log_file.write(f"Identified {len(hucs)} HUCs that have bathymetric data: {hucs}\n")
@@ -204,12 +185,7 @@ def multi_process_hucs(
         # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
         executor_dict = {}
         for huc in hucs:
-            arg_keeper = {
-                'fim_dir': fim_dir,
-                'huc': huc,
-                'bathy_file': bathy_file,
-                'verbose': verbose,
-            }
+            arg_keeper = {'fim_dir': fim_dir, 'huc': huc, 'bathy_file': bathy_file, 'verbose': verbose}
             future = executor.submit(correct_rating_for_bathymetry, **arg_keeper)
             executor_dict[future] = huc
 
@@ -221,9 +197,7 @@ def multi_process_hucs(
                 log_file.write(future.result())
             except Exception as ex:
                 print(f"WARNING: {executor_dict[future]} BARC failed for some reason")
-                log_file.write(
-                    f"ERROR --> {executor_dict[future]} BARC failed (details: *** {ex} )\n"
-                )
+                log_file.write(f"ERROR --> {executor_dict[future]} BARC failed (details: *** {ex} )\n")
                 traceback.print_exc(file=log_file)
 
     ## Record run time and close log file

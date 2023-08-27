@@ -40,9 +40,7 @@ def generate_branch_list(stream_network_dissolved, branch_id_attribute, output_b
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create branch list')
-    parser.add_argument(
-        '-d', '--stream-network-dissolved', help='Dissolved stream network', required=True
-    )
+    parser.add_argument('-d', '--stream-network-dissolved', help='Dissolved stream network', required=True)
     parser.add_argument(
         '-b',
         '--branch-id-attribute',

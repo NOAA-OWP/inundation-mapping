@@ -56,9 +56,7 @@ def create_flow_forecast_file(
     xs_layer_proj = xs_layer.to_crs(nwm_river_layer.crs)
 
     # Perform an intersection of the BLE layers and the NWM layers, using the keep_geom_type set to False produces a point output.
-    intersection = gpd.overlay(
-        xs_layer_proj, nwm_river_layer, how='intersection', keep_geom_type=False
-    )
+    intersection = gpd.overlay(xs_layer_proj, nwm_river_layer, how='intersection', keep_geom_type=False)
 
     ## Create the flow forecast files
     # Define fields containing flow (typically these won't change for BLE)
@@ -90,9 +88,7 @@ def create_flow_forecast_file(
         output_dir = os.path.join(output_parent_dir, huc)
         dir_of_csv = os.path.join(output_dir, return_period[i])
         os.makedirs(dir_of_csv, exist_ok=True)
-        path_to_csv = os.path.join(
-            dir_of_csv, "ble_huc_{}_flows_{}.csv".format(huc, return_period[i])
-        )
+        path_to_csv = os.path.join(dir_of_csv, "ble_huc_{}_flows_{}.csv".format(huc, return_period[i]))
         forecast.to_csv(path_to_csv, index=False)
 
 

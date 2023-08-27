@@ -86,9 +86,7 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
         raise TypeError("nwm_streams_file pass file path string or GeoDataFrame object")
 
     # remove multilinestrings if any
-    anyMultiLineStrings = np.any(
-        np.array([isinstance(g, MultiLineString) for g in nwm_streams.geometry])
-    )
+    anyMultiLineStrings = np.any(np.array([isinstance(g, MultiLineString) for g in nwm_streams.geometry]))
     if anyMultiLineStrings:
         nwm_streams = nwm_streams.dissolve_by_branch(
             branch_id_attribute='ID', attribute_excluded=None, values_excluded=None, verbose=verbose
@@ -120,10 +118,7 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
 
     # upstream and downstream dictionaries
     upstreams, downstreams = nwm_streams.make_up_and_downstream_dictionaries(
-        reach_id_attribute='ID',
-        toNode_attribute='To_Node',
-        fromNode_attribute='From_Node',
-        verbose=verbose,
+        reach_id_attribute='ID', toNode_attribute='To_Node', fromNode_attribute='From_Node', verbose=verbose
     )
 
     # derive arbolate sum
@@ -171,25 +166,14 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--wbd', help='WBD File', required=False, default=None)
     parser.add_argument('-p', '--node-prefix', help='Node Prefix', required=False, default=None)
     parser.add_argument(
-        '-a',
-        '--sampling-size',
-        help='Sample size for Points',
-        required=False,
-        default=None,
-        type=int,
+        '-a', '--sampling-size', help='Sample size for Points', required=False, default=None, type=int
     )
-    parser.add_argument(
-        '-c', '--crosswalk-outfile', help='Crosswalk Out File', required=False, default=None
-    )
+    parser.add_argument('-c', '--crosswalk-outfile', help='Crosswalk Out File', required=False, default=None)
     parser.add_argument(
         '-e', '--demDerived-outfile', help='demDerived Out File', required=False, default=None
     )
-    parser.add_argument(
-        '-m', '--nwm-outfile', help='NWM Streams Out File', required=False, default=None
-    )
-    parser.add_argument(
-        '-v', '--verbose', help='Verbose', required=False, default=False, action='store_true'
-    )
+    parser.add_argument('-m', '--nwm-outfile', help='NWM Streams Out File', required=False, default=None)
+    parser.add_argument('-v', '--verbose', help='Verbose', required=False, default=False, action='store_true')
 
     kwargs = vars(parser.parse_args())
 

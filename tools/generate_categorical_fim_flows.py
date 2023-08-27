@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import argparse
 import os
 import sys
@@ -15,17 +16,12 @@ from tools_shared_functions import (
     aggregate_wbd_hucs,
     filter_nwm_segments_by_stream_order,
     flow_data,
-    get_datum,
     get_metadata,
     get_nwm_segs,
     get_thresholds,
-    mainstem_nwm_segs,
-    ngvd_to_navd_ft,
 )
 
-
-sys.path.append('/foss_fim/src')
-from utils.shared_variables import VIZ_PROJECTION
+from src.utils.shared_variables import VIZ_PROJECTION
 
 
 def get_env_paths():
@@ -37,14 +33,7 @@ def get_env_paths():
 
 
 def process_generate_flows(
-    huc,
-    huc_dictionary,
-    threshold_url,
-    all_lists,
-    workspace,
-    attributes_dir,
-    huc_messages_dir,
-    nwm_flows_df,
+    huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df
 ):
     # Process each huc unit, first define message variable and flood categories.
     all_messages = []
@@ -62,23 +51,21 @@ def process_generate_flows(
         stages, flows = get_thresholds(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
         )
-        if stages == None or flows == None:
+        if stages is None or flows is None:
             print("Likely WRDS error")
             continue
         # Check if stages are supplied, if not write message and exit.
-        if all(stages.get(category, None) == None for category in flood_categories):
+        if all(stages.get(category, None) is None for category in flood_categories):
             message = f'{lid}:missing threshold stages'
             all_messages.append(message)
             continue
         # Check if calculated flows are supplied, if not write message and exit.
-        if all(flows.get(category, None) == None for category in flood_categories):
+        if all(flows.get(category, None) is None for category in flood_categories):
             message = f'{lid}:missing calculated flows'
             all_messages.append(message)
             continue
         # find lid metadata from master list of metadata dictionaries (line 66).
-        metadata = next(
-            (item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False
-        )
+        metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
 
         # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
         unfiltered_segments = list(set(get_nwm_segs(metadata)))
@@ -87,9 +74,7 @@ def process_generate_flows(
         # Filter segments to be of like stream order.
         print("filtering segments")
         start = time.time()
-        segments = filter_nwm_segments_by_stream_order(
-            unfiltered_segments, desired_order, nwm_flows_df
-        )
+        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
         end = time.time()
         elapsed_time = round(((end - start) / 60), 6)
         print(f'Finished filtering segments in {elapsed_time} minutes')
@@ -110,11 +95,7 @@ def process_generate_flows(
                 flow_info = flow_data(segments, flow)
                 # Define destination path and create folders
                 output_file = (
-                    workspace
-                    / huc
-                    / lid
-                    / category
-                    / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
+                    workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
                 )
                 output_file.parent.mkdir(parents=True, exist_ok=True)
                 # Write flow file to file
@@ -384,9 +365,7 @@ def generate_catfim_flows(
     # Write messages to DataFrame, split into columns, aggregate messages.
     messages_df = pd.DataFrame(huc_message_list, columns=['message'])
     messages_df = (
-        messages_df['message']
-        .str.split(':', n=1, expand=True)
-        .rename(columns={0: 'nws_lid', 1: 'status'})
+        messages_df['message'].str.split(':', n=1, expand=True).rename(columns={0: 'nws_lid', 1: 'status'})
     )
     status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
 
@@ -413,17 +392,12 @@ def generate_catfim_flows(
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
-    parser.add_argument(
-        '-w', '--workspace', help='Workspace where all data will be stored.', required=True
-    )
+    parser.add_argument('-w', '--workspace', help='Workspace where all data will be stored.', required=True)
     parser.add_argument(
         '-u', '--nwm_us_search', help='Walk upstream on NWM network this many miles', required=True
     )
     parser.add_argument(
-        '-d',
-        '--nwm_ds_search',
-        help='Walk downstream on NWM network this many miles',
-        required=True,
+        '-d', '--nwm_ds_search', help='Walk downstream on NWM network this many miles', required=True
     )
     parser.add_argument(
         '-a',

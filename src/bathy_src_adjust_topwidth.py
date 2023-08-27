@@ -118,9 +118,7 @@ def bathy_rc_lookup(args):
             inplace=True,
         )
         ## Create new df to filter and groupby HydroID
-        find_thalweg_notch = modified_src_base[
-            ['HydroID', 'Stage', 'SurfaceArea (m2)', 'SA_div_flag']
-        ]
+        find_thalweg_notch = modified_src_base[['HydroID', 'Stage', 'SurfaceArea (m2)', 'SA_div_flag']]
         find_thalweg_notch = find_thalweg_notch[
             find_thalweg_notch['Stage'] < thal_stg_limit
         ]  # assuming thalweg burn-in is less than 3 meters
@@ -187,8 +185,7 @@ def bathy_rc_lookup(args):
             + str(output_bathy['Top Width Diff (m)'].max())
         ) + '\n'
         log_text += (
-            'STD: bankfull width crosswalk difference (m): '
-            + str(output_bathy['Top Width Diff (m)'].std())
+            'STD: bankfull width crosswalk difference (m): ' + str(output_bathy['Top Width Diff (m)'].std())
         ) + '\n'
 
         ## Calculate XS Area difference between SRC and Bankfull database
@@ -200,13 +197,11 @@ def bathy_rc_lookup(args):
         ).round(2)
         ## masking negative XS Area Diff and XS Area = 0
         output_bathy['XS Bankfull Area Ratio'].mask(
-            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0),
-            inplace=True,
+            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0), inplace=True
         )
         ## masking negative XS Area Diff and XS Area = 0
         output_bathy['XS Area Diff (m2)'].mask(
-            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0),
-            inplace=True,
+            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0), inplace=True
         )
         ## remove bogus values where bankfull area ratio > threshold --> 10x (topwidth crosswalk issues or bad bankfull regression data points??)
         output_bathy['XS Area Diff (m2)'].mask(
@@ -230,14 +225,11 @@ def bathy_rc_lookup(args):
             + str(output_bathy['XS Area Diff (m2)'].max())
         ) + '\n'
         log_text += (
-            'STD: bankfull XS Area crosswalk difference (m2): '
-            + str(output_bathy['XS Area Diff (m2)'].std())
+            'STD: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].std())
         ) + '\n'
 
         ## Bin XS Bankfull Area Ratio by stream order
-        stream_order_bathy_ratio = output_bathy[
-            ['order_', 'Stage', 'XS Bankfull Area Ratio']
-        ].copy()
+        stream_order_bathy_ratio = output_bathy[['order_', 'Stage', 'XS Bankfull Area Ratio']].copy()
         ## mask stage values when XS Bankfull Area Ratio is null (need to filter to calculate the median for valid values below)
         stream_order_bathy_ratio['Stage'].mask(
             stream_order_bathy_ratio['XS Bankfull Area Ratio'].isnull(), inplace=True
@@ -248,15 +240,11 @@ def bathy_rc_lookup(args):
             median_stage_bankfull=('Stage', 'median'),
         )
         ## fill XS Bankfull Area Ratio and Stage values if no values were found in the grouby calcs
-        stream_order_bathy_ratio = (
-            stream_order_bathy_ratio.ffill() + stream_order_bathy_ratio.bfill()
-        ) / 2
+        stream_order_bathy_ratio = (stream_order_bathy_ratio.ffill() + stream_order_bathy_ratio.bfill()) / 2
         ## fill first and last stream order values if needed
         stream_order_bathy_ratio = stream_order_bathy_ratio.bfill().ffill()
         ## Get count_total tally of the total number of stream order hydroids in the HUC (not filtering anything out)
-        stream_order_bathy_ratio_count = output_bathy.groupby('order_').agg(
-            count_total=('Stage', 'count')
-        )
+        stream_order_bathy_ratio_count = output_bathy.groupby('order_').agg(count_total=('Stage', 'count'))
         stream_order_bathy_ratio = stream_order_bathy_ratio.merge(
             stream_order_bathy_ratio_count, how='left', on='order_'
         )
@@ -270,9 +258,7 @@ def bathy_rc_lookup(args):
 
         ## Combine SRC df and df of XS Area for each hydroid and matching stage and order from bins above
         output_bathy = output_bathy.merge(stream_order_bathy_ratio, how='left', on='order_')
-        modified_src_base = modified_src_base.merge(
-            stream_order_bathy_ratio, how='left', on='order_'
-        )
+        modified_src_base = modified_src_base.merge(stream_order_bathy_ratio, how='left', on='order_')
 
         ## Calculate stage vs median_stage_bankfull difference for bankfull lookup
         modified_src_base['lookup_stage_diff'] = (
@@ -282,8 +268,7 @@ def bathy_rc_lookup(args):
 
         ## If median_stage_bankfull is null then set lookup_stage_diff to 999 at stage 0 (handles errors for channels outside CONUS)
         modified_src_base['lookup_stage_diff'].mask(
-            (modified_src_base['Stage'] == 0)
-            & (modified_src_base['median_stage_bankfull'].isnull()),
+            (modified_src_base['Stage'] == 0) & (modified_src_base['median_stage_bankfull'].isnull()),
             999,
             inplace=True,
         )
@@ -312,8 +297,7 @@ def bathy_rc_lookup(args):
 
         ## Calculate the ratio btw the lookup SRC XS_Area and the Bankfull_XSEC_AREA --> use this as a flag for potentially bad XS data
         xs_area_hydroid_lookup['bankfull_XS_ratio_flag'] = (
-            xs_area_hydroid_lookup['bathy_calc_xs_area']
-            / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)']
+            xs_area_hydroid_lookup['bathy_calc_xs_area'] / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)']
         )
         ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > threshold --> 5x (assuming too large of difference to be a reliable bankfull calculation)
         xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(
@@ -379,9 +363,7 @@ def bathy_rc_lookup(args):
             / modified_src_base['ManningN']
         )
         ## mask discharge values for stage = 0 rows in SRC (replace with 0) --> do we need SRC to start at 0??
-        modified_src_base['Discharge (m3s-1)'].mask(
-            modified_src_base['Stage'] == 0, 0, inplace=True
-        )
+        modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == 0, 0, inplace=True)
         modified_src_base['Discharge (m3s-1)'].mask(
             modified_src_base['Stage'] == modified_src_base['Thalweg_burn_elev'], 0, inplace=True
         )
@@ -438,12 +420,7 @@ def bathy_rc_lookup(args):
             ['barc_on'], axis=1, inplace=True
         )  # drop the default "barc_on" variable from add_crosswalk.py
         if not set(
-            [
-                'orig_discharge_cms',
-                'orig_Volume (m3)',
-                'orig_WetArea (m2)',
-                'orig_HydraulicRadius (m)',
-            ]
+            ['orig_discharge_cms', 'orig_Volume (m3)', 'orig_WetArea (m2)', 'orig_HydraulicRadius (m)']
         ).issubset(
             df_htable.columns
         ):  # check if "orig_" attributes do NOT already exist (likely generated from previous BARC run)
@@ -458,15 +435,10 @@ def bathy_rc_lookup(args):
             )
         else:
             df_htable.drop(
-                ['discharge_cms', 'Volume (m3)', 'WetArea (m2)', 'HydraulicRadius (m)'],
-                axis=1,
-                inplace=True,
+                ['discharge_cms', 'Volume (m3)', 'WetArea (m2)', 'HydraulicRadius (m)'], axis=1, inplace=True
             )  # drop the previously modified columns - to be replaced with updated version
         df_htable = df_htable.merge(
-            modified_hydro_table,
-            how='left',
-            left_on=['HydroID', 'stage'],
-            right_on=['HydroID', 'stage'],
+            modified_hydro_table, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
         )
         df_htable.to_csv(input_htable_fileName, index=False)
         log_text += ('Output new hydroTable and src_full_crosswalked: ') + '\n'
@@ -474,7 +446,7 @@ def bathy_rc_lookup(args):
 
         ## plot rating curves (optional arg)
         if src_plot_option == 'True':
-            if isdir(huc_plot_output_dir) == False:
+            if isdir(huc_plot_output_dir) is False:
                 os.mkdir(huc_plot_output_dir)
             generate_src_plot(df_htable, huc_plot_output_dir)
 
@@ -552,8 +524,7 @@ if __name__ == '__main__':
     ## Check that the input bankfull geom filepath exists and then read it to dataframe
     if not isfile(bankfull_regres_filepath):
         print(
-            '!!! Can not find the input bankfull geometry regression file: '
-            + str(bankfull_regres_filepath)
+            '!!! Can not find the input bankfull geometry regression file: ' + str(bankfull_regres_filepath)
         )
     else:
         ## Read the Manning's n csv (ensure that it contains feature_id, channel mannings, floodplain mannings)
@@ -581,13 +552,9 @@ if __name__ == '__main__':
                     htable_filename = join(fim_dir, huc, 'hydroTable.csv')
                     output_bath_filename = join(fim_dir, huc, 'bathy_crosswalk_calcs.csv')
                     output_bathy_thalweg_fileName = join(fim_dir, huc, 'bathy_thalweg_flag.csv')
-                    output_bathy_streamorder_fileName = join(
-                        fim_dir, huc, 'bathy_stream_order_calcs.csv'
-                    )
+                    output_bathy_streamorder_fileName = join(fim_dir, huc, 'bathy_stream_order_calcs.csv')
                     output_bathy_thalweg_fileName = join(fim_dir, huc, 'bathy_thalweg_flag.csv')
-                    output_bathy_xs_lookup_fileName = join(
-                        fim_dir, huc, 'bathy_xs_area_hydroid_lookup.csv'
-                    )
+                    output_bathy_xs_lookup_fileName = join(fim_dir, huc, 'bathy_xs_area_hydroid_lookup.csv')
                     huc_plot_output_dir = join(fim_dir, huc, 'src_plots')
 
                     if isfile(in_src_filename):

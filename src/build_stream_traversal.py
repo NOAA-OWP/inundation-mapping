@@ -1,3 +1,9 @@
+import argparse
+import sys
+
+import geopandas as gpd
+
+
 '''
 Description:
         This tool creates unique IDs for each segment and builds the To_Node, From_Node, and NextDownID columns to traverse the network
@@ -6,10 +12,6 @@ Required Arguments:
         wbd8          = HUC8 boundary dataset
         hydro_id       = name of ID column (string)
 '''
-import argparse
-import sys
-
-import geopandas as gpd
 
 
 def trace():
@@ -36,7 +38,9 @@ class build_stream_traversal_columns(object):
     def __init__(self):
         '''Define tool properties (tool name is the class name).'''
         self.label = 'Find Next Downstream Line'
-        self.description = '''Finds next downstream line, retrieves its HydroID and stores it in the NextDownID field.'''
+        self.description = (
+            '''Finds next downstream line, retrieves its HydroID and stores it in the NextDownID field.'''
+        )
 
     def execute(self, streams, wbd8, hydro_id):
         try:
@@ -44,15 +48,13 @@ class build_stream_traversal_columns(object):
             sOK = 'OK'
 
             # check for HydroID; Assign if it doesn't exist
-            if not hydro_id in streams.columns:
+            if hydro_id not in streams.columns:
                 print("Required field " + hydro_id + " does not exist in input. Generating..")
 
                 # Get stream midpoint
                 stream_midpoint = []
                 for i, lineString in enumerate(streams.geometry):
-                    stream_midpoint = stream_midpoint + [
-                        lineString.interpolate(0.5, normalized=True)
-                    ]
+                    stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
 
                 stream_md_gpd = gpd.GeoDataFrame(
                     {'geometry': stream_midpoint}, crs=streams.crs, geometry='geometry'
@@ -82,19 +84,19 @@ class build_stream_traversal_columns(object):
 
             # Check for TO/From Nodes; Assign if doesnt exist
             bOK = True
-            if not from_node in streams.columns:
+            if from_node not in streams.columns:
                 print("Field " + from_node + " does not exist in input ")
                 bOK = False
-            if not to_node in streams.columns:
+            if to_node not in streams.columns:
                 print("Field " + to_node + " does not exist in input. Generating..")
                 bOK = False
 
-            if bOK == False:
+            if bOK is False:
                 # Add fields if not they do not exist.
-                if not from_node in streams.columns:
+                if from_node not in streams.columns:
                     streams[from_node] = ''
 
-                if not to_node in streams.columns:
+                if to_node not in streams.columns:
                     streams[to_node] = ''
 
                 streams = streams.sort_values(by=[hydro_id], ascending=True).copy()
@@ -126,26 +128,21 @@ class build_stream_traversal_columns(object):
                     else:
                         bhasnullshape = True
 
-                if bhasnullshape == True:
+                if bhasnullshape is True:
                     print("Some of the input features have a null shape.")
-                    print(
-                        from_node
-                        + " and "
-                        + to_node
-                        + " fields cannot be populated for those features."
-                    )
+                    print(from_node + " and " + to_node + " fields cannot be populated for those features.")
                 else:
                     print('Generated To/From Nodes')
 
             # Create NextDownID field
-            if not next_down_id in streams.columns:
+            if next_down_id not in streams.columns:
                 streams[next_down_id] = ''
 
             # Create dict to store from_node values for each HydroID
             dnodes = dict()
             lstHydroIDs = []
             for row in streams[[from_node, hydro_id]].iterrows():
-                if (row[1][0] in dnodes) == False:
+                if (row[1][0] in dnodes) is False:
                     lstHydroIDs = [row[1][1]]
                     dnodes.setdefault(row[1][0], lstHydroIDs)
                 else:
@@ -159,8 +156,9 @@ class build_stream_traversal_columns(object):
                 hydroIDcol = urow[1][3]
                 try:
                     next_down_ids = dnodes[tonodecol]
-                except:
+                except Exception as e:
                     next_down_ids = []
+                    print(repr(e))
                 splits = len(next_down_ids)
                 if splits == 0:  # terminal segment
                     nextdownIDcol = -1
@@ -170,9 +168,7 @@ class build_stream_traversal_columns(object):
                     i = 0
                     for nid in next_down_ids:
                         # Set the split code in the NextDownID field.
-                        if (
-                            split_code < 0
-                        ):  # set terminal NextDownID field to -1; this should never happen..
+                        if split_code < 0:  # set terminal NextDownID field to -1; this should never happen..
                             if i == 0:
                                 nextdownIDcol = split_code
                         else:  # muliple inflows
@@ -182,12 +178,16 @@ class build_stream_traversal_columns(object):
                 try:
                     if next_down_ids:
                         del next_down_ids
-                except:
+                except Exception as e:
+                    print(repr(e))
                     pass
+
                 streams.loc[streams[hydro_id] == hydroIDcol, [next_down_id]] = nextdownIDcol
 
             tReturns = (sOK, streams)
-        except Exception:
+
+        except Exception as e:
+            print(e)
             sOK = "{}".format(trace())
             tReturns = (sOK,)
         return tReturns
@@ -196,9 +196,7 @@ class build_stream_traversal_columns(object):
 if __name__ == '__main__':
     try:
         ap = argparse.ArgumentParser()
-        ap.add_argument(
-            "-p", "--parameters", nargs='+', default=[], required=True, help="list of parameters"
-        )
+        ap.add_argument("-p", "--parameters", nargs='+', default=[], required=True, help="list of parameters")
         args = ap.parse_args()
         streams = args.parameters[0]
         wbd8 = args.parameters[1]
@@ -210,5 +208,5 @@ if __name__ == '__main__':
         tResults = oProcessor.execute(params)
 
         del oProcessor
-    except:
-        print(str(trace()))
+    except Exception as e:
+        print(repr(e))

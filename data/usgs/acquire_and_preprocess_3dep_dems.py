@@ -13,12 +13,10 @@ from datetime import datetime
 import geopandas as gpd
 import pandas as pd
 
-import utils.shared_functions as sf
-import utils.shared_variables as sv
-from utils.shared_functions import FIM_Helpers as fh
+import src.utils.shared_functions as sf
+import src.utils.shared_variables as sv
+from src.utils.shared_functions import FIM_Helpers as fh
 
-
-sys.path.append('/foss_fim/src')
 
 '''
 TODO:
@@ -35,12 +33,9 @@ __USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProd
 
 
 def acquire_and_preprocess_3dep_dems(
-    extent_file_path,
-    target_output_folder_path='',
-    number_of_jobs=1,
-    retry=False,
-    skip_polygons=False,
+    extent_file_path, target_output_folder_path='', number_of_jobs=1, retry=False, skip_polygons=False
 ):
+    # aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     '''
     Overview
     ----------
@@ -243,9 +238,7 @@ def download_usgs_dem_file(extent_file, output_folder_path, download_url, base_c
     # so, super small .tifs are correct.
 
     if (retry) and (os.path.exists(target_path_raw)):
-        msg = (
-            f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
-        )
+        msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
         print(msg)
         logging.info(msg)
         return
@@ -262,12 +255,7 @@ def download_usgs_dem_file(extent_file, output_folder_path, download_url, base_c
     # didn't use Popen becuase of how it interacts with multi proc
     # was creating some issues. Run worked much better.
     process = subprocess.run(
-        cmd,
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=True,
-        universal_newlines=True,
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True
     )
 
     msg = process.stdout
@@ -276,10 +264,7 @@ def download_usgs_dem_file(extent_file, output_folder_path, download_url, base_c
 
     if process.stderr != "":
         if "ERROR" in process.stderr.upper():
-            msg = (
-                f" - Downloading -- {target_file_name_raw}"
-                f"  ERROR -- details: ({process.stderr})"
-            )
+            msg = f" - Downloading -- {target_file_name_raw}" f"  ERROR -- details: ({process.stderr})"
             print(msg)
             logging.error(msg)
             os.remove(target_path_raw)
@@ -427,8 +412,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-r',
         '--retry',
-        help='If included, it will skip files that already exist.'
-        ' Default is all will be loaded/reloaded.',
+        help='If included, it will skip files that already exist.' ' Default is all will be loaded/reloaded.',
         required=False,
         action='store_true',
         default=False,

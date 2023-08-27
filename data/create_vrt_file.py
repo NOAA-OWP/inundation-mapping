@@ -8,10 +8,7 @@ from datetime import datetime
 
 from osgeo import gdal
 
-from utils.shared_functions import FIM_Helpers as fh
-
-
-sys.path.append('/foss_fim/src')
+from src.utils.shared_functions import FIM_Helpers as fh
 
 
 def create_vrt_file(src_directory, vrt_file_name):

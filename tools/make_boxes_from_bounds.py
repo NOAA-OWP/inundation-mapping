@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-
 import argparse
 from datetime import datetime
 
 import geopandas as gpd
 import pandas as pd
-from foss_fim.src.utils.shared_functions import getDriver
 from shapely.geometry import box
+
+from src.utils.shared_functions import getDriver
 
 
 def find_hucs_of_bounding_boxes(
@@ -21,14 +21,12 @@ def find_hucs_of_bounding_boxes(
 ):
     # load bounding box file
     bounding_boxes = pd.read_csv(
-        bounding_boxes_file,
-        dtype={'minx': float, 'miny': float, 'maxx': float, 'maxy': float},
-        comment='#',
+        bounding_boxes_file, dtype={'minx': float, 'miny': float, 'maxx': float, 'maxy': float}, comment='#'
     )
 
-    make_box_geom = lambda df: box(df['minx'], df['miny'], df['maxx'], df['maxy'])
-
-    bounding_boxes['geometry'] = bounding_boxes.apply(make_box_geom, axis=1)
+    bounding_boxes['geometry'] = bounding_boxes.apply(
+        lambda df: box(df['minx'], df['miny'], df['maxx'], df['maxy']), axis=1
+    )
 
     bounding_boxes = gpd.GeoDataFrame(bounding_boxes, crs=projection_of_boxes)
 
@@ -37,26 +35,20 @@ def find_hucs_of_bounding_boxes(
     bounding_boxes = bounding_boxes.to_crs(wbd_proj)
 
     if bounding_boxes_outfile is not None:
-        bounding_boxes.to_file(
-            bounding_boxes_outfile, driver=getDriver(bounding_boxes_outfile), index=False
-        )
+        bounding_boxes.to_file(bounding_boxes_outfile, driver=getDriver(bounding_boxes_outfile), index=False)
 
     wbdcol_name = 'HUC' + wbd_layer[-1]
 
-    get_intersections = lambda bbdf: gpd.read_file(wbd, layer=wbd_layer, mask=bbdf.geometry)[
-        wbdcol_name
-    ]
-
-    hucs = bounding_boxes.apply(get_intersections, axis=1)
+    hucs = bounding_boxes.apply(
+        lambda bbdf: gpd.read_file(wbd, layer=wbd_layer, mask=bbdf.geometry)[wbdcol_name], axis=1
+    )
 
     bounding_boxes.drop(columns=['geometry', 'minx', 'miny', 'maxx', 'maxy'], inplace=True)
 
     hucs_columns = hucs.columns
     bb_columns = bounding_boxes.columns
     bounding_boxes = hucs.join(bounding_boxes)
-    bounding_boxes = pd.melt(
-        bounding_boxes, id_vars=bb_columns, value_vars=hucs_columns, value_name='HUC8'
-    )
+    bounding_boxes = pd.melt(bounding_boxes, id_vars=bb_columns, value_vars=hucs_columns, value_name='HUC8')
     bounding_boxes.drop(columns=['variable'], inplace=True)
     bounding_boxes.dropna(inplace=True)
     bounding_boxes.reset_index(drop=True, inplace=True)
@@ -77,21 +69,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Find hucs for bounding boxes')
     parser.add_argument('-b', '--bounding-boxes-file', help='Bounding box file', required=True)
     parser.add_argument('-w', '--wbd', help='WBD file', required=True)
+    parser.add_argument('-p', '--projection-of-boxes', help='Projection', required=False, default='EPSG:4329')
+    parser.add_argument('-o', '--huc-output-file', help='Output file of HUCS', required=False, default=None)
+    parser.add_argument('-f', '--forecast-output-file', help='Forecast file', required=False, default=None)
     parser.add_argument(
-        '-p', '--projection-of-boxes', help='Projection', required=False, default='EPSG:4329'
-    )
-    parser.add_argument(
-        '-o', '--huc-output-file', help='Output file of HUCS', required=False, default=None
-    )
-    parser.add_argument(
-        '-f', '--forecast-output-file', help='Forecast file', required=False, default=None
-    )
-    parser.add_argument(
-        '-u',
-        '--bounding-boxes-outfile',
-        help='Bounding boxes outfile',
-        required=False,
-        default=None,
+        '-u', '--bounding-boxes-outfile', help='Bounding boxes outfile', required=False, default=None
     )
 
     args = vars(parser.parse_args())

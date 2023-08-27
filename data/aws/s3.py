@@ -6,15 +6,11 @@ import os
 import subprocess
 import sys
 from datetime import datetime
-from operator import truediv
-from pickle import FALSE
 
 from aws_base import AWS_Base
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
-
-sys.path.append('/foss_fim/src')
 
 '''
 This file is for communicating to any AWS S3 buckets.
@@ -149,12 +145,7 @@ class S3(AWS_Base):
         print("")
 
         process = subprocess.Popen(
-            cmd,
-            shell=True,
-            bufsize=1,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            errors='replace',
+            cmd, shell=True, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, errors='replace'
         )
 
         while True:
@@ -183,24 +174,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Communication with aws s3 data services')
     parser.add_argument(
-        '-a',
-        '--action_type',
-        help='value of get or put (defaults to put)',
-        default="put",
-        required=False,
+        '-a', '--action_type', help='value of get or put (defaults to put)', default="put", required=False
     )
+    parser.add_argument('-c', '--aws_cred_env_file', help='path to aws credentials env file', required=True)
     parser.add_argument(
-        '-c', '--aws_cred_env_file', help='path to aws credentials env file', required=True
+        '-s', '--local_folder_path', help='folder path of all files to be saved to or from', required=True
     )
-    parser.add_argument(
-        '-s',
-        '--local_folder_path',
-        help='folder path of all files to be saved to or from',
-        required=True,
-    )
-    parser.add_argument(
-        '-t', '--aws_target_path', help='s3 bucket address and folder', required=True
-    )
+    parser.add_argument('-t', '--aws_target_path', help='s3 bucket address and folder', required=True)
     parser.add_argument(
         '-w',
         '--whitelist_file_path',
@@ -230,6 +210,4 @@ if __name__ == '__main__':
     elif args["action_type"] == "get":
         raise Exception("Error: get method not yet implemented or available")
     else:
-        raise Exception(
-            "Error: action type value invalid. Current options are: 'put' (more coming soon) "
-        )
+        raise Exception("Error: action type value invalid. Current options are: 'put' (more coming soon) ")

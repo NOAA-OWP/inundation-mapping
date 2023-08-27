@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import os
 import traceback
@@ -68,15 +70,9 @@ if __name__ == '__main__':
     )
     parser.add_argument('-d', '--fim-run-dir', help='Path to vector file.', required=True)
     parser.add_argument(
-        '-n',
-        '--nlcd',
-        help='Path to National Land Cover Database raster file.',
-        required=False,
-        default="",
+        '-n', '--nlcd', help='Path to National Land Cover Database raster file.', required=False, default=""
     )
-    parser.add_argument(
-        '-l', '--levees', help='Path to levees raster file.', required=False, default=""
-    )
+    parser.add_argument('-l', '--levees', help='Path to levees raster file.', required=False, default="")
     parser.add_argument('-b', '--bridges', help='Path to bridges file.', required=False, default="")
     parser.add_argument(
         '-o',
@@ -85,9 +81,7 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
-    parser.add_argument(
-        '-j', '--job-number', help='Number of jobs to use.', required=False, default=""
-    )
+    parser.add_argument('-j', '--job-number', help='Number of jobs to use.', required=False, default="")
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -101,6 +95,4 @@ if __name__ == '__main__':
 
     raster_path_dict = {'nlcd': args['nlcd']}
 
-    queue_zonal_stats(
-        args['fim_run_dir'], raster_path_dict, args['output_dir'], int(args['job_number'])
-    )
+    queue_zonal_stats(args['fim_run_dir'], raster_path_dict, args['output_dir'], int(args['job_number']))

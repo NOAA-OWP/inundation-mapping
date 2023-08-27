@@ -28,9 +28,7 @@ def __read_input_hucs(hucs):
         source_file_extension = pathlib.Path(hucs[0]).suffix
 
         if source_file_extension.lower() != ".lst":
-            raise Exception(
-                "Incoming file must be in .lst format if submitting a file name and path."
-            )
+            raise Exception("Incoming file must be in .lst format if submitting a file name and path.")
 
         with open(hucs[0], 'r') as hucs_file:
             file_lines = hucs_file.readlines()
@@ -63,7 +61,9 @@ def __check_for_membership(hucs, accepted_hucs_set):
             raise KeyError(msg)
 
         if huc not in accepted_hucs_set:
-            msg = f"HUC {huc} not found in available inputs. Edit HUC inputs or acquire datasets and try again."
+            msg = (
+                f"HUC {huc} not found in available inputs. Edit HUC inputs or acquire datasets and try again."
+            )
             raise KeyError(msg)
 
 

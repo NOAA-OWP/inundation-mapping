@@ -76,9 +76,7 @@ def src_bankfull_lookup(args):
             )
             ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
             df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
-        negative_flows = len(
-            df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)]
-        )
+        negative_flows = len(df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)])
         if negative_flows > 0:
             log_text += (
                 'WARNING: HUC: '
@@ -120,15 +118,7 @@ def src_bankfull_lookup(args):
             )
 
         df_bankfull_calc = df_src[
-            [
-                'Stage',
-                'HydroID',
-                bedarea_var,
-                volume_var,
-                hradius_var,
-                surface_area_var,
-                'Q_bfull_find',
-            ]
+            ['Stage', 'HydroID', bedarea_var, volume_var, hradius_var, surface_area_var, 'Q_bfull_find']
         ]  # create new subset df to perform the Q_1_5 lookup
         df_bankfull_calc = df_bankfull_calc[
             df_bankfull_calc['Stage'] > 0.0
@@ -202,7 +192,7 @@ def src_bankfull_lookup(args):
 
         ## plot rating curves (optional arg)
         if src_plot_option:
-            if isdir(huc_output_dir) == False:
+            if isdir(huc_output_dir) is False:
                 os.mkdir(huc_output_dir)
             generate_src_plot(df_src, huc_output_dir)
 
@@ -239,9 +229,7 @@ def generate_src_plot(df_src, plt_out_dir):
         axes[1].set_title('Channel Volume vs. HRadius Ratio')
         sns.despine(fig, left=True, bottom=True)
         sns.scatterplot(x='Discharge (m3s-1)', y='Stage', data=plot_df, ax=axes[0])
-        sns.lineplot(
-            x='Discharge (m3s-1)', y='Stage_bankfull', data=plot_df, color='green', ax=axes[0]
-        )
+        sns.lineplot(x='Discharge (m3s-1)', y='Stage_bankfull', data=plot_df, color='green', ax=axes[0])
         axes[0].fill_between(plot_df['Discharge (m3s-1)'], plot_df['Stage_bankfull'], alpha=0.5)
         axes[0].text(
             plot_df['Discharge (m3s-1)'].median(),
@@ -249,33 +237,16 @@ def generate_src_plot(df_src, plt_out_dir):
             "Bankfull Proxy Stage: " + str(plot_df['Stage_bankfull'].median()),
         )
         sns.scatterplot(
-            x='chann_volume_ratio',
-            y='Stage',
-            data=plot_df,
-            ax=axes[1],
-            label="chann_volume_ratio",
-            s=38,
+            x='chann_volume_ratio', y='Stage', data=plot_df, ax=axes[1], label="chann_volume_ratio", s=38
         )
         sns.scatterplot(
-            x='chann_hradius_ratio',
-            y='Stage',
-            data=plot_df,
-            ax=axes[1],
-            label="chann_hradius_ratio",
-            s=12,
+            x='chann_hradius_ratio', y='Stage', data=plot_df, ax=axes[1], label="chann_hradius_ratio", s=12
         )
         sns.scatterplot(
-            x='chann_surfarea_ratio',
-            y='Stage',
-            data=plot_df,
-            ax=axes[1],
-            label="chann_surfarea_ratio",
-            s=12,
+            x='chann_surfarea_ratio', y='Stage', data=plot_df, ax=axes[1], label="chann_surfarea_ratio", s=12
         )
         axes[1].legend()
-        plt.savefig(
-            plt_out_dir + os.sep + str(hydroid) + '_bankfull.png', dpi=100, bbox_inches='tight'
-        )
+        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_bankfull.png', dpi=100, bbox_inches='tight')
         plt.close()
 
 
@@ -309,13 +280,11 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     print('This may take a few minutes...')
 
     ## Check that the input fim_dir exists
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(
-        fim_dir
-    )
+    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the bankfull flow filepath exists and read to dataframe
-    assert os.path.isfile(
+    assert os.path.isfile(bankfull_flow_filepath), 'ERROR: Can not find the input bankfull flow file: ' + str(
         bankfull_flow_filepath
-    ), 'ERROR: Can not find the input bankfull flow file: ' + str(bankfull_flow_filepath)
+    )
 
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
@@ -353,13 +322,11 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     huc_pass_list = []
     for huc in huc_list:
         # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-        if re.match('\d{8}', huc):
+        if re.match(r'\d{8}', huc):
             huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
             for branch_id in os.listdir(huc_branches_dir):
                 branch_dir = os.path.join(huc_branches_dir, branch_id)
-                src_orig_full_filename = join(
-                    branch_dir, 'src_full_crosswalked_' + branch_id + '.csv'
-                )
+                src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
                 huc_output_dir = join(branch_dir, 'src_plots')
                 ## check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use the orginial src_full_crosswalked.csv
                 if isfile(src_orig_full_filename):

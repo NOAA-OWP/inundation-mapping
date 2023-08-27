@@ -12,9 +12,7 @@ def combine_crosswalk_tables(data_directory, output_filename):
     Combines all hydrotables from a run into a single crosswalk table with HUC, BranchID, HydroID, feature_id, and LakeID
     """
 
-    file_list = sorted(
-        glob.glob(os.path.join(data_directory, '*', 'branches', '*', 'hydroTable_*.csv'))
-    )
+    file_list = sorted(glob.glob(os.path.join(data_directory, '*', 'branches', '*', 'hydroTable_*.csv')))
 
     dfs = list()
     for filename in file_list:
@@ -43,9 +41,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-d', '--data-directory', help='Data directory (name of run)', type=str, required=True
     )
-    parser.add_argument(
-        '-o', '--output-filename', help='Filename for output', type=str, required=True
-    )
+    parser.add_argument('-o', '--output-filename', help='Filename for output', type=str, required=True)
 
     args = vars(parser.parse_args())
 

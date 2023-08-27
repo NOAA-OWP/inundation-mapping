@@ -60,9 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stages-filename', help='stages-filename', required=True)
     parser.add_argument('-a', '--catchlist-filename', help='catchlist-filename', required=True)
     parser.add_argument('-m', '--stages-min', help='stages-min', required=True, type=float)
-    parser.add_argument(
-        '-i', '--stages-interval', help='stages-interval', required=True, type=float
-    )
+    parser.add_argument('-i', '--stages-interval', help='stages-interval', required=True, type=float)
     parser.add_argument('-t', '--stages-max', help='stages-max', required=True, type=float)
 
     # Extract to dictionary and assign to variables.

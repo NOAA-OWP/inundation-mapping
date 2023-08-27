@@ -28,10 +28,14 @@ class OverlapWindowMerge:
         """
 
         # sort for largest spanning dataset (todo: handle mismatched resolutions)
-        size_func = lambda x: np.abs(x.bounds.left - x.bounds.right) * np.abs(
-            x.bounds.top - x.bounds.bottom
-        )
-        key_sort_func = lambda x: x['size']
+        # size_func = lambda x: np.abs(x.bounds.left - x.bounds.right) * np.abs(x.bounds.top - x.bounds.bottom)
+        def size_func(x):
+            return np.abs(x.bounds.left - x.bounds.right) * np.abs(x.bounds.top - x.bounds.bottom)
+
+        # key_sort_func = lambda x: x['size']
+        def key_sort_func(x):
+            return x['size']
+
         datasets = [rasterio.open(ds) for ds in inundation_rsts]
         ds_dict = [{'dataset': ds, 'size': size_func(ds)} for ds in datasets]
         ds_dict.sort(key=key_sort_func, reverse=True)
@@ -45,10 +49,7 @@ class OverlapWindowMerge:
         self.res = self.depth_rsts[0].meta['transform'][0]
         self.depth_bounds = (
             np.array(
-                [
-                    [[x.bounds.top, x.bounds.left], [x.bounds.bottom, x.bounds.right]]
-                    for x in self.depth_rsts
-                ]
+                [[[x.bounds.top, x.bounds.left], [x.bounds.bottom, x.bounds.right]] for x in self.depth_rsts]
             )
             / self.res
         )
@@ -62,10 +63,7 @@ class OverlapWindowMerge:
         ) = self.get_final_dims()
 
         self.proc_unit_bounds = np.array(
-            [
-                [final_bounds['top'], final_bounds['left']],
-                [final_bounds['bottom'], final_bounds['right']],
-            ]
+            [[final_bounds['top'], final_bounds['left']], [final_bounds['bottom'], final_bounds['right']]]
         )
 
         self.proc_unit_bounds = self.proc_unit_bounds / self.res
@@ -112,12 +110,7 @@ class OverlapWindowMerge:
         height = int(np.abs(top - bottom) / self.res)
         new_transform = Affine(transform[0], transform[1], left, transform[3], transform[4], top)
 
-        return (
-            new_transform,
-            width,
-            height,
-            {'left': left, 'top': top, 'right': right, 'bottom': bottom},
-        )
+        return (new_transform, width, height, {'left': left, 'top': top, 'right': right, 'bottom': bottom})
 
     def get_window_coords(self):
         """
@@ -144,9 +137,7 @@ class OverlapWindowMerge:
         # Get window heights (both normal and edge windows)
         window_height1 = np.repeat(int(self.proc_unit_height / y_res), y_res) * self.lat_lon_sign[0]
         window_height2 = window_height1.copy()
-        window_height2[-1] += (
-            self.proc_unit_height - window_height1[0] * y_res * self.lat_lon_sign[0]
-        )
+        window_height2[-1] += self.proc_unit_height - window_height1[0] * y_res * self.lat_lon_sign[0]
 
         # Get window sizes (both normal and edge windows)
         window_bounds1 = np.flip(
@@ -232,10 +223,7 @@ class OverlapWindowMerge:
         # Get window bounding box and get final array output dimensions
         window = path_points[win_idx]
         window_height, window_width = np.array(
-            [
-                np.abs(bbox[win_idx][2] - bbox[win_idx][0]),
-                np.abs(bbox[win_idx][3] - bbox[win_idx][1]),
-            ]
+            [np.abs(bbox[win_idx][2] - bbox[win_idx][0]), np.abs(bbox[win_idx][3] - bbox[win_idx][1])]
         ).astype(np.int)
 
         bnds = []
@@ -342,9 +330,7 @@ class OverlapWindowMerge:
                     merge_partial(d, dw, fw, ddict)
             else:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                    executor.map(
-                        merge_partial, data, data_windows, final_windows, data_dict.values()
-                    )
+                    executor.map(merge_partial, data, data_windows, final_windows, data_dict.values())
 
     def mask_mosaic(self, mosaic, polys, polys_layer=None, outfile=None):
         # rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)
@@ -490,11 +476,7 @@ if __name__ == '__main__':
 
     project_path = '*'
     overlap = OverlapWindowMerge(
-        [
-            project_path + '/nwm_resampled.tif',
-            project_path + '/rnr_inundation_031403_2020092000.tif',
-        ],
-        (1, 1),
+        [project_path + '/nwm_resampled.tif', project_path + '/rnr_inundation_031403_2020092000.tif'], (1, 1)
     )
     overlap.merge_rasters(project_path + '/merged_final5.tif', threaded=False, workers=4)
 

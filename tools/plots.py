@@ -157,7 +157,9 @@ def preparing_data_for_plotting(metrics_table):
         columns={'extent_config': 'Model', 'magnitude': 'Magnitude', 'TPR': 'POD'}, inplace=True
     )
 
-    set_mannings = lambda df: 0.06 if 'n_6' in df['version'] else 0.12
+    # set_mannings = lambda df: 0.06 if 'n_6' in df['version'] else 0.12
+    def set_mannings(df):
+        return 0.06 if 'n_6' in df['version'] else 0.12
 
     metrics_table['Mannings N'] = metrics_table.apply(set_mannings, axis=1)
 
@@ -171,11 +173,11 @@ def preparing_data_for_plotting(metrics_table):
 
     model_to_value_dict = {'FR': 0, 'MS': 1, 'GMS': 2}
 
-    set_model_integer_encodings = lambda df: model_to_value_dict[df['Model']]
+    # set_model_integer_encodings = lambda df: model_to_value_dict[df['Model']]
+    def set_model_integer_encodings(df):
+        return model_to_value_dict[df['Model']]
 
-    metrics_table['model_integer_encodings'] = metrics_table.apply(
-        set_model_integer_encodings, axis=1
-    )
+    metrics_table['model_integer_encodings'] = metrics_table.apply(set_model_integer_encodings, axis=1)
 
     return metrics_table
 
@@ -184,8 +186,8 @@ def robust_linear_model(metrics_table):
     metrics = metrics_table.loc[:, 'Metric'].unique()
     mannings = metrics_table.loc[:, 'Mannings N'].unique()
 
-    metric_indices = {m: metrics_table.loc[:, 'Metric'] == m for m in metrics}
-    mannings_indices = {m: metrics_table.loc[:, 'Mannings N'] == m for m in mannings}
+    # metric_indices = {m: metrics_table.loc[:, 'Metric'] == m for m in metrics}
+    # mannings_indices = {m: metrics_table.loc[:, 'Mannings N'] == m for m in mannings}
 
     metrics_table.set_index(['Metric', 'Mannings N'], inplace=True, drop=False)
     metrics_table.sort_index(inplace=True)

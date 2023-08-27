@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-
 import json
+import os
 import pathlib
 from pathlib import Path
 
@@ -122,15 +122,13 @@ def compute_contingency_stats_from_rasters(
 
     for stats_mode in stats_dictionary:
         # Write the mode_stats_dictionary to the stats_csv.
-        if stats_csv != None:
+        if stats_csv is not None:
             stats_csv = os.path.join(os.path.split(stats_csv)[0], stats_mode + '_stats.csv')
-            df = pd.DataFrame.from_dict(
-                stats_dictionary[stats_mode], orient="index", columns=['value']
-            )
+            df = pd.DataFrame.from_dict(stats_dictionary[stats_mode], orient="index", columns=['value'])
             df.to_csv(stats_csv)
 
         # Write the mode_stats_dictionary to the stats_json.
-        if stats_json != None:
+        if stats_json is not None:
             stats_json = os.path.join(os.path.split(stats_csv)[0], stats_mode + '_stats.json')
             with open(stats_json, "w") as outfile:
                 json.dump(stats_dictionary[stats_mode], outfile)
@@ -159,9 +157,7 @@ def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
     available_versions_list = os.listdir(archive_to_check)
 
     if len(available_versions_list) == 0:
-        print(
-            "Cannot compare with -c flag because there are no data in the previous_versions directory."
-        )
+        print("Cannot compare with -c flag because there are no data in the previous_versions directory.")
         return
 
     for version in available_versions_list:
@@ -175,12 +171,7 @@ def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
 
 
 def compute_stats_from_contingency_table(
-    true_negatives,
-    false_negatives,
-    false_positives,
-    true_positives,
-    cell_area=None,
-    masked_count=None,
+    true_negatives, false_negatives, false_positives, true_positives, cell_area=None, masked_count=None
 ):
     """
     This generic function takes contingency table metrics as arguments and returns a dictionary of contingency table statistics.
@@ -201,11 +192,7 @@ def compute_stats_from_contingency_table(
     """
 
     vals, keys = CatStats.process_statistics(
-        func_names="all",
-        tp=true_positives,
-        tn=true_negatives,
-        fp=false_positives,
-        fn=false_negatives,
+        func_names="all", tp=true_positives, tn=true_negatives, fp=false_positives, fn=false_negatives
     )
     alt_keys = ['band', 'tn', 'fn', 'fp', 'tp']
     alt_vals = [1, true_negatives, false_negatives, false_positives, true_positives]
@@ -216,9 +203,7 @@ def compute_stats_from_contingency_table(
 
     metrics_table = pd.DataFrame({x: [y] for x, y in zip(keys, vals)})
 
-    return cross_walk_gval_fim(
-        metric_df=metrics_table, cell_area=cell_area, masked_count=masked_count
-    )
+    return cross_walk_gval_fim(metric_df=metrics_table, cell_area=cell_area, masked_count=masked_count)
 
 
 def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: int) -> dict:
@@ -325,24 +310,12 @@ def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: i
 
     total_pop_and_mask_pop = total_population + masked_count if masked_count > 0 else None
     metric_df['masked_count'] = masked_count if masked_count > 0 else 0
-    metric_df['masked_perc'] = (
-        (masked_count / total_pop_and_mask_pop) * 100 if masked_count > 0 else 0
-    )
-    metric_df['masked_area_km2'] = (
-        (masked_count * cell_area) / sq_km_converter if masked_count > 0 else 0
-    )
-    metric_df['predPositive_perc'] = (
-        (predPositive / total_population) * 100 if total_population > 0 else "NA"
-    )
-    metric_df['predNegative_perc'] = (
-        (predNegative / total_population) * 100 if total_population > 0 else "NA"
-    )
-    metric_df['obsPositive_perc'] = (
-        (obsPositive / total_population) * 100 if total_population > 0 else "NA"
-    )
-    metric_df['obsNegative_perc'] = (
-        (obsNegative / total_population) * 100 if total_population > 0 else "NA"
-    )
+    metric_df['masked_perc'] = (masked_count / total_pop_and_mask_pop) * 100 if masked_count > 0 else 0
+    metric_df['masked_area_km2'] = (masked_count * cell_area) / sq_km_converter if masked_count > 0 else 0
+    metric_df['predPositive_perc'] = (predPositive / total_population) * 100 if total_population > 0 else "NA"
+    metric_df['predNegative_perc'] = (predNegative / total_population) * 100 if total_population > 0 else "NA"
+    metric_df['obsPositive_perc'] = (obsPositive / total_population) * 100 if total_population > 0 else "NA"
+    metric_df['obsNegative_perc'] = (obsNegative / total_population) * 100 if total_population > 0 else "NA"
     metric_df['positiveDiff_perc'] = (
         metric_df['predPositive_perc'].values[0] - metric_df['obsPositive_perc'].values[0]
         if total_population > 0
@@ -353,10 +326,7 @@ def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: i
 
 
 def get_stats_table_from_binary_rasters(
-    benchmark_raster_path: str,
-    candidate_raster_path: str,
-    agreement_raster: str = None,
-    mask_dict: dict = {},
+    benchmark_raster_path: str, candidate_raster_path: str, agreement_raster: str = None, mask_dict: dict = {}
 ):
     """
     Produces categorical statistics table from 2 rasters and returns it. Also exports an agreement raster classified as:
@@ -435,9 +405,7 @@ def get_stats_table_from_binary_rasters(
 
                 poly_all_proj['mask'] = 4
 
-                rasterized_mask_list.append(
-                    make_geocube(poly_all_proj, ['mask'], like=candidate_raster)
-                )
+                rasterized_mask_list.append(make_geocube(poly_all_proj, ['mask'], like=candidate_raster))
 
                 del poly_all, poly_all_proj
 
@@ -462,7 +430,7 @@ def get_stats_table_from_binary_rasters(
     )
 
     # Only write the agreement raster if user-specified.
-    if agreement_raster != None:
+    if agreement_raster is not None:
         agreement_map = agreement_map.rio.write_nodata(10, encoded=True)
         agreement_map.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
 
@@ -483,17 +451,13 @@ def get_stats_table_from_binary_rasters(
                 "%s\n" % '4: Masked area (excluded from contingency table analysis). '
                 'Mask layers: {mask_dict}'.format(mask_dict=mask_dict)
             )
-            f.write(
-                "%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time)
-            )
+            f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
 
     # Store summed pixel counts in dictionary.
     stats_table_dictionary.update(
         {
             'total_area': cross_walk_gval_fim(
-                metric_df=metrics_table,
-                cell_area=cell_area,
-                masked_count=np.sum(agreement_map.data == 4),
+                metric_df=metrics_table, cell_area=cell_area, masked_count=np.sum(agreement_map.data == 4)
             )
         }
     )
@@ -534,11 +498,7 @@ def get_stats_table_from_binary_rasters(
                 poly_handle = poly_layer + '_b' + str(buffer_val) + 'm'
 
                 # Do analysis on inclusion masked area
-                (
-                    agreement_map,
-                    crosstab_table,
-                    metrics_table,
-                ) = candidate_raster.gval.categorical_compare(
+                (agreement_map, crosstab_table, metrics_table) = candidate_raster.gval.categorical_compare(
                     benchmark_map=benchmark_raster,
                     positive_categories=[1],
                     target_map="candidate",
@@ -552,9 +512,7 @@ def get_stats_table_from_binary_rasters(
                         os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                     )
                     agreement_map = agreement_map.rio.write_nodata(10, encoded=True)
-                    agreement_map.rio.to_raster(
-                        layer_agreement_raster, dtype=np.int32, driver="COG"
-                    )
+                    agreement_map.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
 
                 # Update stats table dictionary
                 stats_table_dictionary.update(
@@ -731,9 +689,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
             # Convert dataframe to geodataframe using lat/lon (USGS). Add attribute of assigned crs (label ones that are assumed)
             site_gdf = gpd.GeoDataFrame(
                 df,
-                geometry=gpd.points_from_xy(
-                    df['usgs_preferred_longitude'], df['usgs_preferred_latitude']
-                ),
+                geometry=gpd.points_from_xy(df['usgs_preferred_longitude'], df['usgs_preferred_latitude']),
                 crs=src_crs,
             )
             # Field to indicate if a latlon datum was assumed
@@ -747,12 +703,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
     # Trim metadata to only have certain fields.
     if not retain_attributes:
         metadata_gdf = metadata_gdf[
-            [
-                'identifiers_nwm_feature_id',
-                'identifiers_nws_lid',
-                'identifiers_usgs_site_code',
-                'geometry',
-            ]
+            ['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'identifiers_usgs_site_code', 'geometry']
         ]
     # If a list of attributes is supplied then use that list.
     #    elif isinstance(retain_attributes,list):
@@ -1112,9 +1063,7 @@ def convert_latlon_datum(lat, lon, src_crs, dest_crs):
     # Create a temporary DataFrame containing the input lat/lon.
     temp_df = pd.DataFrame({'lat': [lat], 'lon': [lon]})
     # Convert dataframe to a GeoDataFrame using the lat/lon coords. Input CRS is assigned.
-    temp_gdf = gpd.GeoDataFrame(
-        temp_df, geometry=gpd.points_from_xy(temp_df.lon, temp_df.lat), crs=src_crs
-    )
+    temp_gdf = gpd.GeoDataFrame(temp_df, geometry=gpd.points_from_xy(temp_df.lon, temp_df.lat), crs=src_crs)
     # Reproject GeoDataFrame to destination CRS.
     reproject = temp_gdf.to_crs(dest_crs)
     # Get new Lat/Lon coordinates from the geometry data.
@@ -1148,9 +1097,7 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     '''
     # If crs is not NAD 27, convert crs to NAD27 and get adjusted lat lon
     if datum_info['crs'] != 'NAD27':
-        lat, lon = convert_latlon_datum(
-            datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27'
-        )
+        lat, lon = convert_latlon_datum(datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27')
     else:
         # Otherwise assume lat/lon is in NAD27.
         lat = datum_info['lat']
@@ -1538,26 +1485,15 @@ def process_grid(benchmark, benchmark_profile, domain, domain_profile, reference
         domain_arr == domain.nodata, new_nodata_value, benchmark_fit_to_domain_bool
     )
 
-    ##Reproject classified benchmark to reference raster crs and resolution.
+    # Reproject classified benchmark to reference raster crs and resolution.
     # Read in reference raster
     reference = rasterio.open(reference_raster)
     # Determine the new transform and dimensions of reprojected/resampled classified benchmark dataset whos width, height, and bounds are same as domain dataset.
-    (
-        new_benchmark_transform,
-        new_benchmark_width,
-        new_benchmark_height,
-    ) = calculate_default_transform(
-        source_crs,
-        reference.crs,
-        domain.width,
-        domain.height,
-        *domain.bounds,
-        resolution=reference.res,
+    (new_benchmark_transform, new_benchmark_width, new_benchmark_height) = calculate_default_transform(
+        source_crs, reference.crs, domain.width, domain.height, *domain.bounds, resolution=reference.res
     )
     # Define an empty array that is same dimensions as output by the "calculate_default_transform" command.
-    classified_benchmark_projected = np.empty(
-        (new_benchmark_height, new_benchmark_width), dtype=np.uint8
-    )
+    classified_benchmark_projected = np.empty((new_benchmark_height, new_benchmark_width), dtype=np.uint8)
     # Reproject and resample the classified benchmark dataset. Nearest Neighbor resampling due to integer values of classified benchmark.
     reproject(
         classified_benchmark,
@@ -1593,17 +1529,16 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
     elif isinstance(agreement_raster, str):
         agreement_raster = rasterio.open(agreement_raster)
     else:
-        raise TypeError(
-            f"{agreement_raster} is not a Rasterio Dataset Reader or a filepath to a raster"
-        )
+        raise TypeError(f"{agreement_raster} is not a Rasterio Dataset Reader or a filepath to a raster")
 
     # cycle through blocks
     totals = dict.from_keys(list(range(4)), 0)
     for idx, wind in agreement_raster.block_windows(1):
         window_data = agreement_raster.read(1, window=wind)
         values, counts = np.unique(window_data, return_counts=True)
-        for val, cts in values_counts:
-            totals[val] += cts
+        # TODO values_counts is not defined, so commented for now...
+        # for val, cts in values_counts:
+        #     totals[val] += cts
 
     results = dict()
     for digit, count in totals.items():

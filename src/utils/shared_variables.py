@@ -15,7 +15,9 @@ VIZ_PROJECTION = 'PROJCS["WGS_1984_Web_Mercator_Auxiliary_Sphere",GEOGCS["GCS_WG
 # -- Data URLs-- #
 NHD_URL_PARENT = r'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/'
 NWM_HYDROFABRIC_URL = r'http://www.nohrsc.noaa.gov/pub/staff/keicher/NWM_live/web/data_tools/NWM_channel_hydrofabric.tar.gz'  # Temporary
-WBD_NATIONAL_URL = r'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/WBD/National/GDB/WBD_National_GDB.zip'
+WBD_NATIONAL_URL = (
+    r'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/WBD/National/GDB/WBD_National_GDB.zip'
+)
 
 
 # -- Prefixes and Suffixes -- #
@@ -31,7 +33,9 @@ NHD_VECTOR_EXTRACTION_SUFFIX = '_HU4_GDB.zip'
 
 ## added here bc prefixs and suffixes just aren't necessary in python3
 nhd_raster_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_RASTER.7z"
-nhd_vector_url_template = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_GDB.zip"
+nhd_vector_url_template = (
+    "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_{}_HU4_GDB.zip"
+)
 
 # --- Values ---- #
 elev_raster_ndv = -9999.0
@@ -104,6 +108,4 @@ OVERWRITE_ALL = 'OVERWRITE_ALL'
 # Rating Curve Adjustment (local calibration) variables
 DOWNSTREAM_THRESHOLD = 10  # distance in km to propogate new roughness values downstream
 ROUGHNESS_MAX_THRESH = 0.8  # max allowable adjusted roughness value (void values larger than this)
-ROUGHNESS_MIN_THRESH = (
-    0.001  # min allowable adjusted roughness value (void values smaller than this)
-)
+ROUGHNESS_MIN_THRESH = 0.001  # min allowable adjusted roughness value (void values smaller than this)

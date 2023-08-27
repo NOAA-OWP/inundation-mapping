@@ -84,9 +84,7 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
 
-    executor_generator = {
-        executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator
-    }
+    executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
     idx = 0
     for future in tqdm(
         as_completed(executor_generator),
@@ -101,28 +99,19 @@ def Inundate_gms(
 
         except NoForecastFound as exc:
             if log_file is not None:
-                print(
-                    f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}',
-                    file=open(log_file, 'a'),
-                )
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}', file=open(log_file, 'a'))
             elif verbose:
                 print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}')
 
         except hydroTableHasOnlyLakes as exc:
             if log_file is not None:
-                print(
-                    f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}',
-                    file=open(log_file, 'a'),
-                )
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}', file=open(log_file, 'a'))
             elif verbose:
                 print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}')
 
         except Exception as exc:
             if log_file is not None:
-                print(
-                    f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}',
-                    file=open(log_file, 'a'),
-                )
+                print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}', file=open(log_file, 'a'))
             else:
                 print(f'{hucCode},{branch_id},{exc.__class__.__name__}, {exc}')
         else:
@@ -221,24 +210,18 @@ def __inundate_gms_generator(
             # Earlier FIM4 versions only have branch level hydrotables
             hydroTable_branch = os.path.join(branch_dir, f'hydroTable_{branch_id}.csv')
 
-        xwalked_file_name = (
-            f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg'
-        )
+        xwalked_file_name = f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg'
         catchment_poly = os.path.join(branch_dir, xwalked_file_name)
 
         # branch output
         # Some other functions that call in here already added a huc, so only add it if not yet there
         if (inundation_raster is not None) and (huc not in inundation_raster):
-            inundation_branch_raster = fh.append_id_to_file_name(
-                inundation_raster, [huc, branch_id]
-            )
+            inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, [huc, branch_id])
         else:
             inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, branch_id)
 
         if (inundation_polygon is not None) and (huc not in inundation_polygon):
-            inundation_branch_polygon = fh.append_id_to_file_name(
-                inundation_polygon, [huc, branch_id]
-            )
+            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, [huc, branch_id])
         else:
             inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, branch_id)
 
@@ -280,23 +263,12 @@ if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(description='Inundate FIM')
     parser.add_argument(
-        '-y',
-        '--hydrofabric_dir',
-        help='Directory path to FIM hydrofabric by processing unit',
-        required=True,
+        '-y', '--hydrofabric_dir', help='Directory path to FIM hydrofabric by processing unit', required=True
     )
     parser.add_argument(
-        '-u',
-        '--hucs',
-        help='List of HUCS to run',
-        required=False,
-        default=None,
-        type=str,
-        nargs='+',
+        '-u', '--hucs', help='List of HUCS to run', required=False, default=None, type=str, nargs='+'
     )
-    parser.add_argument(
-        '-f', '--forecast', help='Forecast discharges in CMS as CSV file', required=True
-    )
+    parser.add_argument('-f', '--forecast', help='Forecast discharges in CMS as CSV file', required=True)
     parser.add_argument(
         '-i',
         '--inundation-raster',
@@ -319,11 +291,7 @@ if __name__ == '__main__':
         default=None,
     )
     parser.add_argument(
-        '-l',
-        '--log-file',
-        help='Log-file to store level-path exceptions',
-        required=False,
-        default=None,
+        '-l', '--log-file', help='Log-file to store level-path exceptions', required=False, default=None
     )
     parser.add_argument(
         '-o',
@@ -334,12 +302,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('-w', '--num-workers', help='Number of Workers', required=False, default=1)
     parser.add_argument(
-        '-v',
-        '--verbose',
-        help='Verbose printing',
-        required=False,
-        default=None,
-        action='store_true',
+        '-v', '--verbose', help='Verbose printing', required=False, default=None, action='store_true'
     )
 
     # extract to dictionary and run

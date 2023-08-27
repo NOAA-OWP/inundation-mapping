@@ -160,12 +160,8 @@ def obtain_usgs_data(workspace):
 
 if __name__ == '__main__':
     # Parse arguments
-    parser = argparse.ArgumentParser(
-        description='Download Grid data associated with USGS FIM studies.'
-    )
-    parser.add_argument(
-        '-w', '--workspace', help='Workspace where all outputs will be saved.', required=True
-    )
+    parser = argparse.ArgumentParser(description='Download Grid data associated with USGS FIM studies.')
+    parser.add_argument('-w', '--workspace', help='Workspace where all outputs will be saved.', required=True)
     args = vars(parser.parse_args())
 
     # Download datasets

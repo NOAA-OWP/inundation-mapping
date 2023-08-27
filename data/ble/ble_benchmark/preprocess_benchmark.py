@@ -104,10 +104,7 @@ if __name__ == '__main__':
         required=True,
     )
     parser.add_argument(
-        '-o',
-        '--out-raster-path',
-        help='Output raster path (include name and extension).',
-        required=True,
+        '-o', '--out-raster-path', help='Output raster path (include name and extension).', required=True
     )
 
     # Extract to dictionary and assign to variables

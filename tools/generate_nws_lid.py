@@ -11,9 +11,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 
-
-sys.path.append('/foss_fim/src')
-from utils.shared_variables import PREP_PROJECTION
+from src.utils.shared_variables import PREP_PROJECTION
 
 
 load_dotenv()
@@ -183,17 +181,10 @@ def generate_nws_lid(workspace):
 
     # Create DataFrames of headwater and duplicates and join.
     final_dict_pd = pd.DataFrame(list(final_dict.items()), columns=['nws_lid', 'is_headwater'])
-    duplicate_dict_pd = pd.DataFrame(
-        list(duplicate_dict.items()), columns=['nws_lid', 'is_colocated']
-    )
+    duplicate_dict_pd = pd.DataFrame(list(duplicate_dict.items()), columns=['nws_lid', 'is_colocated'])
     attributes = final_dict_pd.merge(duplicate_dict_pd, on='nws_lid')
     attributes.replace(
-        {
-            'is_headwater': True,
-            'is_colocated': True,
-            'not_headwater': False,
-            'not_colocated': False,
-        },
+        {'is_headwater': True, 'is_colocated': True, 'not_headwater': False, 'not_colocated': False},
         inplace=True,
     )
 
@@ -209,9 +200,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Create spatial data of nws_lid points attributed with mainstems and colocated.'
     )
-    parser.add_argument(
-        '-w', '--workspace', help='Workspace where all data will be stored.', required=True
-    )
+    parser.add_argument('-w', '--workspace', help='Workspace where all data will be stored.', required=True)
     args = vars(parser.parse_args())
 
     # Run get_env_paths and static_flow_lids

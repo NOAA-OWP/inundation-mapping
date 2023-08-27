@@ -98,9 +98,7 @@ def associate_levelpaths_with_levees(
             leveed_right = leveed_right[[f'{levee_id_attribute}_1', 'leveed_area', 'geometry']]
 
         if len(leveed_intersected) > 0:
-            levees_not_found = leveed_areas[
-                ~leveed_areas[levee_id_attribute].isin(leveed_intersected)
-            ]
+            levees_not_found = leveed_areas[~leveed_areas[levee_id_attribute].isin(leveed_intersected)]
 
         # Merge left and right levee protected areas
         if leveed_left.empty and leveed_right.empty:
@@ -108,10 +106,7 @@ def associate_levelpaths_with_levees(
 
         elif not leveed_left.empty and not leveed_right.empty:
             leveed = leveed_left.merge(
-                leveed_right,
-                on=f'{levee_id_attribute}_1',
-                how='outer',
-                suffixes=['_left', '_right'],
+                leveed_right, on=f'{levee_id_attribute}_1', how='outer', suffixes=['_left', '_right']
             )
 
             # Set unmatched areas to zero
@@ -203,12 +198,8 @@ def associate_levelpaths_with_levees(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Associate level paths with levees')
-    parser.add_argument(
-        '-nld', '--levees-filename', help='NLD levees filename', required=True, type=str
-    )
-    parser.add_argument(
-        '-l', '--levee-id-attribute', help='Levee ID attribute name', required=True, type=str
-    )
+    parser.add_argument('-nld', '--levees-filename', help='NLD levees filename', required=True, type=str)
+    parser.add_argument('-l', '--levee-id-attribute', help='Levee ID attribute name', required=True, type=str)
     parser.add_argument('-out', '--out-filename', help='out CSV filename', required=True, type=str)
     parser.add_argument(
         '-s', '--levelpaths-filename', help='Level path layer filename', required=True, type=str
@@ -217,15 +208,9 @@ if __name__ == '__main__':
         '-b', '--branch-id-attribute', help='Level path ID attribute name', required=True, type=str
     )
     parser.add_argument(
-        '-lpa',
-        '--leveed-areas-filename',
-        help='NLD levee-protected areas filename',
-        required=True,
-        type=str,
+        '-lpa', '--leveed-areas-filename', help='NLD levee-protected areas filename', required=True, type=str
     )
-    parser.add_argument(
-        '-w', '--levee-buffer', help='Buffer width (in meters)', required=True, type=float
-    )
+    parser.add_argument('-w', '--levee-buffer', help='Buffer width (in meters)', required=True, type=float)
 
     args = vars(parser.parse_args())
 

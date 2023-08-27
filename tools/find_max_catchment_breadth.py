@@ -67,9 +67,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Find the maximum breadth of catchments in given hydrofabric directory'
     )
-    parser.add_argument(
-        '-y', '--hydrofabric-dir', help='Path to hydrofabric directory', required=True
-    )
+    parser.add_argument('-y', '--hydrofabric-dir', help='Path to hydrofabric directory', required=True)
 
     args = vars(parser.parse_args())
 

@@ -145,13 +145,11 @@ def bathy_rc_lookup(
         ).round(2)
         ## masking negative XS Area Diff and XS Area = 0
         output_bathy['XS Bankfull Area Ratio'].mask(
-            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0),
-            inplace=True,
+            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0), inplace=True
         )
         ## masking negative XS Area Diff and XS Area = 0
         output_bathy['XS Area Diff (m2)'].mask(
-            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0),
-            inplace=True,
+            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0), inplace=True
         )
         ## remove bogus values where bankfull area ratio > threshold --> 10x (topwidth crosswalk issues or bad bankfull regression data points??)
         output_bathy['XS Area Diff (m2)'].mask(
@@ -175,14 +173,11 @@ def bathy_rc_lookup(
             + str(output_bathy['XS Area Diff (m2)'].max())
         )
         print(
-            'STD: bankfull XS Area crosswalk difference (m2): '
-            + str(output_bathy['XS Area Diff (m2)'].std())
+            'STD: bankfull XS Area crosswalk difference (m2): ' + str(output_bathy['XS Area Diff (m2)'].std())
         )
 
         ## Bin XS Bankfull Area Ratio by stream order
-        stream_order_bathy_ratio = output_bathy[
-            ['order_', 'Stage', 'XS Bankfull Area Ratio']
-        ].copy()
+        stream_order_bathy_ratio = output_bathy[['order_', 'Stage', 'XS Bankfull Area Ratio']].copy()
         ## mask stage values when XS Bankfull Area Ratio is null (need to filter to calculate the median for valid values below)
         stream_order_bathy_ratio['Stage'].mask(
             stream_order_bathy_ratio['XS Bankfull Area Ratio'].isnull(), inplace=True
@@ -193,15 +188,11 @@ def bathy_rc_lookup(
             median_stage_bankfull=('Stage', 'median'),
         )
         ## fill XS Bankfull Area Ratio and Stage values if no values were found in the grouby calcs
-        stream_order_bathy_ratio = (
-            stream_order_bathy_ratio.ffill() + stream_order_bathy_ratio.bfill()
-        ) / 2
+        stream_order_bathy_ratio = (stream_order_bathy_ratio.ffill() + stream_order_bathy_ratio.bfill()) / 2
         ## fill first and last stream order values if needed
         stream_order_bathy_ratio = stream_order_bathy_ratio.bfill().ffill()
         ## Get count_total tally of the total number of stream order hydroids in the HUC (not filtering anything out)
-        stream_order_bathy_ratio_count = output_bathy.groupby('order_').agg(
-            count_total=('Stage', 'count')
-        )
+        stream_order_bathy_ratio_count = output_bathy.groupby('order_').agg(count_total=('Stage', 'count'))
         stream_order_bathy_ratio = stream_order_bathy_ratio.merge(
             stream_order_bathy_ratio_count, how='left', on='order_'
         )
@@ -215,9 +206,7 @@ def bathy_rc_lookup(
 
         ## Combine SRC df and df of XS Area for each hydroid and matching stage and order from bins above
         output_bathy = output_bathy.merge(stream_order_bathy_ratio, how='left', on='order_')
-        modified_src_base = modified_src_base.merge(
-            stream_order_bathy_ratio, how='left', on='order_'
-        )
+        modified_src_base = modified_src_base.merge(stream_order_bathy_ratio, how='left', on='order_')
 
         ## Calculate stage vs median_stage_bankfull difference for bankfull lookup
         modified_src_base['lookup_stage_diff'] = (
@@ -227,8 +216,7 @@ def bathy_rc_lookup(
 
         ## If median_stage_bankfull is null then set lookup_stage_diff to 999 at stage 0 (handles errors for channels outside CONUS)
         modified_src_base['lookup_stage_diff'].mask(
-            (modified_src_base['Stage'] == 0)
-            & (modified_src_base['median_stage_bankfull'].isnull()),
+            (modified_src_base['Stage'] == 0) & (modified_src_base['median_stage_bankfull'].isnull()),
             999,
             inplace=True,
         )
@@ -257,8 +245,7 @@ def bathy_rc_lookup(
 
         ## Calculate the ratio btw the lookup SRC XS_Area and the Bankfull_XSEC_AREA --> use this as a flag for potentially bad XS data
         xs_area_hydroid_lookup['bankfull_XS_ratio_flag'] = (
-            xs_area_hydroid_lookup['bathy_calc_xs_area']
-            / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)']
+            xs_area_hydroid_lookup['bathy_calc_xs_area'] / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)']
         )
         ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > threshold --> 5x (assuming too large of difference to be a reliable bankfull calculation)
         xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(
@@ -272,9 +259,7 @@ def bathy_rc_lookup(
 
         ## Merge bathy_calc_xs_area to the modified_src_base
         modified_src_base = modified_src_base.merge(
-            xs_area_hydroid_lookup.loc[:, ['HydroID', 'bathy_calc_xs_area']],
-            how='left',
-            on='HydroID',
+            xs_area_hydroid_lookup.loc[:, ['HydroID', 'bathy_calc_xs_area']], how='left', on='HydroID'
         )
 
         ## Calculate new bathy adjusted channel geometry variables
@@ -310,9 +295,7 @@ def bathy_rc_lookup(
             / modified_src_base['ManningN']
         )
         ## mask discharge values for stage = 0 rows in SRC (replace with 0) --> do we need SRC to start at 0??
-        modified_src_base['Discharge (m3s-1)'].mask(
-            modified_src_base['Stage'] == 0, 0, inplace=True
-        )
+        modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == 0, 0, inplace=True)
         modified_src_base['Discharge (m3s-1)'].mask(
             modified_src_base['Stage'] == modified_src_base['Thalweg_burn_elev'], 0, inplace=True
         )

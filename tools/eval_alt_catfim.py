@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import csv
 import json
@@ -144,11 +146,7 @@ if __name__ == '__main__':
         default=None,
     )
     parser.add_argument(
-        '-j',
-        '--job-number',
-        help='Number of processes to use. Default is 1.',
-        required=False,
-        default="1",
+        '-j', '--job-number', help='Number of processes to use. Default is 1.', required=False, default="1"
     )
 
     # Assign variables from arguments.
@@ -158,7 +156,7 @@ if __name__ == '__main__':
     job_number = int(args['job_number'])
     master_metrics_csv = args['master_metrics_csv']
 
-    if master_metrics_csv == None:
+    if master_metrics_csv is None:
         master_metrics_csv = os.path.join(output_workspace, 'master_metrics.csv')
 
     if not os.path.exists(catfim_dir):
@@ -217,21 +215,13 @@ if __name__ == '__main__':
 
                             if os.path.exists(benchmark_grid):
                                 # Create dir in output workspace for results.
-                                file_handle = (
-                                    site + '_' + huc + '_' + benchmark_type + '_' + category
-                                )
+                                file_handle = site + '_' + huc + '_' + benchmark_type + '_' + category
 
                                 predicted_raster_path = category_grid_path
                                 benchmark_raster_path = benchmark_grid
-                                agreement_raster = os.path.join(
-                                    site_category_workspace, file_handle + '.tif'
-                                )
-                                stats_csv = os.path.join(
-                                    site_category_workspace, file_handle + '.csv'
-                                )
-                                stats_json = os.path.join(
-                                    site_category_workspace, file_handle + '.json'
-                                )
+                                agreement_raster = os.path.join(site_category_workspace, file_handle + '.tif')
+                                stats_csv = os.path.join(site_category_workspace, file_handle + '.csv')
+                                stats_json = os.path.join(site_category_workspace, file_handle + '.json')
                                 mask_values = None
                                 stats_modes_list = ['total_area']
                                 test_id = ''
@@ -247,12 +237,8 @@ if __name__ == '__main__':
                                         'operation': 'exclude',
                                     },
                                     site: {
-                                        'path': '/data/test_cases/{benchmark_type}_test_cases/validation_data_{benchmark_type}/{huc}/{site}/{site}_domain.shp'.format(
-                                            benchmark_type=benchmark_type,
-                                            site=site,
-                                            category=category,
-                                            huc=huc,
-                                        ),
+                                        'path': f'/data/test_cases/{benchmark_type}_test_cases/validation_data_{benchmark_type}/'
+                                        f'{huc}/{site}/{site}_domain.shp',
                                         'buffer': None,
                                         'operation': 'include',
                                     },
@@ -260,7 +246,7 @@ if __name__ == '__main__':
 
                                 json_list.append(stats_json)
 
-                                # Either add to list to multiprocess or process serially, depending on user specification.
+                                # Either add to list to multiprocess or process serially, dependent on input
                                 if job_number > 1:
                                     procs_list.append(
                                         [

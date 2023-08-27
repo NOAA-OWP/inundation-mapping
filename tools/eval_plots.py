@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import argparse
 import glob
 import os
@@ -11,15 +12,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from dotenv import load_dotenv
 from natsort import natsorted
 
-
-sys.path.append('/foss_fim/src')
-from dotenv import load_dotenv
-from tools_shared_functions import aggregate_wbd_hucs, get_metadata
-from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
-
-from utils.shared_variables import VIZ_PROJECTION
+from src.utils.shared_variables import VIZ_PROJECTION
+from tools.tools_shared_functions import aggregate_wbd_hucs, get_metadata
+from tools.tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 
 
 # Get variables from .env file.
@@ -164,9 +162,7 @@ def boxplot(
 #########################################################################
 # Create scatter plot
 #########################################################################
-def scatterplot(
-    dataframe, x_field, y_field, title_text, stats_text=False, annotate=False, dest_file=False
-):
+def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annotate=False, dest_file=False):
     '''
     Create boxplots.
 
@@ -648,13 +644,11 @@ def eval_plots(
 
         # Write out the filtered dataset and common sites to file
         dataset.to_csv(
-            output_workspace / (f'{dataset_name}_{configuration.lower()}_analyzed_data.csv'),
-            index=False,
+            output_workspace / (f'{dataset_name}_{configuration.lower()}_analyzed_data.csv'), index=False
         )
         sites_pd = pd.DataFrame.from_dict(sites, orient='index').transpose()
         sites_pd.to_csv(
-            output_workspace / (f'{dataset_name}_{configuration.lower()}_common_sites.csv'),
-            index=False,
+            output_workspace / (f'{dataset_name}_{configuration.lower()}_common_sites.csv'), index=False
         )
 
         # Set the order of the magnitudes and define base resolution
@@ -744,8 +738,7 @@ def eval_plots(
             subset = dataset.groupby(base_resolution)
             for site_name, site_data in subset:
                 site_file = (
-                    individual_dirs
-                    / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}.png'
+                    individual_dirs / f'csi_{str(site_name)}_{dataset_name}_{configuration.lower()}.png'
                 )
                 barplot(
                     dataframe=site_data,
@@ -763,9 +756,7 @@ def eval_plots(
 
         # Create box plots for each metric in supplied stats
         for stat in stats:
-            output_file = output_workspace / (
-                f'{stat.lower()}_{dataset_name}_{configuration.lower()}.png'
-            )
+            output_file = output_workspace / (f'{stat.lower()}_{dataset_name}_{configuration.lower()}.png')
             boxplot(
                 dataframe=dataset,
                 x_field='magnitude',
@@ -796,9 +787,7 @@ def eval_plots(
                 )
                 # Define arguments for scatterplot function
                 title_text = f'CSI {magnitude}'
-                dest_file = (
-                    output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
-                )
+                dest_file = output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
                 scatterplot(
                     dataframe=plotdf,
                     x_field=f'CSI_{x_version}',
@@ -862,9 +851,7 @@ def eval_plots(
             metadata_url = f'{API_BASE_URL}/metadata'
             metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector)
             # Create geospatial data from WRDS output
-            dictionary, gdf = aggregate_wbd_hucs(
-                metadata_list, Path(WBD_LAYER), retain_attributes=True
-            )
+            dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
             # Trim out unecessary columns and rename remaining columns
             gdf = gdf.filter(
                 [
@@ -927,9 +914,7 @@ def eval_plots(
             # Read in HUC spatial layer
             wbd_gdf = gpd.read_file(Path(WBD_LAYER), layer='WBDHU8')
             # Join metrics to HUC spatial layer
-            wbd_with_metrics = wbd_gdf.merge(
-                huc_datasets, how='inner', left_on='HUC8', right_on='huc'
-            )
+            wbd_with_metrics = wbd_gdf.merge(huc_datasets, how='inner', left_on='HUC8', right_on='huc')
             # Filter out unnecessary columns
             wbd_with_metrics = wbd_with_metrics.filter(
                 [
@@ -976,7 +961,7 @@ def convert_shapes_to_csv(workspace):
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(
-        description=f'Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)'
+        description='Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)'
     )
     parser.add_argument(
         '-m', '--metrics_csv', help='Metrics csv created from synthesize test cases.', required=True
@@ -1034,9 +1019,7 @@ if __name__ == '__main__':
     # Run eval_plots function
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
-    eval_plots(
-        metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, fim_1_ms=f, site_barplots=i
-    )
+    eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, fim_1_ms=f, site_barplots=i)
 
     # Convert output shapefiles to CSV
     print("Converting to CSVs...")

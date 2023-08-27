@@ -18,9 +18,6 @@ from tools_shared_functions import (
     get_thresholds,
     ngvd_to_navd_ft,
 )
-
-
-sys.path.append('/foss_fim/src')
 from tools_shared_variables import (
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
@@ -29,7 +26,7 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
-from utils.shared_variables import PREP_PROJECTION
+from src.utils.shared_variables import PREP_PROJECTION
 
 
 '''
@@ -125,9 +122,7 @@ def write_categorical_flow_files(metadata, workspace):
             continue
 
         # Get the stages and flows
-        stages, flows = get_thresholds(
-            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
-        )
+        stages, flows = get_thresholds(threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all')
 
         # For each flood category
         for category in ['action', 'minor', 'moderate', 'major']:
@@ -148,7 +143,7 @@ def write_categorical_flow_files(metadata, workspace):
 
     # Write CatFIM flows to file
     final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
-    final_data.to_csv(workspace / f'catfim_flows_cms.csv', index=False)
+    final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
     return all_data
 
 
@@ -270,7 +265,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
             continue
         # Get rating curve for site
         location_ids = usgs['usgs_site_code']
-        if location_ids == None:  # Some sites don't have a value for usgs_site_code, skip them
+        if location_ids is None:  # Some sites don't have a value for usgs_site_code, skip them
             continue
         curve = get_rating_curve(rating_curve_url, location_ids=[location_ids])
         # If no rating curve was returned, skip site.
@@ -318,12 +313,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         all_rating_curves = pd.concat([all_rating_curves, curve])
 
     # Rename columns and add attribute indicating if rating curve exists
-    sites_gdf.rename(
-        columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True
-    )
-    sites_with_data = pd.DataFrame(
-        {'location_id': all_rating_curves['location_id'].unique(), 'curve': 'yes'}
-    )
+    sites_gdf.rename(columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True)
+    sites_with_data = pd.DataFrame({'location_id': all_rating_curves['location_id'].unique(), 'curve': 'yes'})
     sites_gdf = sites_gdf.merge(sites_with_data, on='location_id', how='left')
     sites_gdf.fillna({'curve': 'no'}, inplace=True)
     # Add mainstems attribute to acceptable sites
@@ -360,7 +351,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
     # Filter and save filtered file for viewing
     acceptable_sites_gdf = sites_gdf[
-        (sites_gdf['acceptable_codes'] == True) & (sites_gdf['acceptable_alt_error'] == True)
+        (sites_gdf['acceptable_codes'] is True) & (sites_gdf['acceptable_alt_error'] is True)
     ]
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
     acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_for_rating_curves.csv'))
@@ -372,9 +363,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
     acceptable_sites_list = acceptable_sites_gdf['location_id'].tolist()
 
     # Filter out all_rating_curves by list
-    all_rating_curves = all_rating_curves[
-        all_rating_curves['location_id'].isin(acceptable_sites_list)
-    ]
+    all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
     # If workspace is specified, write data to file.
     if workspace:
@@ -392,12 +381,10 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-            sites_gdf.to_file(
-                Path(workspace) / 'usgs_gages.gpkg', layer='usgs_gages', driver='GPKG'
-            )
+            sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer='usgs_gages', driver='GPKG')
 
         # Write out flow files for each threshold across all sites
-        all_data = write_categorical_flow_files(metadata_list, workspace)
+        write_categorical_flow_files(metadata_list, workspace)
 
     return all_rating_curves
 
@@ -415,18 +402,10 @@ if __name__ == '__main__':
         required=True,
     )
     parser.add_argument(
-        '-w',
-        '--workspace',
-        help='Directory where all outputs will be stored.',
-        default=False,
-        required=False,
+        '-w', '--workspace', help='Directory where all outputs will be stored.', default=False, required=False
     )
     parser.add_argument(
-        '-t',
-        '--sleep_timer',
-        help='How long to rest between datum API calls',
-        default=1.0,
-        required=False,
+        '-t', '--sleep_timer', help='How long to rest between datum API calls', default=1.0, required=False
     )
 
     # Extract to dictionary and assign to variables.
@@ -439,10 +418,10 @@ if __name__ == '__main__':
             sites = f.read().splitlines()
         args['list_of_gage_sites'] = sites
 
-    l = args['list_of_gage_sites']
-    w = args['workspace']
-    t = float(args['sleep_timer'])
+    list_of_gage_sites = args['list_of_gage_sites']
+    workspace = args['workspace']
+    sleep_timer = float(args['sleep_timer'])
 
     # Generate USGS rating curves
     print("Executing...")
-    usgs_rating_to_elev(list_of_gage_sites=l, workspace=w, sleep_time=t)
+    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, workspace=workspace, sleep_time=sleep_timer)

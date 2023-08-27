@@ -19,9 +19,7 @@ def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydr
     # read and merge in attributes from base hydrofabric src full
     srcfull = pd.read_csv(srcfull, dtype={'CatchId': int})
     srcfull.rename(columns={'CatchId': 'HydroID'}, inplace=True)
-    srcfull = srcfull.loc[:, ["ManningN", "HydroID", "feature_id"]].drop_duplicates(
-        subset='HydroID'
-    )
+    srcfull = srcfull.loc[:, ["ManningN", "HydroID", "feature_id"]].drop_duplicates(subset='HydroID')
 
     srcbase = srcbase.merge(srcfull, how='inner', left_on='HydroID', right_on='HydroID')
 
@@ -55,9 +53,7 @@ def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydr
         left_on='HydroID',
         right_on='HydroID',
     )
-    hydrotable.rename(
-        columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True
-    )
+    hydrotable.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
     # hydrotable.drop_duplicates(subset='stage',inplace=True)
 
     if output_hydrotable is not None:
@@ -78,9 +74,7 @@ if __name__ == '__main__':
         required=False,
         default=None,
     )
-    parser.add_argument(
-        '-t', '--output-hydrotable', help='Hydrotable', required=False, default=None
-    )
+    parser.add_argument('-t', '--output-hydrotable', help='Hydrotable', required=False, default=None)
 
     args = vars(parser.parse_args())
 

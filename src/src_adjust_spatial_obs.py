@@ -82,9 +82,7 @@ def process_points(args):
         water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
 
     water_edge_df = water_edge_df[
-        (water_edge_df['hydroid'].notnull())
-        & (water_edge_df['hand'] > 0)
-        & (water_edge_df['hydroid'] > 0)
+        (water_edge_df['hydroid'].notnull()) & (water_edge_df['hand'] > 0) & (water_edge_df['hydroid'] > 0)
     ]
 
     ## Check that there are valid obs in the water_edge_df (not empty)
@@ -210,9 +208,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
 
     print("Finding all fim_output hucs that contain calibration points...")
     fim_out_huc_list = [
-        item
-        for item in os.listdir(fim_directory)
-        if os.path.isdir(os.path.join(fim_directory, item))
+        item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item))
     ]
 
     # Remove logs, unit_errors, and branch_errors folders if they exist in <fim_directory>
@@ -272,18 +268,12 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
 
         ## Intermediate output for debugging
         if debug_outputs_option:
-            huc_debug_pts_out = os.path.join(
-                fim_directory, huc, 'debug_water_edge_df_' + huc + '.csv'
-            )
+            huc_debug_pts_out = os.path.join(fim_directory, huc, 'debug_water_edge_df_' + huc + '.csv')
             water_edge_df.to_csv(huc_debug_pts_out)
-            huc_debug_pts_out_gpkg = os.path.join(
-                fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg'
-            )
+            huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
             # write parquet file using ".to_parquet() method"
-            parquet_filepath = os.path.join(
-                fim_directory, huc, 'debug_water_edge_df_' + huc + '.parquet'
-            )
+            parquet_filepath = os.path.join(fim_directory, huc, 'debug_water_edge_df_' + huc + '.parquet')
             water_edge_df.to_parquet(parquet_filepath, index=False)
 
         for branch_id in os.listdir(huc_branches_dir):
@@ -364,9 +354,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     log_file.write('#########################################################\n')
 
 
-def run_prep(
-    fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number
-):
+def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number):
     '''
     Main function to call the processing functions defined above, with validation, logging, and timing
 
@@ -444,10 +432,7 @@ if __name__ == '__main__':
         description=f'Adjusts rating curve based on files in {input_calib_points_dir}, containing points of known water boundary.'
     )
     parser.add_argument(
-        '-fim_dir',
-        '--fim-directory',
-        help='Parent directory of FIM-required datasets.',
-        required=True,
+        '-fim_dir', '--fim-directory', help='Parent directory of FIM-required datasets.', required=True
     )
     parser.add_argument(
         '-debug',
@@ -465,12 +450,7 @@ if __name__ == '__main__':
         required=False,
     )
     parser.add_argument(
-        '-j',
-        '--job-number',
-        help='OPTIONAL: Number of jobs to use',
-        type=int,
-        required=False,
-        default=2,
+        '-j', '--job-number', help='OPTIONAL: Number of jobs to use', type=int, required=False, default=2
     )
 
     ## Assign variables from arguments.
@@ -480,6 +460,4 @@ if __name__ == '__main__':
     ds_thresh_override = args['downstream_thresh']
     job_number = args['job_number']
 
-    run_prep(
-        fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number
-    )
+    run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number)

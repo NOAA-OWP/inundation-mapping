@@ -199,9 +199,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         metadata = metadata_list[0]
 
         # Assign huc to site using FIM huc layer.
-        dictionary, out_gdf = aggregate_wbd_hucs(
-            metadata_list, Path(WBD_LAYER), retain_attributes=False
-        )
+        dictionary, out_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=False)
         [huc] = list(dictionary.keys())
 
         # There are 12 sites with special issues such as these don't have any crs coordinates and grid/polygon data don't align or missing grid data but polygons are available.
@@ -246,17 +244,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         # determine primary source for interpolated threshold flows (USGS first then NRLDB). This will dictate what rating curve to pull.
         rating_curve_source = flows['source']
         # Workaround for sites that don't have rating curve but do have flows specified (USGS only). Assign rating_curve_source to 'USGS Rating Depot' manually inspected all of these sites and USGS datum is available and will be used.
-        if code in [
-            'bdxt1',
-            'ccti3',
-            'fnnm7',
-            'mtao1',
-            'nfsi3',
-            'omot1',
-            'sbrn1',
-            'vron4',
-            'watv1',
-        ]:
+        if code in ['bdxt1', 'ccti3', 'fnnm7', 'mtao1', 'nfsi3', 'omot1', 'sbrn1', 'vron4', 'watv1']:
             rating_curve_source = 'USGS Rating Depot'
 
         # Get the datum and adjust to NAVD if necessary.
@@ -315,9 +303,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             continue
 
         # Get paths of all grids that have been downloaded, if no grids available for site then exit.
-        grid_paths = [
-            grids for grids in ahps_dir.glob('*.tif*') if grids.suffix in ['.tif', '.tiff']
-        ]
+        grid_paths = [grids for grids in ahps_dir.glob('*.tif*') if grids.suffix in ['.tif', '.tiff']]
         if not grid_paths:
             f.write(f'{code} : Skipping because no benchmark grids available\n')
             continue
@@ -442,11 +428,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
 
                     # Create the binary benchmark raster
                     boolean_benchmark, boolean_profile = process_grid(
-                        benchmark,
-                        benchmark_profile,
-                        filled_domain,
-                        filled_domain_profile,
-                        reference_raster,
+                        benchmark, benchmark_profile, filled_domain, filled_domain_profile, reference_raster
                     )
 
                     # Output binary benchmark grid and flow file to destination
@@ -480,25 +462,17 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             orig_domain_grid.unlink()
             # Create domain shapefile from any benchmark grid for site (each benchmark has domain footprint, value = 0).
             filled_extent = list(ahps_directory.rglob('*_extent_*.tif'))[0]
-            domain_gpd = raster_to_feature(
-                grid=filled_extent, profile_override=False, footprint_only=True
-            )
+            domain_gpd = raster_to_feature(grid=filled_extent, profile_override=False, footprint_only=True)
             domain_gpd['nws_lid'] = code
             domain_gpd.to_file(ahps_directory / f'{code}_domain.shp')
             # Populate attribute information for site
             grids_attributes = pd.DataFrame(data=grids.items(), columns=['magnitude', 'path'])
-            flows_attributes = pd.DataFrame(
-                data=grid_flows.items(), columns=['magnitude', 'grid_flow_cfs']
-            )
-            threshold_attributes = pd.DataFrame(
-                data=stages.items(), columns=['magnitude', 'magnitude_stage']
-            )
+            flows_attributes = pd.DataFrame(data=grid_flows.items(), columns=['magnitude', 'grid_flow_cfs'])
+            threshold_attributes = pd.DataFrame(data=stages.items(), columns=['magnitude', 'magnitude_stage'])
             # merge dataframes
             attributes = grids_attributes.merge(flows_attributes, on='magnitude')
             attributes = attributes.merge(threshold_attributes, on='magnitude')
-            attributes = attributes.merge(
-                df[['path', 'stage', 'elevation', 'flow_source']], on='path'
-            )
+            attributes = attributes.merge(df[['path', 'stage', 'elevation', 'flow_source']], on='path')
             # Strip out sensitive paths and convert magnitude stage to elevation
             attributes['path'] = attributes['path'].apply(lambda x: Path(x).name)
             attributes['magnitude_elev_navd88'] = (
@@ -577,14 +551,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--source_dir', help='Workspace where all source data is located.', required=True
     )
+    parser.add_argument('-d', '--destination', help='Directory where outputs are to be stored', required=True)
     parser.add_argument(
-        '-d', '--destination', help='Directory where outputs are to be stored', required=True
-    )
-    parser.add_argument(
-        '-r',
-        '--reference_raster',
-        help='reference raster used for benchmark raster creation',
-        required=True,
+        '-r', '--reference_raster', help='reference raster used for benchmark raster creation', required=True
     )
     args = vars(parser.parse_args())
 

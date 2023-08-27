@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import json
 import os
@@ -20,7 +22,7 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_gmed = pd.read_csv(output_csv)  # read csv to import as a dataframe
     df_gmed = df_gmed[df_gmed.hydroid != 0]  # remove entries that do not have a valid hydroid
 
-    # Read in the hydroTable.csv and check wether it has previously been updated (rename orig columns if needed)
+    # Read in the hydroTable.csv and check if it has been updated (rename orig columns if needed)
     df_htable = pd.read_csv(htable_path)
     if 'orig_discharge_cms' in df_htable.columns:
         df_htable = df_htable[
@@ -38,8 +40,7 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
             ]
         ]
         df_htable.rename(
-            columns={'orig_discharge_cms': 'discharge_cms', 'default_ManningN': 'ManningN'},
-            inplace=True,
+            columns={'orig_discharge_cms': 'discharge_cms', 'default_ManningN': 'ManningN'}, inplace=True
         )
     else:
         df_htable = df_htable[
@@ -92,13 +93,11 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
 
     # Create dataframe to check for erroneous Manning's n values (>0.6 or <0.001)
     df_gmed['Mann_flag'] = np.where(
-        (df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001),
-        'Fail',
-        'Pass',
+        (df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001), 'Fail', 'Pass'
     )
-    df_mann_flag = df_gmed[
-        (df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001)
-    ][['HydroID', 'hydroid_ManningN']]
+    df_mann_flag = df_gmed[(df_gmed['hydroid_ManningN'] >= 0.6) | (df_gmed['hydroid_ManningN'] <= 0.001)][
+        ['HydroID', 'hydroid_ManningN']
+    ]
     print('Here is the df with mann_flag filter:')
     print(df_mann_flag.to_string())
     if not df_mann_flag.empty:
@@ -130,14 +129,12 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
 
     # Rename the original hydrotable variables to allow new calculations to use the primary var name
     df_htable.rename(
-        columns={'ManningN': 'default_ManningN', 'discharge_cms': 'orig_discharge_cms'},
-        inplace=True,
+        columns={'ManningN': 'default_ManningN', 'discharge_cms': 'orig_discharge_cms'}, inplace=True
     )
 
-    ## Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a singel hydroid)
-    df_nrange = df_gmed.groupby('HydroID').agg(
-        {'hydroid_ManningN': ['median', 'min', 'max', 'count']}
-    )
+    # Check for large variabilty in the calculated Manning's N values
+    #   (for cases with mutliple entries for a singel hydroid)
+    df_nrange = df_gmed.groupby('HydroID').agg({'hydroid_ManningN': ['median', 'min', 'max', 'count']})
     log_file.write('Statistics for Modified Roughness Calcs -->' + '\n')
     log_file.write(df_nrange.to_string() + '\n')
     log_file.write('----------------------------------------\n\n')
@@ -147,18 +144,16 @@ def update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_
     df_htable = df_htable.merge(df_mann_featid, how='left', on='feature_id')
     df_htable = df_htable.merge(df_updated, how='left', on='HydroID')
 
-    # Create the modify_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
+    # Create the modify_ManningN column by combining the hydroid_ManningN with the featid_ManningN
+    # (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
     df_htable['modify_ManningN'] = np.where(
-        df_htable['hydroid_ManningN'].isnull(),
-        df_htable['featid_ManningN'],
-        df_htable['hydroid_ManningN'],
+        df_htable['hydroid_ManningN'].isnull(), df_htable['featid_ManningN'], df_htable['hydroid_ManningN']
     )
 
-    # Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
+    # Create the ManningN column by combining the hydroid_ManningN with the default_ManningN
+    #   (use modified where available)
     df_htable['ManningN'] = np.where(
-        df_htable['modify_ManningN'].isnull(),
-        df_htable['default_ManningN'],
-        df_htable['modify_ManningN'],
+        df_htable['modify_ManningN'].isnull(), df_htable['default_ManningN'], df_htable['modify_ManningN']
     )
 
     # Calculate new discharge_cms with new ManningN
@@ -264,22 +259,39 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
 
         water_edge_median_ds.to_csv(output_csv)
 
-        # 1. Loop and find the corresponding hydroids in the Hydrotable
-        # 2. Grab slope, wetted area, hydraulic radius, and feature_id that correspond with the matching hydroids and HAND value for the nearest stage
-        # 3. Calculate new column for new roughness using the above info
-        #    3b. If multiple flows exist per hydroid, aggregate the resulting Manning Ns
-        #    3c. If range of resulting Manning Ns is high, notify human
-        # 4. Update Hydrotable
-        #    4a. Copy default flow and N columns to new columns with "_default" in the field name
-        #    4b. Overwrite the official flow and N columns with the new calculated values
-        #    4c. Add last_updated column with timestamp where values were changed, also add "submitter" column
-        # 5. What do we do in catchments that match the feature_id?
-        #    5a. If these catchments already have known data, then let it use those. If not, use new calculated Ns.
+        '''
+        1. Loop and find the corresponding hydroids in the Hydrotable
+        2. Grab slope, wetted area, hydraulic radius, and feature_id that correspond with
+          the matching hydroids and HAND value for the nearest stage
+        3. Calculate new column for new roughness using the above info
+           3b. If multiple flows exist per hydroid, aggregate the resulting Manning Ns
+           3c. If range of resulting Manning Ns is high, notify human
+        4. Update Hydrotable
+           4a. Copy default flow and N columns to new columns with "_default" in the field name
+           4b. Overwrite the official flow and N columns with the new calculated values
+           4c. Add last_updated column with timestamp where values were changed, also add "submitter" column
+        5. What do we do in catchments that match the feature_id?
+           5a. If these catchments already have known data, then let it use those. If not, use new calculated Ns.
+        '''
 
         update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc6)
 
 
 if __name__ == '__main__':
+    '''
+    Open catchment, HAND, and point grids and determine pixel values for Hydroid, HAND value,
+       and discharge value, respectively.
+
+    Open rating curve file(s).
+
+    Use three values to determine the hydroid rating curve(s) to update,
+       then update them using a variation of Manning's Equation.
+
+    Ensure the JSON rating curve is updated and saved (overwitten).
+       Consider adding attributes to document what was performed.
+    Close log file
+    '''
+
     # Parse arguments.
     parser = argparse.ArgumentParser(
         description='Adjusts rating curve given a shapefile containing points of known water boundary.'
@@ -301,21 +313,14 @@ if __name__ == '__main__':
     fim_directory = args['fim_directory']
     wbd_path = args['wbd_path']
 
-    # Create log file for processing records
     print('This may take a few minutes...')
     sys.__stdout__ = sys.stdout
+
+    # Create log file for processing records
     log_file = open(os.path.join(fim_directory, 'log_rating_curve_adjust.log'), "w")
 
     ingest_points_layer(points_layer, fim_directory, wbd_path)
 
-    # Open catchment, HAND, and point grids and determine pixel values for Hydroid, HAND value, and discharge value, respectively.
-
-    # Open rating curve file(s).
-
-    # Use three values to determine the hydroid rating curve(s) to update, then update them using a variation of Manning's Equation.
-
-    # Ensure the JSON rating curve is updated and saved (overwitten). Consider adding attributes to document what was performed.
-
-    # Close log file
     sys.stdout = sys.__stdout__
+
     log_file.close()

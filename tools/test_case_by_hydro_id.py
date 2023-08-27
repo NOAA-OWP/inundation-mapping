@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
-# Import file management library
 import argparse
 import os
 from datetime import datetime
 
 import geopandas as gpd
-
-# Import data analysis library
 import pandas as pd
 from pixel_counter import zonal_stats
 from run_test_case import test_case
@@ -63,12 +60,7 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
             continue
 
         stats_dictionary = compute_stats_from_contingency_table(
-            dicts['tn'],
-            dicts['fn'],
-            dicts['fp'],
-            dicts['tp'],
-            cell_area=100,
-            masked_count=dicts['mp'],
+            dicts['tn'], dicts['fn'], dicts['fp'], dicts['tp'], cell_area=100, masked_count=dicts['mp']
         )
         # Calls compute_stats_from_contingency_table from run_test_case.py
 
@@ -194,10 +186,7 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
-        '-v',
-        '--version',
-        help='The fim version to use. Should be similar to fim_3_0_24_14_ms',
-        required=True,
+        '-v', '--version', help='The fim version to use. Should be similar to fim_3_0_24_14_ms', required=True
     )
     parser.add_argument(
         '-g',
@@ -272,9 +261,7 @@ if __name__ == "__main__":
                 huc_gpkg = os.path.join(branches_dir, branches)
 
                 string_manip = (
-                    "gw_catchments_reaches_filtered_addedAttributes_crosswalked_"
-                    + branches
-                    + ".gpkg"
+                    "gw_catchments_reaches_filtered_addedAttributes_crosswalked_" + branches + ".gpkg"
                 )
 
                 huc_gpkg = os.path.join(huc_gpkg, string_manip)

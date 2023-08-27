@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import os
 from multiprocessing import Pool
@@ -26,9 +28,7 @@ def check_deep_flooding(args):
     reference = depth_src
 
     # Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).
-    bounding_box = gpd.GeoDataFrame(
-        {'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs
-    )
+    bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
     poly_all = gpd.read_file(shapefile_path, bbox=bounding_box)
 
     # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
@@ -85,10 +85,7 @@ if __name__ == '__main__':
         '-s', '--shapefile-path', help='Path to shapefile to be used as the overlay.', required=True
     )
     parser.add_argument(
-        '-t',
-        '--depth-threshold',
-        help='Depth in meters to use as checking threshold.',
-        required=True,
+        '-t', '--depth-threshold', help='Depth in meters to use as checking threshold.', required=True
     )
     parser.add_argument(
         '-o',

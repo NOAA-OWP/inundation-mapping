@@ -47,9 +47,9 @@ class test_rating_curve_comparison(unittest.TestCase):
             os.remove(_indiv_huc_params[5])
 
         # Test that the file was deleted
-        assert os.path.exists(_indiv_huc_params[5]) == False
+        assert os.path.exists(_indiv_huc_params[5]) is False
 
         generate_rating_curve_metrics(_indiv_huc_params)
 
         # Test that the file was created by generate_rating_curve_metrics
-        assert os.path.exists(_indiv_huc_params[5]) == True
+        assert os.path.exists(_indiv_huc_params[5]) is True

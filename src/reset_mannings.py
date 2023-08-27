@@ -11,11 +11,9 @@ from stream_branches import StreamNetwork
 
 
 def Reset_mannings(hydrofabric_dir, mannings_value, overwrite_files=False):
-    (
-        src_table_filePaths,
-        hydro_table_filePaths,
-        stream_network_filePaths,
-    ) = make_file_paths_for_inputs(hydrofabric_dir)
+    (src_table_filePaths, hydro_table_filePaths, stream_network_filePaths) = make_file_paths_for_inputs(
+        hydrofabric_dir
+    )
 
     single_stream_network = len(stream_network_filePaths) == 1
 
@@ -26,9 +24,7 @@ def Reset_mannings(hydrofabric_dir, mannings_value, overwrite_files=False):
         src_table = load_src_table(srcFP)
         hydro_table = load_hydro_table(hydFP)
 
-        src_table, hydro_table = reset_mannings_for_a_processing_unit(
-            src_table, hydro_table, mannings_value
-        )
+        src_table, hydro_table = reset_mannings_for_a_processing_unit(src_table, hydro_table, mannings_value)
 
         if not single_stream_network:
             stream_network = StreamNetwork.from_file(stream_network_filePaths[i])
@@ -36,9 +32,7 @@ def Reset_mannings(hydrofabric_dir, mannings_value, overwrite_files=False):
         small_segments = identify_small_reaches(
             stream_network, min_catchment_area=None, min_stream_length=None
         )
-        src_table, hydro_table = replace_discharges_of_small_segments(
-            small_segments, src_table, hydro_table
-        )
+        src_table, hydro_table = replace_discharges_of_small_segments(small_segments, src_table, hydro_table)
 
         if overwrite_files:
             src_table.to_csv(srcFP, index=False)
@@ -160,23 +154,19 @@ def identify_small_reaches(stream_network, min_catchment_area=None, min_stream_l
                     == 1
                 ):
                     update_id = stream_network.loc[
-                        (stream_network['NextDownID'] == short_id)
-                        & (stream_network['order_'] == max_order)
+                        (stream_network['NextDownID'] == short_id) & (stream_network['order_'] == max_order)
                     ]['HydroID'].item()
 
                 else:
                     update_id = stream_network.loc[
-                        (stream_network['NextDownID'] == short_id)
-                        & (stream_network['order_'] == max_order)
+                        (stream_network['NextDownID'] == short_id) & (stream_network['order_'] == max_order)
                     ]['HydroID'].values[
                         0
                     ]  # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
 
             # single upstream segments
             elif len(stream_network.loc[stream_network['NextDownID'] == short_id]['HydroID']) == 1:
-                update_id = stream_network.loc[stream_network.To_Node == from_node][
-                    'HydroID'
-                ].item()
+                update_id = stream_network.loc[stream_network.To_Node == from_node]['HydroID'].item()
 
             # no upstream segments; multiple downstream segments
             elif len(stream_network.loc[stream_network.From_Node == to_node]['HydroID']) > 1:
@@ -194,23 +184,19 @@ def identify_small_reaches(stream_network, min_catchment_area=None, min_stream_l
                     == 1
                 ):
                     update_id = stream_network.loc[
-                        (stream_network.From_Node == to_node)
-                        & (stream_network['order_'] == max_order)
+                        (stream_network.From_Node == to_node) & (stream_network['order_'] == max_order)
                     ]['HydroID'].item()
 
                 else:
                     update_id = stream_network.loc[
-                        (stream_network.From_Node == to_node)
-                        & (stream_network['order_'] == max_order)
+                        (stream_network.From_Node == to_node) & (stream_network['order_'] == max_order)
                     ]['HydroID'].values[
                         0
                     ]  # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
 
             # no upstream segments; single downstream segment
             elif len(stream_network.loc[stream_network.From_Node == to_node]['HydroID']) == 1:
-                update_id = stream_network.loc[stream_network.From_Node == to_node][
-                    'HydroID'
-                ].item()
+                update_id = stream_network.loc[stream_network.From_Node == to_node]['HydroID'].item()
 
             else:
                 update_id = stream_network.loc[stream_network.HydroID == short_id]['HydroID'].item()
@@ -237,9 +223,7 @@ def replace_discharges_of_small_segments(sml_segs, src_table, hydro_table):
     for index, segment in sml_segs.iterrows():
         short_id = segment[0]
         update_id = segment[1]
-        new_values = src_table.loc[src_table['HydroID'] == update_id][
-            ['Stage', 'Discharge (m3s-1)']
-        ]
+        new_values = src_table.loc[src_table['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
 
         for src_index, src_stage in new_values.iterrows():
             src_table.loc[
@@ -257,9 +241,7 @@ if __name__ == '__main__':
         description='Overwrites mannings n values and recomputes discharge values for SRCs and Hydro-Tables'
     )
     parser.add_argument('-y', '--hydrofabric-dir', help='Hydrofabric directory', required=True)
-    parser.add_argument(
-        '-n', '--mannings-value', help='Mannings N value to use', required=True, type=float
-    )
+    parser.add_argument('-n', '--mannings-value', help='Mannings N value to use', required=True, type=float)
     parser.add_argument(
         '-o',
         '--overwrite-files',

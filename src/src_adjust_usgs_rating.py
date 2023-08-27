@@ -61,8 +61,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         ["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation"]
     ].copy()
     cross_df.rename(
-        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'},
-        inplace=True,
+        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'}, inplace=True
     )
 
     # filter null location_id rows from cross_df (removes ahps lide entries that aren't associated with USGS gage)
@@ -132,9 +131,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
             log_text += 'HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"... \n'
 
         # Create dataframe with crosswalked USGS flow and NWM recurr flow
-        calc_df = merge_df.loc[
-            merge_df.groupby(['location_id', 'levpa_id'])['Q_find'].idxmin()
-        ].reset_index(
+        calc_df = merge_df.loc[merge_df.groupby(['location_id', 'levpa_id'])['Q_find'].idxmin()].reset_index(
             drop=True
         )  # find the index of the Q_1_5_find (closest matching flow)
         # Calculate flow difference (variance) to check for large discrepancies btw NWM flow and USGS closest flow
@@ -218,9 +215,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
             )
             htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-            water_edge_median_ds = usgs_df[
-                (usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)
-            ]
+            water_edge_median_ds = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
@@ -270,12 +265,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 source_tag = 'usgs_rating'  # tag to use in source attribute field
                 merge_prev_adj = False  # merge in previous SRC adjustment calculations
 
-                print(
-                    'Will perform SRC adjustments for huc: '
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
+                print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
                 procs_list.append(
                     [
                         branch_dir,
@@ -307,9 +297,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
 
 def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
     ## Check input args are valid
-    assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(
-        run_dir
-    )
+    assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
     ## Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
     print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
@@ -342,7 +330,9 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
     usgs_elev_df = concat_huc_csv(run_dir, csv_name)
 
     if usgs_elev_df is None:
-        warn_err = 'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in fim_dir!'
+        warn_err = (
+            'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in fim_dir!'
+        )
         print(warn_err)
         log_file.write(warn_err)
 
@@ -354,9 +344,7 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
     else:
         print('This may take a few minutes...')
         log_file.write("starting create usgs rating db")
-        usgs_df = create_usgs_rating_database(
-            usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
-        )
+        usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
 
         ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
         branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file)
@@ -394,9 +382,7 @@ if __name__ == '__main__':
         required=False,
         action='store_true',
     )
-    parser.add_argument(
-        '-j', '--job-number', help='Number of jobs to use', required=False, default=1
-    )
+    parser.add_argument('-j', '--job-number', help='Number of jobs to use', required=False, default=1)
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())

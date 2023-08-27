@@ -74,9 +74,7 @@ def create_flow_forecast_file(
         n = 1
         while True:
             # Merge flows with nwm_river_layer. This will be used to find upstream and downstream flow.
-            merged = nwm_river_layer.merge(
-                forecast, left_on='ID', right_on='feature_id', how='left'
-            )
+            merged = nwm_river_layer.merge(forecast, left_on='ID', right_on='feature_id', how='left')
 
             nonintersects = merged[merged['discharge'].isna()]
 
@@ -104,8 +102,7 @@ def create_flow_forecast_file(
                         + downstream_upstreams['discharge'].isnull().sum()
                     ) == 1:
                         new_flow.append(
-                            downstream['discharge'].iloc[0]
-                            - downstream_upstreams['discharge'].sum()
+                            downstream['discharge'].iloc[0] - downstream_upstreams['discharge'].sum()
                         )
 
                 # Add row data to forecast
@@ -143,9 +140,7 @@ def create_flow_forecast_file(
     xs_layer_proj = xs_layer.to_crs(nwm_river_layer.crs)
 
     # Perform an intersection of the BLE layers and the NWM layers, using the keep_geom_type set to False produces a point output.
-    intersection = gpd.overlay(
-        xs_layer_proj, nwm_river_layer, how='intersection', keep_geom_type=False
-    )
+    intersection = gpd.overlay(xs_layer_proj, nwm_river_layer, how='intersection', keep_geom_type=False)
 
     ## Create the flow forecast files
     # Define fields containing flow (typically these won't change for BLE)
@@ -181,9 +176,7 @@ def create_flow_forecast_file(
         output_dir = os.path.join(output_parent_dir, huc)
         dir_of_csv = os.path.join(output_dir, return_period[i])
         os.makedirs(dir_of_csv, exist_ok=True)
-        path_to_csv = os.path.join(
-            dir_of_csv, "ble_huc_{}_flows_{}.csv".format(huc, return_period[i])
-        )
+        path_to_csv = os.path.join(dir_of_csv, "ble_huc_{}_flows_{}.csv".format(huc, return_period[i]))
         forecast.to_csv(path_to_csv, index=False)
 
 

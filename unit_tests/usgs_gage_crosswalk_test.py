@@ -27,8 +27,8 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
 
     def test_GageCrosswalk_success(self):
         """
-        Test whether the GageCrosswalk object can be instantiated, and test that the run_crosswalk method can successfully
-        create the output table (usgs_elev_table.csv).
+        Test whether the GageCrosswalk object can be instantiated, and test that the run_crosswalk method can
+        successfully create the output table (usgs_elev_table.csv).
         """
 
         params = self.params[
@@ -41,7 +41,7 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
 
         # Verify the usgs_elev_table.csv was deleted
         msg = f'{params["output_table_filename"]} does exist, when it should have been deleted'
-        assert os.path.exists(params["output_table_filename"]) == False, msg
+        assert os.path.exists(params["output_table_filename"]) is False, msg
 
         # Instantiate and run GageCrosswalk
         gage_crosswalk = GageCrosswalk(params["usgs_gages_filename"], params["branch_id"])
@@ -57,4 +57,4 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
 
         # Make sure that the usgs_elev_table.csv was written
         msg = f'{params["output_table_filename"]} does not exist'
-        assert os.path.exists(params["output_table_filename"]) == True, msg
+        assert os.path.exists(params["output_table_filename"]) is True, msg

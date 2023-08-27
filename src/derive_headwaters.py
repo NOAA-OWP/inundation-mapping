@@ -31,9 +31,7 @@ def findHeadWaterPoints(flows):
 
     # print(headwater_points)
     headwater_points_geometries = [Point(*hwp) for hwp in headwater_points]
-    hw_gdf = gpd.GeoDataFrame(
-        {'geometry': headwater_points_geometries}, crs=flows.crs, geometry='geometry'
-    )
+    hw_gdf = gpd.GeoDataFrame({'geometry': headwater_points_geometries}, crs=flows.crs, geometry='geometry')
 
     return hw_gdf
 
@@ -53,12 +51,7 @@ if __name__ == '__main__':
         '-l', '--input-flows-layer', help='Input layer name', required=False, type=str, default=None
     )
     parser.add_argument(
-        '-o',
-        '--output-headwaters',
-        help='Output headwaters points',
-        required=False,
-        type=str,
-        default=None,
+        '-o', '--output-headwaters', help='Output headwaters points', required=False, type=str, default=None
     )
 
     args = vars(parser.parse_args())
@@ -67,6 +60,7 @@ if __name__ == '__main__':
 
     hw_gdf = findHeadWaterPoints(flows)
 
-    # TODO check output_headwaters variable, not defined
+    output_headwaters = args['output_headwaters']
+
     if output_headwaters is not None:
         hw_gdf.to_file(args['output_headwaters'], driver=getDriver(args['output_headwaters']))

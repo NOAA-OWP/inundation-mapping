@@ -140,9 +140,7 @@ def agreedem(
                         # Calculate bufgrid. Assign NODATA to areas where vectdist_data <=
                         # buffered value.
                         bufgrid_window = np.where(
-                            vectdist_data_window > final_buffer,
-                            elev_data_window,
-                            dem_profile['nodata'],
+                            vectdist_data_window > final_buffer, elev_data_window, dem_profile['nodata']
                         )
 
                         # Write out raster.
@@ -169,15 +167,11 @@ def agreedem(
                             agree_bufgrid_data_window = agree_bufgrid.read(1, window=window)
 
                             # Calculate bufgrid. Assign NODATA to areas where vectdist_data <=
-                            agree_bufgrid_data_window = np.where(
-                                agree_bufgrid_data_window > -10000, 1, 0
-                            )
+                            agree_bufgrid_data_window = np.where(agree_bufgrid_data_window > -10000, 1, 0)
 
                             # Write out raster.
                             raster.write(
-                                agree_bufgrid_data_window.astype('float32'),
-                                indexes=1,
-                                window=window,
+                                agree_bufgrid_data_window.astype('float32'), indexes=1, window=window
                             )
 
             # Compute allocation and proximity grid using WhiteboxTools
@@ -209,15 +203,11 @@ def agreedem(
                             river_raw_data_window = rivers.read(1, window=window)
 
                             bufallo_data_window = np.where(
-                                bufallo_data_window == -32768.0,
-                                elev_data_window,
-                                bufallo_data_window,
+                                bufallo_data_window == -32768.0, elev_data_window, bufallo_data_window
                             )
 
                             vectallo_data_window = np.where(
-                                vectallo_data_window == -32768.0,
-                                elev_data_window - 10,
-                                vectallo_data_window,
+                                vectallo_data_window == -32768.0, elev_data_window - 10, vectallo_data_window
                             )
 
                             river_raw_data_window = river_raw_data_window.astype(np.float32)
@@ -263,17 +253,13 @@ def agreedem(
 
                             # Merge sharp drop grid with smoelev grid. Then apply the same
                             # NODATA mask as original elevation grid.
-                            elevgrid_window = np.where(
-                                river_data_window == 0, smoelev_window, shagrid_window
-                            )
+                            elevgrid_window = np.where(river_data_window == 0, smoelev_window, shagrid_window)
                             agree_dem_window = np.where(
                                 elev_mask_window == True, elevgrid_window, dem_profile['nodata']
                             )
 
                             # Write out to raster
-                            raster.write(
-                                agree_dem_window.astype('float32'), indexes=1, window=window
-                            )
+                            raster.write(agree_dem_window.astype('float32'), indexes=1, window=window)
 
     # If the '-t' flag is called, intermediate data is removed.
     if delete_intermediate_data:
@@ -295,9 +281,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dem_m', help='DEM raster in meters', required=True)
     parser.add_argument('-w', '--workspace', help='Workspace', required=True)
     parser.add_argument('-o', '--output', help='Path to output raster', required=True)
-    parser.add_argument(
-        '-b', '--buffer', help='Buffer distance (m) on either side of channel', required=True
-    )
+    parser.add_argument('-b', '--buffer', help='Buffer distance (m) on either side of channel', required=True)
     parser.add_argument('-sm', '--smooth', help='Smooth drop (m)', required=True)
     parser.add_argument('-sh', '---sharp', help='Sharp drop (m)', required=True)
     parser.add_argument(

@@ -33,9 +33,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Burn in NLD elevations')
     parser.add_argument('-dem', '--dem-filename', help='DEM filename', required=True, type=str)
     parser.add_argument('-nld', '--nld-filename', help='NLD filename', required=True, type=str)
-    parser.add_argument(
-        '-out', '--out-dem-filename', help='out DEM filename', required=True, type=str
-    )
+    parser.add_argument('-out', '--out-dem-filename', help='out DEM filename', required=True, type=str)
 
     args = vars(parser.parse_args())
 

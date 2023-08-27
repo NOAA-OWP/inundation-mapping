@@ -43,7 +43,8 @@ class test_shared_functions(unittest.TestCase):
 
     def test_append_id_to_file_name_indentifer_list_success(self):
         """
-        Pass in a file name with the list of identifiers and get a file name back with multiple identifers added
+        Pass in a file name with the list of identifiers and
+        get a file name back with multiple identifers added.
         """
 
         params = self.params["append_append_id_to_file_name_identifier_list_valid"].copy()
@@ -70,4 +71,4 @@ class test_shared_functions(unittest.TestCase):
 
         error_msg = "actual output should not have a value"
 
-        assert actual_output == None, error_msg
+        assert actual_output is None, error_msg

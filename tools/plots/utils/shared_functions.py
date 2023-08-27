@@ -141,9 +141,7 @@ def boxplot(
 #########################################################################
 # Create scatter plot
 #########################################################################
-def scatterplot(
-    dataframe, x_field, y_field, title_text, stats_text=False, annotate=False, dest_file=False
-):
+def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annotate=False, dest_file=False):
     """
     Create scatter plots.
 

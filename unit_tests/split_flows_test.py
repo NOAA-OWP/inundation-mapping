@@ -26,9 +26,11 @@ class test_split_flows(unittest.TestCase):
     # Ensure split_flows_filename & split_points_filename are created by the split_flows function
     def test_split_flows_success(self):
         """
-        The /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/demDerived_reaches_split_<branchid>.gpkg and
-        /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/demDerived_reaches_split_points_<branchid>.gpkg should not exit prior to this test.
-        If the test is successful, these files will be created.
+        The /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/
+            demDerived_reaches_split_<branchid>.gpkg and
+        /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/
+            demDerived_reaches_split_points_<branchid>.gpkg
+        should not exit prior to this test. If the test is successful, these files will be created.
         """
 
         params = self.params["valid_data"].copy()
@@ -40,16 +42,11 @@ class test_split_flows(unittest.TestCase):
         if os.path.exists(params["split_points_filename"]):
             os.remove(params["split_points_filename"])
 
-        error_msg = (
-            params["split_flows_filename"] + " does exist, when it should not (post os.remove call)"
-        )
-        assert os.path.exists(params["split_flows_filename"]) == False, error_msg
+        error_msg = params["split_flows_filename"] + " does exist, when it should not (post os.remove call)"
+        assert os.path.exists(params["split_flows_filename"]) is False, error_msg
 
-        error_msg = (
-            params["split_points_filename"]
-            + " does exist, when it should not (post os.remove call)"
-        )
-        assert os.path.exists(params["split_points_filename"]) == False, error_msg
+        error_msg = params["split_points_filename"] + " does exist, when it should not (post os.remove call)"
+        assert os.path.exists(params["split_points_filename"]) is False, error_msg
 
         src.split_flows(
             max_length=params["max_length"],
@@ -65,7 +62,7 @@ class test_split_flows(unittest.TestCase):
         )
 
         error_msg = params["split_flows_filename"] + " does not exist"
-        assert os.path.exists(params["split_flows_filename"]) == True, error_msg
+        assert os.path.exists(params["split_flows_filename"]) is True, error_msg
 
         error_msg = params["split_points_filename"] + " does not exist"
-        assert os.path.exists(params["split_points_filename"]) == True, error_msg
+        assert os.path.exists(params["split_points_filename"]) is True, error_msg

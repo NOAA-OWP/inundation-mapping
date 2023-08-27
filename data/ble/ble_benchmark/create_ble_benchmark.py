@@ -68,18 +68,14 @@ def create_ble_benchmark(
     spatial_df = spatial_df.reset_index()
 
     # Convert size to MiB
-    spatial_df['MiB'] = np.where(
-        spatial_df['units'] == 'GiB', spatial_df['size'] * 1000, spatial_df['size']
-    )
+    spatial_df['MiB'] = np.where(spatial_df['units'] == 'GiB', spatial_df['size'] * 1000, spatial_df['size'])
 
     spatial_df, ble_geodatabase = download_and_extract_rasters(spatial_df, save_folder)
 
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
         # reference_raster is used to set the metadata for benchmark_raster
-        reference_raster = os.path.join(
-            reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif'
-        )
+        reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif')
         for benchmark_raster in row['rasters']:
             magnitude = '100yr' if 'BLE_DEP01PCT' in benchmark_raster else '500yr'
 
@@ -157,9 +153,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
                 if not os.path.exists(out_file):
                     # Read raster data from GDB
                     print(f'Reading {depth_raster} for {huc}')
-                    depth_raster_path = [
-                        item[0] for item in subdatasets if depth_raster in item[1]
-                    ][0]
+                    depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
 
                     extract_raster(depth_raster_path, out_file)
 
@@ -218,15 +212,9 @@ if __name__ == '__main__':
     )
     parser.add_argument('-i', '--input-file', type=str, help='Input file', required=True)
     parser.add_argument('-s', '--save-folder', type=str, help='Output folder', required=True)
-    parser.add_argument(
-        '-r', '--reference-folder', type=str, help='Reference folder', required=True
-    )
-    parser.add_argument(
-        '-o', '--benchmark-folder', type=str, help='Benchmark folder', required=True
-    )
-    parser.add_argument(
-        '-n', '--nwm-geopackage', type=str, help='NWM streams geopackage', required=True
-    )
+    parser.add_argument('-r', '--reference-folder', type=str, help='Reference folder', required=True)
+    parser.add_argument('-o', '--benchmark-folder', type=str, help='Benchmark folder', required=True)
+    parser.add_argument('-n', '--nwm-geopackage', type=str, help='NWM streams geopackage', required=True)
     parser.add_argument(
         '-u',
         '--huc',

@@ -11,12 +11,8 @@ from stream_branches import StreamBranchPolygons, StreamNetwork
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(description='Clips rasters to branch polygons')
-    parser.add_argument(
-        '-b', '--branches', help='Branch polygons file name', required=True, default=None
-    )
-    parser.add_argument(
-        '-d', '--branch-id', help='Branch ID attribute', required=True, default=None
-    )
+    parser.add_argument('-b', '--branches', help='Branch polygons file name', required=True, default=None)
+    parser.add_argument('-d', '--branch-id', help='Branch ID attribute', required=True, default=None)
     parser.add_argument(
         '-i', '--branch-id-attribute', help='Branch ID attribute', required=True, default=None
     )
@@ -32,12 +28,7 @@ if __name__ == '__main__':
         nargs="+",
     )
     parser.add_argument(
-        '-v',
-        '--verbose',
-        help='Verbose printing',
-        required=False,
-        default=None,
-        action='store_true',
+        '-v', '--verbose', help='Verbose printing', required=False, default=None, action='store_true'
     )
 
     # extract to dictionary
@@ -65,8 +56,6 @@ if __name__ == '__main__':
         zip(rasters, clipped_rasters), disable=(not verbose), total=len(rasters)
     ):
         if verbose:
-            print(
-                "Clipping \'{}\' to branch polygons ...".format(raster.split('/')[-1].split('.')[0])
-            )
+            print("Clipping \'{}\' to branch polygons ...".format(raster.split('/')[-1].split('.')[0]))
 
         stream_polys.clip(raster, clipped_raster, branch_id, branch_id_attribute)

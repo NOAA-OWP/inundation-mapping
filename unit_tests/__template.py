@@ -60,7 +60,7 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
         # An assert that evaluates as True passes, one that evaluates to False fails.
         # A message (string) can be added after the assert statement to provide detail on the case being tested, and
         # why it failed.
-        assert os.path.exists(params["nwm_streams"]) == True, "The nwm_streams file does not exist"
+        assert os.path.exists(params["nwm_streams"]) is True, "The nwm_streams file does not exist"
 
     # EXAMPLE SUCCESSFUL TEST CASE WHICH CAPTURES AN EXCEPTION (FAILURE)
 
@@ -75,8 +75,8 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
 
         params["nwm_streams"] = "/some/bad/path/"
 
-        with pytest.raises(Exception) as e_info:
-            clip_vectors_to_wbd.subset_vector_layers(
+        with pytest.raises(Exception):
+            src.subset_vector_layers(
                 hucCode=params["hucCode"],
                 nwm_streams_filename=params["nwm_streams"],
                 etc=params["a_number"],

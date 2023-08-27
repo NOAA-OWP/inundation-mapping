@@ -32,8 +32,7 @@ class Gage2Branch(object):
             ahps_sites = gpd.read_file(self.ahps_filename)
             ahps_sites = ahps_sites[ahps_sites.HUC8 == self.huc8]  # filter to HUC8
             ahps_sites.rename(
-                columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'},
-                inplace=True,
+                columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True
             )
             ahps_sites = ahps_sites[
                 ahps_sites.location_id.isna()
@@ -42,15 +41,7 @@ class Gage2Branch(object):
                 [
                     self.gages,
                     ahps_sites[
-                        [
-                            'feature_id',
-                            'nws_lid',
-                            'location_id',
-                            'HUC8',
-                            'name',
-                            'states',
-                            'geometry',
-                        ]
+                        ['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states', 'geometry']
                     ],
                 ]
             )
@@ -67,8 +58,7 @@ class Gage2Branch(object):
             missing_feature_id = self.gages.loc[self.gages.feature_id.isnull()].copy()
             nwm_reaches_union = nwm_reaches.geometry.unary_union
             missing_feature_id['feature_id'] = missing_feature_id.apply(
-                lambda row: self.sjoin_nearest_to_nwm(row.geometry, nwm_reaches, nwm_reaches_union),
-                axis=1,
+                lambda row: self.sjoin_nearest_to_nwm(row.geometry, nwm_reaches, nwm_reaches_union), axis=1
             )
 
             self.gages.update(missing_feature_id)
@@ -101,13 +91,10 @@ class Gage2Branch(object):
     def filter_gage_branches(fim_inputs_filename):
         fim_dir = os.path.dirname(fim_inputs_filename)
         fim_inputs = pd.read_csv(
-            fim_inputs_filename,
-            header=None,
-            names=['huc', 'levpa_id'],
-            dtype={'huc': str, 'levpa_id': str},
+            fim_inputs_filename, header=None, names=['huc', 'levpa_id'], dtype={'huc': str, 'levpa_id': str}
         )
 
-        for huc_dir in [d for d in os.listdir(fim_dir) if re.search('^\d{8}$', d)]:
+        for huc_dir in [d for d in os.listdir(fim_dir) if re.search(r'^\d{8}$', d)]:
             gage_file = os.path.join(fim_dir, huc_dir, 'usgs_subset_gages.gpkg')
             if not os.path.isfile(gage_file):
                 fim_inputs.drop(fim_inputs.loc[fim_inputs.huc == huc_dir].index, inplace=True)
@@ -116,9 +103,7 @@ class Gage2Branch(object):
             gages = gpd.read_file(gage_file)
             level_paths = gages.levpa_id
             fim_inputs.drop(
-                fim_inputs.loc[
-                    (fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))
-                ].index,
+                fim_inputs.loc[(fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))].index,
                 inplace=True,
             )
 
@@ -136,9 +121,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-huc', '--huc8-id', help='HUC8 ID (to verify gage location huc)', type=str, required=True
     )
-    parser.add_argument(
-        '-bzero_id', '--branch-zero-id', help='Branch zero ID value', type=str, required=True
-    )
+    parser.add_argument('-bzero_id', '--branch-zero-id', help='Branch zero ID value', type=str, required=True)
     parser.add_argument(
         '-ff',
         '--filter-fim-inputs',
@@ -166,10 +149,7 @@ if __name__ == '__main__':
 
         # Create seperate output for branch zero
         output_filename_zero = (
-            os.path.splitext(output_filename)[0]
-            + '_'
-            + bzero_id
-            + os.path.splitext(output_filename)[-1]
+            os.path.splitext(output_filename)[0] + '_' + bzero_id + os.path.splitext(output_filename)[-1]
         )
         usgs_gage_subset.branch_zero(bzero_id)
         usgs_gage_subset.write(output_filename_zero)

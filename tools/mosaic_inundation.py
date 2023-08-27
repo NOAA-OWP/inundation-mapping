@@ -40,9 +40,7 @@ def Mosaic_inundation(
         inundation_maps_df = map_file
         del map_file
     elif isinstance(map_file, str):
-        inundation_maps_df = pd.read_csv(
-            map_file, dtype={unit_attribute_name: str, 'branchID': str}
-        )
+        inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, 'branchID': str})
     else:
         raise TypeError('Pass Pandas Dataframe or file path string to csv for map_file argument')
 
@@ -142,10 +140,7 @@ def mosaic_by_unit(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mosaic GMS Inundation Rasters')
     parser.add_argument(
-        '-i',
-        '--map-file',
-        help='List of file paths to inundation/depth maps to mosaic',
-        required=True,
+        '-i', '--map-file', help='List of file paths to inundation/depth maps to mosaic', required=True
     )
     parser.add_argument(
         '-a',
@@ -157,21 +152,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--subset', help='Subset units', required=False, default=None, type=str, nargs='+'
     )
-    parser.add_argument(
-        '-n', '--nodata', help='Inundation Maps', required=False, default=elev_raster_ndv
-    )
-    parser.add_argument(
-        '-w', '--workers', help='Number of Workers', required=False, default=4, type=int
-    )
+    parser.add_argument('-n', '--nodata', help='Inundation Maps', required=False, default=elev_raster_ndv)
+    parser.add_argument('-w', '--workers', help='Number of Workers', required=False, default=4, type=int)
     parser.add_argument(
         '-t', '--mosaic-attribute', help='Mosaiced inundation Maps', required=False, default=None
     )
     parser.add_argument(
-        '-m',
-        '--mosaic-output',
-        help='Mosaiced inundation Maps file name',
-        required=False,
-        default=None,
+        '-m', '--mosaic-output', help='Mosaiced inundation Maps file name', required=False, default=None
     )
     parser.add_argument(
         '-r',

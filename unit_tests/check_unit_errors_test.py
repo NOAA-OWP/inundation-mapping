@@ -11,10 +11,7 @@ from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 import check_unit_errors as src
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_variables import (
-    UNIT_ERRORS_MIN_NUMBER_THRESHOLD,
-    UNIT_ERRORS_MIN_PERCENT_THRESHOLD,
-)
+from utils.shared_variables import UNIT_ERRORS_MIN_NUMBER_THRESHOLD, UNIT_ERRORS_MIN_PERCENT_THRESHOLD
 
 
 class test_check_unit_errors(unittest.TestCase):
@@ -65,7 +62,6 @@ class test_check_unit_errors(unittest.TestCase):
         # Expecting sys.exit of 62
         # We do expect this to fail and if it fails, it is successful.
         # Here we expect an exception, and are capturing it using pytest.raises(Exception)
-        # To query the exception, or validate that it is the correct one, it is captured in the `e_info` object
 
         params = self.params["valid_data"].copy()
 
@@ -73,7 +69,7 @@ class test_check_unit_errors(unittest.TestCase):
 
         self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
 
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(Exception):
             src.check_unit_errors(params["fim_dir"], num_dummy_files_reqd)
 
         # We have to put the unit_errors folders back to the way it was
@@ -90,9 +86,7 @@ class test_check_unit_errors(unittest.TestCase):
 
         self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
 
-        num_total_units = (
-            math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD)) + 1
-        )
+        num_total_units = math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD)) + 1
         expected_output = 0
         actual_output = src.check_unit_errors(params["fim_dir"], num_total_units)
 
@@ -109,7 +103,6 @@ class test_check_unit_errors(unittest.TestCase):
         # We do expect this to fail as it is greater than 10 errors
         # AND below the percent threshhold (more percent errors than the threshold)
         # Here we expect an exception, and are capturing it using pytest.raises(Exception)
-        # To query the exception, or validate that it is the correct one, it is captured in the `e_info` object
 
         params = self.params["valid_data"].copy()
 
@@ -117,11 +110,9 @@ class test_check_unit_errors(unittest.TestCase):
 
         self.__create_temp_unit_errors_folder_files(params["fim_dir"], num_dummy_files_reqd)
 
-        num_total_units = (
-            math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD)) - 10
-        )
+        num_total_units = math.trunc(num_dummy_files_reqd * (100 / UNIT_ERRORS_MIN_PERCENT_THRESHOLD)) - 10
 
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(Exception):
             src.check_unit_errors(params["fim_dir"], num_total_units)
 
         # We have to put the unit_errors folders back to the way it was.
@@ -162,6 +153,7 @@ class test_check_unit_errors(unittest.TestCase):
             file_name = "sample_" + str(i) + ".txt"
             file_path = os.path.join(ue_folder, file_name)
             with open(file_path, "w") as fp:
+                fp.close()
                 pass
 
         return ue_folder_preexists
@@ -197,7 +189,7 @@ class test_check_unit_errors(unittest.TestCase):
         params = self.params["invalid_path"]
         invalid_folder = params["fim_dir"]
 
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(Exception):
             self.__create_temp_unit_errors_folder_files(invalid_folder, 4)
 
     def test_remove_temp_unit_errors_folder(self):
@@ -211,4 +203,4 @@ class test_check_unit_errors(unittest.TestCase):
 
         temp_folder_created = os.path.join(params["fim_dir"], "unit_errors") + "_temp"
 
-        assert os.path.exists(temp_folder_created) == False
+        assert os.path.exists(temp_folder_created) is False

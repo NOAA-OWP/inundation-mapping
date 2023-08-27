@@ -144,9 +144,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             geometry = row['geometry']
 
             if isinstance(geometry, MultiLineString):
-                linestring = LineString(
-                    sum([list(item.coords) for item in list(geometry.geoms)], [])
-                )
+                linestring = LineString(sum([list(item.coords) for item in list(geometry.geoms)], []))
                 row['geometry'] = linestring
 
             return row
@@ -209,9 +207,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # load vaas
         if isinstance(stream_branch_dataset, str):
-            stream_branch_dataset = gpd.read_file(
-                stream_branch_dataset, layer=stream_branch_layer_name
-            )
+            stream_branch_dataset = gpd.read_file(stream_branch_dataset, layer=stream_branch_layer_name)
         elif isinstance(stream_branch_dataset, gpd.GeoDataFrame):
             pass
         else:
@@ -253,9 +249,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Deriving nodes ...")
 
-        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(
-            outlet_linestring_index
-        )
+        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
 
         # set node prefix to string
         if node_prefix is None:
@@ -269,7 +263,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         # if self.index.name != reach_id_attribute:
         # self.set_index(reach_id_attribute,drop=True,inplace=True)
 
-        inlet_coordinates, outlet_coordinates = dict(), dict()
         node_coordinates = dict()
         toNodes, fromNodes = [None] * len(self), [None] * len(self)
         current_node_id = '1'.zfill(max_post_node_digits)
@@ -296,9 +289,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
                 current_node_id = int(current_node_id.lstrip('0')) + 1
                 if current_node_id > max_node_value:
-                    raise ValueError(
-                        'Current Node ID exceeding max. Look at source code to change.'
-                    )
+                    raise ValueError('Current Node ID exceeding max. Look at source code to change.')
                 current_node_id = str(current_node_id).zfill(max_post_node_digits)
 
             else:
@@ -311,9 +302,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
                 current_node_id = int(current_node_id.lstrip('0')) + 1
                 if current_node_id > max_node_value:
-                    raise ValueError(
-                        'Current Node ID exceeding max. Look at source code to change.'
-                    )
+                    raise ValueError('Current Node ID exceeding max. Look at source code to change.')
                 current_node_id = str(current_node_id).zfill(max_post_node_digits)
 
             else:
@@ -371,9 +360,7 @@ class StreamNetwork(gpd.GeoDataFrame):
     def derive_inlet_points_by_feature(self, feature_attribute, outlet_linestring_index):
         """Finds the upstream point of every feature in the stream network"""
 
-        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(
-            outlet_linestring_index
-        )
+        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
 
         feature_inlet_points_gdf = gpd.GeoDataFrame(self.copy())
 
@@ -390,9 +377,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         """Derives headwater points file given inlets"""
 
         # get inlet linestring index
-        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(
-            outlet_linestring_index
-        )
+        inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
 
         inlet_indices = self.loc[:, inlets_attribute] != -1
 
@@ -409,9 +394,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return headwater_points_gdf
 
-    def exclude_attribute_values(
-        self, branch_id_attribute=None, values_excluded=None, verbose=False
-    ):
+    def exclude_attribute_values(self, branch_id_attribute=None, values_excluded=None, verbose=False):
         if (branch_id_attribute is not None) and (values_excluded is not None):
             self = StreamNetwork(
                 self[~self[branch_id_attribute].isin(values_excluded)],
@@ -424,11 +407,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return self
 
     def remove_stream_segments_without_catchments(
-        self,
-        catchments,
-        reach_id_attribute='ID',
-        reach_id_attribute_in_catchments='ID',
-        verbose=False,
+        self, catchments, reach_id_attribute='ID', reach_id_attribute_in_catchments='ID', verbose=False
     ):
         if verbose:
             print("Removing stream segments without catchments ...")
@@ -512,8 +491,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Remove reach from tmp_self
                     tmp_IDs.append(downstream_ID)
                     tmp_self.drop(
-                        tmp_self[tmp_self.From_Node.astype(int).isin([downstream_ID])].index,
-                        inplace=True,
+                        tmp_self[tmp_self.From_Node.astype(int).isin([downstream_ID])].index, inplace=True
                     )
                     # Repeat for next lowest downstream reach
                     if downstream_ID in tmp_self.To_Node.astype(int).values:
@@ -542,8 +520,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Remove reach from tmp_self
                     tmp_IDs.append(upstream_ID)
                     tmp_self.drop(
-                        tmp_self[tmp_self.From_Node.astype(int).isin([upstream_ID])].index,
-                        inplace=True,
+                        tmp_self[tmp_self.From_Node.astype(int).isin([upstream_ID])].index, inplace=True
                     )
                     # Repeat for next highest upstream reach
                     return find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
@@ -643,8 +620,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         outlet_reach_ids = self.index[outlet_boolean_mask].tolist()
 
         branch_ids = [
-            str(h)[0:4] + str(b + 1).zfill(max_branch_id_digits)
-            for b, h in enumerate(outlet_reach_ids)
+            str(h)[0:4] + str(b + 1).zfill(max_branch_id_digits) for b, h in enumerate(outlet_reach_ids)
         ]
 
         self.loc[outlet_reach_ids, branch_id_attribute] = branch_ids
@@ -708,9 +684,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                         ~upstream_reaches_compare_values.index.isin([continue_id])
                     ]
                     for new_up_id in new_upstream_branches.index:
-                        branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(
-                            max_branch_id_digits
-                        )
+                        branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
                         self.loc[new_up_id, branch_id_attribute] = branch_id
                         bid += 1
                     # ==================================================================================
@@ -734,11 +708,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return self
 
     def make_up_and_downstream_dictionaries(
-        self,
-        reach_id_attribute='ID',
-        toNode_attribute='ToNode',
-        fromNode_attribute='FromNode',
-        verbose=False,
+        self, reach_id_attribute='ID', toNode_attribute='ToNode', fromNode_attribute='FromNode', verbose=False
     ):
         # sets index of stream branches as reach id attribute
         # if self.index.name != reach_id_attribute:
@@ -851,9 +821,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         # exclude attributes and their values
         if (attribute_excluded is not None) & (values_excluded is not None):
             values_excluded = set(values_excluded)
-            exclude_indices = [
-                False if i in values_excluded else True for i in self[attribute_excluded]
-            ]
+            exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
             self = self.loc[exclude_indices, :]
 
         # dissolve lines
@@ -861,10 +829,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # ensure the new stream order has the order from it's highest child
         max_stream_order = (
-            self[[branch_id_attribute, 'order_']]
-            .groupby(branch_id_attribute)
-            .max()['order_']
-            .copy()
+            self[[branch_id_attribute, 'order_']].groupby(branch_id_attribute).max()['order_'].copy()
         )
 
         self = self.dissolve(by=branch_id_attribute)
@@ -989,18 +954,12 @@ class StreamNetwork(gpd.GeoDataFrame):
 
     @staticmethod
     def conflate_points(
-        source_points,
-        target_points,
-        source_reach_id_attribute,
-        target_reach_id_attribute,
-        verbose=False,
+        source_points, target_points, source_reach_id_attribute, target_reach_id_attribute, verbose=False
     ):
         tree = STRtree(target_points.geometry.tolist())
 
         # find matching geometry
-        matches_dict = dict.fromkeys(
-            source_points.loc[:, source_reach_id_attribute].astype(int).tolist(), []
-        )
+        matches_dict = dict.fromkeys(source_points.loc[:, source_reach_id_attribute].astype(int).tolist(), [])
         for idx, row in tqdm(
             source_points.iterrows(),
             total=len(source_points),
@@ -1090,9 +1049,7 @@ class StreamBranchPolygons(StreamNetwork):
         new_geoms = new_bids.copy()
         i = 0
 
-        for _, row in tqdm(
-            stream_network.iterrows(), disable=(not verbose), total=len(stream_network)
-        ):
+        for _, row in tqdm(stream_network.iterrows(), disable=(not verbose), total=len(stream_network)):
             new_geoms[i] = row[stream_network.geometry.name].buffer(buffer_distance)
             new_bids[i] = i + 1
             i += 1

@@ -56,7 +56,7 @@ def remove_deny_list_files(src_dir, deny_list, branch_id, verbose=False):
         raise ValueError(f"Sorry, the directory {src_dir} does not exist")
 
     if branch_id.strip() == "":
-        raise ValueError(f"Sorry, branch id value must exist")
+        raise ValueError("Sorry, branch id value must exist")
 
     # Note: some of the deny_file_names might be a comment line
     # this will validate file exists
@@ -96,17 +96,13 @@ def remove_deny_list_files(src_dir, deny_list, branch_id, verbose=False):
 
 if __name__ == '__main__':
     # parse arguments
-    parser = argparse.ArgumentParser(
-        description='Clean up outputs given file with line delimineted files'
-    )
+    parser = argparse.ArgumentParser(description='Clean up outputs given file with line delimineted files')
     parser.add_argument('-d', '--src_dir', help='Directory to find files', required=True)
     parser.add_argument(
         '-l', '--deny_list', help='Path to deny list file. Must be line delimited', required=True
     )
     parser.add_argument('-b', '--branch_id', help='Branch id value', required=True)
-    parser.add_argument(
-        '-v', '--verbose', help='Verbose', required=False, default=False, action='store_true'
-    )
+    parser.add_argument('-v', '--verbose', help='Verbose', required=False, default=False, action='store_true')
 
     # extract to dictionary
     args = vars(parser.parse_args())

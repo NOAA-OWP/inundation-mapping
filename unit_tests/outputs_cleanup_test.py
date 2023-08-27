@@ -11,11 +11,9 @@ from pathlib import Path
 import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
+# sys.path.append("/foss_fim/src/gms")
+import src.outputs_cleanup as src
 from utils.shared_functions import FIM_Helpers as fh
-
-
-sys.path.append("/foss_fim/src/gms")
-import outputs_cleanup as src
 
 
 class test_outputs_cleanup(unittest.TestCase):
@@ -55,7 +53,7 @@ class test_outputs_cleanup(unittest.TestCase):
             verbose=params["verbose"],
         )
 
-        assert self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) == True
+        assert self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) is True
 
     def test_remove_deny_list_files_huc_level_success(self):
         """
@@ -81,7 +79,7 @@ class test_outputs_cleanup(unittest.TestCase):
             verbose=params["verbose"],
         )
 
-        assert self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) == True
+        assert self.__check_no_deny_list_files_exist(params["src_dir"], deny_files) is True
 
     def test_remove_deny_list_skip_cleaning_success(self):
         """
@@ -100,9 +98,10 @@ class test_outputs_cleanup(unittest.TestCase):
         # __get_deny_list_filenames returns an empty array if "None" is provided
         assert len(deny_files) == 0
 
-        # This is a little tricky, as we're capturing the stdout (return statement) from remove_deny_list_files,
-        # to verify the function is returning at the correct place, and not removing files when we do not provide
-        # a deny list file. We set f to the io stream, and redirect it using redirect_stdout.
+        # This is tricky, as we're capturing the stdout (return statement) from remove_deny_list_files,
+        # to verify the function is returning at the correct place, and not removing files
+        # when we do not provide a deny list file. We set f to the io stream, and redirect it using
+        # redirect_stdout.
         f = io.StringIO()
         with redirect_stdout(f):
             src.remove_deny_list_files(
@@ -128,7 +127,7 @@ class test_outputs_cleanup(unittest.TestCase):
         params["src_dir"] = "/data/does_no_exist"
 
         # We want an exception to be thrown here, if so, the test passes.
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(Exception):
             src.remove_deny_list_files(
                 src_dir=params["src_dir"],
                 deny_list=params["deny_list"],
@@ -145,7 +144,7 @@ class test_outputs_cleanup(unittest.TestCase):
         params["deny_list"] = "invalid_file_name.txt"
 
         # We want an exception to be thrown here, if so, the test passes.
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(Exception):
             src.remove_deny_list_files(
                 src_dir=params["src_dir"],
                 deny_list=params["deny_list"],

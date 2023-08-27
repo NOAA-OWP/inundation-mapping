@@ -6,10 +6,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from utils.shared_functions import FIM_Helpers as fh
-
-
-sys.path.append('/foss_fim/src')
+from src.utils.shared_functions import FIM_Helpers as fh
 
 
 class AWS_Base(object):

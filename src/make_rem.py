@@ -56,9 +56,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     for ji, window in dem_thalwegCond_masked_object.block_windows(
         1
     ):  # Iterate over windows, using dem_rasterio_object as template.
-        dem_window = dem_thalwegCond_masked_object.read(
-            1, window=window
-        ).ravel()  # Define dem_window.
+        dem_window = dem_thalwegCond_masked_object.read(1, window=window).ravel()  # Define dem_window.
         catchments_window = gw_catchments_pixels_masked_object.read(
             1, window=window
         ).ravel()  # Define catchments_window.
@@ -102,9 +100,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
         dem_window = dem_window.ravel()
         catchments_window = pixel_catchments_rasterio_object.read(1, window=window).ravel()
 
-        rem_window = calculate_rem(
-            dem_window, catchment_min_dict, catchments_window, meta['nodata']
-        )
+        rem_window = calculate_rem(dem_window, catchment_min_dict, catchments_window, meta['nodata'])
         rem_window = rem_window.reshape(window_shape).astype(np.float32)
 
         rem_rasterio_object.write(rem_window, window=window, indexes=1)
@@ -120,10 +116,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
     parser.add_argument('-d', '--dem', help='DEM to use within project path', required=True)
     parser.add_argument(
-        '-w',
-        '--watersheds',
-        help='Pixel based watersheds raster to use within project path',
-        required=True,
+        '-w', '--watersheds', help='Pixel based watersheds raster to use within project path', required=True
     )
     parser.add_argument(
         '-t',

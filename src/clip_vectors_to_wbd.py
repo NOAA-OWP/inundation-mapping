@@ -53,9 +53,7 @@ def subset_vector_layers(
 
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
     wbd_streams_buffer = wbd_buffer.copy()
-    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(
-        -3 * dem_cellsize, resolution=32
-    )
+    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-3 * dem_cellsize, resolution=32)
 
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
@@ -77,10 +75,7 @@ def subset_vector_layers(
     if not landsea.empty:
         print("Create landsea gpkg", flush=True)
         landsea.to_file(
-            subset_landsea,
-            driver=getDriver(subset_landsea),
-            index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            subset_landsea, driver=getDriver(subset_landsea), index=False, crs=DEFAULT_FIM_PROJECTION_CRS
         )
     del landsea
 
@@ -111,10 +106,7 @@ def subset_vector_layers(
         for i in range(len(nwm_lakes_fill_holes.geoms)):
             nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
         nwm_lakes.to_file(
-            subset_nwm_lakes,
-            driver=getDriver(subset_nwm_lakes),
-            index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=DEFAULT_FIM_PROJECTION_CRS
         )
     del nwm_lakes
 
@@ -123,10 +115,7 @@ def subset_vector_layers(
     nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer)
     if not nld_lines.empty:
         nld_lines.to_file(
-            subset_nld_lines,
-            driver=getDriver(subset_nld_lines),
-            index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            subset_nld_lines, driver=getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS
         )
     del nld_lines
 
@@ -215,25 +204,16 @@ if __name__ == '__main__':
     parser.add_argument('-j', '--dem-domain', help='DEM domain polygon', required=True)
     parser.add_argument('-l', '--nwm-lakes', help='NWM Lakes', required=True)
     parser.add_argument('-m', '--nwm-catchments', help='NWM catchments', required=True)
+    parser.add_argument('-n', '--subset-nwm-catchments', help='NWM catchments subset', required=True)
+    parser.add_argument('-r', '--nld-lines', help='Levee vectors to use within project path', required=True)
     parser.add_argument(
-        '-n', '--subset-nwm-catchments', help='NWM catchments subset', required=True
-    )
-    parser.add_argument(
-        '-r', '--nld-lines', help='Levee vectors to use within project path', required=True
-    )
-    parser.add_argument(
-        '-rp',
-        '--nld-lines-preprocessed',
-        help='Levee vectors to use for DEM burning',
-        required=True,
+        '-rp', '--nld-lines-preprocessed', help='Levee vectors to use for DEM burning', required=True
     )
     parser.add_argument('-v', '--landsea', help='LandSea - land boundary', required=True)
     parser.add_argument('-w', '--nwm-streams', help='NWM flowlines', required=True)
     parser.add_argument('-x', '--subset-landsea', help='LandSea subset', required=True)
     parser.add_argument('-y', '--nwm-headwaters', help='NWM headwaters', required=True)
-    parser.add_argument(
-        '-z', '--subset-nld-lines', help='Subset of NLD levee vectors for HUC', required=True
-    )
+    parser.add_argument('-z', '--subset-nld-lines', help='Subset of NLD levee vectors for HUC', required=True)
     parser.add_argument(
         '-zp',
         '--subset-nld-lines-preprocessed',

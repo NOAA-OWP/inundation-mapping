@@ -25,25 +25,13 @@ if __name__ == '__main__':
         '-b', '--branches', help='Branch polygons out file name', required=False, default=None
     )
     parser.add_argument(
-        '-v',
-        '--verbose',
-        help='Verbose printing',
-        required=False,
-        default=None,
-        action='store_true',
+        '-v', '--verbose', help='Verbose printing', required=False, default=None, action='store_true'
     )
 
     # extract to dictionary
     args = vars(parser.parse_args())
 
-    (
-        streams_file,
-        branch_id_attribute,
-        buffer_distance,
-        stream_polygons_file,
-        dem_domain,
-        verbose,
-    ) = (
+    (streams_file, branch_id_attribute, buffer_distance, stream_polygons_file, dem_domain, verbose) = (
         args["streams"],
         args["branch_id"],
         args["buffer_distance"],

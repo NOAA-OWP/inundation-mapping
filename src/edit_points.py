@@ -54,18 +54,12 @@ if __name__ == '__main__':
     parser.add_argument(
         '-b', '--branch-id-attribute', help='Name of the branch attribute desired', required=True
     )
-    parser.add_argument(
-        '-r', '--reach-points', help='Name of the branch attribute desired', required=True
-    )
+    parser.add_argument('-r', '--reach-points', help='Name of the branch attribute desired', required=True)
     parser.add_argument(
         '-o', '--out-reach-points', help='Output stream network', required=False, default=None
     )
     parser.add_argument(
-        '-p',
-        '--out-pixel-points',
-        help='Dissolved output stream network',
-        required=False,
-        default=None,
+        '-p', '--out-pixel-points', help='Dissolved output stream network', required=False, default=None
     )
     parser.add_argument(
         '-v', '--verbose', help='Verbose output', required=False, default=False, action='store_true'

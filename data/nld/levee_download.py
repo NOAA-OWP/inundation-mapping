@@ -8,24 +8,17 @@ from datetime import datetime
 import geopandas as gpd
 from esri import ESRI_REST
 from shapely.geometry import LineString, MultiLineString
-from tools_shared_variables import INPUTS_DIR
 from tqdm import tqdm
 
-from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
-
-
-sys.path += ['/foss_fim/src', '/foss_fim/data', '/foss_fim/tools']
+from src.utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
+from tools.tools_shared_variables import INPUTS_DIR
 
 
 epsg_code = re.search(r'\d+$', DEFAULT_FIM_PROJECTION_CRS).group()
 today = datetime.now().strftime('%y%m%d')
-nld_vector_output = os.path.join(
-    INPUTS_DIR, 'nld_vectors', f'System_Routes_NLDFS_5070_{today}.gpkg'
-)
+nld_vector_output = os.path.join(INPUTS_DIR, 'nld_vectors', f'System_Routes_NLDFS_5070_{today}.gpkg')
 processed_nld_vector = os.path.join(INPUTS_DIR, 'nld_vectors', f'3d_nld_preprocessed_{today}.gpkg')
-nld_protected_areas = os.path.join(
-    INPUTS_DIR, 'nld_vectors', f'Leveed_Areas_NLDFS_5070_{today}.gpkg'
-)
+nld_protected_areas = os.path.join(INPUTS_DIR, 'nld_vectors', f'Leveed_Areas_NLDFS_5070_{today}.gpkg')
 
 
 def download_nld_lines():
@@ -38,17 +31,9 @@ def download_nld_lines():
 
     # Query REST service to download levee 'system routes'
     print("Downloading levee lines from the NLD...")
-    nld_url = (
-        "https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer/15/query"
-    )
+    nld_url = "https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer/15/query"
     levees = ESRI_REST.query(
-        nld_url,
-        f="json",
-        where="1=1",
-        returnGeometry="true",
-        outFields="*",
-        outSR=epsg_code,
-        returnZ="true",
+        nld_url, f="json", where="1=1", returnGeometry="true", outFields="*", outSR=epsg_code, returnZ="true"
     )
 
     # Write levees to a single geopackage
@@ -57,9 +42,7 @@ def download_nld_lines():
 
     # Spatial join to huc2
     print('Spatial join levees to HUC-2')
-    huc2 = gpd.read_file(
-        os.path.join(INPUTS_DIR, 'wbd', 'WBD_National_EPSG_5070.gpkg'), layer='WBDHU2'
-    )
+    huc2 = gpd.read_file(os.path.join(INPUTS_DIR, 'wbd', 'WBD_National_EPSG_5070.gpkg'), layer='WBDHU2')
     levees = gpd.sjoin(levees, huc2[['HUC2', 'geometry']], how='left')
 
     # Preprocess levees to remove features and vertices with no elevation
@@ -84,9 +67,7 @@ def process_levee_lines(levee_gdf: gpd.GeoDataFrame, out_levees: str):
 
     # Filter vertices that have z-values less than the minimum from levee geometry
     tqdm.pandas(desc='Removing null elevations')
-    levee_gdf['geometry'] = levee_gdf.progress_apply(
-        lambda row: remove_nulls(row.geometry, row.HUC2), axis=1
-    )
+    levee_gdf['geometry'] = levee_gdf.progress_apply(lambda row: remove_nulls(row.geometry, row.HUC2), axis=1)
     # Remove levees that have empty geometries resulting from the previous filter
     levee_gdf = levee_gdf[~levee_gdf.is_empty]
     levee_gdf.to_file(out_levees, index=False, driver='GPKG')
@@ -158,9 +139,7 @@ def download_nld_poly():
     '''
     # Query REST service to download levee 'system routes'
     print("Downloading levee protected areas from the NLD...")
-    nld_area_url = (
-        "https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer/14/query"
-    )
+    nld_area_url = "https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer/14/query"
     # FYI to whomever takes the time to read this code, the resultRecordCount had to be set on this query because
     # the service was returning an error that turned out to be caused by the size of the request. Running the
     # default max record count of 5000 was too large for polygons, so using resultRecordCount=2000 prevents the error.

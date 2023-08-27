@@ -11,9 +11,7 @@ from shapely.geometry import box
 from tqdm import tqdm
 
 
-def inundate_events(
-    hydrofabric_dir, forecast_file, inundation_file, inundation_polygon=None, jobs=1
-):
+def inundate_events(hydrofabric_dir, forecast_file, inundation_file, inundation_polygon=None, jobs=1):
     forecast_df = pd.read_csv(
         forecast_file, infer_datetime_format=True, dtype={'huc': str}, parse_dates=['date_time']
     )
@@ -26,8 +24,7 @@ def inundate_events(
     executor = ThreadPoolExecutor(max_workers=jobs)
 
     results = {
-        executor.submit(inundate, **kwargs): (kwargs['hydro_table'], kwargs['forecast'])
-        for kwargs in inputs
+        executor.submit(inundate, **kwargs): (kwargs['hydro_table'], kwargs['forecast']) for kwargs in inputs
     }
     # rem,catchments,catchment_poly,hydro_table,forecast,mask_type,hucs=None,hucs_layerName=None,
     # subset_hucs=None,num_workers=1,aggregate=False,inundation_raster=None,inundation_polygon=None,

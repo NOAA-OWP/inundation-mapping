@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-# Created: 1/10/2021
-# Primary developer(s): ryan.spies@noaa.gov
-# Purpose: This script provides the user to generate inundation outputs using
-# the NWM Recurrence Interval flow data for 1.5yr, 5yr, & 10yr events.
-
 import argparse
 import csv
 import os
@@ -12,10 +7,15 @@ import shutil
 import sys
 
 from inundation import inundate
+from tools_shared_variables import INPUTS_DIR
 
+
+# Created: 1/10/2021
+# Primary developer(s): ryan.spies@noaa.gov
+# Purpose: This script provides the user to generate inundation outputs using
+# the NWM Recurrence Interval flow data for 1.5yr, 5yr, & 10yr events.
 
 INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
-INPUTS_DIR = r'/data/inputs'
 OUTPUTS_DIR = os.environ['outputsDir']
 
 ENDC = '\033[m'
@@ -33,7 +33,7 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
     if not os.path.exists(huc_id_dir_parent):
         os.mkdir(huc_id_dir_parent)
 
-    if output_dir == None:
+    if output_dir is None:
         branch_test_case_dir_parent = os.path.join(INUN_REVIEW_DIR, huc_id, branch_name)
     else:
         branch_test_case_dir_parent = os.path.join(output_dir, huc_id, branch_name)
@@ -50,14 +50,10 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
     # Create paths to fim_run outputs for use in inundate().
     if "previous_fim" in fim_run_parent and "fim_2" in fim_run_parent:
         rem = os.path.join(fim_run_parent, 'rem_clipped_zeroed_masked.tif')
-        catchments = os.path.join(
-            fim_run_parent, 'gw_catchments_reaches_clipped_addedAttributes.tif'
-        )
+        catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_clipped_addedAttributes.tif')
     else:
         rem = os.path.join(fim_run_parent, 'rem_zeroed_masked.tif')
-        catchments = os.path.join(
-            fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif'
-        )
+        catchments = os.path.join(fim_run_parent, 'gw_catchments_reaches_filtered_addedAttributes.tif')
     if mask_type == 'huc':
         catchment_poly = ''
     else:
@@ -89,9 +85,7 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
 
         # Define paths to inundation_raster and forecast file.
         inundation_raster = os.path.join(branch_test_case_dir, branch_name + '_inund_extent.tif')
-        forecast = os.path.join(
-            INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'recurr_' + magnitude + '_cms.csv'
-        )
+        forecast = os.path.join(INUN_REVIEW_DIR, 'nwm_recurr_flow_data', 'recurr_' + magnitude + '_cms.csv')
 
         # Run inundate.
         print(
@@ -229,7 +223,7 @@ if __name__ == '__main__':
                 + str(default_flow_intervals)[1:-1]
             )
         else:
-            if set(default_flow_intervals).issuperset(set(args['magnitude'])) == False:
+            if set(default_flow_intervals).issuperset(set(args['magnitude'])) is False:
                 print(
                     TRED_BOLD
                     + "Error: "
@@ -249,6 +243,4 @@ if __name__ == '__main__':
             sys.exit()
 
         else:
-            run_recurr_test(
-                fim_run_dir, args['branch_name'], huc_id, args['magnitude'], args['mask_type']
-            )
+            run_recurr_test(fim_run_dir, args['branch_name'], huc_id, args['magnitude'], args['mask_type'])

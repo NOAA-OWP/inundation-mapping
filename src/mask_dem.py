@@ -90,25 +90,15 @@ if __name__ == '__main__':
     parser.add_argument(
         '-nld', '--nld-filename', help='NLD levee-protected areas filename', required=True, type=str
     )
-    parser.add_argument(
-        '-l', '--levee-id-attribute', help='Levee ID attribute name', required=True, type=str
-    )
-    parser.add_argument(
-        '-out', '--out-dem-filename', help='out DEM filename', required=True, type=str
-    )
+    parser.add_argument('-l', '--levee-id-attribute', help='Levee ID attribute name', required=True, type=str)
+    parser.add_argument('-out', '--out-dem-filename', help='out DEM filename', required=True, type=str)
     parser.add_argument(
         '-b', '--branch-id-attribute', help='Branch ID attribute name', required=True, type=str
     )
     parser.add_argument('-i', '--branch-id', help='Branch ID', type=int, required='True')
+    parser.add_argument('-b0', '--branch-zero-id', help='Branch zero ID', type=int, required=False, default=0)
     parser.add_argument(
-        '-b0', '--branch-zero-id', help='Branch zero ID', type=int, required=False, default=0
-    )
-    parser.add_argument(
-        '-csv',
-        '--levee-levelpaths',
-        help='Levee - levelpath layer filename',
-        type=str,
-        required=True,
+        '-csv', '--levee-levelpaths', help='Levee - levelpath layer filename', type=str, required=True
     )
 
     args = vars(parser.parse_args())

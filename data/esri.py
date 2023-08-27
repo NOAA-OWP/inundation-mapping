@@ -70,9 +70,7 @@ class ESRI_REST(object):
             print(f"Features returned: {self.feature_count}")
             if 'resultRecordCount' in self.params.keys():
                 print(f"Request max record count: {self.params['resultRecordCount']}")
-                print(
-                    f"Total API calls: {-(self.feature_count//-self.params['resultRecordCount'])}"
-                )
+                print(f"Total API calls: {-(self.feature_count//-self.params['resultRecordCount'])}")
             else:
                 print(f"Service max record count: {self.metadata['maxRecordCount']}")
                 print(f"Total API calls: {-(self.feature_count//-self.metadata['maxRecordCount'])}")

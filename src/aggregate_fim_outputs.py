@@ -26,9 +26,7 @@ def aggregate_fim_outputs(args):
     os.makedirs(huc6_dir, exist_ok=True)
 
     # aggregate file name paths
-    aggregate_hydrotable = os.path.join(
-        fim_out_dir, 'aggregate_fim_outputs', str(huc6), 'hydroTable.csv'
-    )
+    aggregate_hydrotable = os.path.join(fim_out_dir, 'aggregate_fim_outputs', str(huc6), 'hydroTable.csv')
     aggregate_src = os.path.join(
         fim_out_dir, 'aggregate_fim_outputs', str(huc6), f'rating_curves_{huc6}.json'
     )
@@ -102,9 +100,7 @@ def aggregate_fim_outputs(args):
         subset_huc6_list = [i for (i, v) in zip(huc_list, huc6_filter) if v]
 
         # aggregate and mosaic rem
-        rem_list = [
-            os.path.join(fim_out_dir, huc, 'rem_zeroed_masked.tif') for huc in subset_huc6_list
-        ]
+        rem_list = [os.path.join(fim_out_dir, huc, 'rem_zeroed_masked.tif') for huc in subset_huc6_list]
 
         if len(rem_list) > 1:
             rem_files_to_mosaic = []
@@ -128,13 +124,7 @@ def aggregate_fim_outputs(args):
             )
 
             with rasterio.open(
-                rem_mosaic,
-                "w",
-                **out_meta,
-                tiled=True,
-                blockxsize=1024,
-                blockysize=1024,
-                BIGTIFF='YES',
+                rem_mosaic, "w", **out_meta, tiled=True, blockxsize=1024, blockysize=1024, BIGTIFF='YES'
             ) as dest:
                 dest.write(mosaic)
 
@@ -172,13 +162,7 @@ def aggregate_fim_outputs(args):
             )
 
             with rasterio.open(
-                catchment_mosaic,
-                "w",
-                **out_meta,
-                tiled=True,
-                blockxsize=1024,
-                blockysize=1024,
-                BIGTIFF='YES',
+                catchment_mosaic, "w", **out_meta, tiled=True, blockxsize=1024, blockysize=1024, BIGTIFF='YES'
             ) as dest:
                 dest.write(mosaic)
 
@@ -212,26 +196,14 @@ def reproject_raster(raster_name, reprojection):
         )
         kwargs = src.meta.copy()
         kwargs.update(
-            {
-                'crs': reprojection,
-                'transform': transform,
-                'width': width,
-                'height': height,
-                'compress': 'lzw',
-            }
+            {'crs': reprojection, 'transform': transform, 'width': width, 'height': height, 'compress': 'lzw'}
         )
 
         raster_proj_rename = os.path.split(raster_name)[1].replace('_prepprj.tif', '.tif')
         raster_proj_dir = os.path.join(os.path.dirname(raster_name), raster_proj_rename)
 
         with rasterio.open(
-            raster_proj_dir,
-            'w',
-            **kwargs,
-            tiled=True,
-            blockxsize=1024,
-            blockysize=1024,
-            BIGTIFF='YES',
+            raster_proj_dir, 'w', **kwargs, tiled=True, blockxsize=1024, blockysize=1024, BIGTIFF='YES'
         ) as dst:
             # for i in range(1, src.count + 1):
             reproject(
@@ -248,9 +220,7 @@ def reproject_raster(raster_name, reprojection):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Aggregate layers buy HUC6')
-    parser.add_argument(
-        '-d', '--fim-outputs-directory', help='FIM outputs directory', required=True
-    )
+    parser.add_argument('-d', '--fim-outputs-directory', help='FIM outputs directory', required=True)
     parser.add_argument(
         '-j',
         '--number-of-jobs',
@@ -267,9 +237,7 @@ if __name__ == '__main__':
 
     drop_folders = ['logs']
     huc_list = [huc for huc in os.listdir(fim_outputs_directory) if huc not in drop_folders]
-    huc6_list = [
-        str(huc[0:6]) for huc in os.listdir(fim_outputs_directory) if huc not in drop_folders
-    ]
+    huc6_list = [str(huc[0:6]) for huc in os.listdir(fim_outputs_directory) if huc not in drop_folders]
     huc6_list = list(set(huc6_list))
 
     procs_list = []

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import fnmatch
 import os
@@ -36,13 +38,11 @@ def write_aggregate(frame, output_file):
 def concat_files(files_to_merge):
     # joining files with concat and read_csv
     print('Concatenating all matching csv files...')
-    df_concat = pd.concat(map(pd.read_csv, files_to_merge), ignore_index=True)
+    pd.concat(map(pd.read_csv, files_to_merge), ignore_index=True)
 
 
 def run_prep(fim_dir, file_search_str, head_row, output_file):
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(
-        fim_dir
-    )
+    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
 
     files_to_merge = [js for js in locate('*' + file_search_str + '*.csv', fim_dir)]
     if len(files_to_merge) > 0:
@@ -60,11 +60,7 @@ if __name__ == '__main__':
         description="Simple tool to search for csv files (using wildcard text) within a fim output directory and then aggregate all files into a single csv"
     )
     parser.add_argument(
-        '-fim_dir',
-        '--fim-dir',
-        help='FIM output dir (e.g. data/outputs/xxxx/',
-        required=True,
-        type=str,
+        '-fim_dir', '--fim-dir', help='FIM output dir (e.g. data/outputs/xxxx/', required=True, type=str
     )
     parser.add_argument(
         '-search_str', '--file-search-str', help='File search string', required=True, type=str

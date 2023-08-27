@@ -99,18 +99,9 @@ def variable_mannings_calc(args):
             )  # drop these cols (in case vmann was previously performed)
 
             ## Calculate subdiv geometry variables
-            print(
-                'Calculating subdiv variables for SRC: '
-                + str(huc)
-                + '  branch id: '
-                + str(branch_id)
-            )
+            print('Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id))
             log_text = (
-                'Calculating subdiv variables for SRC: '
-                + str(huc)
-                + '  branch id: '
-                + str(branch_id)
-                + '\n'
+                'Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
             )
             df_src = subdiv_geometry(df_src_orig)
 
@@ -167,23 +158,12 @@ def variable_mannings_calc(args):
             ]  # create a copy of vmann modified discharge (used to track future changes)
             df_htable = pd.read_csv(
                 htable_filename,
-                dtype={
-                    'HUC': str,
-                    'last_updated': object,
-                    'submitter': object,
-                    'obs_source': object,
-                },
+                dtype={'HUC': str, 'last_updated': object, 'submitter': object, 'obs_source': object},
             )
 
             ## drop the previously modified discharge column to be replaced with updated version
             df_htable.drop(
-                [
-                    'subdiv_applied',
-                    'discharge_cms',
-                    'overbank_n',
-                    'channel_n',
-                    'subdiv_discharge_cms',
-                ],
+                ['subdiv_applied', 'discharge_cms', 'overbank_n', 'channel_n', 'subdiv_discharge_cms'],
                 axis=1,
                 errors='ignore',
                 inplace=True,
@@ -201,17 +181,13 @@ def variable_mannings_calc(args):
 
             ## plot rating curves
             if src_plot_option:
-                if isdir(huc_output_dir) == False:
+                if isdir(huc_output_dir) is False:
                     os.mkdir(huc_output_dir)
                 generate_src_plot(df_src, huc_output_dir)
     except Exception as ex:
         summary = traceback.StackSummary.extract(traceback.walk_stack(None))
         print(
-            'WARNING: '
-            + str(huc)
-            + '  branch id: '
-            + str(branch_id)
-            + " subdivision failed for some reason"
+            'WARNING: ' + str(huc) + '  branch id: ' + str(branch_id) + " subdivision failed for some reason"
         )
         # print(f"*** {ex}")
         # print(''.join(summary.format()))
@@ -240,9 +216,7 @@ def subdiv_geometry(df_src):
         ),
     )
     df_src['BedArea_chan (m2)'] = np.where(
-        df_src['Stage'] <= df_src['Stage_bankfull'],
-        df_src['BedArea (m2)'],
-        df_src['BedArea_bankfull'],
+        df_src['Stage'] <= df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull']
     )
     df_src['WettedPerimeter_chan (m)'] = np.where(
         df_src['Stage'] <= df_src['Stage_bankfull'],
@@ -253,9 +227,7 @@ def subdiv_geometry(df_src):
 
     ## Calculate overbank volume & bed area
     df_src['Volume_obank (m3)'] = np.where(
-        df_src['Stage'] > df_src['Stage_bankfull'],
-        (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']),
-        0.0,
+        df_src['Stage'] > df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0
     )
     df_src['BedArea_obank (m2)'] = np.where(
         df_src['Stage'] > df_src['Stage_bankfull'],
@@ -269,20 +241,13 @@ def subdiv_geometry(df_src):
 def subdiv_mannings_eq(df_src):
     ## Calculate discharge (channel) using Manning's equation
     df_src.drop(
-        [
-            'WetArea_chan (m2)',
-            'HydraulicRadius_chan (m)',
-            'Discharge_chan (m3s-1)',
-            'Velocity_chan (m/s)',
-        ],
+        ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
         axis=1,
         inplace=True,
         errors='ignore',
     )  # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
-    df_src['HydraulicRadius_chan (m)'] = (
-        df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
-    )
+    df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
     df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
@@ -306,12 +271,8 @@ def subdiv_mannings_eq(df_src):
         errors='ignore',
     )  # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
-    df_src['HydraulicRadius_obank (m)'] = (
-        df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
-    )
-    df_src.replace(
-        [np.inf, -np.inf], np.nan, inplace=True
-    )  # need to replace inf instances (divide by 0)
+    df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
+    df_src.replace([np.inf, -np.inf], np.nan, inplace=True)  # need to replace inf instances (divide by 0)
     df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
@@ -319,18 +280,14 @@ def subdiv_mannings_eq(df_src):
         * pow(df_src['SLOPE'], 0.5)
         / df_src['overbank_n']
     )
-    df_src['Velocity_obank (m/s)'] = (
-        df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
-    )
+    df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
     df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
 
     ## Calcuate the total of the subdivided discharge (channel + overbank)
     df_src.drop(
         ['Discharge (m3s-1)_subdiv'], axis=1, inplace=True, errors='ignore'
     )  # drop these cols (in case subdiv was previously performed)
-    df_src['Discharge (m3s-1)_subdiv'] = (
-        df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
-    )
+    df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
     df_src.loc[df_src['Stage'] == 0, ['Discharge (m3s-1)_subdiv']] = 0
     return df_src
 
@@ -347,9 +304,7 @@ def generate_src_plot(df_src, plt_out_dir):
         f, ax = plt.subplots(figsize=(6.5, 6.5))
         ax.set_title(str(hydroid))
         sns.despine(f, left=True, bottom=True)
-        sns.scatterplot(
-            x='Discharge (m3s-1)', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue'
-        )
+        sns.scatterplot(x='Discharge (m3s-1)', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
         sns.scatterplot(
             x='Discharge (m3s-1)_subdiv',
             y='Stage',
@@ -384,9 +339,7 @@ def generate_src_plot(df_src, plt_out_dir):
             "NWM Bankfull Approx: " + str(plot_df['Stage_bankfull'].median()),
         )
         ax.legend()
-        plt.savefig(
-            plt_out_dir + os.sep + str(hydroid) + '_vmann.png', dpi=175, bbox_inches='tight'
-        )
+        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_vmann.png', dpi=175, bbox_inches='tight')
         plt.close()
 
 
@@ -430,9 +383,7 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
     log_file.write('#########################################################\n\n')
 
     ## Check that the input fim_dir exists
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(
-        fim_dir
-    )
+    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the manning's roughness input filepath exists and then read to dataframe
     assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(
         mann_n_table
@@ -447,8 +398,7 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
         or 'feature_id' not in df_mann.columns
     ):
         print(
-            'Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> '
-            + df_mann
+            'Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann
         )
     else:
         print('Running the variable_mannings_calc function...')
@@ -458,13 +408,11 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
         huc_list.sort()  # sort huc_list for helping track progress in future print statments
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-            if re.match('\d{8}', huc):
+            if re.match(r'\d{8}', huc):
                 huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
                 for branch_id in os.listdir(huc_branches_dir):
                     branch_dir = os.path.join(huc_branches_dir, branch_id)
-                    in_src_bankfull_filename = join(
-                        branch_dir, 'src_full_crosswalked_' + branch_id + '.csv'
-                    )
+                    in_src_bankfull_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
                     htable_filename = join(branch_dir, 'hydroTable_' + branch_id + '.csv')
                     huc_plot_output_dir = join(branch_dir, 'src_plots')
 

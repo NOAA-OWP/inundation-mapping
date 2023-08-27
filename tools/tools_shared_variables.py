@@ -89,21 +89,7 @@ CYAN_BOLD = '\033[36;1m'
 # https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
 acceptable_coord_acc_code_list = ['H', '1', '5', 'S', 'R', 'B', 'C', 'D', 'E', 5, 1]
 # https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
-acceptable_coord_method_code_list = [
-    'C',
-    'D',
-    'W',
-    'X',
-    'Y',
-    'Z',
-    'N',
-    'M',
-    'L',
-    'G',
-    'R',
-    'F',
-    'S',
-]
+acceptable_coord_method_code_list = ['C', 'D', 'W', 'X', 'Y', 'Z', 'N', 'M', 'L', 'G', 'R', 'F', 'S']
 # https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
 acceptable_alt_acc_thresh = 1.0
 # https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html

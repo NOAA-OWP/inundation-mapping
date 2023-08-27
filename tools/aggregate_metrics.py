@@ -5,15 +5,16 @@ import csv
 import json
 import os
 
-
-TEST_CASES_DIR = r'/data/test_cases_new/'
-# TEMP = r'/data/temp'
-
-# Search through all previous_versions in test_cases
 from tools_shared_functions import compute_stats_from_contingency_table
 
 
-def create_master_metrics_csv():
+TEST_CASES_DIR = r'/data/test_cases/'
+# TEMP = r'/data/temp'
+
+# Search through all previous_versions in test_cases
+
+
+def create_master_metrics_csv(output_csv):
     # Construct header
     metrics_to_write = [
         'true_negatives_count',
@@ -225,33 +226,27 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
 
     for magnitude in ['100yr', '500yr', 'action', 'minor', 'moderate', 'major']:
         huc_path_list = [['huc', 'path']]
-        (
-            true_positives,
-            true_negatives,
-            false_positives,
-            false_negatives,
-            cell_area,
-            masked_count,
-        ) = (0, 0, 0, 0, 0, 0)
+        (true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count) = (
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        )
 
         for test_case in test_cases_dir_list:
-            if test_case not in [
-                'validation_data_ble',
-                'validation_data_legacy',
-                'validation_data_ahps',
-            ]:
+            if test_case not in ['validation_data_ble', 'validation_data_legacy', 'validation_data_ahps']:
                 branch_results_dir = os.path.join(
                     TEST_CASES_DIR, test_case, 'performance_archive', config_version, branch
                 )
 
                 huc = test_case.split('_')[0]
                 # Check that the huc is in the list of hucs to aggregate.
-                if huc_list != None and huc not in huc_list:
+                if huc_list is not None and huc not in huc_list:
                     continue
 
-                stats_json_path = os.path.join(
-                    branch_results_dir, magnitude, 'total_area_stats.json'
-                )
+                stats_json_path = os.path.join(branch_results_dir, magnitude, 'total_area_stats.json')
 
                 # If there is a stats json for the test case and branch name, use it when aggregating stats.
                 if os.path.exists(stats_json_path):
@@ -287,8 +282,7 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
 
             # Map path to output directory for aggregate metrics.
             output_file = os.path.join(
-                aggregate_output_dir,
-                branch + '_aggregate_metrics_' + magnitude + special_string + '.csv',
+                aggregate_output_dir, branch + '_aggregate_metrics_' + magnitude + special_string + '.csv'
             )
 
         if cell_area != 0:
@@ -312,9 +306,7 @@ def aggregate_metrics(config="DEV", branch="", hucs="", special_string="", outfo
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Aggregates a metric or metrics for multiple HUC8s.'
-    )
+    parser = argparse.ArgumentParser(description='Aggregates a metric or metrics for multiple HUC8s.')
     parser.add_argument(
         '-c',
         '--config',
@@ -322,20 +314,11 @@ if __name__ == '__main__':
         required=False,
     )
     parser.add_argument(
-        '-b',
-        '--branch',
-        help='Name of branch to check all test_cases for and to aggregate.',
-        required=True,
+        '-b', '--branch', help='Name of branch to check all test_cases for and to aggregate.', required=True
     )
+    parser.add_argument('-u', '--hucs', help='HUC8s to restrict the aggregation.', required=False, default="")
     parser.add_argument(
-        '-u', '--hucs', help='HUC8s to restrict the aggregation.', required=False, default=""
-    )
-    parser.add_argument(
-        '-s',
-        '--special_string',
-        help='Special string to add to outputs.',
-        required=False,
-        default="",
+        '-s', '--special_string', help='Special string to add to outputs.', required=False, default=""
     )
     parser.add_argument('-f', '--outfolder', help='output folder', required=True, type=str)
 

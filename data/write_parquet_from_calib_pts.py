@@ -170,9 +170,7 @@ def create_single_huc_gdf_and_write_parquet_file(args):
     parquet_filepath = os.path.join(output_dir, f'{huc}.parquet')
     huc_gdf.to_parquet(parquet_filepath, index=False)
 
-    logging.info(
-        f'HUC # {huc} calibration points written to file: \n' f' \t {output_dir}/{huc}.parquet'
-    )
+    logging.info(f'HUC # {huc} calibration points written to file: \n' f' \t {output_dir}/{huc}.parquet')
 
 
 def create_parquet_directory(output_dir):
@@ -190,9 +188,7 @@ def create_parquet_directory(output_dir):
         os.mkdir(output_dir, exist_ok=True)
         logging.info(f"Created directory: {output_dir}, .parquet files will be written there.")
     elif os.path.isdir(output_dir) is True:
-        logging.info(
-            f"Output Direcrtory: {output_dir} exists, .parquet files will be written there."
-        )
+        logging.info(f"Output Direcrtory: {output_dir} exists, .parquet files will be written there.")
 
 
 def create_parquet_files(
@@ -278,9 +274,7 @@ def create_parquet_files(
         # Get a list of all files in output_dir
         current_hucs_in_output_dir = os.listdir(output_dir)
         # Slice off the .parquet file format to get just the HUC number of all files with the .parquet extension
-        hucs_to_parquet_list = [
-            i[:-8] for i in current_hucs_in_output_dir if i.endswith('.parquet')
-        ]
+        hucs_to_parquet_list = [i[:-8] for i in current_hucs_in_output_dir if i.endswith('.parquet')]
 
     logging.info(f"Submitting {len(hucs_to_parquet_list)} HUCS.")
 
@@ -326,9 +320,7 @@ if __name__ == '__main__':
                         -a
     '''
 
-    parser = argparse.ArgumentParser(
-        description='Create a parquet file/files with calibration points.'
-    )
+    parser = argparse.ArgumentParser(description='Create a parquet file/files with calibration points.')
 
     parser.add_argument(
         '-p',

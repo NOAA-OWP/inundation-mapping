@@ -30,18 +30,6 @@ class NoForecastFound(Exception):
     pass
 
 
-class hydroTableHasOnlyLakes(Exception):
-    """Raised when a Hydro-Table only has lakes"""
-
-    pass
-
-
-class NoForecastFound(Exception):
-    """Raised when no forecast is available for a given Hydro-Table"""
-
-    pass
-
-
 def inundate(
     rem,
     catchments,
@@ -191,9 +179,7 @@ def inundate(
 
     # catchment stages dictionary
     if hydro_table is not None:
-        catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
-            hydro_table, forecast, subset_hucs
-        )
+        catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(hydro_table, forecast, subset_hucs)
     else:
         raise TypeError("Pass hydro table csv")
 
@@ -281,12 +267,8 @@ def __inundate_in_huc(
         depths_profile.update(**out_raster_profile)
         inundation_profile.update(**out_raster_profile)
     elif out_raster_profile is None:
-        depths_profile.update(
-            driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw'
-        )
-        inundation_profile.update(
-            driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw'
-        )
+        depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw')
+        inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw')
     else:
         raise TypeError("Pass dictionary for output raster profiles")
 
@@ -373,6 +355,7 @@ def __inundate_in_huc(
     # polygonize inundation
     if isinstance(inundation_polygon, fiona.Collection):
         # make generator for inundation polygons
+        # TODO shapes() method below is "undefined".
         inundation_polygon_generator = shapes(
             inundation_array, mask=inundation_array > 0, connectivity=8, transform=window_transform
         )
@@ -463,7 +446,7 @@ def __make_windows_generator(
         for huc in hucs:
             for hucColName in huc['properties'].keys():
                 if 'HUC' in hucColName:
-                    hucSize = int(hucColName[-1])
+                    # hucSize = int(hucColName[-1])
                     break
             break
 
@@ -483,12 +466,8 @@ def __make_windows_generator(
             try:
                 if mask_type == "huc":
                     # window = geometry_window(rem,shape(huc['geometry']))
-                    rem_array, window_transform = mask(
-                        rem, [shape(huc['geometry'])], crop=True, indexes=1
-                    )
-                    catchments_array, _ = mask(
-                        catchments, [shape(huc['geometry'])], crop=True, indexes=1
-                    )
+                    rem_array, window_transform = mask(rem, [shape(huc['geometry'])], crop=True, indexes=1)
+                    catchments_array, _ = mask(catchments, [shape(huc['geometry'])], crop=True, indexes=1)
                 elif mask_type == "filter":
                     # input catchments polygon
                     if isinstance(catchment_poly, str):
@@ -503,12 +482,8 @@ def __make_windows_generator(
                         catchment_poly.HydroID = catchment_poly.HydroID.astype(str)
                     catchment_poly = catchment_poly[catchment_poly.HydroID.str.startswith(fossid)]
 
-                    rem_array, window_transform = mask(
-                        rem, catchment_poly['geometry'], crop=True, indexes=1
-                    )
-                    catchments_array, _ = mask(
-                        catchments, catchment_poly['geometry'], crop=True, indexes=1
-                    )
+                    rem_array, window_transform = mask(rem, catchment_poly['geometry'], crop=True, indexes=1)
+                    catchments_array, _ = mask(catchments, catchment_poly['geometry'], crop=True, indexes=1)
                     del catchment_poly
                 elif mask_type is None:
                     pass
@@ -586,7 +561,7 @@ def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
             low_memory=False,
             usecols=htable_req_cols,
         )
-        huc_error = hydroTable.HUC.unique()
+        # huc_error = hydroTable.HUC.unique()
         hydroTable.set_index(['HUC', 'feature_id', 'HydroID'], inplace=True)
 
     elif isinstance(hydroTable, pd.DataFrame):
@@ -666,9 +641,7 @@ def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
         hydroTable = hydroTable.join(forecast, on=['feature_id'], how='inner')
     except AttributeError:
         # print("FORECAST ERROR")
-        raise NoForecastFound(
-            "No forecast value found for the passed feature_ids in the Hydro-Table"
-        )
+        raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
 
     else:
         # initialize dictionary
@@ -742,9 +715,7 @@ def create_src_subset_csv(hydro_table, catchmentStagesDict, src_table):
     )
     df_htable = df_htable.merge(src_df, how='left', on='HydroID')
     df_htable['find_match'] = (df_htable['stage'] - df_htable['stage_inund']).abs()
-    df_htable = df_htable.loc[df_htable.groupby('HydroID')['find_match'].idxmin()].reset_index(
-        drop=True
-    )
+    df_htable = df_htable.loc[df_htable.groupby('HydroID')['find_match'].idxmin()].reset_index(drop=True)
     df_htable.to_csv(src_table, index=False)
 
 
@@ -754,10 +725,7 @@ if __name__ == '__main__':
         description='Rapid inundation mapping for FOSS FIM. Operates in single-HUC and batch modes.'
     )
     parser.add_argument(
-        '-r',
-        '--rem',
-        help='REM raster at job level or mosaic vrt. Must match catchments CRS.',
-        required=True,
+        '-r', '--rem', help='REM raster at job level or mosaic vrt. Must match catchments CRS.', required=True
     )
     parser.add_argument(
         '-c',
@@ -767,9 +735,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('-b', '--catchment-poly', help='catchment_vector', required=True)
     parser.add_argument('-t', '--hydro-table', help='Hydro-table in csv file format', required=True)
-    parser.add_argument(
-        '-f', '--forecast', help='Forecast discharges in CMS as CSV file', required=True
-    )
+    parser.add_argument('-f', '--forecast', help='Forecast discharges in CMS as CSV file', required=True)
     parser.add_argument(
         '-u',
         '--hucs',
@@ -850,12 +816,7 @@ if __name__ == '__main__':
         default=None,
     )
     parser.add_argument(
-        '-q',
-        '--quiet',
-        help='Quiet terminal output',
-        required=False,
-        default=False,
-        action='store_true',
+        '-q', '--quiet', help='Quiet terminal output', required=False, default=False, action='store_true'
     )
 
     # extract to dictionary

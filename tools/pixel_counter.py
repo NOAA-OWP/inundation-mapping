@@ -1,3 +1,29 @@
+#!/usr/bin/env python3
+
+import argparse
+import copy
+import os
+import pathlib
+import sys
+import tempfile
+
+import numpy as np
+import pandas as pd
+
+# Import raster and vector function libraries
+# from types import NoneType
+from osgeo import gdal, ogr
+from osgeo.gdalconst import *
+from pandas import DataFrame
+from pixel_counter_functions import (
+    get_bridge_counts,
+    get_levee_counts,
+    get_mask_value_counts,
+    get_nlcd_counts,
+    get_nlcd_counts_inside_flood,
+)
+
+
 '''Created on 02/21/2022.
 Written by:
 Anuska Narayanan (The University of Alabama Department of Geography, anarayanan1@crimson.ua.edu;
@@ -16,34 +42,6 @@ Output: a dataframe table with rows displayed by each polygon within the vector 
 displaying the pixel count of each raster attribute class in the polygon
 '''
 
-import argparse
-import copy
-import os
-import pathlib
-
-# Import file management library
-import sys
-import tempfile
-
-# Import numerical data library
-import numpy as np
-
-# Import data analysis library
-import pandas as pd
-
-# Import raster and vector function libraries
-# from types import NoneType
-from osgeo import gdal, ogr
-from osgeo.gdalconst import *
-from pandas import DataFrame
-from pixel_counter_functions import (
-    get_bridge_counts,
-    get_levee_counts,
-    get_mask_value_counts,
-    get_nlcd_counts,
-    get_nlcd_counts_inside_flood,
-)
-
 
 # Set up error handler
 gdal.PushErrorHandler('CPLQuietErrorHandler')
@@ -61,9 +59,7 @@ def make_flood_extent_polygon(flood_extent):
     scaleFactor = flood_extent_raster.GetScale()  # scale factor
 
     # Assign flood_extent No Data Values to NaN
-    flood_extent_array = (
-        flood_extent_dataset.GetRasterBand(1).ReadAsArray(0, 0, cols, rows).astype(np.float)
-    )
+    flood_extent_array = flood_extent_dataset.GetRasterBand(1).ReadAsArray(0, 0, cols, rows).astype(np.float)
     flood_extent_array[flood_extent_array == int(noDataVal)] = np.nan
     flood_extent_array = flood_extent_array / scaleFactor
 
@@ -101,7 +97,7 @@ def make_flood_extent_polygon(flood_extent):
     # Polygonize
     gdal.Polygonize(band, None, outLayer, 0, [], callback=None)
     outDatasource.Destroy()
-    sourceRaster = None
+    # sourceRaster = None
 
     fullpath = os.path.abspath(outShapefile)
     print(fullpath)
@@ -159,7 +155,8 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
         try:
             vds = ogr.Open(vector_path)
             vlyr = vds.GetLayer(0)
-        except:
+        except Exception as e:
+            print(repr(e))
             continue
 
         # Creates an in-memory numpy array of the source raster data covering the whole extent of the vector layer
@@ -264,19 +261,11 @@ if __name__ == "__main__":
     )
     parser.add_argument('-v', '--vector', help='Path to vector file.', required=False, default="")
     parser.add_argument(
-        '-n',
-        '--nlcd',
-        help='Path to National Land Cover Database raster file.',
-        required=False,
-        default="",
+        '-n', '--nlcd', help='Path to National Land Cover Database raster file.', required=False, default=""
     )
-    parser.add_argument(
-        '-l', '--levees', help='Path to levees raster file.', required=False, default=""
-    )
+    parser.add_argument('-l', '--levees', help='Path to levees raster file.', required=False, default="")
     parser.add_argument('-b', '--bridges', help='Path to bridges file.', required=False, default="")
-    parser.add_argument(
-        '-f', '--flood_extent', help='Path to flood extent file.', required=False, default=""
-    )
+    parser.add_argument('-f', '--flood_extent', help='Path to flood extent file.', required=False, default="")
     parser.add_argument('-c', '--csv', help='Path to export csv file.', required=True)
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -288,12 +277,7 @@ if __name__ == "__main__":
 
     csv = args['csv']
 
-    raster_path_dict = {
-        'nlcd': nlcd,
-        'levees': levees,
-        'bridges': bridges,
-        'flood_extent': flood_extent,
-    }
+    raster_path_dict = {'nlcd': nlcd, 'levees': levees, 'bridges': bridges, 'flood_extent': flood_extent}
     stats = zonal_stats(vector, raster_path_dict)
 
     # Export CSV

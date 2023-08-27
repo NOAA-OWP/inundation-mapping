@@ -15,8 +15,7 @@ from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
 
 
-# Feb 17, 2023
-# We want to explore using FR methodology as branch zero
+# TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
 
 
 @mem_profile
@@ -74,9 +73,7 @@ def add_crosswalk(
 
         if input_catchments.HydroID.dtype != 'int':
             input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(
-            input_majorities[['HydroID', 'feature_id']], on='HydroID'
-        )
+        output_catchments = input_catchments.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
         output_catchments = output_catchments.merge(
             relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id'
         )
@@ -86,9 +83,7 @@ def add_crosswalk(
         output_flows = input_flows.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
         if output_flows.HydroID.dtype != 'int':
             output_flows.HydroID = output_flows.HydroID.astype(int)
-        output_flows = output_flows.merge(
-            relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id'
-        )
+        output_flows = output_flows.merge(relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id')
         output_flows = output_flows.merge(
             output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
         )
@@ -118,9 +113,7 @@ def add_crosswalk(
             stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
 
         input_flows_midpoint = gpd.GeoDataFrame(
-            {'HydroID': hydroID, 'geometry': stream_midpoint},
-            crs=input_flows.crs,
-            geometry='geometry',
+            {'HydroID': hydroID, 'geometry': stream_midpoint}, crs=input_flows.crs, geometry='geometry'
         )
         input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
 
@@ -201,32 +194,30 @@ def add_crosswalk(
                     max_order = max(
                         output_flows.loc[output_flows['NextDownID'] == short_id]['order_']
                     )  # drainage area would be better than stream order but we would need to calculate
-                except:
+                except Exception as e:
                     print(
-                        f"short_id {short_id} cannot calculate max stream order for multiple upstream segments scenario"
+                        f"short_id: {short_id} cannot calculate max stream order for"
+                        f"multiple upstream segments scenario. \n Exception: \n {repr(e)} \n"
                     )
 
                 if (
                     len(
                         output_flows.loc[
-                            (output_flows['NextDownID'] == short_id)
-                            & (output_flows['order_'] == max_order)
+                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
                         ]['HydroID']
                     )
                     == 1
                 ):
                     update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id)
-                        & (output_flows['order_'] == max_order)
+                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
                     ]['HydroID'].item()
 
                 else:
+                    # Get the first one
+                    # (same stream order, without drainage area info, hard to know which is the main channel)
                     update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id)
-                        & (output_flows['order_'] == max_order)
-                    ]['HydroID'].values[
-                        0
-                    ]  # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
+                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
+                    ]['HydroID'].values[0]
 
             # single upstream segments
             elif len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) == 1:
@@ -238,16 +229,17 @@ def add_crosswalk(
                     max_order = max(
                         output_flows.loc[output_flows.From_Node == to_node]['HydroID']['order_']
                     )  # drainage area would be better than stream order but we would need to calculate
-                except:
+                except Exception as e:
                     print(
-                        f"To Node {to_node} cannot calculate max stream order for no upstream segments; multiple downstream segments scenario"
+                        f"To Node {to_node} cannot calculate max stream order for no upstream segments;"
+                        "multiple downstream segments scenario."
+                        f"Exception \n {repr(e)} \n"
                     )
 
                 if (
                     len(
                         output_flows.loc[
-                            (output_flows['NextDownID'] == short_id)
-                            & (output_flows['order_'] == max_order)
+                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
                         ]['HydroID']
                     )
                     == 1
@@ -293,22 +285,14 @@ def add_crosswalk(
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
     input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']],
-        left_on='CatchId',
-        right_on='HydroID',
+        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
     )
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
-    input_src_base['TopWidth (m)'] = (
-        input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    )
-    input_src_base['WettedPerimeter (m)'] = (
-        input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    )
-    input_src_base['WetArea (m2)'] = (
-        input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
-    )
+    input_src_base['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
+    input_src_base['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
+    input_src_base['WetArea (m2)'] = input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
     input_src_base['HydraulicRadius (m)'] = (
         input_src_base['WetArea (m2)'] / input_src_base['WettedPerimeter (m)']
     )
@@ -336,9 +320,7 @@ def add_crosswalk(
         for index, segment in sml_segs.iterrows():
             short_id = segment[0]
             update_id = segment[1]
-            new_values = output_src.loc[output_src['HydroID'] == update_id][
-                ['Stage', 'Discharge (m3s-1)']
-            ]
+            new_values = output_src.loc[output_src['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
 
             for src_index, src_stage in new_values.iterrows():
                 output_src.loc[
@@ -378,9 +360,7 @@ def add_crosswalk(
             'Discharge (m3s-1)',
         ],
     ]
-    output_hydro_table.rename(
-        columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True
-    )
+    output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
     ## Set placeholder variables to be replaced in post-processing (as needed). Create here to ensure consistent column vars
     ## These variables represent the original unmodified values
     output_hydro_table['default_discharge_cms'] = output_src['Discharge (m3s-1)']
@@ -411,9 +391,7 @@ def add_crosswalk(
 
     if input_huc[FIM_ID].dtype != 'str':
         input_huc[FIM_ID] = input_huc[FIM_ID].astype(str)
-    output_hydro_table = output_hydro_table.merge(
-        input_huc.loc[:, [FIM_ID, 'HUC8']], how='left', on=FIM_ID
-    )
+    output_hydro_table = output_hydro_table.merge(input_huc.loc[:, [FIM_ID, 'HUC8']], how='left', on=FIM_ID)
 
     if output_flows.HydroID.dtype != 'str':
         output_flows.HydroID = output_flows.HydroID.astype(str)
@@ -449,9 +427,7 @@ def add_crosswalk(
     output_catchments.to_file(
         output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
     )
-    output_flows.to_file(
-        output_flows_fileName, driver=getDriver(output_flows_fileName), index=False
-    )
+    output_flows.to_file(output_flows_fileName, driver=getDriver(output_flows_fileName), index=False)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
@@ -464,9 +440,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Crosswalk for MS/FR/GMS networks; calculate synthetic rating curves; update short rating curves'
     )
-    parser.add_argument(
-        '-d', '--input-catchments-fileName', help='DEM derived catchments', required=True
-    )
+    parser.add_argument('-d', '--input-catchments-fileName', help='DEM derived catchments', required=True)
     parser.add_argument('-a', '--input-flows-fileName', help='DEM derived streams', required=True)
     parser.add_argument(
         '-s', '--input-srcbase-fileName', help='Base synthetic rating curve table', required=True
@@ -474,14 +448,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-l', '--output-catchments-fileName', help='Subset crosswalked catchments', required=True
     )
+    parser.add_argument('-f', '--output-flows-fileName', help='Subset crosswalked streams', required=True)
     parser.add_argument(
-        '-f', '--output-flows-fileName', help='Subset crosswalked streams', required=True
-    )
-    parser.add_argument(
-        '-r',
-        '--output-src-fileName',
-        help='Output crosswalked synthetic rating curve table',
-        required=True,
+        '-r', '--output-src-fileName', help='Output crosswalked synthetic rating curve table', required=True
     )
     parser.add_argument(
         '-j', '--output-src-json-fileName', help='Output synthetic rating curve json', required=True
@@ -489,31 +458,21 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--output-crosswalk-fileName', help='Crosswalk table', required=True)
     parser.add_argument('-t', '--output-hydro-table-fileName', help='Hydrotable', required=True)
     parser.add_argument('-w', '--input-huc-fileName', help='HUC8 boundary', required=True)
-    parser.add_argument(
-        '-b', '--input-nwmflows-fileName', help='Subest NWM burnlines', required=True
-    )
-    parser.add_argument(
-        '-y', '--input-nwmcatras-fileName', help='NWM catchment raster', required=False
-    )
+    parser.add_argument('-b', '--input-nwmflows-fileName', help='Subest NWM burnlines', required=True)
+    parser.add_argument('-y', '--input-nwmcatras-fileName', help='NWM catchment raster', required=False)
     parser.add_argument(
         '-m',
         '--mannings-n',
         help='Mannings n. Accepts single parameter set or list of parameter set in calibration mode. Currently input as csv.',
         required=True,
     )
-    parser.add_argument(
-        '-z', '--input-nwmcat-fileName', help='NWM catchment polygon', required=True
-    )
+    parser.add_argument('-z', '--input-nwmcat-fileName', help='NWM catchment polygon', required=True)
     parser.add_argument('-p', '--extent', help='GMS only for now', default='GMS', required=False)
     parser.add_argument(
         '-k', '--small-segments-filename', help='output list of short segments', required=True
     )
     parser.add_argument(
-        '-c',
-        '--calibration-mode',
-        help='Mannings calibration flag',
-        required=False,
-        action='store_true',
+        '-c', '--calibration-mode', help='Mannings calibration flag', required=False, action='store_true'
     )
     parser.add_argument('-e', '--min-catchment-area', help='Minimum catchment area', required=True)
     parser.add_argument('-g', '--min-stream-length', help='Minimum stream length', required=True)

@@ -23,9 +23,7 @@ def adjust_thalweg_laterally(
     # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
     # The following algorithm searches for the zonal minimum elevation in each pixel catchment
     @njit
-    def make_zone_min_dict(
-        elevation_window, zone_min_dict, zone_window, cost_window, cost_tolerance, ndv
-    ):
+    def make_zone_min_dict(elevation_window, zone_min_dict, zone_window, cost_window, cost_tolerance, ndv):
         for i, elev_m in enumerate(zone_window):
             # If the zone really exists in the dictionary, compare elevation values.
             i = int(i)
@@ -90,9 +88,7 @@ def adjust_thalweg_laterally(
                 zone_window = allocation_zone_raster_object.read(
                     1, window=window
                 ).ravel()  # Define zone_window
-                cost_window = cost_distance_raster_object.read(
-                    1, window=window
-                ).ravel()  # Define cost_window
+                cost_window = cost_distance_raster_object.read(1, window=window).ravel()  # Define cost_window
 
                 # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
                 zone_min_dict = make_zone_min_dict(
@@ -120,9 +116,7 @@ def adjust_thalweg_laterally(
                 zone_window = allocation_zone_raster_object.read(
                     1, window=window
                 ).ravel()  # Define catchments_window
-                thalweg_window = thalweg_object.read(
-                    1, window=window
-                ).ravel()  # Define thalweg_window
+                thalweg_window = thalweg_object.read(1, window=window).ravel()  # Define thalweg_window
 
                 # Call numba-optimized function to reassign thalweg cell values to catchment minimum value.
                 minimized_dem_window = minimize_thalweg_elevation(
@@ -140,10 +134,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('-e', '--elevation_raster', help='Raster of elevation.', required=True)
     parser.add_argument(
-        '-s',
-        '--stream_raster',
-        help='Raster of thalweg pixels (0=No Thalweg, 1=Thalweg)',
-        required=True,
+        '-s', '--stream_raster', help='Raster of thalweg pixels (0=No Thalweg, 1=Thalweg)', required=True
     )
     parser.add_argument(
         '-a', '--allocation_raster', help='Raster of thalweg allocation zones.', required=True

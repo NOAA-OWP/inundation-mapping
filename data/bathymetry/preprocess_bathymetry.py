@@ -64,9 +64,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     # Read in shapefiles
     bathy_bounds = gpd.read_file(survey_gdb, layer=bathy_bounds)
     nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask=bathy_bounds)
-    nwm_catchments = gpd.read_file(
-        "/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask=bathy_bounds
-    )
+    nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask=bathy_bounds)
     bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
 
     # Find missing volume from depth tif
@@ -87,12 +85,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
 
     # Find missing bed area from slope tif
     zs_slope = zonal_stats(
-        nwm_catchments,
-        missing_bed_area,
-        stats=["sum"],
-        affine=bathy_affine,
-        geojson_out=True,
-        nodata=np.nan,
+        nwm_catchments, missing_bed_area, stats=["sum"], affine=bathy_affine, geojson_out=True, nodata=np.nan
     )
     zs_slope = gpd.GeoDataFrame.from_features(zs_slope)
     zs_slope = zs_slope.rename(columns={"sum": "missing_bed_area_m2"})
@@ -150,9 +143,7 @@ if __name__ == '__main__':
         required=False,
         type=str,
     )
-    parser.add_argument(
-        '-output', '--output', help='output geopackage location', required=True, type=str
-    )
+    parser.add_argument('-output', '--output', help='output geopackage location', required=True, type=str)
     parser.add_argument(
         '-min_depth_threshold',
         '--min_depth_threshold',

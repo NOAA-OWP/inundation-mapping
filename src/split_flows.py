@@ -53,9 +53,7 @@ def split_flows(
                 return flows
 
             if len(sjoin_nearest) > 1:
-                sjoin_nearest = sjoin_nearest[
-                    sjoin_nearest['LINKNO'].isin(sjoin_nearest['DSLINKNO'])
-                ]
+                sjoin_nearest = sjoin_nearest[sjoin_nearest['LINKNO'].isin(sjoin_nearest['DSLINKNO'])]
 
             nearest_index = int(sjoin_nearest['LINKNO'])
             flow = flows[flows['LINKNO'] == nearest_index]
@@ -191,13 +189,7 @@ def split_flows(
                 lakes_buffer_input
             )  # adding X meter buffer for spatial join comparison (currently using 20meters)
 
-    print(
-        'splitting '
-        + str(len(flows))
-        + ' stream segments based on '
-        + str(max_length)
-        + ' m max length'
-    )
+    print('splitting ' + str(len(flows)) + ' stream segments based on ' + str(max_length) + ' m max length')
 
     # remove empty geometries
     flows = flows.loc[~flows.is_empty, :]
@@ -223,9 +215,7 @@ def split_flows(
             # Calculate channel slope
             start_point = line_points[0]
             end_point = line_points[-1]
-            start_elev, end_elev = [
-                i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
-            ]
+            start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
             slope = float(abs(start_elev - end_elev) / lineString.length)
             if slope < slope_min:
                 slope = slope_min
@@ -282,9 +272,7 @@ def split_flows(
         # Calculate channel slope
         start_point = cumulative_line[0]
         end_point = cumulative_line[-1]
-        start_elev, end_elev = [
-            i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
-        ]
+        start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
         slope = float(abs(start_elev - end_elev) / splitLineString.length)
         if slope < slope_min:
             slope = slope_min
@@ -350,15 +338,11 @@ def split_flows(
         print("There are no flowlines after stream order filtering.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
-    split_flows_gdf.to_file(
-        split_flows_filename, driver=getDriver(split_flows_filename), index=False
-    )
+    split_flows_gdf.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
 
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")
-    split_points_gdf.to_file(
-        split_points_filename, driver=getDriver(split_points_filename), index=False
-    )
+    split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
 
 
 if __name__ == '__main__':
@@ -367,17 +351,13 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--flows-filename', help='flows-filename', required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
-    parser.add_argument(
-        '-p', '--split-points-filename', help='split-points-filename', required=True
-    )
+    parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename', required=True)
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename', required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
     parser.add_argument('-m', '--max-length', help='Maximum split distance (meters)', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
-    parser.add_argument(
-        '-b', '--lakes-buffer-input', help='Lakes buffer distance (meters)', required=True
-    )
+    parser.add_argument('-b', '--lakes-buffer-input', help='Lakes buffer distance (meters)', required=True)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

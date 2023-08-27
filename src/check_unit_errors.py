@@ -6,10 +6,7 @@ import os
 import sys
 
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_variables import (
-    UNIT_ERRORS_MIN_NUMBER_THRESHOLD,
-    UNIT_ERRORS_MIN_PERCENT_THRESHOLD,
-)
+from utils.shared_variables import UNIT_ERRORS_MIN_NUMBER_THRESHOLD, UNIT_ERRORS_MIN_PERCENT_THRESHOLD
 
 
 """
@@ -45,15 +42,12 @@ def check_unit_errors(fim_dir, number_of_input_hucs):
 
     if not os.path.isdir(unit_errors_dir):
         raise Exception(
-            "The unit errors directory inside the fim output"
-            f" directory of {fim_dir} does not exist"
+            "The unit errors directory inside the fim output" f" directory of {fim_dir} does not exist"
         )
 
     error_file_count = 0
     for path in os.listdir(unit_errors_dir):
-        if os.path.isfile(os.path.join(unit_errors_dir, path)) and (
-            "non_zero_exit_codes.log" not in path
-        ):
+        if os.path.isfile(os.path.join(unit_errors_dir, path)) and ("non_zero_exit_codes.log" not in path):
             error_file_count += 1
 
     # We will only error out if it is more than the min number of error files.
@@ -65,8 +59,7 @@ def check_unit_errors(fim_dir, number_of_input_hucs):
 
         if percentage_of_errors >= UNIT_ERRORS_MIN_PERCENT_THRESHOLD:
             errMsg = (
-                "Too many unit errors exist to continue,"
-                f" code:{FIM_exit_codes.EXCESS_UNIT_ERRORS.value}"
+                "Too many unit errors exist to continue," f" code:{FIM_exit_codes.EXCESS_UNIT_ERRORS.value}"
             )
             raise Exception(errMsg)
 
@@ -75,18 +68,12 @@ def check_unit_errors(fim_dir, number_of_input_hucs):
 
 if __name__ == '__main__':
     # parse arguments
-    parser = argparse.ArgumentParser(
-        description='Check number of unit errors to determine if continue'
-    )
+    parser = argparse.ArgumentParser(description='Check number of unit errors to determine if continue')
     parser.add_argument(
         '-f', '--fim_dir', help='root output folder for the process (output + name)', required=True
     )
     parser.add_argument(
-        '-n',
-        '--number_of_input_hucs',
-        help='Original number of hucs to process',
-        type=int,
-        required=True,
+        '-n', '--number_of_input_hucs', help='Original number of hucs to process', type=int, required=True
     )
 
     # extract to dictionary

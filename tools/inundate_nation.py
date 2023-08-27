@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import logging
 import multiprocessing
@@ -15,11 +17,8 @@ from mosaic_inundation import Mosaic_inundation
 from osgeo import gdal, ogr
 from rasterio.merge import merge
 
-
-# setting path
-sys.path.append('/foss_fim/src')
-from utils.shared_functions import FIM_Helpers as fh
-from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
+from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
 
 # INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
@@ -30,9 +29,7 @@ from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
 
 def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosaic, job_number):
-    assert os.path.isdir(
-        fim_run_dir
-    ), f'ERROR: could not find the input fim_dir location: {fim_run_dir}'
+    assert os.path.isdir(fim_run_dir), f'ERROR: could not find the input fim_dir location: {fim_run_dir}'
 
     assert os.path.exists(flow_file), f'ERROR: could not find the flow file: {flow_file}'
 
@@ -75,14 +72,12 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosai
     huc_list = []
     for huc in os.listdir(fim_run_dir):
         # if huc != 'logs' and huc != 'branch_errors'and huc != 'unit_errors' and os.path.isdir(os.path.join(fim_run_dir, huc)):
-        if re.match('\d{8}', huc):
+        if re.match(r'\d{8}', huc):
             huc_list.append(huc)
 
     print('Inundation raw mosaic outputs here: ' + magnitude_output_dir)
 
-    run_inundation(
-        [fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number]
-    )
+    run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
 
     # Perform mosaic operation
     if inc_mosaic:
@@ -149,10 +144,7 @@ def run_inundation(args):
 
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + '_inund_extent.tif')
 
-    print(
-        "Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: "
-        + str(magnitude)
-    )
+    print("Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: " + str(magnitude))
 
     map_file = Inundate_gms(
         hydrofabric_dir=fim_run_dir,
@@ -321,9 +313,7 @@ if __name__ == '__main__':
         action='store_true',
     )
 
-    parser.add_argument(
-        '-j', '--job-number', help='The number of jobs', required=False, default=1, type=int
-    )
+    parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
 
     args = vars(parser.parse_args())
 

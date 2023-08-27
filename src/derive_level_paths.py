@@ -37,9 +37,7 @@ def Derive_level_paths(
     if os.path.exists(in_stream_network):
         stream_network = StreamNetwork.from_file(filename=in_stream_network)
     else:
-        print(
-            "Sorry, no branches exist and processing can not continue. This could be an empty file."
-        )
+        print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # if there are no reaches at this point
@@ -50,9 +48,7 @@ def Derive_level_paths(
         # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
         # Later, we can look at creating custom sys exit codes
         # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file.")
-        print(
-            "Sorry, no streams exist and processing can not continue. This could be an empty file."
-        )
+        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # values_exluded of 1 and 2 mean where are dropping stream orders 1 and 2. We are leaving those
@@ -142,10 +138,7 @@ def Derive_level_paths(
         )
 
         catchments = catchments.merge(
-            stream_network_to_merge,
-            how='inner',
-            left_on=reach_id_attribute,
-            right_on=reach_id_attribute,
+            stream_network_to_merge, how='inner', left_on=reach_id_attribute, right_on=reach_id_attribute
         )
 
         catchments.reset_index(drop=True, inplace=True)
@@ -175,7 +168,7 @@ def Derive_level_paths(
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(
             branch_id_attribute=branch_id_attribute,
-            attribute_excluded=None,  #'order_',
+            attribute_excluded=None,  # 'order_',
             values_excluded=None,  # [1,2],
             out_vector_files=out_stream_network_dissolved,
             verbose=verbose,
@@ -218,11 +211,7 @@ if __name__ == '__main__':
         default='HydroID',
     )
     parser.add_argument(
-        '-c',
-        '--catchments',
-        help='NWM catchments to append level path data to',
-        required=False,
-        default=None,
+        '-c', '--catchments', help='NWM catchments to append level path data to', required=False, default=None
     )
     parser.add_argument(
         '-t',
@@ -232,18 +221,10 @@ if __name__ == '__main__':
         default=None,
     )
     parser.add_argument(
-        '-w',
-        '--waterbodies',
-        help='NWM waterbodies to eliminate branches from',
-        required=False,
-        default=None,
+        '-w', '--waterbodies', help='NWM waterbodies to eliminate branches from', required=False, default=None
     )
     parser.add_argument(
-        '-n',
-        '--branch_inlets_outfile',
-        help='Output level paths inlets',
-        required=False,
-        default=None,
+        '-n', '--branch_inlets_outfile', help='Output level paths inlets', required=False, default=None
     )
     parser.add_argument(
         '-o', '--out-stream-network', help='Output stream network', required=False, default=None

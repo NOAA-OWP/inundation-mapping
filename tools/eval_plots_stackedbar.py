@@ -1,14 +1,13 @@
+#!/usr/bin/env python3
+
 import argparse
 import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import mpl_toolkits.axisartist as AA
 import numpy as np
 import pandas as pd
-
-
-sys.path.append('/foss_fim/tools/')
-import mpl_toolkits.axisartist as AA
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from tools_shared_variables import BAD_SITES
@@ -55,9 +54,7 @@ def eval_plot_stack_data_prep(metric_csv, versions=[]):
     metrics['TP_norm'] = metrics['true_positives_count'] / metrics['TP_FN_sum']
     metrics['FN_norm'] = metrics['false_negatives_count'] / metrics['TP_FN_sum']
     metrics['FP_norm'] = metrics['false_positives_count'] / metrics['TP_FN_sum']
-    metrics['FP_norm'].replace(
-        [np.inf, -np.inf], np.nan, inplace=True
-    )  # some bad sites will divide by 0
+    metrics['FP_norm'].replace([np.inf, -np.inf], np.nan, inplace=True)  # some bad sites will divide by 0
 
     return metrics
 
@@ -98,20 +95,11 @@ def eval_plot_stack_indiv(metric_csv, versions, outfig, category):
         subplot_data = subplot_data.sort_values(['magnitude_', 'plot_order'], ascending=False)
         new_y = [j * 1.25 for j in range(len(subplot_data))]
         # Stacked horizontal bar plots
+        ax[i].barh(y=new_y, width='TP_norm', left=0.0, color='#2c7bb6', linewidth=0.5, data=subplot_data)
         ax[i].barh(
-            y=new_y, width='TP_norm', left=0.0, color='#2c7bb6', linewidth=0.5, data=subplot_data
+            y=new_y, width='FN_norm', left='TP_norm', color='#fdae61', linewidth=0.5, data=subplot_data
         )
-        ax[i].barh(
-            y=new_y,
-            width='FN_norm',
-            left='TP_norm',
-            color='#fdae61',
-            linewidth=0.5,
-            data=subplot_data,
-        )
-        ax[i].barh(
-            y=new_y, width='FP_norm', left=1.0, color='#d7191c', linewidth=0.5, data=subplot_data
-        )
+        ax[i].barh(y=new_y, width='FP_norm', left=1.0, color='#d7191c', linewidth=0.5, data=subplot_data)
         # Plot the CSI and MCC scores
         ax[i].scatter(
             y=new_y, x=subplot_data['CSI'].array, c='k', s=15, marker=r'x', zorder=3, linewidth=0.75
@@ -128,10 +116,7 @@ def eval_plot_stack_indiv(metric_csv, versions, outfig, category):
         )
         # Various axis customizations
         ax[i].set_yticks(
-            new_y,
-            labels=subplot_data.version
-            + ' '
-            + subplot_data.magnitude.map(inverted_mag).astype(str),
+            new_y, labels=subplot_data.version + ' ' + subplot_data.magnitude.map(inverted_mag).astype(str)
         )
         ax[i].axis["left"].label.set(visible=True, text=site, rotation=90, pad=10, ha='right')
         ax[i].axis["left"].major_ticks.set(tick_out=True)
@@ -139,9 +124,7 @@ def eval_plot_stack_indiv(metric_csv, versions, outfig, category):
         ax[i].set_xlim(0, xmax)
         ax[i].set_ylim(-1, new_y[-1] + 1)
         num_mags = len(subplot_data.magnitude.unique())
-        hlines = [
-            j for j in np.linspace(new_y[-1] / num_mags, new_y[-1], num_mags - 1, endpoint=False)
-        ]
+        hlines = [j for j in np.linspace(new_y[-1] / num_mags, new_y[-1], num_mags - 1, endpoint=False)]
         ax[i].hlines(
             hlines,
             xmin=0,
@@ -167,9 +150,9 @@ def eval_plot_stack_indiv(metric_csv, versions, outfig, category):
             ax[i].set_facecolor('0.67')
     plt.subplots_adjust(wspace=0, hspace=0)
     ax[0].set_title(f'{category.upper()} FIM Evaluation | Individual Sites', loc='center', pad=40)
-    TP_patch = Patch(color='#2c7bb6', linewidth=0.5, label=f'True Positive')
-    FN_patch = Patch(color='#fdae61', linewidth=0.5, label=f'False Negative')
-    FP_patch = Patch(color='#d7191c', linewidth=0.5, label=f'False Positive')
+    TP_patch = Patch(color='#2c7bb6', linewidth=0.5, label='True Positive')
+    FN_patch = Patch(color='#fdae61', linewidth=0.5, label='False Negative')
+    FP_patch = Patch(color='#d7191c', linewidth=0.5, label='False Positive')
     x_marker = Line2D(
         [0],
         [0],
@@ -266,12 +249,7 @@ def eval_plot_stack(metric_csv, versions, category, outfig, show_iqr=False):
             error_kw=dict(elinewidth=1),
         )
         ax[i].barh(
-            y=new_y,
-            width='FN_norm',
-            left='TP_norm',
-            color='#fdae61',
-            linewidth=0.5,
-            data=subplot_data,
+            y=new_y, width='FN_norm', left='TP_norm', color='#fdae61', linewidth=0.5, data=subplot_data
         )
         ax[i].barh(
             y=new_y,
@@ -299,9 +277,7 @@ def eval_plot_stack(metric_csv, versions, category, outfig, show_iqr=False):
         )
         # Various axis customizations
         ax[i].set_yticks(new_y, labels=subplot_data.index)  # , ha='left')
-        ax[i].axis["left"].label.set(
-            visible=True, text=inverted_mag[mag], rotation=90, pad=10, ha='right'
-        )
+        ax[i].axis["left"].label.set(visible=True, text=inverted_mag[mag], rotation=90, pad=10, ha='right')
         ax[i].axis["left"].major_ticks.set(tick_out=True)
         ax[i].axis["left"].major_ticklabels.set(ha='left')
         n = count_df.loc[(category, versions[0], mag)]
@@ -315,9 +291,9 @@ def eval_plot_stack(metric_csv, versions, category, outfig, show_iqr=False):
         ax[i].set_facecolor('w' if i % 2 == 0 else '0.9')
     plt.subplots_adjust(wspace=0, hspace=0)
     ax[0].set_title(f'{category.upper()} FIM Evaluation', loc='center', pad=35)
-    TP_patch = Patch(color='#2c7bb6', linewidth=0.5, label=f'True Positive')
-    FN_patch = Patch(color='#fdae61', linewidth=0.5, label=f'False Negative')
-    FP_patch = Patch(color='#d7191c', linewidth=0.5, label=f'False Positive')
+    TP_patch = Patch(color='#2c7bb6', linewidth=0.5, label='True Positive')
+    FN_patch = Patch(color='#fdae61', linewidth=0.5, label='False Negative')
+    FP_patch = Patch(color='#d7191c', linewidth=0.5, label='False Positive')
     x_marker = Line2D(
         [0],
         [0],
@@ -424,9 +400,7 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
     num_subplots = len(data.nws_lid.unique())
     num_mags = len(data.magnitude.unique())
     # Create the plot
-    fig, ax = plt.subplots(
-        num_subplots, 1, figsize=(8, len(data) * 0.18), dpi=100, facecolor='white'
-    )
+    fig, ax = plt.subplots(num_subplots, 1, figsize=(8, len(data) * 0.18), dpi=100, facecolor='white')
     # Create a subplot for every site (nws_lid)
     for i, site in enumerate(data.nws_lid.unique()):
         subplot_data = data.loc[(site)]
@@ -460,20 +434,14 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
         )
         # Label sites that have been identified as "Bad"
         if site and site in BAD_SITES:
-            ax[i].text(
-                0.1, 1.5, '--BAD SITE--', horizontalalignment='center', verticalalignment='center'
-            )
+            ax[i].text(0.1, 1.5, '--BAD SITE--', horizontalalignment='center', verticalalignment='center')
             ax[i].set_facecolor('0.67')
     plt.subplots_adjust(wspace=0, hspace=0)
     ax[0].set_title(
-        f'{category.upper()} {stat} Comparison\n{versions[0]}  v  {versions[1]}',
-        loc='center',
-        pad=45,
+        f'{category.upper()} {stat} Comparison\n{versions[0]}  v  {versions[1]}', loc='center', pad=45
     )
     g_patch = Patch(color='g', linewidth=0.5, label=f'{stat} Score Improvement')
-    r_patch = Patch(
-        facecolor='None', edgecolor='r', linewidth=0.5, label=f'{stat} Score Regression'
-    )
+    r_patch = Patch(facecolor='None', edgecolor='r', linewidth=0.5, label=f'{stat} Score Regression')
     # Get the height of the figure in pixels so we can put the legend in a consistent position
     ax_pixel_height = ax[0].get_window_extent().transformed(fig.dpi_scale_trans.inverted()).height
     ax[0].legend(
@@ -516,24 +484,18 @@ def iter_benchmarks(
                 Path(output_workspace)
                 / f"{benchmark_source}_{extent_configuration.lower()}_diff_plot_{diff_stat}.png"
             )
-            diff_bar_plots(
-                versions, metric_csv, category=benchmark_source, outfig=output_png, stat=diff_stat
-            )
+            diff_bar_plots(versions, metric_csv, category=benchmark_source, outfig=output_png, stat=diff_stat)
         elif individual_plots:
             output_png = (
                 Path(output_workspace)
                 / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar_indiv.png"
             )
             eval_plot_stack_indiv(
-                metric_csv=metric_csv,
-                versions=versions,
-                category=benchmark_source,
-                outfig=output_png,
+                metric_csv=metric_csv, versions=versions, category=benchmark_source, outfig=output_png
             )
         else:
             output_png = (
-                Path(output_workspace)
-                / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar.png"
+                Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar.png"
             )
             eval_plot_stack(
                 metric_csv=metric_csv,
@@ -547,7 +509,7 @@ def iter_benchmarks(
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(
-        description=f'Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)'
+        description='Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)'
     )
     parser.add_argument(
         '-m', '--metric_csv', help='Metrics csv created from synthesize test cases.', required=True

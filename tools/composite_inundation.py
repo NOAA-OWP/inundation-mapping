@@ -75,27 +75,24 @@ class InundateModel_HUC(object):
         # adjust to add model and huc number
         log_file = None
         inundation_list_file = None
-        if log_file_path != None:
+        if log_file_path is not None:
             log_file = os.path.join(log_file_path, f"{self.huc}_error_logs.txt")
-            inundation_list_file = os.path.join(
-                log_file_path, f"{self.huc}_inundation_file_list.csv"
-            )
+            inundation_list_file = os.path.join(log_file_path, f"{self.huc}_inundation_file_list.csv")
 
         if verbose:
-            print(
-                f'... Creating an inundation map for the FIM4'
-                f' configuration for HUC {self.huc}...'
-            )
+            print(f'... Creating an inundation map for the FIM4' f' configuration for HUC {self.huc}...')
 
         if self.model in ["fr", "ms"]:
-            rem = os.path.join(source_huc_dir, 'rem_zeroed_masked.tif')
-            catchments = os.path.join(
-                source_huc_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif'
-            )
+            if self.model == "ms":
+                extent_friendly = "mainstem (MS)"
+            elif self.model == "fr":
+                extent_friendly = "full-resolution (FR)"
+            rem = os.path.join(source_huc_dir, "rem_zeroed_masked.tif")
+            catchments = os.path.join(source_huc_dir, "gw_catchments_reaches_filtered_addedAttributes.tif")
             catchment_poly = os.path.join(
-                source_huc_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg'
+                source_huc_dir, "gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg"
             )
-            hydro_table = os.path.join(source_huc_dir, 'hydroTable.csv')
+            hydro_table = os.path.join(source_huc_dir, "hydroTable.csv")
 
             # Ensure that all of the required files exist in the huc directory
             for file in (rem, catchments, catchment_poly, hydro_table):
@@ -211,7 +208,7 @@ class Composite_HUC(object):
         # NOTE: Leave workers as 1, it fails to composite correctly if more than one.
         #    - Also. by adding the is_mosaic_for_gms_branches = False, Mosaic_inudation
         #      will not auto add the HUC into the output name (its default behaviour)
-        mosaic_file_path = Mosaic_inundation(
+        Mosaic_inundation(
             inundation_map_file_df,
             mosaic_attribute='inundation_rasters',
             mosaic_output=composite_file_output,
@@ -249,7 +246,8 @@ class CompositeInundation(object):
             fim_dir_fr : str
                 Path to FR FIM directory. This should be an output directory from `fim_run.sh`.
             gms_dir : str
-                Path to FIM4 GMS directory. This should be an output directory from `gms_run_unit, then gms_run_branch`.
+                Path to FIM4 GMS directory. This should be an output directory from
+                    `gms_run_unit, then gms_run_branch`.
             huc: str, optional
                 If this value comes in, it shoudl be a single huc value. If it does not exist,
                 we use all hucs in the give source directories.
@@ -258,7 +256,8 @@ class CompositeInundation(object):
             composite_output_dir : str
                 Folder path to write outputs. It will be created if it does not exist.
             output_name : str, optional
-                Name for output raster. If not specified, by default the raster will be named 'inundation_composite_{flows_root}.tif'.
+                Name for output raster. If not specified, by default the raster will be named:
+                    'inundation_composite_{flows_root}.tif'.
             is_bin_raster : bool, optional
                 Flag to create binary raster as output.
             num_workers_huc : int, optional
@@ -279,33 +278,25 @@ class CompositeInundation(object):
                 args["gms_dir"] = None
 
             # count number of input dir types and ensure their are no duplciates.
-            dir_list_lowercase = (
-                []
-            )  # we use a forced lowercase to help ensure dups (might be mixed case)
+            dir_list_lowercase = []  # we use a forced lowercase to help ensure dups (might be mixed case)
             dir_list_raw = []
             missing_dir_msg = "{} directory of {} does not exist"
             args["models"] = []
-            if args["fim_dir_ms"] != None:
+            if args["fim_dir_ms"] is not None:
                 args["models"].append("ms")
-                assert os.path.isdir(args["fim_dir_ms"]), missing_dir_msg.format(
-                    "ms", args["fim_dir_ms"]
-                )
+                assert os.path.isdir(args["fim_dir_ms"]), missing_dir_msg.format("ms", args["fim_dir_ms"])
                 dir_list_raw.append(args["fim_dir_ms"])
                 dir_list_lowercase.append(args["fim_dir_ms"].lower())
 
-            if args["fim_dir_fr"] != None:
+            if args["fim_dir_fr"] is not None:
                 args["models"].append("fr")
-                assert os.path.isdir(args["fim_dir_fr"]), missing_dir_msg.format(
-                    "fr", args["fim_dir_fr"]
-                )
+                assert os.path.isdir(args["fim_dir_fr"]), missing_dir_msg.format("fr", args["fim_dir_fr"])
                 dir_list_raw.append(args["fim_dir_fr"])
                 dir_list_lowercase.append(args["fim_dir_fr"].lower())
 
-            if args["gms_dir"] != None:
+            if args["gms_dir"] is not None:
                 args["models"].append("gms")
-                assert os.path.isdir(args["gms_dir"]), missing_dir_msg.format(
-                    "gms", args["gms_dir"]
-                )
+                assert os.path.isdir(args["gms_dir"]), missing_dir_msg.format("gms", args["gms_dir"])
                 dir_list_raw.append(args["gms_dir"])
                 dir_list_lowercase.append(args["gms_dir"].lower())
 
@@ -321,9 +312,7 @@ class CompositeInundation(object):
 
             # check job numbers
             assert args["num_workers_huc"] >= 1, "Number of huc workers should be 1 or greater"
-            assert (
-                args["num_workers_branches"] >= 1
-            ), "Number of branch workers should be 1 or greater"
+            assert args["num_workers_branches"] >= 1, "Number of branch workers should be 1 or greater"
 
             total_cpus_requested = args["num_workers_huc"] * args["num_workers_branches"]
             total_cpus_available = os.cpu_count()
@@ -368,25 +357,21 @@ class CompositeInundation(object):
                     os.mkdir(args["log_file_path"])
 
             # Save run parameters up to this point
-            args_file = os.path.join(
-                args["composite_output_dir"], root_output_file_name + '_args.json'
-            )
+            args_file = os.path.join(args["composite_output_dir"], root_output_file_name + '_args.json')
             with open(args_file, 'w') as json_file:
                 json.dump(args, json_file)
                 print(f"Args printed to file at {args_file}")
 
             # make combined huc list, NOTE: not all source dirs will have the same huc folders
             huc_list = set()
-            if args["huc"] != None:
+            if args["huc"] is not None:
                 if (len(args["huc"]) != 8) or (not args["huc"].isnumeric()):
                     raise ValueError("Single huc value (-u arg) was submitted but appears invalid")
                 else:
                     huc_list.add(args["huc"])
             else:
                 for dir in dir_list_raw:
-                    sub_dirs = [
-                        item for item in os.listdir(dir) if os.path.isdir(os.path.join(dir, item))
-                    ]
+                    sub_dirs = [item for item in os.listdir(dir) if os.path.isdir(os.path.join(dir, item))]
                     # Some directories may not be hucs (log folders, etc)
                     huc_folders = [item for item in sub_dirs if item.isnumeric()]
                     huc_set = set(huc_folders)
@@ -416,8 +401,7 @@ class CompositeInundation(object):
 
             with cf.ProcessPoolExecutor(max_workers=number_huc_workers) as executor:
                 executor_gen = {
-                    executor.submit(Composite_HUC.composite_huc, params): params
-                    for params in args_list
+                    executor.submit(Composite_HUC.composite_huc, params): params for params in args_list
                 }
 
                 for future in tqdm(
@@ -430,7 +414,7 @@ class CompositeInundation(object):
                 try:
                     future.result()
                 except Exception as exc:
-                    print('{}, {}, {}'.format(hucCode, exc.__class__.__name__, exc))
+                    print(f'{huc}, {exc.__class__.__name__}, {exc}')
 
             print("All hucs have been processed")
 
@@ -438,7 +422,10 @@ class CompositeInundation(object):
     def hydroid_to_binary(hydroid_raster_filename):
         # Converts hydroid positive/negative grid to 1/0
         # to_bin = lambda x: np.where(x > 0, 1, np.where(x == 0, -9999, 0))
-        to_bin = lambda x: np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
+        # to_bin = lambda x: np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
+        def to_bin(x):
+            return np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
+
         hydroid_raster = rasterio.open(hydroid_raster_filename)
         profile = hydroid_raster.profile  # get profile for new raster creation later on
         profile['nodata'] = -9999
@@ -505,14 +492,9 @@ if __name__ == '__main__':
     )
     parser.add_argument('-f', '--flows-file', help='File path of flows csv.', required=True)
     parser.add_argument(
-        '-o',
-        '--composite-output-dir',
-        help='Folder to write Composite Raster output.',
-        required=True,
+        '-o', '--composite-output-dir', help='Folder to write Composite Raster output.', required=True
     )
-    parser.add_argument(
-        '-n', '--output-name', help='File name for output(s).', default=None, required=False
-    )
+    parser.add_argument('-n', '--output-name', help='File name for output(s).', default=None, required=False)
     parser.add_argument(
         '-b',
         '--is-bin-raster',
@@ -546,12 +528,7 @@ if __name__ == '__main__':
         action='store_true',
     )
     parser.add_argument(
-        '-v',
-        '--verbose',
-        help='Show additional outputs.',
-        required=False,
-        default=False,
-        action='store_true',
+        '-v', '--verbose', help='Show additional outputs.', required=False, default=False, action='store_true'
     )
 
     # Extract to dictionary and assign to variables.

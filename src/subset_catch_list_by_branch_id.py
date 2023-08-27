@@ -10,24 +10,15 @@ from stream_branches import StreamNetwork
 
 
 def Subset_catch_list(
-    catch_list,
-    stream_network,
-    branch_id_attribute,
-    branch_id_list=None,
-    out_catch_list=None,
-    verbose=False,
+    catch_list, stream_network, branch_id_attribute, branch_id_list=None, out_catch_list=None, verbose=False
 ):
     if verbose:
         print("Loading files ....")
 
     # loading files
     catch_list = pd.read_csv(catch_list, sep=" ", header=None, skiprows=1)
-    catch_list.rename(
-        columns={0: "HydroID", 1: "slopes", 2: "lengthKM", 3: "areasqkm"}, inplace=True
-    )
-    stream_network = StreamNetwork.from_file(
-        stream_network, branch_id_attribute=branch_id_attribute
-    )
+    catch_list.rename(columns={0: "HydroID", 1: "slopes", 2: "lengthKM", 3: "areasqkm"}, inplace=True)
+    stream_network = StreamNetwork.from_file(stream_network, branch_id_attribute=branch_id_attribute)
     stream_network = StreamNetwork(
         stream_network.astype({'HydroID': int}), branch_id_attribute=branch_id_attribute
     )
@@ -66,9 +57,7 @@ def Subset_catch_list(
             f.write("{}\n".format(num_of_hydroIDs))
 
         # write out catch list in append mode
-        branch_catch_list.to_csv(
-            out_branch_catch_list, mode='a', header=False, sep=" ", index=False
-        )
+        branch_catch_list.to_csv(out_branch_catch_list, mode='a', header=False, sep=" ", index=False)
 
     return catch_list
 
@@ -83,15 +72,9 @@ if __name__ == '__main__':
         '-b', '--branch-id-attribute', help='Name of the branch attribute desired', required=True
     )
     parser.add_argument(
-        '-l',
-        '--branch-id-list',
-        help='Output the branch id list file desired',
-        required=False,
-        default=None,
+        '-l', '--branch-id-list', help='Output the branch id list file desired', required=False, default=None
     )
-    parser.add_argument(
-        '-o', '--out-catch-list', help='Output catchment list', required=False, default=None
-    )
+    parser.add_argument('-o', '--out-catch-list', help='Output catchment list', required=False, default=None)
     parser.add_argument(
         '-v', '--verbose', help='Verbose output', required=False, default=False, action='store_true'
     )

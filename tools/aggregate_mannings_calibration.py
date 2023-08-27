@@ -201,11 +201,7 @@ def aggregate_parameter_sets(huc_list_path, calibration_stat_folder, summary_fil
                 print('Selecting optimal mannings n for 100yr event')
                 manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
         elif (len(mannings_100yr) > 1) or (len(mannings_500yr) > 1):
-            print(
-                'multiple values achieve optimal results '
-                + " for stream order "
-                + str(stream_order)
-            )
+            print('multiple values achieve optimal results ' + " for stream order " + str(stream_order))
             print('Selecting optimal mannings n for 100yr event')
             manning_dict[str(stream_order)] = mannings_100yr.iloc[0]
 
@@ -221,17 +217,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Aggregates the evaluation statistics of all mannings calibration runs'
     )
+    parser.add_argument('-l', '--huc-list-path', help='csv list of HUCs to aggregate', required=True)
+    parser.add_argument('-c', '--calibration-stat-folder', help='eval stat column name', required=True)
     parser.add_argument(
-        '-l', '--huc-list-path', help='csv list of HUCs to aggregate', required=True
-    )
-    parser.add_argument(
-        '-c', '--calibration-stat-folder', help='eval stat column name', required=True
-    )
-    parser.add_argument(
-        '-f',
-        '--summary-file',
-        help='output file with aggregate mannings calibration stats',
-        required=True,
+        '-f', '--summary-file', help='output file with aggregate mannings calibration stats', required=True
     )
     parser.add_argument(
         '-e',
