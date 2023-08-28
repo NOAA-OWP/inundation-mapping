@@ -86,9 +86,7 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
 
-    executor_generator = {
-        executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator
-    }
+    executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
     idx = 0
     for future in tqdm(
         as_completed(executor_generator),
@@ -189,9 +187,7 @@ def __inundate_gms_generator(
         rem_file_name = f"rem_zeroed_masked_{branch_id}.tif"
         rem_branch = os.path.join(branch_dir, rem_file_name)
 
-        catchments_file_name = (
-            f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
-        )
+        catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
         # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
@@ -220,9 +216,7 @@ def __inundate_gms_generator(
                 usecols=htable_req_cols,
             )
             hydroTable_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
-            hydroTable_branch = hydroTable_all.loc[
-                hydroTable_all["branch_id"] == int(branch_id)
-            ]
+            hydroTable_branch = hydroTable_all.loc[hydroTable_all["branch_id"] == int(branch_id)]
         else:
             # Earlier FIM4 versions only have branch level hydrotables
             hydroTable_branch = os.path.join(branch_dir, f"hydroTable_{branch_id}.csv")
@@ -233,27 +227,17 @@ def __inundate_gms_generator(
         # branch output
         # Some other functions that call in here already added a huc, so only add it if not yet there
         if (inundation_raster is not None) and (huc not in inundation_raster):
-            inundation_branch_raster = fh.append_id_to_file_name(
-                inundation_raster, [huc, branch_id]
-            )
+            inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, [huc, branch_id])
         else:
-            inundation_branch_raster = fh.append_id_to_file_name(
-                inundation_raster, branch_id
-            )
+            inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, branch_id)
 
         if (inundation_polygon is not None) and (huc not in inundation_polygon):
-            inundation_branch_polygon = fh.append_id_to_file_name(
-                inundation_polygon, [huc, branch_id]
-            )
+            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, [huc, branch_id])
         else:
-            inundation_branch_polygon = fh.append_id_to_file_name(
-                inundation_polygon, branch_id
-            )
+            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, branch_id)
 
         if (depths_raster is not None) and (huc not in depths_raster):
-            depths_branch_raster = fh.append_id_to_file_name(
-                depths_raster, [huc, branch_id]
-            )
+            depths_branch_raster = fh.append_id_to_file_name(depths_raster, [huc, branch_id])
         else:
             depths_branch_raster = fh.append_id_to_file_name(depths_raster, branch_id)
 
@@ -304,9 +288,7 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
     )
-    parser.add_argument(
-        "-f", "--forecast", help="Forecast discharges in CMS as CSV file", required=True
-    )
+    parser.add_argument("-f", "--forecast", help="Forecast discharges in CMS as CSV file", required=True)
     parser.add_argument(
         "-i",
         "--inundation-raster",
@@ -342,9 +324,7 @@ if __name__ == "__main__":
         required=False,
         default=None,
     )
-    parser.add_argument(
-        "-w", "--num-workers", help="Number of Workers", required=False, default=1
-    )
+    parser.add_argument("-w", "--num-workers", help="Number of Workers", required=False, default=1)
     parser.add_argument(
         "-v",
         "--verbose",
@@ -353,3 +333,5 @@ if __name__ == "__main__":
         default=None,
         action="store_true",
     )
+
+Inundate_gms(**vars(parser.parse_args()))
