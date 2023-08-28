@@ -11,7 +11,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 
-from src.utils.shared_variables import PREP_PROJECTION
+from utils.shared_variables import PREP_PROJECTION
 
 
 load_dotenv()

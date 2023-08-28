@@ -15,8 +15,8 @@ from rasterio.features import shapes
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 
-from src.utils.shared_functions import getDriver
-from src.utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
+from utils.shared_functions import getDriver
+from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
 def generate_categorical_fim(

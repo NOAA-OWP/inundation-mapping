@@ -21,7 +21,8 @@ class ESRI_REST(object):
     @classmethod
     def query(cls, query_url: str, save_file: str = None, **kwargs):
         '''
-        Classmethod for easily queries on ESRI feature services. See /data/nld/levee_download.py for example usage.
+        Classmethod for easily queries on ESRI feature services.
+        See /data/nld/levee_download.py for example usage.
 
         Parameters
         ----------
@@ -115,7 +116,8 @@ class ESRI_REST(object):
         # Setting resultRecordCount to a lower value fixed the error.
         elif 'error' in r_dict.keys():
             print(
-                "There was an error with the query. It may have been caused by requesting too many features. Try setting resultRecordCount to a lower value."
+                "There was an error with the query. It may have been caused by requesting too many features. "
+                "Try setting resultRecordCount to a lower value."
             )
             raise Exception(r_dict['error']['message'], f"code: {r_dict['error']['code']}")
         else:

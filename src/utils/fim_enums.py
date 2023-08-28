@@ -21,7 +21,8 @@ class FIM_exit_codes(Enum):
         import utils/fim_enums
         print(FIM_exit_codes.UNIT_NO_BRANCHES.value) -> 60   [this is used in derive_level_paths.py]
 
-    - For more information : https://docs.python.org/3.11/howto/enum.html and https://docs.python.org/3/library/enum.html
+    - For more information : https://docs.python.org/3.11/howto/enum.html &
+                             https://docs.python.org/3/library/enum.html
     '''
 
     UNIT_NO_BRANCHES = 60

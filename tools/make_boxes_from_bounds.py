@@ -7,7 +7,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import box
 
-from src.utils.shared_functions import getDriver
+from utils.shared_functions import getDriver
 
 
 def find_hucs_of_bounding_boxes(

@@ -33,7 +33,8 @@ input_calib_points_dir = os.getenv('input_calib_points_dir')
 def __setup_logger(output_dir):
     # Set logging to file and stderr
 
-    # The log file will include the date, so be mindful the logs when running this script multiple times on the same day
+    # The log file will include the date, so be mindful the logs when running this script
+    # multiple times on the same day
     curr_date = dt.datetime.now().strftime("%m_%d_%Y")
 
     log_file_name = f"write_parquet_from_calib_pts_{curr_date}.log"
@@ -175,7 +176,8 @@ def create_single_huc_gdf_and_write_parquet_file(args):
 
 def create_parquet_directory(output_dir):
     '''
-    The function creates an output directory to write the .parquet files if the filepath provided as an argument doesn't exist.
+    The function creates an output directory to write the .parquet files,
+    if the filepath provided as an argument doesn't exist.
 
     Inputs
     - output_dir:               Filepath to create a directory.
@@ -269,11 +271,12 @@ def create_parquet_files(
         all_hucs_in_WBD = huc_polygons_df.iloc[:, 0]
         hucs_to_parquet_list = list(all_hucs_in_WBD)
 
-    # Default HUC list comes from calibration point .parquet files that are pre-existing in current /inputs location
+    # Default HUC list comes from calibration point .parquet files that are pre-existing in current
+    # /inputs location
     else:
         # Get a list of all files in output_dir
         current_hucs_in_output_dir = os.listdir(output_dir)
-        # Slice off the .parquet file format to get just the HUC number of all files with the .parquet extension
+        # Slice off the .parquet from filename to get the HUC number of all files with the .parquet extension
         hucs_to_parquet_list = [i[:-8] for i in current_hucs_in_output_dir if i.endswith('.parquet')]
 
     logging.info(f"Submitting {len(hucs_to_parquet_list)} HUCS.")
@@ -308,16 +311,17 @@ def create_parquet_files(
 
 if __name__ == '__main__':
     '''
-    Sample Usage:   python3 /foss_fim/data/write_parquet_from_calib_pts.py                                       \
-                        -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg  \
-                        -j 6                                                                                     \
-                        -o /data/inputs/rating_curve/water_edge_database/calibration_points                      \
-                        -wbd /data/inputs/wbd/WBD_National.gpkg                                                  \
-                        -u "12040103,04100003"
+    Sample Usage:
+        python3 /foss_fim/data/write_parquet_from_calib_pts.py
+            -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg
+            -j 6
+            -o /data/inputs/rating_curve/water_edge_database/calibration_points
+            -wbd /data/inputs/wbd/WBD_National.gpkg
+            -u "12040103,04100003"
 
-                    python3 /foss_fim/data/write_parquet_from_calib_pts.py                                       \
-                        -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg  \
-                        -a
+        python3 /foss_fim/data/write_parquet_from_calib_pts.py
+            -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg
+            -a
     '''
 
     parser = argparse.ArgumentParser(description='Create a parquet file/files with calibration points.')
@@ -333,8 +337,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-o',
         '--output_dir',
-        help='OPTIONAL: path to send .parquet file/files. Default location specifed as the "input_calib_points_dir" '
-        'variable in src/bash_variables.env',
+        help='OPTIONAL: path to send .parquet file/files. Default location specifed as the'
+        '"input_calib_points_dir" variable in src/bash_variables.env',
         type=str,
         required=False,
         default=input_calib_points_dir,
@@ -344,8 +348,8 @@ if __name__ == '__main__':
         '-j',
         '--number_of_jobs',
         help='OPTIONAL: number of cores/processes (default=4). This is a memory intensive '
-        'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide half the amount'
-        'of available CPUs.',
+        'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide '
+        'half the amount of available CPUs.',
         type=int,
         required=False,
         default=4,
@@ -375,9 +379,9 @@ if __name__ == '__main__':
         '-a',
         '--all_hucs',
         help='OPTIONAL: Provide the -a flag if new calibration points were added to many HUCs which currently'
-        'do not have .parquet files.  All HUC polygons in the file provided to -wbd argument will be checked for calibration points contained in '
-        '<points_data_file_name>. If not provided, either the HUCs in the huc_list argument (-u) or the current HUCs with files in <output_dir>'
-        'will be used.',
+        'do not have .parquet files.  All HUC polygons in the file provided to -wbd argument will be checked '
+        'for calibration points contained in <points_data_file_name>. If not provided, either the HUCs in '
+        'the huc_list argument (-u) or the current HUCs with files in <output_dir> will be used.',
         required=False,
         action='store_true',
     )

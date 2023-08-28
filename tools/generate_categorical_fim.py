@@ -33,7 +33,7 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
-from src.utils.shared_variables import VIZ_PROJECTION
+from utils.shared_variables import VIZ_PROJECTION
 
 
 def process_generate_categorical_fim(

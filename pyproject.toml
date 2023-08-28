@@ -9,6 +9,8 @@ description = """\
     This repository also includes functionality to generate flood inundation maps (FIMs) \
     and evaluate FIM accuracy. \
     """
+
+# - Do we add all of the FIM-Dev team below, and change to 'Contributors'? -
 authors = [
     {name = "Fernando Aristizabal", email = "fernando.aristizabal@noaa.gov"},
     {name = "Fernando Salas", email = "fernando.salas@noaa.gov"},
@@ -39,7 +41,7 @@ exclude = '''
 [tool.isort]
 profile = 'black'
 multi_line_output = 3
-line_length = 110 # It should be the same as in `tool.black.line-length` above
+line_length = 110 # It should be the same as `tool.black.line-length` above
 lines_after_imports = 2
 skip_gitignore = true
 
@@ -47,7 +49,7 @@ skip_gitignore = true
 count = true
 doctests = true
 max-complexity = 56
-max-line-length = 110  # It should be the same as in `tool.black.line-length` above
+max-line-length = 110  # It should be the same as `tool.black.line-length` above
 extend-ignore = """
     E203,
     E266,

@@ -28,22 +28,28 @@ def create_ble_benchmark(
 ):
     """
     Downloads and preprocesses BLE benchmark datasets for purposes of evaluating FIM output.
-    A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset.
-    The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
+    A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference
+    dataset.  The benchmark raster will also be converted to a boolean (True/False) raster with inundated
+    areas (True or 1) and dry areas (False or 0).
 
-    As the reference_raster is required for preprocessing, it is assumed that fim_pipeline.py has previously been run for the HUCs being processed.
+    As the reference_raster is required for preprocessing, it is assumed that fim_pipeline.py has previously
+    been run for the HUCs being processed.
 
     Parameters
     ----------
     input_file: str
-        Path to input file (XLSX or CSV) with list of URL(s) to files to download (e.g. EBFE_urls_20230608.xlsx)
+        Path to input file (XLSX or CSV) with list of URL(s) to files to download
+        (e.g. EBFE_urls_20230608.xlsx)
     save_folder: str
-        Path to save folder where the downloaded ZIP files and extracted depth rasters will be saved (e.g., /data/temp/ble_downloads).
+        Path to save folder where the downloaded ZIP files and extracted depth rasters will be saved
+        (e.g., /data/temp/ble_downloads).
         This folder will be created if it doesn't exist.
     reference_folder: str
-        Path to reference raster (e.g., /data/outputs/fim_4_3_12_0). This folder must exist (e.g., created by running fim_pipeline.py).
+        Path to reference raster (e.g., /data/outputs/fim_4_3_12_0). This folder must exist
+        (e.g., created by running fim_pipeline.py).
     benchmark_folder: str
-        Path to the benchmark folder (e.g., /data/test_cases/ble_test_cases/validation_data_ble). This folder will be created if it doesn't exist.
+        Path to the benchmark folder (e.g., /data/test_cases/ble_test_cases/validation_data_ble).
+        This folder will be created if it doesn't exist.
 
     Returns
     -------

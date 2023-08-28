@@ -233,7 +233,7 @@ def concat_huc_csv(fim_dir, csv_name):
         if huc != 'logs':
             csv_file = os.path.join(fim_dir, huc, str(csv_name))
             if Path(csv_file).is_file():
-                # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
+                # Aggregate all of the individual huc elev_tables into one for accessing all data in one csv
                 read_csv = pd.read_csv(
                     csv_file,
                     dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},

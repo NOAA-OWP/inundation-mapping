@@ -31,7 +31,7 @@ Provides a scripted procedure for updating BLE benchmark data including download
 
 <br/><br/>
 
-## v4.3.15.0 - 2023-08-08 - [PR##956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
+## v4.3.15.0 - 2023-08-08 - [PR#956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
 
 Integrating GVAL in to the evaluation of agreement maps and contingency tables.
 

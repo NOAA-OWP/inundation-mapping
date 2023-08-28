@@ -14,10 +14,10 @@ import pandas as pd
 import seaborn as sns
 from dotenv import load_dotenv
 from natsort import natsorted
+from tools_shared_functions import aggregate_wbd_hucs, get_metadata
+from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 
-from src.utils.shared_variables import VIZ_PROJECTION
-from tools.tools_shared_functions import aggregate_wbd_hucs, get_metadata
-from tools.tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
+from utils.shared_variables import VIZ_PROJECTION
 
 
 # Get variables from .env file.

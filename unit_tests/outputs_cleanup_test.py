@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
-# sys.path.append("/foss_fim/src/gms")
 import src.outputs_cleanup as src
 from utils.shared_functions import FIM_Helpers as fh
 

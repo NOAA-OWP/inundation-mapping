@@ -21,7 +21,7 @@ from tools_shared_functions import (
     get_thresholds,
 )
 
-from src.utils.shared_variables import VIZ_PROJECTION
+from utils.shared_variables import VIZ_PROJECTION
 
 
 def get_env_paths():

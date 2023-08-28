@@ -13,9 +13,9 @@ from datetime import datetime
 import geopandas as gpd
 import pandas as pd
 
-import src.utils.shared_functions as sf
-import src.utils.shared_variables as sv
-from src.utils.shared_functions import FIM_Helpers as fh
+import utils.shared_functions as sf
+import utils.shared_variables as sv
+from utils.shared_functions import FIM_Helpers as fh
 
 
 '''
@@ -27,15 +27,17 @@ TODO:
 
 # local constants (until changed to input param)
 # This URL is part of a series of vrt data available from USGS via an S3 Bucket.
-# for more info see: "http://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Elevation/". The odd folder numbering is
-# a translation of arc seconds with 13m  being 1/3 arc second or 10 meters.
-__USGS_3DEP_10M_VRT_URL = r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt'  # 10m = 13 (1/3 arc second)
+# for more info see: "http://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Elevation/".
+# The odd folder numbering is a translation of arc seconds with 13m  being 1/3 arc second or 10 meters.
+# 10m = 13 (1/3 arc second)
+__USGS_3DEP_10M_VRT_URL = (
+    r'/vsicurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt'
+)
 
 
 def acquire_and_preprocess_3dep_dems(
     extent_file_path, target_output_folder_path='', number_of_jobs=1, retry=False, skip_polygons=False
 ):
-    # aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     '''
     Overview
     ----------
@@ -362,32 +364,36 @@ def __setup_logger(output_folder_path):
 
 
 if __name__ == '__main__':
-    # Parse arguments.
+    '''
+    sample usage (min params):
+        python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
+            -e /data/inputs/wbd/HUC6_ESPG_5070/
+            -t /data/inputs/3dep_dems/10m_5070/
+            -r
+            -j 20
 
-    # sample usage (min params):
-    # - python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py -e /data/inputs/wbd/HUC6_ESPG_5070/ -t /data/inputs/3dep_dems/10m_5070/ -r -j 20
+    Notes:
+      - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
+        hardcoded paths for the wbd gpkg to be used for clipping (no buffer for now).
+        Also hardcoded usgs 3dep urls, etc.  Minor
+        upgrades can easily be made for different urls, output folder paths, huc units, etc
+        as/if needed (command line params)
+      - The output path can be adjusted in case of a test reload of newer data for 3dep.
+        The default is /data/input/usgs/3dep_dems/10m/
+      - Each output file will be the name of the input poly plus "_dem.tif". ie) if the wbd gpkg
+        is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
+      - While you can (and should use more than one job number (if manageable by your server)),
+        this tool is memory intensive and needs more RAM then it needs cores / cpus. Go ahead and
+        anyways and increase the job number so you are getting the most out of your RAM. Or
+        depending on your machine performance, maybe half of your cpus / cores. This tool will
+        not fail or freeze depending on the number of jobs / cores you select.
 
-    # Notes:
-    #   - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
-    #     hardcoded paths for the wbd gpkg to be used for clipping (no buffer for now).
-    #     Also hardcoded usgs 3dep urls, etc.  Minor
-    #     upgrades can easily be made for different urls, output folder paths, huc units, etc
-    #     as/if needed (command line params)
-    #   - The output path can be adjusted in case of a test reload of newer data for 3dep.
-    #     The default is /data/input/usgs/3dep_dems/10m/
-    #   - Each output file will be the name of the input poly plus "_dem.tif". ie) if the wbd gpkg
-    #     is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
-    #   - While you can (and should use more than one job number (if manageable by your server)),
-    #     this tool is memory intensive and needs more RAM then it needs cores / cpus. Go ahead and
-    #     anyways and increase the job number so you are getting the most out of your RAM. Or
-    #     depending on your machine performance, maybe half of your cpus / cores. This tool will
-    #     not fail or freeze depending on the number of jobs / cores you select.
-
-    # IMPORTANT:
-    # (Sept 2022): we do not process HUC2 of 22 (misc US pacific islands).
-    # We left in HUC2 of 19 (alaska) as we hope to get there in the semi near future
-    # They need to be removed from the input src clip directory in the first place.
-    # They can not be reliably removed in code.
+    IMPORTANT:
+    (Sept 2022): we do not process HUC2 of 22 (misc US pacific islands).
+    We left in HUC2 of 19 (alaska) as we hope to get there in the semi near future
+    They need to be removed from the input src clip directory in the first place.
+    They can not be reliably removed in code.
+    '''
 
     parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems')
 

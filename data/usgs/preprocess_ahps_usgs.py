@@ -27,9 +27,6 @@ from tools_shared_functions import (
 )
 
 
-sys.path.append('/foss_fim/tools')
-
-
 def get_env_paths():
     load_dotenv()
     # import variables from .env file

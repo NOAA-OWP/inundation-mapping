@@ -9,7 +9,7 @@ from datetime import datetime
 
 from aws_base import AWS_Base
 
-from src.utils.shared_functions import FIM_Helpers as fh
+from utils.shared_functions import FIM_Helpers as fh
 
 
 '''
@@ -29,8 +29,8 @@ class S3(AWS_Base):
         ----------
         Push a data folder to hydroviz visualization (primarily for now)
 
-        If the aws_target_folder_path folder does not exist, it will be created. If it does exist, files will
-        be just added or overwritten (no pre-clean)
+        If the aws_target_folder_path folder does not exist, it will be created. If it does exist,
+        files will be just added or overwritten (no pre-clean)
 
         The source folder will copy all contents (files and subfolders)
         ie) aws_target_path = s3://some-address-us-east-1/test_uploads/220818
@@ -164,13 +164,19 @@ class S3(AWS_Base):
 
 
 if __name__ == '__main__':
-    # Sample Usage
-    # python3 /foss_fim/data/aws/s3.py -a put -c /data/config/aws_creds.env -s /data/previous_fim/fim_4_0_13_1 -t "s3://example-us-east-1/fim_4_0_13_1"
+    '''
+    Sample Usage
+       python3 /foss_fim/data/aws/s3.py
+           -a put
+           -c /data/config/aws_creds.env
+           -s /data/previous_fim/fim_4_0_13_1
+           -t "s3://example-us-east-1/fim_4_0_13_1"
 
-    # You can leave the -w flag off to load all files/folders from a directory
-    # but default is to -w /foss_fim/config/aws_s3_put_fim4_hydrovis_whitelist.lst
+    You can leave the -w flag off to load all files/folders from a directory
+    but default is to -w /foss_fim/config/aws_s3_put_fim4_hydrovis_whitelist.lst
 
-    # this works for hydroviz but can work with other s3 sites as well (ie esip)
+    this works for hydroviz but can work with other s3 sites as well (ie esip)
+    '''
 
     parser = argparse.ArgumentParser(description='Communication with aws s3 data services')
     parser.add_argument(

@@ -17,8 +17,8 @@ from mosaic_inundation import Mosaic_inundation
 from osgeo import gdal, ogr
 from rasterio.merge import merge
 
-from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
+from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
 
 # INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'

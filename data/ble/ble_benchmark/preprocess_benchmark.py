@@ -10,7 +10,10 @@ from rasterio.warp import Resampling, calculate_default_transform, reproject
 
 def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path=None):
     '''
-    This function will preprocess a benchmark dataset for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster with inundated areas (True or 1) and dry areas (False or 0).
+    This function will preprocess a benchmark dataset for purposes of evaluating FIM output.
+    A benchmark dataset will be transformed using properties (CRS, resolution) from an input
+    reference dataset. The benchmark raster will also be converted to a boolean (True/False) raster
+    with inundated areas (True or 1) and dry areas (False or 0).
 
     Parameters
     ----------
@@ -26,7 +29,8 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
     boolean_benchmark : Numpy Array
         The preprocessed benchmark array.
     profile : STRING
-        Raster profile information for the preprocessed benchmark array (required for writing to output dataset).
+        Raster profile information for the preprocessed benchmark array
+            (required for writing to output dataset).
 
     '''
     # Open and read raster and benchmark rasters
@@ -34,7 +38,7 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
     benchmark = rasterio.open(benchmark_raster)
     benchmark_arr = benchmark.read(1)
 
-    # Set arbitrary no data value that is not possible value of the benchmark dataset. This will be reassigned later
+    # Set arbitrary no data value that is not possible value of the benchmark dataset. It is reassigned later.
     nodata_value = -2147483648
 
     # Determine the new transform and dimensions of reprojected/resampled raster
@@ -71,9 +75,8 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
     profile = reference.profile
     profile.update(transform=new_transform)
     profile.update(dtype=rasterio.int8)
-    profile.update(
-        nodata=2
-    )  # Update NODATA to some integer so we can keep int8 datatype. There are no NODATA in the raster dataset
+    # Update NODATA to some integer so we can keep int8 datatype. There are no NODATA in the raster dataset
+    profile.update(nodata=2)
     profile.update(width=new_width)
     profile.update(height=new_height)
 
@@ -89,7 +92,8 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(
-        description='Preprocess BLE grids (in tiff format) for use in run_test_cast.py. Preprocessing includes reprojecting and converting to boolean raster (1 = Flooding, 0 = No Flooding)'
+        description='Preprocess BLE grids (in tiff format) for use in run_test_cast.py. '
+        'Preprocessing includes reprojecting and converting to boolean raster (1 = Flooding, 0 = No Flooding)'
     )
     parser.add_argument(
         '-b',
