@@ -15,7 +15,7 @@ def burn_in_levees(dem_filename, nld_filename, out_dem_filename):
 
         no_data = nld.nodata
 
-        nld_m = np.where(nld_data == int(no_data), -999999.0, (nld_data).astype(rasterio.float32))
+        nld_m = np.where(nld_data == int(no_data), no_data, nld_data.astype(rasterio.float32))
 
         dem_profile = dem.profile.copy()
 
