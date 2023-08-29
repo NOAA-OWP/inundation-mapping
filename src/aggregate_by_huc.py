@@ -274,7 +274,7 @@ def aggregate_by_huc(
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=num_job_workers) as executor:
-        # Loop through all applicable HUCs, build the agg_function arguments, and submit them to the process pool
+        # Loop through applicable HUCs, build the agg_function arguments, and submit them to the process pool
         executor_dict = {}
 
         try:

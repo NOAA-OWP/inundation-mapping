@@ -27,32 +27,37 @@ input_calib_points_dir = os.getenv("input_calib_points_dir")
 
 '''
 The script imports .parquet files per HUC8 containing observed FIM extent points and associated flow data.
-This script attributes the point data with its hydroid and HAND values before passing a dataframe to the src_roughness_optimization.py workflow.
+This script attributes the point data with its hydroid and HAND values before passing a dataframe to the
+    src_roughness_optimization.py workflow.
 
 Processing
 - Define CRS to use for initial geoprocessing and read wbd_path and points_layer.
 - Define paths to hydroTable.csv, HAND raster, catchments raster, and synthetic rating curve JSON.
 - Clip the points water_edge_df to the huc cathments polygons (for faster processing?)
-- Define coords variable to be used in point raster value attribution and use point geometry to determine catchment raster pixel values
-- Check that there are valid obs in the water_edge_df (not empty) and convert pandas series to dataframe to pass to update_rating_curve
+- Define coords variable to be used in point raster value attribution and use point geometry to
+    determine catchment raster pixel values
+- Check that there are valid obs in the water_edge_df (not empty) and convert pandas series to dataframe
+    to pass to update_rating_curve
 - Call update_rating_curve() to perform the rating curve calibration.
 
 Inputs
-- points_layer:         .gpkg layer containing observed/truth FIM extent points and associated flow value
-- fim_directory:        fim directory containing individual HUC output dirs
-- wbd_path:             path the watershed boundary dataset layer (HUC polygon boundaries)
-- job_number:           number of multi-processing jobs to use
-- debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
+- points_layer:            .gpkg layer containing observed/truth FIM extent points and associated flow value
+- fim_directory:           fim directory containing individual HUC output dirs
+- wbd_path:                path the watershed boundary dataset layer (HUC polygon boundaries)
+- job_number:              number of multi-processing jobs to use
+- debug_outputs_option:    optional flag to output intermediate files for reviewing/debugging
 
 Outputs
-- water_edge_median_df: dataframe containing "hydroid", "flow", "submitter", "coll_time", "flow_unit", "layer", and median "HAND" value
+- water_edge_median_df:    dataframe containing:
+                                "hydroid", "flow", "submitter", "coll_time", "flow_unit",
+                                "layer", and median "HAND" value
 '''
 
 
 def process_points(args):
     '''
-    This function ingests geodataframe and attributes the point data with its hydroid and HAND values before passing
-    a dataframe to the src_roughness_optimization.py workflow.
+    This function ingests geodataframe and attributes the point data with its hydroid and HAND values
+    before passing a dataframe to the src_roughness_optimization.py workflow.
 
     Processing
     - Extract x,y coordinates from geometry
@@ -137,7 +142,8 @@ def process_points(args):
         ## Still testing: use code below to print out any exceptions.
         '''
         try:
-            log_text = update_rating_curve(branch_dir, water_edge_median_df, htable_path, huc, catchments_poly_path, optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
+            log_text = update_rating_curve(branch_dir, water_edge_median_df, htable_path, huc,
+                catchments_poly_path, optional_outputs, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
         except Exception as e:
             print(str(huc) + ' --> ' + str(e))
             log_text = 'ERROR!!!: HUC ' + str(huc) + ' --> ' + str(e)
@@ -147,7 +153,7 @@ def process_points(args):
 
 def find_points_in_huc(huc_id):
     '''
-    This function loads the .parquet file containing all points attributed with the input huc id into a GeoDataFrame.
+    This function loads the .parquet file containing points attributed with the input huc id into a GDataFrame
 
     Processing
     - Query the <input_calib_points_dir> directory for a <HUC8>.parquet file containing calibration points.
@@ -160,7 +166,6 @@ def find_points_in_huc(huc_id):
     - water_edge_df: geodataframe with point data
     '''
 
-    # The CRS Projection is set when initially writing .parquet files (call to script: write_parquet_from_calib_pts.py)
     water_edge_filepath = os.path.join(input_calib_points_dir, f'{huc_id}.parquet')
 
     water_edge_df = gpd.read_parquet(water_edge_filepath)
@@ -170,8 +175,9 @@ def find_points_in_huc(huc_id):
 
 def find_hucs_with_points(points_file_dir, fim_out_huc_list):
     '''
-    This function queries a directory with .parquet files of HUCs containing calibration points (generated from /data/write_parquet_from_calib_pts.py)
-    and returns a list of all the HUCs in <fim_out_huc_list> that contain calibration point data.
+    This function queries a directory with .parquet files of HUCs containing calibration points
+    (generated from /data/write_parquet_from_calib_pts.py) and returns a list of all the HUCs in
+    <fim_out_huc_list> that contain calibration point data.
     '''
 
     files_in_points_file_dir = os.listdir(points_file_dir)
@@ -187,8 +193,9 @@ def find_hucs_with_points(points_file_dir, fim_out_huc_list):
 
 def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_file):
     '''
-    The function obtains all points within a given huc, locates the corresponding FIM output files for each huc
-    (confirms all necessary files exist), and then passes a proc list of huc organized data to process_points function.
+    The function obtains all points within a given huc, locates the corresponding FIM output files
+    for each huc (confirms all necessary files exist), and then passes a proc list of
+    huc organized data to process_points function.
 
     Inputs
     - fim_directory:        parent directory of fim ouputs (contains HUC directories)
@@ -429,7 +436,8 @@ def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM
 if __name__ == '__main__':
     ## Parse arguments.
     parser = argparse.ArgumentParser(
-        description=f'Adjusts rating curve based on files in {input_calib_points_dir}, containing points of known water boundary.'
+        description=f'Adjusts rating curve based on files in {input_calib_points_dir}, '
+        'containing points of known water boundary.'
     )
     parser.add_argument(
         '-fim_dir', '--fim-directory', help='Parent directory of FIM-required datasets.', required=True

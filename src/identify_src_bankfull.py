@@ -76,7 +76,9 @@ def src_bankfull_lookup(args):
             )
             ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
             df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
+
         negative_flows = len(df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)])
+
         if negative_flows > 0:
             log_text += (
                 'WARNING: HUC: '
@@ -96,9 +98,10 @@ def src_bankfull_lookup(args):
         df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
 
         ## Check for any missing/null entries in the input SRC
-        if (
+        # There may be null values for lake or coastal flow lines
+        # (need to set a value to do groupby idxmin below)
+        if ():
             df_src['Q_bfull_find'].isnull().values.any()
-        ):  # there may be null values for lake or coastal flow lines (need to set a value to do groupby idxmin below)
             log_text += (
                 'WARNING: HUC: '
                 + str(huc)
@@ -154,28 +157,42 @@ def src_bankfull_lookup(args):
         )
         df_src.drop(['Q_bfull_find'], axis=1, inplace=True)
 
-        ## The bankfull ratio variables below were previously used for the composite variable roughness routine (not currently implimented)
+        ## The bankfull ratio variables below were previously used for the composite variable roughness routine
+        ##      (not currently implimented)
         # ## Calculate the channel portion of bankfull Volume
         # df_src['chann_volume_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-        # df_src['chann_volume_ratio'].where(df_src['Stage'] == 0, df_src['Volume_bankfull'] / (df_src[volume_var]),inplace=True)
+        # df_src['chann_volume_ratio'].where(
+        #     df_src['Stage'] == 0, df_src['Volume_bankfull'] / (df_src[volume_var]), inplace=True
+        # )
         # #df_src['chann_volume_ratio'] = df_src['chann_volume_ratio'].clip_upper(1.0)
-        # df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-        # df_src['chann_volume_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # # set > 1.0 ratio values to 1.0 (these are within the channel)
+        # df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True)
+        # # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # df_src['chann_volume_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True)
         # #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
 
         # ## Calculate the channel portion of bankfull Hydraulic Radius
         # df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-        # df_src['chann_hradius_ratio'].where(df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]),inplace=True)
-        # #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001) # old adding 0.01 to avoid dividing by 0 at stage=0
-        # df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-        # df_src['chann_hradius_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # df_src['chann_hradius_ratio'].where(
+        #     df_src['Stage'] == 0, df_src['HRadius_bankfull'] / (df_src[hradius_var]), inplace=True
+        # )
+        # # old adding 0.01 to avoid dividing by 0 at stage=0
+        # #df_src['chann_hradius_ratio'] = df_src['HRadius_bankfull'] / (df_src[hradius_var]+.0001)
+        # # set > 1.0 ratio values to 1.0 (these are within the channel)
+        # df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True)
+        # # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # df_src['chann_hradius_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True)
         # #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
 
         # ## Calculate the channel portion of bankfull Surface Area
         # df_src['chann_surfarea_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
-        # df_src['chann_surfarea_ratio'].where(df_src['Stage'] == 0, df_src['SurfArea_bankfull'] / (df_src[surface_area_var]),inplace=True)
-        # df_src['chann_surfarea_ratio'].where(df_src['chann_surfarea_ratio'] <= 1.0, 1.0, inplace=True) # set > 1.0 ratio values to 1.0 (these are within the channel)
-        # df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True) # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # df_src['chann_surfarea_ratio'].where(
+        #     df_src['Stage'] == 0, df_src['SurfArea_bankfull'] / (df_src[surface_area_var]), inplace=True
+        # )
+        # # set > 1.0 ratio values to 1.0 (these are within the channel)
+        # df_src['chann_surfarea_ratio'].where(df_src['chann_surfarea_ratio'] <= 1.0, 1.0, inplace=True)
+        # # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
+        # df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True)
         # #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
 
         ## mask bankfull variables when the bankfull estimated flow value is <= 0
@@ -293,7 +310,8 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    ## List of columns in SRC_full_crosswalk to read in (ignores other columns that may have been added by previous post-proccessing runs)
+    ## List of columns in SRC_full_crosswalk to read in
+    #       (ignores other columns that may have been added by previous post-proccessing runs)
     src_usecols = [
         'Stage',
         'Number of Cells',
@@ -328,7 +346,8 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
                 branch_dir = os.path.join(huc_branches_dir, branch_id)
                 src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
                 huc_output_dir = join(branch_dir, 'src_plots')
-                ## check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use the orginial src_full_crosswalked.csv
+                ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
+                #   orginial src_full_crosswalked.csv
                 if isfile(src_orig_full_filename):
                     huc_pass_list.append(str(huc) + " --> src_full_crosswalked.csv")
                     procs_list.append(
@@ -407,7 +426,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-plots',
         '--src-plot-option',
-        help='OPTIONAL flag: use this flag to create src plots for all hydroids (helpful for evaluating). WARNING - long runtime',
+        help='OPTIONAL flag: use this flag to create src plots for all hydroids (helpful for evaluating). '
+        'WARNING - long runtime',
         default=False,
         required=False,
         action='store_true',

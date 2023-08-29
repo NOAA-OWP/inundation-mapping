@@ -45,9 +45,8 @@ def Derive_level_paths(
         # This is technically not an error but we need to have it logged so the user know what
         # happened to it and we need the huc to not be included in future processing.
         # We need it to be not included in the fim_input.csv at the end of the unit processing.
-        # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
-        # Later, we can look at creating custom sys exit codes
-        # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file.")
+        # Throw an exception with valid text. This will show up in the non-zero exit codes and
+        # explain why an error. Later, we can look at creating custom sys exit codes.
         print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
@@ -60,7 +59,8 @@ def Derive_level_paths(
     # if there are no reaches at this point (due to filtering)
     if len(stream_network) == 0:
         print(
-            "No branches exist but branch zero processing will continue (Exit 63). This could be due to stream order filtering."
+            "No branches exist but branch zero processing will continue (Exit 63)."
+            "This could be due to stream order filtering."
         )
         # sys.exit(FIM_exit_codes.NO_BRANCH_LEVELPATHS_EXIST.value)  # will send a 63 back
         return
@@ -177,7 +177,8 @@ def Derive_level_paths(
         stream_network = stream_network.remove_branches_in_waterbodies(
             waterbodies=waterbodies, out_vector_files=out_stream_network_dissolved, verbose=False
         )
-        # clip dissolved stream network to the wbd_buffered domain (avoids issues with reaches that extend outside buffer)
+        # clip dissolved stream network to the wbd_buffered domain
+        # (avoids issues with reaches that extend outside buffer)
         wbd_buffer = gpd.read_file(buffer_wbd_streams)
         stream_network_out = gpd.read_file(out_stream_network_dissolved)
         stream_network_out = gpd.clip(stream_network_out, wbd_buffer)

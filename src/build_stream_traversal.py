@@ -6,7 +6,8 @@ import geopandas as gpd
 
 '''
 Description:
-        This tool creates unique IDs for each segment and builds the To_Node, From_Node, and NextDownID columns to traverse the network
+        This tool creates unique IDs for each segment and builds the To_Node, From_Node, and NextDownID
+        columns to traverse the network.
 Required Arguments:
         streams   = stream network
         wbd8          = HUC8 boundary dataset
@@ -168,7 +169,7 @@ class build_stream_traversal_columns(object):
                     i = 0
                     for nid in next_down_ids:
                         # Set the split code in the NextDownID field.
-                        if split_code < 0:  # set terminal NextDownID field to -1; this should never happen..
+                        if split_code < 0:  # set terminal NextDownID field to -1; this should never happen.
                             if i == 0:
                                 nextdownIDcol = split_code
                         else:  # muliple inflows

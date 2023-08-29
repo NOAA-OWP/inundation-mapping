@@ -21,12 +21,15 @@ def agreedem(
     delete_intermediate_data,
 ):
     '''
-    Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html). Whiteboxtools is used to calculate intermediate allocation and proximity rasters.
+    Produces a hydroconditioned raster using the AGREE DEM methodology as described by Ferdi Hellweger
+    (https://www.caee.utexas.edu/prof/maidment/gishydro/ferdi/research/agree/agree.html).
+    Whiteboxtools is used to calculate intermediate allocation and proximity rasters.
 
     Parameters
     ----------
     rivers_raster : STR
-        Path to the river raster. River cells = 1 and non-river cells = 0. For example, see flows_grid_boolean.tif.
+        Path to the river raster. River cells = 1 and non-river cells = 0.
+        For example, see flows_grid_boolean.tif.
     dem : STR
         Elevation DEM (units assumed to be in meters). For example, see dem_meters.tif.
     output_raster : STR

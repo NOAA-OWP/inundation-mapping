@@ -24,7 +24,7 @@ sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
-    Compute channel geomety and Manning's equation using subdivision method (separate in-channel vs. overbank).
+    Compute channel geomety and Manning's equation using subdivision method (separate in-channel vs. overbank)
     Also apply unique Manning's n-values for channel and overbank using a user provided feature_id csv
 
     Parameters
@@ -32,7 +32,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     fim_dir : str
         Directory containing FIM output folders.
     mann_n_table : str
-        Path to a csv file containing Manning's n values by feature_id (must contain variables "feature_id", "channel_n", "overbank_n")
+        Path to a csv file containing Manning's n values by feature_id
+        (must contain variables "feature_id", "channel_n", "overbank_n")
     file_suffix : str
         Optional: Suffix to append to the output log file
     number_of_jobs : str
@@ -105,7 +106,8 @@ def variable_mannings_calc(args):
             )
             df_src = subdiv_geometry(df_src_orig)
 
-            ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the 'Stage_bankfull')
+            ## Merge (crosswalk) the df of Manning's n with the SRC df
+            ##   (using the channel/fplain delination in the 'Stage_bankfull')
             df_src = df_src.merge(df_mann, how='left', on='feature_id')
             check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
             if check_null > 0:
@@ -120,7 +122,8 @@ def variable_mannings_calc(args):
                     + '\n'
                 )
 
-            ## Check if there are any missing data in the 'Stage_bankfull' column (these are locations where subdiv will not be applied)
+            ## Check if there are any missing data in the 'Stage_bankfull' column
+            ##   (these are locations where subdiv will not be applied)
             df_src['subdiv_applied'] = np.where(
                 df_src['Stage_bankfull'].isnull(), False, True
             )  # create field to identify where vmann is applied (True=yes; False=no)
@@ -355,7 +358,8 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
         )
 
     print(
-        f"Computing subdivided SRC and applying variable Manning's n to channel/overbank for {len(procs_list)} branches using {number_of_jobs} jobs"
+        "Computing subdivided SRC and applying variable Manning's n to channel/overbank for"
+        f"{len(procs_list)} branches using {number_of_jobs} jobs"
     )
     with Pool(processes=number_of_jobs) as pool:
         if verbose:
@@ -435,7 +439,8 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
                             + str(huc)
                             + '  branch id: '
                             + str(branch_id)
-                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: '
+                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                            + 'or hydroTable_*.csv) in the fim output dir: '
                             + str(branch_dir)
                             + ' - skipping this branch!!!\n'
                         )
@@ -444,7 +449,8 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
                             + str(huc)
                             + '  branch id: '
                             + str(branch_id)
-                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: '
+                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                            + 'or hydroTable_*.csv) in the fim output dir: '
                             + str(branch_dir)
                             + ' - skipping this branch!!!\n'
                         )
@@ -462,7 +468,9 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Subdivide the default SRC to compute a seperate channel component and overbank component. Impliment user provided Manning's n values for in-channel vs. overbank flow. Recalculate Manning's eq for discharge"
+        description="Subdivide the default SRC to compute a seperate channel component and overbank"
+        "component. Impliment user provided Manning's n values for in-channel vs. overbank flow. "
+        "Recalculate Manning's eq for discharge"
     )
     parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(

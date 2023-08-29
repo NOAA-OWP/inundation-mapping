@@ -148,8 +148,9 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
         verbose=verbose,
     )
 
-    # nwm_streams = nwm_streams.dissolve_by_branch(branch_id_attribute='levpa_id', attribute_excluded=None,
-    #                                             values_excluded=None, verbose=verbose)
+    # nwm_streams = nwm_streams.dissolve_by_branch(
+    #     branch_id_attribute='levpa_id', attribute_excluded=None, values_excluded=None, verbose=verbose
+    # )
 
     nwm_streams.reset_index(drop=True, inplace=True)
 

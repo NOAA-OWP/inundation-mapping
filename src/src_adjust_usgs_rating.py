@@ -15,7 +15,8 @@ from utils.shared_functions import check_file_age, concat_huc_csv
 
 
 '''
-The script ingests a USGS rating curve csv and a NWM flow recurrence interval database. The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value
+The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
+The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value
 
 Processing
 - Read in USGS rating curve from csv and convert WSE navd88 values to meters
@@ -31,14 +32,16 @@ Processing
 - Call update_rating_curve() to perform the rating curve calibration.
 
 Inputs
-- branch_dir:        fim directory containing individual HUC output dirs
+- branch_dir:           fim directory containing individual HUC output dirs
 - usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 - job_number:           number of multi-processing jobs to use
 
 Outputs
-- water_edge_median_ds: dataframe containing 'location_id','hydroid','feature_id','huc','hand','discharge_cms','nwm_recur_flow_cms','nwm_recur','layer'
+- water_edge_median_ds: dataframe containing:
+                            'location_id', 'hydroid', 'feature_id', 'huc', 'hand', 'discharge_cms',
+                            'nwm_recur_flow_cms', 'nwm_recur', 'layer'
 '''
 
 
@@ -64,7 +67,8 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'}, inplace=True
     )
 
-    # filter null location_id rows from cross_df (removes ahps lide entries that aren't associated with USGS gage)
+    # filter null location_id rows from cross_df
+    # (removes ahps lide entries that aren't associated with USGS gage)
     cross_df = cross_df[cross_df.location_id.notnull()]
 
     # convert usgs flow from cfs to cms
@@ -115,9 +119,9 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         merge_df['Q_find'] = (merge_df['discharge_cms'] - merge_df[interval + "_0_year"]).abs()
 
         ## Check for any missing/null entries in the input SRC
-        if (
-            merge_df['Q_find'].isnull().values.any()
-        ):  # there may be null values for lake or coastal flow lines (need to set a value to do groupby idxmin below)
+        # There may be null values for lake or coastal flow lines
+        # (need to set a value to do groupby idxmin below)
+        if merge_df['Q_find'].isnull().values.any():
             log_text += (
                 'HUC: '
                 + str(merge_df['huc'])
@@ -134,7 +138,8 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         calc_df = merge_df.loc[merge_df.groupby(['location_id', 'levpa_id'])['Q_find'].idxmin()].reset_index(
             drop=True
         )  # find the index of the Q_1_5_find (closest matching flow)
-        # Calculate flow difference (variance) to check for large discrepancies btw NWM flow and USGS closest flow
+        # Calculate flow difference (variance) to check for large discrepancies between
+        # NWM flow and USGS closest flow
         calc_df['check_variance'] = (
             (calc_df['discharge_cms'] - calc_df[interval + "_0_year"]) / calc_df['discharge_cms']
         ).abs()
@@ -163,7 +168,8 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         log_text += 'Warning: Negative HAND stage values -->\n'
         log_text += calc_df[calc_df['hand'] < 0].to_string() + '\n'
         final_df = final_df[final_df['hand'] > 0]
-        # Log any signifant differences btw the NWM flow value and closest USGS rating flow (this ensures that we consistently sample the USGS rating curves at known intervals - NWM recur flow)
+        # Log any signifant differences btw the NWM flow value and closest USGS rating flow
+        # This ensures that we consistently sample the USGS rating curves at known intervals - NWM recur flow
         log_text += 'Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
         log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
         final_df = final_df[final_df['check_variance'] < 0.1]
@@ -289,10 +295,12 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     # try:
     #     with Pool(processes=job_number) as pool:
     #         log_output = pool.starmap(update_rating_curve, procs_list)
-    #         log_file.writelines(["%s\n" % item  for item in log_output])
+    #         log_file.writelines(["%s\n" % item for item in log_output])
     # except Exception as e:
     #     print(str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e))
-    #     log_file.write('ERROR!!!: HUC ' + str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e) + '\n')
+    #     log_file.write(
+    #         'ERROR!!!: HUC ' + str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e) + '\n'
+    #     )
 
 
 def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
@@ -302,7 +310,9 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
     ## Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
     print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
     # usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
-    # usgs_elev_df = pd.read_csv(usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int})
+    # usgs_elev_df = pd.read_csv(
+    #     usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int}
+    # )
     csv_name = 'usgs_elev_table.csv'
 
     available_cores = multiprocessing.cpu_count()

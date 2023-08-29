@@ -29,43 +29,62 @@ def update_rating_curve(
     down_dist_thresh=DOWNSTREAM_THRESHOLD,
 ):
     '''
-    This script ingests a dataframe containing observed data (HAND elevation and flow) and then calculates new SRC roughness values via Manning's equation. The new roughness values are averaged for each HydroID and then progated downstream and a new discharge value is calculated where applicable.
+    This script ingests a dataframe containing observed data (HAND elevation and flow) and then
+    calculates new SRC roughness values via Manning's equation. The new roughness values are averaged for each
+    HydroID and then progated downstream and a new discharge value is calculated where applicable.
 
     Processing Steps:
-    - Read in the hydroTable.csv and check whether it has previously been updated (rename default columns if needed)
-    - Loop through the user provided point data --> stage/flow dataframe row by row and copy the corresponding htable values for the matching stage->HAND lookup
+    - Read in the hydroTable.csv and check whether it has previously been updated
+        (rename default columns if needed)
+    - Loop through the user provided point data --> stage/flow dataframe row by row and copy the corresponding
+        htable values for the matching stage->HAND lookup
     - Calculate new HydroID roughness values for input obs data using Manning's equation
-    - Create dataframe to check for erroneous Manning's n values (values set in tools_shared_variables.py: >0.6 or <0.001 --> see input args)
+    - Create dataframe to check for erroneous Manning's n values
+        (values set in tools_shared_variables.py: >0.6 or <0.001 --> see input args)
     - Create magnitude and ahps column by subsetting the "layer" attribute
-    - Create df grouped by hydroid with ahps_lid and huc number and then pivot the magnitude column to display n value for each magnitude at each hydroid
+    - Create df grouped by hydroid with ahps_lid and huc number and then pivot the magnitude column to display
+        n value for each magnitude at each hydroid
     - Create df with the most recent collection time entry and submitter attribs
-    - Cacluate median ManningN to handle cases with multiple hydroid entries and create a df with the median hydroid_ManningN value per feature_id
+    - Cacluate median ManningN to handle cases with multiple hydroid entries and create a df with the median
+        hydroid_ManningN value per feature_id
     - Rename the original hydrotable variables to allow new calculations to use the primary var name
-    - Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a single hydroid)
+    - Check for large variabilty in the calculated Manning's N values
+        (for cases with mutliple entries for a single hydroid)
     - Create attributes to traverse the flow network between HydroIDs
-    - Calculate group_calb_coef (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg)
-    - Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
-    - Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new adjusted roughness value
+    - Calculate group_calb_coef (mean calb n for consective hydroids) and apply values downsteam to
+        non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg)
+    - Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN
+        (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
+    - Merge in previous SRC adjustments (where available) for hydroIDs that do not have a
+        new adjusted roughness value
     - Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
     - Merge the final ManningN dataframe to the original hydroTable
-    - Create the ManningN column by combining the hydroid_ManningN with the default_ManningN (use modified where available)
+    - Create the ManningN column by combining the hydroid_ManningN with the default_ManningN
+        (use modified where available)
     - Calculate new discharge_cms with new adjusted ManningN
-    - Export a new hydroTable.csv and overwrite the previous version and output new src json (overwrite previous)
+    - Export a new hydroTable.csv and overwrite the previous version and output new src json
+        (overwrite previous)
 
     Inputs:
     - fim_directory:        fim directory containing individual HUC output dirs
-    - water_edge_median_df: dataframe containing observation data (attributes: "hydroid", "flow", "submitter", "coll_time", "flow_unit", "layer", "HAND")
+    - water_edge_median_df: dataframe containing observation data
+        (attributes: "hydroid", "flow", "submitter", "coll_time", "flow_unit", "layer", "HAND")
     - htable_path:          path to the current HUC hydroTable.csv
     - huc:                  string variable for the HUC id # (huc8 or huc6)
     - branch_id:            string variable for the branch id
     - catchments_poly_path: path to the current HUC catchments polygon layer .gpkg
-    - debug_outputs_option: optional input argument to output additional intermediate data files (csv files with SRC calculations)
-    - source_tag:           input text tag used to specify the type/source of the input obs data used for the SRC adjustments (e.g. usgs_rating or point_obs)
-    - merge_prev_adj:       boolean argument to specify when to merge previous SRC adjustments vs. overwrite (default=False)
-    - down_dist_thresh:     optional input argument to override the env variable that controls the downstream distance new roughness values are applied downstream of locations with valid obs data
+    - debug_outputs_option: optional input argument to output additional intermediate data files
+        (csv files with SRC calculations)
+    - source_tag:           input text tag used to specify the type/source of the input obs data used for the
+        SRC adjustments (e.g. usgs_rating or point_obs)
+    - merge_prev_adj:       boolean argument to specify when to merge previous SRC adjustments vs. overwrite
+        (default=False)
+    - down_dist_thresh:     optional input argument to override the env variable that controls the downstream
+        distance new roughness values are applied downstream of locations with valid obs data
 
     Ouputs:
-    - output_catchments:    same input "catchments_poly_path" .gpkg with appened attributes for SRC adjustments fields
+    - output_catchments:    same input "catchments_poly_path" .gpkg with appened attributes for
+        SRC adjustments fields
     - df_htable:            same input "htable_path" --> updated hydroTable.csv with new/modified attributes
     - output_src_json:      src.json file with new SRC discharge values
 
@@ -85,7 +104,8 @@ def update_rating_curve(
     if source_tag == 'usgs_rating':
         calb_type = 'calb_coef_usgs'
 
-    ## Read in the hydroTable.csv and check wether it has previously been updated (rename default columns if needed)
+    ## Read in the hydroTable.csv and check wether it has previously been updated
+    # (rename default columns if needed)
     df_htable = pd.read_csv(
         htable_path, dtype={'HUC': object, 'last_updated': object, 'submitter': object, 'obs_source': object}
     )
@@ -104,10 +124,11 @@ def update_rating_curve(
     ):  # check if there are not valid values in the column (True = no previous calibration outputs)
         df_htable['precalb_discharge_cms'] = df_htable['discharge_cms'].values
 
-    ## The section below allows for previous calibration modifications (i.e. usgs rating calbs) to be available in the final calibration outputs
-    if (
-        merge_prev_adj and not df_htable['calb_coef_final'].isnull().all()
-    ):  # check if the merge_prev_adj setting is True and there are valid 'calb_coef_final' values from previous calibration outputs
+    ## The section below allows for previous calibration modifications
+    ## (i.e. usgs rating calbs) to be available in the final calibration outputs
+    # Check if the merge_prev_adj setting is True and there are valid 'calb_coef_final' values from previous
+    #   calibration outputs
+    if merge_prev_adj and not df_htable['calb_coef_final'].isnull().all():
         # Create a subset of hydrotable with previous adjusted SRC attributes
         df_prev_adj_htable = df_htable.copy()[
             ['HydroID', 'submitter', 'last_updated', 'obs_source', 'calb_coef_final']
@@ -131,10 +152,12 @@ def update_rating_curve(
             + str(huc)
             + '  Branch: '
             + str(branch_id)
-            + ': found previous hydroTable calibration attributes --> retaining previous calb attributes for blending...\n'
+            + ': found previous hydroTable calibration attributes -->'
+            + 'retaining previous calb attributes for blending...\n'
         )
 
-    # Delete previous adj columns to prevent duplicate variable issues (if src_roughness_optimization.py was previously applied)
+    # Delete previous adj columns to prevent duplicate variable issues
+    #   (if src_roughness_optimization.py was previously applied)
     df_htable.drop(
         [
             'discharge_cms',
@@ -172,9 +195,9 @@ def update_rating_curve(
                 + '\n'
             )
         else:
-            df_htable_hydroid = df_htable[
-                (df_htable.HydroID == row.hydroid) & (df_htable.stage > 0)
-            ]  # filter htable for entries with matching hydroid and ignore stage 0 (first possible stage match at 1ft)
+            # filter htable for entries with matching hydroid and ignore stage 0
+            #   (first possible stage match at 1ft)
+            df_htable_hydroid = df_htable[(df_htable.HydroID == row.hydroid) & (df_htable.stage > 0)]
             if df_htable_hydroid.empty:
                 print(
                     'ERROR: df_htable_hydroid is empty but expected data: '
@@ -215,7 +238,9 @@ def update_rating_curve(
     df_nvalues['channel_n_calb'] = df_nvalues['hydroid_calb_coef'] * df_nvalues['channel_n']
     df_nvalues['overbank_n_calb'] = df_nvalues['hydroid_calb_coef'] * df_nvalues['overbank_n']
 
-    ## Create dataframe to check for unrealistic/egregious calibration adjustments by applying the calibration coefficient to the Manning's n values and setting an acceptable range (values set in tools_shared_variables.py --> >0.8 or <0.001)
+    ## Create dataframe to check for unrealistic/egregious calibration adjustments by applying the calibration
+    ##    coefficient to the Manning's n values and setting an acceptable range
+    ##    (values set in tools_shared_variables.py --> >0.8 or <0.001)
     df_nvalues['Mann_flag'] = np.where(
         (df_nvalues['channel_n_calb'] >= ROUGHNESS_MAX_THRESH)
         | (df_nvalues['overbank_n_calb'] >= ROUGHNESS_MAX_THRESH)
@@ -274,7 +299,8 @@ def update_rating_curve(
         ## Rename the original hydrotable variables to allow new calculations to use the primary var name
         df_htable.rename(columns={'discharge_cms': 'precalb_discharge_cms'}, inplace=True)
 
-        ## Check for large variabilty in the calculated Manning's N values (for cases with mutliple entries for a singel hydroid)
+        ## Check for large variabilty in the calculated Manning's N values
+        ##   (for cases with mutliple entries for a singel hydroid)
         df_nrange = df_nvalues.groupby('HydroID').agg(
             {'hydroid_calb_coef': ['median', 'min', 'max', 'std', 'count']}
         )
@@ -313,15 +339,16 @@ def update_rating_curve(
             df_nmerge = df_nmerge.merge(df_mann_hydroid, how='left', on='HydroID')
             df_nmerge = df_nmerge.merge(df_updated, how='left', on='HydroID')
 
-            ## Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg)
+            ## Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam
+            ##   to non-calb hydroids (constrained to first Xkm of hydroids -
+            ##   set downstream diststance var as input arg)
             df_nmerge = group_manningn_calc(df_nmerge, down_dist_thresh)
 
             ## Create a df with the median hydroid_calb_coef value per feature_id
             df_mann_featid = df_nmerge.groupby(["feature_id"])[['hydroid_calb_coef']].mean()
             df_mann_featid.rename(columns={'hydroid_calb_coef': 'featid_calb_coef'}, inplace=True)
-            df_mann_featid_attrib = df_nmerge.groupby(
-                'feature_id'
-            ).first()  # create a seperate df with attributes to apply to other hydroids that share a featureid
+            # create a seperate df with attributes to apply to other hydroids that share a featureid
+            df_mann_featid_attrib = df_nmerge.groupby('feature_id').first()
             df_mann_featid_attrib = df_mann_featid_attrib[df_mann_featid_attrib['submitter'].notna()][
                 ['last_updated', 'submitter']
             ]
@@ -329,7 +356,9 @@ def update_rating_curve(
             df_nmerge = df_nmerge.combine_first(df_mann_featid_attrib).reset_index()
 
             if not df_nmerge['hydroid_calb_coef'].isnull().all():
-                ## Create the calibration coefficient column by combining the hydroid_calb_coef with the featid_calb_coef (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_calb_coef value(s))
+                ## Create the calibration coefficient column by combining the hydroid_calb_coef with the
+                ##   featid_calb_coef (use feature_id value if the hydroid is in a feature_id that
+                ##   contains valid hydroid_calb_coef value(s))
                 conditions = [
                     (df_nmerge['hydroid_calb_coef'].isnull()) & (df_nmerge['featid_calb_coef'].notnull()),
                     (df_nmerge['hydroid_calb_coef'].isnull())
@@ -346,7 +375,8 @@ def update_rating_curve(
                     errors='ignore',
                 )  # drop these columns to avoid duplicates where merging with the full hydroTable df
 
-                ## Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new adjusted roughness value
+                ## Merge in previous SRC adjustments (where available) for hydroIDs that do not have
+                ##   a new adjusted roughness value
                 if not df_prev_adj.empty:
                     df_nmerge = pd.merge(df_nmerge, df_prev_adj, on='HydroID', how='outer')
                     df_nmerge['submitter'] = np.where(
@@ -397,7 +427,8 @@ def update_rating_curve(
                         catchments_poly_path, driver="GPKG", index=False
                     )  # overwrite the previous layer
                     df_nmerge.drop(['src_calibrated'], axis=1, inplace=True, errors='ignore')
-                ## Optional ouputs: 1) merge_n_csv csv with all of the calculated n values and 2) a catchments .gpkg with new joined attributes
+                ## Optional ouputs: 1) merge_n_csv csv with all of the calculated n values
+                ##                  2) a catchments .gpkg with new joined attributes
                 if debug_outputs_option:
                     output_merge_n_csv = os.path.join(
                         fim_directory, calb_type + '_merge_vals_' + branch_id + '.csv'
@@ -440,7 +471,8 @@ def update_rating_curve(
                     df_htable['precalb_discharge_cms'] / df_htable['calb_coef_final'],
                 )
 
-                ## Replace discharge_cms with 0 or -999 if present in the original discharge (carried over from thalweg notch workaround in SRC post-processing)
+                ## Replace discharge_cms with 0 or -999 if present in the original discharge
+                ##   (carried over from thalweg notch workaround in SRC post-processing)
                 df_htable['discharge_cms'].mask(df_htable['precalb_discharge_cms'] == 0.0, 0.0, inplace=True)
                 df_htable['discharge_cms'].mask(
                     df_htable['precalb_discharge_cms'] == -999, -999, inplace=True
@@ -456,14 +488,16 @@ def update_rating_curve(
                     + str(huc)
                     + '  branch id: '
                     + str(branch_id)
-                    + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration'
+                    + ' --> no valid hydroid roughness calculations after removing lakeid catchments '
+                    + 'from consideration.\n'
                 )
                 log_text += (
                     'ALERT!! HUC: '
                     + str(huc)
                     + '  branch id: '
                     + str(branch_id)
-                    + ' --> no valid hydroid roughness calculations after removing lakeid catchments from consideration\n'
+                    + ' --> no valid hydroid roughness calculations after removing lakeid catchments '
+                    + 'from consideration.\n'
                 )
         else:
             print(
@@ -486,14 +520,16 @@ def update_rating_curve(
             + str(huc)
             + '  branch id: '
             + str(branch_id)
-            + ' --> no valid roughness calculations - please check point data and src calculations to evaluate'
+            + ' --> no valid roughness calculations -  '
+            + 'please check point data and src calculations to evaluate'
         )
         log_text += (
             'ALERT!! HUC: '
             + str(huc)
             + '  branch id: '
             + str(branch_id)
-            + ' --> no valid roughness calculations - please check point data and src calculations to evaluate\n'
+            + ' --> no valid roughness calculations -  '
+            + 'please check point data and src calculations to evaluate.\n'
         )
 
     log_text += 'Completed: ' + str(huc) + ' --> branch: ' + str(branch_id) + '\n'
@@ -548,7 +584,8 @@ def branch_network_tracer(df_input_htable):
                     if nextorder > order and check_confluence is True:
                         # found a terminal point in the network (append to branch_heads for second pass)
                         branch_heads.append(nextid)
-                        # if above conditions are True than stop traversing downstream and move on to next starting hydroid
+                        # if above conditions are True than stop traversing downstream and move on to
+                        # next starting hydroid
                         continue
                     Q.append(nextid)
 
@@ -591,19 +628,22 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
             group_calb_coef = 0
             # reassign the branch_start var to evaluate on next iteration
             branch_start = int(df_nmerge.loc[index, 'branch_id'])
-            # use the code below to withold downstream hydroid_calb_coef values (use this for downstream evaluation tests)
-            '''
+            # use the code below to withold downstream hydroid_calb_coef values
+            #   (use this for downstream evaluation tests)
+        '''
             lid_count = 0
-        if not pd.isna(df_nmerge.loc[index,'ahps_lid']):
-            if df_nmerge.loc[index,'ahps_lid'] == prev_lid:
+        if not pd.isna(df_nmerge.loc[index, 'ahps_lid']):
+            if df_nmerge.loc[index, 'ahps_lid'] == prev_lid:
                 lid_count += 1
-                if lid_count > 3: # only keep the first 3 HydroID n values (everything else set to null for downstream application)
-                    df_nmerge.loc[index,'hydroid_ManningN'] = np.nan
-                    df_nmerge.loc[index,'featid_ManningN'] = np.nan
+                # only keep the first 3 HydroID n values (everything else set to null for downstream application)
+                if lid_count > 3:
+                    df_nmerge.loc[index, 'hydroid_ManningN'] = np.nan
+                    df_nmerge.loc[index, 'featid_ManningN'] = np.nan
             else:
                 lid_count = 1
-            prev_lid = df_nmerge.loc[index,'ahps_lid']
-            '''
+            prev_lid = df_nmerge.loc[index, 'ahps_lid']
+        '''
+
         # check if the hydroid_calb_coef value is nan (indicates a non-calibrated hydroid)
         if np.isnan(df_nmerge.loc[index, 'hydroid_calb_coef']):
             # calculate accumulated river distance

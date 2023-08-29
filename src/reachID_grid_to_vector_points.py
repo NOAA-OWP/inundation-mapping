@@ -11,13 +11,6 @@ from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import PREP_PROJECTION
 
 
-"""
-USAGE:
-./reachID_grid_to_vector_points.py <flows_grid_IDs raster file> <flows_points vector file> <reachID or featureID>
-
-"""
-
-
 @mem_profile
 def convert_grid_cells_to_points(raster, index_option, output_points_filename=False):
     # Input raster
@@ -61,6 +54,14 @@ def convert_grid_cells_to_points(raster, index_option, output_points_filename=Fa
 
 if __name__ == '__main__':
     # Parse arguments
+    """
+    USAGE:
+        reachID_grid_to_vector_points.py
+            -r <flows_grid_IDs raster file>
+            -i <reachID or featureID or pixelID>
+            -p <output points filename>
+    """
+
     parser = argparse.ArgumentParser(description='Converts a raster to points')
     parser.add_argument('-r', '--raster', help='Raster to be converted to points', required=True, type=str)
     parser.add_argument(

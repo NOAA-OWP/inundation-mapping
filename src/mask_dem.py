@@ -24,7 +24,8 @@ def mask_dem(
     levee_levelpaths: str,
 ):
     """
-    Masks levee-protected areas from DEM in branch 0 or if the level path is associated with a levee (determined in src/associate_levelpaths_with_levees.py).
+    Masks levee-protected areas from DEM in branch 0 or if the level path is associated with a levee
+    (determined in src/associate_levelpaths_with_levees.py).
 
     Parameters
     ----------

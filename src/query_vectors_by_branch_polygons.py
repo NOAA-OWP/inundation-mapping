@@ -49,16 +49,23 @@ if __name__ == '__main__':
     )
 
     # load file
-    # stream_polys = StreamBranchPolygons.from_file( filename=attributes_vector_file,
-    #                                               branch_id_attribute=attribute,
-    #                                               values_excluded=None,attribute_excluded=None, verbose = verbose)
+    # stream_polys = StreamBranchPolygons.from_file(
+    #     filename=attributes_vector_file,
+    #     branch_id_attribute=attribute,
+    #     values_excluded=None,
+    #     attribute_excluded=None,
+    #     verbose=verbose,
+    # )
 
     for subset_vector, out_file in tqdm(
         zip(subset_vectors, out_files), disable=(not verbose), total=len(subset_vectors), desc="Query vectors"
     ):
         # if verbose:
-        # print("Query \'{}\' by attribute in \'{}\' ...".format(out_file.split('/')[-1].split('.')[0],
-        #                                                   attributes_vector_file.split('/')[-1].split('.')[0]))
+        # print(
+        #     "Query \'{}\' by attribute in \'{}\' ...".format(
+        #         out_file.split('/')[-1].split('.')[0], attributes_vector_file.split('/')[-1].split('.')[0]
+        #     )
+        # )
         StreamBranchPolygons.query_vectors_by_branch(
             subset_vector,
             branch_ids=branch_ids,

@@ -73,7 +73,8 @@ class Gage2Branch(object):
         return self.gages
 
     def branch_zero(self, bzero_id):
-        # note that some gages will not have a valid "order_" attribute (not attributed to a level path in the step before - likely a gage on dropped stream order)
+        # note that some gages will not have a valid "order_" attribute
+        #   (not attributed to a level path in the step before - likely a gage on dropped stream order)
         self.gages.levpa_id = bzero_id
         return self.gages
 
@@ -156,10 +157,12 @@ if __name__ == '__main__':
 
     else:
         '''
-        This is an easy way to filter fim_inputs so that only branches with gages will run during fim_process_unit_wb.sh.
+        This is an easy way to filter fim_inputs so that only branches with gages will run
+        during fim_process_unit_wb.sh.
 
         example:
-        python3 src/usgs_gage_unit_setup.py -gages x -ahps x -nwm x -o x -huc x -ff /outputs/test_output/fim_inputs.csv
+        python3 src/usgs_gage_unit_setup.py -gages x -ahps x -nwm x -o x -huc x
+            -ff /outputs/test_output/fim_inputs.csv
         '''
         assert os.path.isfile(filter_fim_inputs)
         Gage2Branch.filter_gage_branches(filter_fim_inputs)

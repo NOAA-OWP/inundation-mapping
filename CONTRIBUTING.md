@@ -39,8 +39,8 @@ If you would like to contribute, please follow these steps:
 2. Clone your fork: `git clone https://github.com/<github username>/inundation-mapping.git`
 3. Create a feature branch: `git checkout -b <dev-your-feature>`
 4. Build the Docker container: `Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>`
-5. Set up pre-commit hooks via pre-commit install. Afterwards when a commit is made it will run flake8 for code and style linting as well as flake8-black to autoformat the code. In many cases issues will be rectified automatically with flake8-black but in some cases manual changes will be necessary.
-6. Code Standards: Make sure unit tests pass pytest and there is no significant reduction in code coverage
+5. Set up pre-commit hooks via pre-commit install. Afterwards when a commit is made it will run `flake8` for code and style linting as well as `flake8-black` to autoformat the code. In many cases issues will be rectified automatically with `flake8-black` but in some cases manual changes will be necessary.
+6. Code Standards: Make sure unit tests pass(`pytest unit_tests/`) and there is no significant reduction in code coverage.
 Commit your changes: git commit -m 'feature message' This will invoke pre-commit hooks mentioned on step 5 that will lint the code. Make sure all of these checks pass, if not make changes and re-commit.
 7. Push to your forked branch: `git push -u origin`, or if the branch is not pushed up yet: `git push --set-upstream origin <your branch>`
-8. Open a pull request (review checklist in PR template before requesting a review)
+8. Open a pull request (review checklist in [PR template](/.github/PULL_REQUEST_TEMPLATE.md) before requesting a review)

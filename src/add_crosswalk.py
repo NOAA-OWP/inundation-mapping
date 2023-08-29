@@ -248,12 +248,12 @@ def add_crosswalk(
                         (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
                     ]['HydroID'].item()
 
+                # Get the first one
+                # Same stream order, without drainage area info it is hard to know which is the main channel.
                 else:
                     update_id = output_flows.loc[
                         (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].values[
-                        0
-                    ]  # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
+                    ]['HydroID'].values[0]
 
             # no upstream segments; single downstream segment
             elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) == 1:
@@ -274,9 +274,8 @@ def add_crosswalk(
             )
 
     print(
-        "Number of short reaches [{} < {} and {} < {}] = {}".format(
-            "areasqkm", min_catchment_area, "LengthKm", min_stream_length, len(sml_segs)
-        )
+        f"Number of short reaches [areasqkm < {min_catchment_area} and LengthKm < {min_stream_length}] = "
+        f"{len(sml_segs)}"
     )
 
     # calculate src_full
@@ -291,7 +290,9 @@ def add_crosswalk(
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
     input_src_base['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    input_src_base['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
+    input_src_base['WettedPerimeter (m)'] = (
+        input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 10009
+    )
     input_src_base['WetArea (m2)'] = input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
     input_src_base['HydraulicRadius (m)'] = (
         input_src_base['WetArea (m2)'] / input_src_base['WettedPerimeter (m)']
@@ -361,21 +362,22 @@ def add_crosswalk(
         ],
     ]
     output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
-    ## Set placeholder variables to be replaced in post-processing (as needed). Create here to ensure consistent column vars
-    ## These variables represent the original unmodified values
+
+    # Set placeholder variables to be replaced in post-processing (as needed).
+    # Create here to ensure consistent column vars. These variables represent the original unmodified values
     output_hydro_table['default_discharge_cms'] = output_src['Discharge (m3s-1)']
     output_hydro_table['default_Volume (m3)'] = output_src['Volume (m3)']
     output_hydro_table['default_WetArea (m2)'] = output_src['WetArea (m2)']
     output_hydro_table['default_HydraulicRadius (m)'] = output_src['HydraulicRadius (m)']
     output_hydro_table['default_ManningN'] = output_src['ManningN']
-    ## Placeholder vars for BARC
+    # Placeholder vars for BARC
     output_hydro_table['Bathymetry_source'] = pd.NA
-    ## Placeholder vars for subdivision routine
+    # Placeholder vars for subdivision routine
     output_hydro_table['subdiv_applied'] = False
     output_hydro_table['overbank_n'] = pd.NA
     output_hydro_table['channel_n'] = pd.NA
     output_hydro_table['subdiv_discharge_cms'] = pd.NA
-    ## Placeholder vars for the calibration routine
+    # Placeholder vars for the calibration routine
     output_hydro_table['calb_applied'] = False
     output_hydro_table['last_updated'] = pd.NA
     output_hydro_table['submitter'] = pd.NA

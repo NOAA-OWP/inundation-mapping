@@ -24,8 +24,10 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
 
     """
 
-    # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
-    # The following creates a dictionary of the catchment ids (key) and their elevation along the thalweg (value).
+    # --------------------------------- Get catchment_min_dict --------------------------------------------- #
+    # The following creates a dictionary of the catchment ids (key) and
+    # their elevation along the thalweg (value).
+
     @njit
     def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments, thalweg_window):
         for i, cm in enumerate(flat_catchments):
@@ -33,7 +35,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
                 # If the catchment really exists in the dictionary, compare elevation values.
                 if cm in catchment_min_dict:
                     if flat_dem[i] < catchment_min_dict[cm]:
-                        # If the flat_dem's elevation value is less than the catchment_min_dict min, update the catchment_min_dict min.
+                        # If the flat_dem's elevation value is less than the catchment_min_dict min,
+                        # update the catchment_min_dict min.
                         catchment_min_dict[cm] = flat_dem[i]
                 else:
                     catchment_min_dict[cm] = flat_dem[i]
@@ -70,9 +73,9 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     dem_thalwegCond_masked_object.close()
     gw_catchments_pixels_masked_object.close()
     thalweg_raster_object.close()
-    # ------------------------------------------------------------------------------------------------------------------------ #
+    # ------------------------------------------------------------------------------------------------------ #
 
-    # ------------------------------------------- Produce relative elevation model ------------------------------------------- #
+    # --------------------------------- Produce relative elevation model ----------------------------------- #
     @njit
     def calculate_rem(flat_dem, catchmentMinDict, flat_catchments, ndv):
         rem_window = np.zeros(len(flat_dem), dtype=np.float32)
@@ -108,7 +111,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
     dem_rasterio_object.close()
     pixel_catchments_rasterio_object.close()
     rem_rasterio_object.close()
-    # ------------------------------------------------------------------------------------------------------------------------ #
+    # ------------------------------------------------------------------------------------------------------ #
 
 
 if __name__ == '__main__':

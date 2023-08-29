@@ -157,12 +157,12 @@ def identify_small_reaches(stream_network, min_catchment_area=None, min_stream_l
                         (stream_network['NextDownID'] == short_id) & (stream_network['order_'] == max_order)
                     ]['HydroID'].item()
 
+                # get the first one (same stream order, without drainage area info
+                # it is hard to know which is the main channel)
                 else:
                     update_id = stream_network.loc[
                         (stream_network['NextDownID'] == short_id) & (stream_network['order_'] == max_order)
-                    ]['HydroID'].values[
-                        0
-                    ]  # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
+                    ]['HydroID'].values[0]
 
             # single upstream segments
             elif len(stream_network.loc[stream_network['NextDownID'] == short_id]['HydroID']) == 1:
@@ -187,12 +187,12 @@ def identify_small_reaches(stream_network, min_catchment_area=None, min_stream_l
                         (stream_network.From_Node == to_node) & (stream_network['order_'] == max_order)
                     ]['HydroID'].item()
 
+                # get the first one (same stream order, without drainage area info it is hard to know
+                # which is the main channel)
                 else:
                     update_id = stream_network.loc[
                         (stream_network.From_Node == to_node) & (stream_network['order_'] == max_order)
-                    ]['HydroID'].values[
-                        0
-                    ]  # get the first one (same stream order, without drainage area info it is hard to know which is the main channel)
+                    ]['HydroID'].values[0]
 
             # no upstream segments; single downstream segment
             elif len(stream_network.loc[stream_network.From_Node == to_node]['HydroID']) == 1:
@@ -207,7 +207,11 @@ def identify_small_reaches(stream_network, min_catchment_area=None, min_stream_l
                 ignore_index=True,
             )
 
-    # print("Number of short reaches [{} < {} and {} < {}] = {}".format("areasqkm", min_catchment_area, "LengthKm", min_stream_length, len(sml_segs)))
+    # print(
+    #     "Number of short reaches [{} < {} and {} < {}] = {}".format(
+    #         "areasqkm", min_catchment_area, "LengthKm", min_stream_length, len(sml_segs)
+    #     )
+    # )
 
     return sml_segs
 

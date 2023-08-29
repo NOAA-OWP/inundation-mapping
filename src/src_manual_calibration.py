@@ -130,7 +130,8 @@ def manual_calibration(fim_directory: str, calibration_file: str):
 
         else:
             raise ValueError(
-                f'Manual calibration coefficients must be greater than 0. Minimum value found: {manual_calib_df["calb_coef_manual"].min()}'
+                'Manual calibration coefficients must be greater than 0. Minimum value found: '
+                f'{manual_calib_df["calb_coef_manual"].min()}'
             )
 
     else:

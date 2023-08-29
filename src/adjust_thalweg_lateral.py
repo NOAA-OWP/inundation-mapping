@@ -20,7 +20,7 @@ def adjust_thalweg_laterally(
     dem_lateral_thalweg_adj,
     lateral_elevation_threshold,
 ):
-    # ------------------------------------------- Get catchment_min_dict --------------------------------------------------- #
+    # ------------------------------------ Get catchment_min_dict ----------------------------------------- #
     # The following algorithm searches for the zonal minimum elevation in each pixel catchment
     @njit
     def make_zone_min_dict(elevation_window, zone_min_dict, zone_window, cost_window, cost_tolerance, ndv):
@@ -32,15 +32,16 @@ def adjust_thalweg_laterally(
             if cost_window[i] <= cost_tolerance:
                 if elevation_window[i] > 0:  # Don't allow bad elevation values
                     if elev_m in zone_min_dict:
+                        # If the elevation_window's elevation value is less than the zone_min_dict min,
+                        # update the zone_min_dict min.
                         if elevation_window[i] < zone_min_dict[elev_m]:
-                            # If the elevation_window's elevation value is less than the zone_min_dict min, update the zone_min_dict min.
                             zone_min_dict[elev_m] = elevation_window[i]
                     else:
                         zone_min_dict[elev_m] = elevation_window[i]
 
         return zone_min_dict
 
-    # ------------------------------------------- Assign zonal min to thalweg ------------------------------------------------ #
+    # ------------------------------------ Assign zonal min to thalweg ------------------------------------ #
     @njit
     def minimize_thalweg_elevation(dem_window, zone_min_dict, zone_window, thalweg_window):
         # Copy elevation values into new array that will store the minimized elevation values.
@@ -100,7 +101,7 @@ def adjust_thalweg_laterally(
                     ndv,
                 )
 
-            # ------------------------------------------------------------------------------------------------------------------------ #
+            # --------------------------------------------------------------------------------------------- #
 
         # Specify raster object metadata.
         with rasterio.open(stream_raster) as thalweg_object, rasterio.open(

@@ -665,8 +665,9 @@ class StreamNetwork(gpd.GeoDataFrame):
                     ]
                     # matching_value = comparison_function(upstream_reaches_compare_values)
 
-                    # ==================================================================================
-                    # If the two stream orders aren't the same, then follow the highest order, otherwise use arbolate sum
+                    # ======================================================================================
+                    # If the two stream orders aren't the same, then follow the highest order, otherwise use
+                    #   arbolate sum
                     if (
                         upstream_reaches_compare_values.idxmax()['order_']
                         == upstream_reaches_compare_values.idxmin()['order_']
@@ -688,17 +689,21 @@ class StreamNetwork(gpd.GeoDataFrame):
                         self.loc[new_up_id, branch_id_attribute] = branch_id
                         bid += 1
                     # ==================================================================================
-                    ''' NOTE: The above logic uses stream order to override arbolate sum. Use the commented section
-                     below if this turns out to be a bad idea!'''
-                    # matches = 0 # if upstream matches are more than 1, limits to only one match
-                    # for usrcv,nvus in zip(upstream_reaches_compare_values,not_visited_upstream_ids):
-                    #    if (usrcv == matching_value) & (matches == 0):
-                    #        self.at[nvus,branch_id_attribute] = current_reach_branch_id
-                    #        matches += 1
-                    #    else:
-                    #        branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
-                    #        self.at[nvus,branch_id_attribute] = branch_id
-                    #        bid += 1
+                    '''
+                    NOTE: The above logic uses stream order to override arbolate sum. Use the commented
+                    section below if this turns out to be a bad idea!
+                     '''
+                    # matches = 0  # if upstream matches are more than 1, limits to only one match
+                    # for usrcv, nvus in zip(upstream_reaches_compare_values, not_visited_upstream_ids):
+                    #     if (usrcv == matching_value) & (matches == 0):
+                    #         self.at[nvus, branch_id_attribute] = current_reach_branch_id
+                    #         matches += 1
+                    #     else:
+                    #         branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(
+                    #             max_branch_id_digits
+                    #         )
+                    #         self.at[nvus, branch_id_attribute] = branch_id
+                    #         bid += 1
 
         progress.close()
 
@@ -864,13 +869,13 @@ class StreamNetwork(gpd.GeoDataFrame):
             if verbose:
                 print("Writing dissolved branches ...")
 
-            # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
-            # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
+            # for bid in tqdm(self.loc[:, branch_id_attribute], total=len(self), disable=(not verbose)):
+            #     out_vector_file = "{}_{}{}".format(base_file_path, bid, extension)
 
-            # bid_indices = self.loc[:,branch_id_attribute] == bid
-            # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
+            # bid_indices = self.loc[:, branch_id_attribute] == bid
+            # current_stream_network = StreamNetwork(self.loc[bid_indices, :])
 
-            # current_stream_network.write(out_vector_file,index=False)
+            # current_stream_network.write(out_vector_file, index=False)
             self.write(out_vector_files, index=False)
 
         return self
