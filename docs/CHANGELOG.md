@@ -9,10 +9,11 @@ Adds functionality to `tools/inundate_mosaic_wrapper.py` and incorporates functi
 ### Changes
 
 - `tools/`
-    - inundate_mosaic_wrapper.py`: Refactors to call `Inundate_gms` only once; adds functionality to produce a mosaicked polygon from `depths_raster` without needing to generate the `inundation_raster`; removes `log_file` and `output_fileNames` as variables and input arguments; updates the help description for `keep_intermediate`.
+    - `inundate_mosaic_wrapper.py`: Refactors to call `Inundate_gms` only once; adds functionality to produce a mosaicked polygon from `depths_raster` without needing to generate the `inundation_raster`; removes `log_file` and `output_fileNames` as variables and input arguments; updates the help description for `keep_intermediate`.
     - `composite_inundation.py`, 'inundate_nation.py`, and `run_test_case.py`: Implements `produce_mosaicked_inundation()` from `tools/inundate_mosaic_wrapper.py`.
     - `inundate_gms.py`: Adds back `Inundate_gms(**vars(parser.parse_args()))` command-line function call.
-    - `tools_shared_variables.py`: Change hardcoded `INPUT_DIR` to environment variable.
+    - `mosaic_inundation.py` and `overlapping_inundation.py`: Removes unused import(s).
+    - `tools_shared_variables.py`: Changes hardcoded `INPUT_DIR` to environment variable.
 
 <br/><br/>
 

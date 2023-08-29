@@ -27,16 +27,10 @@ from utils.shared_functions import FIM_Helpers as fh
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
-def inundate_nation(
-    fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosaic, job_number
-):
-    assert os.path.isdir(
-        fim_run_dir
-    ), f"ERROR: could not find the input fim_dir location: {fim_run_dir}"
+def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosaic, job_number):
+    assert os.path.isdir(fim_run_dir), f"ERROR: could not find the input fim_dir location: {fim_run_dir}"
 
-    assert os.path.exists(
-        flow_file
-    ), f"ERROR: could not find the flow file: {flow_file}"
+    assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
     if job_number > available_cores:
         job_number = available_cores - 1
@@ -67,10 +61,7 @@ def inundate_nation(
     magnitude_output_dir = os.path.join(output_dir, output_base_file_name)
 
     if not os.path.exists(magnitude_output_dir):
-        print(
-            "Creating new output directory for raw mosaic files: "
-            + magnitude_output_dir
-        )
+        print("Creating new output directory for raw mosaic files: " + magnitude_output_dir)
         os.mkdir(magnitude_output_dir)
     else:
         # we need to empty it. we will kill it and remake it (using rmtree to force it)
@@ -126,9 +117,6 @@ def inundate_nation(
             print(msg)
             logging.info(msg)
 
-        # Perform VRT creation and final mosaic using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name)
-
         # now cleanup the raw mosiac directories
         shutil.rmtree(output_bool_dir, ignore_errors=True)
 
@@ -159,14 +147,9 @@ def run_inundation(args):
 
     # Define file paths for use in inundate().
 
-    inundation_raster = os.path.join(
-        magnitude_output_dir, magnitude + "_inund_extent.tif"
-    )
+    inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
 
-    print(
-        "Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: "
-        + str(magnitude)
-    )
+    print("Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: " + str(magnitude))
 
     produce_mosaicked_inundation(
         fim_run_dir,
@@ -206,44 +189,8 @@ def create_bool_rasters(args):
         dtype="int8",
         compress="lzw",
     )
-    with rasterio.open(
-        output_bool_dir + os.sep + "bool_" + rasfile, "w", **profile
-    ) as dst:
+    with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, "w", **profile) as dst:
         dst.write(array.astype(rasterio.int8))
-
-
-def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
-    # NOTE: Oct 2022.. we no longer need the VRT, only the large mosaic'd raster.
-    # this code is about to be deprecated, so we will leave it as is.
-
-    rasters_to_mosaic = []
-    for rasfile in os.listdir(output_bool_dir):
-        if rasfile.endswith(".tif") and "extent" in rasfile:
-            p = output_bool_dir + os.sep + rasfile
-            print("Processing: " + p)
-            rasters_to_mosaic.append(p)
-
-    logging.info(fh.print_current_date_time())
-    output_mosiac_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
-    print("Creating virtual raster: " + output_mosiac_vrt)
-    logging.info("Creating virtual raster: " + output_mosiac_vrt)
-    vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
-
-    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
-    print("Building raster mosaic: " + output_mosiac_raster)
-    logging.info("Building raster mosaic: " + output_mosiac_raster)
-    print(
-        "This can take a number of hours, watch 'docker stats' cpu value to ensure the process"
-        "to ensure the process is still working"
-    )
-    gdal.Translate(
-        output_mosiac_raster,
-        vrt,
-        xRes=10,
-        yRes=-10,
-        creationOptions=["COMPRESS=LZW", "TILED=YES", "PREDICTOR=2"],
-    )
-    vrt = None
 
 
 def __setup_logger(output_folder_path, log_file_name_key):
@@ -253,9 +200,7 @@ def __setup_logger(output_folder_path, log_file_name_key):
 
     log_file_path = os.path.join(output_folder_path, log_file_name)
 
-    logging.basicConfig(
-        filename=log_file_path, level=logging.DEBUG, format="%(message)s"
-    )
+    logging.basicConfig(filename=log_file_path, level=logging.DEBUG, format="%(message)s")
 
     # yes.. this can do console logs as well, but it can be a bit unstable and ugly
 
