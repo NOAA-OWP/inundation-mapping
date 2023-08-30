@@ -24,11 +24,12 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
 
     # Test Cases:
 
+    # TODO New Test Case to check that files were being created on the file system
+
     def test_subset_vector_layers_success(self):
         """
-        This NEEDS be upgraded to check the output, as well as the fact that all of the output files exist as expected.
+        This NEEDS be upgraded to check the output, as well as the fact that all of the output files exist.
         Most of the output test and internal tests with this function will test a wide variety of conditions.
-        For subcalls to other py classes will not exist in this file, but the unittest file for the other python file.
         Only the basic return output value should be tested to ensure it is as expected.
         For now, we are adding the very basic "happy path" test.
         """
@@ -36,8 +37,6 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
         params = self.params["valid_data"].copy()
 
         # There is no default return value.
-        # Later we need to check in this function that files were being created on the file system
-
         # For now we are happy if no exceptions are thrown.
         try:
             src.subset_vector_layers(

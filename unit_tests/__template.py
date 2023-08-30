@@ -38,15 +38,16 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
 
         # global params_file
         params = self.params[
+            # update "valid_data" value if you need to (aka.. more than one node)
             "valid_data"
-        ].copy()  # update "valid_data" value if you need to (aka.. more than one node)
+        ].copy()
 
         # for now we are happy if no exceptions are thrown.
 
         # See the readme.md, clip_vectors_to_wbd_test.py or gms/derive_level_paths_test.py for examples.
         # Replace this stub example with your own.
         # Try to use the same order to make it easier.
-        # Remember, if the method accepts **params, then you can sent that in here as well.
+        # Remember, if the method accepts **params, then you can send that in here as well.
         # ie: my_py_class.my_method(** params)
 
         src.subset_vector_layers(
@@ -56,21 +57,22 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
             etc2=params["a_list"],
         )
 
-        # This is what we are actually testing-
-        # An assert that evaluates as True passes, one that evaluates to False fails.
-        # A message (string) can be added after the assert statement to provide detail on the case being tested, and
-        # why it failed.
+        # The assert statement is what we are acutally testing, one that evaluates as True passes,
+        # and one that evaluates to False fails.
+        # A message (string) can be added after the assert statement to provide detail on
+        # the case being tested, and why it failed.
+
         assert os.path.exists(params["nwm_streams"]) is True, "The nwm_streams file does not exist"
 
-    # EXAMPLE SUCCESSFUL TEST CASE WHICH CAPTURES AN EXCEPTION (FAILURE)
-
+    # EXAMPLE OF A SUCCESSFUL TEST CASE WHICH CAPTURES AN EXCEPTION (FAILURE)
     def test_subset_vector_layers_fail_invalid_stream_path(self):
         """
         Notes about what the test is and the expected results (or expected exception if applicable)
         """
 
         params = self.params[
-            "valid_data"  # update "valid_data" value if you need to (aka.. more than one node)
+            # update "valid_data" value if you need to (aka.. more than one node)
+            "valid_data"
         ].copy()
 
         params["nwm_streams"] = "/some/bad/path/"

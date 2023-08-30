@@ -30,14 +30,14 @@ class test_Derive_level_paths(unittest.TestCase):
     def test_Derive_level_paths_success_all_params(self):
         """
         This test includes all params with many optional parms being set to the default value of the function
+        Notes:
+            Other params such as toNode_attribute and fromNode_attribute are defaulted and not passed into
+            __main__ , so we skip them here.
+            Returns GeoDataframe (the nwm_subset_streams_levelPaths_dissolved.gpkg)
         """
 
         params = self.params["valid_data"].copy()
 
-        # Notes:
-        # Other params such as toNode_attribute and fromNode_attribute are defaulted and not passed into __main__ ,
-        # so we skip them here.
-        # Returns GeoDataframe (the nwm_subset_streams_levelPaths_dissolved.gpkg)
         actual_df = Derive_level_paths(
             in_stream_network=params["in_stream_network"],
             buffer_wbd_streams=params["buffer_wbd_streams"],
@@ -81,7 +81,7 @@ class test_Derive_level_paths(unittest.TestCase):
             os.path.exists(params["branch_inlets_outfile"]) is True
         ), f"Expected file {params['branch_inlets_outfile']} but it does not exist."
 
-    # Invalid Input stream for demo purposes. Normally, you would not have this basic of a test (input validation).
+    # Invalid Input stream for demo purposes.
     def test_Derive_level_paths_invalid_input_stream_network(self):
         # NOTE: As we are expecting an exception, we use pytest.raises(Exception).
 

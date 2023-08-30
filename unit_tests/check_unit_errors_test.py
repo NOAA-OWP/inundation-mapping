@@ -166,7 +166,7 @@ class test_check_unit_errors(unittest.TestCase):
             Note.. it is possible the temp folder does not exist,
             but we don't need to error out on it. Sometimes we got here by a try/catch cleanup
         Input:
-            output_folder: the root output folder (ie. /data/outputs/fim_unit_test_data_do_not_remove/)
+            output_folder: the root output folder (ie. /data/outputs/unit_test_data/)
         Returns:
             nothing
         """

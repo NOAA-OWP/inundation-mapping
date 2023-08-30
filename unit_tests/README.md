@@ -4,7 +4,7 @@ Flood inundation mapping software configured to work with the U.S. National Wate
 
 #### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/inundation-mapping/wiki).
 
-# This folder (`/unit_tests`) holds files for unit testing python files
+# The `/unit_tests` folder contains files for unit testing python files
 
 ## Creating unit tests
 
@@ -29,7 +29,19 @@ One way is to use the incoming arg parser. Most python files include the code bl
 
 ## Setting up unit test data
 
-Start a docker container as you normally would for any development.
+You can either pull the unit test data from s3, or generate it:
+
+1.) To pull the unit test data from ESIP's S3 bucket.
+```bash
+aws s3 cp --recursive \
+	s3://noaa-nws-owp-fim/hand_fim/unit_test_data/ \
+	<data/outputs/unit_test_data> --no-sign-request
+```
+The directory which the data is copied into must be named: `unit_test_data`
+
+2.) To generate the required unit test data, following these steps:
+
+* Start a docker container as you normally would for any development.
 ```bash
 docker run --rm -it --name <a docker container name> \
 	-v /home/<your name>/projects/<folder path>/:/foss_fim \
@@ -44,24 +56,24 @@ docker run --rm -it --name mytest \
 	-v /abcd_share/foss_fim/outputs_temp/:/fim_temp \
 	fim_4:dev_20220208_8eba0ee
 ```
-
-For unit tests to work, you need to run the following (if not already in place).
-Notice a modified branch "deny_branch_unittests.lst"  (special for unittests)
-
-Here are the params and args you need if you need to re-run unit and branch
-
+* Call the `fim_pipeline.sh` script with the necessary arguments.
 ```bash
-fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u "02020005 05030104" \
-	-bd /foss_fim/config/deny_branch_unittests.lst -ud None -j 1 -o
+fim_pipeline.sh -n unit_test_data -u "02020005 05030104" \
+	-bd /foss_fim/config/deny_branch_unittests.lst \
+	-ud None -j 1 -o
 ```
 
-**NOTICE: the deny file used for fim_pipeline.sh, has a special one for unittests `deny_branch_unittests.lst`.
+__NOTICE:__ the deny file used for fim_pipeline.sh, has a special one for unittests `deny_branch_unittests.lst`.
 
-If you need to run inundation tests, fun the following:
+* If you need to run inundation tests, fun the following:
 
 ```bash
-python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_not_remove \
-	-jh 1 -jb 1 -m /data/outputs/fim_unit_test_data_do_not_remove/alpha_test_metrics.csv -o
+python3 foss_fim/tools/synthesize_test_cases.py \
+	-c DEV \
+	-v unit_test_data \
+	-jh 1 -jb 1 \
+	-m /data/outputs/unit_test_data/alpha_test_metrics.csv \
+	-o
 ```
 
 ## Running unit tests
@@ -71,7 +83,7 @@ python3 foss_fim/tools/synthesize_test_cases.py -c DEV -v fim_unit_test_data_do_
 pytest /foss_fim/unit_tests
 ```
 
-This is not 100% stable, as accurate paths for the parameters `.json` files are not included in this repository, are not uniform accross machines, and are subject to change.
+__NOTE:__ This is subject to error, as the downloaded/generated data could potentially have a different path than what is specified in the `/unit_tests/*_params.json` files. The data files are not included in this repository, are potentially not uniform accross machines, and are subject to change.
 
 ### If you want to test just one unit test (from the root terminal window):
 
@@ -108,14 +120,14 @@ If one test case is choosen, it will scan all of the test files, and scan for th
 9) Sometimes you may want to run a full successful "happy path" version through `fim_pipeline.sh` (or similar), to get all of the files you need in place to do your testing. However, you will want to ensure that none of the outputs are being deleted during the test. One way to solve this is to put in an invalid value for the `-d` parameter (denylist).
 ie:
 	```bash
-	fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 \
+	fim_pipeline.sh -n unit_test_data -u 05030104 \
 		-c /foss_fim/config/params_template.env -j 1 -d /foss_fim/config/deny_unit_default.lst -o
 	```
 
 	 but ours would be:
 
 	```bash
-	fim_pipeline.sh -n fim_unit_test_data_do_not_remove -u 05030104 \
+	fim_pipeline.sh -n unit_test_data -u 05030104 \
 		-c /foss_fim/config/params_template.env -j 1 -d no_list -o
 	```
 
@@ -139,4 +151,4 @@ An example is in `unit_tests/Derive_level_paths_test.py` -> `test_Derive_level_p
 ## Future Enhancements
 1) Full transition to the `pytest` library, removing classes of `unittest.TestCase` and taking full advantage of available code re-use patterns offered through `pytest`.
 
-2) Over time, it is expected that python files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each python file which makes unit testing harder and less specific. Generally function will result in at least one "happy path" unit test function. This might require having test unit test outputs, such as sample .tif or small .gpkg files in subfolders in the unit tests folder, but this remains to be seen. Note: The files `/derive_level_paths_test.py` and `clip_vectors_to_wbd_test.py` are not complete as they do not yet test all output from a method.
+2) Over time, it is expected that python files will be broken down to many functions inside the file. Currently, we tend to have one very large function in each python file which makes unit testing harder and less specific. Generally, one function will correlated to at least one "happy path" unit test function. Note: The files `derive_level_paths_test.py` and `clip_vectors_to_wbd_test.py` are not complete as they do not yet test all output from a method.

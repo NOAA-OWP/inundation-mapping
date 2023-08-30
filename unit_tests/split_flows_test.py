@@ -26,9 +26,9 @@ class test_split_flows(unittest.TestCase):
     # Ensure split_flows_filename & split_points_filename are created by the split_flows function
     def test_split_flows_success(self):
         """
-        The /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/
+        The /data/outputs/unit_test_data/<huc>/branches/<branchid>/
             demDerived_reaches_split_<branchid>.gpkg and
-        /data/outputs/fim_unit_test_data_do_not_remove/<huc>/branches/<branchid>/
+        /data/outputs/unit_test_data/<huc>/branches/<branchid>/
             demDerived_reaches_split_points_<branchid>.gpkg
         should not exit prior to this test. If the test is successful, these files will be created.
         """
