@@ -375,7 +375,9 @@ def generate_catfim_flows(
     viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
 
     # Filter out columns and write out to file
-    #    viz_out_gdf = viz_out_gdf.filter(['nws_lid','usgs_gage','nwm_seg','HUC8','mapped','status','geometry'])
+    # viz_out_gdf = viz_out_gdf.filter(
+    #     ['nws_lid', 'usgs_gage', 'nwm_seg', 'HUC8', 'mapped', 'status', 'geometry']
+    # )
     nws_lid_layer = os.path.join(workspace, 'nws_lid_sites.gpkg').replace('flows', 'mapping')
 
     viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')

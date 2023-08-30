@@ -33,13 +33,13 @@ Brad Bates (NOAA, Lynker, and the National Water Center, bradford.bates@noaa.gov
 Derived from a Python version of a zonal statistics function written by Matthew Perry (@perrygeo).
 
 Description: This script isolates the number of pixels per class of a raster within the outlines of
-one or more polygons and displays them in a table. It accomplishes this by rasterizing the vector file,
-masking out the desired areas of both rasters, and then summarizing them in a dataframe. It makes use
-of the gdal, numpy, and pandas function libraries.
+    one or more polygons and displays them in a table. It accomplishes this by rasterizing the vector file,
+    masking out the desired areas of both rasters, and then summarizing them in a dataframe. It makes use
+    of the gdal, numpy, and pandas function libraries.
 Inputs: one raster file with at least one set of attributes; one vector file containing one or more polygon
-boundaries
+    boundaries
 Output: a dataframe table with rows displayed by each polygon within the vector file, and columns
-displaying the pixel count of each raster attribute class in the polygon
+    displaying the pixel count of each raster attribute class in the polygon
 '''
 
 
@@ -159,7 +159,8 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
             print(repr(e))
             continue
 
-        # Creates an in-memory numpy array of the source raster data covering the whole extent of the vector layer
+        # Creates an in-memory numpy array of the source raster data covering
+        #   the whole extent of the vector layer
         if global_src_extent:
             # use global source extent
             # useful only when disk IO or raster scanning inefficiencies are your limiting factor
@@ -215,7 +216,8 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
             gdal.RasterizeLayer(rvds, [1], mem_layer, burn_values=[1])
             rv_array = rvds.ReadAsArray()
 
-            # Mask the source data array with our current feature and get statistics (pixel count) of masked areas
+            # Mask the source data array with our current feature and get statistics (pixel count)
+            #   of masked areas
             # we take the logical_not to flip 0<->1 to get the correct mask effect
             # we also mask out nodata values explictly
             if src_array is None:

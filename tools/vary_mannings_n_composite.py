@@ -89,7 +89,8 @@ def variable_mannings_calc(args):
                     inplace=True,
                 )  # drop these cols (in case vmann was previously performed)
 
-            ## Merge (crosswalk) the df of Manning's n with the SRC df (using the channel/fplain delination in the channel_ratio_src_column)
+            ## Merge (crosswalk) the df of Manning's n with the SRC df
+            #   (using the channel/fplain delination in the channel_ratio_src_column)
             df_src = df_src.merge(df_mann, how='left', on='feature_id')
             check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
             if check_null > 0:
@@ -104,7 +105,8 @@ def variable_mannings_calc(args):
                     + '\n'
                 )
 
-            ## Calculate composite Manning's n using the channel geometry ratio attribute given by user (e.g. chann_hradius_ratio or chann_vol_ratio)
+            ## Calculate composite Manning's n using the channel geometry ratio attribute given by user
+            #   (e.g. chann_hradius_ratio or chann_vol_ratio)
             df_src['comp_ManningN'] = (df_src[channel_ratio_src_column] * df_src['channel_n']) + (
                 (1.0 - df_src[channel_ratio_src_column]) * df_src['overbank_n']
             )
@@ -132,7 +134,8 @@ def variable_mannings_calc(args):
             wet_area = 'WetArea (m2)'
 
             ## Calculate Q using Manning's equation
-            # df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True) # rename the previous Discharge column
+            # Uncomment below to rename the previous Discharge column
+            # df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True)
             df_src['Discharge (m3s-1)_varMann'] = (
                 df_src[wet_area]
                 * pow(df_src[hydr_radius], 2.0 / 3)
@@ -141,10 +144,14 @@ def variable_mannings_calc(args):
             )
 
             ## Set Q values to 0 and -999 for specified criteria (thalweg notch check happens in BARC)
-            # df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0,0,inplace=True)
+            # df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0, 0, inplace=True)
             # if 'Thalweg_burn_elev' in df_src:
-            #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == df_src['Thalweg_burn_elev'],0,inplace=True)
-            #     df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] < df_src['Thalweg_burn_elev'],-999,inplace=True)
+            #     df_src['Discharge (m3s-1)_varMann'].mask(
+            #         df_src['Stage'] == df_src['Thalweg_burn_elev'], 0, inplace=True
+            #     )
+            #     df_src['Discharge (m3s-1)_varMann'].mask(
+            #         df_src['Stage'] < df_src['Thalweg_burn_elev'], -999, inplace=True
+            #     )
 
             ## Use the default discharge column when vmann is not being applied
             df_src['Discharge (m3s-1)_varMann'] = np.where(
@@ -259,22 +266,32 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.savefig(plt_out_dir + os.sep + str(hydroid) + '_vmann.png', dpi=175, bbox_inches='tight')
         plt.close()
 
+    # for hydroid in hydroids:
+    #     print("Creating SRC plot: " + str(hydroid))
+    #     plot_df = df_src.loc[df_src['HydroID'] == hydroid]
 
-#    for hydroid in hydroids:
-#        print("Creating SRC plot: " + str(hydroid))
-#        plot_df = df_src.loc[df_src['HydroID'] == hydroid]
-#
-#        f, ax = plt.subplots(figsize=(6.5, 6.5))
-#        ax.set_title(str(hydroid))
-#        sns.despine(f, left=True, bottom=True)
-#        sns.scatterplot(x='comp_ManningN', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
-#        #sns.scatterplot(x='Discharge (m3s-1)_varMann', y='Stage', data=plot_df, label="SRC w/ vMann", ax=ax, color='orange')
-#        sns.lineplot(x='comp_ManningN', y='Stage_1_5', data=plot_df, color='green', ax=ax)
-#        plt.fill_between(plot_df['comp_ManningN'], plot_df['Stage_1_5'],alpha=0.5)
-#        plt.text(plot_df['comp_ManningN'].median(), plot_df['Stage_1_5'].median(), "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()))
-#        ax.legend()
-#        plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png',dpi=175, bbox_inches='tight')
-#        plt.close()
+    #     f, ax = plt.subplots(figsize=(6.5, 6.5))
+    #     ax.set_title(str(hydroid))
+    #     sns.despine(f, left=True, bottom=True)
+    #     sns.scatterplot(x='comp_ManningN', y='Stage', data=plot_df, label="Orig SRC", ax=ax, color='blue')
+    #     # sns.scatterplot(
+    #     #     x='Discharge (m3s-1)_varMann',
+    #     #     y='Stage',
+    #     #     data=plot_df,
+    #     #     label="SRC w/ vMann",
+    #     #     ax=ax,
+    #     #     color='orange',
+    #     # )
+    #     sns.lineplot(x='comp_ManningN', y='Stage_1_5', data=plot_df, color='green', ax=ax)
+    #     plt.fill_between(plot_df['comp_ManningN'], plot_df['Stage_1_5'], alpha=0.5)
+    #     plt.text(
+    #         plot_df['comp_ManningN'].median(),
+    #         plot_df['Stage_1_5'].median(),
+    #         "NWM 1.5yr: " + str(plot_df['Stage_1_5'].median()),
+    #     )
+    #     ax.legend()
+    #     plt.savefig(plt_out_dir + os.sep + str(hydroid) + '.png', dpi=175, bbox_inches='tight')
+    #     plt.close()
 
 
 def multi_process(variable_mannings_calc, procs_list, log_file, verbose):
@@ -357,22 +374,16 @@ def run_prep(
                         )
                     else:
                         print(
-                            'HUC: '
-                            + str(huc)
-                            + '  branch id: '
-                            + str(branch_id)
-                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: '
-                            + str(branch_dir)
-                            + ' - skipping this branch!!!\n'
+                            f'HUC: {huc} branch id: {branch_id}'
+                            '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                            f'or hydroTable_*.csv) in the fim output dir: {branch_dir}'
+                            ' - skipping this branch!!!\n'
                         )
                         log_file.write(
-                            'HUC: '
-                            + str(huc)
-                            + '  branch id: '
-                            + str(branch_id)
-                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv or hydroTable_*.csv) in the fim output dir: '
-                            + str(branch_dir)
-                            + ' - skipping this branch!!!\n'
+                            f'HUC: {huc} branch id: {branch_id}'
+                            '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                            f'or hydroTable_*.csv) in the fim output dir: {branch_dir}'
+                            ' - skipping this branch!!!\n'
                         )
 
         ## Pass huc procs_list to multiprocessing function
@@ -388,7 +399,8 @@ def run_prep(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Vary the Manning's n values for in-channel vs. floodplain (recalculate Manning's eq for Discharge)"
+        description="Vary the Manning's n values for in-channel vs. floodplain "
+        "(recalculate Manning's eq for Discharge)"
     )
     parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(

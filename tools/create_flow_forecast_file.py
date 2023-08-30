@@ -17,7 +17,18 @@ def create_flow_forecast_file(
     nwm_feature_id_field='ID',
 ):
     '''
-    This function will create a forecast flow file using ble data. It will import the ble XS layer and will intersect it with a nwm streams layer. It will the perform an intersection with the BLE XS layer and the nwm river layer. It will then calculate the median flow for the 100 and 500 year events for each nwm segment and convert flow from CFS to CMS. Individual forecast files (.csv) will be created  with two columns (nwm segment ID and Flow (CMS)) for the 100 year and the 500 year event. Flow field names are set to the default field names within the BLE submittal. As differing versions of the NWM river layer have different names for the ID field, this field will need to be specified as an argument to the function. Output flow forecast files will be automatically named to be compatible with current FIM code and will be written out in specific folder structures.
+    This function will create a forecast flow file using ble data.
+    It will import the ble XS layer and will intersect it with a nwm streams layer.
+    It will the perform an intersection with the BLE XS layer and the nwm river layer.
+    It will then calculate the median flow for the 100 and 500 year events for each nwm segment and
+        convert flow from CFS to CMS.
+    Individual forecast files (.csv) will be created  with two columns (nwm segment ID and Flow (CMS))
+        for the 100 year and the 500 year event.
+    Flow field names are set to the default field names within the BLE submittal.
+    As differing versions of the NWM river layer have different names for the ID field, this field will need
+        to be specified as an argument to the function.
+    Output flow forecast files will be automatically named to be compatible with current FIM code and
+        will be written out in specific folder structures.
 
     Parameters
     ----------
@@ -32,9 +43,11 @@ def create_flow_forecast_file(
     ble_huc_layer_name : STRING
        The huc layer in the ble geodatabase.  Default is 'S_HUC_Ar' (sometimes it is 'S_HUC_ar' )
     ble_huc_id_field : STRING
-       The attribute field within the ble_huc_layer_name containing the huc code. Default is 'HUC_CODE'. Assumes only 1 unique code.
+       The attribute field within the ble_huc_layer_name containing the huc code. Default is 'HUC_CODE'.
+       Assumes only 1 unique code.
     nwm_stream_layer_name : STRING
-       The stream centerline layer name (or partial layer name) for the NWM geodatabase.  Default is 'RouteLink_FL_2020_04_07'.
+       The stream centerline layer name (or partial layer name) for the NWM geodatabase.
+       Default is 'RouteLink_FL_2020_04_07'.
     nwm_feature_id_field : STRING
        The feature id of the nwm segments.  Default is 'ID' (applicable if nwmv2.1 is used)
     Returns
@@ -45,24 +58,28 @@ def create_flow_forecast_file(
     # Read the ble xs layer into a geopandas dataframe.
     xs_layer = gpd.read_file(ble_geodatabase, layer=ble_xs_layer_name)
 
-    # Read ble huc layer into a geopandas dataframe and extract the huc code. By default it assumes only one HUC in the layer (typically always the case).
+    # Read ble huc layer into a geopandas dataframe and extract the huc code.
+    # By default it assumes only one HUC in the layer (typically always the case).
     huc_layer = gpd.read_file(ble_geodatabase, layer=ble_huc_layer_name)
     [huc] = huc_layer[ble_huc_id_field].unique()
 
-    # Read in the NWM stream layer into a geopandas dataframe using the bounding box option based on the extents of the BLE XS layer.
+    # Read in the NWM stream layer into a geopandas dataframe using the bounding box option based on
+    #   the extents of the BLE XS layer.
     nwm_river_layer = gpd.read_file(nwm_geodatabase, bbox=xs_layer, layer=nwm_stream_layer_name)
 
     # Make sure xs_layer is in same projection as nwm_river_layer.
     xs_layer_proj = xs_layer.to_crs(nwm_river_layer.crs)
 
-    # Perform an intersection of the BLE layers and the NWM layers, using the keep_geom_type set to False produces a point output.
+    # Perform an intersection of the BLE layers and the NWM layers, using the keep_geom_type set to
+    #   False produces a point output.
     intersection = gpd.overlay(xs_layer_proj, nwm_river_layer, how='intersection', keep_geom_type=False)
 
     ## Create the flow forecast files
     # Define fields containing flow (typically these won't change for BLE)
     flow_fields = ['E_Q_01PCT', 'E_Q_0_2PCT']
 
-    # Define return period associated with flow_fields (in same order as flow_fields). These will also serve as subdirectory names.
+    # Define return period associated with flow_fields (in same order as flow_fields).
+    # These will also serve as subdirectory names.
     return_period = ['100yr', '500yr']
 
     # Conversion factor from CFS to CMS
@@ -98,7 +115,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-b',
         '--ble-geodatabase',
-        help='BLE geodatabase (.gdb file extension). Will look for layer with "XS" in name. It is assumed the 100 year flow field is "E_Q_01PCT" and the 500 year flow field is "E_Q_0_2_PCT" as these are the default field names.',
+        help='BLE geodatabase (.gdb file extension). Will look for layer with "XS" in name.'
+        'It is assumed the 100 year flow field is "E_Q_01PCT" and the 500 year flow field is "E_Q_0_2_PCT"'
+        'as these are the default field names.',
         required=True,
     )
     parser.add_argument(
@@ -107,7 +126,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-o',
         '--output-parent-dir',
-        help='Output directory where forecast files will be stored. Two subdirectories are created (100yr and 500yr) and in each subdirectory a forecast file is written',
+        help='Output directory where forecast files will be stored. Two subdirectories are created (100yr and 500yr)'
+        'and in each subdirectory a forecast file is written',
         required=True,
     )
     parser.add_argument(

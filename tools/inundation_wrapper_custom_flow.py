@@ -90,7 +90,8 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
     if not os.path.isfile(forecast):
         print('Can not find input flow file: ' + str(forecast))
 
-    # Copy forecast flow file into the outputs directory to all viewer to reference the flows used to create inundation_raster
+    # Copy forecast flow file into the outputs directory to all viewer to reference the flows used
+    #   to create inundation_raster
     shutil.copyfile(forecast, os.path.join(branch_test_case_dir_parent, input_flow_csv))
 
     # Run inundate.
@@ -123,18 +124,21 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, input_flow_csv, mask_type=
 if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(
-        description='Inundation mapping for FOSS FIM using a user supplied flow data file. Inundation outputs are stored in the /inundation_review/inundation_custom_flow/ directory.'
+        description='Inundation mapping for FOSS FIM using a user supplied flow data file. '
+        'Inundation outputs are stored in the /inundation_review/inundation_custom_flow/ directory.'
     )
     parser.add_argument(
         '-r',
         '--fim-run-dir',
-        help='Name of directory containing outputs of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev/12345678)',
+        help='Name of directory containing outputs of fim_run.sh '
+        '(e.g. data/ouputs/dev_abc/12345678_dev/12345678)',
         required=True,
     )
     parser.add_argument(
         '-b',
         '--branch-name',
-        help='The name of the working branch in which features are being tested (used to name the output inundation directory) -> type=str',
+        help='The name of the working branch in which features are being tested '
+        '(used to name the output inundation directory) -> type=str',
         required=True,
         default="",
     )
@@ -155,7 +159,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-y',
         '--input-flow-csv',
-        help='Filename of the user generated (customized) csv. Must contain nwm feature ids and flow value(s) (units: cms) --> put this file in the "_input_flow_files" directory',
+        help='Filename of the user generated (customized) csv. Must contain nwm feature ids and '
+        'flow value(s) (units: cms) --> put this file in the "_input_flow_files" directory',
         required=True,
         default="",
     )
@@ -183,7 +188,8 @@ if __name__ == '__main__':
         )
         print(
             WHITE_BOLD
-            + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456."
+            + "Please provide the parent directory name for fim_run.sh outputs. "
+            + "These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456."
             + ENDC
         )
         print()

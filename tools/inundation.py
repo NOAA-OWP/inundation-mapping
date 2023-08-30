@@ -54,12 +54,15 @@ def inundate(
 
     Run inundation on FIM >=3.0 outputs at job-level scale or aggregated scale
 
-    Generate depths raster, inundation raster, and inundation polygon from FIM >=3.0 outputs. Can use the FIM 3.0 outputs at native HUC level or the aggregated products. Be sure to pass a HUCs file to process in batch mode if passing aggregated products.
+    Generate depths raster, inundation raster, and inundation polygon from FIM >=3.0 outputs.
+    Can use the FIM 3.0 outputs at native HUC level or the aggregated products.
+    Be sure to pass a HUCs file to process in batch mode if passing aggregated products.
 
     Parameters
     ----------
     rem : str or rasterio.DatasetReader
-        File path to or rasterio dataset reader of Relative Elevation Model raster. Must have the same CRS as catchments raster.
+        File path to or rasterio dataset reader of Relative Elevation Model raster.
+        Must have the same CRS as catchments raster.
     catchments : str or rasterio.DatasetReader
         File path to or rasterio dataset reader of Catchments raster. Must have the same CRS as REM raster
     hydro_table : str or pandas.DataFrame
@@ -67,23 +70,28 @@ def inundate(
     forecast : str or pandas.DataFrame
         File path to forecast csv or Pandas DataFrame with correct column names.
     hucs : str or fiona.Collection, optional
-        Batch mode only. File path or fiona collection of vector polygons in HUC 4,6,or 8's to inundate on. Must have an attribute named as either "HUC4","HUC6", or "HUC8" with the associated values.
+        Batch mode only. File path or fiona collection of vector polygons in HUC 4,6,or 8's to inundate on.
+        Must have an attribute named as either "HUC4","HUC6", or "HUC8" with the associated values.
     hucs_layerName : str, optional
         Batch mode only. Layer name in hucs to use if multi-layer file is passed.
     subset_hucs : str or list of str, optional
-        Batch mode only. File path to line delimited file, HUC string, or list of HUC strings to further subset hucs file for inundating.
+        Batch mode only. File path to line delimited file, HUC string, or list of HUC strings to
+        further subset hucs file for inundating.
     num_workers : int, optional
         Batch mode only. Number of workers to use in batch mode. Must be 1 or greater.
     aggregate : bool, optional
-        Batch mode only. Aggregates output rasters to VRT mosaic files and merges polygons to single GPKG file. Currently not functional. Raises warning and sets to false. On to-do list.
+        Batch mode only. Aggregates output rasters to VRT mosaic files and merges polygons to single GPKG file
+        Currently not functional. Raises warning and sets to false. On to-do list.
     inundation_raster : str, optional
         Path to optional inundation raster output. Appends HUC number if ran in batch mode.
     inundation_polygon : str, optional
-        Path to optional inundation vector output. Only accepts GPKG right now. Appends HUC number if ran in batch mode.
+        Path to optional inundation vector output. Only accepts GPKG right now.
+        Appends HUC number if ran in batch mode.
     depths : str, optional
         Path to optional depths raster output. Appends HUC number if ran in batch mode.
     out_raster_profile : str or dictionary, optional
-        Override the default raster profile for outputs. See Rasterio profile documentation for more information.
+        Override the default raster profile for outputs.
+        See Rasterio profile documentation for more information.
     out_vector_profile : str or dictionary
         Override the default kwargs passed to fiona.Collection including crs, driver, and schema.
     quiet : bool, optional
@@ -108,7 +116,8 @@ def inundate(
 
     Notes
     -----
-    - Specifying a subset of the domain in rem or catchments to inundate on is achieved by the HUCs file or the forecast file.
+    - Specifying a subset of the domain in rem or catchments to inundate on is achieved by the HUCs file or
+        the forecast file.
 
     """
 
@@ -156,7 +165,9 @@ def inundate(
     ), "REM and catchments rasters required same shape"
 
     # check for matching projections
-    # assert rem.crs.to_proj4() == catchments.crs.to_proj4(), "REM and Catchment rasters require same CRS definitions"
+    # assert (
+    #     rem.crs.to_proj4() == catchments.crs.to_proj4()
+    # ), "REM and Catchment rasters require same CRS definitions"
 
     # check for matching bounds
     assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
@@ -175,7 +186,9 @@ def inundate(
         raise TypeError("Pass fiona collection or filepath for hucs")
 
     # check for matching projections
-    # assert to_string(hucs.crs) == rem.crs.to_proj4() == catchments.crs.to_proj4(), "REM, Catchment, and HUCS CRS definitions must match"
+    # assert (
+    #     to_string(hucs.crs) == rem.crs.to_proj4() == catchments.crs.to_proj4()
+    # ), "REM, Catchment, and HUCS CRS definitions must match"
 
     # catchment stages dictionary
     if hydro_table is not None:

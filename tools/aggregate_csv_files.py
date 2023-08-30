@@ -14,14 +14,30 @@ def locate(pattern, root_path):
 
 
 def read_csvs_to_df(files_to_merge, head_row):
-    # df = pd.concat((pd.read_csv(f,usecols=["HUC", "feature_id", "HydroID", "last_updated", "submitter", "adjust_ManningN"],dtype={'feature_id': 'int64','HUC': str}) for f in files_to_merge), ignore_index=True)
+    # df = pd.concat(
+    #     (
+    #         pd.read_csv(
+    #             f,
+    #             usecols=["HUC", "feature_id", "HydroID", "last_updated", "submitter", "adjust_ManningN"],
+    #             dtype={'feature_id': 'int64', 'HUC': str},
+    #         )
+    #         for f in files_to_merge
+    #     ),
+    #     ignore_index=True,
+    # )
     li = []
     for file_in in files_to_merge:
         print(file_in)
         ## Use below for merging hydroTables for calib n value data
-        # df = pd.read_csv(file_in,usecols=["HUC", "feature_id", "HydroID", "last_updated", "submitter", "adjust_ManningN"],dtype={'feature_id': 'int64','HUC': str}, index_col=None, header=0)
+        # df = pd.read_csv(
+        #     file_in,
+        #     usecols=["HUC", "feature_id", "HydroID", "last_updated", "submitter", "adjust_ManningN"],
+        #     dtype={'feature_id': 'int64', 'HUC': str},
+        #     index_col=None,
+        #     header=0,
+        # )
         # df = df[df['adjust_ManningN'].notna()]
-        # df.drop_duplicates(subset=['HydroID'],inplace=True)
+        # df.drop_duplicates(subset=['HydroID'], inplace=True)
         df = pd.read_csv(file_in, index_col=None, header=head_row)  # dtype={'feature_id': 'int64'}
         df = df[df['Unnamed: 0'] != 'HydroID']
         li.append(df)
@@ -57,7 +73,8 @@ def run_prep(fim_dir, file_search_str, head_row, output_file):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Simple tool to search for csv files (using wildcard text) within a fim output directory and then aggregate all files into a single csv"
+        description="Simple tool to search for csv files (using wildcard text) within a fim output directory "
+        "and then aggregate all files into a single csv"
     )
     parser.add_argument(
         '-fim_dir', '--fim-dir', help='FIM output dir (e.g. data/outputs/xxxx/', required=True, type=str

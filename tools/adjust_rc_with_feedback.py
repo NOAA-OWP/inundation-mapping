@@ -271,7 +271,8 @@ def ingest_points_layer(points_layer, fim_directory, wbd_path):
            4b. Overwrite the official flow and N columns with the new calculated values
            4c. Add last_updated column with timestamp where values were changed, also add "submitter" column
         5. What do we do in catchments that match the feature_id?
-           5a. If these catchments already have known data, then let it use those. If not, use new calculated Ns.
+           5a. If these catchments already have known data, then let it use those.
+                If not, use new calculated Ns.
         '''
 
         update_rating_curve(fim_directory, output_csv, htable_path, output_src_json_file, huc6)

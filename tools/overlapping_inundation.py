@@ -28,7 +28,10 @@ class OverlapWindowMerge:
         """
 
         # sort for largest spanning dataset (todo: handle mismatched resolutions)
-        # size_func = lambda x: np.abs(x.bounds.left - x.bounds.right) * np.abs(x.bounds.top - x.bounds.bottom)
+        # size_func = lambda x: np.abs(x.bounds.left - x.bounds.right) * np.abs(
+        #     x.bounds.top - x.bounds.bottom
+        # )
+
         def size_func(x):
             return np.abs(x.bounds.left - x.bounds.right) * np.abs(x.bounds.top - x.bounds.bottom)
 

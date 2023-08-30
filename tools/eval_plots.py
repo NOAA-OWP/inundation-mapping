@@ -435,7 +435,9 @@ def filter_dataframe(dataframe, unique_field):
     Returns
     -------
     final_filtered_dataframe : Pandas Dataframe
-        Filtered dataframe that contains only common sites (lids or hucs) between versions for each magnitude. For example, for AHPS all sites which were run for each version for a given magnitude will be kept or for ble, all hucs which ran for all versions for a given magnitude.
+        Filtered dataframe that contains only common sites (lids or hucs) between versions for each magnitude.
+        For example, for AHPS all sites which were run for each version for a given magnitude will be kept
+            or for ble, all hucs which ran for all versions for a given magnitude.
     unique_sites: DICT
         The sites that were included in the dataframe for each magnitude.
 
@@ -450,7 +452,8 @@ def filter_dataframe(dataframe, unique_field):
     all_unique_sites = {}
     # Cycle through each magnitude
     for magnitude in magnitudes:
-        # Compile a list of sets containing unique lids pertaining to each threshold. List contains 3 unique sets [{fim1:unique lids},{fim2: unique lids},{fim3: unique lids}]
+        # Compile a list of sets containing unique lids pertaining to each threshold.
+        # List contains 3 unique sets [{fim1:unique lids},{fim2: unique lids},{fim3: unique lids}]
         sites_per_magnitude = [set(a) for a in unique_sites[magnitude]]
         # Intersect the sets to get the common lids per threshold then convert to list.
         common_sites_per_magnitude = list(set.intersection(*sites_per_magnitude))
@@ -460,7 +463,8 @@ def filter_dataframe(dataframe, unique_field):
         filtered_common_sites = dataframe.query(
             f'magnitude == "{magnitude}" & {unique_field} in @common_sites_per_magnitude'
         )
-        # Append the data for each magnitude to a final dataframe that will contain data for all common sites for all magnitudes.
+        # Append the data for each magnitude to a final dataframe that will contain data for all common sites
+        #   for all magnitudes.
         final_filtered_dataframe = pd.concat(
             [final_filtered_dataframe, filtered_common_sites], ignore_index=True
         )
@@ -621,7 +625,8 @@ def eval_plots(
             # Filter the dataset based on query (IMPORTED FROM TOOLS_SHARED_VARIABLES.py)
             ahps_metrics = benchmark_metrics.query(DISCARD_AHPS_QUERY, engine='python')
 
-            # Filter out all instances where the base_resolution doesn't exist across all desired fim versions for a given magnitude
+            # Filter out all instances where the base_resolution doesn't exist across all desired
+            #   fim versions for a given magnitude
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(
                 ahps_metrics, base_resolution
             )
@@ -631,7 +636,8 @@ def eval_plots(
             # Set the base processing unit for ble runs
             base_resolution = 'huc'
 
-            # Filter out all instances where base_resolution doesn't exist across all desired fim versions for a given magnitude
+            # Filter out all instances where base_resolution doesn't exist across all desired fim versions
+            #   for a given magnitude
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(
                 benchmark_metrics, base_resolution
             )
@@ -885,7 +891,8 @@ def eval_plots(
             joined.to_file(Path(workspace) / 'fim_performance_points.shp')
         else:
             print(
-                'NWS/USGS MS datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a MS version.'
+                'NWS/USGS MS datasets not analyzed, no spatial data created.\n'
+                'To produce spatial data analyze a MS version.'
             )
 
         ################################################################
@@ -942,7 +949,8 @@ def eval_plots(
             wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
         else:
             print(
-                'BLE/IFC/RAS2FIM FR datasets not analyzed, no spatial data created.\nTo produce spatial data analyze a FR version'
+                'BLE/IFC/RAS2FIM FR datasets not analyzed, no spatial data created.\n'
+                'To produce spatial data analyze a FR version'
             )
 
 
@@ -970,7 +978,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-v',
         '--versions',
-        help='List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.',
+        help='List of versions to be plotted/aggregated. Versions are filtered using the "startswith" '
+        'approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" '
+        '(e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". '
+        'An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.',
         nargs='+',
         default=[],
     )
@@ -992,7 +1003,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f',
         '--fim_1_ms',
-        help='If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that fim_1 can be shown on mainstems plots/stats',
+        help='If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that '
+        'fim_1 can be shown on mainstems plots/stats',
         action='store_true',
         required=False,
     )

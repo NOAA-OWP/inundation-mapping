@@ -27,22 +27,25 @@ def check_deep_flooding(args):
     depth_array = depth_src.read(1)
     reference = depth_src
 
-    # Read layer using the bbox option. CRS mismatches are handled if bbox is passed a geodataframe (which it is).
+    # Read layer using the bbox option.
+    # CRS mismatches are handled if bbox is passed a geodataframe (which it is).
     bounding_box = gpd.GeoDataFrame({'geometry': box(*reference.bounds)}, index=[0], crs=reference.crs)
     poly_all = gpd.read_file(shapefile_path, bbox=bounding_box)
 
-    # Make sure features are present in bounding box area before projecting. Continue to next layer if features are absent.
+    # Make sure features are present in bounding box area before projecting.
+    # Continue to next layer if features are absent.
     if poly_all.empty:
         return
 
     # Project layer to reference crs.
     poly_all_proj = poly_all.to_crs(reference.crs)
     # check if there are any lakes within our reference raster extent.
+    # If no features within reference raster extent, create a zero array of same shape as reference raster.
     if poly_all_proj.empty:
-        # If no features within reference raster extent, create a zero array of same shape as reference raster.
         poly_mask = np.zeros(reference.shape)
     else:
-        # Perform mask operation on the reference raster and using the previously declared geometry geoseries. Invert set to true as we want areas outside of poly areas to be False and areas inside poly areas to be True.
+        # Perform mask operation on the reference raster and using the previously declared geometry geoseries.
+        # Invert set to true as we want areas outside poly areas => False and areas inside poly areas => True.
         geometry = poly_all_proj.geometry
         in_poly, transform, c = rasterio.mask.raster_geometry_mask(reference, geometry, invert=True)
         # Write mask array, areas inside polys are set to 1 and areas outside poly are set to 0.
@@ -73,7 +76,8 @@ def check_deep_flooding(args):
 if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(
-        description='Checks for deep flooding in a specified shapefile. Requires a directory of depth grids and a shapefile.'
+        description='Checks for deep flooding in a specified shapefile. '
+        'Requires a directory of depth grids and a shapefile.'
     )
     parser.add_argument(
         '-d',
@@ -90,7 +94,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-o',
         '--output-dir',
-        help='The path to a directory to write the outputs. If not used, the inundation_review directory is used by default -> type=str',
+        help='The path to a directory to write the outputs. '
+        'If not used, the inundation_review directory is used by default -> type=str',
         required=True,
         default="",
     )

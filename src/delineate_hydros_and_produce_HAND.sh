@@ -124,7 +124,7 @@ Tcount
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"
 date -u
 Tstart
-python3 $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
+$srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
@@ -150,7 +150,7 @@ Tcount
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
 date -u
 Tstart
-python3 $srcDir/reachID_grid_to_vector_points.py \
+$srcDir/reachID_grid_to_vector_points.py \
     -r $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -i featureID \
     -p $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg
@@ -171,7 +171,7 @@ Tcount
 echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
 date -u
 Tstart
-python3 $srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
+$srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
     -w $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
     -t $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
@@ -243,7 +243,7 @@ Tcount
 echo -e $startDiv"Generate Catchment List and Stage List Files $hucNumber $current_branch_id"
 date -u
 Tstart
-python3 $srcDir/make_stages_and_catchlist.py \
+$srcDir/make_stages_and_catchlist.py \
     -f $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg \
     -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
     -s $tempCurrentBranchDataDir/stage_$current_branch_id.txt \

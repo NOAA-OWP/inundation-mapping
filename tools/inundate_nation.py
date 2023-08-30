@@ -71,7 +71,12 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosai
 
     huc_list = []
     for huc in os.listdir(fim_run_dir):
-        # if huc != 'logs' and huc != 'branch_errors'and huc != 'unit_errors' and os.path.isdir(os.path.join(fim_run_dir, huc)):
+        # if (
+        #     huc != 'logs'
+        #     and huc != 'branch_errors'
+        #     and huc != 'unit_errors'
+        #     and os.path.isdir(os.path.join(fim_run_dir, huc))
+        # ):
         if re.match(r'\d{8}', huc):
             huc_list.append(huc)
 
@@ -129,7 +134,8 @@ def run_inundation(args):
     This script is a wrapper for the inundate function and is designed for multiprocessing.
 
     Args:
-        args (list): [fim_run_dir (str), huc_list (list), magnitude (str), magnitude_output_dir (str), forecast (str), job_number (int)]
+        args (list): [fim_run_dir (str), huc_list (list), magnitude (str),
+                        magnitude_output_dir (str), forecast (str), job_number (int)]
 
     """
 
@@ -302,7 +308,8 @@ if __name__ == '__main__':
         '-f',
         '--flow_file',
         help='the path and flow file to be used. '
-        'ie /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv',
+        'ie /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/'
+        'nwm_high_water_threshold_cms.csv',
         required=True,
     )
 

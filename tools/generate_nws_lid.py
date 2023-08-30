@@ -25,7 +25,8 @@ NWM_FILE = '/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
 
 def generate_nws_lid(workspace):
     '''
-    Generate the nws_lid layer containing all nws_lid points attributed whether site is mainstems and co-located
+    Generate the nws_lid layer containing all nws_lid points attributed
+    whether site is mainstems and co-located
 
     Parameters
     ----------
@@ -38,7 +39,6 @@ def generate_nws_lid(workspace):
 
     '''
 
-    ##############################################################################
     # Get all nws_lid points
     print('Retrieving metadata ..')
 
@@ -93,7 +93,6 @@ def generate_nws_lid(workspace):
     # Append all lists
     all_lists = fcst_list + eval_list + islands_list
 
-    ###############################################################################
     # Compile NWM segments from all_lists
 
     # Get dictionary of downstream segment (key) and target segments (values)
@@ -112,7 +111,8 @@ def generate_nws_lid(workspace):
             # Dictionary with target segment and site
             target[int(location_nwm_seg)].append(site)
             # Dictionary of key (2nd to last element) and value (target segment)
-            # 2nd to last element used because last element is always 0 (ocean) and the 2nd to last allows for us to get the river 'tree' (Mississippi, Colorado, etc)
+            # 2nd to last element used because last element is always 0 (ocean) and the 2nd to last allows
+            # for us to get the river 'tree' (Mississippi, Colorado, etc)
             value = location_nwm_seg
             if not downstream_nwm_segs:
                 # Special case, no downstream nwm segments are returned (PR/VI/HI).
@@ -125,7 +125,7 @@ def generate_nws_lid(workspace):
                 key = downstream_nwm_segs[-2]
             # Dictionary with key of 2nd to last downstream segment and value of site nwm segment
             downstream[int(key)].append(int(value))
-    ###############################################################################
+
     # Walk downstream the network and identify headwater points
     print('Traversing network..')
 
@@ -157,7 +157,8 @@ def generate_nws_lid(workspace):
         # Append status to master dictionary
         all_dicts.update(sub_dict)
 
-    # Create dictionaries of nws_lid (key) and headwater status (value) and nws_lid (key) and co-located with same feature_id(value)
+    # Create dictionaries of nws_lid (key) and headwater status (value) and nws_lid (key) and
+    #   co-located with same feature_id(value)
     final_dict = {}
     duplicate_dict = {}
     for key, status in all_dicts.items():
@@ -169,7 +170,6 @@ def generate_nws_lid(workspace):
             else:
                 duplicate_dict[site] = 'not_colocated'
 
-    ##############################################################################
     # Get Spatial data and populate headwater/duplicate attributes
     print('Attributing nws_lid layer..')
 

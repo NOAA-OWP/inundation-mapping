@@ -293,8 +293,8 @@ def produce_inundation_map_with_stage_and_feature_ids(
     rem_array = rem_src.read(1)
     catchments_array = catchments_src.read(1)
 
-    # Use numpy.where operation to reclassify rem_path on the condition that the pixel values are <= to hand_stage and the catchments
-    # value is in the hydroid_list.
+    # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
+    #   are <= to hand_stage and the catchments value is in the hydroid_list.
     reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
         'uint8'
     )
@@ -364,7 +364,8 @@ def iterate_through_huc_stage_based(
         if not os.path.exists(usgs_elev_table):
             all_messages.append(
                 [
-                    f'{lid}:usgs_elev_table missing, likely unacceptable gage datum error--more details to come in future release'
+                    f'{lid}:usgs_elev_table missing, likely unacceptable gage datum error--'
+                    'more details to come in future release'
                 ]
             )
             continue
@@ -420,7 +421,8 @@ def iterate_through_huc_stage_based(
             print(f"Exception: \n {repr(e)} \n")
             acceptable_usgs_elev_df = usgs_elev_df
 
-        # Get the dem_adj_elevation value from usgs_elev_table.csv. Prioritize the value that is not from branch 0.
+        # Get the dem_adj_elevation value from usgs_elev_table.csv.
+        # Prioritize the value that is not from branch 0.
         try:
             matching_rows = acceptable_usgs_elev_df.loc[
                 acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
@@ -439,7 +441,8 @@ def iterate_through_huc_stage_based(
         except IndexError:  # Occurs when LID is missing from table
             all_messages.append(
                 [
-                    f'{lid}:likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'
+                    f'{lid}:likely unacceptable gage datum error or accuracy code(s); '
+                    'please see acceptance criteria'
                 ]
             )
             continue
@@ -454,7 +457,8 @@ def iterate_through_huc_stage_based(
         try:
             if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
                 print(
-                    f"\t{lid}: {metadata['usgs_data']['coord_accuracy_code']} Not in acceptable coord acc codes"
+                    f"\t{lid}: {metadata['usgs_data']['coord_accuracy_code']} "
+                    "Not in acceptable coord acc codes"
                 )
                 continue
             if not metadata['usgs_data']['coord_method_code'] in acceptable_coord_method_code_list:
@@ -491,15 +495,18 @@ def iterate_through_huc_stage_based(
         if datum is None:
             all_messages.append([f'{lid}:datum info unavailable'])
             continue
-        # _________________________________________________________________________________________________________#
+        # ___________________________________________________________________________________________________#
         # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
-        # Modifying rating curve source will influence the rating curve and datum retrieved for benchmark determinations.
+        # Modifying rating curve source will influence the rating curve and
+        #   datum retrieved for benchmark determinations.
         if lid == 'bmbp1':
             rating_curve_source = 'NRLDB'
-        # ___________________________________________________________________#
+        # ___________________________________________________________________________________________________#
 
-        # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29 conversion to NAVD88
-        # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7, stkn4, wlln7
+        # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29
+        #   conversion to NAVD88
+        # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7,
+        #   stkn4, wlln7
         # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
         if lid in [
             'bgwn7',
@@ -521,15 +528,18 @@ def iterate_through_huc_stage_based(
             'wlln7',
         ]:
             datum_data.update(crs='NAD83')
-        # ___________________________________________________________________#
+        # ___________________________________________________________________________________________________#
 
-        # SPECIAL CASE: Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and is actually NAD27.
-        # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and it matches NRLDB coordinates.
+        # SPECIAL CASE: Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and
+        #   is actually NAD27.
+        # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and
+        #   it matches NRLDB coordinates.
         if lid == 'bmbp1':
             datum_data.update(crs='NAD27')
-        # ___________________________________________________________________#
+        # ___________________________________________________________________________________________________#
 
-        # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure datum reported in NAVD88.
+        # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure
+        #   datum reported in NAVD88.
         # If NGVD29 it is converted to NAVD88.
         # bgwn7, eagi1 vertical datum unknown, assume navd88
         # fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
@@ -538,14 +548,15 @@ def iterate_through_huc_stage_based(
             datum_data.update(vcs='NAVD88')
         elif lid == 'wlln7':
             datum_data.update(vcs='NGVD29')
-        # _________________________________________________________________________________________________________#
+        # ___________________________________________________________________________________________________#
 
         # Adjust datum to NAVD88 if needed
         # Default datum_adj_ft to 0.0
         datum_adj_ft = 0.0
         crs = datum_data.get('crs')
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-            # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
+            # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously
+            #   removed otherwise the region needs changed.
             try:
                 datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
             except Exception as e:
@@ -584,7 +595,8 @@ def iterate_through_huc_stage_based(
             min(stage_list), max(stage_list) + past_major_interval_cap, 1.0
         )  # Go an extra 10 ft beyond the max stage, arbitrary
 
-        # Check for large discrepancies between the elevation values from WRDS and HAND. Otherwise this causes bad mapping.
+        # Check for large discrepancies between the elevation values from WRDS and HAND.
+        #   Otherwise this causes bad mapping.
         elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
         if abs(elevation_diff) > 10:
             all_messages.append([f'{lid}:large discrepancy in elevation estimates from gage and HAND'])
@@ -613,7 +625,8 @@ def iterate_through_huc_stage_based(
                 )
                 all_messages += messages
 
-                # Extra metadata for alternative CatFIM technique. TODO Revisit because branches complicate things
+                # Extra metadata for alternative CatFIM technique.
+                # TODO Revisit because branches complicate things
                 stage_based_att_dict[lid].update(
                     {
                         category: {
@@ -909,9 +922,10 @@ def produce_stage_based_catfim_tifs(
                 except IndexError:
                     pass
 
-            if len(hydroid_list) == 0:
-                #                messages.append(f"{lid}:no matching hydroids")  # Some branches don't have matching hydroids
-                continue
+            # Some branches don't have matching hydroids
+            # if len(hydroid_list) == 0:
+            #     messages.append(f"{lid}:no matching hydroids")
+            #     continue
 
             # If no segments, write message and exit out
             if not segments:
@@ -1001,7 +1015,8 @@ if __name__ == '__main__':
         '--job_number_huc',
         help='Number of processes to use for HUC scale operations.'
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'
-        ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be kept low (2-4)',
+        ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be '
+        'kept low (2-4)',
         required=False,
         default=1,
         type=int,
@@ -1050,8 +1065,8 @@ if __name__ == '__main__':
         '-ji',
         '--job_number_intervals',
         help='Number of processes to use for inundating multiple intervals in stage-based'
-        ' inundation and interval job numbers should multiply to no more than one less than the CPU count'
-        ' of the machine.',
+        ' inundation and interval job numbers should multiply to no more than one less than the CPU count '
+        'of the machine.',
         required=False,
         default=1,
         type=int,

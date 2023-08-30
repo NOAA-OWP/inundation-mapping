@@ -106,7 +106,9 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
 #subscript_exit_code=$?
 
 # we have to retrow it if it is not a zero (but it will stop further execution in this script)
-#if [ $subscript_exit_code -ne 0 ] && [ $subscript_exit_code -ne 62 ] && [ $subscript_exit_code -eq 63 ]; then exit $subscript_exit_code; fi
+# if [ $subscript_exit_code -ne 0 ] && [ $subscript_exit_code -ne 62 ] && [ $subscript_exit_code -eq 63 ]; then
+#     exit $subscript_exit_code
+# fi
 
 # check if level paths exists
 levelpaths_exist=1
@@ -117,14 +119,16 @@ Tcount
 echo -e $startDiv"Associate level paths with levees"
 date -u
 Tstart
+
 [ -f $tempHucDataDir/nld_subset_levees.gpkg ] && \
-    python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_subset_levees.gpkg \
-        -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
-        -lpa $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
-        -out $tempHucDataDir/levee_levelpaths.csv \
-        -w $levee_buffer \
-        -b $branch_id_attribute \
-        -l $levee_id_attribute
+python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_subset_levees.gpkg \
+    -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
+    -lpa $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
+    -out $tempHucDataDir/levee_levelpaths.csv \
+    -w $levee_buffer \
+    -b $branch_id_attribute \
+    -l $levee_id_attribute
+
 Tcount
 
 ## STREAM BRANCH POLYGONS
@@ -194,10 +198,10 @@ date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif ] && \
-    python3 -m memory_profiler $srcDir/burn_in_levees.py \
-        -dem $tempHucDataDir/dem_meters.tif \
-        -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif \
-        -out $tempHucDataDir/dem_meters.tif
+python3 -m memory_profiler $srcDir/burn_in_levees.py \
+    -dem $tempHucDataDir/dem_meters.tif \
+    -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif \
+    -out $tempHucDataDir/dem_meters.tif
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
@@ -210,8 +214,7 @@ gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -c
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]
-then
+if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
     date -u
     Tstart
@@ -249,8 +252,7 @@ Tcount
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-if [ "$levelpaths_exist" = "1" ]
-then
+if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
     date -u
     Tstart
@@ -273,8 +275,7 @@ rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
 Tcount
 
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]
-then
+if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
     date -u
     Tstart
@@ -292,8 +293,7 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
 Tcount
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]
-then
+if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
     date -u
     Tstart

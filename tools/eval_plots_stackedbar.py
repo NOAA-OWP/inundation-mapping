@@ -37,9 +37,8 @@ def eval_plot_stack_data_prep(metric_csv, versions=[]):
         versions = list(versions)
         # Check to make sure requested versions are in the metrics file
         for v in versions:
-            assert (
-                v in metrics.version.unique()
-            ), f"{v} is not included in {metric_csv}.\nThe available options are {sorted(metrics.version.unique())}"
+            assert v in metrics.version.unique(), f"{v} is not included in {metric_csv}.\n"
+            f"The available options are {sorted(metrics.version.unique())}"
         # Filter the metrics to the requested versions
         metrics = metrics.loc[metrics.version.isin(versions)]
     # Change the magnitudes to make them more sort-friendly for the plot below
@@ -379,7 +378,8 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat='CSI'):
         metrics_new[stat], left_index=True, right_index=True, how='inner'
     ).sort_index(level=0, sort_remaining=True)
     fim_compare[f'{stat}_diff'] = fim_compare[stat] - fim_compare[f'BASE_{stat}']
-    # Color the boxes according to improved vs regressed scores. See definition of 'better_score' above for details.
+    # Color the boxes according to improved vs regressed scores.
+    # See definition of 'better_score' above for details.
     if better_score == 'positive':
         fim_compare['color'] = fim_compare.apply(
             lambda row: 'None' if row[f'{stat}_diff'] < 0 else 'g', axis=1
@@ -476,8 +476,8 @@ def iter_benchmarks(
         output_workspace = Path(workspace) / benchmark_source / extent_configuration.lower()
         output_workspace.mkdir(parents=True, exist_ok=True)
         output_png = (
-            Path(output_workspace)
-            / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar{'_indiv'if individual_plots else ''}.png"
+            Path(output_workspace) / f"{benchmark_source}_{extent_configuration.lower()}_stackedbar"
+            f"{'_indiv'if individual_plots else ''}.png"
         )
         if diff_stat:
             output_png = (
@@ -518,7 +518,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-v',
         '--versions',
-        help='List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach. For example, ["fim_","fb1"] would retain all versions that began with "fim_" (e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb". An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.',
+        help='List of versions to be plotted/aggregated. Versions are filtered using the "startswith" approach.'
+        'For example, ["fim_","fb1"] would retain all versions that began with "fim_"'
+        '(e.g. fim_1..., fim_2..., fim_3...) as well as any feature branch that began with "fb".'
+        'An other example ["fim_3","fb"] would result in all fim_3 versions being plotted along with the fb.',
         nargs='+',
         default=[],
     )
@@ -539,7 +542,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-d',
         '--diff-stat',
-        help='This option creates diff plots instead of stacked bar plots. Only 2 versions can be used with this option. '
+        help='This option creates diff plots instead of stacked bar plots. '
+        'Only 2 versions can be used with this option. '
         + "Input one of the following statistics to be used for comparison: ('CSI', 'MCC', 'TPR', 'PND', 'FAR').",
         default=False,
         required=False,

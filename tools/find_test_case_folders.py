@@ -15,12 +15,12 @@ def create_huc_list(input_root_search_folder, output_path, overwrite=False):
                 Then subfolders using the following convention:
                 - {8 numbers}_{3 to 7 characters}. ie) 01080005_usgs
     Input:
-        - input_root_search_folder: A fully qualified root path (relative to Docker pathing) to the folder that all hucs
-            are in.
+        - input_root_search_folder: A fully qualified root path (relative to Docker pathing)
+            to the folder that all hucs are in.
         - output_path: a path and file name (preferred as .lst or .txt) where the list of line delimited hucs
             will be copied. The file and path do not need to pre-exist.
-        - overwrite: If the file exists and the overwrite flag is false, an error will be issued. Else, it will
-            be fully overwritten.
+        - overwrite: If the file exists and the overwrite flag is false, an error will be issued.
+            Else, it will be fully overwritten.
     Output:
         - a line delimited list of all huc numbers that have test cases available.
     '''
@@ -62,7 +62,14 @@ def create_huc_list(input_root_search_folder, output_path, overwrite=False):
 
 
 if __name__ == '__main__':
-    # Sample Usage: python /foss_fim/tools/find_test_case_hucs.py -d /data/test_cases/ -f /some_directory/huc_list_for_tests_22020420.lst -o
+    '''
+    Sample Usage:
+    python /foss_fim/tools/find_test_case_hucs.py
+        -d /data/test_cases/
+        -f /some_directory/huc_list_for_tests_22020420.lst
+        -o
+
+    '''
 
     parser = argparse.ArgumentParser(description='Finds all unique hucs that have test case data.')
     parser.add_argument(

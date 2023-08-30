@@ -18,16 +18,20 @@ load_dotenv()
 
 def fimr_to_benchmark(fimr_path, output_path):
     '''
-    This function converts USFIMR shapefiles from this website (https://waterserv.ua.edu/datasets/usfimr/) to rasters that c an
-    be used for FIM Alpha evaluations and calibration. Note only USFIMR data with flow values (q) can be used here.
+    This function converts USFIMR shapefiles from this website (https://waterserv.ua.edu/datasets/usfimr/)
+    to rasters that can be used for FIM Alpha evaluations and calibration.
+    Note only USFIMR data with flow values (q) can be used here.
 
     Inputs: 1. FIMR Path - Path where th FIMR Shapefile was downloaded from the aformentioned website.
             2. Output Path_flow file - Path the flow file will be sent to.
-            3. Output path raster - path the raster will be sent too. There will be a file for each huc with the huc number in it.
+            3. Output path raster - path the raster will be sent too. There will be a file for each huc with
+                the huc number in it.
 
-    Outputs: 1. flow_file.csv - This is a flow file for the river. The flow values are from the most upstream usgs gage.
-             2. rasterized{huc number}.tif - This is the fimr data that has been converted to a raster. It is on the huc8 scale so it provides
-                each huc as a separate file. The inundated areas are assigned 1 and the dry areas are assigned 0.
+    Outputs: 1. flow_file.csv - This is a flow file for the river. The flow values are from the most upstream
+                usgs gage.
+             2. rasterized{huc number}.tif - This is the fimr data that has been converted to a raster.
+                    It is on the huc8 scale so it provides each huc as a separate file.
+                    The inundated areas are assigned 1 and the dry areas are assigned 0.
 
     Other Files Used: 1. wbd - The huc 8 boundaries throughout the country
                       2. flowlines - the flowlines along the all the rivers in the country
@@ -156,17 +160,19 @@ def fimr_to_benchmark(fimr_path, output_path):
             count=1,
             dtype=raster.dtype,
             nodata=-999,
-            crs='+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
+            crs=(
+                '+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 '
+                '+y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
+            ),
             transform=transform,
         ) as dst_dataset:
             # writing array into the empty raster
             dst_dataset.write_band(1, raster)
             print('Rasterized fimr file created at ', out_path_raster)
 
-    # Parse Arguments
-
 
 if __name__ == '__main__':
+    # Parse Arguments
     parser = argparse.ArgumentParser(
         description='Get FIMR data for the different rivers from the different files'
     )

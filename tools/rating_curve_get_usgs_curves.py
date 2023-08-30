@@ -31,10 +31,10 @@ from utils.shared_variables import PREP_PROJECTION
 
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
-running script outside of business hours seems to be most consistent way
-to avoid API errors. Currently configured to get rating curve data within
-CONUS. Tidal API call may need to be modified to get datum conversions for
-AK, HI, PR/VI.
+    running script outside of business hours seems to be most consistent way
+    to avoid API errors. Currently configured to get rating curve data within
+    CONUS. Tidal API call may need to be modified to get datum conversions for
+    AK, HI, PR/VI.
 '''
 
 # import variables from .env file
@@ -260,7 +260,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         # Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)
 
-        # Filter out sites that are not in contiguous US. If this section is removed be sure to test with datum adjustment section (region will need changed)
+        # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
+        #   datum adjustment section (region will need changed)
         if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
             continue
         # Get rating curve for site
@@ -392,12 +393,16 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(
-        description='Retrieve USGS rating curves adjusted to elevation (NAVD88).\nCurrently configured to get rating curves within CONUS.\nRecommend running outside of business hours to reduce API related errors.\nIf error occurs try increasing sleep time (from default of 1).'
+        description='Retrieve USGS rating curves adjusted to elevation (NAVD88).\n'
+        'Currently configured to get rating curves within CONUS.\n'
+        'Recommend running outside of business hours to reduce API related errors.\n'
+        'If error occurs try increasing sleep time (from default of 1).'
     )
     parser.add_argument(
         '-l',
         '--list_of_gage_sites',
-        help='"all" for all active usgs sites, specify individual sites separated by space, or provide a csv of sites (one per line).',
+        help='"all" for all active usgs sites, specify individual sites separated by space, '
+        'or provide a csv of sites (one per line).',
         nargs='+',
         required=True,
     )

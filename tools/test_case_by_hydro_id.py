@@ -15,7 +15,8 @@ from tools_shared_functions import compute_stats_from_contingency_table
 #####################################################
 # Perform zonal stats is a funtion stored in pixel_counter.py.
 # The input huc_gpkg is a single huc8 geopackage, the second input argument must be input as a dict.
-# For the purposes of assembling the alpha metrics by hydroid, always use agreement_raster total area agreement tiff.
+# For the purposes of assembling the alpha metrics by hydroid, always use agreement_raster total
+#   area agreement tiff.
 # This function is called automatically. Returns stats dict of pixel counts.
 #####################################################
 def perform_zonal_stats(huc_gpkg, agree_rast):
@@ -191,7 +192,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '-g',
         '--gpkg',
-        help='filepath and filename to hold exported gpkg (and csv) file. Similar to /data/path/fim_performance_catchments.gpkg Need to use gpkg as output. ',
+        help='filepath and filename to hold exported gpkg (and csv) file. '
+        'Similar to /data/path/fim_performance_catchments.gpkg Need to use gpkg as output.',
         required=True,
     )
 

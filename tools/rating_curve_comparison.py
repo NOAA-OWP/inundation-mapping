@@ -63,7 +63,10 @@ def check_file_age(file):
         current_time = time.time()
         file_age_days = (current_time - modification_time) / 86400
         if file_age_days > 30:
-            check = f'{file.name} is {int(file_age_days)} days old, consider updating.\nUpdate with rating_curve_get_usgs_curves.py'
+            check = (
+                f'{file.name} is {int(file_age_days)} days old, consider updating.\n'
+                'Update with rating_curve_get_usgs_curves.py'
+            )
         else:
             check = f'{file.name} is {int(file_age_days)} days old.'
 
@@ -321,12 +324,24 @@ def generate_rating_curve_metrics(args):
                 # usgs_rc = usgs_rc.sort_values('USGS',ascending=True)
                 #
                 # # Interpolate FIM elevation at USGS observations
-                # usgs_rc['FIM'] = np.interp(usgs_rc.discharge_cfs.values, fim_rc['discharge_cfs'], fim_rc['elevation_ft'], left = np.nan, right = np.nan)
+                # usgs_rc['FIM'] = np.interp(
+                #     usgs_rc.discharge_cfs.values,
+                #     fim_rc['discharge_cfs'],
+                #     fim_rc['elevation_ft'],
+                #     left=np.nan,
+                #     right=np.nan,
+                # )
                 # usgs_rc = usgs_rc[usgs_rc['FIM'].notna()]
                 # usgs_rc = usgs_rc.drop(columns=["source"])
                 #
                 # # Melt dataframe
-                # usgs_rc = pd.melt(usgs_rc, id_vars=['location_id','discharge_cfs','str_order'], value_vars=['USGS','FIM'], var_name="source", value_name='elevation_ft')
+                # usgs_rc = pd.melt(
+                #     usgs_rc,
+                #     id_vars=['location_id', 'discharge_cfs', 'str_order'],
+                #     value_vars=['USGS', 'FIM'],
+                #     var_name="source",
+                #     value_name='elevation_ft',
+                # )
                 #
                 # if not usgs_rc.empty:
                 #     usgs_recurr_data = pd.concat([usgs_recurr_data, usgs_rc])
@@ -337,7 +352,9 @@ def generate_rating_curve_metrics(args):
             #     usgs_recurr_stats_table.to_csv(usgs_recurr_stats_filename,index=False)
 
             # # Generate plots (not currently being used)
-            # fim_elev_at_USGS_rc_plot_filename = join(dirname(rc_comparison_plot_filename),'FIM_elevations_at_USGS_rc_' + str(huc) +'.png')
+            # fim_elev_at_USGS_rc_plot_filename = join(
+            #     dirname(rc_comparison_plot_filename), 'FIM_elevations_at_USGS_rc_' + str(huc) + '.png'
+            # )
             # generate_facet_plot(usgs_recurr_data, fim_elev_at_USGS_rc_plot_filename)
 
             if not nwm_recurr_data_table.empty:
@@ -346,7 +363,8 @@ def generate_rating_curve_metrics(args):
                 nwm_recurr_data_table.to_csv(nwm_recurr_data_filename, index=False)
             if 'location_id' not in nwm_recurr_data_table.columns:
                 logging.info(
-                    f"WARNING: nwm_recurr_data_table is missing location_id column for gage {relevant_gages} in huc {huc}"
+                    f"WARNING: nwm_recurr_data_table is missing location_id column for gage {relevant_gages} "
+                    f"in huc {huc}"
                 )
 
             # plot rating curves
@@ -479,7 +497,9 @@ def generate_single_plot(rc, plot_filename, recurr_data_table):
             'FIM_b0',
             np.where((rc.source == 'FIM_default') & (rc.levpa_id == '0'), 'FIM_default_b0', rc.source),
         )
-        # rc['source_branch'] = np.where((rc.source == 'FIM_default') & (rc.levpa_id == '0'), 'FIM_default_b0', rc.source)
+        # rc['source_branch'] = np.where(
+        #     (rc.source == 'FIM_default') & (rc.levpa_id == '0'), 'FIM_default_b0', rc.source
+        # )
 
         ## Generate rating curve plots
         num_plots = len(rc["USGS Gage"].unique())
@@ -631,7 +651,9 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
         'FIM_b0',
         np.where((rc.source == 'FIM_default') & (rc.levpa_id == '0'), 'FIM_default_b0', rc.source),
     )
-    # rc['source_branch'] = np.where((rc.source == 'FIM_default') & (rc.levpa_id == '0'), 'FIM_default_b0', rc.source)
+    # rc['source_branch'] = np.where(
+    #     (rc.source == 'FIM_default') & (rc.levpa_id == '0'), 'FIM_default_b0', rc.source
+    # )
 
     ## Generate rating curve plots
     num_plots = len(rc["USGS Gage"].unique())
@@ -732,7 +754,7 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
     gage_branch_dict = rc.groupby('location_id')['levpa_id'].first().to_dict()
 
     for i, gage in enumerate(gage_branch_dict):
-        ###################################################################################################################
+        #####################################################################################################
         # Filter FIM elevation based on USGS data
 
         min_elev = rc.loc[(rc.location_id == gage) & (rc.source == 'USGS')].elevation_ft.min()
@@ -779,7 +801,7 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
                 ].index
             )
 
-        ###################################################################################################################
+        ######################################################################################################
         ## Read in reaches, catchment raster, and rem raster
         branch = gage_branch_dict[gage]
         if os.path.isfile(
@@ -1130,7 +1152,8 @@ def evaluate_results(sierra_results=[], labels=[], save_location=''):
     sierra_results : list
         List of GeoDataFrames with sierra test results.
     labels : list
-        List of strings that will be used as labels for sierra_results. Length must be equal to sierra_results.
+        List of strings that will be used as labels for sierra_results.
+        Length must be equal to sierra_results.
     save_location : str
         Path to save output boxplot figure.
 
@@ -1200,7 +1223,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-pnts',
         '--stat-gages',
-        help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS gages with joined stats',
+        help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS '
+        'gages with joined stats',
         required=False,
         type=str,
         nargs=2,
@@ -1216,8 +1240,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-eval',
         '--evaluate-results',
-        help='Create a boxplot comparison of multiple input Sierra Test results. \
-        Expects 2 arguments: 1) path to the Sierra Test results for comparison and 2) the corresponding label for the boxplot.',
+        help='Create a boxplot comparison of multiple input Sierra Test results. '
+        'Expects 2 arguments: 1) path to the Sierra Test results for comparison and 2) the corresponding '
+        'label for the boxplot.',
         required=False,
         nargs=2,
         action='append',
@@ -1297,7 +1322,8 @@ if __name__ == '__main__':
                     single_plot,
                 ]
             )
-            # Aggregate all of the individual huc elev_tables into one aggregate for accessing all data in one csv
+            # Aggregate all of the individual huc elev_tables into one aggregate
+            #      for accessing all data in one csv
             read_elev_table = pd.read_csv(
                 elev_table_filename, dtype={'location_id': str, 'HydroID': str, 'huc': str, 'feature_id': int}
             )

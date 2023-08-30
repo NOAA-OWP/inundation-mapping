@@ -36,17 +36,19 @@ def create_master_metrics_csv(
     prev_metrics_csv,
 ):
     """
-    This function searches for and collates metrics into a single CSV file that can queried database-style. The
-    CSV is an input to eval_plots.py. This function automatically looks for metrics produced for official versions
-    and loads them into memory to be written to the output CSV.
+    This function searches for and collates metrics into a single CSV file that can queried database-style.
+        The CSV is an input to eval_plots.py.
+        This function automatically looks for metrics produced for official versions and loads them into
+            memory to be written to the output CSV.
 
     Args:
-        master_metrics_csv_output (str): Full path to CSV output. If a file already exists at this path, it will be
-        overwritten.
-        dev_versions_to_include_list (list): A list of non-official FIM version names. If a user supplied information
-                                            on the command line using the -dc flag, then this function will search for
-                                            metrics in the "testing_versions" library of metrics and include them in
-                                            the CSV output.
+        master_metrics_csv_output (str)    : Full path to CSV output.
+                                                If a file already exists at this path, it will be overwritten.
+        dev_versions_to_include_list (list): A list of non-official FIM version names.
+                                                If a user supplied information on the command line using the
+                                                -dc flag, then this function will search for metrics in the
+                                                "testing_versions" library of metrics and include them in
+                                                the CSV output.
     """
 
     # Construct header
@@ -306,7 +308,13 @@ if __name__ == '__main__':
     # Sample usage:
     '''
      === FOR (FIM 4)
-    python /foss_fim/tools/synthesize_test_cases.py -c DEV -e GMS -v gms_test_synth_combined -jh 2 -jb 40 -m /outputs/gms_test_synth_combined/gms_synth_metrics.csv -vg -o
+    python /foss_fim/tools/synthesize_test_cases.py
+        -c DEV
+        -e GMS
+        -v gms_test_synth_combined
+        -jh 2 -jb 40
+        -m /outputs/gms_test_synth_combined/gms_synth_metrics.csv
+        -vg -o
 
      Notes:
        - fim_input.csv MUST be in the folder suggested.
@@ -330,7 +338,13 @@ if __name__ == '__main__':
     '''
     '''
      === FOR FIM 3
-    python /foss_fim/tools/synthesize_test_cases.py -c DEV -e MS -v dev_fim_3_0_29_1_ms -jh 4 -m /outputs/dev_fim_3_0_29_1_ms/alpha/alpha_master_metrics_fim_3_0_29_1_ms_src_adjust.csv -vg -o
+    python /foss_fim/tools/synthesize_test_cases.py
+        -c DEV
+        -e MS
+        -v dev_fim_3_0_29_1_ms
+        -jh 4
+        -m /outputs/dev_fim_3_0_29_1_ms/alpha/alpha_master_metrics_fim_3_0_29_1_ms_src_adjust.csv
+        -vg -o
 
      Notes:
        - the -v param is the name in the folder in the "outputs/" directory where the test hucs are at.
@@ -339,8 +353,8 @@ if __name__ == '__main__':
        - The -m can be any path and any name.
 
      To see your outputs in the test_case folder (hard coded path), you can check for outputs using
-         (cd .... to your test_case folder), then command becomes  find . -name dev_fim_3_0_29_1_* -type d (Notice the
-         the -name can be a wildcard for your -v param (or the whole -v value))
+         (cd .... to your test_case folder), then command becomes  find . -name dev_fim_3_0_29_1_* -type d
+         (Notice the the -name can be a wildcard for your -v param (or the whole -v value))
      If you want to delete the test outputs, test the outputs as suggest immediately above, but this time your
          command becomes:  find . -name dev_fim_3_0_29_1_* -type d  -exec rm -rdf {} +
     '''
@@ -365,7 +379,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-e',
         '--model',
-        help='Denotes model used. FR, MS, or GMS allowed. This should be taken from meta-data in hydrofabric dir.',
+        help='Denotes model used. Options: [FR, MS, or GMS]. '
+        'This should be taken from meta-data in hydrofabric dir.',
         default='GMS',
         required=False,
     )
@@ -496,7 +511,8 @@ if __name__ == '__main__':
             'values accordingly.'.format(job_number_huc, job_number_branch)
         )
 
-    # Default to processing all possible versions in PREVIOUS_FIM_DIR. Otherwise, process only the user-supplied version.
+    # Default to processing all possible versions in PREVIOUS_FIM_DIR.
+    # Otherwise, process only the user-supplied version.
     prev_versions_to_include_list = []
     dev_versions_to_include_list = []
     if fim_version != "all" and pfiles is False:
@@ -551,7 +567,8 @@ if __name__ == '__main__':
         print()
     else:
         print(
-            "ALERT: Metrics from previous directories will NOT be compiled (-pfiles not provided) - this is optional"
+            "ALERT: Metrics from previous directories will NOT be compiled (-pfiles not provided) \n"
+            "   - pfiles is optional -"
         )
         print()
 
@@ -622,7 +639,8 @@ if __name__ == '__main__':
             progress_bar_handler(executor_dict, True, f"Running FR test cases with {job_number_huc} workers")
             # wait(executor_dict.keys())
 
-        # Loop through FR test cases, build composite arguments, and submit the composite method to the process pool
+        # Loop through FR test cases, build composite arguments, and
+        #   submit the composite method to the process pool
         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
             executor_dict = {}
             for test_case_class in all_test_cases:

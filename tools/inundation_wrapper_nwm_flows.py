@@ -15,7 +15,7 @@ from tools_shared_variables import INPUTS_DIR
 # Purpose: This script provides the user to generate inundation outputs using
 # the NWM Recurrence Interval flow data for 1.5yr, 5yr, & 10yr events.
 
-INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # Will update.
+INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'  # TODO - Update.
 OUTPUTS_DIR = os.environ['outputsDir']
 
 ENDC = '\033[m'
@@ -119,7 +119,8 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
 if __name__ == '__main__':
     # Parse arguments.
     parser = argparse.ArgumentParser(
-        description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. Inundation outputs are stored in the /inundation_review/inundation_nwm_recurr/ directory.'
+        description='Inundation mapping for FOSS FIM using streamflow recurrence interflow data. '
+        'Inundation outputs are stored in the /inundation_review/inundation_nwm_recurr/ directory.'
     )
     parser.add_argument(
         '-r',
@@ -130,14 +131,16 @@ if __name__ == '__main__':
     parser.add_argument(
         '-b',
         '--branch-name',
-        help='The name of the working branch in which features are being tested (used to name the output inundation directory) -> type=str',
+        help='The name of the working branch in which features are being tested '
+        '(used to name the output inundation directory) -> type=str',
         required=True,
         default="",
     )
     parser.add_argument(
         '-t',
         '--huc-id',
-        help='Provide either a single hucid (Format as: xxxxxxxx, e.g. 12345678) or a filepath to a list of hucids',
+        help='Provide either a single hucid (Format as: xxxxxxxx, e.g. 12345678) or '
+        'a filepath to a list of hucids',
         required=True,
         default="",
     )
@@ -151,7 +154,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-y',
         '--magnitude',
-        help='The magnitude (reccur interval) to run. Leave blank to use default intervals (options: 1_5, 5_0, 10_0).',
+        help='The magnitude (reccur interval) to run. Leave blank to use default intervals '
+        '(options: 1_5, 5_0, 10_0).',
         required=False,
         default="",
     )
@@ -206,7 +210,8 @@ if __name__ == '__main__':
             )
             print(
                 WHITE_BOLD
-                + "Please provide the parent directory name for fim_run.sh outputs. These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456."
+                + "Please provide the parent directory name for fim_run.sh outputs. "
+                + "These outputs are usually written in a subdirectory, e.g. data/outputs/123456/123456."
                 + ENDC
             )
             print()

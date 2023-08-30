@@ -237,7 +237,8 @@ if __name__ == '__main__':
                                         'operation': 'exclude',
                                     },
                                     site: {
-                                        'path': f'/data/test_cases/{benchmark_type}_test_cases/validation_data_{benchmark_type}/'
+                                        'path': f'/data/test_cases/{benchmark_type}_test_cases/'
+                                        f'validation_data_{benchmark_type}/'
                                         f'{huc}/{site}/{site}_domain.shp',
                                         'buffer': None,
                                         'operation': 'include',
