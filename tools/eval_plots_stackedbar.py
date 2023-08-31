@@ -119,7 +119,7 @@ def eval_plot_stack(metric_csv, versions, category, outfig, show_iqr=False):
     metrics_df = metrics_df.loc[~metrics_df.nws_lid.isin(BAD_SITES)]
     grouped = metrics_df.reset_index(drop=True).groupby(['benchmark_source','version','magnitude'], sort=False)
     count_df = grouped.count()['CSI']
-    metrics_df = grouped.median()
+    metrics_df = grouped.median(numeric_only=True)
     metrics_df['TP_norm_q1'] = metrics_df['TP_norm'] - grouped['TP_norm'].quantile(0.25)
     metrics_df['TP_norm_q3'] = grouped['TP_norm'].quantile(0.75) - metrics_df['TP_norm']
     metrics_df['FP_norm_q1'] = metrics_df['FP_norm'] - grouped['FP_norm'].quantile(0.25)
@@ -273,7 +273,7 @@ def iter_benchmarks(metric_csv, workspace, versions=[], individual_plots=False, 
     # If versions are supplied then filter out
     if versions:
         #Filter out versions based on supplied version list
-        metrics = csv_df.query('version.str.startswith(tuple(@versions))', engine='python')
+        metrics = csv_df.query("version == @versions")
     else:
         metrics = csv_df
 
