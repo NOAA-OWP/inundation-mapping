@@ -1,22 +1,23 @@
 #!/bin/bash -e
 
 :
-usage ()
+usage()
 {
-    echo 'Post processing for creating FIM hydrofabric.'
-    echo 'Usage : fim_post_processing.sh [REQ: -n <run name> ]'
-    echo '  	 				         [OPT: -h -j <job limit>]'
-    echo ''
-    echo 'REQUIRED:'
-    echo '  -n/--runName    : A name to tag the output directories and log files.'
-    echo ''
-    echo 'OPTIONS:'
-    echo '  -h/--help       : help file'
-    echo '  -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs'
-    echo '                    stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest'
-    echo '                    Note: Not the same variable name as fim_pipeline or fim_pre_processing'
-    echo '                    and can be the multiplication of jobHucLimit and jobBranchLimit'
-    echo
+    echo "
+    Post processing for creating FIM hydrofabric.
+
+    Usage : fim_post_processing.sh [REQ: -n <run name> ] [OPT: -h -j <job limit>]
+
+    REQUIRED:
+       -n/--runName    : A name to tag the output directories and log files.
+
+    OPTIONS:
+       -h/--help       : help file
+       -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs
+                         stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest.
+                         Note: Not the same variable name as fim_pipeline or fim_pre_processing
+                         and can be the multiplication of jobHucLimit and jobBranchLimit
+    "
     exit
 }
 
@@ -51,7 +52,8 @@ outputDestDir=$outputsDir/$runName
 
 ## Check for output destination directory ##
 if [ ! -d "$outputDestDir" ]; then
-    echo "Depends on output from units and branches. Please provide an output folder name that has hucs/branches run."
+    echo "Depends on output from units and branches. "
+    echo "Please provide an output folder name that has hucs/branches run."
     exit 1
 fi
 
@@ -94,7 +96,11 @@ python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir -f "branch_ids.csv" 
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 echo -e $startDiv"Start non-zero exit code checking"
-find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
+find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | \
+    xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > \
+    "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
+
+# find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 echo "Processing usgs gage aggregation"
@@ -105,7 +111,12 @@ if [ "$bathymetry_adjust" = "True" ]; then
     echo -e $startDiv"Performing Bathymetry Adjustment routine"
     # Run bathymetry adjustment routine
     Tstart
-    python3 $srcDir/bathymetric_adjustment.py -fim_dir $outputDestDir -bathy $bathymetry_file -buffer $wbd_buffer -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
+    python3 $srcDir/bathymetric_adjustment.py \
+        -fim_dir $outputDestDir \
+        -bathy $bathymetry_file \
+        -buffer $wbd_buffer \
+        -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg \
+        -j $jobLimit
     Tcount
 fi
 
@@ -114,7 +125,10 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     echo -e $startDiv"Estimating bankfull stage in SRCs"
     # Run SRC bankfull estimation routine routine
     Tstart
-    python3 $srcDir/identify_src_bankfull.py -fim_dir $outputDestDir -flows $bankfull_flows_file -j $jobLimit
+    python3 $srcDir/identify_src_bankfull.py \
+        -fim_dir $outputDestDir \
+        -flows $bankfull_flows_file \
+        -j $jobLimit
     Tcount
 fi
 
@@ -123,7 +137,10 @@ if [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC channel/overbank subdivision routine"
     # Run SRC Subdivision & Variable Roughness routine
     Tstart
-    python3 $srcDir/subdiv_chan_obank_src.py -fim_dir $outputDestDir -mann $vmann_input_file -j $jobLimit
+    python3 $srcDir/subdiv_chan_obank_src.py \
+        -fim_dir $outputDestDir \
+        -mann $vmann_input_file \
+        -j $jobLimit
     Tcount
 fi
 
@@ -133,7 +150,11 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     echo
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputDestDir -usgs_rc $inputsDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    python3 $srcDir/src_adjust_usgs_rating.py \
+        -run_dir $outputDestDir \
+        -usgs_rc $inputsDir/usgs_gages/usgs_rating_curves.csv \
+        -nwm_recur $nwm_recur_file \
+        -j $jobLimit
     Tcount
     date -u
 fi
@@ -152,7 +173,11 @@ fi
 echo
 echo -e $startDiv"Aggregating branch hydrotables"
 Tstart
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable -j $jobLimit
+python3 $srcDir/aggregate_by_huc.py \
+    -fim $outputDestDir \
+    -i $fim_inputs \
+    -htable \
+    -j $jobLimit
 Tcount
 date -u
 
@@ -161,7 +186,9 @@ if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
     echo
     echo -e $startDiv"Performing manual calibration"
     Tstart
-    python3 $srcDir/src_manual_calibration.py -fim_dir $outputDestDir -calb_file $man_calb_file
+    python3 $srcDir/src_manual_calibration.py \
+        -fim_dir $outputDestDir \
+        -calb_file $man_calb_file
     Tcount
     date -u
 fi
@@ -170,7 +197,9 @@ echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
 Tstart
-python3 /foss_fim/tools/combine_crosswalk_tables.py -d $outputDestDir -o $outputDestDir/crosswalk_table.csv
+python3 /foss_fim/tools/combine_crosswalk_tables.py \
+    -d $outputDestDir \
+    -o $outputDestDir/crosswalk_table.csv
 Tcount
 date -u
 

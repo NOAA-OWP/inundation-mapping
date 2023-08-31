@@ -193,7 +193,7 @@ Tcount
 
 ## BURN LEVEES INTO DEM ##
 echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters"
-echo -e $startDiv"(*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
+echo -e "(*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
 date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
@@ -374,7 +374,7 @@ if [ -f $branch_list_lst_file ]; then
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
     parallel --eta --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
-        -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
+    -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
