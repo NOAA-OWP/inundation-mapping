@@ -9,7 +9,7 @@ Fixes incorrect `nodata` value in `src/burn_in_levees.py` that was responsible f
 ### Changes
 
 - `src/`
-    - 'buffer_stream_branches.py`: Moves script functionality into a function.
+    - `buffer_stream_branches.py`: Moves script functionality into a function.
     - `burn_in_levees.py`: Corrects `nodata` value. Adds context managers for reading rasters.
     - `generate_branch_list.py`: Removes unused imports.
     - `mask_dem.py`: Removes commented code.
