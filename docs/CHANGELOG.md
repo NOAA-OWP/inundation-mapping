@@ -15,6 +15,8 @@ Fixes an issue where the stream network was clipped inside the DEM resulting in 
 - `unit_tests/`
     - `derive_level_paths_params.json`: Add WBD parameter value
     - `derive_level_paths_test.py`: Add WBD parameter
+ 
+<br/><br/>
 
 ## v4.3.15.2 - 2023-07-18 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/948)
 
