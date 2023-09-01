@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import sys
+import pandas as pd
 import geopandas as gpd
 import argparse
 import rasterio as rio
-import fiona
 from shapely.geometry import MultiPolygon,Polygon
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 from utils.shared_functions import getDriver, mem_profile
@@ -124,13 +124,18 @@ def subset_vector_layers(subset_nwm_lakes,
     # Subset nwm streams
     print("Subsetting NWM Streams", flush=True)
 
-    nwm_streams = gpd.read_file(nwm_streams, mask = wbd)
+    nwm_streams = gpd.read_file(nwm_streams, mask = wbd_buffer)
 
-     # NWM can have duplicate records, but appear to always be identical duplicates
+    # NWM can have duplicate records, but appear to always be identical duplicates
     nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
 
+    nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
+    nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
+
     if len(nwm_streams) > 0:
-        nwm_streams = gpd.clip(nwm_streams, wbd_streams_buffer)
+        nwm_streams_nonoutlets = gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer)
+
+        nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
 
         nwm_streams.to_file(subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=DEFAULT_FIM_PROJECTION_CRS)
     else:

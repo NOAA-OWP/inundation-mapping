@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.0.0 - 2023-08-15 - [PR#965](https://github.com/NOAA-OWP/inundation-mapping/pull/965)
+## v4.4.0.0 - 2023-09-01 - [PR#965](https://github.com/NOAA-OWP/inundation-mapping/pull/965)
 
 This feature branch includes new functionality to perform an additional layer of HAND SRC calibration using ras2fim rating curve and point data. The calibration workflow for ras2fim data follows the same general logic as the existing USGS rating curve calibration routine. 
 
@@ -26,6 +26,62 @@ This feature branch includes new functionality to perform an additional layer of
 - `src/usgs_gage_crosswalk.py`: Added code block to process ras2fim point locations alongside existing USGS gage point locations; outputs a separate csv if ras2fim points exist within the huc
 - `src/usgs_gage_unit_setup.py`: Added code block to ingest and process raw ras2fim point locations gpkg file (same general workflow to usgs gages); all valid points (USGS and RAS2FIM) are exported to the huc level `usgs_subset_gages.gpkg`
 - `tools/inundate_nation.py`: Added functionality to allow user to pass in a single HUC for faster spot checking of NWM recurr inundation maps
+
+<br/><br/>
+
+## v4.3.15.6 - 2023-09-01 - [PR#972](https://github.com/NOAA-OWP/inundation-mapping/pull/972)
+
+Adds functionality to `tools/inundate_mosaic_wrapper.py` and incorporates functionality into existing `inundation-mapping` scripts.
+
+### Changes
+
+- `tools/`
+    - `inundate_mosaic_wrapper.py`: Refactors to call `Inundate_gms` only once; adds functionality to produce a mosaicked polygon from `depths_raster` without needing to generate the `inundation_raster`; removes `log_file` and `output_fileNames` as variables and input arguments; updates the help description for `keep_intermediate`.
+    - `composite_inundation.py`, 'inundate_nation.py`, and `run_test_case.py`: Implements `produce_mosaicked_inundation()` from `tools/inundate_mosaic_wrapper.py`.
+    - `inundate_gms.py`: Adds back `Inundate_gms(**vars(parser.parse_args()))` command-line function call.
+    - `mosaic_inundation.py` and `overlapping_inundation.py`: Removes unused import(s).
+    - `tools_shared_variables.py`: Changes hardcoded `INPUT_DIR` to environment variable.
+
+<br/><br/>
+
+## v4.3.15.5 - 2023-09-01 - [PR#970](https://github.com/NOAA-OWP/inundation-mapping/pull/970)
+
+Fixes an issue where the stream network was clipped inside the DEM resulting in a burned stream channel that was then filled by the DEM depression filling process so that all pixels in the burned channel had the same elevation which was the elevation at the spill point (which wasn't necessarily at the HUC outlet). The stream network is now extended from the WBD to the buffered WBD and all streams except the outlet are clipped to the streams buffer inside the WBD (WBD - (3 x cell_size)). This also prevents reverse flow issues.
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Clip NWM streams to buffered WBD and clip non-outlet streams to WBD streams buffer (WBD - (3 x cell_size)).
+    - `derive_level_paths.py`: Add WBD input argument
+    - `run_unit_wb.py`: Add WBD input argument
+    - `src_stream_branches.py`: Ignore branches outside HUC
+- `unit_tests/`
+    - `derive_level_paths_params.json`: Add WBD parameter value
+    - `derive_level_paths_test.py`: Add WBD parameter
+ 
+<br/><br/>
+
+## v4.3.15.4 - 2023-09-01 - [PR#977](https://github.com/NOAA-OWP/inundation-mapping/pull/977)
+
+Fixes incorrect `nodata` value in `src/burn_in_levees.py` that was responsible for missing branches (Exit code: 61). Also cleans up related files.
+
+### Changes
+
+- `src/`
+    - `buffer_stream_branches.py`: Moves script functionality into a function.
+    - `burn_in_levees.py`: Corrects `nodata` value. Adds context managers for reading rasters.
+    - `generate_branch_list.py`: Removes unused imports.
+    - `mask_dem.py`: Removes commented code.
+
+<br/><br/>
+
+## v4.3.15.3 - 2023-09-01 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/983)
+
+This hotfix addresses some bugs introduced in the pandas upgrade.
+
+### Changes  
+
+- `/tools/eval_plots_stackedbar.py`: 2 lines were changed to work with the pandas upgrade. Added an argument for a `groupby` median call and fixed a bug with the pandas `query`. Also updated with Black compliance.
 
 <br/><br/>
 
