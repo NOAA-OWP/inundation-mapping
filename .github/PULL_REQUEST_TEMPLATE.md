@@ -29,6 +29,6 @@ _You may update this checklist before and/or after creating the PR. If you're un
 
 ### Merge Checklist (For Technical Lead use only)
 
-- [ ] Update [CHANGELOG](/docs/CHANGELOG.md) with latest version number
+- [ ] Update [CHANGELOG](/docs/CHANGELOG.md) with latest version number and merge date
 - [ ] Update the [Citation.cff](/CITATION.cff) file to reflect the latest version number in the [CHANGELOG](/docs/CHANGELOG.md)
 - [ ] If applicable, update [README](/README.md) with major alterations
