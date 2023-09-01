@@ -1,8 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-
-## v4.3.x.x - 2023-08-28 - [PR#977](https://github.com/NOAA-OWP/inundation-mapping/pull/977)
+## v4.3.15.4 - 2023-08-28 - [PR#977](https://github.com/NOAA-OWP/inundation-mapping/pull/977)
 
 Fixes incorrect `nodata` value in `src/burn_in_levees.py` that was responsible for missing branches (Exit code: 61). Also cleans up related files.
 
@@ -13,6 +12,16 @@ Fixes incorrect `nodata` value in `src/burn_in_levees.py` that was responsible f
     - `burn_in_levees.py`: Corrects `nodata` value. Adds context managers for reading rasters.
     - `generate_branch_list.py`: Removes unused imports.
     - `mask_dem.py`: Removes commented code.
+
+<br/><br/>
+
+## v4.3.15.3 - 2023-09-01 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/983)
+
+### Changes  
+
+This hotfix addresses some bugs introduced in the pandas upgrade.
+
+- `/tools/eval_plots_stackedbar.py`: 2 lines were changed to work with the pandas upgrade. Added an argument for a `groupby` median call and fixed a bug with the pandas `query`. Also updated with Black compliance.
 
 <br/><br/>
 
