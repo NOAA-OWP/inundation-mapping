@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.15.5 - 2023-08-17 - [PR#970](https://github.com/NOAA-OWP/inundation-mapping/pull/970)
+
+Fixes an issue where the stream network was clipped inside the DEM resulting in a burned stream channel that was then filled by the DEM depression filling process so that all pixels in the burned channel had the same elevation which was the elevation at the spill point (which wasn't necessarily at the HUC outlet). The stream network is now extended from the WBD to the buffered WBD and all streams except the outlet are clipped to the streams buffer inside the WBD (WBD - (3 x cell_size)). This also prevents reverse flow issues.
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Clip NWM streams to buffered WBD and clip non-outlet streams to WBD streams buffer (WBD - (3 x cell_size)).
+    - `derive_level_paths.py`: Add WBD input argument
+    - `run_unit_wb.py`: Add WBD input argument
+    - `src_stream_branches.py`: Ignore branches outside HUC
+- `unit_tests/`
+    - `derive_level_paths_params.json`: Add WBD parameter value
+    - `derive_level_paths_test.py`: Add WBD parameter
+ 
+<br/><br/>
+
 ## v4.3.15.4 - 2023-08-28 - [PR#977](https://github.com/NOAA-OWP/inundation-mapping/pull/977)
 
 Fixes incorrect `nodata` value in `src/burn_in_levees.py` that was responsible for missing branches (Exit code: 61). Also cleans up related files.
