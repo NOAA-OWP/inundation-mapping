@@ -93,7 +93,7 @@ def variable_mannings_calc(args):
             df_htable = pd.read_csv(htable_filename,dtype={'HUC': str,'last_updated':object,'submitter':object,'obs_source':object})
 
             ## drop the previously modified discharge column to be replaced with updated version
-            df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','channel_n','subdiv_discharge_cms'], axis=1, errors='ignore', inplace=True) 
+            df_htable.drop(['subdiv_applied','discharge_cms','overbank_n','channel_n','subdiv_discharge_cms','Bathymetry_source'], axis=1, errors='ignore', inplace=True) 
             df_htable = df_htable.merge(df_src_trim, how='left', left_on=['HydroID','stage'], right_on=['HydroID','stage'])
 
             ## Output new hydroTable csv

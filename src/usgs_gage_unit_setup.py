@@ -7,23 +7,54 @@ import geopandas as gpd
 import pandas as pd
 import argparse
 import warnings
+from shapely.geometry import Point
 from utils.shared_functions import mem_profile
+from utils.shared_variables import PREP_CRS
 warnings.simplefilter("ignore")
 
 class Gage2Branch(object):
 
-    def __init__(self, usgs_gage_filename, ahps_filename, huc8):
+    def __init__(self, usgs_gage_filename, ras_locs_filename, ahps_filename, huc8):
 
         self.usgs_gage_filename = usgs_gage_filename
+        self.ras_locs_filename = ras_locs_filename
         self.ahps_filename = ahps_filename
-        self.huc8 = huc8
+        self.huc8 = str(huc8)
         self.load_gages()
 
     def load_gages(self):
 
-        # Filter USGS gages to huc
-        usgs_gages = gpd.read_file(self.usgs_gage_filename)
-        self.gages = usgs_gages[(usgs_gages.HUC8 == self.huc8)]
+        # Read USGS gage file a
+        usgs_gages = gpd.read_file(self.usgs_gage_filename,dtype={'location_id': object})
+        usgs_gages['source'] = 'usgs_gage'
+
+        # Read RAS2FIM point locations file
+        # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64). 
+        # Need the raw data to store the 'huc8' attribute as an object to avoid issues with integers truncating the leading zero from some hucs
+        ras_locs = gpd.read_file(self.ras_locs_filename,dtype={'huc8': 'object'}) 
+        ras_locs = ras_locs[['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'wrds_timestamp', 'geometry']]
+        ras_locs['location_id'] =  ras_locs['fid_xs']
+        
+        # Convert ras locs crs to match usgs gage crs
+        ras_locs.to_crs(usgs_gages.crs, inplace=True)
+        ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
+
+        # Convert Multipoint geometry to Point geometry 
+        ras_locs['geometry'] = ras_locs.representative_point()
+
+        # if ras_locs.huc8.dtype == 'int64':
+        #     ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]
+        #     ras_locs['HUC8'] = str(self.huc8)
+        #     ras_locs = ras_locs.drop('huc8', axis=1)
+        # elif ras_locs.huc8.dtype == 'int64':
+        #     ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
+
+        # Concat USGS points and RAS2FIM points
+        gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
+        #gages_locs.to_crs(PREP_CRS, inplace=True)
+
+        # Filter USGS gages and RAS locations to huc
+        self.gages = gages_locs[(gages_locs.HUC8 == self.huc8)]
         
         # Get AHPS sites within the HUC and add them to the USGS dataset
         if self.ahps_filename:
@@ -32,6 +63,7 @@ class Gage2Branch(object):
             ahps_sites.rename(columns={'nwm_feature_id':'feature_id',
                                 'usgs_site_code':'location_id'}, inplace=True)
             ahps_sites = ahps_sites[ahps_sites.location_id.isna()] # Filter sites that are already in the USGS dataset
+            ahps_sites['source'] = 'ahps_site'
             self.gages = pd.concat([self.gages, ahps_sites[['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states','geometry']]])
 
         # Create gages attribute
@@ -100,6 +132,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Assign HUC gages to branch and stage for usgs_gage_crosswalk.py')
     parser.add_argument('-gages','--usgs-gages-filename', help='USGS gages', required=True)
+    parser.add_argument('-ras','--ras-locs-filename', help='RAS2FIM rating curve locations', required=True)
     parser.add_argument('-ahps','--nws-lid-filename', help='AHPS gages', required=False)
     parser.add_argument('-nwm','--input-nwm-filename', help='NWM stream subset', required=True)
     parser.add_argument('-o','--output-filename', help='Table to append data', required=True)
@@ -110,6 +143,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     usgs_gages_filename = args['usgs_gages_filename']
+    ras_locs_filename = args['ras_locs_filename']
     nws_lid_filename = args['nws_lid_filename']
     input_nwm_filename = args['input_nwm_filename']
     output_filename = args['output_filename']
@@ -119,7 +153,7 @@ if __name__ == '__main__':
 
     if not filter_fim_inputs:
 
-        usgs_gage_subset = Gage2Branch(usgs_gages_filename, nws_lid_filename, huc8)
+        usgs_gage_subset = Gage2Branch(usgs_gages_filename, ras_locs_filename, nws_lid_filename, huc8)
         if usgs_gage_subset.gages.empty:
             print(f'There are no gages identified for {huc8}')
             os._exit(0)

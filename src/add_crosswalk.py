@@ -265,6 +265,7 @@ def add_crosswalk(input_catchments_fileName,
     output_hydro_table['obs_source'] = pd.NA
     output_hydro_table['precalb_discharge_cms'] = pd.NA
     output_hydro_table['calb_coef_usgs'] = pd.NA
+    output_hydro_table['calb_coef_ras2fim'] = pd.NA
     output_hydro_table['calb_coef_spatial'] = pd.NA
     output_hydro_table['calb_coef_final'] = pd.NA
 
