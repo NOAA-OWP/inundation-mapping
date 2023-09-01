@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.3.x.x - 2023-08-017 - [PR#970](https://github.com/NOAA-OWP/inundation-mapping/pull/970)
+## v4.3.15.5 - 2023-08-017 - [PR#970](https://github.com/NOAA-OWP/inundation-mapping/pull/970)
 
 Fixes an issue where the stream network was clipped inside the DEM resulting in a burned stream channel that was then filled by the DEM depression filling process so that all pixels in the burned channel had the same elevation which was the elevation at the spill point (which wasn't necessarily at the HUC outlet). The stream network is now extended from the WBD to the buffered WBD and all streams except the outlet are clipped to the streams buffer inside the WBD (WBD - (3 x cell_size)). This also prevents reverse flow issues.
 
