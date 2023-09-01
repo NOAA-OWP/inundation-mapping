@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.3.15.3 - 2023-09-01 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/983)
+
+### Changes  
+
+This hotfix addresses some bugs introduced in the pandas upgrade.
+
+- `/tools/eval_plots_stackedbar.py`: 2 lines were changed to work with the pandas upgrade. Added an argument for a `groupby` median call and fixed a bug with the pandas `query`. Also updated with Black compliance.
+
+<br/><br/>
 
 ## v4.3.15.2 - 2023-07-18 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/948)
 
