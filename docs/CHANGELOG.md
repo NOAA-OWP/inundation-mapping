@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.x.x.x - 2023-08-17 - [PR#972](https://github.com/NOAA-OWP/inundation-mapping/pull/972)
+## v4.3.15.6 - 2023-09-01 - [PR#972](https://github.com/NOAA-OWP/inundation-mapping/pull/972)
 
 Adds functionality to `tools/inundate_mosaic_wrapper.py` and incorporates functionality into existing `inundation-mapping` scripts.
 
