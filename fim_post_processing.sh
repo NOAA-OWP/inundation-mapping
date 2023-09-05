@@ -97,8 +97,17 @@ echo -e $startDiv"Start non-zero exit code checking"
 find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo "Processing usgs gage aggregation"   
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -j $jobLimit
+echo "Processing usgs & ras2fim elev table aggregation"   
+python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -ras -j $jobLimit
+
+## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
+if [ "$bathymetry_adjust" = "True" ]; then
+    echo -e $startDiv"Performing Bathymetry Adjustment routine"
+    # Run bathymetry adjustment routine
+    Tstart
+    python3 $srcDir/bathymetric_adjustment.py -fim_dir $outputDestDir -bathy $bathymetry_file -buffer $wbd_buffer -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
+    Tcount
+fi
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
@@ -110,7 +119,7 @@ if [ "$src_bankfull_toggle" = "True" ]; then
 fi
 
 ## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
-if [ "$src_subdiv_toggle" = "True" ]; then
+if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC channel/overbank subdivision routine"
     # Run SRC Subdivision & Variable Roughness routine
     Tstart
@@ -123,8 +132,19 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     Tstart
     echo    
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
-    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow thresholds)
-    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputDestDir -usgs_rc $inputsDir/usgs_gages/usgs_rating_curves.csv -nwm_recur $nwm_recur_file -j $jobLimit
+    # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
+    python3 $srcDir/src_adjust_usgs_rating.py -run_dir $outputDestDir -usgs_rc $usgs_rating_curve_csv -nwm_recur $nwm_recur_file -j $jobLimit
+    Tcount
+    date -u
+fi
+
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RAS2FIM CROSS SECTION RATING CURVES ##
+if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
+    Tstart
+    echo    
+    echo -e $startDiv"Performing SRC adjustments using ras2fim rating curve database"
+    # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
+    python3 $srcDir/src_adjust_ras2fim_rating.py -run_dir $outputDestDir -ras_rc $ras_rating_curve_csv -nwm_recur $nwm_recur_file -j $jobLimit
     Tcount
     date -u
 fi
@@ -146,6 +166,16 @@ Tstart
 python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -htable -j $jobLimit
 Tcount
 date -u
+
+## PERFORM MANUAL CALIBRATION
+if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
+    echo
+    echo -e $startDiv"Performing manual calibration"
+    Tstart
+    python3 $srcDir/src_manual_calibration.py -fim_dir $outputDestDir -calb_file $man_calb_file
+    Tcount
+    date -u
+fi
 
 echo
 echo -e $startDiv"Combining crosswalk tables"

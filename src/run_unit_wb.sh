@@ -86,7 +86,7 @@ Tcount
 echo -e $startDiv"Generating Level Paths for $hucNumber"
 date -u
 Tstart
-$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -s $tempHucDataDir/wbd_buffered_streams.gpkg -b $branch_id_attribute -r "ID" -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg
+$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg -s $tempHucDataDir/wbd_buffered_streams.gpkg -b $branch_id_attribute -r "ID" -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg -e $tempHucDataDir/nwm_headwaters.gpkg -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg -wbd $tempHucDataDir/wbd.gpkg
 
 # test if we received a non-zero code back from derive_level_paths.py
 #subscript_exit_code=$?
@@ -270,7 +270,7 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputsDir/usgs_gages/usgs_gages.gpkg -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -o $tempHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputsDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id
+    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py -gages $inputsDir/usgs_gages/usgs_gages.gpkg -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg -ras $inputsDir/rating_curve/ras2fim_exports/reformat_ras_rating_curve_points.gpkg -o $tempHucDataDir/usgs_subset_gages.gpkg -huc $hucNumber -ahps $inputsDir/ahps_sites/nws_lid.gpkg -bzero_id $branch_zero_id 
     Tcount
 fi
 
@@ -279,7 +279,7 @@ if [ -f $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
     echo -e $startDiv"USGS Crosswalk $hucNumber $branch_zero_id"
     date -u
     Tstart
-    python3 $srcDir/usgs_gage_crosswalk.py -gages $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg -flows $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$branch_zero_id.gpkg -cat $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg -dem $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif -outtable $tempCurrentBranchDataDir/usgs_elev_table.csv -b $branch_zero_id
+    python3 $srcDir/usgs_gage_crosswalk.py -gages $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg -flows $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$branch_zero_id.gpkg -cat $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg -dem $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif -out $tempCurrentBranchDataDir -b $branch_zero_id
     Tcount
 fi
 
@@ -326,4 +326,3 @@ date -u
 echo "---- HUC processing for $hucNumber is complete"
 Calc_Duration $huc_start_time
 echo
-

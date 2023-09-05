@@ -50,6 +50,217 @@ Fixed single-length Series in
 
 <br/><br/>
 
+## v4.4.0.0 - 2023-09-01 - [PR#965](https://github.com/NOAA-OWP/inundation-mapping/pull/965)
+
+This feature branch includes new functionality to perform an additional layer of HAND SRC calibration using ras2fim rating curve and point data. The calibration workflow for ras2fim data follows the same general logic as the existing USGS rating curve calibration routine. 
+
+### Additions
+
+- `src/src_adjust_ras2fim_rating.py`: New python script to perform the data prep steps for running the SRC calibration routine: 
+1) merge the `ras_elev_table.csv` data and the ras2fim cross section rating curve data (`reformat_ras_rating_curve_table.csv`) 
+2) sample the ras2fim rating curve at NWM recurrence flow intervals (2, 5, 10, 25, 50, 100yr)
+3) pass inputs to the `src_roughness_optimization.py` workflow
+
+### Changes
+
+- `config/deny_branches.lst`: Added `ras_elev_table.csv` to keep list. Needed for `fim_post_processing.sh`
+- `config/deny_unit.lst`: Added `ras_elev_table.csv` to keep list. Needed for `fim_post_processing.sh`
+- `config/params_template.env`: Added new block for ras2fim SRC calibration parameters (can turn on/off each of the three SRC calibration routines individually); also reconfigured docstrings for calibration parameters)
+- `fim_post_processing.sh`: Added routines to create ras2fim calibration data and then run the SRC calibration workflow with ras2fim data
+- `src/add_crosswalk.py`: Added placeholder variable (`calb_coef_ras2fim`) in all `hydrotable.csv` files
+- `src/aggregate_by_huc.py`: Added new blocks to perform huc-branch aggregation for all `ras_elev_table.csv` files
+- `src/run_by_branch.sh`: Revised input variable (changed from csv file to directory) for `usgs_gage_crosswalk.py` to facilitate both `usgs_elev_table.csv` and ras_elev_table.csv` outputs
+- `src/run_unit_wb.sh`: Revised inputs and output variables for `usgs_gage_unit_setup.py` and `usgs_gage_crosswalk.py`
+- `src/src_roughness_optimization.py`: Added code blocks to ingest ras2fim rating curve data; added new attributes/renamed output variables to catchments gpkg output
+- `src/usgs_gage_crosswalk.py`: Added code block to process ras2fim point locations alongside existing USGS gage point locations; outputs a separate csv if ras2fim points exist within the huc
+- `src/usgs_gage_unit_setup.py`: Added code block to ingest and process raw ras2fim point locations gpkg file (same general workflow to usgs gages); all valid points (USGS and RAS2FIM) are exported to the huc level `usgs_subset_gages.gpkg`
+- `tools/inundate_nation.py`: Added functionality to allow user to pass in a single HUC for faster spot checking of NWM recurr inundation maps
+
+<br/><br/>
+
+## v4.3.15.6 - 2023-09-01 - [PR#972](https://github.com/NOAA-OWP/inundation-mapping/pull/972)
+
+Adds functionality to `tools/inundate_mosaic_wrapper.py` and incorporates functionality into existing `inundation-mapping` scripts.
+
+### Changes
+
+- `tools/`
+    - `inundate_mosaic_wrapper.py`: Refactors to call `Inundate_gms` only once; adds functionality to produce a mosaicked polygon from `depths_raster` without needing to generate the `inundation_raster`; removes `log_file` and `output_fileNames` as variables and input arguments; updates the help description for `keep_intermediate`.
+    - `composite_inundation.py`, 'inundate_nation.py`, and `run_test_case.py`: Implements `produce_mosaicked_inundation()` from `tools/inundate_mosaic_wrapper.py`.
+    - `inundate_gms.py`: Adds back `Inundate_gms(**vars(parser.parse_args()))` command-line function call.
+    - `mosaic_inundation.py` and `overlapping_inundation.py`: Removes unused import(s).
+    - `tools_shared_variables.py`: Changes hardcoded `INPUT_DIR` to environment variable.
+
+<br/><br/>
+
+## v4.3.15.5 - 2023-09-01 - [PR#970](https://github.com/NOAA-OWP/inundation-mapping/pull/970)
+
+Fixes an issue where the stream network was clipped inside the DEM resulting in a burned stream channel that was then filled by the DEM depression filling process so that all pixels in the burned channel had the same elevation which was the elevation at the spill point (which wasn't necessarily at the HUC outlet). The stream network is now extended from the WBD to the buffered WBD and all streams except the outlet are clipped to the streams buffer inside the WBD (WBD - (3 x cell_size)). This also prevents reverse flow issues.
+
+### Changes
+
+- `src/`
+    - `clip_vectors_to_wbd.py`: Clip NWM streams to buffered WBD and clip non-outlet streams to WBD streams buffer (WBD - (3 x cell_size)).
+    - `derive_level_paths.py`: Add WBD input argument
+    - `run_unit_wb.py`: Add WBD input argument
+    - `src_stream_branches.py`: Ignore branches outside HUC
+- `unit_tests/`
+    - `derive_level_paths_params.json`: Add WBD parameter value
+    - `derive_level_paths_test.py`: Add WBD parameter
+ 
+<br/><br/>
+
+## v4.3.15.4 - 2023-09-01 - [PR#977](https://github.com/NOAA-OWP/inundation-mapping/pull/977)
+
+Fixes incorrect `nodata` value in `src/burn_in_levees.py` that was responsible for missing branches (Exit code: 61). Also cleans up related files.
+
+### Changes
+
+- `src/`
+    - `buffer_stream_branches.py`: Moves script functionality into a function.
+    - `burn_in_levees.py`: Corrects `nodata` value. Adds context managers for reading rasters.
+    - `generate_branch_list.py`: Removes unused imports.
+    - `mask_dem.py`: Removes commented code.
+
+<br/><br/>
+
+## v4.3.15.3 - 2023-09-01 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/983)
+
+This hotfix addresses some bugs introduced in the pandas upgrade.
+
+### Changes  
+
+- `/tools/eval_plots_stackedbar.py`: 2 lines were changed to work with the pandas upgrade. Added an argument for a `groupby` median call and fixed a bug with the pandas `query`. Also updated with Black compliance.
+
+<br/><br/>
+
+## v4.3.15.2 - 2023-07-18 - [PR#948](https://github.com/NOAA-OWP/inundation-mapping/pull/948)
+
+Adds a script to produce inundation maps (extent TIFs, polygons, and depth grids) given a flow file and hydrofabric outputs. This is meant to make it easier to team members and external collaborators to produce inundation maps.
+
+### Additions
+- `data/`
+    - `/tools/inundate_mosaic_wrapper.py`: The script that performs the inundation and mosaicking processes.
+    - `/tools/mosaic_inundation.py`: Add function (mosaic_final_inundation_extent_to_poly).
+  
+<br/><br/>
+
+## v4.3.15.1 - 2023-08-08 - [PR#960](https://github.com/NOAA-OWP/inundation-mapping/pull/960)
+
+Provides a scripted procedure for updating BLE benchmark data including downloading, extracting, and processing raw BLE data into benchmark inundation files (inundation rasters and discharge tables).
+
+### Additions
+
+- `data/ble/ble_benchmark/`
+    - `Dockerfile`, `Pipfile`, and `Pipfile.lock`: creates a new Docker image with necessary Python packages
+    - `README.md`: contains installation and usage information
+    - `create_ble_benchmark.py`: main script to generate BLE benchmark data
+
+### Changes
+
+- `data/ble/ble_benchmark/`
+    - `create_flow_forecast_file.py` and `preprocess_benchmark.py`: moved from /tools
+
+<br/><br/>
+
+## v4.3.15.0 - 2023-08-08 - [PR##956](https://github.com/NOAA-OWP/inundation-mapping/pull/956)
+
+Integrating GVAL in to the evaluation of agreement maps and contingency tables.
+
+- `Dockerfile`: Add dependencies for GVAL
+- `Pipfile`: Add GVAL and update related dependencies
+- `Pipfile.lock`: Setup for Docker Image builds
+- `run_test_case.py`: Remove unused arguments and cleanup
+- `synthesize_test_cases.py`: Fix None comparisons and cleanup
+- `tools/shared_functions.py`: Add GVAL crosswalk function, add rework create_stats_from_raster, create and create_stats_from_contingency_table
+- `unit_tests/tools/inundate_gms_test.py`: Bug fix
+
+<br/><br/>
+
+## v4.3.14.2 - 2023-08-08 - [PR#959](https://github.com/NOAA-OWP/inundation-mapping/pull/959)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Changes  
+- `data/bathymetry/preprocess_bathymetry.py`: added data source column to output geopackage attribute table.
+- `fim_post_processing.sh`: changed -bathy input reference location.
+- `config/params_template.env`: added export to bathymetry_file
+
+<br/><br/>
+
+## v4.3.14.1 - 2023-07-13 - [PR#946](https://github.com/NOAA-OWP/inundation-mapping/pull/946)
+
+ras2fim product had a need to run the acquire 3dep script to pull down some HUC8 DEMs. The old script was geared to HUC6 but could handle HUC8's but needed a few enhancements. ras2fim also did not need polys made from the DEMs, so a switch was added for that.
+
+The earlier version on the "retry" feature would check the file size and if it was smaller than a particular size, it would attempt to reload it.  The size test has now been removed. If a file fails to download, the user will need to look at the log out, then remove the file before attempting again. Why? So the user can see why it failed and decide action from there.
+
+Note: later, as needed, we might upgrade it to handle more than just 10m (which it is hardcoded against).
+
+Additional changes to README to reflect how users can access ESIP's S3 as well as a one line addition to change file permissions in fim_process_unit_wb.sh.
+
+### Changes  
+- `data`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py`:  As described above.
+ - `fim_pipeline.sh`:  a minor styling fix (added a couple of lines for readability)
+ - `fim_pre_processing.sh`: a user message was incorrect & chmod 777 $outputDestDir. 
+ - `fim_process_unit_wb.sh`: chmod 777 for /output/<run_name> directory.
+ - `README.md`: --no-sign-request instead of --request-payer requester for ESIP S3 access.
+
+<br/><br/>
+
+## v4.3.14.0 - 2023-08-03 - [PR#953](https://github.com/NOAA-OWP/inundation-mapping/pull/953)
+
+The enhancements in this PR include the new modules for pre-processing bathymetric data from the USACE eHydro dataset and integrating the missing hydraulic geometry into the HAND synthetic rating curves.
+
+### Additions  
+
+- `data/bathymetry/preprocess_bathymetry.py`: preprocesses the eHydro datasets.
+- `src/bathymetric_adjustment.py`: adjusts synthetic rating curves for HUCs where preprocessed bathymetry is available.
+
+### Changes  
+
+- `config/params_template.env`: added a toggle for the bathymetric adjustment routine: `bathymetry_adjust`
+- `fim_post_processing.sh`: added the new `bathymetric_adjustment.py` to the postprocessing lineup
+- `src/`
+    - `add_crosswalk.py`, `aggregate_by_huc.py`, & `subdiv_chan_obank_src.py`: accounting for the new Bathymetry_source field in SRCs
+
+<br/><br/>
+
+## v4.3.13.0 - 2023-07-26 - [PR#952](https://github.com/NOAA-OWP/inundation-mapping/pull/952)
+
+Adds a feature to manually calibrate rating curves for specified NWM `feature_id`s using a CSV of manual coefficients to output a new rating curve. Manual calibration is applied after any/all other calibrations. Coefficient values between 0 and 1 increase the discharge value (and decrease inundation) for each stage in the rating curve while values greater than 1 decrease the discharge value (and increase inundation).
+
+Manual calibration is performed if `manual_calb_toggle="True"` and the file specified by `man_calb_file` (with `HUC8`, `feature_id`, and `calb_coef_manual` fields) exists. The original HUC-level `hydrotable.csv` (after calibration) is saved with a suffix of `_pre-manual` before the new rating curve is written.
+
+### Additions
+
+- `src/src_manual_calibration.py`: Adds functionality for manual calibration by CSV file
+
+### Changes
+
+- `config/params_template.env`: Adds `manual_calb_toggle` and `man_calb_file` parameters
+- `fim_post_processing.sh`: Adds check for toggle and if `man_calb_file` exists before running manual calibration
+
+<br/><br/>
+
+## v4.3.12.1 - 2023-07-21 - [PR#950](https://github.com/NOAA-OWP/inundation-mapping/pull/950)
+
+Fixes a couple of bugs that prevented inundation using HUC-level hydrotables. Update associated unit tests.
+
+### Changes
+
+- `tools/inundate_gms.py`: Fixes a file path error and Pandas DataFrame indexing error.
+- `unit_tests/tools/inundate_gms_test.py`: Do not skip this test, refactor to check that all branch inundation rasters exist.
+- `unit_tests/tools/inundate_gms_params.json`: Only test 1 HUC, update forecast filepath, use 4 'workers'.
+
+### Removals
+
+- `unit_tests/tools/inundate_gms_unittests.py`: No longer used. Holdover from legacy unit tests.
+
+<br/><br/>
+
+
 ## v4.3.12.0 - 2023-07-05 - [PR#940](https://github.com/NOAA-OWP/inundation-mapping/pull/940)
 
 Refactor Point Calibration Database for synthetic rating curve adjustment to use `.parquet` files instead of a PostgreSQL database. 
