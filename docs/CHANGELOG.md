@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.0.1 - 2023-09-06 - [PR#987](https://github.com/NOAA-OWP/inundation-mapping/pull/987)
+
+Corrects a bug in `src/usgs_gage_unit_setup.py` that causes incorrect values to populate a table, generating an error in `src/usgs_gage_crosswalk.py`.
+
+### Changes
+
+- `src/usgs_gage_unit_setup.py`: Changes `self.gages.location_id.fillna(usgs_gages.nws_lid, inplace=True)` to `self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)`
+
+<br/><br/>
+
 ## v4.4.0.0 - 2023-09-01 - [PR#965](https://github.com/NOAA-OWP/inundation-mapping/pull/965)
 
 This feature branch includes new functionality to perform an additional layer of HAND SRC calibration using ras2fim rating curve and point data. The calibration workflow for ras2fim data follows the same general logic as the existing USGS rating curve calibration routine. 
