@@ -63,15 +63,18 @@ def mask_dem(
     elif os.path.exists(levee_levelpaths):
         levee_levelpaths = pd.read_csv(levee_levelpaths)
 
+        # Select levees associated with branch
         levee_levelpaths = levee_levelpaths[levee_levelpaths[branch_id_attribute] == branch_id]
 
+        # Get levee IDs
         levelpath_levees = list(levee_levelpaths[levee_id_attribute])
 
         if len(levelpath_levees) > 0:
-            with rio.open(dem_filename) as dem:  # , fiona.open(nld_filename) as leveed:
+            with rio.open(dem_filename) as dem:
                 leveed = gpd.read_file(nld_filename)
                 dem_profile = dem.profile.copy()
 
+                # Get geometries of levee protected areas associated with levelpath
                 geoms = [
                     feature['geometry']
                     for i, feature in leveed.iterrows()

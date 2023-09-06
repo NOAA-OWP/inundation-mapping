@@ -1,5 +1,6 @@
 [project]
 name = 'Inundation Mapping'
+
 description = """\
     Flood inundation mapping software configured to work with the U.S. National Water Model, \
     operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) \
@@ -10,12 +11,25 @@ description = """\
     and evaluate FIM accuracy. \
     """
 
-# - Do we add all of the FIM-Dev team below, and change to 'Contributors'? -
-authors = [
-    {name = "Fernando Aristizabal", email = "fernando.aristizabal@noaa.gov"},
+maintainers = [
     {name = "Fernando Salas", email = "fernando.salas@noaa.gov"},
-    {name = "Carson Pruitt", email = "carson.pruitt@noaa.gov"}
+    {name = "Carson Pruitt", email = "carson.pruitt@noaa.gov"},
+    {name = "Ali Forghani", email = "ali.forghani@noaa.gov"},
+    {name = "Bradford Bates", email = "bradford.bates@noaa.gov"},
+    {name = "Emily Deardorff", email = "emily.deardorff@noaa.gov"},
+    {name = "Fernando Aristizabal", email = "fernando.aristizabal@noaa.gov"},
+    {name = "Greg Petrochenkov", email = "greg.petrochenkov@noaa.gov"},
+    {name = "Hamideh Safa", email = "hamideh.safa@noaa.gov"},
+    {name = "James Coll", email = "james.coll@noaa.gov"},
+    {name = "Matt Luck", email = "matt.luck@noaa.gov"},
+    {name = "Laura Keys", email = "laura.keys@noaa.gov"},
+    {name = "Nick Chadwick", email = "nick.chadwick@noaa.gov"},
+    {name = "Riley McDermott", email = "riley.mcdermott@noaa.gov"},
+    {name = "Rob Gonzalez-Pita", email = "rob.g.pita@noaa.gov"},
+    {name = "Robert Hanna", email = "robert.hanna@noaa.gov"},
+    {name = "Ryan Spies", email = "ryan.spies@noaa.gov"}
 ]
+
 requires-python = ">=3.8"
 keywords = ["flood inundation", "mapping"]
 license = {path = "./LICENSE"}

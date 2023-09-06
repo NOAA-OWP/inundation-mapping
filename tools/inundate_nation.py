@@ -11,9 +11,7 @@ from datetime import datetime
 from multiprocessing import Pool
 
 import rasterio
-from inundate_gms import Inundate_gms
-from inundation import inundate
-from mosaic_inundation import Mosaic_inundation
+from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from osgeo import gdal, ogr
 from rasterio.merge import merge
 
@@ -28,10 +26,8 @@ from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
-def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosaic, job_number):
-    assert os.path.isdir(fim_run_dir), f'ERROR: could not find the input fim_dir location: {fim_run_dir}'
-
-    assert os.path.exists(flow_file), f'ERROR: could not find the flow file: {flow_file}'
+def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number):
+    assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
     if job_number > available_cores:
         job_number = available_cores - 1
@@ -42,7 +38,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosai
         )
 
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
-    logging.info(f'Using fim version: {fim_version}')
+    logging.info(f"Using fim version: {fim_version}")
     output_base_file_name = magnitude_key + "_" + fim_version
     # print(output_base_file_name)
 
@@ -50,11 +46,11 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosai
 
     start_dt = datetime.now()
 
-    logging.info(f'Input FIM Directory: {fim_run_dir}')
-    logging.info(f'output_dir: {output_dir}')
-    logging.info(f'magnitude_key: {magnitude_key}')
-    logging.info(f'flow_file: {flow_file}')
-    logging.info(f'inc_mosaic: {str(inc_mosaic)}')
+    logging.info(f"Input FIM Directory: {fim_run_dir}")
+    logging.info(f"output_dir: {output_dir}")
+    logging.info(f"magnitude_key: {magnitude_key}")
+    logging.info(f"flow_file: {flow_file}")
+    logging.info(f"inc_mosaic: {str(inc_mosaic)}")
 
     print("Preparing to generate inundation outputs for magnitude: " + magnitude_key)
     print("Input flow file: " + flow_file)
@@ -62,25 +58,31 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosai
     magnitude_output_dir = os.path.join(output_dir, output_base_file_name)
 
     if not os.path.exists(magnitude_output_dir):
-        print('Creating new output directory for raw mosaic files: ' + magnitude_output_dir)
+        print("Creating new output directory for raw mosaic files: " + magnitude_output_dir)
         os.mkdir(magnitude_output_dir)
     else:
         # we need to empty it. we will kill it and remake it (using rmtree to force it)
         shutil.rmtree(magnitude_output_dir, ignore_errors=True)
         os.mkdir(magnitude_output_dir)
 
-    huc_list = []
-    for huc in os.listdir(fim_run_dir):
-        # if (
-        #     huc != 'logs'
-        #     and huc != 'branch_errors'
-        #     and huc != 'unit_errors'
-        #     and os.path.isdir(os.path.join(fim_run_dir, huc))
-        # ):
-        if re.match(r'\d{8}', huc):
-            huc_list.append(huc)
+    if huc_list is None:
+        huc_list = []
+        for huc in os.listdir(fim_run_dir):
+            # if (
+            #     huc != 'logs'
+            #     and huc != 'branch_errors'
+            #     and huc != 'unit_errors'
+            #     and os.path.isdir(os.path.join(fim_run_dir, huc))
+            # ):
+            if re.match(r'\d{8}', huc):
+                huc_list.append(huc)
+    else:
+        for huc in huc_list:
+            assert os.path.isdir(
+                fim_run_dir + os.sep + huc
+            ), f'ERROR: could not find the input fim_dir location: {fim_run_dir + os.sep + huc}'
 
-    print('Inundation raw mosaic outputs here: ' + magnitude_output_dir)
+    print("Inundation raw mosaic outputs here: " + magnitude_output_dir)
 
     run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
 
@@ -101,7 +103,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosai
 
         procs_list = []
         for rasfile in os.listdir(magnitude_output_dir):
-            if rasfile.endswith('.tif') and "extent" in rasfile:
+            if rasfile.endswith(".tif") and "extent" in rasfile:
                 # p = magnitude_output_dir + rasfile
                 procs_list.append([magnitude_output_dir, rasfile, output_bool_dir])
 
@@ -110,12 +112,9 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, inc_mosai
             with Pool(processes=job_number) as pool:
                 pool.map(create_bool_rasters, procs_list)
         else:
-            msg = f'Did not find any valid FIM extent rasters: {magnitude_output_dir}'
+            msg = f"Did not find any valid FIM extent rasters: {magnitude_output_dir}"
             print(msg)
             logging.info(msg)
-
-        # Perform VRT creation and final mosaic using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name)
 
         # now cleanup the raw mosiac directories
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -135,7 +134,7 @@ def run_inundation(args):
 
     Args:
         args (list): [fim_run_dir (str), huc_list (list), magnitude (str),
-                        magnitude_output_dir (str), forecast (str), job_number (int)]
+            magnitude_output_dir (str), forecast (str), job_number (int)]
 
     """
 
@@ -148,34 +147,17 @@ def run_inundation(args):
 
     # Define file paths for use in inundate().
 
-    inundation_raster = os.path.join(magnitude_output_dir, magnitude + '_inund_extent.tif')
+    inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
 
     print("Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: " + str(magnitude))
 
-    map_file = Inundate_gms(
-        hydrofabric_dir=fim_run_dir,
-        forecast=forecast,
-        num_workers=job_number,
-        hucs=huc_list,
+    produce_mosaicked_inundation(
+        fim_run_dir,
+        huc_list,
+        forecast,
         inundation_raster=inundation_raster,
-        inundation_polygon=None,
-        depths_raster=None,
-        verbose=True,
-        log_file=None,
-        output_fileNames=None,
-    )
-
-    Mosaic_inundation(
-        map_file,
-        mosaic_attribute='inundation_rasters',
-        mosaic_output=inundation_raster,
-        # mask = os.path.join(fim_run_dir,huc8,'wbd.gpkg'),
-        mask=None,
-        unit_attribute_name='huc8',
-        nodata=elev_raster_ndv,
-        workers=1,
-        remove_inputs=True,
-        subset=None,
+        num_workers=job_number,
+        remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
     )
@@ -204,45 +186,11 @@ def create_bool_rasters(args):
         nodata=0,
         blockxsize=512,
         blockysize=512,
-        dtype='int8',
-        compress='lzw',
+        dtype="int8",
+        compress="lzw",
     )
-    with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, 'w', **profile) as dst:
+    with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, "w", **profile) as dst:
         dst.write(array.astype(rasterio.int8))
-
-
-def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
-    # NOTE: Oct 2022.. we no longer need the VRT, only the large mosaic'd raster.
-    # this code is about to be deprecated, so we will leave it as is.
-
-    rasters_to_mosaic = []
-    for rasfile in os.listdir(output_bool_dir):
-        if rasfile.endswith('.tif') and "extent" in rasfile:
-            p = output_bool_dir + os.sep + rasfile
-            print("Processing: " + p)
-            rasters_to_mosaic.append(p)
-
-    logging.info(fh.print_current_date_time())
-    output_mosiac_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
-    print("Creating virtual raster: " + output_mosiac_vrt)
-    logging.info("Creating virtual raster: " + output_mosiac_vrt)
-    vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
-
-    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
-    print("Building raster mosaic: " + output_mosiac_raster)
-    logging.info("Building raster mosaic: " + output_mosiac_raster)
-    print(
-        "This can take a number of hours, watch 'docker stats' cpu value to ensure the process"
-        "to ensure the process is still working"
-    )
-    gdal.Translate(
-        output_mosiac_raster,
-        vrt,
-        xRes=10,
-        yRes=-10,
-        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2'],
-    )
-    vrt = None
 
 
 def __setup_logger(output_folder_path, log_file_name_key):
@@ -252,7 +200,7 @@ def __setup_logger(output_folder_path, log_file_name_key):
 
     log_file_path = os.path.join(output_folder_path, log_file_name)
 
-    logging.basicConfig(filename=log_file_path, level=logging.DEBUG, format='%(message)s')
+    logging.basicConfig(filename=log_file_path, level=logging.DEBUG, format="%(message)s")
 
     # yes.. this can do console logs as well, but it can be a bit unstable and ugly
 
@@ -260,14 +208,27 @@ def __setup_logger(output_folder_path, log_file_name_key):
     logging.info("----------------")
 
 
-if __name__ == '__main__':
-    # Sample usage: python3 /foss_fim/tools/inundate_nation.py -r /outputs/fim_4_0_9_2 -m 100_0 -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_100_0_cms.csv -s -j 10
-    # outputs become /data/inundation_review/inundate_nation/100_0_fim_4_0_9_2_mosiac.tif (.log, etc)
+if __name__ == "__main__":
+    """
+    Sample usage:
+    python3 /foss_fim/tools/inundate_nation.py
+        -r /outputs/fim_4_0_9_2 -m 100_0
+        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_100_0_cms.csv
+        -s
+        -j 10
+    outputs become /data/inundation_review/inundate_nation/100_0_fim_4_0_9_2_mosiac.tif (.log, etc)
 
-    # Sample usage: python3 /foss_fim/tools/inundate_nation.py -r /outputs/fim_4_0_9_2 -m hw -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv -s -j 10
-    # outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
+    python3 /foss_fim/tools/inundate_nation.py
+        -r /outputs/fim_4_0_9_2
+        -m hw
+        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv
+        -s
+        -j 10
+    outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
 
-    # if run on UCS2, you can map docker as -v /dev_fim_share... etc/:/data -v /local....outputs:/outputs -v foss_fim as normal.
+    If run on UCS2, you can map docker as -v /dev_fim_share../:/data -v /local...outputs:/outputs
+    -v .../inundation-mapping/:/foss_fim as normal.
+    """
 
     available_cores = multiprocessing.cpu_count()
 
@@ -311,6 +272,16 @@ if __name__ == '__main__':
         'ie /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/'
         'nwm_high_water_threshold_cms.csv',
         required=True,
+    )
+
+    parser.add_argument(
+        '-l',
+        '--huc-list',
+        help='OPTIONAL: HUC list to run specified HUC(s).Specifiy multiple hucs single space delimited'
+        '--> 12090301 12090302. Default (no huc list provided) will use hucs found in -r directory',
+        required=False,
+        default='all',
+        nargs='+',
     )
 
     parser.add_argument(

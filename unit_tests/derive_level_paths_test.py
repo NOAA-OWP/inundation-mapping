@@ -41,6 +41,7 @@ class test_Derive_level_paths(unittest.TestCase):
         actual_df = Derive_level_paths(
             in_stream_network=params["in_stream_network"],
             buffer_wbd_streams=params["buffer_wbd_streams"],
+            wbd=params["wbd"],
             out_stream_network=params["out_stream_network"],
             branch_id_attribute=params["branch_id_attribute"],
             out_stream_network_dissolved=params["out_stream_network_dissolved"],
@@ -52,7 +53,7 @@ class test_Derive_level_paths(unittest.TestCase):
             verbose=params["verbose"],
         )
 
-        # test data type being return is as expected.
+        # test data type being return is as expected. Downstream code might to know the type.
         assert isinstance(actual_df, StreamNetwork)
 
         # **** NOTE: Based on 05030104

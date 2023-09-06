@@ -89,9 +89,16 @@ def update_rating_curve(
     - output_src_json:      src.json file with new SRC discharge values
 
     '''
-    # print("Processing huc --> " + str(huc))
-    log_text = "\nProcessing huc --> " + str(huc) + '  branch id: ' + str(branch_id) + '\n'
-    log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
+    print(
+        "Processing "
+        + str(source_tag)
+        + " calibration for huc --> "
+        + str(huc)
+        + '  branch id: '
+        + str(branch_id)
+    )
+    log_text = "\nProcessing " + str(source_tag) + " calibration for huc --> " + str(huc) + '  branch id: '
+    log_text += str(branch_id) + '\n' + "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
     df_nvalues = df_nvalues[
@@ -101,8 +108,12 @@ def update_rating_curve(
     ## Determine calibration data type for naming calb dataframe column
     if source_tag == 'point_obs':
         calb_type = 'calb_coef_spatial'
-    if source_tag == 'usgs_rating':
+    elif source_tag == 'usgs_rating':
         calb_type = 'calb_coef_usgs'
+    elif source_tag == 'ras2fim_rating':
+        calb_type = 'calb_coef_ras2fim'
+    else:
+        log_text += "ERROR - unknown calibration data source type: " + str(source_tag) + '\n'
 
     ## Read in the hydroTable.csv and check wether it has previously been updated
     # (rename default columns if needed)
@@ -145,19 +156,15 @@ def update_rating_curve(
         df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
         # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
         df_prev_adj = df_prev_adj_htable[
-            df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating", na=False)
+            df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating|ras2fim_rating", na=False)
         ]
         log_text += (
-            'HUC: '
-            + str(huc)
-            + '  Branch: '
-            + str(branch_id)
-            + ': found previous hydroTable calibration attributes -->'
-            + 'retaining previous calb attributes for blending...\n'
+            f"'HUC: ' {huc} '  Branch: ' {branch_id} : found previous hydroTable calibration attributes --> "
+            'retaining previous calb attributes for blending...\n'
         )
 
     # Delete previous adj columns to prevent duplicate variable issues
-    #   (if src_roughness_optimization.py was previously applied)
+    # (if src_roughness_optimization.py was previously applied)
     df_htable.drop(
         [
             'discharge_cms',
@@ -179,20 +186,11 @@ def update_rating_curve(
         if row.hydroid not in df_htable['HydroID'].values:
             print(
                 'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
-                + str(huc)
-                + '  branch id: '
-                + str(branch_id)
-                + ' hydroid: '
-                + str(row.hydroid)
+                f"{huc}'  branch id: ' {branch_id}' hydroid: '{row.hydroid} \n"
             )
             log_text += (
                 'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
-                + str(huc)
-                + '  branch id: '
-                + str(branch_id)
-                + ' hydroid: '
-                + str(row.hydroid)
-                + '\n'
+                f"{huc}'  branch id: ' {branch_id}' hydroid: '{row.hydroid} \n"
             )
         else:
             # filter htable for entries with matching hydroid and ignore stage 0
@@ -201,20 +199,11 @@ def update_rating_curve(
             if df_htable_hydroid.empty:
                 print(
                     'ERROR: df_htable_hydroid is empty but expected data: '
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
-                    + ' hydroid: '
-                    + str(row.hydroid)
+                    f"{huc}'  branch id: ' {branch_id}' hydroid: '{row.hydroid} \n"
                 )
                 log_text += (
                     'ERROR: df_htable_hydroid is empty but expected data: '
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
-                    + ' hydroid: '
-                    + str(row.hydroid)
-                    + '\n'
+                    f"{huc}'  branch id: ' {branch_id}' hydroid: '{row.hydroid} \n"
                 )
 
             find_src_stage = df_htable_hydroid.loc[
@@ -415,12 +404,19 @@ def update_rating_curve(
                     if (
                         'src_calibrated' in input_catchments.columns
                     ):  # check if this attribute already exists and drop if needed
-                        input_catchments.drop(['src_calibrated'], axis=1, inplace=True, errors='ignore')
+                        input_catchments.drop(
+                            ['src_calibrated', 'obs_source', 'calb_coef_final'],
+                            axis=1,
+                            inplace=True,
+                            errors='ignore',
+                        )
                     df_nmerge['src_calibrated'] = np.where(
                         df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
                     )
                     output_catchments = input_catchments.merge(
-                        df_nmerge[['HydroID', 'src_calibrated']], how='left', on='HydroID'
+                        df_nmerge[['HydroID', 'src_calibrated', 'obs_source', 'calb_coef_final']],
+                        how='left',
+                        on='HydroID',
                     )
                     output_catchments['src_calibrated'].fillna('False', inplace=True)
                     output_catchments.to_file(
@@ -635,7 +631,8 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
         if not pd.isna(df_nmerge.loc[index, 'ahps_lid']):
             if df_nmerge.loc[index, 'ahps_lid'] == prev_lid:
                 lid_count += 1
-                # only keep the first 3 HydroID n values (everything else set to null for downstream application)
+                # only keep the first 3 HydroID n values
+                # (everything else set to null for downstream application)
                 if lid_count > 3:
                     df_nmerge.loc[index, 'hydroid_ManningN'] = np.nan
                     df_nmerge.loc[index, 'featid_ManningN'] = np.nan

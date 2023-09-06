@@ -3,8 +3,8 @@
 import argparse
 import sys
 
-import fiona
 import geopandas as gpd
+import pandas as pd
 import rasterio as rio
 from shapely.geometry import MultiPolygon, Polygon
 
@@ -165,13 +165,18 @@ def subset_vector_layers(
     # Subset nwm streams
     print("Subsetting NWM Streams", flush=True)
 
-    nwm_streams = gpd.read_file(nwm_streams, mask=wbd)
+    nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer)
 
     # NWM can have duplicate records, but appear to always be identical duplicates
     nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
 
+    nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
+    nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
+
     if len(nwm_streams) > 0:
-        nwm_streams = gpd.clip(nwm_streams, wbd_streams_buffer)
+        nwm_streams_nonoutlets = gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer)
+
+        nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
 
         nwm_streams.to_file(
             subset_nwm_streams,

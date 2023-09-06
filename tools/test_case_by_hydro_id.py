@@ -7,7 +7,7 @@ from datetime import datetime
 import geopandas as gpd
 import pandas as pd
 from pixel_counter import zonal_stats
-from run_test_case import test_case
+from run_test_case import Test_Case
 from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
 
@@ -236,9 +236,9 @@ if __name__ == "__main__":
         geometry='geometry',
     )
 
-    # This funtion, relies on the test_case class defined in run_test_case.py to list all available test cases
+    # This funtion, relies on the Test_Case class defined in run_test_case.py to list all available test cases
     print('listing_test_cases_with_updates')
-    all_test_cases = test_case.list_all_test_cases(
+    all_test_cases = Test_Case.list_all_test_cases(
         version=version,
         archive=True,
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],

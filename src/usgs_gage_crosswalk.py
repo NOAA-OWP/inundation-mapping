@@ -3,6 +3,7 @@
 import argparse
 import os
 import warnings
+from os.path import join
 
 import geopandas as gpd
 import rasterio
@@ -28,8 +29,8 @@ warnings.simplefilter("ignore")
         File path of original DEM. i.e. '/data/path/dem_meters_3246000257.tif'
     dem_adj_filename : str
         File path of thalweg adjusted DEM. i.e. '/data/path/dem_thalwegCond_3246000257.tif'
-    output_table_filename : str
-        File path of output table. i.e. '/data/path/usgs_elev_table.csv'
+    output_directory : str
+        Directory to create output table. i.e. '/data/path/'
     branch_id: str
         ID of the current branch i.e. '3246000257'
 '''
@@ -41,20 +42,12 @@ class GageCrosswalk(object):
         self.gages = self._load_gages(usgs_subset_gages_filename)
 
     def run_crosswalk(
-        self,
-        input_catchment_filename,
-        input_flows_filename,
-        dem_filename,
-        dem_adj_filename,
-        output_table_filename,
+        self, input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory
     ):
-        '''Run the gage crosswalk steps:
-        1) spatial join to branch catchments layer
-        2) snap sites to the dem-derived flows
-        3) sample both dems at the snapped points
-        4) write the crosswalked points to usgs_elev_table.csv
+        '''Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to
+        the dem-derived flows 3) sample both dems at the snapped points 4) write the crosswalked points
+        to usgs_elev_table.csv
         '''
-
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
@@ -63,6 +56,7 @@ class GageCrosswalk(object):
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
+
         # Snap to dem derived flow lines
         self.snap_to_dem_derived_flows(input_flows_filename)
         # Sample DEM and thalweg adjusted DEM
@@ -71,13 +65,13 @@ class GageCrosswalk(object):
         # Write to csv
         num_gages = len(self.gages)
         print(f"{num_gages} gage{'' if num_gages == 1 else 's'} in branch {self.branch_id}")
-        self.write(output_table_filename)
+        self.write(output_directory)
 
     def _load_gages(self, gages_filename):
         '''Reads gage geopackage from huc level and filters based on current branch id'''
 
         usgs_gages = gpd.read_file(gages_filename)
-        return usgs_gages[usgs_gages.levpa_id == self.branch_id]
+        return usgs_gages[(usgs_gages.levpa_id == self.branch_id)]
 
     def catchment_sjoin(self, input_catchment_filename):
         '''Spatial joins gages to FIM catchments'''
@@ -114,7 +108,7 @@ class GageCrosswalk(object):
         with rasterio.open(dem_filename) as dem:
             self.gages[column_name] = [x[0] for x in dem.sample(coord_list)]
 
-    def write(self, output_table_filename):
+    def write(self, output_directory):
         '''Write to csv file'''
 
         # Prep and write out file
@@ -123,9 +117,30 @@ class GageCrosswalk(object):
             elev_table['location_id'] == elev_table['nws_lid'], 'location_id'
         ] = None  # set location_id to None where there isn't a gage
         elev_table = elev_table[elev_table['location_id'].notna()]
+        elev_table.source = elev_table.source.apply(str.lower)
 
-        if not elev_table.empty:
-            elev_table.to_csv(output_table_filename, index=False)
+        # filter for just ras2fim entries
+        ras_elev_table = elev_table[elev_table['source'] == 'ras2fim']
+        ras_elev_table = ras_elev_table[
+            [
+                "location_id",
+                "HydroID",
+                "feature_id",
+                "levpa_id",
+                "HUC8",
+                "dem_elevation",
+                "dem_adj_elevation",
+                "source",
+                "stream_stn",
+            ]
+        ]
+        if not ras_elev_table.empty:
+            ras_elev_table.to_csv(join(output_directory, 'ras_elev_table.csv'), index=False)
+
+        # filter for just usgs entries
+        usgs_elev_table = elev_table[elev_table['source'] != 'ras2fim']
+        if not usgs_elev_table.empty:
+            usgs_elev_table.to_csv(join(output_directory, 'usgs_elev_table.csv'), index=False)
 
     @staticmethod
     def snap_to_line(row):
@@ -144,7 +159,9 @@ if __name__ == '__main__':
     parser.add_argument('-cat', '--input-catchment-filename', help='DEM derived catchments', required=True)
     parser.add_argument('-dem', '--dem-filename', help='DEM', required=True)
     parser.add_argument('-dem_adj', '--dem-adj-filename', help='Thalweg adjusted DEM', required=True)
-    parser.add_argument('-outtable', '--output-table-filename', help='Table to append data', required=True)
+    parser.add_argument(
+        '-out', '--output-directory', help='Directory where output tables created', required=True
+    )
     parser.add_argument(
         '-b', '--branch-id', help='Branch ID used to filter the gages', type=str, required=True
     )
@@ -156,7 +173,7 @@ if __name__ == '__main__':
     input_catchment_filename = args['input_catchment_filename']
     dem_filename = args['dem_filename']
     dem_adj_filename = args['dem_adj_filename']
-    output_table_filename = args['output_table_filename']
+    output_directory = args['output_directory']
     branch_id = args['branch_id']
 
     assert os.path.isfile(usgs_gages_filename), f"The input file {usgs_gages_filename} does not exist."
@@ -164,7 +181,7 @@ if __name__ == '__main__':
     # Instantiate class
     gage_crosswalk = GageCrosswalk(usgs_gages_filename, branch_id)
     gage_crosswalk.run_crosswalk(
-        input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_table_filename
+        input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory
     )
 
 """

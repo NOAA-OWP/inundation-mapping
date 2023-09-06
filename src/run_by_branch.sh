@@ -114,12 +114,13 @@ if [ -f $tempHucDataDir/usgs_subset_gages.gpkg ]; then
     echo -e $startDiv"USGS Crosswalk $hucNumber $current_branch_id"
     date -u
     Tstart
-    python3 $srcDir/usgs_gage_crosswalk.py -gages $tempHucDataDir/usgs_subset_gages.gpkg \
+    python3 $srcDir/usgs_gage_crosswalk.py \
+        -gages $tempHucDataDir/usgs_subset_gages.gpkg \
         -flows $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg \
         -cat $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -dem $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
         -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
-        -outtable $tempCurrentBranchDataDir/usgs_elev_table.csv \
+        -out $tempCurrentBranchDataDir \
         -b $current_branch_id
     Tcount
 fi

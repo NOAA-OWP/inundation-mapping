@@ -166,7 +166,14 @@ def variable_mannings_calc(args):
 
             ## drop the previously modified discharge column to be replaced with updated version
             df_htable.drop(
-                ['subdiv_applied', 'discharge_cms', 'overbank_n', 'channel_n', 'subdiv_discharge_cms'],
+                [
+                    'subdiv_applied',
+                    'discharge_cms',
+                    'overbank_n',
+                    'channel_n',
+                    'subdiv_discharge_cms',
+                    'Bathymetry_source',
+                ],
                 axis=1,
                 errors='ignore',
                 inplace=True,
