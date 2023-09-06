@@ -81,7 +81,7 @@ class Gage2Branch(object):
             )
 
         # Create gages attribute
-        self.gages.location_id.fillna(usgs_gages.nws_lid, inplace=True)
+        self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)
         self.gages.loc[self.gages['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None
 
     def sort_into_branch(self, nwm_subset_streams_levelPaths):
