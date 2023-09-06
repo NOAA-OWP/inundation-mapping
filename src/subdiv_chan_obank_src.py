@@ -365,7 +365,7 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
         )
 
     print(
-        "Computing subdivided SRC and applying variable Manning's n to channel/overbank for"
+        "Computing subdivided SRC and applying variable Manning's n to channel/overbank for "
         f"{len(procs_list)} branches using {number_of_jobs} jobs"
     )
     with Pool(processes=number_of_jobs) as pool:
@@ -380,10 +380,7 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
 def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option):
     procs_list = []
 
-    print(
-        'Writing progress to log file here: '
-        + str(join(fim_dir, 'logs', 'subdiv_src_' + output_suffix + '.log'))
-    )
+    print(f"Writing progress to log file here: {fim_dir}/logs/subdiv_src_{output_suffix}.log")
     print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now()

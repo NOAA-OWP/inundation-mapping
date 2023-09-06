@@ -77,7 +77,7 @@ per-file-ignores = """
     src/subdiv_chan_obank_src.py: E712
     src/src_roughness_optimization.py: E712
     src/agreedem.py: E712
-    tools/plots/eval_plots.py: C901, F841
+    src/build_stream_traversal.py: E722
     tools/vary_mannings_n_composite.py: E712
     tools/tools_shared_functions.py: F821, F841
     tools/rating_curve_get_usgs_curves.py: F841

@@ -157,9 +157,8 @@ class build_stream_traversal_columns(object):
                 hydroIDcol = urow[1][3]
                 try:
                     next_down_ids = dnodes[tonodecol]
-                except Exception as e:
+                except:
                     next_down_ids = []
-                    print(repr(e))
                 splits = len(next_down_ids)
                 if splits == 0:  # terminal segment
                     nextdownIDcol = -1
@@ -179,16 +178,14 @@ class build_stream_traversal_columns(object):
                 try:
                     if next_down_ids:
                         del next_down_ids
-                except Exception as e:
-                    print(repr(e))
+                except:
                     pass
 
                 streams.loc[streams[hydro_id] == hydroIDcol, [next_down_id]] = nextdownIDcol
 
             tReturns = (sOK, streams)
 
-        except Exception as e:
-            print(e)
+        except Exception:
             sOK = "{}".format(trace())
             tReturns = (sOK,)
         return tReturns

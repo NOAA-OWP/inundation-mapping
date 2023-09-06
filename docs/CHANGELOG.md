@@ -1,6 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.1.0 - 2023-09-06 - [PR#988](https://github.com/NOAA-OWP/inundation-mapping/pull/988)
+
+Format code using `black` formatter, incorporate `isort` package to sort import statements,
+and adhere all code to PEP8 Style Guide using the `flake8` package. Remove deprecated files.
+
+### Changes
+
+### Additions
+
+- `pyproject.toml`: Configuration file
+
+### Removals
+
+- `data/nws/preprocess_ahps_nws.py`
+- `src/adjust_headwater_streams.py`
+- `src/aggregate_vector_inputs.py`
+- `src/utils/reproject_dem.py`
+- `tools/code_standardizer/*`: Incorporated "code_standardizer" into base level Dockerfile.
+- `tools/compile_comp_stats.py`
+- `tools/compile_computational_stats.py`
+- `tools/consolidate_metrics.py`
+- `tools/copy_test_case_folders.py`
+- `tools/cygnss_preprocessing.py`
+- `tools/nesdis_preprocessing.py`
+- `tools/plots/*`: Duplicate and unused directory.
+- `.isort.cfg`: Incorporated into `pyproject.toml`
+
+
+
+<br/><br/>
+
 ## v4.4.0.1 - 2023-09-06 - [PR#987](https://github.com/NOAA-OWP/inundation-mapping/pull/987)
 
 Corrects a bug in `src/usgs_gage_unit_setup.py` that causes incorrect values to populate a table, generating an error in `src/usgs_gage_crosswalk.py`.
