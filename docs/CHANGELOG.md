@@ -7,7 +7,7 @@ Corrects a bug in `src/usgs_gage_unit_setup.py` that causes incorrect values to 
 
 ### Changes
 
-- `src/usgs_gage_unit_setup..py`: Changes `self.gages.location_id.fillna(usgs_gages.nws_lid, inplace=True)` to `self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)`
+- `src/usgs_gage_unit_setup.py`: Changes `self.gages.location_id.fillna(usgs_gages.nws_lid, inplace=True)` to `self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)`
 
 <br/><br/>
 
