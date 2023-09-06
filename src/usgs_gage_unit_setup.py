@@ -67,7 +67,7 @@ class Gage2Branch(object):
             self.gages = pd.concat([self.gages, ahps_sites[['feature_id', 'nws_lid', 'location_id', 'HUC8', 'name', 'states','geometry']]])
 
         # Create gages attribute
-        self.gages.location_id.fillna(usgs_gages.nws_lid, inplace=True)
+        self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)
         self.gages.loc[self.gages['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None
 
     def sort_into_branch(self, nwm_subset_streams_levelPaths):
