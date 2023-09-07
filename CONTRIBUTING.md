@@ -73,13 +73,16 @@ If you would like to contribute, please follow these steps:
     ```
     Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>
     ```
-9. [Within the container](README.md#startrun-the-docker-container), ensure sure unit tests pass (`pytest unit_tests/`).
+9. [Within the container](README.md#startrun-the-docker-container), ensure sure unit tests pass ([instructions here](/unit_tests/README.md)).
+    ```
+    pytest unit_tests/
+    ```
 
 10. Outside of the Docker container, commit your changes:
     ```
-    git commit -m <descriptive sentence of changes>
+    git commit -m <descriptive sentence or two changes>
     ```
-    This will invoke pre-commit hooks mentioned in step 7 that will lint & format the code. In many cases non-compliant code will be rectified automatically, but in some cases manual changes will be necessary. Make sure all of these checks pass, if not, make necessary changes and re-commit.
+    This will invoke pre-commit hooks mentioned in step 7 that will lint & format the code. In many cases non-compliant code will be rectified automatically, but in some cases manual changes will be necessary. Make sure all of these checks pass, if not, make necessary changes and re-issue `git commit -m <...>`.
 
 9. Push to your forked branch:
     ```

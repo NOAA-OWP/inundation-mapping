@@ -11,8 +11,7 @@ from os.path import join
 
 import geopandas as gpd
 import pandas as pd
-
-from tools.synthesize_test_cases import progress_bar_handler
+from synthesize_test_cases import progress_bar_handler
 
 
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):

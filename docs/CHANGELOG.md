@@ -7,7 +7,29 @@ Format code using `black` formatter, incorporate `isort` package to sort import 
 and adhere all code to PEP8 Style Guide using the `flake8` package. Remove deprecated files.
 Set up git pre-commit hooks.
 
+Not all files were modified, however, to avoid individually listing each file here, the `/*` convention
+is used to denote that almost every file in those directories were formatted and linted.
+
 ### Changes
+
+- `.gitattributes`: Add newline at EOF.
+- `.github/*`: 
+- `.gitignore`: Trim extra last line.
+- `CONTRIBUTING.md`: Update contributing guidelines.
+- `Dockerfile`: Update PYTHONPATH to point to correct `unit_tests` directory.
+- `Pipfile`: Add flake8, black, pyproject-flake8, pre-commit, isort packages
+- `Pipfile.lock`: Update to correspond with new packages in Pipfile 
+- `README.md` : Update link to wiki, trim whitespace.
+- `config/*`
+- `data/*`
+- `docs/*`
+- `fim_pipeline.sh` : Clean up usage statement
+- `fim_post_processing.sh`: Update usage statement
+- `fim_pre_processing.sh`: Update usage statement.
+- `fim_process_unit_wb.sh`: Make usage functional, combine usage and comments.
+- `src/*`
+- `tools/*`
+- `unit_tests/*`
 
 ### Additions
 
