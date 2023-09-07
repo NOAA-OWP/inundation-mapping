@@ -5,12 +5,14 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Format code using `black` formatter, incorporate `isort` package to sort import statements,
 and adhere all code to PEP8 Style Guide using the `flake8` package. Remove deprecated files.
+Set up git pre-commit hooks.
 
 ### Changes
 
 ### Additions
 
 - `pyproject.toml`: Configuration file
+- `.pre-commit-config.yaml`: Initialize git pre-commit hooks
 
 ### Removals
 
@@ -27,8 +29,6 @@ and adhere all code to PEP8 Style Guide using the `flake8` package. Remove depre
 - `tools/nesdis_preprocessing.py`
 - `tools/plots/*`: Duplicate and unused directory.
 - `.isort.cfg`: Incorporated into `pyproject.toml`
-
-
 
 <br/><br/>
 
