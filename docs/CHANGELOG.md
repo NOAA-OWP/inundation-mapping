@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-09-08 - [PR#990](https://github.com/NOAA-OWP/inundation-mapping/pull/990)
+
+Corrects a bug in `src/usgs_gage_unit_setup.py` caused by missing geometry field after `GeoDataFrame.update()`.
+
+### Changes
+
+- `src/usgs_gage_unit_setup.py`: Sets geometry field in `self.gages`.
+
+<br/><br/>
+
 ## v4.4.0.1 - 2023-09-06 - [PR#987](https://github.com/NOAA-OWP/inundation-mapping/pull/987)
 
 Corrects a bug in `src/usgs_gage_unit_setup.py` that causes incorrect values to populate a table, generating an error in `src/usgs_gage_crosswalk.py`.
