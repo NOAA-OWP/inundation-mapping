@@ -81,6 +81,7 @@ class Gage2Branch(object):
             missing_feature_id['feature_id'] = missing_feature_id.apply(lambda row: self.sjoin_nearest_to_nwm(row.geometry, nwm_reaches, nwm_reaches_union), axis=1)
 
             self.gages.update(missing_feature_id)
+            self.gages = self.gages.set_geometry("geometry")
 
             del nwm_reaches_union
 
