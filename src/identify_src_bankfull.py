@@ -126,11 +126,13 @@ def src_bankfull_lookup(args):
             df_bankfull_calc['Stage'] > 0.0
         ]  # Ensure bankfull stage is greater than stage=0
         df_bankfull_calc.reset_index(drop=True, inplace=True)
+        # find the index of the Q_bfull_find (closest matching flow)
         df_bankfull_calc = df_bankfull_calc.loc[
             df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()
         ].reset_index(
             drop=True
-        )  # find the index of the Q_bfull_find (closest matching flow)
+        )
+        # rename volume to use later for channel portion calc
         df_bankfull_calc = df_bankfull_calc.rename(
             columns={
                 'Stage': 'Stage_bankfull',
@@ -139,7 +141,7 @@ def src_bankfull_lookup(args):
                 hradius_var: 'HRadius_bankfull',
                 surface_area_var: 'SurfArea_bankfull'
             }
-        )  # rename volume to use later for channel portion calc
+        )
         df_src = df_src.merge(
             df_bankfull_calc[
                 [
@@ -152,7 +154,7 @@ def src_bankfull_lookup(args):
                 ]
             ],
             how='left',
-            on='HydroID',
+            on='HydroID'
         )
         df_src.drop(['Q_bfull_find'], axis=1, inplace=True)
 
@@ -273,8 +275,8 @@ def multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, ver
         number_of_jobs = available_cores - 2
         print(
             "Provided job number exceeds the number of available cores. "
-            + str(number_of_jobs)
-            + " max jobs will be used instead."
+            f"{str(number_of_jobs)}"
+            " max jobs will be used instead."
         )
 
     print(f"Identifying bankfull stage for {len(procs_list)} branches using {number_of_jobs} jobs")
@@ -330,7 +332,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
         'HydraulicRadius (m)',
         'Discharge (m3s-1)',
         'feature_id',
-        'Bathymetry_source',
+        'Bathymetry_source'
     ]
 
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
@@ -357,27 +359,19 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
                             huc,
                             branch_id,
                             src_plot_option,
-                            huc_output_dir,
+                            huc_output_dir
                         ]
                     )
                 else:
                     print(
-                        'HUC: '
-                        + str(huc)
-                        + '  branch id: '
-                        + str(branch_id)
-                        + 'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                        + str(branch_dir)
-                        + ' - skipping this branch!!!\n'
+                        f'HUC: {str(huc)}  branch id: {str(branch_id)}'
+                        'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
+                        f' {str(branch_dir)}  - skipping this branch!!!\n'
                     )
                     log_file.write(
-                        'HUC: '
-                        + str(huc)
-                        + '  branch id: '
-                        + str(branch_id)
-                        + 'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                        + str(branch_dir)
-                        + ' - skipping this branch!!!\n'
+                        f'HUC: {str(huc)}  branch id: {str(branch_id)}'
+                        'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
+                        f' {str(branch_dir)}  - skipping this branch!!!\n'
                     )
 
     log_file.writelines(["%s\n" % item for item in huc_pass_list])
