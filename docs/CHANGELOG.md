@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-09-12 - [PR#992](https://github.com/NOAA-OWP/inundation-mapping/pull/992)
+
+Fixes an error in `src/stream_branches.py` caused when a GeoDataFrame contains a `MultiLineString` geometry instead of a `LineString`.
+
+### Changes
+
+- `src/stream_branches.py`: Converts `MultiLineString` geometry into `LineString` and removes unneeded `LineString`s.
+
+<br/><br/>
+
 ## v4.4.0.1 - 2023-09-06 - [PR#987](https://github.com/NOAA-OWP/inundation-mapping/pull/987)
 
 Corrects a bug in `src/usgs_gage_unit_setup.py` that causes incorrect values to populate a table, generating an error in `src/usgs_gage_crosswalk.py`.
