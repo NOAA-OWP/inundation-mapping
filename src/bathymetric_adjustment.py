@@ -74,7 +74,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
                 ],
                 on='feature_id',
                 how='left',
-                validate='many_to_one',
+                validate='many_to_one'
             )
         # If there's more than one feature_id in the bathy data, just take the mean
         except pd.errors.MergeError:

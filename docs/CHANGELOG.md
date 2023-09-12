@@ -29,12 +29,15 @@ is used to denote that almost every file in those directories were formatted and
 - `fim_process_unit_wb.sh`: Make usage functional, combine usage and comments.
 - `src/*`
 - `tools/*`
-- `unit_tests/*`
+- `unit_tests/*`: The directory name where the unit test data must reside was changed from
+`fim_unit_test_data_do_not_remove` => `unit_test_data`
 
 ### Additions
 
 - `pyproject.toml`: Configuration file
 - `.pre-commit-config.yaml`: Initialize git pre-commit hooks
+- `tools/hash_compare.py`: Carson's hash compare script added to compare files or directories 
+in which we do not expect any changes.
 
 ### Removals
 

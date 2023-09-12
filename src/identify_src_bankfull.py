@@ -100,8 +100,7 @@ def src_bankfull_lookup(args):
         ## Check for any missing/null entries in the input SRC
         # There may be null values for lake or coastal flow lines
         # (need to set a value to do groupby idxmin below)
-        if ():
-            df_src['Q_bfull_find'].isnull().values.any()
+        if df_src['Q_bfull_find'].isnull().values.any():
             log_text += (
                 'WARNING: HUC: '
                 + str(huc)
@@ -138,7 +137,7 @@ def src_bankfull_lookup(args):
                 bedarea_var: 'BedArea_bankfull',
                 volume_var: 'Volume_bankfull',
                 hradius_var: 'HRadius_bankfull',
-                surface_area_var: 'SurfArea_bankfull',
+                surface_area_var: 'SurfArea_bankfull'
             }
         )  # rename volume to use later for channel portion calc
         df_src = df_src.merge(
@@ -149,7 +148,7 @@ def src_bankfull_lookup(args):
                     'BedArea_bankfull',
                     'Volume_bankfull',
                     'HRadius_bankfull',
-                    'SurfArea_bankfull',
+                    'SurfArea_bankfull'
                 ]
             ],
             how='left',
