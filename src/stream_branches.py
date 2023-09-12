@@ -367,7 +367,13 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         feature_inlet_points_gdf = gpd.GeoDataFrame(self.copy())
 
-        for idx, row in self.iterrows():
+        self_copy = self.copy()
+        if "MultiLineString" in self_copy.geometry.geom_type.values:
+            self_copy = self_copy.explode(index_parts=False)
+            self_copy.loc[self_copy["levpa_id"].duplicated(), "levpa_id"] = np.nan
+            self_copy = self_copy.dropna(subset=["levpa_id"])
+
+        for idx, row in self_copy.iterrows():
             feature_inlet_point = Point(row.geometry.coords[inlet_linestring_index])
 
             feature_inlet_points_gdf.loc[idx, "geometry"] = feature_inlet_point
