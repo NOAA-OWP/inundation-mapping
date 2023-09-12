@@ -3,7 +3,8 @@
 import os, re, shutil, json, sys
 import pandas as pd
 
-from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, elev_raster_ndv
+from tools_shared_variables import TEST_CASES_DIR, INPUTS_DIR, PREVIOUS_FIM_DIR, OUTPUTS_DIR, AHPS_BENCHMARK_CATEGORIES, \
+    MAGNITUDE_DICT, elev_raster_ndv
 from inundation import inundate
 from mosaic_inundation import Mosaic_inundation
 from inundate_gms import Inundate_gms
@@ -12,10 +13,9 @@ from utils.shared_functions import FIM_Helpers as fh
 
 
 class benchmark(object):
-
     AHPS_BENCHMARK_CATEGORIES = AHPS_BENCHMARK_CATEGORIES
     MAGNITUDE_DICT = MAGNITUDE_DICT
-    
+
     def __init__(self, category):
         """Class that handles benchmark data.
 
@@ -24,16 +24,18 @@ class benchmark(object):
             category : str
                 Category of the benchmark site. Should be one of ['ble', 'ifc', 'nws', 'usgs', 'ras2fim'].
         """
-        
+
         self.category = category.lower()
-        assert category in list(self.MAGNITUDE_DICT.keys()), f"Category must be one of {list(self.MAGNITUDE_DICT.keys())}"
-        self.validation_data = os.path.join(TEST_CASES_DIR, f'{self.category}_test_cases', f'validation_data_{self.category}')
+        assert category in list(
+            self.MAGNITUDE_DICT.keys()), f"Category must be one of {list(self.MAGNITUDE_DICT.keys())}"
+        self.validation_data = os.path.join(TEST_CASES_DIR, f'{self.category}_test_cases',
+                                            f'validation_data_{self.category}')
         self.is_ahps = True if self.category in self.AHPS_BENCHMARK_CATEGORIES else False
-    
+
     def magnitudes(self):
         '''Returns the magnitudes associated with the benchmark category.'''
         return self.MAGNITUDE_DICT[self.category]
-    
+
     def huc_data(self):
         '''Returns a dict of HUC8, magnitudes, and sites.'''
         huc_mags = {}
@@ -41,9 +43,9 @@ class benchmark(object):
             if not re.match('\d{8}', huc): continue
             huc_mags[huc] = self.data(huc)
         return huc_mags
-    
+
     def data(self, huc):
-        '''Returns a dict of magnitudes and sites for a given huc. Sites will be AHPS lids for 
+        '''Returns a dict of magnitudes and sites for a given huc. Sites will be AHPS lids for
            AHPS sites and empty strings for non-AHPS sites.
         '''
         huc_dir = os.path.join(self.validation_data, huc)
@@ -63,7 +65,8 @@ class benchmark(object):
             return mag_dict
         else:
             mags = list(os.listdir(huc_dir))
-            return {mag:[''] for mag in mags}
+            return {mag: [''] for mag in mags}
+
 
 class test_case(benchmark):
 
@@ -80,9 +83,9 @@ class test_case(benchmark):
             archive : bool
                 If true, this test case outputs will be placed into the `official_versions` folder
                 and the FIM model will be read from the `/data/previous_fim` folder.
-                If false, it will be saved to the `testing_versions/` folder and the FIM model 
+                If false, it will be saved to the `testing_versions/` folder and the FIM model
                 will be read from the `/outputs/` folder.
-        
+
         """
         self.test_id = test_id
         self.huc, self.benchmark_cat = test_id.split('_')
@@ -90,11 +93,11 @@ class test_case(benchmark):
         self.version = version
         self.archive = archive
         # FIM run directory path - uses HUC 6 for FIM 1 & 2
-        self.fim_dir = os.path.join(PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR, 
-                                    self.version, 
+        self.fim_dir = os.path.join(PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR,
+                                    self.version,
                                     self.huc if not re.search('^fim_[1,2]', version, re.IGNORECASE) else self.huc[:6])
         # Test case directory path
-        self.dir = os.path.join(TEST_CASES_DIR, f'{self.benchmark_cat}_test_cases', 
+        self.dir = os.path.join(TEST_CASES_DIR, f'{self.benchmark_cat}_test_cases',
                                 test_id,
                                 'official_versions' if archive else 'testing_versions',
                                 version)
@@ -105,16 +108,16 @@ class test_case(benchmark):
 
         # Create list of shapefile paths to use as exclusion areas.
         self.mask_dict = {'levees':
-                        {'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
-                        'buffer': None,
-                        'operation': 'exclude'
-                        },
-                    'waterbodies':
-                        {'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
-                        'buffer': None,
-                        'operation': 'exclude',
-                        },
-                    }
+                              {'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
+                               'buffer': None,
+                               'operation': 'exclude'
+                               },
+                          'waterbodies':
+                              {'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
+                               'buffer': None,
+                               'operation': 'exclude',
+                               },
+                          }
 
     @classmethod
     def list_all_test_cases(cls, version, archive, benchmark_categories=[]):
@@ -128,12 +131,12 @@ class test_case(benchmark):
             archive : bool
                 If true, this test case outputs will be placed into the `official_versions` folder
                 and the FIM model will be read from the `/data/previous_fim` folder.
-                If false, it will be saved to the `testing_versions/` folder and the FIM model 
+                If false, it will be saved to the `testing_versions/` folder and the FIM model
                 will be read from the `/outputs/` folder.
         """
         if not benchmark_categories:
             benchmark_categories = list(cls.MAGNITUDE_DICT.keys())
-            
+
         test_case_list = []
         for bench_cat in benchmark_categories:
 
@@ -146,9 +149,9 @@ class test_case(benchmark):
         return test_case_list
 
     def alpha_test(self, calibrated=False, model='', mask_type='huc', inclusion_area='',
-                inclusion_area_buffer=0, overwrite=True, verbose=False, gms_workers=1):
+                   inclusion_area_buffer=0, overwrite=True, verbose=False, gms_workers=1):
         '''Compares a FIM directory with benchmark data from a variety of sources.
-        
+
             Parameters
             ----------
             calibrated : bool
@@ -168,14 +171,14 @@ class test_case(benchmark):
             gms_workers : int
                 Number of worker processes assigned to GMS processing.
         '''
-        
+
         try:
             if not overwrite and os.path.isdir(self.dir):
                 print(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
                 return
 
             fh.vprint(f"Starting alpha test for {self.dir}", verbose)
-            
+
             self.stats_modes_list = ['total_area']
 
             # Create paths to fim_run outputs for use in inundate()
@@ -190,7 +193,8 @@ class test_case(benchmark):
                 if mask_type == 'huc':
                     self.catchment_poly = ''
                 else:
-                    self.catchment_poly = os.path.join(self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
+                    self.catchment_poly = os.path.join(self.fim_dir,
+                                                       'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg')
                 self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
 
             # Map necessary inputs for inundate().
@@ -199,8 +203,8 @@ class test_case(benchmark):
             if inclusion_area != '':
                 inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
                 self.mask_dict.update({inclusion_area_name: {'path': inclusion_area,
-                                                        'buffer': int(inclusion_area_buffer),
-                                                        'operation': 'include'}})
+                                                             'buffer': int(inclusion_area_buffer),
+                                                             'operation': 'include'}})
                 # Append the concatenated inclusion_area_name and buffer.
                 if inclusion_area_buffer == None:
                     inclusion_area_buffer = 0
@@ -214,9 +218,11 @@ class test_case(benchmark):
             # Get the magnitudes and lids for the current huc and loop through them
             validation_data = self.data(self.huc)
             for magnitude in validation_data:
-                for instance in validation_data[magnitude]:      # instance will be the lid for AHPS sites and '' for other sites
+                for instance in validation_data[
+                    magnitude]:  # instance will be the lid for AHPS sites and '' for other sites
                     # For each site, inundate the REM and compute aggreement raster with stats
-                    self._inundate_and_compute(magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers)
+                    self._inundate_and_compute(magnitude, instance, model=model, verbose=verbose,
+                                               gms_workers=gms_workers)
 
                 # Clean up 'total_area' outputs from AHPS sites
                 if self.is_ahps:
@@ -231,14 +237,14 @@ class test_case(benchmark):
         except Exception as ex:
             print(ex)
             sys.exit(1)
-        
-    def _inundate_and_compute(self, 
-                              magnitude, 
-                              lid, 
-                              compute_only = False, 
-                              model = '',
-                              verbose = False,
-                              gms_workers = 1):
+
+    def _inundate_and_compute(self,
+                              magnitude,
+                              lid,
+                              compute_only=False,
+                              model='',
+                              verbose=False,
+                              gms_workers=1):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
            Used by both the alpha_test() and composite() methods.
 
@@ -254,13 +260,13 @@ class test_case(benchmark):
         # Output files
         fh.vprint("Creating output files", verbose)
 
-        test_case_out_dir     = os.path.join(self.dir, magnitude)
-        inundation_prefix     = lid + '_' if lid else ''
-        inundation_path       = os.path.join(test_case_out_dir, f'{inundation_prefix}inundation_extent.tif')
+        test_case_out_dir = os.path.join(self.dir, magnitude)
+        inundation_prefix = lid + '_' if lid else ''
+        inundation_path = os.path.join(test_case_out_dir, f'{inundation_prefix}inundation_extent.tif')
         predicted_raster_path = inundation_path.replace('.tif', f'_{self.huc}.tif')
-        agreement_raster      = os.path.join(test_case_out_dir, (f'ahps_{lid}' if lid else '') +'total_area_agreement.tif')
-        stats_json            = os.path.join(test_case_out_dir, 'stats.json')
-        stats_csv             = os.path.join(test_case_out_dir, 'stats.csv')
+        agreement_raster = os.path.join(test_case_out_dir, (f'ahps_{lid}' if lid else '') + 'total_area_agreement.tif')
+        stats_json = os.path.join(test_case_out_dir, 'stats.json')
+        stats_csv = os.path.join(test_case_out_dir, 'stats.csv')
 
         # Create directory
         if not os.path.isdir(test_case_out_dir):
@@ -271,61 +277,53 @@ class test_case(benchmark):
         benchmark_rast = os.path.join(self.benchmark_dir, lid, magnitude, benchmark_rast)
         benchmark_flows = benchmark_rast.replace(f'_extent_{magnitude}.tif', f'_flows_{magnitude}.csv')
         mask_dict_indiv = self.mask_dict.copy()
-        if self.is_ahps: # add domain shapefile to mask for AHPS sites
+        if self.is_ahps:  # add domain shapefile to mask for AHPS sites
             domain = os.path.join(self.benchmark_dir, lid, f'{lid}_domain.shp')
             mask_dict_indiv.update({lid:
-                            {'path': domain,
-                            'buffer': None,
-                            'operation': 'include'}
-                                })
+                                        {'path': domain,
+                                         'buffer': None,
+                                         'operation': 'include'}
+                                    })
         # Check to make sure all relevant files exist
-        if not os.path.isfile(benchmark_rast) or not os.path.isfile(benchmark_flows) or (self.is_ahps and not os.path.isfile(domain)):
+        if not os.path.isfile(benchmark_rast) or not os.path.isfile(benchmark_flows) or (
+                self.is_ahps and not os.path.isfile(domain)):
             return -1
 
         # Inundate REM
-        if not compute_only:             # composite alpha tests don't need to be inundated
+        if not compute_only:  # composite alpha tests don't need to be inundated
             if model == 'GMS':
                 fh.vprint("Begin FIM4 Inundation", verbose)
-                map_file = Inundate_gms( hydrofabric_dir = os.path.dirname(self.fim_dir), 
-                                         forecast = benchmark_flows, 
-                                         num_workers = gms_workers,
-                                         hucs = self.huc,
-                                         inundation_raster = predicted_raster_path,
-                                         inundation_polygon = None,
-                                         depths_raster = None,
-                                         verbose = verbose,
-                                         log_file = None,
-                                         output_fileNames = None )
-                #if (len(map_file) > 0):
+                map_file = Inundate_gms(hydrofabric_dir=os.path.dirname(self.fim_dir),
+                                        forecast=benchmark_flows,
+                                        num_workers=gms_workers,
+                                        hucs=self.huc,
+                                        inundation_raster=predicted_raster_path,
+                                        inundation_polygon=None,
+                                        depths_raster=None,
+                                        verbose=verbose,
+                                        log_file=None,
+                                        output_fileNames=None)
+                # if (len(map_file) > 0):
                 fh.vprint("Begin FIM4 Mosaic", verbose)
-                Mosaic_inundation( map_file,
-                                    mosaic_attribute = 'inundation_rasters',
-                                    mosaic_output = predicted_raster_path,
-                                    mask = os.path.join(self.fim_dir,'wbd.gpkg'),
-                                    unit_attribute_name = 'huc8',
-                                    nodata = elev_raster_ndv,
-                                    workers = 1,
-                                    remove_inputs = True,
-                                    subset = None,
-                                    verbose = verbose )
+                Mosaic_inundation(map_file,
+                                  mosaic_attribute='inundation_rasters',
+                                  mosaic_output=predicted_raster_path,
+                                  mask=os.path.join(self.fim_dir, 'wbd.gpkg'),
+                                  unit_attribute_name='huc8',
+                                  nodata=elev_raster_ndv,
+                                  workers=1,
+                                  remove_inputs=True,
+                                  subset=None,
+                                  verbose=verbose)
             # FIM v3 and before
             else:
                 fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
-                inundate_result = inundate(self.rem,
-                                           self.catchments,
-                                           self.catchment_poly,
-                                           self.hydro_table,
+                inundate_result = inundate(self.rem, self.catchments, self.catchment_poly, self.hydro_table,
                                            benchmark_flows,
-                                           self.mask_type,
-                                           hucs=self.hucs,
-                                           hucs_layerName=self.hucs_layerName,
-                                           subset_hucs=self.huc,
-                                           num_workers=1,
-                                           aggregate=False,
-                                           inundation_raster=inundation_path,
-                                           inundation_polygon=None,
-                                           depths=None,out_raster_profile=None,
-                                           out_vector_profile=None,
+                                           self.mask_type, hucs=self.hucs, hucs_layerName=self.hucs_layerName,
+                                           subset_hucs=self.huc, num_workers=1, aggregate=False,
+                                           inundation_raster=inundation_path, inundation_polygon=None,
+                                           depths=None, out_raster_profile=None, out_vector_profile=None,
                                            quiet=True)
                 if inundate_result != 0:
                     return inundate_result
@@ -338,20 +336,23 @@ class test_case(benchmark):
                                                    agreement_raster,
                                                    stats_csv=stats_csv,
                                                    stats_json=stats_json,
+                                                   mask_values=[],
+                                                   stats_modes_list=self.stats_modes_list,
+                                                   test_id=self.test_id,
                                                    mask_dict=mask_dict_indiv)
         return
 
-
     @classmethod
-    def run_alpha_test(cls, version, test_id, magnitude, calibrated, model, archive_results=False, 
-                       mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True, verbose=False, gms_workers=1):
+    def run_alpha_test(cls, version, test_id, magnitude, calibrated, model, archive_results=False,
+                       mask_type='huc', inclusion_area='', inclusion_area_buffer=0, light_run=False, overwrite=True,
+                       verbose=False, gms_workers=1):
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
         alpha_class = cls(test_id, version, archive_results)
         alpha_class.alpha_test(calibrated, model, mask_type, inclusion_area,
-                inclusion_area_buffer, overwrite, verbose, gms_workers)
+                               inclusion_area_buffer, overwrite, verbose, gms_workers)
 
-    def composite(self, version_2, calibrated = False, overwrite = True, verbose = False):
+    def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):
         '''Class method for compositing MS and FR inundation and creating an agreement raster with stats
 
             Parameters
@@ -384,34 +385,39 @@ class test_case(benchmark):
 
         validation_data = composite_test_case.data(composite_test_case.huc)
         for magnitude in validation_data:
-            for instance in validation_data[magnitude]:      # instance will be the lid for AHPS sites and '' for other sites (ble/ifc/ras2fim)
+            for instance in validation_data[
+                magnitude]:  # instance will be the lid for AHPS sites and '' for other sites (ble/ifc/ras2fim)
                 inundation_prefix = instance + '_' if instance else ''
 
-                input_inundation = os.path.join(self.dir, magnitude, f'{inundation_prefix}inundation_extent_{self.huc}.tif')
-                input_inundation_2 = os.path.join(input_test_case_2.dir, magnitude, f'{inundation_prefix}inundation_extent_{input_test_case_2.huc}.tif')
-                output_inundation = os.path.join(composite_test_case.dir, magnitude, f'{inundation_prefix}inundation_extent.tif')
+                input_inundation = os.path.join(self.dir, magnitude,
+                                                f'{inundation_prefix}inundation_extent_{self.huc}.tif')
+                input_inundation_2 = os.path.join(input_test_case_2.dir, magnitude,
+                                                  f'{inundation_prefix}inundation_extent_{input_test_case_2.huc}.tif')
+                output_inundation = os.path.join(composite_test_case.dir, magnitude,
+                                                 f'{inundation_prefix}inundation_extent.tif')
 
                 if os.path.isfile(input_inundation) and os.path.isfile(input_inundation_2):
-                    inundation_map_file = pd.DataFrame({ 
-                                            'huc8' : [composite_test_case.huc] * 2,
-                                            'branchID' : [None] * 2,
-                                            'inundation_rasters' : [input_inundation,input_inundation_2],
-                                            'depths_rasters' : [None] * 2,
-                                            'inundation_polygons' : [None] * 2
-                                        })
+                    inundation_map_file = pd.DataFrame({
+                        'huc8': [composite_test_case.huc] * 2,
+                        'branchID': [None] * 2,
+                        'inundation_rasters': [input_inundation, input_inundation_2],
+                        'depths_rasters': [None] * 2,
+                        'inundation_polygons': [None] * 2
+                    })
                     os.makedirs(os.path.dirname(output_inundation), exist_ok=True)
 
                     fh.vprint(f"Begin mosaic inundation for version : {composite_version_name}", verbose)
-                    Mosaic_inundation(inundation_map_file,mosaic_attribute='inundation_rasters',
-                                            mosaic_output=output_inundation, mask=None, unit_attribute_name='huc8',
-                                            nodata=elev_raster_ndv, workers=1, remove_inputs=False, subset=None, verbose=False
-                                            )
+                    Mosaic_inundation(inundation_map_file, mosaic_attribute='inundation_rasters',
+                                      mosaic_output=output_inundation, mask=None, unit_attribute_name='huc8',
+                                      nodata=elev_raster_ndv, workers=1, remove_inputs=False, subset=None, verbose=False
+                                      )
                     composite_test_case._inundate_and_compute(magnitude, instance, compute_only=True)
 
-                elif os.path.isfile(input_inundation) or os.path.isfile(input_inundation_2): 
+                elif os.path.isfile(input_inundation) or os.path.isfile(input_inundation_2):
                     # If only one model (MS or FR) has inundation, simply copy over all files as the composite
                     single_test_case = self if os.path.isfile(input_inundation) else input_test_case_2
-                    shutil.copytree(single_test_case.dir, re.sub(r'(.*)(_ms|_fr)', r'\1_comp', single_test_case.dir, count=1))
+                    shutil.copytree(single_test_case.dir,
+                                    re.sub(r'(.*)(_ms|_fr)', r'\1_comp', single_test_case.dir, count=1))
                     composite_test_case.write_metadata(calibrated, 'COMP')
                     return
 
@@ -423,11 +429,12 @@ class test_case(benchmark):
 
     def write_metadata(self, calibrated, model):
         '''Writes metadata files for a test_case directory.'''
-        with open(os.path.join(self.dir,'eval_metadata.json'),'w') as meta:
-            eval_meta = { 'calibrated' : calibrated , 'model' : model }
-            meta.write( 
-                        json.dumps(eval_meta,indent=2) 
-                    )
+        with open(os.path.join(self.dir, 'eval_metadata.json'), 'w') as meta:
+            eval_meta = {'calibrated': calibrated, 'model': model}
+            meta.write(
+                json.dumps(eval_meta, indent=2)
+            )
+
     def clean_ahps_outputs(self, magnitude_directory):
         '''Cleans up `total_area` files from an input AHPS magnitude directory.'''
         output_file_list = [os.path.join(magnitude_directory, of) for of in os.listdir(magnitude_directory)]
