@@ -9,8 +9,18 @@ from geopandas.testing import assert_geodataframe_equal
 
 
 def main(arg1, arg2, image_only, log_file, gpkg):
+    """
+    This tool compares either directories or single files. It will create and compare a hashing for
+    each file to validate that the files are exactly identical in contents.
+
+    Note: There is an option to compare .gpkg files. This option increases runtimes significantly.
+    Please be advised that this feature has not been thoroughly tested to ensure robustness.
+
+    When arg1 and arg2 are single files, the files names need not match but the extensions must match.
+    """
+
     if log_file is not None:
-        # Default location of the log file is from current working directory
+        # Default location of the log file will be the current working directory (where script is called)
         log = os.path.join(os.getcwd(), log_file)
         # Initialize list to send discrepancies to a log file
         print(f" \n \t Will write logging to: {log} \n")
@@ -20,7 +30,7 @@ def main(arg1, arg2, image_only, log_file, gpkg):
 
     else:
         if os.path.splitext(arg1)[1] == '.gpkg' and os.path.splitext(arg2)[1] == '.gpkg':
-            compare_gpkg(arg1, arg2)
+            compare_gpkg(arg1, arg2, verbose=True)
         else:
             # Calling hashfile() function to obtain hashes
             # of the files, and saving the result
@@ -31,7 +41,7 @@ def main(arg1, arg2, image_only, log_file, gpkg):
             # Doing primitive string comparison to
             # check whether the two hashes match or not
             if f1_hash == f2_hash:
-                print("Both files are same")
+                print("Both files are the same.")
                 print(f"Hash: {f1_hash}")
 
             else:
@@ -58,7 +68,7 @@ def compare_fim_runs(fim_run_dir, previous_fim_run_dir, image_only, log_file, gp
                 elif os.path.splitext(file)[1] == '.gpkg' and gpkg:
                     f1 = os.path.join(branch, file)
                     f2 = os.path.join(branch.replace(fim_run_dir, previous_fim_run_dir), file)
-                    compare_gpkg(f1, f2, list_of_failed_files)
+                    compare_gpkg(f1, f2, list_of_failed_files, verbose=False)
                     continue
 
                 # Skip Geopackages by defualt
@@ -86,8 +96,7 @@ def compare_fim_runs(fim_run_dir, previous_fim_run_dir, image_only, log_file, gp
 
 
 def hashfile(file):
-    # A arbitrary (but fixed) buffer
-    # size (change accordingly)
+    # A arbitrary (but fixed) buffer size (change accordingly)
     # 65536 = 65536 bytes = 64 kilobytes
     # BUF_SIZE = 65536
     # 1 MB (size of L2 cache for dev1)
@@ -96,30 +105,21 @@ def hashfile(file):
     # Initializing the sha256() method
     sha256 = hashlib.sha256()
 
-    # Opening the file provided as
-    # the first commandline argument
+    # Open file provided
     with open(file, 'rb') as f:
         while True:
-            # reading data = BUF_SIZE from
-            # the file and saving it in a
-            # variable
+            # reading data = BUF_SIZE from the file and saving it in a variable
             data = f.read(BUF_SIZE)
 
-            # True if eof = 1
             if not data:
                 break
 
-            # Passing that data to that sh256 hash
-            # function (updating the function with
-            # that data)
+            # Passing that data to that sh256 hash function (updating the function with that data)
             sha256.update(data)
 
-    # sha256.hexdigest() hashes all the input
-    # data passed to the sha256() via sha256.update()
-    # Acts as a finalize method, after which
-    # all the input data gets hashed hexdigest()
-    # hashes the data, and returns the output
-    # in hexadecimal format
+    # sha256.hexdigest() hashes all the input data passed to the sha256() via sha256.update()
+    # Acts as a finalize method, after which all the input data gets hashed hexdigest()
+    # hashes the data, and returns the output in hexadecimal format
     return sha256.hexdigest()
 
 
@@ -136,14 +136,17 @@ def write_log(list_of_failed_files, file):
                 f.write(f"{failed_compare_file} \n")
 
 
-def compare_gpkg(file1, file2, list_of_failed_files=[]):
+def compare_gpkg(file1, file2, list_of_failed_files=[], verbose=False):
     f1_gdf = geopandas.read_file(file1)
     f2_gdf = geopandas.read_file(file2)
 
     try:
         assert_geodataframe_equal(f1_gdf, f2_gdf)
-        # If the gdfs are the same, don't notify, we only care about failures..
-        # print("\n Both files are same \n")
+        # We only care about failures when FIM output directories are compared,
+        # however if only two .gpkg files are compared, print success.
+        if verbose:
+            print("\n Both files are the same. \n")
+
     except AssertionError as e:
         print(f"\n {str(e)} \n")
         print("  The following files failed assert_geodataframe_equal: ")
