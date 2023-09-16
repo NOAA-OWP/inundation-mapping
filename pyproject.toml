@@ -75,7 +75,7 @@ extend-ignore = """
     """
 per-file-ignores = """
     src/subdiv_chan_obank_src.py: E712
-    src/src_roughness_optimization.py: E712
+    src/src_roughness_optimization.py: E712, F841
     src/agreedem.py: E712
     src/build_stream_traversal.py: E722
     tools/vary_mannings_n_composite.py: E712

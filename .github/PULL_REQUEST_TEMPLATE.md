@@ -18,7 +18,6 @@ _You may update this checklist before and/or after creating the PR. If you're un
 - [ ] If submitting a PR to the `dev` branch (the default branch), you have a descriptive [Feature Branch](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow) name using the format: `dev-<description-of-change>` (e.g. `dev-revise-levee-masking`)
 - [ ] Changes are limited to a single goal (no scope creep)
 - [ ] The feature branch you're submitting as a PR is up to date (merged) with the latest `dev` branch
-- [ ] Changes adhere to [PEP-8 Style Guidelines](https://peps.python.org/pep-0008/)
 - [ ] `pre-commit` hooks were run locally
 - [ ] Any _change_ in functionality is tested
 - [ ] Passes all unit tests locally (inside interactive Docker container, at `/foss_fim/`, run: `pytest unit_tests/`)
