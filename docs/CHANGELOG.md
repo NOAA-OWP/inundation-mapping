@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.1.0 - 2023-09-06 - [PR#988](https://github.com/NOAA-OWP/inundation-mapping/pull/988)
+## v4.4.1.0 - 2023-09-18 - [PR#988](https://github.com/NOAA-OWP/inundation-mapping/pull/988)
 
 Format code using `black` formatter, incorporate `isort` package to sort import statements,
 and adhere all code to PEP8 Style Guide using the `flake8` package. Remove deprecated files.
