@@ -1,18 +1,19 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import rasterio
-from rasterio.windows import from_bounds
-import numpy as np
-from functools import partial
-from affine import Affine
-from scipy.optimize import newton
-from threading import Lock
 import concurrent.futures
-from numba import njit
-import geopandas as gpd
-from rasterio.mask import mask
 import warnings
+from functools import partial
+from threading import Lock
+
+import geopandas as gpd
+import numpy as np
+import rasterio
+from affine import Affine
+from numba import njit
+from rasterio.mask import mask
+from rasterio.windows import from_bounds
+from scipy.optimize import newton
 
 
 class OverlapWindowMerge:
@@ -26,8 +27,14 @@ class OverlapWindowMerge:
         """
 
         # sort for largest spanning dataset (todo: handle mismatched resolutions)
-        size_func = lambda x: np.abs(x.bounds.left - x.bounds.right) * np.abs(x.bounds.top - x.bounds.bottom)
-        key_sort_func = lambda x: x["size"]
+        # size_func = lambda x: np.abs(x.bounds.left - x.bounds.right) * np.abs(x.bounds.top - x.bounds.bottom)
+        def size_func(x):
+            return np.abs(x.bounds.left - x.bounds.right) * np.abs(x.bounds.top - x.bounds.bottom)
+
+        # key_sort_func = lambda x: x["size"]
+        def key_sort_func(x):
+            return x['size']
+
         datasets = [rasterio.open(ds) for ds in inundation_rsts]
         ds_dict = [{"dataset": ds, "size": size_func(ds)} for ds in datasets]
         ds_dict.sort(key=key_sort_func, reverse=True)
@@ -149,7 +156,8 @@ class OverlapWindowMerge:
 
         :param window_bounds: tuple or list of partition sizes for x and y
         :param window_idx: int representing index of window
-        :return: list of float latitudes, list of float longitudes, list of window bbox, list of ul/br coords for window
+        :return: list of float latitudes, list of float longitudes, list of window bbox,
+                    list of ul/br coords for window
         """
 
         upper_left = window_idx.T * window_bounds[0]
@@ -431,10 +439,9 @@ def merge_data(
 
 
 if __name__ == "__main__":
-    import time
-
     # import tracemalloc
     import glob
+    import time
 
     # print('start', time.localtime())
     # project_path = r'../documentation/data'
@@ -445,7 +452,6 @@ if __name__ == "__main__":
     #                              (3, 3))
     # overlap.merge_rasters(project_path + '/merged_overlap.tif', nodata=0)
     # print('end', time.localtime())
-
     # tracemalloc.start()
     print("start", time.localtime())
     # project_path = r'../documentation/data'

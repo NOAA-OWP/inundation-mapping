@@ -1,5 +1,7 @@
 import numpy as np
-def get_nlcd_counts_inside_flood(feat,masked):
+
+
+def get_nlcd_counts_inside_flood(feat, masked):
     # Gets NLCD Counds inside flood extent
     feature_stats = {
         'f_HydroID': feat.GetField('HydroID'),
@@ -25,19 +27,24 @@ def get_nlcd_counts_inside_flood(feat,masked):
         'f_lulc_90': np.count_nonzero((masked == [90])),
         'f_lulc_95': np.count_nonzero((masked == [95])),
         'f_lulc_1': np.count_nonzero((masked == [11])) + np.count_nonzero((masked == [12])),
-        'f_lulc_2': np.count_nonzero((masked == [21])) + np.count_nonzero((masked == [22]))
-                  + np.count_nonzero((masked == [23])) + np.count_nonzero((masked == [24])),
+        'f_lulc_2': np.count_nonzero((masked == [21]))
+        + np.count_nonzero((masked == [22]))
+        + np.count_nonzero((masked == [23]))
+        + np.count_nonzero((masked == [24])),
         'f_lulc_3': np.count_nonzero((masked == [31])),
-        'f_lulc_4': np.count_nonzero((masked == [41])) + np.count_nonzero((masked == [42]))
-                  + np.count_nonzero((masked == [43])),
+        'f_lulc_4': np.count_nonzero((masked == [41]))
+        + np.count_nonzero((masked == [42]))
+        + np.count_nonzero((masked == [43])),
         'f_lulc_5': np.count_nonzero((masked == [51])) + np.count_nonzero((masked == [52])),
-        'f_lulc_7': np.count_nonzero((masked == [71])) + np.count_nonzero((masked == [72]))
-                  + np.count_nonzero((masked == [73])) + np.count_nonzero((masked == [74])),
+        'f_lulc_7': np.count_nonzero((masked == [71]))
+        + np.count_nonzero((masked == [72]))
+        + np.count_nonzero((masked == [73]))
+        + np.count_nonzero((masked == [74])),
         'f_lulc_8': np.count_nonzero((masked == [81])) + np.count_nonzero((masked == [82])),
-        'f_lulc_9': np.count_nonzero((masked == [90])) + np.count_nonzero((masked == [95]))
-
+        'f_lulc_9': np.count_nonzero((masked == [90])) + np.count_nonzero((masked == [95])),
     }
     return feature_stats
+
 
 def get_nlcd_counts(feat, masked):
     # Acquires information for table on each raster attribute per poly feature
@@ -66,29 +73,30 @@ def get_nlcd_counts(feat, masked):
         'lulc_90': np.count_nonzero((masked == [90])),
         'lulc_95': np.count_nonzero((masked == [95])),
         'lulc_1': np.count_nonzero((masked == [11])) + np.count_nonzero((masked == [12])),
-        'lulc_2': np.count_nonzero((masked == [21])) + np.count_nonzero((masked == [22]))
-                  + np.count_nonzero((masked == [23])) + np.count_nonzero((masked == [24])),
+        'lulc_2': np.count_nonzero((masked == [21]))
+        + np.count_nonzero((masked == [22]))
+        + np.count_nonzero((masked == [23]))
+        + np.count_nonzero((masked == [24])),
         'lulc_3': np.count_nonzero((masked == [31])),
-        'lulc_4': np.count_nonzero((masked == [41])) + np.count_nonzero((masked == [42]))
-                  + np.count_nonzero((masked == [43])),
+        'lulc_4': np.count_nonzero((masked == [41]))
+        + np.count_nonzero((masked == [42]))
+        + np.count_nonzero((masked == [43])),
         'lulc_5': np.count_nonzero((masked == [51])) + np.count_nonzero((masked == [52])),
-        'lulc_7': np.count_nonzero((masked == [71])) + np.count_nonzero((masked == [72]))
-                  + np.count_nonzero((masked == [73])) + np.count_nonzero((masked == [74])),
+        'lulc_7': np.count_nonzero((masked == [71]))
+        + np.count_nonzero((masked == [72]))
+        + np.count_nonzero((masked == [73]))
+        + np.count_nonzero((masked == [74])),
         'lulc_8': np.count_nonzero((masked == [81])) + np.count_nonzero((masked == [82])),
-        'lulc_9': np.count_nonzero((masked == [90])) + np.count_nonzero((masked == [95]))
-
+        'lulc_9': np.count_nonzero((masked == [90])) + np.count_nonzero((masked == [95])),
     }
     return feature_stats
 
 
 def get_levee_counts(feat, masked):
-
     # Acquires information for table on each levee attribute per catchment
-    feature_stats = {
-        'HydroID': feat.GetField('HydroID'),
-        'TotalLeveePixels': int(masked.count()),
-    }
+    feature_stats = {'HydroID': feat.GetField('HydroID'), 'TotalLeveePixels': int(masked.count())}
     return feature_stats
+
 
 def get_bridge_counts(feat_masked):
     pass
@@ -104,7 +112,7 @@ def get_mask_value_counts(feat, masked):
         'fn': np.count_nonzero((masked == [1])),
         'fp': np.count_nonzero((masked == [2])),
         'tp': np.count_nonzero((masked == [3])),
-        'mp': np.count_nonzero((masked == [4]))
-        }
-    
+        'mp': np.count_nonzero((masked == [4])),
+    }
+
     return feature_stats

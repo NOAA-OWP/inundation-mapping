@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 
-import os, re, shutil, json, sys
-import pandas as pd
+import json
+import os
+import re
+import shutil
+import sys
 
+import pandas as pd
+from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from inundation import inundate
+from mosaic_inundation import Mosaic_inundation
+from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (
-    TEST_CASES_DIR,
-    INPUTS_DIR,
-    PREVIOUS_FIM_DIR,
-    OUTPUTS_DIR,
     AHPS_BENCHMARK_CATEGORIES,
+    INPUTS_DIR,
     MAGNITUDE_DICT,
+    OUTPUTS_DIR,
+    PREVIOUS_FIM_DIR,
+    TEST_CASES_DIR,
     elev_raster_ndv,
 )
-from inundation import inundate
-from inundate_mosaic_wrapper import produce_mosaicked_inundation
-from tools_shared_functions import compute_contingency_stats_from_rasters
+
 from utils.shared_functions import FIM_Helpers as fh
 
 
@@ -36,13 +42,9 @@ class benchmark(object):
             self.MAGNITUDE_DICT.keys()
         ), f"Category must be one of {list(self.MAGNITUDE_DICT.keys())}"
         self.validation_data = os.path.join(
-            TEST_CASES_DIR,
-            f"{self.category}_test_cases",
-            f"validation_data_{self.category}",
+            TEST_CASES_DIR, f"{self.category}_test_cases", f"validation_data_{self.category}"
         )
-        self.is_ahps = (
-            True if self.category in self.AHPS_BENCHMARK_CATEGORIES else False
-        )
+        self.is_ahps = True if self.category in self.AHPS_BENCHMARK_CATEGORIES else False
 
     def magnitudes(self):
         """Returns the magnitudes associated with the benchmark category."""
@@ -52,7 +54,7 @@ class benchmark(object):
         """Returns a dict of HUC8, magnitudes, and sites."""
         huc_mags = {}
         for huc in os.listdir(self.validation_data):
-            if not re.match("\d{8}", huc):
+            if not re.match(r"\d{8}", huc):
                 continue
             huc_mags[huc] = self.data(huc)
         return huc_mags
@@ -70,9 +72,7 @@ class benchmark(object):
             mag_dict = {}
             for lid in lids:
                 lid_dir = os.path.join(huc_dir, lid)
-                for mag in [
-                    file for file in os.listdir(lid_dir) if file in self.magnitudes()
-                ]:
+                for mag in [file for file in os.listdir(lid_dir) if file in self.magnitudes()]:
                     if mag in mag_dict:
                         mag_dict[mag].append(lid)
                     else:
@@ -83,7 +83,7 @@ class benchmark(object):
             return {mag: [""] for mag in mags}
 
 
-class test_case(benchmark):
+class Test_Case(benchmark):
     def __init__(self, test_id, version, archive=True):
         """Class that handles test cases, specifically running the alpha test.
 
@@ -92,7 +92,7 @@ class test_case(benchmark):
         test_id : str
             ID of the test case in huc8_category format, e.g. `12090201_ble`.
         version : str
-            Version of FIM to which this test_case belongs. This should correspond to the fim directory
+            Version of FIM to which this Test_Case belongs. This should correspond to the fim directory
             name in either `/data/previous_fim/` or `/outputs/`.
         archive : bool
             If true, this test case outputs will be placed into the `official_versions` folder
@@ -110,9 +110,7 @@ class test_case(benchmark):
         self.fim_dir = os.path.join(
             PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR,
             self.version,
-            self.huc
-            if not re.search("^fim_[1,2]", version, re.IGNORECASE)
-            else self.huc[:6],
+            self.huc if not re.search("^fim_[1,2]", version, re.IGNORECASE) else self.huc[:6],
         )
         # Test case directory path
         self.dir = os.path.join(
@@ -204,9 +202,7 @@ class test_case(benchmark):
 
         try:
             if not overwrite and os.path.isdir(self.dir):
-                print(
-                    f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics."
-                )
+                print(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
                 return
 
             fh.vprint(f"Starting alpha test for {self.dir}", verbose)
@@ -217,37 +213,28 @@ class test_case(benchmark):
             if model != "GMS":
                 self.rem = os.path.join(self.fim_dir, "rem_zeroed_masked.tif")
                 if not os.path.exists(self.rem):
-                    self.rem = os.path.join(
-                        self.fim_dir, "rem_clipped_zeroed_masked.tif"
-                    )
+                    self.rem = os.path.join(self.fim_dir, "rem_clipped_zeroed_masked.tif")
                 self.catchments = os.path.join(
                     self.fim_dir, "gw_catchments_reaches_filtered_addedAttributes.tif"
                 )
                 if not os.path.exists(self.catchments):
                     self.catchments = os.path.join(
-                        self.fim_dir,
-                        "gw_catchments_reaches_clipped_addedAttributes.tif",
+                        self.fim_dir, "gw_catchments_reaches_clipped_addedAttributes.tif"
                     )
                 self.mask_type = mask_type
                 if mask_type == "huc":
                     self.catchment_poly = ""
                 else:
                     self.catchment_poly = os.path.join(
-                        self.fim_dir,
-                        "gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg",
+                        self.fim_dir, "gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg"
                     )
                 self.hydro_table = os.path.join(self.fim_dir, "hydroTable.csv")
 
             # Map necessary inputs for inundate().
-            self.hucs, self.hucs_layerName = (
-                os.path.join(INPUTS_DIR, "wbd", "WBD_National.gpkg"),
-                "WBDHU8",
-            )
+            self.hucs, self.hucs_layerName = (os.path.join(INPUTS_DIR, "wbd", "WBD_National.gpkg"), "WBDHU8")
 
             if inclusion_area != "":
-                inclusion_area_name = os.path.split(inclusion_area)[1].split(".")[
-                    0
-                ]  # Get layer name
+                inclusion_area_name = os.path.split(inclusion_area)[1].split(".")[0]  # Get layer name
                 self.mask_dict.update(
                     {
                         inclusion_area_name: {
@@ -258,11 +245,9 @@ class test_case(benchmark):
                     }
                 )
                 # Append the concatenated inclusion_area_name and buffer.
-                if inclusion_area_buffer == None:
+                if inclusion_area_buffer is None:
                     inclusion_area_buffer = 0
-                self.stats_modes_list.append(
-                    inclusion_area_name + "_b" + str(inclusion_area_buffer) + "m"
-                )
+                self.stats_modes_list.append(inclusion_area_name + "_b" + str(inclusion_area_buffer) + "m")
 
             # Delete the directory if it exists
             if os.path.exists(self.dir):
@@ -277,11 +262,7 @@ class test_case(benchmark):
                 ]:  # instance will be the lid for AHPS sites and '' for other sites
                     # For each site, inundate the REM and compute aggreement raster with stats
                     self._inundate_and_compute(
-                        magnitude,
-                        instance,
-                        model=model,
-                        verbose=verbose,
-                        gms_workers=gms_workers,
+                        magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -318,13 +299,10 @@ class test_case(benchmark):
 
         test_case_out_dir = os.path.join(self.dir, magnitude)
         inundation_prefix = lid + "_" if lid else ""
-        inundation_path = os.path.join(
-            test_case_out_dir, f"{inundation_prefix}inundation_extent.tif"
-        )
+        inundation_path = os.path.join(test_case_out_dir, f"{inundation_prefix}inundation_extent.tif")
         predicted_raster_path = inundation_path.replace(".tif", f"_{self.huc}.tif")
         agreement_raster = os.path.join(
-            test_case_out_dir,
-            (f"ahps_{lid}" if lid else "") + "total_area_agreement.tif",
+            test_case_out_dir, (f"ahps_{lid}" if lid else "") + "total_area_agreement.tif"
         )
         stats_json = os.path.join(test_case_out_dir, "stats.json")
         stats_csv = os.path.join(test_case_out_dir, "stats.csv")
@@ -337,18 +315,12 @@ class test_case(benchmark):
         benchmark_rast = (
             f"ahps_{lid}" if lid else self.benchmark_cat
         ) + f"_huc_{self.huc}_extent_{magnitude}.tif"
-        benchmark_rast = os.path.join(
-            self.benchmark_dir, lid, magnitude, benchmark_rast
-        )
-        benchmark_flows = benchmark_rast.replace(
-            f"_extent_{magnitude}.tif", f"_flows_{magnitude}.csv"
-        )
+        benchmark_rast = os.path.join(self.benchmark_dir, lid, magnitude, benchmark_rast)
+        benchmark_flows = benchmark_rast.replace(f"_extent_{magnitude}.tif", f"_flows_{magnitude}.csv")
         mask_dict_indiv = self.mask_dict.copy()
         if self.is_ahps:  # add domain shapefile to mask for AHPS sites
             domain = os.path.join(self.benchmark_dir, lid, f"{lid}_domain.shp")
-            mask_dict_indiv.update(
-                {lid: {"path": domain, "buffer": None, "operation": "include"}}
-            )
+            mask_dict_indiv.update({lid: {"path": domain, "buffer": None, "operation": "include"}})
         # Check to make sure all relevant files exist
         if (
             not os.path.isfile(benchmark_rast)
@@ -424,7 +396,7 @@ class test_case(benchmark):
         verbose=False,
         gms_workers=1,
     ):
-        """Class method for instantiating the test_case class and running alpha_test directly"""
+        """Class method for instantiating the Test_Case class and running alpha_test directly"""
 
         alpha_class = cls(test_id, version, archive_results)
         alpha_class.alpha_test(
@@ -452,21 +424,15 @@ class test_case(benchmark):
         """
 
         if re.match(r"(.*)(_ms|_fr)", self.version):
-            composite_version_name = re.sub(
-                r"(.*)(_ms|_fr)", r"\1_comp", self.version, count=1
-            )
+            composite_version_name = re.sub(r"(.*)(_ms|_fr)", r"\1_comp", self.version, count=1)
         else:
-            composite_version_name = re.sub(
-                r"(.*)(_ms|_fr)", r"\1_comp", version_2, count=1
-            )
+            composite_version_name = re.sub(r"(.*)(_ms|_fr)", r"\1_comp", version_2, count=1)
 
         fh.vprint(f"Begin composite for version : {composite_version_name}", verbose)
 
-        composite_test_case = test_case(
-            self.test_id, composite_version_name, self.archive
-        )
-        input_test_case_2 = test_case(self.test_id, version_2, self.archive)
-        composite_test_case.stats_modes_list = ["total_area"]
+        composite_test_case = Test_Case(self.test_id, composite_version_name, self.archive)
+        input_test_case_2 = Test_Case(self.test_id, version_2, self.archive)
+        composite_test_case.stats_modes_list = ['total_area']
 
         if not overwrite and os.path.isdir(composite_test_case.dir):
             return
@@ -483,9 +449,7 @@ class test_case(benchmark):
                 inundation_prefix = instance + "_" if instance else ""
 
                 input_inundation = os.path.join(
-                    self.dir,
-                    magnitude,
-                    f"{inundation_prefix}inundation_extent_{self.huc}.tif",
+                    self.dir, magnitude, f"{inundation_prefix}inundation_extent_{self.huc}.tif"
                 )
                 input_inundation_2 = os.path.join(
                     input_test_case_2.dir,
@@ -493,32 +457,22 @@ class test_case(benchmark):
                     f"{inundation_prefix}inundation_extent_{input_test_case_2.huc}.tif",
                 )
                 output_inundation = os.path.join(
-                    composite_test_case.dir,
-                    magnitude,
-                    f"{inundation_prefix}inundation_extent.tif",
+                    composite_test_case.dir, magnitude, f"{inundation_prefix}inundation_extent.tif"
                 )
 
-                if os.path.isfile(input_inundation) and os.path.isfile(
-                    input_inundation_2
-                ):
+                if os.path.isfile(input_inundation) and os.path.isfile(input_inundation_2):
                     inundation_map_file = pd.DataFrame(
                         {
                             "huc8": [composite_test_case.huc] * 2,
                             "branchID": [None] * 2,
-                            "inundation_rasters": [
-                                input_inundation,
-                                input_inundation_2,
-                            ],
+                            "inundation_rasters": [input_inundation, input_inundation_2],
                             "depths_rasters": [None] * 2,
                             "inundation_polygons": [None] * 2,
                         }
                     )
                     os.makedirs(os.path.dirname(output_inundation), exist_ok=True)
 
-                    fh.vprint(
-                        f"Begin mosaic inundation for version : {composite_version_name}",
-                        verbose,
-                    )
+                    fh.vprint(f"Begin mosaic inundation for version : {composite_version_name}", verbose)
                     Mosaic_inundation(
                         inundation_map_file,
                         mosaic_attribute="inundation_rasters",
@@ -531,31 +485,21 @@ class test_case(benchmark):
                         subset=None,
                         verbose=False,
                     )
-                    composite_test_case._inundate_and_compute(
-                        magnitude, instance, compute_only=True
-                    )
+                    composite_test_case._inundate_and_compute(magnitude, instance, compute_only=True)
 
-                elif os.path.isfile(input_inundation) or os.path.isfile(
-                    input_inundation_2
-                ):
+                elif os.path.isfile(input_inundation) or os.path.isfile(input_inundation_2):
                     # If only one model (MS or FR) has inundation, simply copy over all files as the composite
-                    single_test_case = (
-                        self if os.path.isfile(input_inundation) else input_test_case_2
-                    )
+                    single_test_case = self if os.path.isfile(input_inundation) else input_test_case_2
                     shutil.copytree(
                         single_test_case.dir,
-                        re.sub(
-                            r"(.*)(_ms|_fr)", r"\1_comp", single_test_case.dir, count=1
-                        ),
+                        re.sub(r"(.*)(_ms|_fr)", r"\1_comp", single_test_case.dir, count=1),
                     )
                     composite_test_case.write_metadata(calibrated, "COMP")
                     return
 
             # Clean up 'total_area' outputs from AHPS sites
             if composite_test_case.is_ahps:
-                composite_test_case.clean_ahps_outputs(
-                    os.path.join(composite_test_case.dir, magnitude)
-                )
+                composite_test_case.clean_ahps_outputs(os.path.join(composite_test_case.dir, magnitude))
 
         composite_test_case.write_metadata(calibrated, "COMP")
 
@@ -567,10 +511,7 @@ class test_case(benchmark):
 
     def clean_ahps_outputs(self, magnitude_directory):
         """Cleans up `total_area` files from an input AHPS magnitude directory."""
-        output_file_list = [
-            os.path.join(magnitude_directory, of)
-            for of in os.listdir(magnitude_directory)
-        ]
+        output_file_list = [os.path.join(magnitude_directory, of) for of in os.listdir(magnitude_directory)]
         for output_file in output_file_list:
             if "total_area" in output_file:
                 os.remove(output_file)

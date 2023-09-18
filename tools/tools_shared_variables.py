@@ -1,5 +1,6 @@
 import os
 
+
 # Environmental variables and constants.
 TEST_CASES_DIR = r"/data/test_cases/"
 PREVIOUS_FIM_DIR = r"/data/previous_fim"
@@ -35,16 +36,7 @@ PRINTWORTHY_STATS = [
     "TN_perc",
     "FN_perc",
 ]
-GO_UP_STATS = [
-    "CSI",
-    "TPR",
-    "MCC",
-    "TN_area_km2",
-    "TP_area_km2",
-    "TN_perc",
-    "TP_perc",
-    "TNR",
-]
+GO_UP_STATS = ["CSI", "TPR", "MCC", "TN_area_km2", "TP_area_km2", "TN_perc", "TP_perc", "TNR"]
 GO_DOWN_STATS = ["FAR", "FN_area_km2", "FP_area_km2", "FP_perc", "FN_perc", "PND"]
 
 # Variables for eval_plots.py
@@ -97,37 +89,10 @@ CYAN_BOLD = "\033[36;1m"
 # https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html
 acceptable_coord_acc_code_list = ["H", "1", "5", "S", "R", "B", "C", "D", "E", 5, 1]
 # https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html
-acceptable_coord_method_code_list = [
-    "C",
-    "D",
-    "W",
-    "X",
-    "Y",
-    "Z",
-    "N",
-    "M",
-    "L",
-    "G",
-    "R",
-    "F",
-    "S",
-]
+acceptable_coord_method_code_list = ["C", "D", "W", "X", "Y", "Z", "N", "M", "L", "G", "R", "F", "S"]
 # https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
 acceptable_alt_acc_thresh = 1.0
 # https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
-acceptable_alt_meth_code_list = [
-    "A",
-    "D",
-    "F",
-    "I",
-    "J",
-    "L",
-    "N",
-    "R",
-    "W",
-    "X",
-    "Y",
-    "Z",
-]
+acceptable_alt_meth_code_list = ["A", "D", "F", "I", "J", "L", "N", "R", "W", "X", "Y", "Z"]
 # https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
 acceptable_site_type_list = ["ST"]

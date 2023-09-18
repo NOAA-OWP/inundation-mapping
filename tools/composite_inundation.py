@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-import os, argparse, copy
-import json
-import rasterio
-import numpy as np
-import pandas as pd
-
-from datetime import datetime
-from multiprocessing import Pool
+import argparse
 
 # from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 import concurrent.futures as cf
-from tqdm import tqdm
+import copy
+import json
+import os
+from datetime import datetime
+from multiprocessing import Pool
 
+import numpy as np
+import pandas as pd
+import rasterio
+from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from inundation import inundate
 from mosaic_inundation import Mosaic_inundation
-from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from tqdm import tqdm
+
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 
@@ -62,7 +64,7 @@ class InundateModel_HUC(object):
         output_raster_name = fh.append_id_to_file_name(output_raster_name, [self.huc, self.model])
 
         if verbose:
-            print(f"... Creating an inundation map for the FIM4" f" configuration for HUC {self.huc}...")
+            print(f"... Creating an inundation map for the FIM4 configuration for HUC {self.huc}...")
 
         if self.model in ["fr", "ms"]:
             if self.model == "ms":
@@ -72,8 +74,7 @@ class InundateModel_HUC(object):
             rem = os.path.join(source_huc_dir, "rem_zeroed_masked.tif")
             catchments = os.path.join(source_huc_dir, "gw_catchments_reaches_filtered_addedAttributes.tif")
             catchment_poly = os.path.join(
-                source_huc_dir,
-                "gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg",
+                source_huc_dir, "gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg"
             )
             hydro_table = os.path.join(source_huc_dir, "hydroTable.csv")
 
@@ -210,7 +211,8 @@ class CompositeInundation(object):
             fim_dir_fr : str
                 Path to FR FIM directory. This should be an output directory from `fim_run.sh`.
             gms_dir : str
-                Path to FIM4 GMS directory. This should be an output directory from `gms_run_unit, then gms_run_branch`.
+                Path to FIM4 GMS directory. This should be an output directory from
+                    `gms_run_unit, then gms_run_branch`.
             huc: str, optional
                 If this value comes in, it shoudl be a single huc value. If it does not exist,
                 we use all hucs in the give source directories.
@@ -219,7 +221,8 @@ class CompositeInundation(object):
             composite_output_dir : str
                 Folder path to write outputs. It will be created if it does not exist.
             output_name : str, optional
-                Name for output raster. If not specified, by default the raster will be named 'inundation_composite_{flows_root}.tif'.
+                Name for output raster. If not specified, by default the raster will be named:
+                    'inundation_composite_{flows_root}.tif'.
             is_bin_raster : bool, optional
                 Flag to create binary raster as output.
             num_workers_huc : int, optional
@@ -284,9 +287,7 @@ class CompositeInundation(object):
                     "exceeds your machine's available CPU count of {} minus one. "
                     "Please lower the num_workers_huc or num_workers_branches"
                     "values accordingly.".format(
-                        args["num_workers_huc"],
-                        total_cpus_available,
-                        args["num_workers_branches"],
+                        args["num_workers_huc"], total_cpus_available, args["num_workers_branches"]
                     )
                 )
 
@@ -306,7 +307,7 @@ class CompositeInundation(object):
                 output_file_name_split = os.path.split(args["output_name"])
                 if args["output_name"] == output_file_name_split[0]:
                     raise ValueError(
-                        """If submitting the -n (output file name), please ensure 
+                        """If submitting the -n (output file name), please ensure
                                         it has no pathing. You can also leave it blank if you like."""
                     )
 
@@ -328,7 +329,7 @@ class CompositeInundation(object):
 
             # make combined huc list, NOTE: not all source dirs will have the same huc folders
             huc_list = set()
-            if args["huc"] != None:
+            if args["huc"] is not None:
                 if (len(args["huc"]) != 8) or (not args["huc"].isnumeric()):
                     raise ValueError("Single huc value (-u arg) was submitted but appears invalid")
                 else:
@@ -387,7 +388,10 @@ class CompositeInundation(object):
     def hydroid_to_binary(hydroid_raster_filename):
         # Converts hydroid positive/negative grid to 1/0
         # to_bin = lambda x: np.where(x > 0, 1, np.where(x == 0, -9999, 0))
-        to_bin = lambda x: np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
+        # to_bin = lambda x: np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
+        def to_bin(x):
+            return np.where(x > 0, 1, np.where(x != -9999, 0, -9999))
+
         hydroid_raster = rasterio.open(hydroid_raster_filename)
         profile = hydroid_raster.profile  # get profile for new raster creation later on
         profile["nodata"] = -9999
@@ -409,13 +413,29 @@ if __name__ == "__main__":
     Notice: arg keys and values for some of the variants
     --------
     a) ms and fr (single huc)
-    python3 /foss_fim/tools/composite_inundation.py -ms /outputs/inundation_test_1_FIM3_ms -fr /outputs/inundation_test_1_FIM3_fr -u /data/inputs/huc_lists/include_huc8.lst -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv -o /outputs/inundation_test_1_comp/ -n test_inundation.tif
+    python3 /foss_fim/tools/composite_inundation.py
+        -ms /outputs/inundation_test_1_FIM3_ms
+        -fr /outputs/inundation_test_1_FIM3_fr
+        -u /data/inputs/huc_lists/include_huc8.lst
+        -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv
+        -o /outputs/inundation_test_1_comp/
+        -n test_inundation.tif
 
     a) ms and gms (all hucs in each folder)
-    python3 /foss_fim/tools/composite_inundation.py -ms /outputs/inundation_test_1_FIM3_ms -gms /outputs/inundation_test_1_gms -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv -o /outputs/inundation_test_1_comp/ -c -jh 3 -jb 20
+    python3 /foss_fim/tools/composite_inundation.py
+        -ms /outputs/inundation_test_1_FIM3_ms
+        -gms /outputs/inundation_test_1_gms
+        -f /data/test_cases/nws_test_cases/validation_data_nws/13090001/rgdt2/moderate/ahps_rgdt2_huc_13090001_flows_moderate.csv
+        -o /outputs/inundation_test_1_comp/
+        -c -jh 3 -jb 20
 
     b) fr and gms (single huc)
-    python3 /foss_fim/tools/composite_inundation.py -fr /outputs/inundation_test_1_FIM3_fr -gms /outputs/inundation_test_1_gms -u 13090001 -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_25_0_cms.csv -o /outputs/inundation_test_1_comp/ -n test_inundation.tif
+    python3 /foss_fim/tools/composite_inundation.py
+        -fr /outputs/inundation_test_1_FIM3_fr
+        -gms /outputs/inundation_test_1_gms
+        -u 13090001 -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_25_0_cms.csv
+        -o /outputs/inundation_test_1_comp/
+        -n test_inundation.tif
     """
 
     # parse arguments
@@ -454,18 +474,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("-f", "--flows-file", help="File path of flows csv.", required=True)
     parser.add_argument(
-        "-o",
-        "--composite-output-dir",
-        help="Folder to write Composite Raster output.",
-        required=True,
+        "-o", "--composite-output-dir", help="Folder to write Composite Raster output.", required=True
     )
-    parser.add_argument(
-        "-n",
-        "--output-name",
-        help="File name for output(s).",
-        default=None,
-        required=False,
-    )
+    parser.add_argument("-n", "--output-name", help="File name for output(s).", default=None, required=False)
     parser.add_argument(
         "-b",
         "--is-bin-raster",
@@ -477,7 +488,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-jh",
         "--num-workers-huc",
-        help="Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.",
+        help="Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply"
+        "to no more than one less than the CPU count of the machine.",
         required=False,
         default=1,
         type=int,
@@ -485,7 +497,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-jb",
         "--num-workers-branches",
-        help="Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply to no more than one less than the CPU count of the machine.",
+        help="Number of processes to use for Branch scale operations. HUC and Batch job numbers should multiply"
+        "to no more than one less than the CPU count of the machine.",
         required=False,
         default=1,
         type=int,
@@ -499,12 +512,7 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
-        help="Show additional outputs.",
-        required=False,
-        default=False,
-        action="store_true",
+        "-v", "--verbose", help="Show additional outputs.", required=False, default=False, action="store_true"
     )
 
     # Extract to dictionary and assign to variables.

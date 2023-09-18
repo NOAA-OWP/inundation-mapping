@@ -1,23 +1,22 @@
+#!/usr/bin/env python3
+
 import argparse
 import logging
 import multiprocessing
 import os
-import rasterio
 import re
 import shutil
 import sys
-
-from multiprocessing import Pool
-from rasterio.merge import merge
-from osgeo import gdal, ogr
-
 from datetime import datetime
-from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from multiprocessing import Pool
 
-# setting path
-sys.path.append("/foss_fim/src")
-from utils.shared_variables import elev_raster_ndv, PREP_PROJECTION
+import rasterio
+from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from osgeo import gdal, ogr
+from rasterio.merge import merge
+
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
 
 # INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
@@ -27,10 +26,7 @@ from utils.shared_functions import FIM_Helpers as fh
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
-def inundate_nation(fim_run_dir, output_dir, magnitude_key, 
-                    flow_file, huc_list, inc_mosaic, job_number):
-
-
+def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number):
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
     if job_number > available_cores:
@@ -69,29 +65,26 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key,
         shutil.rmtree(magnitude_output_dir, ignore_errors=True)
         os.mkdir(magnitude_output_dir)
 
-    if huc_list == None:    
+    if huc_list is None:
         huc_list = []
         for huc in os.listdir(fim_run_dir):
-            
-            #if huc != 'logs' and huc != 'branch_errors'and huc != 'unit_errors' and os.path.isdir(os.path.join(fim_run_dir, huc)):
-            if re.match('\d{8}', huc):    
+            # if (
+            #     huc != 'logs'
+            #     and huc != 'branch_errors'
+            #     and huc != 'unit_errors'
+            #     and os.path.isdir(os.path.join(fim_run_dir, huc))
+            # ):
+            if re.match(r'\d{8}', huc):
                 huc_list.append(huc)
     else:
         for huc in huc_list:
-            assert os.path.isdir(fim_run_dir + os.sep + huc), f'ERROR: could not find the input fim_dir location: {fim_run_dir + os.sep + huc}'
+            assert os.path.isdir(
+                fim_run_dir + os.sep + huc
+            ), f'ERROR: could not find the input fim_dir location: {fim_run_dir + os.sep + huc}'
 
     print("Inundation raw mosaic outputs here: " + magnitude_output_dir)
 
-    run_inundation(
-        [
-            fim_run_dir,
-            huc_list,
-            magnitude_key,
-            magnitude_output_dir,
-            flow_file,
-            job_number,
-        ]
-    )
+    run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
 
     # Perform mosaic operation
     if inc_mosaic:
@@ -140,7 +133,8 @@ def run_inundation(args):
     This script is a wrapper for the inundate function and is designed for multiprocessing.
 
     Args:
-        args (list): [fim_run_dir (str), huc_list (list), magnitude (str), magnitude_output_dir (str), forecast (str), job_number (int)]
+        args (list): [fim_run_dir (str), huc_list (list), magnitude (str),
+            magnitude_output_dir (str), forecast (str), job_number (int)]
 
     """
 
@@ -215,43 +209,89 @@ def __setup_logger(output_folder_path, log_file_name_key):
 
 
 if __name__ == "__main__":
-    # Sample usage: python3 /foss_fim/tools/inundate_nation.py -r /outputs/fim_4_0_9_2 -m 100_0 -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_100_0_cms.csv -s -j 10
-    # outputs become /data/inundation_review/inundate_nation/100_0_fim_4_0_9_2_mosiac.tif (.log, etc)
+    """
+    Sample usage:
+    python3 /foss_fim/tools/inundate_nation.py
+        -r /outputs/fim_4_0_9_2 -m 100_0
+        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_100_0_cms.csv
+        -s
+        -j 10
+    outputs become /data/inundation_review/inundate_nation/100_0_fim_4_0_9_2_mosiac.tif (.log, etc)
 
-    # Sample usage: python3 /foss_fim/tools/inundate_nation.py -r /outputs/fim_4_0_9_2 -m hw -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv -s -j 10
-    # outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
+    python3 /foss_fim/tools/inundate_nation.py
+        -r /outputs/fim_4_0_9_2
+        -m hw
+        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv
+        -s
+        -j 10
+    outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
 
-    # if run on UCS2, you can map docker as -v /dev_fim_share... etc/:/data -v /local....outputs:/outputs -v foss_fim as normal.
+    If run on UCS2, you can map docker as -v /dev_fim_share../:/data -v /local...outputs:/outputs
+    -v .../inundation-mapping/:/foss_fim as normal.
+    """
 
     available_cores = multiprocessing.cpu_count()
 
     # Parse arguments.
-    parser = argparse.ArgumentParser(description='Inundation mapping for FOSS FIM using streamflow '\
-        'recurrence interflow data. Inundation outputs are stored in the '\
-        '/inundation_review/inundation_nwm_recurr/ directory.')
-        
-    parser.add_argument('-r', '--fim-run-dir', help='Name of directory containing outputs '\
-        'of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test)', required=True)
-        
-    parser.add_argument('-o', '--output-dir', help='Optional: The path to a directory to write the '\
-        'outputs. If not used, the inundation_nation directory is used by default '\
+    parser = argparse.ArgumentParser(
+        description='Inundation mapping for FOSS FIM using streamflow '
+        'recurrence interflow data. Inundation outputs are stored in the '
+        '/inundation_review/inundation_nwm_recurr/ directory.'
+    )
+
+    parser.add_argument(
+        '-r',
+        '--fim-run-dir',
+        help='Name of directory containing outputs '
+        'of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test)',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-o',
+        '--output-dir',
+        help='Optional: The path to a directory to write the '
+        'outputs. If not used, the inundation_nation directory is used by default '
         'ie) /data/inundation_review/inundate_nation/',
-        default='/data/inundation_review/inundate_nation/', required=False)
-       
-    parser.add_argument('-m', '--magnitude_key', help = 'used in output folders names and temp files, '\
-        'added to output_file_name_key ie 100_0, 2_0, hw, etc)', required = True)
-        
-    parser.add_argument('-f', '--flow_file', help = 'the path and flow file to be used. '\
-        'ie /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv', required = True)
-    
-    parser.add_argument('-l', '--huc-list', help = 'OPTIONAL: HUC list to run specified HUC(s). Specifiy multiple hucs single space delimited'\
-        '--> 12090301 12090302. Default (no huc list provided) will use hucs found in -r directory', required = False, default='all',nargs='+')
-        
-    parser.add_argument('-s', '--inc_mosaic',help='Optional flag to produce mosaic of FIM extent rasters',
-                        action='store_true')
-                        
+        default='/data/inundation_review/inundate_nation/',
+        required=False,
+    )
+
+    parser.add_argument(
+        '-m',
+        '--magnitude_key',
+        help='used in output folders names and temp files, '
+        'added to output_file_name_key ie 100_0, 2_0, hw, etc)',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-f',
+        '--flow_file',
+        help='the path and flow file to be used. '
+        'ie /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/'
+        'nwm_high_water_threshold_cms.csv',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-l',
+        '--huc-list',
+        help='OPTIONAL: HUC list to run specified HUC(s).Specifiy multiple hucs single space delimited'
+        '--> 12090301 12090302. Default (no huc list provided) will use hucs found in -r directory',
+        required=False,
+        default='all',
+        nargs='+',
+    )
+
+    parser.add_argument(
+        '-s',
+        '--inc_mosaic',
+        help='Optional flag to produce mosaic of FIM extent rasters',
+        action='store_true',
+    )
+
     parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
-        
 
     args = vars(parser.parse_args())
 

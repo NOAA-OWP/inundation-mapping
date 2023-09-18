@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 
 import os
+from collections import deque
+from os.path import isfile, splitext
+from random import sample
+
+import fiona
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import rasterio
-from rasterio.mask import mask
-from rasterio.io import DatasetReader
-from os.path import splitext, isfile
-import fiona
 from fiona.errors import DriverError
-from collections import deque
-import numpy as np
-from tqdm import tqdm
-from shapely.ops import linemerge, unary_union
-from shapely.geometry import MultiLineString, LineString, MultiPoint, Point
-from shapely.strtree import STRtree
-from random import sample
+from rasterio.io import DatasetReader
+from rasterio.mask import mask
 from scipy.stats import mode
+from shapely.geometry import LineString, MultiLineString, MultiPoint, Point
+from shapely.ops import linemerge, unary_union
+from shapely.strtree import STRtree
+from tqdm import tqdm
+
 from utils.shared_variables import PREP_CRS
 
 
@@ -110,11 +112,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             print("Writing to {}".format(fileName))
 
         # sets driver
-        driverDictionary = {
-            ".gpkg": "GPKG",
-            ".geojson": "GeoJSON",
-            ".shp": "ESRI Shapefile",
-        }
+        driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
         driver = driverDictionary[splitext(fileName)[1]]
 
         self.to_file(fileName, driver=driver, layer=layer, index=index)
@@ -265,7 +263,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         # if self.index.name != reach_id_attribute:
         # self.set_index(reach_id_attribute,drop=True,inplace=True)
 
-        inlet_coordinates, outlet_coordinates = dict(), dict()
+        # inlet_coordinates, outlet_coordinates = dict(), dict()
         node_coordinates = dict()
         toNodes, fromNodes = [None] * len(self), [None] * len(self)
         current_node_id = "1".zfill(max_post_node_digits)
@@ -375,10 +373,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return feature_inlet_points_gdf
 
     def derive_headwater_points_with_inlets(
-        self,
-        inlets_attribute="inlet_id",
-        fromNode_attribute="FromNode",
-        outlet_linestring_index=0,
+        self, inlets_attribute="inlet_id", fromNode_attribute="FromNode", outlet_linestring_index=0
     ):
         """Derives headwater points file given inlets"""
 
@@ -413,11 +408,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return self
 
     def remove_stream_segments_without_catchments(
-        self,
-        catchments,
-        reach_id_attribute="ID",
-        reach_id_attribute_in_catchments="ID",
-        verbose=False,
+        self, catchments, reach_id_attribute="ID", reach_id_attribute_in_catchments="ID", verbose=False
     ):
         if verbose:
             print("Removing stream segments without catchments ...")
@@ -501,14 +492,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Remove reach from tmp_self
                     tmp_IDs.append(downstream_ID)
                     tmp_self.drop(
-                        tmp_self[
-                            tmp_self.From_Node.astype(int).isin(
-                                [
-                                    downstream_ID,
-                                ]
-                            )
-                        ].index,
-                        inplace=True,
+                        tmp_self[tmp_self.From_Node.astype(int).isin([downstream_ID])].index, inplace=True
                     )
                     # Repeat for next lowest downstream reach
                     if downstream_ID in tmp_self.To_Node.astype(int).values:
@@ -537,14 +521,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # Remove reach from tmp_self
                     tmp_IDs.append(upstream_ID)
                     tmp_self.drop(
-                        tmp_self[
-                            tmp_self.From_Node.astype(int).isin(
-                                [
-                                    upstream_ID,
-                                ]
-                            )
-                        ].index,
-                        inplace=True,
+                        tmp_self[tmp_self.From_Node.astype(int).isin([upstream_ID])].index, inplace=True
                     )
                     # Repeat for next highest upstream reach
                     return find_upstream_reaches_in_waterbodies(tmp_self, tmp_IDs)
@@ -747,19 +724,15 @@ class StreamNetwork(gpd.GeoDataFrame):
                     if len(not_visited_upstream_ids) == 1:
                         continue  # only create a new branch if there are 2 upstreams
                     new_upstream_branches = upstream_reaches_compare_values.loc[
-                        ~upstream_reaches_compare_values.index.isin(
-                            [
-                                continue_id,
-                            ]
-                        )
+                        ~upstream_reaches_compare_values.index.isin([continue_id])
                     ]
                     for new_up_id in new_upstream_branches.index:
                         branch_id = str(current_reach_branch_id)[0:4] + str(bid).zfill(max_branch_id_digits)
                         self.loc[new_up_id, branch_id_attribute] = branch_id
                         bid += 1
                     # ==================================================================================
-                    """ NOTE: The above logic uses stream order to override arbolate sum. Use the commented section
-                     below if this turns out to be a bad idea!"""
+                    """ NOTE: The above logic uses stream order to override arbolate sum.
+                        Use the commented section below if this turns out to be a bad idea!"""
                     # matches = 0 # if upstream matches are more than 1, limits to only one match
                     # for usrcv,nvus in zip(upstream_reaches_compare_values,not_visited_upstream_ids):
                     #    if (usrcv == matching_value) & (matches == 0):
@@ -778,11 +751,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         return self
 
     def make_up_and_downstream_dictionaries(
-        self,
-        reach_id_attribute="ID",
-        toNode_attribute="ToNode",
-        fromNode_attribute="FromNode",
-        verbose=False,
+        self, reach_id_attribute="ID", toNode_attribute="ToNode", fromNode_attribute="FromNode", verbose=False
     ):
         # sets index of stream branches as reach id attribute
         # if self.index.name != reach_id_attribute:
@@ -913,10 +882,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # merges each multi-line string to a singular linestring
         for lpid, row in tqdm(
-            self.iterrows(),
-            total=len(self),
-            disable=(not verbose),
-            desc="Merging mult-part geoms",
+            self.iterrows(), total=len(self), disable=(not verbose), desc="Merging mult-part geoms"
         ):
             if isinstance(row.geometry, MultiLineString):
                 merged_line = linemerge(row.geometry)
@@ -977,10 +943,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # loop through rows of self
         for idx, row in tqdm(
-            self.iterrows(),
-            total=len(self),
-            disable=(not verbose),
-            desc="Conflating branches",
+            self.iterrows(), total=len(self), disable=(not verbose), desc="Conflating branches"
         ):
             g = row["geometry"]
             o = row[left_order_attribute]
@@ -1009,10 +972,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         all_exploded_points = [None] * len(points_gdf)
         for idx, row in tqdm(
-            self.iterrows(),
-            total=len(self),
-            disable=(not verbose),
-            desc="Exploding Points",
+            self.iterrows(), total=len(self), disable=(not verbose), desc="Exploding Points"
         ):
             geom = row["geometry"]
 
@@ -1037,11 +997,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
     @staticmethod
     def conflate_points(
-        source_points,
-        target_points,
-        source_reach_id_attribute,
-        target_reach_id_attribute,
-        verbose=False,
+        source_points, target_points, source_reach_id_attribute, target_reach_id_attribute, verbose=False
     ):
         tree = STRtree(target_points.geometry.tolist())
 
@@ -1161,11 +1117,7 @@ class StreamBranchPolygons(StreamNetwork):
 
     @staticmethod
     def query_vectors_by_branch(
-        vector,
-        branch_ids,
-        branch_id_attribute,
-        out_filename_template=None,
-        vector_layer=None,
+        vector, branch_ids, branch_id_attribute, out_filename_template=None, vector_layer=None
     ):
         # load vaas
         if isinstance(vector, str):
@@ -1213,13 +1165,7 @@ class StreamBranchPolygons(StreamNetwork):
 
         return out_records
 
-    def clip(
-        self,
-        to_clip,
-        out_filename_template=None,
-        branch_id=None,
-        branch_id_attribute=None,
-    ):
+    def clip(self, to_clip, out_filename_template=None, branch_id=None, branch_id_attribute=None):
         """Clips a raster or vector to the stream branch polygons"""
 
         fileType = "raster"  # default

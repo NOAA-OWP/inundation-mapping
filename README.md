@@ -4,11 +4,11 @@ This repository includes flood inundation mapping software configured to work wi
 
 This software uses the Height Above Nearest Drainage (HAND) method to generate Relative Elevation Models (REMs), Synthetic Rating Curves (SRCs), and catchment grids. This repository also includes functionality to generate flood inundation maps (FIMs) and evaluate FIM accuracy.
 
-#### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/cahaba/wiki).
+#### For more information, see the [Inundation Mapping Wiki](https://github.com/NOAA-OWP/inundation-mapping/wiki).
 
 ---
 
-# FIM Version 4 
+# FIM Version 4
 
 ## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) if you experience issues with permissions.
@@ -67,7 +67,7 @@ cd /home/projects/fim/code
 git clone https://github.com/NOAA-OWP/inundation-mapping.git
 ```
 
-Git will auto create a subfolder named `inundation-mapping` where the code will be. Your Docker mounts should include this `inundation-mapping` folder. 
+Git will auto create a subfolder named `inundation-mapping` where the code will be. Your Docker mounts should include this `inundation-mapping` folder.
 
 ### Dependencies
 [Docker](https://docs.docker.com/get-docker/)
@@ -98,7 +98,7 @@ There are two ways, which can be used together, to configure the system and/or d
 
 Make sure to set the config folder group to `fim` recursively using the chown command.
 
-This application has an default optional tool called the `calibration points tool`. In order to disable its' use, you can:  
+This application has an default optional tool called the `calibration points tool`. In order to disable its' use, you can:
 1.  Disable it by providing the `-skipcal` command line option to `fim_pipeline.sh` or `fim_pre_processing.sh`.
 2.  Disable it in the [`params_template.env`](/config/params_template.env) file by setting `src_adjust_spatial="FALSE"`.
 
@@ -107,7 +107,7 @@ This application has an default optional tool called the `calibration points too
 Since all of the dependencies are managed by utilizing a Docker container, we must issue the [`docker run`](https://docs.docker.com/engine/reference/commandline/run/) command to start a container as the run-time environment. The container is launched from a Docker image which was built in [Installation](#installation). The `-v <input_path>:/data` must contain a subdirectory named `inputs` (similar to `s3://noaa-nws-owp-fim/hand_fim`). If the pathing is set correctly, we do not need to adjust the `params_template.env` file, and can use the default file paths provided.
 
 
-```bash 
+```bash
 docker run --rm -it --name <your_container_name> \
     -v <path/to/repository>/:/foss_fim \
     -v <desired_output_path>/:/outputs \
@@ -115,7 +115,7 @@ docker run --rm -it --name <your_container_name> \
     -v <input_path>:/data \
     <image_name>:<tag>
 ```
-For example:  
+For example:
 ```bash
 docker run --rm -it --name robs_container \
     -v /home/projects/fim/code/inundation-mapping/:/foss_fim \
@@ -137,12 +137,12 @@ fim_pipeline.sh -u <huc8> -n <name_your_run> -o
     - While not mandatory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
 - Outputs can be found under ```/outputs/<name_your_run>```.
 
-Processing of HUCs in FIM4 occurs in three sections. 
-You can run `fim_pipeline.sh` which automatically runs all of three major section, 
-OR you can run each of the sections independently if you like. 
+Processing of HUCs in FIM4 occurs in three sections.
+You can run `fim_pipeline.sh` which automatically runs all of three major section,
+OR you can run each of the sections independently if you like.
 
 The three sections are:
-1. `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections. 
+1. `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections.
 2. `fim_process_unit_wb.sh` : This script processes one and exactly one HUC8 plus all of it's related branches. While it can only process one, you can run this script multiple times, each with different HUC (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates when more than one HUC number has been supplied either by command line arguments or via a HUC list. For each HUC provided, `fim_pipeline.sh` will run  `fim_process_unit_wb.sh`. Using the `fim_process_unit_wb.sh`  script allows for a run / rerun of a HUC, or running other HUCs at different times / days or even different docker containers.
 3. `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the HUC group in sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, running or re-running this script can only be done after running `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
 
@@ -178,9 +178,9 @@ python /foss_fim/tools/synthesize_test_cases.py --help
 ----
 ### Managing Dependencies
 
-Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/). 
+Dependencies are managed via [Pipenv](https://pipenv.pypa.io/en/latest/).
 
-When you execute `docker build` from the `Installation` section above, all of the dependencies you need are included. This includes dependencies for you to work in JupyterLab for testing purposes. 
+When you execute `docker build` from the `Installation` section above, all of the dependencies you need are included. This includes dependencies for you to work in JupyterLab for testing purposes.
 
 While very rare, you may want to add more dependencies. You can follow the following steps:
 
@@ -189,16 +189,16 @@ While very rare, you may want to add more dependencies. You can follow the follo
     pipenv install <your package name> --dev
     ```
     The `--dev` flag adds development dependencies, omit it if you want to add a production dependency.
-    
+
     This will automatically update the Pipfile in the root of your docker container directory. If the environment looks goods after adding dependencies, lock it with:
 
     ```bash
     pipenv lock
     ```
 
-    This will update the `Pipfile.lock`. Copy the new updated `Pipfile` and `Pipfile.lock` in the FIM source directory and include both in your git commits. The docker image installs the environment from the lock file. 
+    This will update the `Pipfile.lock`. Copy the new updated `Pipfile` and `Pipfile.lock` in the FIM source directory and include both in your git commits. The docker image installs the environment from the lock file.
 
-    
+
 **Make sure you test it heavily including create new docker images and that it continues to work with the code.**
 
 If you are on a machine that has a particularly slow internet connection, you may need to increase the timeout of pipenv. To do this simply add `PIPENV_INSTALL_TIMEOUT=10000000` in front of any of your pipenv commands.
