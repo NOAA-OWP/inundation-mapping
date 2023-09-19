@@ -1,12 +1,11 @@
 {
-	"valid_data":
-	{
-		"outputRunDataDir":  "/outputs/fim_unit_test_data_do_not_remove",
-		"input_catchments_filename": "/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000006/gw_catchments_reaches_3246000006.gpkg",
-		"input_flows_filename": "/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000006/demDerived_reaches_split_3246000006.gpkg",
-		"output_catchments_filename": "/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000006/gw_catchments_reaches_filtered_addedAttributes_3246000006.gpkg",
-		"output_flows_filename": "/outputs/fim_unit_test_data_do_not_remove/02020005/branches/3246000006/demDerived_reaches_split_filtered_3246000006.gpkg",
-	    "wbd_filename": "/outputs/fim_unit_test_data_do_not_remove/02020005/wbd8_clp.gpkg",
-		"huc_code": "02020005"
-	}
+    "valid_data": {
+        "outputDestDir": "/outputs/unit_test_data",
+        "input_catchments_filename": "/data/outputs/unit_test_data/02020005/branches/3246000006/gw_catchments_reaches_3246000006.gpkg",
+        "input_flows_filename": "/data/outputs/unit_test_data/02020005/branches/3246000006/demDerived_reaches_split_3246000006.gpkg",
+        "output_catchments_filename": "/data/outputs/unit_test_data/02020005/branches/3246000006/gw_catchments_reaches_filtered_addedAttributes_3246000006.gpkg",
+        "output_flows_filename": "/data/outputs/unit_test_data/02020005/branches/3246000006/demDerived_reaches_split_filtered_3246000006.gpkg",
+        "wbd_filename": "/data/outputs/unit_test_data/02020005/wbd8_clp.gpkg",
+        "huc_code": "02020005"
+    }
 }

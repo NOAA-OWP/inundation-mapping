@@ -1,41 +1,43 @@
 #!/bin/bash -e
 
-# Why is this file here and it appears to be using duplicate export variables?
-# For AWS, we need to make a direct call to this files with two params, hucNumber first, 
-# then the runName same as the -n flag in fim_pipeline and fim_pre_processing.sh
-
-# This file will also catch any and all errors from src/run_unit_wb.sh file, even script aborts from that file
-
-# You really can not call directly to src/run_unit_wb.sh as that file relys on export values
-# from this file.
-# run_unit_wb will futher process branches with its own iterator (parallelization).
-
-# Sample Usage: /foss_fim/fim_process_unit_wb.sh rob_test_wb_1 05030104
-
-## START MESSAGE ##
-
-echo
-
+:
 usage ()
 {
-    echo
-    echo 'Produce FIM hydrofabric datasets for a single unit and branch scale.'
-    echo 'NOTE: fim_pre_processing must have been already run and this tool'
-    echo '      will not include post processing. Only single independent single'
-    echo '      huc and its branches.'    
-    echo 'Usage : There are no arg keys (aka.. no dashes)'
-    echo '        you need the run name first, then the huc.'
-    echo '        Arguments:'
-    echo '           1) run name'
-    echo '           2) HUC number'
-    echo '        Example:'
-    echo '           /foss_fim/fim_process_unit_wb.sh rob_test_1 05030104'
-    echo
+    echo "
+    Why is this file here and it appears to be using duplicate export variables?
+    For portability, we can make a direct call to this file with two parameters: HUC Number & Run Name;
+    which correspond to the -n argument in fim_pipeline.sh and fim_pre_processing.sh.
+
+    This file will catch any and all errors from src/run_unit_wb.sh, even if that script aborts.
+
+    It is not possible to call src/run_unit_wb.sh directly, as it relies on exported values from this file.
+        src/run_unit_wb.sh will futher process branches (src/process_branch.sh) in parallel.
+
+    Usage: ./fim_process_unit_wb.sh <name_of_your_run> <huc8>
+
+    Produce FIM hydrofabric datasets for a single unit and branch scale.
+    - Note: fim_pre_processing.sh must have been already run. This script does
+        not include post processing (see fim_pipeline.sh).
+        Only a single HUC and its branches will be processed.
+
+    Arguments:
+        1) run name
+        2) HUC number
+            Example:
+
+                ./fim_process_unit_wb.sh test_name 05030104
+    "
     exit
 }
 
+# print usage if agrument is '-h' or '--help'
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    usage
+fi
+
 export runName=$1
 export hucNumber=$2
+
 
 # print usage if arguments empty
 if [ "$runName" = "" ]
@@ -59,11 +61,13 @@ fi
 echo "=========================================================================="
 echo "---- Start of huc processing for $hucNumber"
 
-# outputDataDir, srcDir and others come from the Dockerfile
 
-export outputRunDataDir=$outputDataDir/$runName
-export outputHucDataDir=$outputRunDataDir/$hucNumber
-export outputBranchDataDir=$outputHucDataDir/branches
+# outputsDir, srcDir, workDir and others come from the Dockerfile
+export tempRunDir=$workDir/$runName
+export outputDestDir=$outputsDir/$runName
+export tempHucDataDir=$tempRunDir/$hucNumber
+export outputHucDataDir=$outputDestDir/$hucNumber
+export tempBranchDataDir=$tempHucDataDir/branches
 export current_branch_id=0
 
 ## huc data
@@ -72,16 +76,17 @@ if [ -d "$outputHucDataDir" ]; then
 fi
 
 # make outputs directory
-mkdir -p $outputHucDataDir
-mkdir -p $outputBranchDataDir
+mkdir -p $tempHucDataDir
+mkdir -p $tempBranchDataDir
 
 # Clean out previous unit logs and branch logs starting with this huc
-rm -f $outputRunDataDir/logs/unit/"$hucNumber"_unit.log
-rm -f $outputRunDataDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $outputRunDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputRunDataDir/unit_errors/"$hucNumber"*.log
-rm -f $outputRunDataDir/branch_errors/"$hucNumber"*.log
-hucLogFileName=$outputRunDataDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputDestDir/logs/unit/"$hucNumber"_unit.log
+rm -f $outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
+rm -f $outputDestDir/logs/branch/"$hucNumber"*.log
+rm -f $outputDestDir/unit_errors/"$hucNumber"*.log
+rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
+
+hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
@@ -90,9 +95,6 @@ hucLogFileName=$outputRunDataDir/logs/unit/"$hucNumber"_unit.log
 # and yes.. we can not use the $? as we are messing with exit codes
 return_codes=( "${PIPESTATUS[@]}" )
 
-#echo "huc return codes are:"
-#echo $return_codes
-
 # we do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
 err_exists=0
@@ -100,8 +102,8 @@ for code in "${return_codes[@]}"
 do
     # Make an extra copy of the unit log into a new folder.
 
-    # Note: It was tricky to load in the fim_enum into bash, so we will just 
-    # go with the code for now
+    # Note: It was tricky to load in the fim_enum into bash, so we will just
+    # go with the exit code for now
     if [ $code -eq 0 ]; then
         echo
         # do nothing
@@ -111,19 +113,29 @@ do
         err_exists=1
     elif [ $code -eq 61 ]; then
         echo
-        echo "***** Unit has no remaining valid flowlines *****"   
-        err_exists=1        
+        echo "***** Unit has no remaining valid flowlines *****"
+        err_exists=1
     else
         echo
         echo "***** An error has occured  *****"
-        err_exists=1        
+        err_exists=1
     fi
 done
 
 if [ "$err_exists" = "1" ]; then
     # copy the error log over to the unit_errors folder to better isolate it
-    cp $hucLogFileName $outputRunDataDir/unit_errors
+    cp $hucLogFileName $outputDestDir/unit_errors
 fi
-echo "=========================================================================="
+
+# Move the contents of the temp directory into the outputs directory and update file permissions
+mv -f $tempHucDataDir $outputHucDataDir
+find $outputHucDataDir -type d -exec chmod 777 {} +
+
+echo "============================================================================================="
+echo
+echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+echo
+echo "============================================================================================="
+
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0
