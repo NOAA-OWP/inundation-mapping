@@ -1,10 +1,10 @@
 [Short description explaining the high-level reason for the pull request]
 
-### Additions  
+### Additions
 
-### Changes  
+### Changes
 
-### Removals 
+### Removals
 
 ### Testing
 
@@ -18,17 +18,17 @@ _You may update this checklist before and/or after creating the PR. If you're un
 - [ ] If submitting a PR to the `dev` branch (the default branch), you have a descriptive [Feature Branch](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow) name using the format: `dev-<description-of-change>` (e.g. `dev-revise-levee-masking`)
 - [ ] Changes are limited to a single goal (no scope creep)
 - [ ] The feature branch you're submitting as a PR is up to date (merged) with the latest `dev` branch
-- [ ] Changes adhere to [PEP-8 Style Guidelines](https://peps.python.org/pep-0008/)
+- [ ] `pre-commit` hooks were run locally
 - [ ] Any _change_ in functionality is tested
 - [ ] Passes all unit tests locally (inside interactive Docker container, at `/foss_fim/`, run: `pytest unit_tests/`)
 - [ ] New functions are documented (with a description, list of inputs, and expected output)
 - [ ] Placeholder code is flagged / future todos are captured in comments
-- [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x` 
+- [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x`
 - [ ] [Reviewers requested](https://help.github.com/articles/requesting-a-pull-request-review/)
 - [ ] Add yourself as an [assignee](https://docs.github.com/en/issues/tracking-your-work-with-issues/assigning-issues-and-pull-requests-to-other-github-users) in the PR  as well as the FIM Technical Lead
 
 ### Merge Checklist (For Technical Lead use only)
 
-- [ ] Update [CHANGELOG](/docs/CHANGELOG.md) with latest version number
+- [ ] Update [CHANGELOG](/docs/CHANGELOG.md) with latest version number and merge date
 - [ ] Update the [Citation.cff](/CITATION.cff) file to reflect the latest version number in the [CHANGELOG](/docs/CHANGELOG.md)
 - [ ] If applicable, update [README](/README.md) with major alterations

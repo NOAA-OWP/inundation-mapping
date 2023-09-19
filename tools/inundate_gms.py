@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-
-# import logging
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import pandas as pd
-
+from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
-from inundation import inundate
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from inundation import hydroTableHasOnlyLakes, NoForecastFound
+
 from utils.shared_functions import FIM_Helpers as fh
 
 
@@ -46,14 +43,12 @@ def Inundate_gms(
         if verbose:
             print("HUC8,BranchID,Exception", file=open(log_file, "w"))
     # if log_file:
-    # logging.basicConfig(filename=log_file, level=logging.INFO)
-    # logging.info('HUC8,BranchID,Exception')
+    #     logging.basicConfig(filename=log_file, level=logging.INFO)
+    #     logging.info('HUC8,BranchID,Exception')
 
     # load fim inputs
     hucs_branches = pd.read_csv(
-        os.path.join(hydrofabric_dir, "fim_inputs.csv"),
-        header=None,
-        dtype={0: str, 1: str},
+        os.path.join(hydrofabric_dir, "fim_inputs.csv"), header=None, dtype={0: str, 1: str}
     )
 
     if hucs is not None:
@@ -101,28 +96,19 @@ def Inundate_gms(
 
         except NoForecastFound as exc:
             if log_file is not None:
-                print(
-                    f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}",
-                    file=open(log_file, "a"),
-                )
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except hydroTableHasOnlyLakes as exc:
             if log_file is not None:
-                print(
-                    f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}",
-                    file=open(log_file, "a"),
-                )
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except Exception as exc:
             if log_file is not None:
-                print(
-                    f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}",
-                    file=open(log_file, "a"),
-                )
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             else:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
         else:
@@ -274,19 +260,10 @@ if __name__ == "__main__":
     # parse arguments
     parser = argparse.ArgumentParser(description="Inundate FIM")
     parser.add_argument(
-        "-y",
-        "--hydrofabric_dir",
-        help="Directory path to FIM hydrofabric by processing unit",
-        required=True,
+        "-y", "--hydrofabric_dir", help="Directory path to FIM hydrofabric by processing unit", required=True
     )
     parser.add_argument(
-        "-u",
-        "--hucs",
-        help="List of HUCS to run",
-        required=False,
-        default=None,
-        type=str,
-        nargs="+",
+        "-u", "--hucs", help="List of HUCS to run", required=False, default=None, type=str, nargs="+"
     )
     parser.add_argument("-f", "--forecast", help="Forecast discharges in CMS as CSV file", required=True)
     parser.add_argument(
@@ -311,11 +288,7 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
-        "-l",
-        "--log-file",
-        help="Log-file to store level-path exceptions",
-        required=False,
-        default=None,
+        "-l", "--log-file", help="Log-file to store level-path exceptions", required=False, default=None
     )
     parser.add_argument(
         "-o",
@@ -326,12 +299,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-w", "--num-workers", help="Number of Workers", required=False, default=1)
     parser.add_argument(
-        "-v",
-        "--verbose",
-        help="Verbose printing",
-        required=False,
-        default=None,
-        action="store_true",
+        "-v", "--verbose", help="Verbose printing", required=False, default=None, action="store_true"
     )
 
     Inundate_gms(**vars(parser.parse_args()))

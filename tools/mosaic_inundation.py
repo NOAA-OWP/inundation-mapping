@@ -3,11 +3,13 @@
 
 import argparse
 import os
+
 import pandas as pd
 from overlapping_inundation import OverlapWindowMerge
 from tqdm import tqdm
-from utils.shared_variables import elev_raster_ndv
+
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_variables import elev_raster_ndv
 
 
 def Mosaic_inundation(
@@ -149,12 +151,12 @@ def mosaic_by_unit(
 
 
 def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon, driver="GPKG"):
+    import geopandas as gpd
     import numpy as np
     import rasterio
     from rasterio.features import shapes
-    from shapely.geometry.polygon import Polygon
     from shapely.geometry.multipolygon import MultiPolygon
-    import geopandas as gpd
+    from shapely.geometry.polygon import Polygon
 
     with rasterio.open(inundation_raster) as src:
         # Open inundation_raster using rasterio.
@@ -168,11 +170,7 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
         results = (
             {"properties": {"extent": 1}, "geometry": s}
             for i, (s, v) in enumerate(
-                shapes(
-                    reclass_inundation_array,
-                    mask=reclass_inundation_array > 0,
-                    transform=src.transform,
-                )
+                shapes(reclass_inundation_array, mask=reclass_inundation_array > 0, transform=src.transform)
             )
         )
 
@@ -229,11 +227,7 @@ if __name__ == "__main__":
         nargs="+",
     )
     parser.add_argument(
-        "-n",
-        "--nodata",
-        help="NODATA value for output raster",
-        required=False,
-        default=elev_raster_ndv,
+        "-n", "--nodata", help="NODATA value for output raster", required=False, default=elev_raster_ndv
     )
     parser.add_argument(
         "-w",
@@ -278,7 +272,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-g",
         "--is-mosaic-for-branches",
-        help="If the mosaic is for branchs, include this arg. If is_mosaic_for_branches is true, the mosaic output name will add the HUC into the output name for overwrite reasons.",
+        help="If the mosaic is for branchs, include this arg. If is_mosaic_for_branches is true, "
+        "the mosaic output name will add the HUC into the output name for overwrite reasons.",
         required=False,
         default=False,
         action="store_true",

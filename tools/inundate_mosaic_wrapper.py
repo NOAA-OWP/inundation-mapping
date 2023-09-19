@@ -1,13 +1,14 @@
-import os, sys
 import argparse
 import errno
+import os
+import sys
 from timeit import default_timer as timer
 
-sys.path.append("/foss_fim/tools")
-from mosaic_inundation import Mosaic_inundation
 from inundate_gms import Inundate_gms
-from utils.shared_variables import elev_raster_ndv
+from mosaic_inundation import Mosaic_inundation
+
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_variables import elev_raster_ndv
 
 
 def produce_mosaicked_inundation(
@@ -26,21 +27,25 @@ def produce_mosaicked_inundation(
     is_mosaic_for_branches=False,
 ):
     """
-    This function calls Inundate_gms and Mosaic_inundation to produce inundation maps. Possible outputs include inundation rasters
-    encoded by HydroID (negative HydroID for dry and positive HydroID for wet), polygons depicting extent, and depth rasters. The
-    function requires a flow file organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be
-    present in the flow file.
+    This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
+    Possible outputs include inundation rasters encoded by HydroID (negative HydroID for dry and positive
+    HydroID for wet), polygons depicting extent, and depth rasters. The function requires a flow file
+    organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be present
+    in the flow file.
 
     Args:
-        hydrofabric_dir (str): Directory path to hydrofabric directory where FIM outputs were written by fim_pipeline.
-        huc (str): The HUC for which to produce mosaicked inundation files.
-        flow_file (str): Directory path to flow file to be used for inundation. feature_ids in flow_file should be present in supplied HUC.
-        inundation_raster (str): Full path to output inundation raster (encoded by positive and negative HydroIDs).
+        hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
+                                    fim_pipeline.
+        huc (str):                The HUC for which to produce mosaicked inundation files.
+        flow_file (str):          Path to flow file to be used for inundation.
+                                    feature_ids in flow_file should be present in supplied HUC.
+        inundation_raster (str):  Full path to output inundation raster
+                                    (encoded by positive and negative HydroIDs).
         inuntation_polygon (str): Full path to output inundation polygon. Optional.
-        depths_raster (str): Full path to output depths_raster. Pixel values will be in meters. Optional.
-        num_workers (int): Number of parallel jobs to run.
+        depths_raster (str):      Full path to output depths_raster. Pixel values will be in meters. Optional.
+        num_workers (int):        Number of parallel jobs to run.
         keep_intermediate (bool): Option to keep intermediate files.
-        verbose (bool): Print verbose messages to screen. Not tested.
+        verbose (bool):           Print verbose messages to screen. Not tested.
     """
 
     # Check that inundation_raster or depths_raster is supplied
@@ -49,7 +54,7 @@ def produce_mosaicked_inundation(
 
     # Check that output directory exists. Notify user that output directory will be created if not.
     for output_file in [inundation_raster, inundation_polygon, depths_raster]:
-        if output_file == None:
+        if output_file is None:
             continue
         parent_dir = os.path.split(output_file)[0]
         if not os.path.exists(parent_dir):
@@ -69,11 +74,7 @@ def produce_mosaicked_inundation(
     for huc in hucs:
         if not os.path.exists(os.path.join(hydrofabric_dir, huc)):
             raise FileNotFoundError(
-                (
-                    errno.ENOENT,
-                    os.strerror(errno.ENOENT),
-                    os.path.join(hydrofabric_dir, huc),
-                )
+                (errno.ENOENT, os.strerror(errno.ENOENT), os.path.join(hydrofabric_dir, huc))
             )
 
     # Check that flow file exists
@@ -153,13 +154,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-u",
-        "--hucs",
-        help="List of HUCS to run",
-        required=True,
-        default="",
-        type=str,
-        nargs="+",
+        "-u", "--hucs", help="List of HUCS to run", required=True, default="", type=str, nargs="+"
     )
     parser.add_argument(
         "-f",
@@ -169,12 +164,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-i",
-        "--inundation-raster",
-        help="Inundation raster output.",
-        required=False,
-        default=None,
-        type=str,
+        "-i", "--inundation-raster", help="Inundation raster output.", required=False, default=None, type=str
     )
     parser.add_argument(
         "-p",
@@ -200,14 +190,7 @@ if __name__ == "__main__":
         default=None,
         type=str,
     )
-    parser.add_argument(
-        "-k",
-        "--mask",
-        help="Name of mask file.",
-        required=False,
-        default=None,
-        type=str,
-    )
+    parser.add_argument("-k", "--mask", help="Name of mask file.", required=False, default=None, type=str)
     parser.add_argument(
         "-a",
         "--unit_attribute_name",
@@ -216,14 +199,7 @@ if __name__ == "__main__":
         default="huc8",
         type=str,
     )
-    parser.add_argument(
-        "-w",
-        "--num-workers",
-        help="Number of workers.",
-        required=False,
-        default=1,
-        type=int,
-    )
+    parser.add_argument("-w", "--num-workers", help="Number of workers.", required=False, default=1, type=int)
     parser.add_argument(
         "-r",
         "--remove-intermediate",

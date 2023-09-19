@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-import geopandas as gpd
+import os
 import sys
+
+import geopandas as gpd
 
 from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
@@ -37,9 +38,7 @@ def Derive_level_paths(
     if os.path.exists(in_stream_network):
         stream_network = StreamNetwork.from_file(filename=in_stream_network)
     else:
-        print(
-            "Sorry, no branches exist and processing can not continue. This could be an empty file."
-        )
+        print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # if there are no reaches at this point
@@ -47,12 +46,12 @@ def Derive_level_paths(
         # This is technically not an error but we need to have it logged so the user know what
         # happened to it and we need the huc to not be included in future processing.
         # We need it to be not included in the fim_input.csv at the end of the unit processing.
-        # Throw an exception with valid text. This will show up in the non-zero exit codes and explain why an error.
+        # Throw an exception with valid text.
+        # This will show up in the non-zero exit codes and explain why an error.
         # Later, we can look at creating custom sys exit codes
-        # raise UserWarning("Sorry, no branches exist and processing can not continue. This could be an empty file.")
-        print(
-            "Sorry, no streams exist and processing can not continue. This could be an empty file."
-        )
+        # raise UserWarning("Sorry, no branches exist and processing can not continue.
+        # This could be an empty file.")
+        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     # values_exluded of 1 and 2 mean where are dropping stream orders 1 and 2. We are leaving those
@@ -64,13 +63,14 @@ def Derive_level_paths(
     # if there are no reaches at this point (due to filtering)
     if len(stream_network) == 0:
         print(
-            "No branches exist but branch zero processing will continue (Exit 63). This could be due to stream order filtering."
+            "No branches exist but branch zero processing will continue (Exit 63)."
+            "This could be due to stream order filtering."
         )
         # sys.exit(FIM_exit_codes.NO_BRANCH_LEVELPATHS_EXIST.value)  # will send a 63 back
         return
 
-    inlets_attribute = "inlet_id"
-    outlets_attribute = "outlet_id"
+    inlets_attribute = 'inlet_id'
+    outlets_attribute = 'outlet_id'
     outlet_linestring_index = -1
 
     # converts multi-linestrings to linestrings
@@ -88,17 +88,11 @@ def Derive_level_paths(
 
     # derive outlets and inlets
     stream_network = stream_network.derive_outlets(
-        toNode_attribute,
-        fromNode_attribute,
-        outlets_attribute=outlets_attribute,
-        verbose=verbose,
+        toNode_attribute, fromNode_attribute, outlets_attribute=outlets_attribute, verbose=verbose
     )
 
     stream_network = stream_network.derive_inlets(
-        toNode_attribute,
-        fromNode_attribute,
-        inlets_attribute=inlets_attribute,
-        verbose=verbose,
+        toNode_attribute, fromNode_attribute, inlets_attribute=inlets_attribute, verbose=verbose
     )  # derive up and downstream networks
     upstreams, downstreams = stream_network.make_up_and_downstream_dictionaries(
         reach_id_attribute=reach_id_attribute,
@@ -144,19 +138,11 @@ def Derive_level_paths(
 
         # subset which columns to merge
         stream_network_to_merge = stream_network.filter(
-            items=[
-                reach_id_attribute,
-                inlets_attribute,
-                outlets_attribute,
-                branch_id_attribute,
-            ]
+            items=[reach_id_attribute, inlets_attribute, outlets_attribute, branch_id_attribute]
         )
 
         catchments = catchments.merge(
-            stream_network_to_merge,
-            how="inner",
-            left_on=reach_id_attribute,
-            right_on=reach_id_attribute,
+            stream_network_to_merge, how="inner", left_on=reach_id_attribute, right_on=reach_id_attribute
         )
 
         catchments.reset_index(drop=True, inplace=True)
@@ -186,16 +172,14 @@ def Derive_level_paths(
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(
             branch_id_attribute=branch_id_attribute,
-            attribute_excluded=None,  #'order_',
+            attribute_excluded=None,  # 'order_',
             values_excluded=None,  # [1,2],
             out_vector_files=out_stream_network_dissolved,
             verbose=verbose,
         )
 
         stream_network = stream_network.remove_branches_in_waterbodies(
-            waterbodies=waterbodies,
-            out_vector_files=out_stream_network_dissolved,
-            verbose=False,
+            waterbodies=waterbodies, out_vector_files=out_stream_network_dissolved, verbose=False
         )
         stream_network = stream_network.select_branches_intersecting_huc(
             wbd=wbd,
@@ -206,8 +190,7 @@ def Derive_level_paths(
 
     if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(
-            feature_attribute=branch_id_attribute,
-            outlet_linestring_index=outlet_linestring_index,
+            feature_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
         )
 
         branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG")
@@ -217,31 +200,17 @@ def Derive_level_paths(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create stream network level paths")
+    parser.add_argument("-i", "--in-stream-network", help="Input stream network", required=True)
     parser.add_argument(
-        "-i", "--in-stream-network", help="Input stream network", required=True
+        "-s", "--buffer-wbd-streams", help="Input wbd buffer for stream network", required=True
     )
     parser.add_argument(
-        "-s",
-        "--buffer-wbd-streams",
-        help="Input wbd buffer for stream network",
-        required=True,
+        "-wbd", "--wbd", help="Input watershed boundary (HUC) dataset", required=True, default=None
     )
     parser.add_argument(
-        "-wbd",
-        "--wbd",
-        help="Input watershed boundary (HUC) dataset",
-        required=True,
-        default=None,
+        "-b", "--branch-id-attribute", help="Name of the branch attribute desired", required=True
     )
-    parser.add_argument(
-        "-b",
-        "--branch-id-attribute",
-        help="Name of the branch attribute desired",
-        required=True,
-    )
-    parser.add_argument(
-        "-u", "--huc-id", help="Current HUC ID", required=False, default=None
-    )
+    parser.add_argument("-u", "--huc-id", help="Current HUC ID", required=False, default=None)
     parser.add_argument(
         "-r",
         "--reach-id-attribute",
@@ -250,11 +219,7 @@ if __name__ == "__main__":
         default="HydroID",
     )
     parser.add_argument(
-        "-c",
-        "--catchments",
-        help="NWM catchments to append level path data to",
-        required=False,
-        default=None,
+        "-c", "--catchments", help="NWM catchments to append level path data to", required=False, default=None
     )
     parser.add_argument(
         "-t",
@@ -264,25 +229,13 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
-        "-w",
-        "--waterbodies",
-        help="NWM waterbodies to eliminate branches from",
-        required=False,
-        default=None,
+        "-w", "--waterbodies", help="NWM waterbodies to eliminate branches from", required=False, default=None
     )
     parser.add_argument(
-        "-n",
-        "--branch_inlets_outfile",
-        help="Output level paths inlets",
-        required=False,
-        default=None,
+        "-n", "--branch_inlets_outfile", help="Output level paths inlets", required=False, default=None
     )
     parser.add_argument(
-        "-o",
-        "--out-stream-network",
-        help="Output stream network",
-        required=False,
-        default=None,
+        "-o", "--out-stream-network", help="Output stream network", required=False, default=None
     )
     parser.add_argument(
         "-e",
@@ -299,12 +252,7 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
-        help="Verbose output",
-        required=False,
-        default=False,
-        action="store_true",
+        "-v", "--verbose", help="Verbose output", required=False, default=False, action="store_true"
     )
 
     args = vars(parser.parse_args())
