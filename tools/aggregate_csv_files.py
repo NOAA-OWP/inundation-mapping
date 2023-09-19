@@ -37,7 +37,7 @@ def read_csvs_to_df(files_to_merge, head_row):
         #     header=0,
         # )
         # df = df[df['adjust_ManningN'].notna()]
-        # df.drop_duplicates(subset=['HydroID'], inplace=True)
+        # df = df.drop_duplicates(subset=['HydroID'], inplace=True)
         df = pd.read_csv(file_in, index_col=None, header=head_row)  # dtype={'feature_id': 'int64'}
         df = df[df['Unnamed: 0'] != 'HydroID']
         li.append(df)

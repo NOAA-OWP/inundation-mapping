@@ -325,7 +325,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             f.write(f'{code} : Skipping because multisite\n')
             continue
         # Rename columns to match NWS AHPS data structure, this only applies to single USGS sites, if a multisite the columns are different from QCFS.
-        df.rename(columns={'QCFS': 'flow', 'STAGE': 'stage', 'ELEV': 'elevation'}, inplace=True)
+        df = df.rename(columns={'QCFS': 'flow', 'STAGE': 'stage', 'ELEV': 'elevation'})
         # Many USGS maps have elevations to numerous decimal places. Round to nearest tenth.
         # NWS has maps to nearest tenth, for example HARP1 is both USGS and NWS, the USGS maps are to the hundredth of foot and NWS are to tenth.
         df['elevation'] = round(df['elevation'], 1)

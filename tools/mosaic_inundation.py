@@ -43,7 +43,7 @@ def Mosaic_inundation(
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
     # remove NaNs
-    inundation_maps_df.dropna(axis=0, how="all", inplace=True)
+    inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
 
     # subset
     if subset is not None:
@@ -53,7 +53,7 @@ def Mosaic_inundation(
     # unique aggregation units
     aggregation_units = inundation_maps_df.loc[:, unit_attribute_name].unique()
 
-    inundation_maps_df.set_index(unit_attribute_name, drop=True, inplace=True)
+    inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
     # decide upon whether to display
     if verbose & len(aggregation_units) == 1:

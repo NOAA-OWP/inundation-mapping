@@ -3,14 +3,10 @@ import argparse
 import datetime as dt
 import os
 import re
-import shutil
-import sys
 import traceback
 import warnings
-from functools import reduce
 from multiprocessing import Pool
-from os.path import dirname, isdir, isfile, join
-from pathlib import Path
+from os.path import isdir, isfile, join
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -83,10 +79,9 @@ def variable_mannings_calc(args):
     else:
         try:
             if 'comp_ManningN' in df_src.columns:
-                df_src.drop(
+                df_src = df_src.drop(
                     ['channel_n', 'overbank_n', 'comp_ManningN', 'vmann_on', 'Discharge (m3s-1)_varMann'],
                     axis=1,
-                    inplace=True,
                 )  # drop these cols (in case vmann was previously performed)
 
             ## Merge (crosswalk) the df of Manning's n with the SRC df
@@ -135,7 +130,7 @@ def variable_mannings_calc(args):
 
             ## Calculate Q using Manning's equation
             # Uncomment below to rename the previous Discharge column
-            # df_src.rename(columns={'Discharge (m3s-1)'}, inplace=True)
+            # df_src = df_src.rename(columns={'Discharge (m3s-1)'})
             df_src['Discharge (m3s-1)_varMann'] = (
                 df_src[wet_area]
                 * pow(df_src[hydr_radius], 2.0 / 3)
@@ -185,15 +180,14 @@ def variable_mannings_calc(args):
 
             ## Check if BARC ran
             # if not set(['orig_discharge_cms']).issubset(df_htable.columns):
-            #     df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'},inplace=True)
-            #     df_htable.rename(columns={'ManningN':'orig_ManningN'},inplace=True)
+            #     df_htable = df_htable.rename(columns={'discharge_cms':'orig_discharge_cms'})
+            #     df_htable = df_htable.rename(columns={'ManningN':'orig_ManningN'})
             # else:
 
             ## drop the previously modified discharge column to be replaced with updated version
-            df_htable.drop(
+            df_htable = df_htable.drop(
                 ['vmann_on', 'discharge_cms', 'ManningN', 'vmann_discharge_cms', 'vmann_ManningN'],
                 axis=1,
-                inplace=True,
             )
             df_htable = df_htable.merge(
                 df_src_trim, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
