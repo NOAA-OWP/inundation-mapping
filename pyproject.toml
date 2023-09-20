@@ -52,7 +52,7 @@ force-exclude = '''
     | src/bathymetric_adjustment.py
     | src/identify_src_bankfull.py
     |
-''''
+'''
 
 [tool.isort]
 profile = 'black'
