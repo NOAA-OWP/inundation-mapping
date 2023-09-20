@@ -3,11 +3,12 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.4.x.x - 2023-09-12 - [PR#992](https://github.com/NOAA-OWP/inundation-mapping/pull/992)
 
-Fixes an error in `src/stream_branches.py` caused when a GeoDataFrame contains a `MultiLineString` geometry instead of a `LineString`.
+Fixes errors caused when a GeoDataFrame contains a `MultiLineString` geometry instead of a `LineString`.
 
 ### Changes
 
-- `src/stream_branches.py`: Converts `MultiLineString` geometry into `LineString` and removes unneeded `LineString`s.
+- `src/`
+    `split_flows.py` and `stream_branches.py`: Converts `MultiLineString` geometry into `LineString`s.
 
 <br/><br/>
 
