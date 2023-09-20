@@ -51,6 +51,7 @@ force-exclude = '''
     | src/add_crosswalk.py
     | src/bathymetric_adjustment.py
     | src/identify_src_bankfull.py
+    |
 ''''
 
 [tool.isort]
