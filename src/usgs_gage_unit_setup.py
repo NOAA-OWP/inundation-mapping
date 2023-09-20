@@ -96,6 +96,7 @@ class Gage2Branch(object):
             )
 
             self.gages.update(missing_feature_id)
+            self.gages = self.gages.set_geometry("geometry")
 
             del nwm_reaches_union
 

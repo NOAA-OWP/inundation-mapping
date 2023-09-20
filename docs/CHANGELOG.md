@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.2.1 - 2023-09-20 - [PR#990](https://github.com/NOAA-OWP/inundation-mapping/pull/990)
+
+Corrects a bug in `src/usgs_gage_unit_setup.py` caused by missing geometry field after `GeoDataFrame.update()`.
+
+### Changes
+
+- `src/usgs_gage_unit_setup.py`: Sets geometry field in `self.gages`.
+
+<br/><br/>
+
 ## v4.4.2.0 - 2023-09-20 - [PR#993](https://github.com/NOAA-OWP/inundation-mapping/pull/993)
 
 Resolves the causes of two warnings in pandas and geopandas: (1) `FutureWarning` from taking the `int()` of single-length Series and (2) `SettingWithCopyWarning` resulting from the use of `inplace=True`.
