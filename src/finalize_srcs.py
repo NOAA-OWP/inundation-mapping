@@ -13,12 +13,12 @@ from utils.shared_functions import getDriver
 def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydrotable=None):
     # calculate src_full
     srcbase = pd.read_csv(srcbase, dtype={'CatchId': int})
-    srcbase.rename(columns={'CatchId': 'HydroID'}, inplace=True)
+    srcbase = srcbase.rename(columns={'CatchId': 'HydroID'})
     srcbase = srcbase.rename(columns=lambda x: x.strip(" "))
 
     # read and merge in attributes from base hydrofabric src full
     srcfull = pd.read_csv(srcfull, dtype={'CatchId': int})
-    srcfull.rename(columns={'CatchId': 'HydroID'}, inplace=True)
+    srcfull = srcfull.rename(columns={'CatchId': 'HydroID'})
     srcfull = srcfull.loc[:, ["ManningN", "HydroID", "feature_id"]].drop_duplicates(subset='HydroID')
 
     srcbase = srcbase.merge(srcfull, how='inner', left_on='HydroID', right_on='HydroID')
@@ -43,9 +43,9 @@ def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydr
         srcbase.to_csv(output_srcfull, index=False)
 
     hydrotable = pd.read_csv(hydrotable)
-    hydrotable.drop(columns=['stage', 'discharge_cms'], inplace=True)
+    hydrotable = hydrotable.drop(columns=['stage', 'discharge_cms'])
 
-    hydrotable.drop_duplicates(subset='HydroID', inplace=True)
+    hydrotable = hydrotable.drop_duplicates(subset='HydroID')
     # srcfull = srcfull.loc[:,["ManningN","HydroID","feature_id"]].drop_duplicates(subset='HydroID')
     hydrotable = hydrotable.merge(
         srcbase.loc[:, ['HydroID', 'Stage', 'Discharge (m3s-1)']],
@@ -53,8 +53,8 @@ def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydr
         left_on='HydroID',
         right_on='HydroID',
     )
-    hydrotable.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
-    # hydrotable.drop_duplicates(subset='stage',inplace=True)
+    hydrotable = hydrotable.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'})
+    # hydrotable = hydrotable.drop_duplicates(subset='stage')
 
     if output_hydrotable is not None:
         hydrotable.to_csv(output_hydrotable, index=False)

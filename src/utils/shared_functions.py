@@ -3,8 +3,6 @@
 import glob
 import inspect
 import os
-import re
-import sys
 from concurrent.futures import as_completed
 from datetime import datetime, timezone
 from os.path import splitext
@@ -16,8 +14,6 @@ import numpy as np
 import pandas as pd
 import rasterio
 from memory_profiler import profile
-from pyproj.crs import CRS
-from rasterio.warp import Resampling, calculate_default_transform, reproject
 from tqdm import tqdm
 
 import utils.shared_variables as sv
@@ -97,7 +93,7 @@ def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
                         keep_flag = True
                         break
             if not keep_flag:
-                gdf.drop(index, inplace=True)  # Delete from dataframe.
+                gdf = gdf.drop(index)  # Delete from dataframe.
 
     # Overwrite geopackage.
     layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')

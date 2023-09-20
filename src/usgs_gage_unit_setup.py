@@ -41,7 +41,7 @@ class Gage2Branch(object):
 
         # Convert ras locs crs to match usgs gage crs
         ras_locs.to_crs(usgs_gages.crs, inplace=True)
-        ras_locs.rename(columns={'huc8': 'HUC8'}, inplace=True)
+        ras_locs = ras_locs.rename(columns={'huc8': 'HUC8'})
 
         # Convert Multipoint geometry to Point geometry
         ras_locs['geometry'] = ras_locs.representative_point()
@@ -51,7 +51,7 @@ class Gage2Branch(object):
         #     ras_locs['HUC8'] = str(self.huc8)
         #     ras_locs = ras_locs.drop('huc8', axis=1)
         # elif ras_locs.huc8.dtype == 'int64':
-        #     ras_locs.rename(columns={'huc8':'HUC8'}, inplace=True)
+        #     ras_locs = ras_locs.rename(columns={'huc8':'HUC8'})
 
         # Concat USGS points and RAS2FIM points
         gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
@@ -64,8 +64,8 @@ class Gage2Branch(object):
         if self.ahps_filename:
             ahps_sites = gpd.read_file(self.ahps_filename)
             ahps_sites = ahps_sites[ahps_sites.HUC8 == self.huc8]  # filter to HUC8
-            ahps_sites.rename(
-                columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True
+            ahps_sites = ahps_sites.rename(
+                columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}
             )
             ahps_sites = ahps_sites[
                 ahps_sites.location_id.isna()
@@ -86,7 +86,7 @@ class Gage2Branch(object):
 
     def sort_into_branch(self, nwm_subset_streams_levelPaths):
         nwm_reaches = gpd.read_file(nwm_subset_streams_levelPaths)
-        nwm_reaches.rename(columns={'ID': 'feature_id'}, inplace=True)
+        nwm_reaches = nwm_reaches.rename(columns={'ID': 'feature_id'})
 
         if not self.gages[self.gages.feature_id.isnull()].empty:
             missing_feature_id = self.gages.loc[self.gages.feature_id.isnull()].copy()
@@ -132,14 +132,13 @@ class Gage2Branch(object):
         for huc_dir in [d for d in os.listdir(fim_dir) if re.search(r'^\d{8}$', d)]:
             gage_file = os.path.join(fim_dir, huc_dir, 'usgs_subset_gages.gpkg')
             if not os.path.isfile(gage_file):
-                fim_inputs.drop(fim_inputs.loc[fim_inputs.huc == huc_dir].index, inplace=True)
+                fim_inputs = fim_inputs.drop(fim_inputs.loc[fim_inputs.huc == huc_dir].index)
                 continue
 
             gages = gpd.read_file(gage_file)
             level_paths = gages.levpa_id
-            fim_inputs.drop(
-                fim_inputs.loc[(fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))].index,
-                inplace=True,
+            fim_inputs = fim_inputs.drop(
+                fim_inputs.loc[(fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))].index
             )
 
         fim_inputs.to_csv(fim_inputs_filename, index=False, header=False)

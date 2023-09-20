@@ -43,15 +43,15 @@ def find_hucs_of_bounding_boxes(
         lambda bbdf: gpd.read_file(wbd, layer=wbd_layer, mask=bbdf.geometry)[wbdcol_name], axis=1
     )
 
-    bounding_boxes.drop(columns=['geometry', 'minx', 'miny', 'maxx', 'maxy'], inplace=True)
+    bounding_boxes = bounding_boxes.drop(columns=['geometry', 'minx', 'miny', 'maxx', 'maxy'])
 
     hucs_columns = hucs.columns
     bb_columns = bounding_boxes.columns
     bounding_boxes = hucs.join(bounding_boxes)
     bounding_boxes = pd.melt(bounding_boxes, id_vars=bb_columns, value_vars=hucs_columns, value_name='HUC8')
-    bounding_boxes.drop(columns=['variable'], inplace=True)
-    bounding_boxes.dropna(inplace=True)
-    bounding_boxes.reset_index(drop=True, inplace=True)
+    bounding_boxes = bounding_boxes.drop(columns=['variable'])
+    bounding_boxes = bounding_boxes.dropna()
+    bounding_boxes = bounding_boxes.reset_index(drop=True)
 
     hucs_series = pd.Series(hucs.stack().reset_index(drop=True).unique())
 

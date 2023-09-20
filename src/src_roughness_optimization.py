@@ -155,14 +155,13 @@ def update_rating_curve(
         df_prev_adj_htable = df_htable.copy()[
             ['HydroID', 'submitter', 'last_updated', 'obs_source', 'calb_coef_final']
         ]
-        df_prev_adj_htable.rename(
+        df_prev_adj_htable = df_prev_adj_htable.rename(
             columns={
                 'submitter': 'submitter_prev',
                 'last_updated': 'last_updated_prev',
                 'calb_coef_final': 'calb_coef_final_prev',
                 'obs_source': 'obs_source_prev',
-            },
-            inplace=True,
+            }
         )
         df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
         # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
@@ -180,7 +179,7 @@ def update_rating_curve(
 
     # Delete previous adj columns to prevent duplicate variable issues
     # (if src_roughness_optimization.py was previously applied)
-    df_htable.drop(
+    df_htable = df_htable.drop(
         [
             'discharge_cms',
             'submitter',
@@ -191,10 +190,9 @@ def update_rating_curve(
             'obs_source',
         ],
         axis=1,
-        inplace=True,
         errors='ignore',
     )
-    df_htable.rename(columns={'precalb_discharge_cms': 'discharge_cms'}, inplace=True)
+    df_htable = df_htable.rename(columns={'precalb_discharge_cms': 'discharge_cms'})
 
     ## loop through the user provided point data --> stage/flow dataframe row by row
     for index, row in df_nvalues.iterrows():
@@ -253,7 +251,7 @@ def update_rating_curve(
             df_nvalues.loc[index, 'discharge_cms'] = find_src_stage.discharge_cms
 
     ## Calculate calibration coefficient
-    df_nvalues.rename(columns={'hydroid': 'HydroID'}, inplace=True)  # rename the previous ManningN column
+    df_nvalues = df_nvalues.rename(columns={'hydroid': 'HydroID'})  # rename the previous ManningN column
     df_nvalues['hydroid_calb_coef'] = df_nvalues['discharge_cms'] / df_nvalues['flow']  # Qobs / Qsrc
 
     ## Calcuate a "calibration adjusted" n value using channel and overbank n-values multiplied by calb_coef
@@ -283,7 +281,7 @@ def update_rating_curve(
     df_nvalues['magnitude'] = df_nvalues['layer'].str.split("_").str[5]
     df_nvalues['ahps_lid'] = df_nvalues['layer'].str.split("_").str[1]
     df_nvalues['huc'] = str(huc)
-    df_nvalues.drop(['layer'], axis=1, inplace=True)
+    df_nvalues = df_nvalues.drop(['layer'], axis=1)
 
     ## Create df grouped by hydroid with ahps_lid and huc number
     df_huc_lid = df_nvalues.groupby(["HydroID"]).first()[['ahps_lid', 'huc']]
@@ -309,17 +307,17 @@ def update_rating_curve(
         df_updated = df_updated.sort_values('coll_time').drop_duplicates(
             ['HydroID'], keep='last'
         )  # sort by collection time and then drop duplicate HydroIDs (keep most recent coll_time per HydroID)
-        df_updated.rename(columns={'coll_time': 'last_updated'}, inplace=True)
+        df_updated = df_updated.rename(columns={'coll_time': 'last_updated'})
 
         ## cacluate median ManningN to handle cases with multiple hydroid entries
         df_mann_hydroid = df_nvalues.groupby(["HydroID"])[['hydroid_calb_coef']].median()
 
         ## Create a df with the median hydroid_ManningN value per feature_id
         # df_mann_featid = df_nvalues.groupby(["feature_id"])[['hydroid_ManningN']].mean()
-        # df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'}, inplace=True)
+        # df_mann_featid = df_mann_featid.rename(columns={'hydroid_ManningN':'featid_ManningN'})
 
         ## Rename the original hydrotable variables to allow new calculations to use the primary var name
-        df_htable.rename(columns={'discharge_cms': 'precalb_discharge_cms'}, inplace=True)
+        df_htable = df_htable.rename(columns={'discharge_cms': 'precalb_discharge_cms'})
 
         ## Check for large variabilty in the calculated Manning's N values
         # (for cases with mutliple entries for a singel hydroid)
@@ -367,7 +365,7 @@ def update_rating_curve(
 
             ## Create a df with the median hydroid_calb_coef value per feature_id
             df_mann_featid = df_nmerge.groupby(["feature_id"])[['hydroid_calb_coef']].mean()
-            df_mann_featid.rename(columns={'hydroid_calb_coef': 'featid_calb_coef'}, inplace=True)
+            df_mann_featid = df_mann_featid.rename(columns={'hydroid_calb_coef': 'featid_calb_coef'})
             # create a seperate df with attributes to apply to other hydroids that share a featureid
             df_mann_featid_attrib = df_nmerge.groupby('feature_id').first()
             df_mann_featid_attrib = df_mann_featid_attrib[df_mann_featid_attrib['submitter'].notna()][
@@ -389,10 +387,9 @@ def update_rating_curve(
                 choices = [df_nmerge['featid_calb_coef'], df_nmerge['group_calb_coef']]
                 df_nmerge[calb_type] = np.select(conditions, choices, default=df_nmerge['hydroid_calb_coef'])
                 df_nmerge['obs_source'] = np.where(df_nmerge[calb_type].notnull(), source_tag, pd.NA)
-                df_nmerge.drop(
+                df_nmerge = df_nmerge.drop(
                     ['feature_id', 'NextDownID', 'LENGTHKM', 'LakeID', 'order_'],
                     axis=1,
-                    inplace=True,
                     errors='ignore',
                 )  # drop these columns to avoid duplicates where merging with the full hydroTable df
 
@@ -420,10 +417,9 @@ def update_rating_curve(
                         df_nmerge['calb_coef_final_prev'],
                         df_nmerge[calb_type],
                     )
-                    df_nmerge.drop(
+                    df_nmerge = df_nmerge.drop(
                         ['submitter_prev', 'last_updated_prev', 'calb_coef_final_prev', 'obs_source_prev'],
                         axis=1,
-                        inplace=True,
                         errors='ignore',
                     )
                 else:
@@ -436,10 +432,9 @@ def update_rating_curve(
                     if (
                         'src_calibrated' in input_catchments.columns
                     ):  # check if this attribute already exists and drop if needed
-                        input_catchments.drop(
+                        input_catchments = input_catchments.drop(
                             ['src_calibrated', 'obs_source', 'calb_coef_final'],
                             axis=1,
-                            inplace=True,
                             errors='ignore',
                         )
                     df_nmerge['src_calibrated'] = np.where(
@@ -454,7 +449,7 @@ def update_rating_curve(
                     output_catchments.to_file(
                         catchments_poly_path, driver="GPKG", index=False
                     )  # overwrite the previous layer
-                    df_nmerge.drop(['src_calibrated'], axis=1, inplace=True, errors='ignore')
+                    df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
                 ## Optional ouputs:
                 #   1) merge_n_csv csv with all of the calculated n values
                 #   2) a catchments .gpkg with new joined attributes
@@ -474,7 +469,7 @@ def update_rating_curve(
                         output_catchments.to_file(output_catchments_fileName, driver="GPKG", index=False)
 
                 ## Merge the final ManningN dataframe to the original hydroTable
-                df_nmerge.drop(
+                df_nmerge = df_nmerge.drop(
                     [
                         'ahps_lid',
                         'start_catch',
@@ -485,7 +480,6 @@ def update_rating_curve(
                         'group_calb_coef',
                     ],
                     axis=1,
-                    inplace=True,
                     errors='ignore',
                 )  # drop these columns to avoid duplicates where merging with the full hydroTable df
                 df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
@@ -576,7 +570,7 @@ def branch_network_tracer(df_input_htable):
     # other hydroids
     df_input_htable["start_catch"] = ~df_input_htable['HydroID'].isin(df_input_htable['NextDownID'])
 
-    df_input_htable.set_index('HydroID', inplace=True, drop=False)  # set index to the hydroid
+    df_input_htable = df_input_htable.set_index('HydroID', drop=False)  # set index to the hydroid
     branch_heads = deque(
         df_input_htable[df_input_htable['start_catch'] == True]['HydroID'].tolist()
     )  # create deque of hydroids to define start points in the while loop
@@ -621,17 +615,17 @@ def branch_network_tracer(df_input_htable):
                         # starting hydroid
                         continue
                     Q.append(nextid)
-    df_input_htable.reset_index(drop=True, inplace=True)  # reset index (previously using hydroid as index)
+    df_input_htable = df_input_htable.reset_index(drop=True)  # reset index (previously using hydroid as index)
     # sort the dataframe by branch_id and then by route_count
     # (need this ordered to ensure upstream to downstream ranking for each branch)
-    df_input_htable.sort_values(['branch_id', 'route_count'], inplace=True)
+    df_input_htable = df_input_htable.sort_values(['branch_id', 'route_count'])
     return df_input_htable
 
 
 def group_manningn_calc(df_nmerge, down_dist_thresh):
     ## Calculate group_calb_coef (mean calb n for consective hydroids) and apply values downsteam to
     # non-calb hydroids (constrained to first Xkm of hydroids - set downstream diststance var as input arg
-    # df_nmerge.sort_values(by=['NextDownID'], inplace=True)
+    # df_nmerge = df_nmerge.sort_values(by=['NextDownID'])
     dist_accum = 0
     hyid_count = 0
     hyid_accum_count = 0
@@ -708,9 +702,9 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
 
     ## Delete unnecessary intermediate outputs
     if 'hyid_count' in df_nmerge.columns:
-        df_nmerge.drop(
-            ['hyid_count', 'accum_dist', 'hyid_accum_count'], axis=1, inplace=True, errors='ignore'
+        df_nmerge = df_nmerge.drop(
+            ['hyid_count', 'accum_dist', 'hyid_accum_count'], axis=1, errors='ignore'
         )  # drop hydroid counter if it exists
     ## drop accum vars from group calc
-    # df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1, inplace=True)
+    # df_nmerge = df_nmerge.drop(['accum_dist','hyid_accum_count'], axis=1)
     return df_nmerge

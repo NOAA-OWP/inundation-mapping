@@ -145,7 +145,7 @@ def Derive_level_paths(
             stream_network_to_merge, how="inner", left_on=reach_id_attribute, right_on=reach_id_attribute
         )
 
-        catchments.reset_index(drop=True, inplace=True)
+        catchments = catchments.reset_index(drop=True)
 
         catchments.to_file(catchments_outfile, index=False, driver="GPKG")
 

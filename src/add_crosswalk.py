@@ -2,12 +2,10 @@
 
 import argparse
 import json
-import os
 import sys
 
 import geopandas as gpd
 import pandas as pd
-from memory_profiler import profile
 from numpy import unique
 from rasterstats import zonal_stats
 
@@ -402,7 +400,7 @@ def add_crosswalk(
     if output_hydro_table.HUC.dtype != 'str':
         output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
 
-    output_hydro_table.drop(columns=FIM_ID, inplace=True)
+    output_hydro_table = output_hydro_table.drop(columns=FIM_ID)
     if output_hydro_table.feature_id.dtype != 'int':
         output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str':

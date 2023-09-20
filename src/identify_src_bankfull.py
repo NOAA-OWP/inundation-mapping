@@ -125,7 +125,7 @@ def src_bankfull_lookup(args):
         df_bankfull_calc = df_bankfull_calc[
             df_bankfull_calc['Stage'] > 0.0
         ]  # Ensure bankfull stage is greater than stage=0
-        df_bankfull_calc.reset_index(drop=True, inplace=True)
+        df_bankfull_calc = df_bankfull_calc.reset_index(drop=True)
         # find the index of the Q_bfull_find (closest matching flow)
         df_bankfull_calc = df_bankfull_calc.loc[
             df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()
@@ -156,7 +156,7 @@ def src_bankfull_lookup(args):
             how='left',
             on='HydroID'
         )
-        df_src.drop(['Q_bfull_find'], axis=1, inplace=True)
+        df_src = df_src.drop(['Q_bfull_find'], axis=1)
 
         ## The bankfull ratio variables below were previously used for the composite variable roughness routine
         ##      (not currently implimented)
@@ -170,7 +170,7 @@ def src_bankfull_lookup(args):
         # df_src['chann_volume_ratio'].where(df_src['chann_volume_ratio'] <= 1.0, 1.0, inplace=True)
         # # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
         # df_src['chann_volume_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True)
-        # #df_src.drop(['Volume_bankfull'], axis=1, inplace=True)
+        # #df_src = df_src.drop(['Volume_bankfull'], axis=1)
 
         # ## Calculate the channel portion of bankfull Hydraulic Radius
         # df_src['chann_hradius_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
@@ -183,7 +183,7 @@ def src_bankfull_lookup(args):
         # df_src['chann_hradius_ratio'].where(df_src['chann_hradius_ratio'] <= 1.0, 1.0, inplace=True)
         # # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
         # df_src['chann_hradius_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True)
-        # #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
+        # #df_src = df_src.drop(['HRadius_bankfull'], axis=1)
 
         # ## Calculate the channel portion of bankfull Surface Area
         # df_src['chann_surfarea_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
@@ -194,7 +194,7 @@ def src_bankfull_lookup(args):
         # df_src['chann_surfarea_ratio'].where(df_src['chann_surfarea_ratio'] <= 1.0, 1.0, inplace=True)
         # # if the bankfull_flow value <= 0 then set channel ratio to 0 (will use global overbank manning n)
         # df_src['chann_surfarea_ratio'].where(df_src['bankfull_flow'] > 0.0, 0.0, inplace=True)
-        # #df_src.drop(['HRadius_bankfull'], axis=1, inplace=True)
+        # #df_src = df_src.drop(['HRadius_bankfull'], axis=1)
 
         ## mask bankfull variables when the bankfull estimated flow value is <= 0
         df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0, inplace=True)

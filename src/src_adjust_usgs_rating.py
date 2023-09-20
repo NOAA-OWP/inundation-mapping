@@ -1,12 +1,9 @@
 import argparse
 import datetime as dt
-import json
 import multiprocessing
 import os
 import sys
-from collections import deque
 from multiprocessing import Pool
-from pathlib import Path
 
 import pandas as pd
 
@@ -63,8 +60,8 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     cross_df = usgs_elev_df[
         ["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation"]
     ].copy()
-    cross_df.rename(
-        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'}, inplace=True
+    cross_df = cross_df.rename(
+        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'}
     )
 
     # filter null location_id rows from cross_df
@@ -89,7 +86,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     # read in the NWM recurr csv file
     nwm_recur_df = pd.read_csv(nwm_recurr_filepath, dtype={'feature_id': int})
     nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
-    nwm_recur_df.rename(
+    nwm_recur_df = nwm_recur_df.rename(
         columns={
             '2_0_year_recurrence_flow_17C': '2_0_year',
             '5_0_year_recurrence_flow_17C': '5_0_year',
@@ -97,8 +94,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
             '25_0_year_recurrence_flow_17C': '25_0_year',
             '50_0_year_recurrence_flow_17C': '50_0_year',
             '100_0_year_recurrence_flow_17C': '100_0_year',
-        },
-        inplace=True,
+        }
     )
 
     # convert cfs to cms (x 0.028317)
@@ -146,7 +142,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         # Assign new metadata attributes
         calc_df['nwm_recur'] = interval + "_0_year"
         calc_df['layer'] = '_usgs-gage____' + interval + "-year"
-        calc_df.rename(columns={interval + "_0_year": 'nwm_recur_flow_cms'}, inplace=True)
+        calc_df = calc_df.rename(columns={interval + "_0_year": 'nwm_recur_flow_cms'})
         # Subset calc_df for final output
         calc_df = calc_df[
             [
@@ -179,7 +175,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         final_df['coll_time'] = str(datestamp)[:15]
 
     # Rename attributes (for ingest to update_rating_curve) and output csv with the USGS RC database
-    final_df.rename(columns={'discharge_cms': 'flow'}, inplace=True)
+    final_df = final_df.rename(columns={'discharge_cms': 'flow'})
     final_df.to_csv(os.path.join(log_dir, "usgs_rc_nwm_recurr.csv"), index=False)
 
     # Output log text to log file
