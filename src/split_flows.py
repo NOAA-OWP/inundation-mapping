@@ -10,19 +10,17 @@ Description:
 '''
 
 import argparse
-import os
 import sys
-import time
 from collections import OrderedDict
-from os import environ, path, remove
-from os.path import dirname, isfile, split
+from os import remove
+from os.path import isfile
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
 from shapely import ops, wkt
-from shapely.geometry import LineString, MultiPoint, Point
+from shapely.geometry import LineString, Point
 from shapely.ops import split as shapely_ops_split
 from tqdm import tqdm
 
@@ -139,6 +137,11 @@ def split_flows(
 
         # Identify the end vertex (most downstream, should be last), transform into geodataframe
         terminal_nwm_point = []
+
+        if linestring_geo.geom_type == 'MultiLineString':
+            # Get last LineString
+            linestring_geo = linestring_geo.geoms[-1]
+
         last = Point(linestring_geo.coords[-1])
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
