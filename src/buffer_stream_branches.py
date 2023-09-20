@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import os
-import geopandas as gpd
-from stream_branches import StreamNetwork
-from stream_branches import StreamBranchPolygons
 import argparse
+import os
+
+import geopandas as gpd
+
+from stream_branches import StreamBranchPolygons, StreamNetwork
 
 
 def buffer_stream_branches(

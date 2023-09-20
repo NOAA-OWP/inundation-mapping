@@ -1,11 +1,8 @@
 {
-	"valid_data":
-	{
-		"fim_dir": "/data/outputs/fim_unit_test_data_do_not_remove"
-	},
-
-	"invalid_path":
-	{
-		"fim_dir": "/data/outputs/check_errors_example_unit_tests_not_not_valid"
-	}	
+    "valid_data": {
+        "fim_dir": "/data/outputs/unit_test_data"
+    },
+    "invalid_path": {
+        "fim_dir": "/data/outputs/check_errors_example_unit_tests_not_not_valid"
+    }
 }

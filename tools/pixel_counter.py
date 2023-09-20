@@ -1,3 +1,29 @@
+#!/usr/bin/env python3
+
+import argparse
+import copy
+import os
+import pathlib
+import sys
+import tempfile
+
+import numpy as np
+import pandas as pd
+
+# Import raster and vector function libraries
+# from types import NoneType
+from osgeo import gdal, ogr
+from osgeo.gdalconst import *
+from pandas import DataFrame
+from pixel_counter_functions import (
+    get_bridge_counts,
+    get_levee_counts,
+    get_mask_value_counts,
+    get_nlcd_counts,
+    get_nlcd_counts_inside_flood,
+)
+
+
 '''Created on 02/21/2022.
 Written by:
 Anuska Narayanan (The University of Alabama Department of Geography, anarayanan1@crimson.ua.edu;
@@ -7,37 +33,19 @@ Brad Bates (NOAA, Lynker, and the National Water Center, bradford.bates@noaa.gov
 Derived from a Python version of a zonal statistics function written by Matthew Perry (@perrygeo).
 
 Description: This script isolates the number of pixels per class of a raster within the outlines of
-one or more polygons and displays them in a table. It accomplishes this by rasterizing the vector file,
-masking out the desired areas of both rasters, and then summarizing them in a dataframe. It makes use
-of the gdal, numpy, and pandas function libraries.
+    one or more polygons and displays them in a table. It accomplishes this by rasterizing the vector file,
+    masking out the desired areas of both rasters, and then summarizing them in a dataframe. It makes use
+    of the gdal, numpy, and pandas function libraries.
 Inputs: one raster file with at least one set of attributes; one vector file containing one or more polygon
-boundaries
+    boundaries
 Output: a dataframe table with rows displayed by each polygon within the vector file, and columns
-displaying the pixel count of each raster attribute class in the polygon
+    displaying the pixel count of each raster attribute class in the polygon
 '''
-
-# Import raster and vector function libraries
-#from types import NoneType
-from osgeo import gdal, ogr
-from osgeo.gdalconst import *
-# Import numerical data library
-import numpy as np
-# Import file management library
-import sys
-import os
-# Import data analysis library
-import pandas as pd
-import argparse
-from pandas import DataFrame
-import copy
-import pathlib
-import tempfile
-
-from pixel_counter_functions import (get_nlcd_counts, get_levee_counts, get_bridge_counts, get_nlcd_counts_inside_flood,get_mask_value_counts)
 
 
 # Set up error handler
 gdal.PushErrorHandler('CPLQuietErrorHandler')
+
 
 # Function to pologonize flood extent
 def make_flood_extent_polygon(flood_extent):
@@ -89,7 +97,7 @@ def make_flood_extent_polygon(flood_extent):
     # Polygonize
     gdal.Polygonize(band, None, outLayer, 0, [], callback=None)
     outDatasource.Destroy()
-    sourceRaster = None
+    # sourceRaster = None
 
     fullpath = os.path.abspath(outShapefile)
     print(fullpath)
@@ -117,7 +125,6 @@ def bbox_to_pixel_offsets(gt, bbox):
 
 # Main function that determines zonal statistics of raster classes in a polygon area
 def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_extent=False):
-
     stats = []
 
     # Loop through different raster paths in the raster_path_dict and
@@ -126,14 +133,13 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
         raster_path = raster_path_dict[layer]
         if raster_path == "":  # Only process if a raster path is provided
             continue
-        if layer == 'flood_extent' and raster_path_dict["nlcd"]!= "":
+        if layer == 'flood_extent' and raster_path_dict["nlcd"] != "":
             vector_path = make_flood_extent_polygon(flood_extent)
             raster_path = raster_path_dict["nlcd"]
 
-
         # Opens raster file and sets path
         rds = gdal.Open(raster_path)
-        
+
         assert rds
         rb = rds.GetRasterBand(1)
         rgt = rds.GetGeoTransform()
@@ -145,14 +151,16 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
             print('No vector path provided. Continuing to next layer.')
             continue
         # Opens vector file and sets path
-        
+
         try:
             vds = ogr.Open(vector_path)
             vlyr = vds.GetLayer(0)
-        except:
+        except Exception as e:
+            print(repr(e))
             continue
-        
-        # Creates an in-memory numpy array of the source raster data covering the whole extent of the vector layer
+
+        # Creates an in-memory numpy array of the source raster data covering
+        #   the whole extent of the vector layer
         if global_src_extent:
             # use global source extent
             # useful only when disk IO or raster scanning inefficiencies are your limiting factor
@@ -168,7 +176,7 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
                 0.0,
                 (rgt[3] + (src_offset[1] * rgt[5])),
                 0.0,
-                rgt[5]
+                rgt[5],
             )
 
         mem_drv = ogr.GetDriverByName('Memory')
@@ -179,7 +187,6 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
 
         feat = vlyr.GetNextFeature()
         while feat is not None:
-
             if not global_src_extent:
                 # use local source extent
                 # fastest option when you have fast disks and well indexed raster (ie tiled Geotiff)
@@ -195,7 +202,7 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
                     0.0,
                     (rgt[3] + (src_offset[1] * rgt[5])),
                     0.0,
-                    rgt[5]
+                    rgt[5],
                 )
 
             # Create a temporary vector layer in memory
@@ -209,18 +216,15 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
             gdal.RasterizeLayer(rvds, [1], mem_layer, burn_values=[1])
             rv_array = rvds.ReadAsArray()
 
-            # Mask the source data array with our current feature and get statistics (pixel count) of masked areas
+            # Mask the source data array with our current feature and get statistics (pixel count)
+            #   of masked areas
             # we take the logical_not to flip 0<->1 to get the correct mask effect
             # we also mask out nodata values explictly
             if src_array is None:
                 feat = vlyr.GetNextFeature()
                 continue
             masked = np.ma.MaskedArray(
-                src_array,
-                mask=np.logical_or(
-                    src_array == nodata_value,
-                    np.logical_not(rv_array)
-                )
+                src_array, mask=np.logical_or(src_array == nodata_value, np.logical_not(rv_array))
             )
 
             # Call different counter functions depending on the raster's source.
@@ -254,30 +258,17 @@ if __name__ == "__main__":
     # opts = {'VECTOR': sys.argv[1:], 'RASTER': sys.argv[2:]}
     # stats = zonal_stats(opts['VECTOR'], opts['RASTER'])
 
-    parser = argparse.ArgumentParser(description='Computes pixel counts for raster classes within a vector area.')
-    parser.add_argument('-v', '--vector',
-                        help='Path to vector file.',
-                        required=False,
-                        default="")
-    parser.add_argument('-n', '--nlcd',
-                        help='Path to National Land Cover Database raster file.',
-                        required=False,
-                        default="")
-    parser.add_argument('-l', '--levees',
-                        help='Path to levees raster file.',
-                        required=False,
-                        default="")
-    parser.add_argument('-b', '--bridges',
-                        help='Path to bridges file.',
-                        required=False,
-                        default="")
-    parser.add_argument('-f', '--flood_extent',
-                        help='Path to flood extent file.',
-                        required=False,
-                        default="")
-    parser.add_argument('-c', '--csv',
-                        help='Path to export csv file.',
-                        required=True)
+    parser = argparse.ArgumentParser(
+        description='Computes pixel counts for raster classes within a vector area.'
+    )
+    parser.add_argument('-v', '--vector', help='Path to vector file.', required=False, default="")
+    parser.add_argument(
+        '-n', '--nlcd', help='Path to National Land Cover Database raster file.', required=False, default=""
+    )
+    parser.add_argument('-l', '--levees', help='Path to levees raster file.', required=False, default="")
+    parser.add_argument('-b', '--bridges', help='Path to bridges file.', required=False, default="")
+    parser.add_argument('-f', '--flood_extent', help='Path to flood extent file.', required=False, default="")
+    parser.add_argument('-c', '--csv', help='Path to export csv file.', required=True)
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     vector = args['vector']
@@ -287,7 +278,7 @@ if __name__ == "__main__":
     flood_extent = args['flood_extent']
 
     csv = args['csv']
-    
+
     raster_path_dict = {'nlcd': nlcd, 'levees': levees, 'bridges': bridges, 'flood_extent': flood_extent}
     stats = zonal_stats(vector, raster_path_dict)
 
