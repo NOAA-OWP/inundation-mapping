@@ -1,14 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2023-09-12 - [PR#992](https://github.com/NOAA-OWP/inundation-mapping/pull/992)
+## v4.4.1.1 - 2023-09-20 - [PR#992](https://github.com/NOAA-OWP/inundation-mapping/pull/992)
 
-Fixes errors caused when a GeoDataFrame contains a `MultiLineString` geometry instead of a `LineString`.
+Fixes errors caused when a GeoDataFrame contains a `MultiLineString` geometry instead of a `LineString`. Update black force-exclude list.
 
 ### Changes
 
 - `src/`
     `split_flows.py` and `stream_branches.py`: Converts `MultiLineString` geometry into `LineString`s.
+- `pyproject.toml` : Add three files in `src/` to exclude list.
 
 <br/><br/>
 

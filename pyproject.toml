@@ -46,18 +46,18 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 line_length = 110
 skip-string-normalization = true
 skip-magic-trailing-comma = true
-exclude = '''
-/(
+force-exclude = '''
     \.git
-)\
-'''
+    | src/add_crosswalk.py
+    | src/bathymetric_adjustment.py
+    | src/identify_src_bankfull.py
+''''
 
 [tool.isort]
 profile = 'black'
 multi_line_output = 3
 line_length = 110 # It should be the same as `tool.black.line-length` above
 lines_after_imports = 2
-skip_gitignore = true
 
 [tool.flake8]
 count = true
