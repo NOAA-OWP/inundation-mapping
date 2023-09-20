@@ -15,7 +15,7 @@ from rasterio.io import DatasetReader
 from rasterio.mask import mask
 from scipy.stats import mode
 from shapely.geometry import LineString, MultiLineString, MultiPoint, Point
-from shapely.ops import linemerge, unary_union
+from shapely.ops import linemerge
 from shapely.strtree import STRtree
 from tqdm import tqdm
 
@@ -366,13 +366,16 @@ class StreamNetwork(gpd.GeoDataFrame):
         feature_inlet_points_gdf = gpd.GeoDataFrame(self.copy())
 
         self_copy = self.copy()
-        if "MultiLineString" in self_copy.geometry.geom_type.values:
-            self_copy = self_copy.explode(index_parts=False)
-            self_copy.loc[self_copy["levpa_id"].duplicated(), "levpa_id"] = np.nan
-            self_copy = self_copy.dropna(subset=["levpa_id"])
 
-        for idx, row in self_copy.iterrows():
-            feature_inlet_point = Point(row.geometry.coords[inlet_linestring_index])
+        for idx in self_copy.index:
+            row = self_copy.loc[[idx]]
+            if row.geom_type[idx] == "MultiLineString":
+                # Convert MultiLineString to LineString
+                row = row.explode(index_parts=False)
+                row.loc[row["levpa_id"].duplicated(), "levpa_id"] = np.nan
+                row = row.dropna(subset=["levpa_id"])
+
+            feature_inlet_point = Point(row.geometry[0].coords[inlet_linestring_index])
 
             feature_inlet_points_gdf.loc[idx, "geometry"] = feature_inlet_point
 
