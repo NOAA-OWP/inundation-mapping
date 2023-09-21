@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.2.x - 2023-09-21 - [PR#998](https://github.com/NOAA-OWP/inundation-mapping/pull/998)
+
+Removes exclude list for black formatter in `.pre-commit-config.yaml` as well as in `pyproject.toml`. Ran the `black` executable on the 
+whole repository, the re-formatted files in `src/` & `tools/` are included.
+
+### Changes
+
+- `.pre-commit-config.yaml`
+- `pyproject.toml`
+- `src/add_crosswalk.py`
+- `src/bathy_src_adjust_topwidth.py`
+- `src/bathymetric_adjustment.py`
+- `src/identify_src_bankfull.py`
+- `src/src_roughness_optimization.py`
+- `tools/vary_mannings_n_composite.py`
+
+<br/><br/>
+
 ## v4.4.2.1 - 2023-09-20 - [PR#990](https://github.com/NOAA-OWP/inundation-mapping/pull/990)
 
 Corrects a bug in `src/usgs_gage_unit_setup.py` caused by missing geometry field after `GeoDataFrame.update()`.
