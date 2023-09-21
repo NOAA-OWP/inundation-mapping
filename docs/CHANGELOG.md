@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2023-09-21 - [PR#997](https://github.com/NOAA-OWP/inundation-mapping/pull/997)
+## v4.4.2.2 - 2023-09-21 - [PR#997](https://github.com/NOAA-OWP/inundation-mapping/pull/997)
 
 Bug fix for an error related to reindexing in `StreamNetwork.drop()`.
 
