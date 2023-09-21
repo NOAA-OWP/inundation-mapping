@@ -129,9 +129,7 @@ def src_bankfull_lookup(args):
         # find the index of the Q_bfull_find (closest matching flow)
         df_bankfull_calc = df_bankfull_calc.loc[
             df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()
-        ].reset_index(
-            drop=True
-        )
+        ].reset_index(drop=True)
         # rename volume to use later for channel portion calc
         df_bankfull_calc = df_bankfull_calc.rename(
             columns={
@@ -139,7 +137,7 @@ def src_bankfull_lookup(args):
                 bedarea_var: 'BedArea_bankfull',
                 volume_var: 'Volume_bankfull',
                 hradius_var: 'HRadius_bankfull',
-                surface_area_var: 'SurfArea_bankfull'
+                surface_area_var: 'SurfArea_bankfull',
             }
         )
         df_src = df_src.merge(
@@ -150,11 +148,11 @@ def src_bankfull_lookup(args):
                     'BedArea_bankfull',
                     'Volume_bankfull',
                     'HRadius_bankfull',
-                    'SurfArea_bankfull'
+                    'SurfArea_bankfull',
                 ]
             ],
             how='left',
-            on='HydroID'
+            on='HydroID',
         )
         df_src = df_src.drop(['Q_bfull_find'], axis=1)
 
@@ -332,7 +330,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
         'HydraulicRadius (m)',
         'Discharge (m3s-1)',
         'feature_id',
-        'Bathymetry_source'
+        'Bathymetry_source',
     ]
 
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
@@ -359,7 +357,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
                             huc,
                             branch_id,
                             src_plot_option,
-                            huc_output_dir
+                            huc_output_dir,
                         ]
                     )
                 else:

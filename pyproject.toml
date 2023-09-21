@@ -46,13 +46,7 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 line_length = 110
 skip-string-normalization = true
 skip-magic-trailing-comma = true
-force-exclude = '''
-    \.git
-    | src/add_crosswalk.py
-    | src/bathymetric_adjustment.py
-    | src/identify_src_bankfull.py
-    |
-'''
+
 
 [tool.isort]
 profile = 'black'

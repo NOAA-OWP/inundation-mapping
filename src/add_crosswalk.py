@@ -53,7 +53,7 @@ def add_crosswalk(
             input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True
         )
         input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
-        input_majorities = input_majorities.rename(columns={'majority' : 'feature_id'})
+        input_majorities = input_majorities.rename(columns={'majority': 'feature_id'})
 
         input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
         if input_majorities.feature_id.dtype != 'int':
@@ -321,7 +321,8 @@ def add_crosswalk(
             for src_index, src_stage in new_values.iterrows():
                 output_src.loc[
                     (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
-                    ['Discharge (m3s-1)']] = src_stage[1]
+                    ['Discharge (m3s-1)'],
+                ] = src_stage[1]
 
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
@@ -352,7 +353,7 @@ def add_crosswalk(
             'SLOPE',
             'ManningN',
             'Stage',
-            'Discharge (m3s-1)'
+            'Discharge (m3s-1)',
         ],
     ]
     output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
