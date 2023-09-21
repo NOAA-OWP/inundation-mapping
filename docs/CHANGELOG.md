@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.2.2 - 2023-09-21 - [PR#997](https://github.com/NOAA-OWP/inundation-mapping/pull/997)
+
+Bug fix for an error related to reindexing in `StreamNetwork.drop()`.
+
+### Changes
+
+- `src/stream_branches.py`: Fixes reindexing error.
+
+<br/><br/>
+
 ## v4.4.2.1 - 2023-09-20 - [PR#990](https://github.com/NOAA-OWP/inundation-mapping/pull/990)
 
 Corrects a bug in `src/usgs_gage_unit_setup.py` caused by missing geometry field after `GeoDataFrame.update()`.
