@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.2.x - 2023-09-21 - [PR#998](https://github.com/NOAA-OWP/inundation-mapping/pull/998)
+## v4.4.2.3 - 2023-09-21 - [PR#998](https://github.com/NOAA-OWP/inundation-mapping/pull/998)
 
 Removes exclude list for black formatter in `.pre-commit-config.yaml` as well as in `pyproject.toml`. Ran the `black` executable on the 
 whole repository, the re-formatted files in `src/` & `tools/` are included.
@@ -16,6 +16,16 @@ whole repository, the re-formatted files in `src/` & `tools/` are included.
 - `src/identify_src_bankfull.py`
 - `src/src_roughness_optimization.py`
 - `tools/vary_mannings_n_composite.py`
+
+<br/><br/>
+
+## v4.4.2.2 - 2023-09-21 - [PR#997](https://github.com/NOAA-OWP/inundation-mapping/pull/997)
+
+Bug fix for an error related to reindexing in `StreamNetwork.drop()`.
+
+### Changes
+
+- `src/stream_branches.py`: Fixes reindexing error.
 
 <br/><br/>
 
