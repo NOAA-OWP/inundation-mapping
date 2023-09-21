@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
+import argparse
+import datetime as dt
+import logging
 import os
 import time
-import datetime as dt
-import geopandas as gpd
-import argparse
-import logging
-
-from pathlib import Path
-from dotenv import load_dotenv
 from multiprocessing import Pool
+
+import geopandas as gpd
+from dotenv import load_dotenv
+
 
 ######################################################################################################
 #                                                                                                    #
@@ -26,13 +26,15 @@ from multiprocessing import Pool
 
 load_dotenv('/foss_fim/src/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-input_WBD_gdb              = os.getenv('input_WBD_gdb')
-input_calib_points_dir     = os.getenv('input_calib_points_dir')
+input_WBD_gdb = os.getenv('input_WBD_gdb')
+input_calib_points_dir = os.getenv('input_calib_points_dir')
+
 
 def __setup_logger(output_dir):
     # Set logging to file and stderr
-    
-    # The log file will include the date, so be mindful the logs when running this script multiple times on the same day
+
+    # The log file will include the date, so be mindful the logs when running this script
+    # multiple times on the same day
     curr_date = dt.datetime.now().strftime("%m_%d_%Y")
 
     log_file_name = f"write_parquet_from_calib_pts_{curr_date}.log"
@@ -50,8 +52,8 @@ def __setup_logger(output_dir):
 
     # Print start time
     dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    logging.info(f'==========================================================================')
-    logging.info(f"\n write_parquet_from_calib_pts.py")
+    logging.info('==========================================================================')
+    logging.info("\n write_parquet_from_calib_pts.py")
     logging.info(f"\n \t Started: {dt_string} \n")
 
 
@@ -65,12 +67,29 @@ def load_WBD_gpkg_into_GDF(WBD_National_gpkg_file):
     Outputs
     - huc_polygons_df:                 GeoDataFrame
     '''
-    
-    huc_polygons_df = gpd.read_file(WBD_National_gpkg_file, layer='WBDHU8',
-                                    ignore_fields=['tnmid', 'metasourceid', 'sourcedatadesc', 'sourceoriginator',
-                                                    'sourcefeatureid', 'loaddate', 'referencegnis_ids', 'areaacres',
-                                                    'areasqkm', 'states', 'name', 'globalid', 'shape_Length',
-                                                    'shape_Area', 'fimid', 'fossid'])
+
+    huc_polygons_df = gpd.read_file(
+        WBD_National_gpkg_file,
+        layer='WBDHU8',
+        ignore_fields=[
+            'tnmid',
+            'metasourceid',
+            'sourcedatadesc',
+            'sourceoriginator',
+            'sourcefeatureid',
+            'loaddate',
+            'referencegnis_ids',
+            'areaacres',
+            'areasqkm',
+            'states',
+            'name',
+            'globalid',
+            'shape_Length',
+            'shape_Area',
+            'fimid',
+            'fossid',
+        ],
+    )
 
     return huc_polygons_df
 
@@ -83,12 +102,23 @@ def load_fim_obs_points_into_GDF(fim_obs_points_data_file):
     - fim_obs_points_data_file:        .gpkg file containing calibration points
 
     Outputs
-    - fim_obs_point_df:                GeoDataFrame 
+    - fim_obs_point_df:                GeoDataFrame
     '''
-    
-    fim_obs_point_df = gpd.read_file(fim_obs_points_data_file, layer='usgs_nws_benchmark_points',
-                                     ignore_fields=['Join_Count', 'TARGET_FID', 'DN', 'ORIG_FID',
-                                                    'ID', 'AreaSqKM', 'Shape_Leng', 'Shape_Area'] )
+
+    fim_obs_point_df = gpd.read_file(
+        fim_obs_points_data_file,
+        layer='usgs_nws_benchmark_points',
+        ignore_fields=[
+            'Join_Count',
+            'TARGET_FID',
+            'DN',
+            'ORIG_FID',
+            'ID',
+            'AreaSqKM',
+            'Shape_Leng',
+            'Shape_Area',
+        ],
+    )
 
     return fim_obs_point_df
 
@@ -112,42 +142,42 @@ def create_single_huc_gdf_and_write_parquet_file(args):
     Outputs
     - none:                 While this function doesn't 'return' any output, it does write a new file.
     '''
-    
+
     # We have to explicitly unpack the args from pool.map()
-    huc        = args[0]
+    huc = args[0]
     output_dir = args[1]
-    wbd_GDF    = args[2]
-    pnt_GDF    = args[3]
-    
+    wbd_GDF = args[2]
+    pnt_GDF = args[3]
+
     # Get the row within the wbd_GDF containing the watershed boundary polygon
     one_huc = wbd_GDF.loc[wbd_GDF['HUC8'] == huc]
 
     # Create a new GeoDataFrame with an inner spatial join of all points with a HUC8 boundary.
     huc_with_points_gdf = pnt_GDF.sjoin(one_huc, how='inner', predicate='within')
-    
+
     # If there are no calibration points within the HUC boundary, skip current HUC
-    if len(huc_with_points_gdf) == 0: 
+    if len(huc_with_points_gdf) == 0:
         logging.info(f'HUC # {huc} does not contain any calibration points, skipping...')
-        time.sleep(.1)
+        time.sleep(0.1)
         return
-    
+
     # Drop index_right column created by join
-    huc_with_points_gdf.drop(['index_right'], axis=1, inplace=True)
-    
+    huc_with_points_gdf = huc_with_points_gdf.drop(['index_right'], axis=1)
+
     # Set the crs projection
     huc_gdf = huc_with_points_gdf.set_crs(DEFAULT_FIM_PROJECTION_CRS, allow_override=True)
 
     # Set filepath and write file
     parquet_filepath = os.path.join(output_dir, f'{huc}.parquet')
     huc_gdf.to_parquet(parquet_filepath, index=False)
-    
-    logging.info(f'HUC # {huc} calibration points written to file: \n' \
-        f' \t {output_dir}/{huc}.parquet')
+
+    logging.info(f'HUC # {huc} calibration points written to file: \n' f' \t {output_dir}/{huc}.parquet')
 
 
 def create_parquet_directory(output_dir):
     '''
-    The function creates an output directory to write the .parquet files if the filepath provided as an argument doesn't exist.
+    The function creates an output directory to write the .parquet files,
+    if the filepath provided as an argument doesn't exist.
 
     Inputs
     - output_dir:               Filepath to create a directory.
@@ -155,20 +185,22 @@ def create_parquet_directory(output_dir):
     Outputs
     - none:                     While no return value, a new directory is created if it does not exist.
     '''
-    
-    if os.path.isdir(output_dir) == False:
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        logging.info(f"Created directory: {output_dir}, .parquet files will be located there.")
-    elif os.path.isdir(output_dir) == True:
-        logging.info(f"Output Direcrtory: {output_dir} exists, .parquet files will be located there.")
+
+    if os.path.isdir(output_dir) is False:
+        os.mkdir(output_dir, exist_ok=True)
+        logging.info(f"Created directory: {output_dir}, .parquet files will be written there.")
+    elif os.path.isdir(output_dir) is True:
+        logging.info(f"Output Direcrtory: {output_dir} exists, .parquet files will be written there.")
 
 
-def create_parquet_files(points_data_file_name,
-                            number_of_jobs,
-                            output_dir=input_calib_points_dir,
-                            wbd_layer=input_WBD_gdb,
-                            huc_list=None,
-                            all_hucs=False):
+def create_parquet_files(
+    points_data_file_name,
+    number_of_jobs,
+    output_dir=input_calib_points_dir,
+    wbd_layer=input_WBD_gdb,
+    huc_list=None,
+    all_hucs=False,
+):
     '''
     The function is the main driver of the program to iterate and parallelize writing HUC8.parquet files.
 
@@ -186,71 +218,79 @@ def create_parquet_files(points_data_file_name,
     - Create output directory.
     - Decipher what HUCs to use for the hucs_to_parquet_list based on provided arguments.
     - Build arguments via procs_list to each parallel call to create_single_huc_gdf_and_write_parquet_file.
-    - Parallelize the processing of GeoDataFrame creation and .parquet writing of the hucs_to_parquet_list 
+    - Parallelize the processing of GeoDataFrame creation and .parquet writing of the hucs_to_parquet_list
         using multiprocessing.Pool.
 
     Outputs
-    - parquet files:       
+    - parquet files:
     - log file
     '''
-    
+
     # Validation
     total_cpus_available = os.cpu_count()
     if number_of_jobs > total_cpus_available:
-        logging.info(f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -1: ' \
-                        f'{total_cpus_available -1} will be used instead.')
-        number_of_jobs = total_cpus_available -1
-    
+        logging.info(
+            f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -1: '
+            f'{total_cpus_available -1} will be used instead.'
+        )
+        number_of_jobs = total_cpus_available - 1
+
     # Set start_time and setup logger
     start_time = dt.datetime.now()
     __setup_logger(output_dir)
-    
+
     create_parquet_directory(output_dir)
-    
-    logging.info(f'Loading .gpkg files into GeoDataFrames....')
-    huc_polygons_df  = load_WBD_gpkg_into_GDF(wbd_layer)
+
+    logging.info('Loading .gpkg files into GeoDataFrames....')
+    huc_polygons_df = load_WBD_gpkg_into_GDF(wbd_layer)
     fim_obs_point_df = load_fim_obs_points_into_GDF(points_data_file_name)
-    
+
     # Verify same projection
     if (huc_polygons_df.crs == fim_obs_point_df.crs) is not True:
-        raise ValueError(f'Provided: -p {points_data_file_name} crs & -wbd {wbd_layer} crs do not match, ' \
-                        f'please make adjustments and re-run.')
-    
+        raise ValueError(
+            f'Provided: -p {points_data_file_name} crs & -wbd {wbd_layer} crs do not match, '
+            'please make adjustments and re-run.'
+        )
+
     # Print timing
     load_gdf_end_time = dt.datetime.now()
     load_duration = load_gdf_end_time - start_time
     logging.info("Finished loading input .gpkg files into GeoDataFrames.")
+    logging.info(f"\t TIME: {str(load_duration).split('.')[0]} ")
+
+    print("Finished loading input .gpkg files into GeoDataFrames.")
     print(f"\t TIME: {str(load_duration).split('.')[0]} ")
-    
+
     # Only use provided HUCs
     if huc_list is not None:
         hucs_to_parquet_list = list(huc_list.split(','))
-        
-    # Use all HUCS in WBD file 
+
+    # Use all HUCS in WBD file
     elif all_hucs:
         # Define the list of HUCS based on all HUCS in WBD File
-        all_hucs_in_WBD = huc_polygons_df.iloc[:,0]
+        all_hucs_in_WBD = huc_polygons_df.iloc[:, 0]
         hucs_to_parquet_list = list(all_hucs_in_WBD)
-        
-    # Default HUC list comes from calibration point .parquet files that are pre-existing in current /inputs location
+
+    # Default HUC list comes from calibration point .parquet files that are pre-existing in current
+    # /inputs location
     else:
         # Get a list of all files in output_dir
         current_hucs_in_output_dir = os.listdir(output_dir)
-        # Slice off the .parquet file format to get just the HUC number of all files with the .parquet extension
+        # Slice off the .parquet from filename to get the HUC number of all files with the .parquet extension
         hucs_to_parquet_list = [i[:-8] for i in current_hucs_in_output_dir if i.endswith('.parquet')]
-    
+
     logging.info(f"Submitting {len(hucs_to_parquet_list)} HUCS.")
-        
+
     # Build arguments (procs_list) for each process (create_single_huc_gdf_and_write_parquet_file)
     procs_list = []
     for huc in hucs_to_parquet_list:
         procs_list.append([huc, output_dir, huc_polygons_df, fim_obs_point_df])
-    
+
     # Parallelize each huc in hucs_to_parquet_list
-    logging.info(f'Parallelizing HUC level GeoDataFrame creation and .parquet file writes')
+    logging.info('Parallelizing HUC level GeoDataFrame creation and .parquet file writes')
     with Pool(processes=number_of_jobs) as pool:
-                pool.map(create_single_huc_gdf_and_write_parquet_file, procs_list)
-    
+        pool.map(create_single_huc_gdf_and_write_parquet_file, procs_list)
+
     # Get time metrics
     end_time = dt.datetime.now()
     dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
@@ -258,50 +298,94 @@ def create_parquet_files(points_data_file_name,
 
     # Calculate duration
     time_duration = end_time - start_time
-    logging.info(f'==========================================================================')
-    logging.info(f"\t Completed writing all .parquet files \n" \
-        f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
-    logging.info(f'==========================================================================')
+    logging.info('==========================================================================')
+    logging.info(
+        f"\t Completed writing all .parquet files \n"
+        f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}"
+    )
+    logging.info('==========================================================================')
+
+    print("\t Completed writing all .parquet files \n")
+    print(f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
 
 
 if __name__ == '__main__':
     '''
-    Sample Usage:   python3 /foss_fim/data/write_parquet_from_calib_pts.py                                       \
-                        -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg  \
-                        -j 6                                                                                     \
-                        -o /data/inputs/rating_curve/water_edge_database/calibration_points                      \
-                        -wbd /data/inputs/wbd/WBD_National.gpkg                                                  \
-                        -u "12040103,04100003"
-                        
-                    python3 /foss_fim/data/write_parquet_from_calib_pts.py                                       \
-                        -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg  \
-                        -a
+    Sample Usage:
+        python3 /foss_fim/data/write_parquet_from_calib_pts.py
+            -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg
+            -j 6
+            -o /data/inputs/rating_curve/water_edge_database/calibration_points
+            -wbd /data/inputs/wbd/WBD_National.gpkg
+            -u "12040103,04100003"
+
+        python3 /foss_fim/data/write_parquet_from_calib_pts.py
+            -p /data/inputs/rating_curve/water_edge_database/usgs_nws_benchmark_points_cleaned.gpkg
+            -a
     '''
 
     parser = argparse.ArgumentParser(description='Create a parquet file/files with calibration points.')
-    
-    parser.add_argument('-p','--points_data_file_name', help='REQUIRED: Complete relative filepath of a .gpkg file with fim calibration points.', 
-        type=str, required=True)
-    
-    parser.add_argument('-o', '--output_dir', help=f'OPTIONAL: path to send .parquet file/files. Default location specifed as the "input_calib_points_dir" ' \
-        'variable in src/bash_variables.env', type=str, required=False, default=input_calib_points_dir)
-        
-    parser.add_argument('-j','--number_of_jobs', help='OPTIONAL: number of cores/processes (default=4). This is a memory intensive '                         \
-        'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide half the amount'                                 \
-        'of available CPUs.', type=int, required=False, default=4)
 
-    parser.add_argument('-wbd','--wbd_layer', help='OPTIONAL: A directory of where a .gpkg file exists, containing HUC boundary polygons. '                  \
-        'Default filepath is specified as the "input_WBD_gdb" variable in src/bash_variables.env', type=str, required=False, default=input_WBD_gdb)
-    
-    parser.add_argument('-u','--huc_list', help='OPTIONAL: HUC list - String with comma seperated HUC numbers. *DO NOT include spaces*.'                     \
-        'Provide certain HUCs if points were added/updated only within a few known HUCs.', type=str, required=False, default=None)
-    
-    parser.add_argument('-a', '--all_hucs', help='OPTIONAL: Provide the -a flag if new calibration points were added to many HUCs which currently'           \
-        'do not have .parquet files.  All HUC polygons in the file provided to -wbd argument will be checked for calibration points contained in '           \
-        '<points_data_file_name>. If not provided, either the HUCs in the huc_list argument (-u) or the current HUCs with files in <output_dir>'             \
-        'will be used.', required=False, action='store_true')
-    
+    parser.add_argument(
+        '-p',
+        '--points_data_file_name',
+        help='REQUIRED: Complete relative filepath of a .gpkg file with fim calibration points.',
+        type=str,
+        required=True,
+    )
+
+    parser.add_argument(
+        '-o',
+        '--output_dir',
+        help='OPTIONAL: path to send .parquet file/files. Default location specifed as the'
+        '"input_calib_points_dir" variable in src/bash_variables.env',
+        type=str,
+        required=False,
+        default=input_calib_points_dir,
+    )
+
+    parser.add_argument(
+        '-j',
+        '--number_of_jobs',
+        help='OPTIONAL: number of cores/processes (default=4). This is a memory intensive '
+        'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide '
+        'half the amount of available CPUs.',
+        type=int,
+        required=False,
+        default=4,
+    )
+
+    parser.add_argument(
+        '-wbd',
+        '--wbd_layer',
+        help='OPTIONAL: A directory of where a .gpkg file exists, containing HUC boundary polygons. '
+        'Default filepath is specified as the "input_WBD_gdb" variable in src/bash_variables.env',
+        type=str,
+        required=False,
+        default=input_WBD_gdb,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--huc_list',
+        help='OPTIONAL: HUC list - String with comma seperated HUC numbers. *DO NOT include spaces*.'
+        'Provide certain HUCs if points were added/updated only within a few known HUCs.',
+        type=str,
+        required=False,
+        default=None,
+    )
+
+    parser.add_argument(
+        '-a',
+        '--all_hucs',
+        help='OPTIONAL: Provide the -a flag if new calibration points were added to many HUCs which currently'
+        'do not have .parquet files.  All HUC polygons in the file provided to -wbd argument will be checked '
+        'for calibration points contained in <points_data_file_name>. If not provided, either the HUCs in '
+        'the huc_list argument (-u) or the current HUCs with files in <output_dir> will be used.',
+        required=False,
+        action='store_true',
+    )
+
     args = vars(parser.parse_args())
-
 
     create_parquet_files(**args)

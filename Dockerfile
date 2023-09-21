@@ -70,7 +70,7 @@ RUN mkdir -p $workDir
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
-RUN apt update --fix-missing 
+RUN apt update --fix-missing
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1 tmux rsync tzdata
 
 RUN apt auto-remove
@@ -87,7 +87,7 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/tests:$projectDir/tools
+ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/unit_tests:$projectDir/tools
 
 ## install python 3 modules ##
 
@@ -104,7 +104,7 @@ RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off pipenv install --syste
 # Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
 # Whitebox code detects that the engine it there and makes no attempt to update it.
 # We download and unzip it to the same file folder that pip deployed the whitebox library.
-# Whitebox also attempts to always download a folder called testdata regardless of use. 
+# Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
 RUN wbox_path=/usr/local/lib/python3.8/dist-packages/whitebox/ && \
     wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
