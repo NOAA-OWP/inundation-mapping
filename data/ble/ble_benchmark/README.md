@@ -1,12 +1,18 @@
 ## Update BLE benchmark data
-    
-Downloads and preprocesses FEMA [Base Level Engineering](https://webapps.usgs.gov/infrm/estbfe/) (BLE) benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using properties (CRS, resolution) from an input reference dataset. The outputs will be a CSV table of flows with [`feature_id`, `discharge`] columns and a boolean (True/False) TIF inundation extent raster raster with inundated areas (True or 1) and dry areas (False or 0).
 
-As the `reference_raster` is required for preprocessing, it is assumed that `fim_pipeline.py` has previously been run for the HUCs being processed.
-    
+Downloads and preprocesses FEMA [Base Level Engineering](https://webapps.usgs.gov/infrm/estbfe/) (BLE)
+benchmark datasets for purposes of evaluating FIM output. A benchmark dataset will be transformed using
+properties (CRS, resolution) from an input reference dataset. The outputs will be a CSV table of
+flows with [`feature_id`, `discharge`] columns and a boolean (True/False) TIF inundation extent raster
+with inundated areas (True or 1) and dry areas (False or 0).
+
+As the `reference_raster` is required for preprocessing, it is assumed that `fim_pipeline.py` has previously
+been run for the HUCs being processed.
+
 ## Installation
-    
-1. A Dockerfile is provided in the root of the `/foss_fim/data/ble/ble_benchmark` directory. The Docker image can be built using the following command from `/foss_fim/data/ble/ble_benchmark`:
+
+1. A Dockerfile is provided in the root of the `/foss_fim/data/ble/ble_benchmark` directory.
+The Docker image can be built using the following command from `/foss_fim/data/ble/ble_benchmark`:
 ```
 docker build --rm --no-cache --force-rm -t dev:ble_benchmark .
 ```
@@ -56,4 +62,6 @@ python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py \
 
 ## Notes
 
-If this is run without the `-u` option, it will run all HUCs in the input file and download nearly 1TB of data. If this is done, please notify Florence Thompson (fethomps@usgs.gov) so that the download usage can be attributed.
+If this is run without the `-u` option, it will run all HUCs in the input file and download nearly
+1TB of data. If this is done, please notify Florence Thompson (fethomps@usgs.gov) so that the download usage
+can be attributed.

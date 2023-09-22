@@ -1,40 +1,43 @@
 #!/bin/bash -e
 
-# Why is this file here and it appears to be using duplicate export variables?
-# For AWS, we need to make a direct call to this files with two params, hucNumber first, 
-# then the runName same as the -n flag in fim_pipeline and fim_pre_processing.sh
-
-# This file will also catch any and all errors from src/run_unit_wb.sh file, even script aborts from that file
-
-# You really can not call directly to src/run_unit_wb.sh as that file relies on export values from this file.
-# run_unit_wb will futher process branches with its own iterator (parallelization).
-
-# Sample Usage: /foss_fim/fim_process_unit_wb.sh rob_test_wb_1 05030104
-
-## START MESSAGE ##
-
-echo
-
+:
 usage ()
 {
-    echo
-    echo 'Produce FIM hydrofabric datasets for a single unit and branch scale.'
-    echo 'NOTE: fim_pre_processing must have been already run and this tool'
-    echo '      will not include post processing. Only single independent single'
-    echo '      huc and its branches.'    
-    echo 'Usage : There are no arg keys (aka.. no dashes)'
-    echo '        you need the run name first, then the huc.'
-    echo '        Arguments:'
-    echo '           1) run name'
-    echo '           2) HUC number'
-    echo '        Example:'
-    echo '           /foss_fim/fim_process_unit_wb.sh rob_test_1 05030104'
-    echo
+    echo "
+    Why is this file here and it appears to be using duplicate export variables?
+    For portability, we can make a direct call to this file with two parameters: HUC Number & Run Name;
+    which correspond to the -n argument in fim_pipeline.sh and fim_pre_processing.sh.
+
+    This file will catch any and all errors from src/run_unit_wb.sh, even if that script aborts.
+
+    It is not possible to call src/run_unit_wb.sh directly, as it relies on exported values from this file.
+        src/run_unit_wb.sh will futher process branches (src/process_branch.sh) in parallel.
+
+    Usage: ./fim_process_unit_wb.sh <name_of_your_run> <huc8>
+
+    Produce FIM hydrofabric datasets for a single unit and branch scale.
+    - Note: fim_pre_processing.sh must have been already run. This script does
+        not include post processing (see fim_pipeline.sh).
+        Only a single HUC and its branches will be processed.
+
+    Arguments:
+        1) run name
+        2) HUC number
+            Example:
+
+                ./fim_process_unit_wb.sh test_name 05030104
+    "
     exit
 }
 
+# print usage if agrument is '-h' or '--help'
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    usage
+fi
+
 export runName=$1
 export hucNumber=$2
+
 
 # print usage if arguments empty
 if [ "$runName" = "" ]
@@ -99,7 +102,7 @@ for code in "${return_codes[@]}"
 do
     # Make an extra copy of the unit log into a new folder.
 
-    # Note: It was tricky to load in the fim_enum into bash, so we will just 
+    # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
     if [ $code -eq 0 ]; then
         echo
@@ -110,12 +113,12 @@ do
         err_exists=1
     elif [ $code -eq 61 ]; then
         echo
-        echo "***** Unit has no remaining valid flowlines *****"   
-        err_exists=1        
+        echo "***** Unit has no remaining valid flowlines *****"
+        err_exists=1
     else
         echo
         echo "***** An error has occured  *****"
-        err_exists=1        
+        err_exists=1
     fi
 done
 
@@ -129,7 +132,7 @@ mv -f $tempHucDataDir $outputHucDataDir
 find $outputHucDataDir -type d -exec chmod 777 {} +
 
 echo "============================================================================================="
-echo 
+echo
 echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
 echo
 echo "============================================================================================="

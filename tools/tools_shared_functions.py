@@ -1,27 +1,22 @@
 #!/usr/bin/env python3
-
-import os
 import json
+import os
 import pathlib
 from pathlib import Path
 
-import requests
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
 import rasterio
-import rasterio.shutil
-from rasterio.warp import calculate_default_transform, reproject, Resampling
 import rasterio.crs
-from rasterio import features
-from shapely.geometry import shape
-from shapely.geometry import Polygon
-from shapely.geometry import MultiPolygon
-from dotenv import load_dotenv
+import rasterio.shutil
+import requests
 import rioxarray as rxr
 import xarray as xr
+from dotenv import load_dotenv
 from geocube.api.core import make_geocube
 from gval import CatStats
+from rasterio.warp import Resampling, calculate_default_transform, reproject
 
 
 def get_env_paths():
@@ -34,15 +29,15 @@ def get_env_paths():
 
 def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df):
     """
-    This function uses the WRDS API to filter out NWM segments from a list if their stream order is different than
-    the target stream order.
+    This function uses the WRDS API to filter out NWM segments from a list if their stream order is
+    different than the target stream order.
 
     Args:
         unfiltered_segments (list):  A list of NWM feature_id strings.
-        desired_order (str): The desired stream order.
+        desired_order (str):         The desired stream order.
     Returns:
-        filtered_segments (list): A list of NWM feature_id strings, paired down to only those that share the target order.
-
+        filtered_segments (list):    A list of NWM feature_id strings, paired down to only those that
+                                        share the target order.
     """
 
     #    API_BASE_URL, WBD_LAYER = get_env_paths()
@@ -66,8 +61,10 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     return filtered_segments
 
 
-def check_for_regression(stats_json_to_test, previous_version, previous_version_stats_json_path,
-                         regression_test_csv=None):
+
+def check_for_regression(
+    stats_json_to_test, previous_version, previous_version_stats_json_path, regression_test_csv=None
+):
     difference_dict = {}
 
     # Compare stats_csv to previous_version_stats_file
@@ -130,6 +127,7 @@ def compute_contingency_stats_from_rasters(predicted_raster_path, benchmark_rast
         # Write the mode_stats_dictionary to the stats_json.
         if stats_json != None:
             stats_json = os.path.join(os.path.split(stats_csv)[0], file_handle + '_stats.json')
+
             with open(stats_json, "w") as outfile:
                 json.dump(mode_stats_dictionary, outfile)
 
@@ -143,13 +141,15 @@ def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
     This function searches multiple directories and locates previously produced performance statistics.
 
     Args:
-        archive_to_check (str): The directory path to search.
-        magnitude (str): Because a benchmark dataset may have multiple magnitudes, this argument defines
-                               which magnitude is to be used when searching for previous statistics.
+        archive_to_check (str):    The directory path to search.
+        magnitude (str):           Because a benchmark dataset may have multiple magnitudes,
+                                   this argument defines which magnitude is to be used when searching for
+                                   previous statistics.
     Returns:
-        archive_dictionary (dict): A dictionary of available statistics for previous versions of the domain and magnitude.
-                                  {version: {agreement_raster: agreement_raster_path, stats_csv: stats_csv_path, stats_json: stats_json_path}}
-                                  *Will only add the paths to files that exist.
+        archive_dictionary (dict): A dictionary of available statistics for previous versions of the domain
+                                   and magnitude. {version: {agreement_raster: agreement_raster_path,
+                                   stats_csv: stats_csv_path, stats_json: stats_json_path}}
+                                   *Will only add the paths to files that exist.
 
     """
 
@@ -173,23 +173,28 @@ def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
 
 
 def compute_stats_from_contingency_table(true_negatives, false_negatives, false_positives, true_positives, cell_area=None, masked_count=None):
+
     """
-    This generic function takes contingency table metrics as arguments and returns a dictionary of contingency table statistics.
-    Much of the calculations below were taken from older Python files. This is evident in the inconsistent use of case.
+    This generic function takes contingency table metrics as arguments and returns a dictionary of contingency
+    table statistics. Much of the calculations below were taken from older Python files.
+    This is evident in the inconsistent use of case.
 
     Args:
-        true_negatives (int): The true negatives from a contingency table.
-        false_negatives (int): The false negatives from a contingency table.
-        false_positives (int): The false positives from a contingency table.
-        true_positives (int): The true positives from a contingency table.
-        cell_area (float or None): This optional argument allows for area-based statistics to be calculated, in the case that
-                                   contingency table metrics were derived from areal analysis.
+        true_negatives (int):      The true negatives from a contingency table.
+        false_negatives (int):     The false negatives from a contingency table.
+        false_positives (int):     The false positives from a contingency table.
+        true_positives (int):      The true positives from a contingency table.
+        cell_area (float or None): This optional argument allows for area-based statistics to be calculated,
+                                   in the case that contingency table metrics were derived from areal
+                                   analysis.
 
     Returns:
-        stats_dictionary (dict): A dictionary of statistics. Statistic names are keys and statistic values are the values.
-                                 Refer to dictionary definition in bottom of function for statistic names.
+        stats_dictionary (dict):   A dictionary of statistics. Statistic names are keys and statistic values
+                                   are the values. Refer to dictionary definition in bottom of function for
+                                   statistic names.
 
     """
+
 
     import numpy as np
 
@@ -198,6 +203,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     # Basic stats.
 #    Percent_correct = ((true_positives + true_negatives) / total_population) * 100
 #    pod             = true_positives / (true_positives + false_negatives)
+
 
     try:
         FAR = false_positives / (true_positives + false_positives)
@@ -209,10 +215,25 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
     except ZeroDivisionError:
         CSI = "NA"
 
+
     try:
         BIAS = (true_positives + false_positives) / (true_positives + false_negatives)
     except ZeroDivisionError:
         BIAS = "NA"
+
+def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: int) -> dict:
+    """
+    Crosswalks metrics made from GVAL to standard FIM names and conventions
+
+    Parameters
+    ----------
+    metric_df: pd.DataFrame
+        Dataframe for getting
+    cell_area: int
+        Area in meters of squared resolution
+    masked_count: int
+        How many pixels are masked
+    """
 
     # Compute equitable threat score (ETS) / Gilbert Score.
     try:
@@ -228,6 +249,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
         FP_perc = (false_positives / total_population) * 100
         TN_perc = (true_negatives / total_population) * 100
         FN_perc = (false_negatives / total_population) * 100
+
 
     predPositive = true_positives + false_positives
     predNegative = true_negatives + false_negatives
@@ -401,6 +423,7 @@ def compute_stats_from_contingency_table(true_negatives, false_negatives, false_
 def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_raster_path, agreement_raster=None, mask_values=None, mask_dict={}):
     """
     Produces contingency table from 2 rasters and returns it. Also exports an agreement raster classified as:
+
         0: True Negatives
         1: False Negative
         2: False Positive
@@ -428,6 +451,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     benchmark_src = rasterio.open(benchmark_raster_path)
     predicted_src = rasterio.open(predicted_raster_path)
     predicted_array = predicted_src.read(1)
+
 
     benchmark_array_original = benchmark_src.read(1)
 
@@ -465,11 +489,9 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     # Loop through exclusion masks and mask the agreement_array.
     if mask_dict != {}:
         for poly_layer in mask_dict:
-
             operation = mask_dict[poly_layer]['operation']
 
             if operation == 'exclude':
-
                 poly_path = mask_dict[poly_layer]['path']
                 buffer_val = mask_dict[poly_layer]['buffer']
 
@@ -520,6 +542,7 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
             with rasterio.open(agreement_raster, 'w', **profile) as dst:
                 dst.write(agreement_array, 1)
 
+
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
 
@@ -543,17 +566,14 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                                                       'true_positives': int((agreement_array == 3).sum()),
                                                       'masked_count': int((agreement_array == 4).sum()),
                                                       'file_handle': 'total_area'
-
                                                       }})
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
         for poly_layer in mask_dict:
-
             operation = mask_dict[poly_layer]['operation']
 
             if operation == 'include':
-
                 poly_path = mask_dict[poly_layer]['path']
                 buffer_val = mask_dict[poly_layer]['buffer']
 
@@ -607,7 +627,6 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
                         with rasterio.open(layer_agreement_raster, 'w', **profile) as dst:
                             dst.write(temp_agreement_array, 1)
 
-
                     # Store summed pixel counts in dictionary.
                     contingency_table_dictionary.update({poly_handle:{'true_negatives': int((temp_agreement_array == 0).sum()),
                                                                      'false_negatives': int((temp_agreement_array == 1).sum()),
@@ -620,12 +639,14 @@ def get_contingency_table_from_binary_rasters(benchmark_raster_path, predicted_r
     return contingency_table_dictionary
 
 
+
 ########################################################################
 ########################################################################
 # Functions related to categorical fim and ahps evaluation
 ########################################################################
 def get_metadata(metadata_url, select_by, selector, must_include=None, upstream_trace_distance=None,
                  downstream_trace_distance=None):
+
     '''
     Retrieve metadata for a site or list of sites.
 
@@ -755,7 +776,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
         # Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
         # Drop any metadata sites that don't have lat/lon populated
+
         df.dropna(subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'], inplace=True)
+
         # If dataframe still has data
         if not df.empty:
             #            print(df[:5])
@@ -765,6 +788,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
             dict_crs = crs_lookup.get(h_datum, 'EPSG:4269_ Assumed')
             # We want to know what sites were assumed, hence the split.
             src_crs, *message = dict_crs.split('_')
+
             # Convert dataframe to geodataframe using lat/lon (USGS). Add attribute of assigned crs (label ones that are assumed)
             site_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['usgs_preferred_longitude'],
                                                                         df['usgs_preferred_latitude']), crs=src_crs)
@@ -780,12 +804,15 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
     if not retain_attributes:
         metadata_gdf = metadata_gdf[
             ['identifiers_nwm_feature_id', 'identifiers_nws_lid', 'identifiers_usgs_site_code', 'geometry']]
+
     # If a list of attributes is supplied then use that list.
     #    elif isinstance(retain_attributes,list):
     #        metadata_gdf = metadata_gdf[retain_attributes]
     print("Performing spatial and tabular operations on geodataframe...")
     # Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
+
     joined_gdf = gpd.sjoin(metadata_gdf, huc8, how='inner', predicate='intersects', lsuffix='ahps', rsuffix='wbd')
+
     joined_gdf = joined_gdf.drop(columns='index_wbd')
 
     # Remove all Alaska HUCS (Not in NWM v2.0 domain)
@@ -802,10 +829,12 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     '''
     Define the mainstems network. Currently a 4 pass approach that probably needs refined.
     Once a final method is decided the code can be shortened. Passes are:
-        1) Search downstream of gages designated as upstream. This is done to hopefully reduce the issue of mapping starting at the nws_lid. 91038 segments
+        1) Search downstream of gages designated as upstream.
+            This is done to hopefully reduce the issue of mapping starting at the nws_lid. 91038 segments
         2) Search downstream of all LID that are rfc_forecast_point = True. Additional 48,402 segments
         3) Search downstream of all evaluated sites (sites with detailed FIM maps) Additional 222 segments
-        4) Search downstream of all sites in HI/PR (locations have no rfc_forecast_point = True) Additional 408 segments
+        4) Search downstream of all sites in HI/PR (locations have no rfc_forecast_point = True)
+            Additional 408 segments
 
     Parameters
     ----------
@@ -828,9 +857,11 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     select_by = 'tag'
     selector = ['usgs_gages_ii_ref_headwater']
     must_include = None
+
     gages_list, gages_dataframe = get_metadata(metadata_url=metadata_url, select_by=select_by, selector=selector,
                                                must_include=must_include, upstream_trace_distance=None,
                                                downstream_trace_distance=downstream_trace_distance)
+
 
     # Trace downstream from all rfc_forecast_point.
     select_by = 'nws_lid'
@@ -844,6 +875,7 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     select_by = 'nws_lid'
     selector = list_of_sites
     must_include = None
+
     eval_list, eval_dataframe = get_metadata(metadata_url=metadata_url, select_by=select_by, selector=selector,
                                              must_include=must_include, upstream_trace_distance=None,
                                              downstream_trace_distance=downstream_trace_distance)
@@ -959,6 +991,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
             # Get all rating sources and corresponding indexes in a dictionary
             rating_sources = {i.get('calc_flow_values').get('rating_curve').get('source'): index for index, i in
                               enumerate(thresholds_info)}
+
             # Get threshold data use USGS Rating Depot (priority) otherwise NRLDB.
             if 'USGS Rating Depot' in rating_sources:
                 threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
@@ -972,6 +1005,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 stages = threshold_data['stage_values']
                 flows = threshold_data['calc_flow_values']
                 # Add source information to stages and flows. Flows source inside a nested dictionary. Remove key once source assigned to flows.
+
                 stages['source'] = threshold_data.get('metadata').get('threshold_source')
                 flows['source'] = flows.get('rating_curve', {}).get('source')
                 flows.pop('rating_curve', None)
@@ -991,6 +1025,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
 
 
 #        print(response)
+
 
 ########################################################################
 # Function to write flow file
@@ -1018,7 +1053,9 @@ def flow_data(segments, flows, convert_to_cms=True):
     '''
     if convert_to_cms:
         # Convert cfs to cms
+
         cfs_to_cms = 0.3048 ** 3
+
         flows_cms = round(flows * cfs_to_cms, 2)
     else:
         flows_cms = round(flows, 2)
@@ -1065,6 +1102,7 @@ def get_datum(metadata):
     nws_datums['source'] = 'nws_data'
 
     # Get site and datum information from usgs_data sub-dictionary. Use consistent naming between USGS and NWS sources.
+
     usgs_datums = {}
     usgs_datums['nws_lid'] = metadata['identifiers']['nws_lid']
     usgs_datums['usgs_site_code'] = metadata['identifiers']['usgs_site_code']
@@ -1250,31 +1288,36 @@ def get_rating_curve(rating_curve_url, location_ids):
 # Following Functions used for preprocesing of AHPS sites (NWS and USGS)
 ########################################################################
 
+
 #######################################################################
 # Function to return a correct maps.
 ########################################################################
 def select_grids(dataframe, stages, datum88, buffer):
     '''
     Given a DataFrame (in a specific format), and a dictionary of stages, and the datum (in navd88).
+
     loop through the available inundation datasets and find the datasets that are equal to or immediately above the thresholds and only return 1 dataset per threshold (if any).
 
     Parameters
     ----------
     dataframe : DataFrame
-        DataFrame that has to be in a specific format and contains the stages and paths to the inundation datasets.
+        DataFrame that has to be in a specific format and contains the stages and paths to the
+        inundation datasets.
     stages : DICT
         Dictionary of thresholds (key) and stages (values)
     datum88: FLOAT
         The datum associated with the LID that is pre-converted to NAVD88 (if needed)
     buffer: Float
-        Interval which the uppder bound can be assigned. For example, Threshold + buffer = upper bound. Recommended to make buffer 0.1 greater than desired interval as code selects maps < and not <=
+        Interval which the uppder bound can be assigned. For example, Threshold + buffer = upper bound.
+        Recommended to make buffer 0.1 greater than desired interval as code selects maps < and not <=
 
     Returns
     -------
     maps : DICT
         Dictionary of threshold (key) and inundation dataset path (value)
     map_flows: DICT
-        Dictionary of threshold (key) and flows in CFS rounded to the nearest whole number associated with the selected maps (value)
+        Dictionary of threshold (key) and flows in CFS rounded to the nearest whole number associated
+        with the selected maps (value)
 
     '''
     # Define threshold categories
@@ -1300,6 +1343,7 @@ def select_grids(dataframe, stages, datum88, buffer):
                 # Make sure the upper_bound is not greater than the next threshold, if it is then reassign upper_bound.
                 if upper_bound > next_threshold:
                     upper_bound = next_threshold
+
                     # Get the single map which meets the criteria.
                 value = dataframe.query(f'({lower_bound}<=elevation) & (elevation<{upper_bound})')['elevation'].min()
             # For major threshold
@@ -1318,6 +1362,7 @@ def select_grids(dataframe, stages, datum88, buffer):
                     map_flow = 'No Flow'
 
             # If the selected value is not a number (or interpolated flow is nan caused by elevation of map which is beyond rating curve range), then map_path and map_flows are both set to 'No Map'.
+
             else:
                 map_path = 'No Map'
                 map_flow = 'No Map'
@@ -1344,7 +1389,9 @@ def select_grids(dataframe, stages, datum88, buffer):
 #######################################################################
 def process_extent(extent, profile, output_raster=False):
     '''
+
     Convert raster to feature (using raster_to_feature), the footprint is used so all raster values are set to 1 where there is data.
+
     fill all donut holes in resulting feature.
     Filled geometry is then converted back to raster using same raster properties as input profile.
     Output raster will have be encoded as follows:
@@ -1421,7 +1468,8 @@ def raster_to_feature(grid, profile_override=False, footprint_only=False):
     profile_override: rasterio Profile
         Default is False, If a rasterio Profile is supplied, it will dictate the transform and crs.
     footprint_only: BOOL
-        If true, dataset will be divided by itself to remove all unique values. If False, all values in grid will be carried through on raster to feature conversion. default = False
+        If true, dataset will be divided by itself to remove all unique values. If False, all values in
+        grid will be carried through on raster to feature conversion. default = False
 
     Returns
     -------
@@ -1453,6 +1501,7 @@ def raster_to_feature(grid, profile_override=False, footprint_only=False):
         data[msk == 255] = 1
 
         # Convert grid to feature
+
     spatial = []
     values = []
     for geom, val in rasterio.features.shapes(data, mask=msk, transform=data_transform):
@@ -1508,6 +1557,7 @@ def process_grid(benchmark, benchmark_profile, domain, domain_profile, reference
     # Create empty array with same dimensions as domain
     benchmark_fit_to_domain = np.empty(domain_arr.shape)
     # Make benchmark have same footprint as domain (Assume domain has same CRS as benchmark)
+
     reproject(benchmark_arr,
               destination=benchmark_fit_to_domain,
               src_transform=benchmark.transform,
@@ -1580,6 +1630,7 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
     for idx, wind in agreement_raster.block_windows(1):
         window_data = agreement_raster.read(1, window=wind)
         values, counts = np.unique(window_data, return_counts=True)
+
         for val, cts in values_counts:
             totals[val] += cts
 
@@ -1587,8 +1638,7 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
     for digit, count in totals.items():
         results[agreement_encoding_digits_to_names[digit]] = count
 
-    return (results)
-
+    return results
 
 # evaluation metric fucntions
 
