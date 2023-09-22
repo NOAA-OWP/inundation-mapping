@@ -12,23 +12,20 @@ repos:
         -   id: check-added-large-files
             args: ['--maxkb=5000']
         -   id: check-json
+
 -   repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:
         -   id: flake8
             entry: pflake8
             additional_dependencies: [pyproject-flake8]
+
 -   repo: https://github.com/psf/black
     rev: 23.7.0
     hooks:
         -   id: black
             args: ['--line-length=110', '--skip-magic-trailing-comma', '--skip-string-normalization']
-            exclude: |
-                (?x)^(
-                    src/add_crosswalk.py|
-                    src/bathymetric_adjustment.py|
-                    src/identify_src_bankfull.py
-                )$
+
 -   repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:

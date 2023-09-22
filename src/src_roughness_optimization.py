@@ -388,9 +388,7 @@ def update_rating_curve(
                 df_nmerge[calb_type] = np.select(conditions, choices, default=df_nmerge['hydroid_calb_coef'])
                 df_nmerge['obs_source'] = np.where(df_nmerge[calb_type].notnull(), source_tag, pd.NA)
                 df_nmerge = df_nmerge.drop(
-                    ['feature_id', 'NextDownID', 'LENGTHKM', 'LakeID', 'order_'],
-                    axis=1,
-                    errors='ignore',
+                    ['feature_id', 'NextDownID', 'LENGTHKM', 'LakeID', 'order_'], axis=1, errors='ignore'
                 )  # drop these columns to avoid duplicates where merging with the full hydroTable df
 
                 ## Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new
@@ -433,9 +431,7 @@ def update_rating_curve(
                         'src_calibrated' in input_catchments.columns
                     ):  # check if this attribute already exists and drop if needed
                         input_catchments = input_catchments.drop(
-                            ['src_calibrated', 'obs_source', 'calb_coef_final'],
-                            axis=1,
-                            errors='ignore',
+                            ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
                         )
                     df_nmerge['src_calibrated'] = np.where(
                         df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
@@ -615,7 +611,9 @@ def branch_network_tracer(df_input_htable):
                         # starting hydroid
                         continue
                     Q.append(nextid)
-    df_input_htable = df_input_htable.reset_index(drop=True)  # reset index (previously using hydroid as index)
+    df_input_htable = df_input_htable.reset_index(
+        drop=True
+    )  # reset index (previously using hydroid as index)
     # sort the dataframe by branch_id and then by route_count
     # (need this ordered to ensure upstream to downstream ranking for each branch)
     df_input_htable = df_input_htable.sort_values(['branch_id', 'route_count'])

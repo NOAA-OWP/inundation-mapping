@@ -186,8 +186,7 @@ def variable_mannings_calc(args):
 
             ## drop the previously modified discharge column to be replaced with updated version
             df_htable = df_htable.drop(
-                ['vmann_on', 'discharge_cms', 'ManningN', 'vmann_discharge_cms', 'vmann_ManningN'],
-                axis=1,
+                ['vmann_on', 'discharge_cms', 'ManningN', 'vmann_discharge_cms', 'vmann_ManningN'], axis=1
             )
             df_htable = df_htable.merge(
                 df_src_trim, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
