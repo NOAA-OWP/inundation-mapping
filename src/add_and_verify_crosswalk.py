@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import pandas as pd
 import geopandas as gpd
 from rasterstats import zonal_stats
 import argparse
@@ -181,7 +182,6 @@ def verify_crosswalk(flows, nwm_streams):
 
     # Compute the number of intersections between the NWM and DEM-derived flowlines
     streams = nwm_streams
-    n_intersects = 0
     xwalks = []
     intersects = flows.sjoin(streams)
     for idx in intersects.index:
@@ -207,16 +207,28 @@ def verify_crosswalk(flows, nwm_streams):
             else:
                 intersect_points = len(intersect.geometry[0].geoms)
 
-            if intersect_points > n_intersects:
-                n_intersects = intersect_points
+            xwalks.append(
+                [
+                    flows_idx,
+                    int(flows.loc[flows['HydroID'] == flows_idx, 'feature_id'].iloc[0]),
+                    streams_idx,
+                    intersect_points,
+                ]
+            )
 
-            if n_intersects > 0:
-                xwalks.append((flows_idx, streams_idx, intersect_points))
-
-                print(f'Found {intersect_points} intersections for {flows_idx} and {streams_idx}')
+            print(f'Found {intersect_points} intersections for {flows_idx} and {streams_idx}')
 
     # Get the maximum number of intersections for each flowline
-    xwalks = np.array(xwalks)
+    xwalks = pd.DataFrame(xwalks, columns=['HydroID', 'feature_id', 'feature_id_right', 'intersect_points'])
+    xwalks = xwalks.drop_duplicates()
+    xwalks['match'] = xwalks[1] == xwalks[2]
+
+    xwalks_groupby = xwalks[[0, 3]].groupby(0).max()
+
+    xwalks = xwalks.merge(xwalks_groupby, on=0)
+    xwalks['max'] = xwalks['3_x'] == xwalks['3_y']
+
+    xwalks['crosswalk'] = np.where(xwalks['match'] == xwalks['max'], True, False)
 
     return flows
 
