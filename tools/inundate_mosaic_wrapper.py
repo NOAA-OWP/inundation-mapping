@@ -1,6 +1,7 @@
 import argparse
 import errno
 import os
+import string
 import sys
 from timeit import default_timer as timer
 
@@ -70,6 +71,9 @@ def produce_mosaicked_inundation(
     if not os.path.exists(hydrofabric_dir):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
+    # If the "hucs" argument is really one huc, convert it to a list
+    if type(hucs) == str:
+        hucs = [hucs]
     # Check that huc folder exists in the hydrofabric_dir.
     for huc in hucs:
         if not os.path.exists(os.path.join(hydrofabric_dir, huc)):

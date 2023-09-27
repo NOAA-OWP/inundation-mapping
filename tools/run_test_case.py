@@ -7,7 +7,7 @@ import shutil
 import sys
 
 import pandas as pd
-from inundate_gms import Inundate_gms
+from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from inundation import inundate
 from mosaic_inundation import Mosaic_inundation
 from tools_shared_functions import compute_contingency_stats_from_rasters
@@ -331,34 +331,16 @@ class Test_Case(Benchmark):
 
         # Inundate REM
         if not compute_only:  # composite alpha tests don't need to be inundated
-            if model == 'GMS':
-                fh.vprint("Begin FIM4 Inundation", verbose)
-                map_file = Inundate_gms(
-                    hydrofabric_dir=os.path.dirname(self.fim_dir),
-                    forecast=benchmark_flows,
-                    num_workers=gms_workers,
-                    hucs=self.huc,
+            if model == "GMS":
+                produce_mosaicked_inundation(
+                    os.path.dirname(self.fim_dir),
+                    self.huc,
+                    benchmark_flows,
                     inundation_raster=predicted_raster_path,
-                    inundation_polygon=None,
-                    depths_raster=None,
-                    verbose=verbose,
-                    log_file=None,
-                    output_fileNames=None,
-                )
-                # if (len(map_file) > 0):
-                fh.vprint("Begin FIM4 Mosaic", verbose)
-                Mosaic_inundation(
-                    map_file,
-                    mosaic_attribute='inundation_rasters',
-                    mosaic_output=predicted_raster_path,
-                    mask=os.path.join(self.fim_dir, 'wbd.gpkg'),
-                    unit_attribute_name='huc8',
-                    nodata=elev_raster_ndv,
-                    workers=1,
-                    remove_inputs=True,
-                    subset=None,
+                    mask=os.path.join(self.fim_dir, "wbd.gpkg"),
                     verbose=verbose,
                 )
+
             # FIM v3 and before
             else:
                 fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
