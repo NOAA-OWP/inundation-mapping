@@ -13,7 +13,6 @@ from utils.fim_enums import FIM_exit_codes
 def Derive_level_paths(
     in_stream_network,
     wbd,
-    buffer_wbd_streams,
     out_stream_network,
     branch_id_attribute,
     out_stream_network_dissolved=None,
@@ -152,9 +151,7 @@ def Derive_level_paths(
     # derive headwaters
     if headwaters_outfile is not None:
         headwaters = stream_network.derive_headwater_points_with_inlets(
-            fromNode_attribute=fromNode_attribute,
-            inlets_attribute=inlets_attribute,
-            outlet_linestring_index=outlet_linestring_index,
+            inlets_attribute=inlets_attribute, outlet_linestring_index=outlet_linestring_index
         )
         # headwaters write
         headwaters.to_file(headwaters_outfile, index=False, driver="GPKG")
@@ -181,11 +178,9 @@ def Derive_level_paths(
         stream_network = stream_network.remove_branches_in_waterbodies(
             waterbodies=waterbodies, out_vector_files=out_stream_network_dissolved, verbose=False
         )
+
         stream_network = stream_network.select_branches_intersecting_huc(
-            wbd=wbd,
-            buffer_wbd_streams=buffer_wbd_streams,
-            out_vector_files=out_stream_network_dissolved,
-            verbose=False,
+            wbd=wbd, out_vector_files=out_stream_network_dissolved, verbose=False
         )
 
     if branch_inlets_outfile is not None:
@@ -201,9 +196,6 @@ def Derive_level_paths(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create stream network level paths")
     parser.add_argument("-i", "--in-stream-network", help="Input stream network", required=True)
-    parser.add_argument(
-        "-s", "--buffer-wbd-streams", help="Input wbd buffer for stream network", required=True
-    )
     parser.add_argument(
         "-wbd", "--wbd", help="Input watershed boundary (HUC) dataset", required=True, default=None
     )

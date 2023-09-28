@@ -3,7 +3,6 @@
 		"outputDestDir": "/data/outputs/unit_test_data/",
 		"in_stream_network": "/data/outputs/unit_test_data/05030104/nwm_subset_streams.gpkg",
 		"wbd": "/data/outputs/unit_test_data/05030104/wbd.gpkg",
-		"buffer_wbd_streams": "/data/outputs/unit_test_data/05030104/wbd_buffered_streams.gpkg",
 		"out_stream_network": "/data/outputs/unit_test_data/05030104/nwm_subset_streams_levelPaths.gpkg",
 		"branch_id_attribute": "levpa_id",
 		"out_stream_network_dissolved": "/data/outputs/unit_test_data/05030104/nwm_subset_streams_levelPaths.gpkg",
