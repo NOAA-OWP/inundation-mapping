@@ -5,6 +5,7 @@ import sys
 
 import geopandas as gpd
 import pandas as pd
+import rasterio as rio
 from shapely.geometry import MultiPolygon, Polygon
 
 from utils.shared_functions import getDriver, mem_profile
@@ -18,7 +19,9 @@ def subset_vector_layers(
     hucCode,
     subset_nwm_headwaters,
     wbd_buffer_filename,
+    wbd_streams_buffer_filename,
     wbd_filename,
+    dem_filename,
     dem_domain,
     nwm_lakes,
     nwm_catchments,
@@ -35,6 +38,10 @@ def subset_vector_layers(
     levee_protected_areas,
     subset_levee_protected_areas,
 ):
+    print("Getting Cell Size", flush=True)
+    with rio.open(dem_filename) as dem_raster:
+        dem_cellsize = max(dem_raster.res)
+
     wbd = gpd.read_file(wbd_filename)
     dem_domain = gpd.read_file(dem_domain)
 
@@ -45,10 +52,20 @@ def subset_vector_layers(
     wbd_buffer = gpd.clip(wbd_buffer, dem_domain)
 
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
+    wbd_streams_buffer = wbd_buffer.copy()
+    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-3 * dem_cellsize, resolution=32)
+
     wbd_buffer = wbd_buffer[['geometry']]
+    wbd_streams_buffer = wbd_streams_buffer[['geometry']]
     wbd_buffer.to_file(
         wbd_buffer_filename,
         driver=getDriver(wbd_buffer_filename),
+        index=False,
+        crs=DEFAULT_FIM_PROJECTION_CRS,
+    )
+    wbd_streams_buffer.to_file(
+        wbd_streams_buffer_filename,
+        driver=getDriver(wbd_streams_buffer_filename),
         index=False,
         crs=DEFAULT_FIM_PROJECTION_CRS,
     )
@@ -115,7 +132,7 @@ def subset_vector_layers(
 
     # Subset NWM headwaters
     print("Subsetting NWM Headwater Points", flush=True)
-    nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd)
+    nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer)
 
     if len(nwm_headwaters) > 0:
         nwm_headwaters.to_file(
@@ -157,7 +174,7 @@ def subset_vector_layers(
     nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
 
     if len(nwm_streams) > 0:
-        nwm_streams_nonoutlets = gpd.clip(nwm_streams_nonoutlets, wbd)
+        nwm_streams_nonoutlets = gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer)
 
         nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
 
@@ -184,7 +201,11 @@ if __name__ == '__main__':
         '-e', '--subset-nwm-headwaters', help='NWM headwaters subset', required=True, default=None
     )
     parser.add_argument('-f', '--wbd_buffer_filename', help='Buffered HUC boundary', required=True)
+    parser.add_argument(
+        '-s', '--wbd_streams_buffer_filename', help='Buffered HUC boundary (streams)', required=True
+    )
     parser.add_argument('-g', '--wbd-filename', help='HUC boundary', required=True)
+    parser.add_argument('-i', '--dem-filename', help='DEM filename', required=True)
     parser.add_argument('-j', '--dem-domain', help='DEM domain polygon', required=True)
     parser.add_argument('-l', '--nwm-lakes', help='NWM Lakes', required=True)
     parser.add_argument('-m', '--nwm-catchments', help='NWM catchments', required=True)

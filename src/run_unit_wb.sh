@@ -54,7 +54,9 @@ cmd_args+=" -b $tempHucDataDir/nwm_subset_streams.gpkg"
 cmd_args+=" -d $hucNumber"
 cmd_args+=" -e $tempHucDataDir/nwm_headwater_points_subset.gpkg"
 cmd_args+=" -f $tempHucDataDir/wbd_buffered.gpkg"
+cmd_args+=" -s $tempHucDataDir/wbd_buffered_streams.gpkg"
 cmd_args+=" -g $tempHucDataDir/wbd.gpkg"
+cmd_args+=" -i $input_DEM"
 cmd_args+=" -j $input_DEM_domain"
 cmd_args+=" -l $input_nwm_lakes"
 cmd_args+=" -m $input_nwm_catchments"
@@ -89,6 +91,7 @@ echo -e $startDiv"Generating Level Paths for $hucNumber"
 date -u
 Tstart
 $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
+    -s $tempHucDataDir/wbd_buffered_streams.gpkg \
     -b $branch_id_attribute \
     -r "ID" \
     -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \

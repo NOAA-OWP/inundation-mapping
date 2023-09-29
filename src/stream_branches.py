@@ -468,7 +468,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return feature_inlet_points_gdf
 
-    def derive_headwater_points_with_inlets(self, inlets_attribute="inlet_id", outlet_linestring_index=0):
+    def derive_headwater_points_with_inlets(
+        self, inlets_attribute="inlet_id", fromNode_attribute="FromNode", outlet_linestring_index=0
+    ):
         """Derives headwater points file given inlets"""
 
         # get inlet linestring index
@@ -668,7 +670,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
-    def select_branches_intersecting_huc(self, wbd, out_vector_files, verbose=False):
+    def select_branches_intersecting_huc(self, wbd, buffer_wbd_streams, out_vector_files, verbose=False):
         """
         Select branches that intersect the HUC
         """
@@ -681,8 +683,9 @@ class StreamNetwork(gpd.GeoDataFrame):
         values_excluded = self.values_excluded
 
         # Check if required input files exist
-        if not isfile(wbd):
-            raise FileNotFoundError(f"{wbd} does not exist")
+        for filename in [buffer_wbd_streams, wbd]:
+            if not isfile(buffer_wbd_streams):
+                raise FileNotFoundError(f"{filename} does not exist")
 
         # load waterbodies
         if isinstance(wbd, str):
