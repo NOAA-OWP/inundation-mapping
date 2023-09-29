@@ -86,6 +86,14 @@ ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS \
     $inputsDir/wbd/WBD_National.gpkg WBDHU8
 Tcount
 
+# Exit here to see what we get in each huc folder....
+# REMOVE BELOW BEFORE SUBMITTING PR!!
+exit 0
+
+## Copy HUC's pre-clipped wbd8_clp.gpkg from $inputsDir
+cp -r $pre_clip_huc_dir/$hucNumber $tempHucDataDir
+
+
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"
 date -u
