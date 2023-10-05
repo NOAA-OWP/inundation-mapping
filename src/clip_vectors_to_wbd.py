@@ -53,7 +53,7 @@ def subset_vector_layers(
 
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
     wbd_streams_buffer = wbd_buffer.copy()
-    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-3 * dem_cellsize, resolution=32)
+    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-8 * dem_cellsize, resolution=32)
 
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]

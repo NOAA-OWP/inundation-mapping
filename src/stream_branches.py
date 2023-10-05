@@ -468,9 +468,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return feature_inlet_points_gdf
 
-    def derive_headwater_points_with_inlets(
-        self, inlets_attribute="inlet_id", fromNode_attribute="FromNode", outlet_linestring_index=0
-    ):
+    def derive_headwater_points_with_inlets(self, inlets_attribute="inlet_id", outlet_linestring_index=0):
         """Derives headwater points file given inlets"""
 
         # get inlet linestring index
