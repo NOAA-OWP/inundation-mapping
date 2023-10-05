@@ -126,6 +126,7 @@ date -u
 Tstart
 $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+    -c $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -w $tempHucDataDir/wbd8_clp.gpkg -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
