@@ -118,6 +118,9 @@ def compute_contingency_stats_from_rasters(
         statistic values are the values.
     """
 
+    # print('candidate', predicted_raster_path)
+    # print('benchmark', benchmark_raster_path)
+
     # Get statistics table from two rasters.
     stats_dictionary = get_stats_table_from_binary_rasters(
         benchmark_raster_path, predicted_raster_path, agreement_raster, mask_dict=mask_dict
