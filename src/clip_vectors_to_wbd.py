@@ -174,7 +174,19 @@ def subset_vector_layers(
     nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
 
     if len(nwm_streams) > 0:
-        nwm_streams_nonoutlets = gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer)
+        nwm_streams_nonoutlets = (
+            gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer).explode(index_parts=True).reset_index()
+        )
+
+        max_parts = nwm_streams_nonoutlets[['level_0', 'level_1']].groupby('level_0').max()
+
+        nwm_streams_nonoutlets = nwm_streams_nonoutlets.merge(max_parts, on='level_0', suffixes=('', '_max'))
+
+        nwm_streams_nonoutlets = nwm_streams_nonoutlets[
+            nwm_streams_nonoutlets['level_1'] == nwm_streams_nonoutlets['level_1_max']
+        ]
+
+        nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
 
         nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
 
