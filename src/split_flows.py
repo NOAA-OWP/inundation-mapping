@@ -3,44 +3,52 @@
 '''
 Description
 
-INPUTS
-    flows_filename: 
+    ARGUMENTS
 
-    dem_filename: 
+        flows_filename: 
+            Filename of an existing input file. <current_branch_folder>/demDerived_reaches_<current_branch_id>.shp
+        
+        dem_filename: 
+            Filename of an existing input file. <current_branch_folder>/dem_thalwegCond_<current_branch_id>.tif 
+        
+        catchment_pixels_filename: 
+            Filename of an existing input file. <current_branch_folder>/gw_catchments_pixels_<current_branch_id>.tif
+        
+        levelpaths_filename: 
+            Filename of an existing input file. <HUC_data_folder>/nwm_subset_streams_levelPaths_dissolved.gpkg
+        
+        split_flows_filename: 
+            Filename of a split_flows.py output product. <current_branch_folder>/demDerived_reaches_split_<current_branch_id>.gpkg
+        
+        split_points_filename: 
+            Filename of a split_flows.py output product. <current_branch_folder>/demDerived_reaches_split_points_<current_branch_id>.gpkg
+        
+        wbd8_clp_filename: 
+            <HUC_data_folder>/wbd8_clp.gpkg 
+        
+        lakes_filename: 
+            <HUC_data_folder>/nwm_lakes_proj_subset.gpkg 
+        
+        nwm_streams_filename: 
 
-    catchment_pixels_filename: 
-
-    levelpaths_filename: 
-
-    split_flows_filename: 
-
-    split_points_filename: 
-
-    wbd8_clp_filename: 
-
-    lakes_filename: 
-
-    nwm_streams_filename: 
-
-    max_length: 
-
-    slope_min: 
-
-    lakes_buffer_input: 
-
-OUTPUTS
-    split flows file (saved to split_flows_filename)
-
-    split points file (saved to split_points_filename)
+        
+        max_length: 
+            Constant that describes ___. 
+        
+        slope_min: 
+            Constant that describes ___. 
+        
+        lakes_buffer_input: 
+            Constant that describes ___. 
 
 
-PROCESSING STEPS
+        PROCESSING STEPS
 
-    1) Split stream segments based on lake boundaries and input threshold distance
-    2) Calculate channel slope, manning's n, and LengthKm for each segment
-    3) Create unique ids using HUC8 boundaries (and unique FIM_ID column)
-    4) Create network traversal attribute columns (To_Node, From_Node, NextDownID)
-    5) Create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
+        1) Split stream segments based on lake boundaries and input threshold distance
+        2) Calculate channel slope, manning's n, and LengthKm for each segment
+        3) Create unique ids using HUC8 boundaries (and unique FIM_ID column)
+        4) Create network traversal attribute columns (To_Node, From_Node, NextDownID)
+        5) Create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
 
 '''
 
@@ -82,10 +90,11 @@ def split_flows(
     lakes_buffer_input,
 ):
     # --------------------------------------------------------------
-    # Define additional functions
+    # Define functions
 
     def snap_and_trim_flow(snapped_point, flows):
-        # Find nearest flow line
+
+        # Find the flowline nearest to the snapped point (if there's multiple flowlines)
         if len(flows) > 1:
             sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows, max_distance=100)
             if sjoin_nearest.empty:
@@ -106,19 +115,22 @@ def split_flows(
         snapped_point['geometry'] = flow.interpolate(flow.project(snapped_point.geometry))[0]
 
         # Trim flows to snapped point
-        # buffer here because python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
         trimmed_line = shapely_ops_split(
             flow.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1)
         )
+        # Note: Buffering is to account for python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
+
         # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
         # Note to dear reader: last here is really the most upstream segment (see caveats above).
         # When we split we should get 3 segments, the most downstream one
         # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.
         # We want that last one which is why we trimmed_line[len(trimmed_line)-1]
+
         last_line_segment = pd.DataFrame(
             {'id': ['first'], 'geometry': [trimmed_line.geoms[len(trimmed_line.geoms) - 1].wkt]}
         )
-        # when we update geopandas verison: last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment)
+
+        # Note: When we update geopandas verison: last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment)
         last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads)
         last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flow.crs)
 
@@ -132,6 +144,72 @@ def split_flows(
             flows['geometry'] = flow_geometry
 
         return flows
+
+    # Check whether the catchment is substantially larger than other catchments (backpool error criteria 1)
+    def catch_catchment_size_outliers(catchments_geom): 
+
+        # Quantify the amount of pixels in each catchment
+        unique_values = np.unique(catchments_geom)
+        value_counts = Counter(catchments_geom.ravel())
+
+        vals, counts = [], []
+        for value in unique_values:
+            vals.append(value)
+            counts.append(value_counts[value])
+
+        # Create a structured array from the two lists and convert to pandas dataframe
+        catchments_array = np.array(list(zip(vals, counts)), dtype=[('catchment_id', int), ('counts', int)])
+        catchments_df = pd.DataFrame(catchments_array)
+
+        # Remove row for a catchment_id of zero
+        catchments_df = catchments_df[catchments_df['catchment_id']>0]
+
+        # Calculate the mean and standard deviation of the 'counts' column
+        mean_counts = catchments_df['counts'].mean()
+        std_dev_counts = catchments_df['counts'].std()
+
+        # Define the threshold for outliers (2 standard deviations from the mean)
+        threshold = 2 * std_dev_counts
+
+        # Create a new column 'outlier' with True for outliers and False for non-outliers
+        catchments_df['outlier'] = (abs(catchments_df['counts'] - mean_counts) > threshold)
+
+        # Quantify outliers
+        num_outlier = catchments_df['outlier'].value_counts()[True]
+
+        if num_outlier == 0:
+            print('No outliers detected in catchment size.') ## debug
+            flagged_catchment = False
+        elif num_outlier >= 1:
+            print(f'{num_outlier} outlier catchment(s) found in catchment size.') ## debug
+            flagged_catchment = True
+        else:
+            print('WARNING: Unable to check outlier count.') ## debug
+
+        print(f'Outlier catchments present? {flagged_catchment}') ## debug
+
+        # Make a list of outlier catchment ID's
+        outlier_catchment_ids = catchments_df[catchments_df['outlier']==True]['catchment_id'].tolist()
+
+        return flagged_catchment, outlier_catchment_ids
+
+    # Extract raster catchment ID for the last point
+    def get_raster_value(point):
+        row, col = src.index(point.geometry.x, point.geometry.y)
+        value = catchments_geom[row, col]
+        return value
+
+    # Test whether the catchment occurs at the outlet (backpool error criteria 2)
+    def check_if_ID_is_outlet(snapped_point, outlier_catchment_ids): 
+
+        # Get the catchment ID of the snapped_point
+        snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
+
+        # Check if values in 'catchment_id' column of the snapped point are in outlier_catchments_df
+        outlet_flag = snapped_point['catchment_id'].isin(outlier_catchment_ids)
+        outlet_flag = any(outlet_flag)
+
+        return outlet_flag
 
     # --------------------------------------------------------------
     # Read in data and set constants
@@ -151,6 +229,9 @@ def split_flows(
     wbd8 = gpd.read_file(wbd8_clp_filename)
     dem = rasterio.open(dem_filename, 'r')
 
+    with rasterio.open(catchment_pixels_filename) as src:
+        catchments_geom = src.read(1) 
+
     if isfile(lakes_filename):
         lakes = gpd.read_file(lakes_filename)
     else:
@@ -162,12 +243,13 @@ def split_flows(
     # Note: We don't index parts because the new index format causes problems later on
     flows = flows.explode(index_parts=False)
 
-    # temp
-    flows = flows.to_crs(wbd8.crs)
+    flows = flows.to_crs(wbd8.crs) # Note: temporary solution
 
     split_flows = []
     slopes = []
     hydro_id = 'HydroID'
+
+    # backpool_error_log = [] ## debug -- TODO: Remove once the issue is well-tested (ED)
 
     # --------------------------------------------------------------
     # Trim DEM streams to NWM branch terminus
@@ -181,11 +263,10 @@ def split_flows(
     # If it's NOT branch 0: Dissolve levelpath
     if 'levpa_id' in nwm_streams.columns:
         if len(nwm_streams) > 1:
-            # Dissolve the linestring (TODO: How much faith should I hold that these are digitized with flow?)
+            # Dissolve the linestring TODO: How much faith should I hold that these are digitized with flow? (JC)
             linestring_geo = ops.linemerge(nwm_streams.dissolve(by='levpa_id').iloc[0]['geometry'])
         else:
             linestring_geo = nwm_streams.iloc[0]['geometry']
-
 
         # If the linesting is in MultiLineString format, get the last LineString
         if linestring_geo.geom_type == 'MultiLineString':
@@ -197,13 +278,40 @@ def split_flows(
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-        # Snap and trim the flow (line?) to the snapped point ## TODO: Double-check that this comment is correct (ED)
+        # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
+        flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
+
+        # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
+        if flagged_catchment == True:
+            print('Flagged catchment(s) detected. Testing for second criteria.') ## debug
+            outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
+
+        # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
+        if outlet_flag == True:
+            print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
+
+            # Initialize snapped_point object (so we can make a new one)
+            snapped_point=[]
+
+            # Identify the penultimate vertex (second-to-most downstream, should be second-to-last), transform into geodataframe
+            penultimate_nwm_point = []
+            second_to_last = Point(linestring_geo.coords[-2])
+            penultimate_nwm_point.append({'ID': 'terminal', 'geometry': second_to_last})
+            snapped_point = gpd.GeoDataFrame(penultimate_nwm_point).set_crs(nwm_streams.crs)
+
+            # Get the catchment ID of the new snapped_point
+            snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
+
+            # Log instances of the backpool error (TODO: Remove this once this issue has been thoroughly tested) ED
+            # backpool_error_log.append(levpa_id)
+
+        # Snap and trim the flowline to the snapped point 
         flows = snap_and_trim_flow(snapped_point, flows)
 
-        print('snapped_point: ') ## debug
-        print(snapped_point) ## debug
-        print('flows: ') ## debug
-        print(flows) ## debug
+        # print('snapped_point: ') ## debug
+        # print(snapped_point) ## debug
+        # print('flows: ') ## debug
+        # print(flows) ## debug
 
     # If it is branch 0: Loop over NWM terminal segments
     else:
@@ -218,7 +326,7 @@ def split_flows(
                 terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
                 snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-                # Snap and trim the flow (line?) to the snapped point ## TODO: Double-check that this comment is correct (ED)
+                # Snap and trim the flowline to the snapped point
                 flows = snap_and_trim_flow(snapped_point, flows)
 
     # Split stream segments at HUC8 boundaries
@@ -234,7 +342,7 @@ def split_flows(
     if len(flows) == 0:
         # Note: This is not an exception, but a custom exit code that can be trapped
         print("No relevant streams within HUC boundaries.")
-        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
     
     # Check for lake features and split flows at lake boundaries, if needed
     if lakes is not None and len(flows) > 0:
@@ -362,7 +470,7 @@ def split_flows(
         split_flows_gdf['LakeID'] = -999
 
     # Drop duplicate stream segments
-    split_flows_gdf = split_flows_gdf.drop_duplicates() # TODO: Need to figure out why so many duplicate stream segments for 04010101 FR
+    split_flows_gdf = split_flows_gdf.drop_duplicates() # TODO: Need to figure out why so many duplicate stream segments for 04010101 FR (JC)
 
     # Create IDs and Network Traversal Columns
     addattributes = build_stream_traversal.build_stream_traversal_columns()
@@ -384,7 +492,6 @@ def split_flows(
         # Get the points of the linestring geometry
         lineString = segment.geometry
 
-        ## TODO: Figure out what's going on here (ED)
         for point in zip(*lineString.coords.xy):
             if point in split_points:
                 if segment.NextDownID == split_points[point]:
@@ -402,119 +509,6 @@ def split_flows(
     )
 
     # --------------------------------------------------------------
-    # Check for branch outlet backpool error using two criteria (in response to issue #985)
-
-    # Backpool error criteria 1: Whether the catchment is substantially larger than other catchments
-
-    with rasterio.open(catchment_pixels_filename) as src:
-        catchments_geom = src.read(1) 
-
-    def catch_catchment_size_outliers(catchments_geom): ## TODO: Move the function definition up after I've made sure this works
-
-        # Quantify the amount of pixels in each catchment
-        unique_values = np.unique(catchments_geom)
-        value_counts = Counter(catchments_geom.ravel())
-
-        vals, counts = [], []
-        for value in unique_values:
-            vals.append(value)
-            counts.append(value_counts[value])
-
-        # Create a structured array from the two lists and convert to pandas dataframe
-        catchments_array = np.array(list(zip(vals, counts)), dtype=[('catchment_id', int), ('counts', int)])
-        catchments_df = pd.DataFrame(catchments_array)
-
-        # Remove row for a catchment_id of zero
-        catchments_df = catchments_df[catchments_df['catchment_id']>0]
-
-        # Calculate the mean and standard deviation of the 'counts' column
-        mean_counts = catchments_df['counts'].mean()
-        std_dev_counts = catchments_df['counts'].std()
-
-        # Define the threshold for outliers (2 standard deviations from the mean)
-        threshold = 2 * std_dev_counts ## TODO: Finetune threshold (should select ID 2404)
-
-        # Create a new column 'outlier' with True for outliers and False for non-outliers
-        catchments_df['outlier'] = (abs(catchments_df['counts'] - mean_counts) > threshold)
-
-        # Quantify outliers
-        num_outlier = catchments_df['outlier'].value_counts()[True]
-
-        if num_outlier == 0:
-            print('No outliers detected in catchment size.') ## debug
-            flagged_catchment = False
-        elif num_outlier >= 1:
-            print(f'{num_outlier} outlier catchment(s) found in catchment size.') ## debug
-            flagged_catchment = True
-        else:
-            print('WARNING: Unable to check outlier count.') ## debug
-
-        print(f'Outlier catchments present? {flagged_catchment}') ## debug
-        # print(catchments_df[catchments_df['outlier']==True]) ## debug
-
-        # Make a list of outlier catchment ID's
-        outlier_catchment_ids = catchments_df[catchments_df['outlier']==True]['catchment_id'].tolist()
-
-        return flagged_catchment, outlier_catchment_ids
-
-
-    flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
-
-
-    # Criteria 2: Whether any of the outlier catchments contain the outlet point
-
-    # If there are outlier catchments, test whether the catchment occurs at the outlet
-    if flagged_catchment == True:
-
-        print('Flagged catchment(s) detected. Testing for second criteria.') ## debug
-
-        # Extract raster catchment ID for the last point ## TODO: Move to functions section?
-        def get_raster_value(point):
-            row, col = src.index(point.geometry.x, point.geometry.y)
-            value = catchments_geom[row, col]
-            return value
-
-        # Get the catchment ID of the snapped_point
-        snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
-
-        # Check if values in 'catchment_id' column of flowpoints_outlet_geom are in outlier_catchments_df
-        outlet_flag = last_point_geom['catchment_id'].isin(outlier_catchment_ids)
-        outlet_flag = any(outlet_flag)
-
-    # If the issue is detected, then get the new outlet point ## TODO: Move to where the outlet point files and lines are being made?
-    if outlet_flag == True:
-
-        # TODO: Find in the code where the point is trimmed and just do it again here if the outlet is determined to be bad
-        # TODO: Figure out if I actually need to be doing this with the newly-read-in levelpath geometry or if I should just be using one of the flowlines from above??
-
-        # # Create a function to extract the second-to-last point from the line
-        # def extract_second_to_last_point(line):
-        #     return line.coords[-2]
-
-        # # Apply the function to create a new GeoDataFrame
-        # new_outlet_levelpath_geom = levelpath_selected_geom['geometry'].apply(extract_second_to_last_point).apply(Point)
-        # new_outlet_levelpath_geom = gpd.GeoDataFrame(new_outlet_levelpath_geom, columns=['geometry'], crs=levelpath_selected_geom.crs)
-
-        # # Calculate the distance between each flowpoint and the new levelpath outlet point 
-        # flowpoints_geom['distance_to_new_outlet'] = flowpoints_geom.geometry.distance(new_outlet_levelpath_geom.geometry.iloc[0])
-
-        # # Find the index of the closest flowpoint to the new outlet
-        # flowpoints_outlet_id = flowpoints_geom['distance_to_new_outlet'].idxmin()
-
-        # # Select the new outlet flowpoint from 'flowpoints_geom', make it into a gdf, and remove an extra column
-        # flowpoints_outlet = flowpoints_geom.iloc[flowpoints_outlet_id]
-        # flowpoints_outlet_geom = gpd.GeoDataFrame([flowpoints_outlet], geometry='geometry', crs=flowpoints_geom.crs)
-        # flowpoints_outlet_geom = flowpoints_outlet_geom.drop(columns='distance_to_new_outlet')
-
-        # TODO: Add a doublecheck that ensures that the error ID is not included in the outlet flowpoints?
-
-    # Solution: Trim the levelpath accordingly 
-    # TODO: figure out where this is occurring and move this whole part over there? or repeat that code again with the new point? honestly it's probably right after snapped_point is created.....
-
-
-
-
-    # --------------------------------------------------------------
     # Save the outputs
     print('Writing outputs ...')
 
@@ -526,13 +520,29 @@ def split_flows(
     if len(split_flows_gdf) == 0:
         # this is not an exception, but a custom exit code that can be trapped
         print("There are no flowlines after stream order filtering.")
-        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
 
     split_flows_gdf.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
 
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")
     split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+
+
+    # ----
+    # # Save backpool error log ## debug, TODO: Remove after the backpool issue has been well-tested
+    # backpool_error_log_filename = 'branch_outlet_backpools/test_outputs/backpool_error_log.txt'
+
+    # if isfile(backpool_error_log_filename): 
+    #     remove(backpool_error_log_filename) 
+
+    # print(backpool_error_log)
+
+    # with open(backpool_error_log_filename, 'w') as f:
+    #     for line in backpool_error_log:
+    #         f.write(line)
+    #         f.write('\n')
+
 
 
 if __name__ == '__main__':
