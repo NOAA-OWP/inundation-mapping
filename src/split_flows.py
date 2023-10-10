@@ -229,8 +229,11 @@ def split_flows(
     wbd8 = gpd.read_file(wbd8_clp_filename)
     dem = rasterio.open(dem_filename, 'r')
 
-    with rasterio.open(catchment_pixels_filename) as src:
-        catchments_geom = src.read(1) 
+    if isfile(catchment_pixels_filename):
+        with rasterio.open(catchment_pixels_filename) as src:
+            catchments_geom = src.read(1) 
+    else: 
+        catchments_geom = None
 
     if isfile(lakes_filename):
         lakes = gpd.read_file(lakes_filename)
@@ -278,14 +281,19 @@ def split_flows(
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-        # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
-        flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
+        # Check whether catchments_geom exists, and if it does use it to check for catchment size outliers
+        if catchments_geom == None:
+            flagged_catchment = None
+            outlier_catchment_ids = None
+        else: 
+            # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
+            flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
 
         # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
         if flagged_catchment == True:
             print('Flagged catchment(s) detected. Testing for second criteria.') ## debug
             outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
-
+            
         # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
         if outlet_flag == True:
             print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
