@@ -6,37 +6,37 @@ Description
     ARGUMENTS
 
         flows_filename: 
-            Filename of an existing input file. <current_branch_folder>/demDerived_reaches_<current_branch_id>.shp
+            Filename of existing DEM-derived reaches input file. i.e. <current_branch_folder>/demDerived_reaches_<current_branch_id>.shp
         
         dem_filename: 
-            Filename of an existing input file. <current_branch_folder>/dem_thalwegCond_<current_branch_id>.tif 
+            Filename of existing DEM input file. i.e. <current_branch_folder>/dem_thalwegCond_<current_branch_id>.tif 
         
         catchment_pixels_filename: 
-            Filename of an existing input file. <current_branch_folder>/gw_catchments_pixels_<current_branch_id>.tif
+            Filename of existing catchment pixels input file. i.e. <current_branch_folder>/gw_catchments_pixels_<current_branch_id>.tif
         
         split_flows_filename: 
-            Filename of a split_flows.py output product. <current_branch_folder>/demDerived_reaches_split_<current_branch_id>.gpkg
+            Save location for output flowlines. i.e. <current_branch_folder>/demDerived_reaches_split_<current_branch_id>.gpkg
         
         split_points_filename: 
-            Filename of a split_flows.py output product. <current_branch_folder>/demDerived_reaches_split_points_<current_branch_id>.gpkg
+            Save location for output flowpoints. i.e. <current_branch_folder>/demDerived_reaches_split_points_<current_branch_id>.gpkg
         
         wbd8_clp_filename: 
-            <HUC_data_folder>/wbd8_clp.gpkg 
+            Filename of existing HUC8 geometry file. i.e. <HUC_data_folder>/wbd8_clp.gpkg 
         
         lakes_filename: 
-            <HUC_data_folder>/nwm_lakes_proj_subset.gpkg 
+            Filename of existing Lakes geometry file. i.e. <HUC_data_folder>/nwm_lakes_proj_subset.gpkg 
         
         nwm_streams_filename: 
+            Filename of existing NWM streams input layer.
 
-        
         max_length: 
-            Constant that describes ___. 
+            Maximum acceptable length of stream segments (in meters). 
         
         slope_min: 
-            Constant that describes ___. 
+            Channel slope minimum value. 
         
         lakes_buffer_input: 
-            Constant that describes ___. 
+            Buffer size to use with lakes (in meters). 
 
 
         PROCESSING STEPS
@@ -141,7 +141,7 @@ def split_flows(
         return flows
 
     # Check whether the catchment is substantially larger than other catchments (backpool error criteria 1)
-    def catch_catchment_size_outliers(catchments_geom): 
+    def catch_catchment_size_outliers(catchments_geom):
 
         # Quantify the amount of pixels in each catchment
         unique_values = np.unique(catchments_geom)
@@ -157,7 +157,7 @@ def split_flows(
         catchments_df = pd.DataFrame(catchments_array)
 
         # Remove row for a catchment_id of zero
-        catchments_df = catchments_df[catchments_df['catchment_id']>0]
+        catchments_df = catchments_df[catchments_df['catchment_id'] > 0]
 
         # Calculate the mean and standard deviation of the 'counts' column
         mean_counts = catchments_df['counts'].mean()
@@ -167,24 +167,24 @@ def split_flows(
         threshold = 2 * std_dev_counts
 
         # Create a new column 'outlier' with True for outliers and False for non-outliers
-        catchments_df['outlier'] = (abs(catchments_df['counts'] - mean_counts) > threshold)
+        catchments_df['outlier'] = abs(catchments_df['counts'] - mean_counts) > threshold
 
         # Quantify outliers
         num_outlier = catchments_df['outlier'].value_counts()[True]
 
         if num_outlier == 0:
-            print('No outliers detected in catchment size.') ## debug
+            print('No outliers detected in catchment size.')  ## debug
             flagged_catchment = False
         elif num_outlier >= 1:
-            print(f'{num_outlier} outlier catchment(s) found in catchment size.') ## debug
+            print(f'{num_outlier} outlier catchment(s) found in catchment size.')  ## debug
             flagged_catchment = True
         else:
-            print('WARNING: Unable to check outlier count.') ## debug
+            print('WARNING: Unable to check outlier count.')  ## debug
 
-        print(f'Outlier catchments present? {flagged_catchment}') ## debug
+        print(f'Outlier catchments present? {flagged_catchment}')  ## debug
 
         # Make a list of outlier catchment ID's
-        outlier_catchment_ids = catchments_df[catchments_df['outlier']==True]['catchment_id'].tolist()
+        outlier_catchment_ids = catchments_df[catchments_df['outlier'] == True]['catchment_id'].tolist()
 
         return flagged_catchment, outlier_catchment_ids
 
@@ -195,7 +195,7 @@ def split_flows(
         return value
 
     # Test whether the catchment occurs at the outlet (backpool error criteria 2)
-    def check_if_ID_is_outlet(snapped_point, outlier_catchment_ids): 
+    def check_if_ID_is_outlet(snapped_point, outlier_catchment_ids):
 
         # Get the catchment ID of the snapped_point
         snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
@@ -210,7 +210,7 @@ def split_flows(
     # Read in data and set constants
 
     print('Loading data ...')
-    
+
     toMetersConversion = 1e-3
 
     # Read in flows data and check for relevant streams within HUC boundary
@@ -226,8 +226,8 @@ def split_flows(
 
     if isfile(catchment_pixels_filename):
         with rasterio.open(catchment_pixels_filename) as src:
-            catchments_geom = src.read(1) 
-    else: 
+            catchments_geom = src.read(1)
+    else:
         catchments_geom = None
 
     if isfile(lakes_filename):
@@ -241,7 +241,7 @@ def split_flows(
     # Note: We don't index parts because the new index format causes problems later on
     flows = flows.explode(index_parts=False)
 
-    flows = flows.to_crs(wbd8.crs) # Note: temporary solution
+    flows = flows.to_crs(wbd8.crs)  # Note: temporary solution
 
     split_flows = []
     slopes = []
@@ -252,7 +252,7 @@ def split_flows(
     # --------------------------------------------------------------
     # Trim DEM streams to NWM branch terminus
     # If loop addressing: https://github.com/NOAA-OWP/inundation-mapping/issues/560
-    
+
     print('Trimming DEM stream to NWM branch terminus...')
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
@@ -280,21 +280,21 @@ def split_flows(
         if catchments_geom == None:
             flagged_catchment = None
             outlier_catchment_ids = None
-        else: 
+        else:
             # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
             flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
 
         # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
         if flagged_catchment == True:
-            print('Flagged catchment(s) detected. Testing for second criteria.') ## debug
+            print('Flagged catchment(s) detected. Testing for second criteria.')  ## debug
             outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
-            
+
         # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
         if outlet_flag == True:
             print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
 
             # Initialize snapped_point object (so we can make a new one)
-            snapped_point=[]
+            snapped_point = []
 
             # Identify the penultimate vertex (second-to-most downstream, should be second-to-last), transform into geodataframe
             penultimate_nwm_point = []
@@ -308,7 +308,7 @@ def split_flows(
             # Log instances of the backpool error (TODO: Remove this once this issue has been thoroughly tested) ED
             # backpool_error_log.append(levpa_id)
 
-        # Snap and trim the flowline to the snapped point 
+        # Snap and trim the flowline to the snapped point
         flows = snap_and_trim_flow(snapped_point, flows)
 
         # print('snapped_point: ') ## debug
@@ -346,7 +346,7 @@ def split_flows(
         # Note: This is not an exception, but a custom exit code that can be trapped
         print("No relevant streams within HUC boundaries.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
-    
+
     # Check for lake features and split flows at lake boundaries, if needed
     if lakes is not None and len(flows) > 0:
         if len(lakes) > 0:
@@ -365,7 +365,13 @@ def split_flows(
                 lakes_buffer_input
             )  # Note: adding X meter buffer for spatial join comparison (currently using 20meters)
 
-    print('Splitting ' + str(len(flows)) + ' stream segments using on max length of ' + str(max_length) + ' meters')
+    print(
+        'Splitting '
+        + str(len(flows))
+        + ' stream segments using on max length of '
+        + str(max_length)
+        + ' meters'
+    )
 
     # Remove empty flow geometries
     flows = flows.loc[~flows.is_empty, :]
@@ -410,7 +416,7 @@ def split_flows(
 
         last_point_in_entire_lineString = list(zip(*lineString.coords.xy))[-1]
 
-        # Calculate cumulative length and channel slope, 
+        # Calculate cumulative length and channel slope,
         for point in zip(*lineString.coords.xy):
             cumulative_line = cumulative_line + [point]
             line_points = line_points + [point]
@@ -473,7 +479,9 @@ def split_flows(
         split_flows_gdf['LakeID'] = -999
 
     # Drop duplicate stream segments
-    split_flows_gdf = split_flows_gdf.drop_duplicates() # TODO: Need to figure out why so many duplicate stream segments for 04010101 FR (JC)
+    split_flows_gdf = (
+        split_flows_gdf.drop_duplicates()
+    )  # TODO: Need to figure out why so many duplicate stream segments for 04010101 FR (JC)
 
     # Create IDs and Network Traversal Columns
     addattributes = build_stream_traversal.build_stream_traversal_columns()
@@ -531,13 +539,12 @@ def split_flows(
         raise Exception("No points exist.")
     split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
 
-
     # ----
     # # Save backpool error log ## debug, TODO: Remove after the backpool issue has been well-tested
     # backpool_error_log_filename = 'branch_outlet_backpools/test_outputs/backpool_error_log.txt'
 
-    # if isfile(backpool_error_log_filename): 
-    #     remove(backpool_error_log_filename) 
+    # if isfile(backpool_error_log_filename):
+    #     remove(backpool_error_log_filename)
 
     # print(backpool_error_log)
 
@@ -545,7 +552,6 @@ def split_flows(
     #     for line in backpool_error_log:
     #         f.write(line)
     #         f.write('\n')
-
 
 
 if __name__ == '__main__':
