@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-10-10 - [PR#1005](https://github.com/NOAA-OWP/inundation-mapping/pull/1005)
+
+Revise stream clipping to WBD by (1) reducing the buffer to clip streams away from the edge of the DEM (to prevent reverse flow issues) from 3 cells to 8 cells to account for the 70m AGREE buffer; (2) splitting MultiLineStrings formed by NWM streams being clipped by the DEM edge and then re-entering the DEM, and retaining only the lowest segment. Also changes the value of `input_WBD_gdb` to use the WBD clipped to the DEM domain.
+
+### Changes
+
+- `src/`
+    - `bash_variables.env`: Update WBD to the WBD clipped to the DEM domain
+    - `clip_vectors_to_wbd.py`: Decrease stream buffer from 3 to 8 cells inside of the WBD buffer; select the lowest segment of any incoming levelpaths that are split by the DEM edge.
+    - `derive_level_paths.py`: Remove unused argument
+    - `stream_branches.py`: Remove unused argument
+
+<br/><br/>
+
 ## v4.4.2.3 - 2023-09-21 - [PR#998](https://github.com/NOAA-OWP/inundation-mapping/pull/998)
 
 Removes exclude list for black formatter in `.pre-commit-config.yaml` as well as in `pyproject.toml`. Ran the `black` executable on the 
