@@ -410,7 +410,7 @@ def get_stats_table_from_binary_rasters(
 
             if operation == 'exclude':
                 poly_path = mask_dict[poly_layer]['path']
-                buffer_val = mask_dict[poly_layer]['buffer']
+                buffer_val = 0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
 
                 # Read mask bounds with candidate boundary box
                 poly_all = gpd.read_file(poly_path, bbox=candidate_raster.rio.bounds())
@@ -425,7 +425,7 @@ def get_stats_table_from_binary_rasters(
                 poly_all_proj = poly_all.to_crs(candidate_raster.rio.crs)
 
                 # Buffer if buffer val exists
-                poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val else poly_all_proj
+                poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
 
                 poly_all_proj['mask'] = 4
 
@@ -499,7 +499,7 @@ def get_stats_table_from_binary_rasters(
 
             if operation == 'include':
                 poly_path = mask_dict[poly_layer]['path']
-                buffer_val = mask_dict[poly_layer]['buffer']
+                buffer_val = 0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
 
                 # Read mask bounds with candidate boundary box
                 poly_all = gpd.read_file(poly_path, bbox=candidate_raster.rio.bounds())
@@ -513,7 +513,7 @@ def get_stats_table_from_binary_rasters(
                 poly_all_proj = poly_all.to_crs(candidate_raster.rio.crs)
 
                 # Buffer if buffer val exists
-                poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val else poly_all_proj
+                poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
 
                 poly_all_proj['mask'] = 4
 
