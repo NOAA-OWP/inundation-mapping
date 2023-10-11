@@ -5,41 +5,41 @@ Description
 
     ARGUMENTS
 
-        flows_filename: 
+        flows_filename:
             Filename of existing DEM-derived reaches input file. i.e. <current_branch_folder>/demDerived_reaches_<current_branch_id>.shp
-        
-        dem_filename: 
-            Filename of existing DEM input file. i.e. <current_branch_folder>/dem_thalwegCond_<current_branch_id>.tif 
-        
-        catchment_pixels_filename: 
+
+        dem_filename:
+            Filename of existing DEM input file. i.e. <current_branch_folder>/dem_thalwegCond_<current_branch_id>.tif
+
+        catchment_pixels_filename:
             Filename of existing catchment pixels input file. i.e. <current_branch_folder>/gw_catchments_pixels_<current_branch_id>.tif
-        
-        split_flows_filename: 
+
+        split_flows_filename:
             Save location for output flowlines. i.e. <current_branch_folder>/demDerived_reaches_split_<current_branch_id>.gpkg
-        
-        split_points_filename: 
+
+        split_points_filename:
             Save location for output flowpoints. i.e. <current_branch_folder>/demDerived_reaches_split_points_<current_branch_id>.gpkg
-        
-        wbd8_clp_filename: 
-            Filename of existing HUC8 geometry file. i.e. <HUC_data_folder>/wbd8_clp.gpkg 
-        
-        lakes_filename: 
-            Filename of existing Lakes geometry file. i.e. <HUC_data_folder>/nwm_lakes_proj_subset.gpkg 
-        
-        nwm_streams_filename: 
+
+        wbd8_clp_filename:
+            Filename of existing HUC8 geometry file. i.e. <HUC_data_folder>/wbd8_clp.gpkg
+
+        lakes_filename:
+            Filename of existing Lakes geometry file. i.e. <HUC_data_folder>/nwm_lakes_proj_subset.gpkg
+
+        nwm_streams_filename:
             Filename of existing NWM streams input layer.
 
-        max_length: 
-            Maximum acceptable length of stream segments (in meters). 
-        
-        slope_min: 
-            Channel slope minimum value. 
-        
-        lakes_buffer_input: 
-            Buffer size to use with lakes (in meters). 
+        max_length:
+            Maximum acceptable length of stream segments (in meters).
+
+        slope_min:
+            Channel slope minimum value.
+
+        lakes_buffer_input:
+            Buffer size to use with lakes (in meters).
 
 
-        PROCESSING STEPS
+    PROCESSING STEPS
 
         1) Split stream segments based on lake boundaries and input threshold distance
         2) Calculate channel slope, manning's n, and LengthKm for each segment
@@ -88,7 +88,6 @@ def split_flows(
     # Define functions
 
     def snap_and_trim_flow(snapped_point, flows):
-
         # Find the flowline nearest to the snapped point (if there's multiple flowlines)
         if len(flows) > 1:
             sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows, max_distance=100)
@@ -142,7 +141,6 @@ def split_flows(
 
     # Check whether the catchment is substantially larger than other catchments (backpool error criteria 1)
     def catch_catchment_size_outliers(catchments_geom):
-
         # Quantify the amount of pixels in each catchment
         unique_values = np.unique(catchments_geom)
         value_counts = Counter(catchments_geom.ravel())
@@ -196,7 +194,6 @@ def split_flows(
 
     # Test whether the catchment occurs at the outlet (backpool error criteria 2)
     def check_if_ID_is_outlet(snapped_point, outlier_catchment_ids):
-
         # Get the catchment ID of the snapped_point
         snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
 
@@ -384,7 +381,6 @@ def split_flows(
 
     # Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment
     for i, lineString in tqdm(enumerate(flows.geometry), total=len(flows.geometry)):
-
         # Reverse geometry order (necessary for BurnLines)
         lineString = LineString(lineString.coords[::-1])
 
@@ -499,7 +495,6 @@ def split_flows(
 
     # Iterate through split flows line segments and create the points along each segment
     for index, segment in split_flows_gdf.iterrows():
-
         # Get the points of the linestring geometry
         lineString = segment.geometry
 
