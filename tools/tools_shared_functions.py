@@ -436,7 +436,6 @@ def get_stats_table_from_binary_rasters(
 
                 del poly_all, poly_all_proj
 
-    og_data = candidate_raster.data
     if all_masks_df is not None:
         all_masks = make_geocube(all_masks_df, ['mask'], like=candidate_raster)
         # Hold on to original data
@@ -445,6 +444,7 @@ def get_stats_table_from_binary_rasters(
             (all_masks['mask'].data == 4) & (candidate_raster.isnull() == 0), 4, candidate_raster
         )
         del all_masks
+    og_data = candidate_raster.data
 
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
