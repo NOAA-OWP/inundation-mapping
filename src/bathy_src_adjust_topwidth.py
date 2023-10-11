@@ -430,7 +430,7 @@ def bathy_rc_lookup(args):
                     'Volume (m3)': 'orig_Volume (m3)',
                     'WetArea (m2)': 'orig_WetArea (m2)',
                     'HydraulicRadius (m)': 'orig_HydraulicRadius (m)',
-                },
+                }
             )
         else:
             df_htable = df_htable.drop(

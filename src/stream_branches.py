@@ -174,12 +174,9 @@ class StreamNetwork(gpd.GeoDataFrame):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded
         values_excluded = self.values_excluded
-        crs = self.crs
-        geometry = self.geometry
 
         self = super(gpd.GeoDataFrame, self)
         self = self.drop(labels=labels, axis=axis)
-        self = gpd.GeoDataFrame(self, crs=crs, geometry=geometry)
 
         self = StreamNetwork(
             self,
