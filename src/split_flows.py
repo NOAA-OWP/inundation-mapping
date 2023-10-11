@@ -14,9 +14,6 @@ Description
         catchment_pixels_filename: 
             Filename of an existing input file. <current_branch_folder>/gw_catchments_pixels_<current_branch_id>.tif
         
-        levelpaths_filename: 
-            Filename of an existing input file. <HUC_data_folder>/nwm_subset_streams_levelPaths_dissolved.gpkg
-        
         split_flows_filename: 
             Filename of a split_flows.py output product. <current_branch_folder>/demDerived_reaches_split_<current_branch_id>.gpkg
         
@@ -66,7 +63,6 @@ from shapely import ops, wkt
 from shapely.geometry import LineString, Point
 from shapely.ops import split as shapely_ops_split
 from tqdm import tqdm
-from collections import Counter
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
@@ -78,8 +74,7 @@ from utils.shared_variables import FIM_ID
 def split_flows(
     flows_filename,
     dem_filename,
-    catchment_pixels_filename, 
-    levelpaths_filename,
+    catchment_pixels_filename,
     split_flows_filename,
     split_points_filename,
     wbd8_clp_filename,
@@ -559,7 +554,6 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--flows-filename', help='flows-filename', required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-c', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
-    parser.add_argument('-lp', '--levelpaths-filename', help='levelpaths-filename', required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename', required=True)

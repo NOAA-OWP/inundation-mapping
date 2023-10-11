@@ -127,7 +127,6 @@ Tstart
 $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
     -c $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
-    -lp $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -w $tempHucDataDir/wbd8_clp.gpkg \
@@ -136,16 +135,6 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -m $max_split_distance_meters \
     -t $slope_min \
     -b $lakes_buffer_dist_meters
-# $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
-#     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
-#     -c $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
-#     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
-#     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-#     -w $tempHucDataDir/wbd8_clp.gpkg -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
-#     -n $b_arg \
-#     -m $max_split_distance_meters \
-#     -t $slope_min \
-#     -b $lakes_buffer_dist_meters
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
