@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4._____ - 2023-10-11 - [PR#1006](https://github.com/NOAA-OWP/inundation-mapping/pull/1006)
+
+Mitigate the GMS branch outlet backpools issue by trimming the flowline to the penultimate vertex if the bug is detected.
+
+### Changes
+- `src/delineate_hydros_and_produce_HAND.sh`: Add `gw_catchments_pixels_$current_branch_id.tif` as one of the inputs when it calls `split_flows.py`
+
+- `src/split_flows.py`: Improved readibility and documentation in the script. Added the `catch_catchment_size_outliers()`,  `get_raster_value()`, and `check_if_ID_is_outlet()` functions to detect GMS branch outlet backpool issue. Mitigate the issue if it is detected by trimming the flowline to the penultimate vertex if the bug is detected.
+
+
+
 ## v4.4.2.3 - 2023-09-21 - [PR#998](https://github.com/NOAA-OWP/inundation-mapping/pull/998)
 
 Removes exclude list for black formatter in `.pre-commit-config.yaml` as well as in `pyproject.toml`. Ran the `black` executable on the 
