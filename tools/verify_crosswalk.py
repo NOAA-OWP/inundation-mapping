@@ -32,17 +32,16 @@ def verify_crosswalk(input_flows_fileName, input_nwmflows_fileName, output_table
     xwalks = []
     intersects = flows.sjoin(streams)
     intersects['HydroID'] = intersects['HydroID'].astype(int)
-    intersects['feature_id_right'] = intersects['feature_id_right'].astype(int)
 
     for idx in intersects.index:
-        flows_idx = int(intersects.loc[idx, 'HydroID'].unique())
+        flows_idx = intersects.loc[idx, 'HydroID'].unique()
 
-        streams_idxs = intersects.loc[idx, 'feature_id_right'].unique()
+        streams_idxs = intersects.loc[idx, 'feature_id'].unique()
 
         for streams_idx in streams_idxs:
             intersect = gpd.overlay(
                 flows[flows['HydroID'] == flows_idx],
-                nwm_streams[nwm_streams['feature_id'] == streams_idx],
+                nwm_streams[nwm_streams['ID'] == streams_idx],
                 keep_geom_type=False,
             )
 
