@@ -63,6 +63,8 @@ from shapely import ops, wkt
 from shapely.geometry import LineString, Point
 from shapely.ops import split as shapely_ops_split
 from tqdm import tqdm
+from collections import Counter
+
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
@@ -171,15 +173,13 @@ def split_flows(
         num_outlier = catchments_df['outlier'].value_counts()[True]
 
         if num_outlier == 0:
-            print('No outliers detected in catchment size.')  ## debug
+            print('No outliers detected in catchment size.')
             flagged_catchment = False
         elif num_outlier >= 1:
-            print(f'{num_outlier} outlier catchment(s) found in catchment size.')  ## debug
+            print(f'{num_outlier} outlier catchment(s) found in catchment size.') 
             flagged_catchment = True
         else:
-            print('WARNING: Unable to check outlier count.')  ## debug
-
-        print(f'Outlier catchments present? {flagged_catchment}')  ## debug
+            print('WARNING: Unable to check outlier count.')
 
         # Make a list of outlier catchment ID's
         outlier_catchment_ids = catchments_df[catchments_df['outlier'] == True]['catchment_id'].tolist()
@@ -244,8 +244,6 @@ def split_flows(
     slopes = []
     hydro_id = 'HydroID'
 
-    # backpool_error_log = [] ## debug -- TODO: Remove once the issue is well-tested (ED)
-
     # --------------------------------------------------------------
     # Trim DEM streams to NWM branch terminus
     # If loop addressing: https://github.com/NOAA-OWP/inundation-mapping/issues/560
@@ -274,16 +272,13 @@ def split_flows(
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
         # Check whether catchments_geom exists, and if it does use it to check for catchment size outliers
-        if catchments_geom == None:
-            flagged_catchment = None
-            outlier_catchment_ids = None
-        else:
+        if catchments_geom is not None:
             # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
             flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
 
         # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
         if flagged_catchment == True:
-            print('Flagged catchment(s) detected. Testing for second criteria.')  ## debug
+            print('Flagged catchment(s) detected. Testing for second criteria.') 
             outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
 
         # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
@@ -302,16 +297,8 @@ def split_flows(
             # Get the catchment ID of the new snapped_point
             snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
 
-            # Log instances of the backpool error (TODO: Remove this once this issue has been thoroughly tested) ED
-            # backpool_error_log.append(levpa_id)
-
         # Snap and trim the flowline to the snapped point
         flows = snap_and_trim_flow(snapped_point, flows)
-
-        # print('snapped_point: ') ## debug
-        # print(snapped_point) ## debug
-        # print('flows: ') ## debug
-        # print(flows) ## debug
 
     # If it is branch 0: Loop over NWM terminal segments
     else:
@@ -524,7 +511,7 @@ def split_flows(
         remove(split_points_filename)
 
     if len(split_flows_gdf) == 0:
-        # this is not an exception, but a custom exit code that can be trapped
+        # Note: This is not an exception, but a custom exit code that can be trapped
         print("There are no flowlines after stream order filtering.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
 
@@ -533,20 +520,6 @@ def split_flows(
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")
     split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
-
-    # ----
-    # # Save backpool error log ## debug, TODO: Remove after the backpool issue has been well-tested
-    # backpool_error_log_filename = 'branch_outlet_backpools/test_outputs/backpool_error_log.txt'
-
-    # if isfile(backpool_error_log_filename):
-    #     remove(backpool_error_log_filename)
-
-    # print(backpool_error_log)
-
-    # with open(backpool_error_log_filename, 'w') as f:
-    #     for line in backpool_error_log:
-    #         f.write(line)
-    #         f.write('\n')
 
 
 if __name__ == '__main__':
