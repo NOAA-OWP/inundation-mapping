@@ -152,9 +152,7 @@ def Derive_level_paths(
     # derive headwaters
     if headwaters_outfile is not None:
         headwaters = stream_network.derive_headwater_points_with_inlets(
-            fromNode_attribute=fromNode_attribute,
-            inlets_attribute=inlets_attribute,
-            outlet_linestring_index=outlet_linestring_index,
+            inlets_attribute=inlets_attribute, outlet_linestring_index=outlet_linestring_index
         )
         # headwaters write
         headwaters.to_file(headwaters_outfile, index=False, driver="GPKG")
