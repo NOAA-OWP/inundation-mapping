@@ -226,6 +226,7 @@ def split_flows(
             catchments_geom = src.read(1)
     else:
         catchments_geom = None
+        print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') ## debug
 
     if isfile(lakes_filename):
         lakes = gpd.read_file(lakes_filename)
@@ -271,31 +272,35 @@ def split_flows(
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-        # Check whether catchments_geom exists, and if it does use it to check for catchment size outliers
+        # Check whether catchments_geom exists
         if catchments_geom is not None:
+            print('Catchment geom found, testing for backpool criteria...') ## debug
+
             # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
             flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
 
-        # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
-        if flagged_catchment == True:
-            print('Flagged catchment(s) detected. Testing for second criteria.') 
-            outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
+            # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
+            if flagged_catchment == True:
+                print('Flagged catchment(s) detected. Testing for second criteria.') 
+                outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
+            else: 
+                outlet_flag = False
 
-        # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
-        if outlet_flag == True:
-            print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
+            # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
+            if outlet_flag == True:
+                print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
 
-            # Initialize snapped_point object (so we can make a new one)
-            snapped_point = []
+                # Initialize snapped_point object (so we can make a new one)
+                snapped_point = []
 
-            # Identify the penultimate vertex (second-to-most downstream, should be second-to-last), transform into geodataframe
-            penultimate_nwm_point = []
-            second_to_last = Point(linestring_geo.coords[-2])
-            penultimate_nwm_point.append({'ID': 'terminal', 'geometry': second_to_last})
-            snapped_point = gpd.GeoDataFrame(penultimate_nwm_point).set_crs(nwm_streams.crs)
+                # Identify the penultimate vertex (second-to-most downstream, should be second-to-last), transform into geodataframe
+                penultimate_nwm_point = []
+                second_to_last = Point(linestring_geo.coords[-2])
+                penultimate_nwm_point.append({'ID': 'terminal', 'geometry': second_to_last})
+                snapped_point = gpd.GeoDataFrame(penultimate_nwm_point).set_crs(nwm_streams.crs)
 
-            # Get the catchment ID of the new snapped_point
-            snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
+                # Get the catchment ID of the new snapped_point
+                snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
 
         # Snap and trim the flowline to the snapped point
         flows = snap_and_trim_flow(snapped_point, flows)
