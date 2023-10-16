@@ -60,7 +60,11 @@ def verify_crosswalk(input_flows_fileName, input_nwmflows_fileName, output_table
     xwalks = xwalks.merge(xwalks_groupby, on='HydroID', how='left')
     xwalks['max'] = xwalks['intersect_points_x'] == xwalks['intersect_points_y']
 
-    xwalks['crosswalk'] = xwalks['match'] == xwalks['max']
+    xwalks['crosswalk'] = (xwalks['match'] is True) & (xwalks['max'] is True)
+
+    xwalks = xwalks.drop_duplicates()
+
+    xwalks = xwalks.sort_values(by=['HydroID', 'intersect_points_x', 'ID'], ascending=False)
 
     xwalks.to_csv(output_table_fileName, index=False)
 
