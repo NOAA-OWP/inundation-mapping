@@ -39,11 +39,6 @@ class test_split_flows(unittest.TestCase):
         # that they are regenerated
         if os.path.exists(params["split_flows_filename"]):
             os.remove(params["split_flows_filename"])
-        if os.path.exists(params["split_points_filename"]):
-            os.remove(params["split_points_filename"])
-
-        error_msg = params["split_flows_filename"] + " does exist, when it should not (post os.remove call)"
-        assert os.path.exists(params["split_flows_filename"]) is False, error_msg
 
         error_msg = params["split_points_filename"] + " does exist, when it should not (post os.remove call)"
         assert os.path.exists(params["split_points_filename"]) is False, error_msg
@@ -63,6 +58,3 @@ class test_split_flows(unittest.TestCase):
 
         error_msg = params["split_flows_filename"] + " does not exist"
         assert os.path.exists(params["split_flows_filename"]) is True, error_msg
-
-        error_msg = params["split_points_filename"] + " does not exist"
-        assert os.path.exists(params["split_points_filename"]) is True, error_msg

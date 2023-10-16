@@ -427,8 +427,6 @@ def get_stats_table_from_binary_rasters(
                 # Buffer if buffer val exists
                 poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
 
-                poly_all_proj['mask'] = 4
-
                 if all_masks_df is not None:
                     all_masks_df = pd.concat([all_masks_df, poly_all_proj])
                 else:
@@ -436,31 +434,36 @@ def get_stats_table_from_binary_rasters(
 
                 del poly_all, poly_all_proj
 
-    if all_masks_df is not None:
-        all_masks = make_geocube(all_masks_df, ['mask'], like=candidate_raster)
-        # Hold on to original data
-
-        candidate_raster.data = xr.where(
-            (all_masks['mask'].data == 4) & (candidate_raster.isnull() == 0), 4, candidate_raster
-        )
-        del all_masks
-    og_data = candidate_raster.data
-
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
-    (agreement_map, crosstab_table, metrics_table) = candidate_raster.gval.categorical_compare(
-        benchmark_map=benchmark_raster,
-        positive_categories=[1],
-        target_map="candidate",
-        negative_categories=[0],
-        comparison_function='pairing_dict',
-        pairing_dict=pairing_dictionary,
+    c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
+    del candidate_raster, benchmark_raster
+
+    agreement_map = c_aligned.gval.compute_agreement_map(
+        b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
+    )
+    del c_aligned, b_aligned
+
+    agreement_map_og = agreement_map.copy()
+    agreement_map.rio.write_nodata(4, inplace=True)
+    agreement_map = agreement_map.rio.clip(all_masks_df['geometry'], invert=True)
+    agreement_map.data = xr.where(
+        agreement_map_og.sel({'x': agreement_map.coords['x'], 'y': agreement_map.coords['y']}) == 10,
+        10,
+        agreement_map,
+    )
+
+    crosstab_table = agreement_map.gval.compute_crosstab()
+
+    metrics_table = crosstab_table.gval.compute_categorical_metrics(
+        positive_categories=[1], negative_categories=[0], metrics="all"
     )
 
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
-        agreement_map = agreement_map.rio.write_nodata(10, encoded=True)
-        agreement_map.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
+        agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
+        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
+        del agreement_map_write
 
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
@@ -490,7 +493,7 @@ def get_stats_table_from_binary_rasters(
         }
     )
 
-    del agreement_map, crosstab_table, metrics_table
+    del crosstab_table, metrics_table
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
@@ -502,7 +505,7 @@ def get_stats_table_from_binary_rasters(
                 buffer_val = 0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
 
                 # Read mask bounds with candidate boundary box
-                poly_all = gpd.read_file(poly_path, bbox=candidate_raster.rio.bounds())
+                poly_all = gpd.read_file(poly_path, bbox=agreement_map.rio.bounds())
 
                 # Make sure features are present in bounding box area before projecting.
                 # Continue to next layer if features are absent.
@@ -510,38 +513,38 @@ def get_stats_table_from_binary_rasters(
                     del poly_all
                     continue
 
-                poly_all_proj = poly_all.to_crs(candidate_raster.rio.crs)
+                poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
 
                 # Buffer if buffer val exists
                 poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
 
-                poly_all_proj['mask'] = 4
-
-                mask = make_geocube(poly_all_proj, ['mask'], like=candidate_raster).to_array()
-                candidate_raster.data = og_data
-                candidate_raster.data = xr.where(
-                    (mask.data != 4) & (candidate_raster.isnull() == 0), 4, candidate_raster
-                )
-                del mask
-
                 poly_handle = poly_layer + '_b' + str(buffer_val) + 'm'
 
                 # Do analysis on inclusion masked area
-                (agreement_map, crosstab_table, metrics_table) = candidate_raster.gval.categorical_compare(
-                    benchmark_map=benchmark_raster,
-                    positive_categories=[1],
-                    target_map="candidate",
-                    negative_categories=[0],
-                    comparison_function='pairing_dict',
-                    pairing_dict=pairing_dictionary,
+                agreement_map_include = agreement_map.rio.clip(poly_all_proj['geometry'])
+                agreement_map_include.data = xr.where(
+                    agreement_map_og.sel(
+                        {'x': agreement_map_include.coords['x'], 'y': agreement_map_include.coords['y']}
+                    )
+                    == 10,
+                    10,
+                    agreement_map_include,
                 )
+
+                crosstab_table = agreement_map_include.gval.compute_crosstab()
+
+                metrics_table = crosstab_table.gval.compute_categorical_metrics(
+                    positive_categories=[1], negative_categories=[0], metrics="all"
+                )
+
                 if agreement_raster:
                     # Write the layer_agreement_raster.
                     layer_agreement_raster = os.path.join(
                         os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                     )
-                    agreement_map = agreement_map.rio.write_nodata(10, encoded=True)
-                    agreement_map.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
+                    agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
+                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
+                    del agreement_map_write
 
                 # Update stats table dictionary
                 stats_table_dictionary.update(
@@ -549,14 +552,15 @@ def get_stats_table_from_binary_rasters(
                         poly_handle: cross_walk_gval_fim(
                             metric_df=metrics_table,
                             cell_area=cell_area,
-                            masked_count=np.sum(agreement_map.data == 4),
+                            masked_count=np.sum(agreement_map_include.data == 4),
                         )
                     }
                 )
+                del agreement_map_include
 
-                del poly_all, poly_all_proj, agreement_map, metrics_table, crosstab_table
+                del poly_all, poly_all_proj, metrics_table, crosstab_table
 
-    del candidate_raster, benchmark_raster, og_data
+    del agreement_map
 
     return stats_table_dictionary
 
