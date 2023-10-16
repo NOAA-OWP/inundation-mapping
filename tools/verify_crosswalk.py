@@ -8,75 +8,63 @@ import pandas as pd
 
 
 def verify_crosswalk(input_flows_fileName, input_nwmflows_fileName, output_table_fileName):
-    """
-    Verify the crosswalk between the NWM and DEM-derived flowlines.
-
-    Parameters
-    ----------
-    input_flows_fileName : str
-        DEM-derived flowlines
-    input_nwmflows_fileName : str
-        NWM flowlines
-    crosswalk_fileName : str
-        Crosswalk table filename
-    """
-
-    nwm_streams = gpd.read_file(input_nwmflows_fileName)
-    flows = gpd.read_file(input_flows_fileName)
-
     # Crosswalk check
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
+
+    flows = gpd.read_file(input_flows_fileName)
+    nwm_streams = gpd.read_file(input_nwmflows_fileName)
 
     # Compute the number of intersections between the NWM and DEM-derived flowlines
     streams = nwm_streams
     xwalks = []
     intersects = flows.sjoin(streams)
-    intersects['HydroID'] = intersects['HydroID'].astype(int)
 
     for idx in intersects.index:
-        flows_idx = intersects.loc[idx, 'HydroID'].unique()
+        flows_idx = intersects.loc[intersects.index == idx, 'HydroID'].unique()
 
-        streams_idxs = intersects.loc[idx, 'feature_id'].unique()
+        if type(intersects.loc[idx, 'ID']) == np.int64:
+            streams_idxs = [intersects.loc[idx, 'ID']]
+        else:
+            streams_idxs = intersects.loc[idx, 'ID'].unique()
 
-        for streams_idx in streams_idxs:
-            intersect = gpd.overlay(
-                flows[flows['HydroID'] == flows_idx],
-                nwm_streams[nwm_streams['ID'] == streams_idx],
-                keep_geom_type=False,
-            )
+        for flows_id in flows_idx:
+            for streams_idx in streams_idxs:
+                intersect = gpd.overlay(
+                    flows[flows['HydroID'] == flows_id],
+                    nwm_streams[nwm_streams['ID'] == streams_idx],
+                    keep_geom_type=False,
+                )
 
-            if intersect.geometry[0].geom_type == 'Point':
-                intersect_points = 1
-            else:
-                intersect_points = len(intersect.geometry[0].geoms)
+                if len(intersect) == 0:
+                    intersect_points = 0
+                    feature_id = flows.loc[flows['HydroID'] == flows_id, 'feature_id']
+                elif intersect.geometry[0].geom_type == 'Point':
+                    intersect_points = 1
+                    feature_id = flows.loc[flows['HydroID'] == flows_id, 'feature_id']
+                else:
+                    intersect_points = len(intersect.geometry[0].geoms)
+                    feature_id = int(flows.loc[flows['HydroID'] == flows_id, 'feature_id'].iloc[0])
 
-            xwalks.append(
-                [
-                    flows_idx,
-                    int(flows.loc[flows['HydroID'] == flows_idx, 'feature_id'].iloc[0]),
-                    streams_idx,
-                    intersect_points,
-                ]
-            )
+                xwalks.append([flows_id, feature_id, streams_idx, intersect_points])
 
-            print(f'Found {intersect_points} intersections for {flows_idx} and {streams_idx}')
+                print(f'Found {intersect_points} intersections for {flows_id} and {streams_idx}')
 
     # Get the maximum number of intersections for each flowline
-    xwalks = pd.DataFrame(xwalks, columns=['HydroID', 'feature_id', 'feature_id_right', 'intersect_points'])
-    xwalks = xwalks.drop_duplicates()
-    xwalks['match'] = xwalks[1] == xwalks[2]
+    xwalks = pd.DataFrame(xwalks, columns=['HydroID', 'feature_id', 'ID', 'intersect_points'])
+    xwalks['feature_id'] = xwalks['feature_id'].astype(int)
 
-    xwalks_groupby = xwalks[[0, 3]].groupby(0).max()
+    xwalks['match'] = xwalks['feature_id'] == xwalks['ID']
 
-    xwalks = xwalks.merge(xwalks_groupby, on=0)
-    xwalks['max'] = xwalks['3_x'] == xwalks['3_y']
+    xwalks_groupby = xwalks[['HydroID', 'intersect_points']].groupby('HydroID').max()
 
-    xwalks['crosswalk'] = np.where(xwalks['match'] == xwalks['max'], True, False)
+    xwalks = xwalks.merge(xwalks_groupby, on='HydroID', how='left')
+    xwalks['max'] = xwalks['intersect_points_x'] == xwalks['intersect_points_y']
 
-    # Save the crosswalk table
+    xwalks['crosswalk'] = xwalks['match'] == xwalks['max']
+
     xwalks.to_csv(output_table_fileName, index=False)
 
-    return xwalks
+    return flows
 
 
 if __name__ == '__main__':
