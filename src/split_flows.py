@@ -141,67 +141,68 @@ def split_flows(
 
         return flows
 
-    # Check whether the catchment is substantially larger than other catchments (backpool error criteria 1)
-    def catch_catchment_size_outliers(catchments_geom):
-        # Quantify the amount of pixels in each catchment
-        unique_values = np.unique(catchments_geom)
-        value_counts = Counter(catchments_geom.ravel())
+    #  TODO: Remove once the other one works (ED)
+    # # Check whether the catchment is substantially larger than other catchments (backpool error criteria 1)
+    # def catch_catchment_size_outliers(catchments_geom):
+    #     # Quantify the amount of pixels in each catchment
+    #     unique_values = np.unique(catchments_geom)
+    #     value_counts = Counter(catchments_geom.ravel())
 
-        vals, counts = [], []
-        for value in unique_values:
-            vals.append(value)
-            counts.append(value_counts[value])
+    #     vals, counts = [], []
+    #     for value in unique_values:
+    #         vals.append(value)
+    #         counts.append(value_counts[value])
 
-        # Create a structured array from the two lists and convert to pandas dataframe
-        catchments_array = np.array(list(zip(vals, counts)), dtype=[('catchment_id', int), ('counts', int)])
-        catchments_df = pd.DataFrame(catchments_array)
+    #     # Create a structured array from the two lists and convert to pandas dataframe
+    #     catchments_array = np.array(list(zip(vals, counts)), dtype=[('catchment_id', int), ('counts', int)])
+    #     catchments_df = pd.DataFrame(catchments_array)
 
-        # Remove row for a catchment_id of zero
-        catchments_df = catchments_df[catchments_df['catchment_id'] > 0]
+    #     # Remove row for a catchment_id of zero
+    #     catchments_df = catchments_df[catchments_df['catchment_id'] > 0]
 
-        # Calculate the mean and standard deviation of the 'counts' column
-        mean_counts = catchments_df['counts'].mean()
-        std_dev_counts = catchments_df['counts'].std()
+    #     # Calculate the mean and standard deviation of the 'counts' column
+    #     mean_counts = catchments_df['counts'].mean()
+    #     std_dev_counts = catchments_df['counts'].std()
 
-        # Define the threshold for outliers (2 standard deviations from the mean)
-        threshold = 2 * std_dev_counts
+    #     # Define the threshold for outliers (2 standard deviations from the mean)
+    #     threshold = 2 * std_dev_counts
 
-        # Create a new column 'outlier' with True for outliers and False for non-outliers
-        catchments_df['outlier'] = abs(catchments_df['counts'] - mean_counts) > threshold
+    #     # Create a new column 'outlier' with True for outliers and False for non-outliers
+    #     catchments_df['outlier'] = abs(catchments_df['counts'] - mean_counts) > threshold
 
-        # Quantify outliers
-        num_outlier = catchments_df['outlier'].value_counts()[True]
+    #     # Quantify outliers
+    #     num_outlier = catchments_df['outlier'].value_counts()[True]
 
-        if num_outlier == 0:
-            print('No outliers detected in catchment size.')
-            flagged_catchment = False
-        elif num_outlier >= 1:
-            print(f'{num_outlier} outlier catchment(s) found in catchment size.') 
-            flagged_catchment = True
-        else:
-            print('WARNING: Unable to check outlier count.')
+    #     if num_outlier == 0:
+    #         print('No outliers detected in catchment size.')
+    #         flagged_catchment = False
+    #     elif num_outlier >= 1:
+    #         print(f'{num_outlier} outlier catchment(s) found in catchment size.') 
+    #         flagged_catchment = True
+    #     else:
+    #         print('WARNING: Unable to check outlier count.')
 
-        # Make a list of outlier catchment ID's
-        outlier_catchment_ids = catchments_df[catchments_df['outlier'] == True]['catchment_id'].tolist()
+    #     # Make a list of outlier catchment ID's
+    #     outlier_catchment_ids = catchments_df[catchments_df['outlier'] == True]['catchment_id'].tolist()
 
-        return flagged_catchment, outlier_catchment_ids
+    #     return flagged_catchment, outlier_catchment_ids
 
-    # Extract raster catchment ID for the last point
-    def get_raster_value(point):
-        row, col = src.index(point.geometry.x, point.geometry.y)
-        value = catchments_geom[row, col]
-        return value
+    # # Extract raster catchment ID for the last point
+    # def get_raster_value(point):
+    #     row, col = src.index(point.geometry.x, point.geometry.y)
+    #     value = catchments_geom[row, col]
+    #     return value
 
-    # Test whether the catchment occurs at the outlet (backpool error criteria 2)
-    def check_if_ID_is_outlet(snapped_point, outlier_catchment_ids):
-        # Get the catchment ID of the snapped_point
-        snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
+    # # Test whether the catchment occurs at the outlet (backpool error criteria 2)
+    # def check_if_ID_is_outlet(snapped_point, outlier_catchment_ids):
+    #     # Get the catchment ID of the snapped_point
+    #     snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
 
-        # Check if values in 'catchment_id' column of the snapped point are in outlier_catchments_df
-        outlet_flag = snapped_point['catchment_id'].isin(outlier_catchment_ids)
-        outlet_flag = any(outlet_flag)
+    #     # Check if values in 'catchment_id' column of the snapped point are in outlier_catchments_df
+    #     outlet_flag = snapped_point['catchment_id'].isin(outlier_catchment_ids)
+    #     outlet_flag = any(outlet_flag)
 
-        return outlet_flag
+    #     return outlet_flag
 
     # --------------------------------------------------------------
     # Read in data and set constants
@@ -272,35 +273,35 @@ def split_flows(
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
-        # Check whether catchments_geom exists
-        if catchments_geom is not None:
-            print('Catchment geom found, testing for backpool criteria...') ## debug
+        # # Check whether catchments_geom exists
+        # if catchments_geom is not None:
+        #     print('Catchment geom found, testing for backpool criteria...') ## debug
 
-            # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
-            flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
+        #     # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
+        #     flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
 
-            # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
-            if flagged_catchment == True:
-                print('Flagged catchment(s) detected. Testing for second criteria.') 
-                outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
-            else: 
-                outlet_flag = False
+        #     # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
+        #     if flagged_catchment == True:
+        #         print('Flagged catchment(s) detected. Testing for second criteria.') 
+        #         outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
+        #     else: 
+        #         outlet_flag = False
 
-            # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
-            if outlet_flag == True:
-                print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
+        #     # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
+        #     if outlet_flag == True:
+        #         print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
 
-                # Initialize snapped_point object (so we can make a new one)
-                snapped_point = []
+        #         # Initialize snapped_point object (so we can make a new one)
+        #         snapped_point = []
 
-                # Identify the penultimate vertex (second-to-most downstream, should be second-to-last), transform into geodataframe
-                penultimate_nwm_point = []
-                second_to_last = Point(linestring_geo.coords[-2])
-                penultimate_nwm_point.append({'ID': 'terminal', 'geometry': second_to_last})
-                snapped_point = gpd.GeoDataFrame(penultimate_nwm_point).set_crs(nwm_streams.crs)
+        #         # Identify the penultimate vertex (second-to-most downstream, should be second-to-last), transform into geodataframe
+        #         penultimate_nwm_point = []
+        #         second_to_last = Point(linestring_geo.coords[-2])
+        #         penultimate_nwm_point.append({'ID': 'terminal', 'geometry': second_to_last})
+        #         snapped_point = gpd.GeoDataFrame(penultimate_nwm_point).set_crs(nwm_streams.crs)
 
-                # Get the catchment ID of the new snapped_point
-                snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
+        #         # Get the catchment ID of the new snapped_point
+        #         snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
 
         # Snap and trim the flowline to the snapped point
         flows = snap_and_trim_flow(snapped_point, flows)
@@ -532,7 +533,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='split_flows.py')
     parser.add_argument('-f', '--flows-filename', help='flows-filename', required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
-    parser.add_argument('-c', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
+    # parser.add_argument('-c', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename', required=True)
