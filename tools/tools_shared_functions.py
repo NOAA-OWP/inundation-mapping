@@ -371,6 +371,7 @@ def get_stats_table_from_binary_rasters(
         {true_negatives: int, false_negatives: int, false_positives: int, true_positives: int}
 
     """
+    a = 3 / 0
 
     # Load benchmark and candidate data
     benchmark_raster = rxr.open_rasterio(benchmark_raster_path)

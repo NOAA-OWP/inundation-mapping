@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import sys
+import traceback
 
 import pandas as pd
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
@@ -277,6 +278,8 @@ class Test_Case(Benchmark):
             sys.exit(1)
         except Exception as ex:
             print(ex)
+            # Temporarily adding stack trace
+            print(f"trace for {self.test_id} -------------\n", traceback.format_exc())
             sys.exit(1)
 
     def _inundate_and_compute(
