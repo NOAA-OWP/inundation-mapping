@@ -3,6 +3,7 @@
 import glob
 import inspect
 import os
+import traceback
 from concurrent.futures import as_completed
 from datetime import datetime, timezone
 from os.path import splitext
@@ -252,6 +253,8 @@ def progress_bar_handler(executor_dict, desc):
             future.result()
         except Exception as exc:
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+            # Temporarily adding stack trace
+            print("trace-------------\n", traceback.format_exc())
 
 
 # #####################################
