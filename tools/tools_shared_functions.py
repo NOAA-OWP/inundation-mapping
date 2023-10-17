@@ -446,12 +446,15 @@ def get_stats_table_from_binary_rasters(
 
     agreement_map_og = agreement_map.copy()
     agreement_map.rio.write_nodata(4, inplace=True)
-    agreement_map = agreement_map.rio.clip(all_masks_df['geometry'], invert=True)
-    agreement_map.data = xr.where(
-        agreement_map_og.sel({'x': agreement_map.coords['x'], 'y': agreement_map.coords['y']}) == 10,
-        10,
-        agreement_map,
-    )
+
+    # Mask if mask_dict is provided
+    if all_masks_df is not None:
+        agreement_map = agreement_map.rio.clip(all_masks_df['geometry'], invert=True)
+        agreement_map.data = xr.where(
+            agreement_map_og.sel({'x': agreement_map.coords['x'], 'y': agreement_map.coords['y']}) == 10,
+            10,
+            agreement_map,
+        )
 
     crosstab_table = agreement_map.gval.compute_crosstab()
 
