@@ -1,14 +1,33 @@
 #!/usr/bin/env python3
 
-from src.split_flows import snap_and_trim_flow
+import argparse
+import sys
+from collections import OrderedDict
+from os import remove
+from os.path import isfile
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
+from shapely import ops, wkt
+from shapely.geometry import LineString, Point
+from shapely.ops import split as shapely_ops_split
+from tqdm import tqdm
+from collections import Counter
+
+
+import build_stream_traversal
+from utils.fim_enums import FIM_exit_codes
+from utils.shared_functions import getDriver, mem_profile
+from utils.shared_variables import FIM_ID
 
 @mem_profile
 def mitigate_branch_outlet_backpool(
     catchment_pixels_filename,
     split_flows_filename,
     split_points_filename,
-
+    nwm_streams_filename,
 ):
 
     # --------------------------------------------------------------
@@ -78,7 +97,7 @@ def mitigate_branch_outlet_backpool(
 
     # --------------------------------------------------------------
     # Read in data (and if the files exist)
-
+    print()
     print('Loading data ...')
 
 
@@ -90,16 +109,16 @@ def mitigate_branch_outlet_backpool(
         print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') ## debug
 
     # Read in split_flows_file and split_points_filename
-    split_flows_geom = gpd.read_file = split_flows_filename
-    split_points_geom = gpd.read_file = split_points_filename
-
-
+    split_flows_geom = gpd.read_file(split_flows_filename)
+    split_points_geom = gpd.read_file(split_points_filename)
 
     # --------------------------------------------------------------
 
-    # If it's NOT branch zero, check for the two criteria and mitiate issue if needed
-    if 'levpa_id' in nwm_streams.columns: # TODO: Should I be iterating through split_flows and/or split_points here?
+    # Read in nwm lines, explode to ensure linestrings are the only geometry
+    nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
 
+    # If it's NOT branch zero, check for the two criteria and mitiate issue if needed
+    if 'levpa_id' in nwm_streams.columns: # TODO: Should I be iterating through split_flows and/or split_points here? -> those don't have levpa_id, so maybe not
 
         # Check whether catchments_geom exists
         if catchments_geom is not None:
@@ -110,11 +129,31 @@ def mitigate_branch_outlet_backpool(
 
             # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
             if flagged_catchment == True:
+
+                # Subset the split flows to get the last one ## TODO: Check to make sure this is working as expected (test on a larger dataset)
+                split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1' ]
+
+                # Create a function to extract the last point from the line
+                def extract_last_point(line):
+                    return line.coords[-1]
+
+                # Apply the function to create a new GeoDataFrame
+                last_point = split_flows_last_geom['geometry'].apply(extract_last_point).apply(Point)
+                last_point_geom = gpd.GeoDataFrame(last_point, columns=['geometry'], crs=split_flows_geom.crs)
+
+                ## TODO: Check to see whether this is working as expected... is it actually selecting the last one? 
+
+                print(last_point_geom) ## debug
+                last_point_geom.to_file('lastpointgeom.gpkg', driver='GPKG', index=False) ## debug
+
+                # Check whether the last vertex corresponds with any of the outlier catchment ID's
                 print('Flagged catchment(s) detected. Testing for second criteria.') 
-                outlet_flag = check_if_ID_is_outlet(snapped_point, outlier_catchment_ids)
+                outlet_flag = check_if_ID_is_outlet(last_point_geom, outlier_catchment_ids)
             else: 
                 outlet_flag = False
                 
+            print(outlet_flag) ## debug
+
             # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
             if outlet_flag == True:
                 print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
@@ -136,25 +175,20 @@ def mitigate_branch_outlet_backpool(
 
 
 
-    # If it IS branch zero, skip this 
-    else:
-        continue
-
-
     # TODO: figure out if I need to recalculate this section: "Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment"
 
     # --------------------------------------------------------------
     # Save the outputs
-    print('Writing outputs ...')
+    # print('Writing outputs ...')
 
-    if isfile(split_flows_filename):
-        remove(split_flows_filename)
-    if isfile(split_points_filename):
-        remove(split_points_filename)
+    # if isfile(split_flows_filename):
+    #     remove(split_flows_filename)
+    # if isfile(split_points_filename):
+    #     remove(split_points_filename)
 
 
-    split_flows_gdf.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
-    split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+    # split_flows_gdf.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+    # split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
 
 if __name__ == '__main__':
     # Parse arguments.
@@ -162,10 +196,11 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
+    parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
+
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
-
 
     mitigate_branch_outlet_backpool(**args)
 
