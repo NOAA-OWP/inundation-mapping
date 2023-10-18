@@ -53,7 +53,7 @@ def subset_vector_layers(
 
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
     wbd_streams_buffer = wbd_buffer.copy()
-    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-3 * dem_cellsize, resolution=32)
+    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-8 * dem_cellsize, resolution=32)
 
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
@@ -174,7 +174,21 @@ def subset_vector_layers(
     nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
 
     if len(nwm_streams) > 0:
-        nwm_streams_nonoutlets = gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer)
+        # Address issue where NWM streams exit the HUC boundary and then re-enter, creating a MultiLineString
+        nwm_streams_nonoutlets = (
+            gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer).explode(index_parts=True).reset_index()
+        )
+
+        # Find and keep the downstream segment of the NWM stream
+        max_parts = nwm_streams_nonoutlets[['level_0', 'level_1']].groupby('level_0').max()
+
+        nwm_streams_nonoutlets = nwm_streams_nonoutlets.merge(max_parts, on='level_0', suffixes=('', '_max'))
+
+        nwm_streams_nonoutlets = nwm_streams_nonoutlets[
+            nwm_streams_nonoutlets['level_1'] == nwm_streams_nonoutlets['level_1_max']
+        ]
+
+        nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
 
         nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
 
