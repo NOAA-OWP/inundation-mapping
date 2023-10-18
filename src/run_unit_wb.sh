@@ -23,6 +23,7 @@ huc_start_time=`date +%s`
 
 
 ## Copy HUC's pre-clipped .gpkg files from $pre_clip_huc_dir (use -a & /. -- only copies folder's contents)
+echo $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/$hucNumber/"
 cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
 
