@@ -1,8 +1,6 @@
 import argparse
 import errno
 import os
-import string
-import sys
 from timeit import default_timer as timer
 
 from inundate_gms import Inundate_gms

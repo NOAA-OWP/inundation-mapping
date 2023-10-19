@@ -3,7 +3,6 @@
 import glob
 import inspect
 import os
-import traceback
 from concurrent.futures import as_completed
 from datetime import datetime, timezone
 from os.path import splitext
