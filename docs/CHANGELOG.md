@@ -16,11 +16,6 @@ The way in which watershed boundary data (WBD) is generated and processed has be
 
 - `data/wbd/`
     - `generate_pre_clip_fim_huc8.py`: This script generates the pre-clipped vectors at the huc level.
-    - `clip_vectors_to_wbd.py`: Contents of this file remain the same, but moved to this location.
-
-### Removals
-- `data/wbd/`
-    - `clip_vectors_to_wbd.py`
 
 <br/><br/>
 

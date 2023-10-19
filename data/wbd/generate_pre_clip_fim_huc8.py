@@ -26,7 +26,7 @@ from dotenv import load_dotenv
         and placed within the output directory specified as the <outputs_dir> argument.
 
     Usage:
-        generate_pre_clipped_wbd.py
+        generate_pre_clip_fim_huc8.py
             -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
             -n /data/inputs/pre_clip_huc8/24_3_20
             -u /data/inputs/huc_lists/included_huc8.lst
@@ -71,8 +71,8 @@ def __setup_logger(outputs_dir):
     Set up logging to file. Since log file includes the date, it will be overwritten if this
     script is run more than once on the same day.
     '''
-
-    curr_date = dt.datetime.now().strftime("%m_%d_%Y")
+    datetime_now = dt.datetime.now(dt.timezone.utc)
+    curr_date = datetime_now.strftime("%m_%d_%Y")
 
     log_file_name = f"generate_pre_clip_fim_huc8_{curr_date}.log"
 
@@ -94,10 +94,10 @@ def __setup_logger(outputs_dir):
     logger.setLevel(logging.INFO)
 
     # Print start time
-    dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    start_time_string = datetime_now.strftime("%m/%d/%Y %H:%M:%S")
     logging.info('==========================================================================')
     logging.info("\n generate_pre_clip_fim_huc8.py")
-    logging.info(f"\n \t Started: {dt_string} \n")
+    logging.info(f"\n \t Started: {start_time_string} \n")
 
 
 def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, overwrite):
@@ -135,9 +135,9 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
         )
         number_of_jobs = total_cpus_available - 2
 
-    # Set up logging
-    start_time = dt.datetime.now()
+    # Set up logging and set start_time
     __setup_logger(outputs_dir)
+    start_time = dt.datetime.now(dt.timezone.utc)
 
     # Read in huc_list file and turn into a list data structure
     if os.path.exists(huc_list):
@@ -154,7 +154,7 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
 
     # Iterate over the huc_list argument and create a directory for each huc.
     for huc in hucs_to_pre_clip_list:
-        if os.path.isdir(os.path.join(outputs_dir, huc)) is True:
+        if os.path.isdir(os.path.join(outputs_dir, huc)):
             shutil.rmtree(os.path.join(outputs_dir, huc))
             os.mkdir(os.path.join(outputs_dir, huc))
             logging.info(
@@ -166,7 +166,7 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
                 f"newly generated huc level files will be output there. \n"
             )
 
-        elif os.path.isdir(os.path.join(outputs_dir, huc)) is False:
+        elif not os.path.isdir(os.path.join(outputs_dir, huc)):
             os.mkdir(os.path.join(outputs_dir, huc))
             logging.info(f"Created directory: {outputs_dir}/{huc}, huc level files will be written there.")
             print(f"Created directory: {outputs_dir}/{huc}, huc level files will be written there.")
@@ -184,9 +184,9 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
         pool.map(huc_level_clip_vectors_to_wbd, procs_list)
 
     # Get time metrics
-    end_time = dt.datetime.now()
-    dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    logging.info(f"\n Ended: {dt_string} \n")
+    end_time = dt.datetime.now(dt.timezone.utc)
+    end_time_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+    logging.info(f"\n Ended: {end_time_string} \n")
 
     # Calculate duration
     time_duration = end_time - start_time
@@ -197,7 +197,7 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
     )
     logging.info('==========================================================================')
 
-    print("\t Completed writing all huc level files \n")
+    print("\n\t Completed writing all huc level files \n")
     print(f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
 
 
@@ -243,7 +243,7 @@ def huc_level_clip_vectors_to_wbd(args):
     else:
         input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
 
-    print(f"\n Get WBD {huc} \n")
+    print(f"\n Get WBD {huc}")
 
     # TODO: Use Python API (osgeo.ogr) instead of using ogr2ogr executable
     get_wbd_subprocess = subprocess.run(
@@ -278,7 +278,7 @@ def huc_level_clip_vectors_to_wbd(args):
             print(msg)
             logging.error(msg)
     else:
-        msg = f"\n - Creating -- {huc_directory}/wbd.gpkg - Complete \n"
+        msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete \n"
         print(msg)
         logging.info(msg)
 
@@ -318,7 +318,7 @@ def huc_level_clip_vectors_to_wbd(args):
     logging.info(msg)
 
     ## Clip WBD8 ##
-    print(f" Clip WBD {huc} \n")
+    print(f" Clip WBD {huc}")
 
     clip_wbd8_subprocess = subprocess.run(
         [
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         'A plethora gpkg files per huc are generated (see args to subset_vector_layers), and placed within '
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
-            generate_pre_clipped_wbd.py
+            ./generate_pre_clip_fim_huc8.py
                 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
                 -n /data/inputs/pre_clip_huc8/24_3_20
                 -u /data/inputs/huc_lists/included_huc8.lst
