@@ -1,9 +1,9 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.4.0 - 2023-10-20 - [PR#100x](https://github.com/NOAA-OWP/inundation-mapping/pull/100x)
+## v4.4.x.x - 2023-10-20 - [PR#1012](https://github.com/NOAA-OWP/inundation-mapping/pull/1012)
 
-The way in which watershed boundary data (WBD) is generated and processed has been modified. Instead of generating those files 'on the fly' for every run, a script has been added that will take a huclist and create the .gpkg files per HUC in a specified directory ($pre_clip_huc_dir), which will then be read from sequentially. This reduces runtime and the repetive computation needed to generate those files every run.
+The way in which watershed boundary data (WBD) is generated and processed has been modified. Instead of generating those files "on the fly" for every run, a script has been added that will take a huclist and create the .gpkg files per HUC in a specified directory (`$pre_clip_huc_dir`).  During a `fim_pipeline.sh` run, the pre-clipped staged vectors will be copied over to the containers' working directory. This reduces runtime and the repetitive computation needed to generate those files every run.
 
 ### Changes
 
@@ -15,7 +15,7 @@ The way in which watershed boundary data (WBD) is generated and processed has be
 ### Additions
 
 - `data/wbd/`
-    - `generate_pre_clip_fim_huc8.py`: 
+    - `generate_pre_clip_fim_huc8.py`: This script generates the pre-clipped vectors at the huc level.
     - `clip_vectors_to_wbd.py`: Contents of this file remain the same, but moved to this location.
 
 ### Removals
