@@ -190,7 +190,7 @@ def create_parquet_directory(output_dir):
         os.mkdir(output_dir, exist_ok=True)
         logging.info(f"Created directory: {output_dir}, .parquet files will be written there.")
     elif os.path.isdir(output_dir) is True:
-        logging.info(f"Output Direcrtory: {output_dir} exists, .parquet files will be written there.")
+        logging.info(f"Output Directory: {output_dir} exists, .parquet files will be written there.")
 
 
 def create_parquet_files(
