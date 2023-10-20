@@ -28,6 +28,8 @@ Updates GVAL to address memory and performance issues associated with running sy
 - `tools/synthesize_test_cases.py`
 - `tools/inundate_mosaic_wrapper`
 
+<br/><br/>
+
 ## v4.4.2.3 - 2023-09-21 - [PR#998](https://github.com/NOAA-OWP/inundation-mapping/pull/998)
 
 Removes exclude list for black formatter in `.pre-commit-config.yaml` as well as in `pyproject.toml`. Ran the `black` executable on the 
