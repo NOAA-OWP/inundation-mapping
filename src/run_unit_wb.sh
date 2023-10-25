@@ -140,7 +140,7 @@ date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif ] && \
-python3 -m memory_profiler $srcDir/burn_in_levees.py \
+python3 $srcDir/burn_in_levees.py \
     -dem $tempHucDataDir/dem_meters.tif \
     -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif \
     -out $tempHucDataDir/dem_meters.tif
@@ -181,7 +181,7 @@ Tcount
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/agreedem.py \
+python3 $srcDir/agreedem.py \
     -r $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif \
     -d $tempHucDataDir/dem_meters.tif \
     -w $tempCurrentBranchDataDir \
@@ -198,7 +198,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
+    python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
         -d $tempHucDataDir/dem_meters.tif \
         -w $tempHucDataDir \
         -o $tempHucDataDir/dem_burned.tif \
@@ -273,7 +273,7 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py \
+    python3 $srcDir/usgs_gage_unit_setup.py \
         -gages $inputsDir/usgs_gages/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
         -ras $inputsDir/rating_curve/ras2fim_exports/reformat_ras_rating_curve_points.gpkg \

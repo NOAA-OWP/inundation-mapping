@@ -8,8 +8,6 @@ from os.path import join
 import geopandas as gpd
 import rasterio
 
-from utils.shared_functions import mem_profile
-
 
 warnings.simplefilter("ignore")
 

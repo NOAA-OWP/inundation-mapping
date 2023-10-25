@@ -6,10 +6,7 @@ import sys
 import geopandas as gpd
 import numpy as np
 
-from utils.shared_functions import mem_profile
 
-
-@mem_profile
 def make_stages_and_catchlist(
     flows_filename,
     catchments_filename,

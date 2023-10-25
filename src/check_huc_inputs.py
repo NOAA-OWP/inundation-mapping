@@ -10,7 +10,12 @@ from logging import exception
 
 
 def __read_included_files(parent_dir_path):
-    filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc*.lst'))
+    # TODO: Oct25, 2023: Previously we had this test done against multiple huc lists.
+    # Now in FIM4 we only want it to check against the one file 'included_huc8.lst'.
+    # I have just replaced the pattern, but later we might want to clean this up.
+
+    # filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc*.lst'))
+    filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc8.lst'))
 
     accepted_hucs_set = set()
     for filename in filename_patterns:

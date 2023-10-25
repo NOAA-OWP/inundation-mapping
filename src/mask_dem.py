@@ -9,10 +9,7 @@ import pandas as pd
 import rasterio as rio
 from rasterio.mask import mask
 
-from utils.shared_functions import mem_profile
 
-
-@mem_profile
 def mask_dem(
     dem_filename: str,
     nld_filename: str,

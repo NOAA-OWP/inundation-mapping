@@ -7,10 +7,7 @@ import numpy as np
 import rasterio
 from numba import njit, typed, types
 
-from utils.shared_functions import mem_profile
 
-
-@mem_profile
 def adjust_thalweg_laterally(
     elevation_raster,
     stream_raster,
