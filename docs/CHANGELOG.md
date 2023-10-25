@@ -28,7 +28,7 @@ A couple of other minor updates were made:
      - `filter_catchments_and_add_attributes.py`: remove profiler.
      - `make_stages_and_catchlist.py` remove profiler.
      - `mask_dem.py`: remove profiler.
-     - `reachID_grid_to_vector_points.py: remove profiler.
+     - `reachID_grid_to_vector_points.py`: remove profiler.
      - `run_unit_wb.sh`: remove profiler.
      - `split_flows.py`: remove profiler.
      - `unique_pixel_and_allocation.py`: remove profiler.
@@ -37,7 +37,7 @@ A couple of other minor updates were made:
      - `utils`
          - `shared_functions`: remove profiler.
       ` unit_tests`
-          - `clip_vectors_to_wbd_tests.py`: Lining tools change order of the imports.
+          - `clip_vectors_to_wbd_tests.py`: Linting tools change order of the imports.
 
 <br/><br/>
 
