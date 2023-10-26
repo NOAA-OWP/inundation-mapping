@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.3.1 - 2023-10-20 - [PR#1007](https://github.com/NOAA-OWP/inundation-mapping/pull/1007)
+## v4.4.4.1 - 2023-10-26 - [PR#1007](https://github.com/NOAA-OWP/inundation-mapping/pull/1007)
 
 Updates GVAL to address memory and performance issues associated with running synthesize test cases.
 
