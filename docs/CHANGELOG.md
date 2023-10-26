@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.4.1 - 2023-10-26 - [PR#1007](https://github.com/NOAA-OWP/inundation-mapping/pull/1007)
+
+Updates GVAL to address memory and performance issues associated with running synthesize test cases.
+
+### Changes
+
+- `tools/tools_shared_functions.py`
+- `Pipfile`
+- `pyproject.toml`
+- `tools/run_test_case.py`
+- `tools/synthesize_test_cases.py`
+- `tools/inundate_mosaic_wrapper`
+
+<br/><br/>
+
 ## v4.4.4.0 - 2023-10-20 - [PR#1012](https://github.com/NOAA-OWP/inundation-mapping/pull/1012)
 
 The way in which watershed boundary data (WBD) is generated and processed has been modified. Instead of generating those files "on the fly" for every run, a script has been added that will take a huclist and create the .gpkg files per HUC in a specified directory (`$pre_clip_huc_dir`).  During a `fim_pipeline.sh` run, the pre-clipped staged vectors will be copied over to the containers' working directory. This reduces runtime and the repetitive computation needed to generate those files every run.
