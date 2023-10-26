@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
+## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
 During a recent BED attempt which added the new pre-clip system, it was erroring out on a number of hucs. It was issuing an error in the add_crosswalk.py script. While a minor bug does exist there, after a wide number of tests, the true culprit is the memory profile system embedded throughout FIM. This system has been around for at least a few years but not in use. It is not 100% clear why it became a problem with the addition of pre-clip, but that changes how records are loaded which likely affected memory at random times.
 
@@ -39,6 +39,20 @@ A couple of other minor updates were made:
       ` unit_tests`
           - `clip_vectors_to_wbd_tests.py`: Linting tools change order of the imports.
 
+<br/><br/>
+
+## v4.4.4.1 - 2023-10-26 - [PR#1007](https://github.com/NOAA-OWP/inundation-mapping/pull/1007)
+
+Updates GVAL to address memory and performance issues associated with running synthesize test cases.
+
+### Changes
+
+- `tools/tools_shared_functions.py`
+- `Pipfile`
+- `pyproject.toml`
+- `tools/run_test_case.py`
+- `tools/synthesize_test_cases.py`
+- `tools/inundate_mosaic_wrapper`
 <br/><br/>
 
 ## v4.4.4.0 - 2023-10-20 - [PR#1012](https://github.com/NOAA-OWP/inundation-mapping/pull/1012)
