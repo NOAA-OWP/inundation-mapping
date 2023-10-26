@@ -8,11 +8,10 @@ import pandas as pd
 import rasterio as rio
 from shapely.geometry import MultiPolygon, Polygon
 
-from utils.shared_functions import getDriver, mem_profile
+from utils.shared_functions import getDriver
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
-@mem_profile
 def subset_vector_layers(
     subset_nwm_lakes,
     subset_nwm_streams,
