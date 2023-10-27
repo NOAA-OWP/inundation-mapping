@@ -69,28 +69,31 @@ def verify_crosswalk(
     results = []
     for flow in flows_dict:
         fid = _hydroid_to_feature_id(flows, flow, 'HydroID', 'feature_id').iloc[0]
-        upstream_fid = flows_dict[flow]
+        upstream_hid = flows_dict[flow]
 
         upstream_fids = []
         nwm_fids = streams_dict[fid]
         out_list = [flow, fid, upstream_fids, nwm_fids]
 
-        if type(upstream_fid) != np.int64:
-            if len(upstream_fid) > 0:
-                for i in upstream_fid:
+        if type(upstream_hid) != np.int64:
+            if len(upstream_hid) > 0:
+                for i in upstream_hid:
                     # Find upstream feature_id(s)
-                    temp_ids = streams_dict[
-                        int(_hydroid_to_feature_id(flows, i, 'HydroID', 'feature_id').iloc[0])
-                    ]
-                    if type(temp_ids) == list:
-                        upstream_fids.append(temp_ids[0])
+                    temp_fid = int(_hydroid_to_feature_id(flows, i, 'HydroID', 'feature_id').iloc[0])
+
+                    if type(temp_fid) == list:
+                        upstream_fids.append(temp_fid[0])
                     else:
-                        upstream_fids.append(temp_ids)
+                        upstream_fids.append(temp_fid)
 
                 out_list = [flow, fid, upstream_fids, nwm_fids]
                 if type(nwm_fids) == np.int64:
                     nwm_fids = [nwm_fids]
-                if upstream_fids == nwm_fids:
+
+                if fid in upstream_fids:
+                    # Skip duplicate feature_ids
+                    out_list.append(-1)
+                elif set(upstream_fids) == set(nwm_fids):
                     # 0: Crosswalk is correct
                     out_list.append(0)
                 else:
@@ -106,7 +109,7 @@ def verify_crosswalk(
         results.append(out_list)
 
     results = pd.DataFrame(
-        results, columns=['HydroID', 'feature_id', 'upstream_fids', 'upstream_nwm_fids', 'status']
+        data=results, columns=['HydroID', 'feature_id', 'upstream_fids', 'upstream_nwm_fids', 'status']
     )
     results.to_csv(output_table_fileName, index=False)
 
