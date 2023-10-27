@@ -33,6 +33,7 @@ def mitigate_branch_outlet_backpool(
     # --------------------------------------------------------------
     # Define functions
 
+    # Test whether there are catchment size outliers (backpool error criteria 1)
     def catch_catchment_size_outliers(catchments_geom):
         # Quantify the amount of pixels in each catchment
         unique_values = np.unique(catchments_geom)
@@ -84,22 +85,91 @@ def mitigate_branch_outlet_backpool(
         return value
 
     # Test whether the catchment occurs at the outlet (backpool error criteria 2)
-    def check_if_ID_is_outlet(snapped_point, outlier_catchment_ids):
-        # Get the catchment ID of the snapped_point
-        snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
+    def check_if_ID_is_outlet(last_point_geom, outlier_catchment_ids):
+        # Get the catchment ID of the last_point_geom
+        last_point_geom['catchment_id'] = last_point_geom.apply(get_raster_value, axis=1)
 
         # Check if values in 'catchment_id' column of the snapped point are in outlier_catchments_df
-        outlet_flag = snapped_point['catchment_id'].isin(outlier_catchment_ids)
+        outlet_flag = last_point_geom['catchment_id'].isin(outlier_catchment_ids)
         outlet_flag = any(outlet_flag)
 
         return outlet_flag
 
+    # Create a function to extract the last point from the line
+    def extract_last_point(line):
+        return line.coords[-1]
+
+    # Extract the third-to-last point from the line
+    def extract_3rdtolast_point(line):
+        return line.coords[-3]
+
+    # Trim the flow to the specified outlet point
+    # Based on snap_and_trim_flow() from split_flows.py (as of 10/20/23)
+    def snap_and_trim_splitflow(outlet_point, flows):
+
+        if len(flows) > 1:
+            flow = flows[flows['NextDownID'] == '-1' ] ## select last one?
+        else: 
+            flow = flows
+
+        # Snap the point to the line
+        outlet_point['geometry'] = flow.interpolate(flow.project(outlet_point))
+
+        # Split the flows at the snapped point
+        # Note: Buffering is to account for python precision issues
+        outlet_point_buffer = outlet_point.iloc[0]['geometry'].buffer(1)
+        split_lines = ops.split(flow.iloc[0]['geometry'], outlet_point_buffer) 
+
+        # Get a list of the split line object indices
+        split_lines_indices = list(range(0,len(split_lines.geoms),1))
+
+        # Produce a table of the geometry length of each splitlines geometries
+        linestring_lengths = []
+        linestring_geoms = []
+
+        for index in split_lines_indices:
+            linestring_geoms.append(split_lines.geoms[index])
+            linestring_lengths.append(split_lines.geoms[index].length)            
+
+        split_lines_df = pd.DataFrame(
+            {'split_lines_indices': split_lines_indices,
+            'geometry': linestring_geoms,
+            'linestring_lengths': linestring_lengths
+            })
+
+        # Select the longest split line    
+        longest_split_line_df = split_lines_df[split_lines_df.linestring_lengths == split_lines_df.linestring_lengths.max()]
+
+        # Convert the longest split line into a geodataframe (this removes the bits that got cut off)
+        longest_split_line_gdf = gpd.GeoDataFrame(
+            longest_split_line_df, 
+            geometry=longest_split_line_df['geometry'], 
+            crs=flows.crs
+        )
+
+        filename = '/branch_outlet_backpools/code_test_outputs/longest_split_line_gdf.gpkg' ## debug
+        longest_split_line_gdf.to_file(filename, driver=getDriver(filename), index=False) ## debug
+
+        # Get the new flow geometry
+        flow_geometry = longest_split_line_gdf.iloc[0]['geometry']
+
+        # Replace geometry in merged flowine
+        if len(flows) > 1:
+            print('Len flows is greater than 1....') ## debug
+            flows.loc[flows['NextDownID'] == '-1', 'geometry'] = flow_geometry
+        else: 
+            print('Len flows is LESS than 1....') ## debug
+            flows['geometry'] = flow_geometry
+
+        filename = '/branch_outlet_backpools/code_test_outputs/flows.gpkg' ## debug
+        flows.to_file(filename, driver=getDriver(filename), index=False) ## debug
+
+        return flows
 
     # --------------------------------------------------------------
     # Read in data (and if the files exist)
     print()
     print('Loading data ...')
-
 
     if isfile(catchment_pixels_filename):
         with rasterio.open(catchment_pixels_filename) as src:
@@ -129,51 +199,42 @@ def mitigate_branch_outlet_backpool(
 
             # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
             if flagged_catchment == True:
-
                 # Subset the split flows to get the last one ## TODO: Check to make sure this is working as expected (test on a larger dataset)
                 split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1' ]
-
-                # Create a function to extract the last point from the line
-                def extract_last_point(line):
-                    return line.coords[-1]
 
                 # Apply the function to create a new GeoDataFrame
                 last_point = split_flows_last_geom['geometry'].apply(extract_last_point).apply(Point)
                 last_point_geom = gpd.GeoDataFrame(last_point, columns=['geometry'], crs=split_flows_geom.crs)
 
-                ## TODO: Check to see whether this is working as expected... is it actually selecting the last one? 
-
-                print(last_point_geom) ## debug
-                last_point_geom.to_file('lastpointgeom.gpkg', driver='GPKG', index=False) ## debug
-
                 # Check whether the last vertex corresponds with any of the outlier catchment ID's
                 print('Flagged catchment(s) detected. Testing for second criteria.') 
                 outlet_flag = check_if_ID_is_outlet(last_point_geom, outlier_catchment_ids)
+
             else: 
                 outlet_flag = False
                 
-            print(outlet_flag) ## debug
-
             # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
             if outlet_flag == True:
-                print('Incorrectly-large outlet pixel catchment detected. Snapping line to penultimate vertex.')
+                print('Incorrectly-large outlet pixel catchment detected. Snapping line points to penultimate vertex.')
 
-                ## TODO: Update the mitigation to work on the split point/split flow objects!
+                # Apply the function to create a new GeoDataFrame
+                thirdtolast_point = split_flows_last_geom['geometry'].apply(extract_3rdtolast_point).apply(Point)
+                thirdtolast_point_geom = gpd.GeoDataFrame(thirdtolast_point, columns=['geometry'], crs=split_flows_geom.crs)
 
-                # # Initialize snapped_point object
-                # snapped_point = []
+                # Get the catchment ID of the new snapped_point
+                thirdtolast_point_geom['catchment_id'] = thirdtolast_point_geom.apply(get_raster_value, axis=1) ## mainly for debug (but could be good to keep)
 
-                # # Identify the penultimate vertex (second-to-most downstream, should be second-to-last), transform into geodataframe
-                # penultimate_nwm_point = []
-                # second_to_last = Point(linestring_geo.coords[-2])
-                # penultimate_nwm_point.append({'ID': 'terminal', 'geometry': second_to_last})
-                # snapped_point = gpd.GeoDataFrame(penultimate_nwm_point).set_crs(nwm_streams.crs)
+                # Snap and trim the flowline to the selected point
+                flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
 
-                # # Get the catchment ID of the new snapped_point
-                # snapped_point['catchment_id'] = snapped_point.apply(get_raster_value, axis=1)
+                # Create a buffer around the updated flows geodataframe (and make sure it's all one shape)
+                flows_buffer = flows.buffer(10).geometry.unary_union
 
+                # Remove flowpoints that don't intersect with the trimmed flow line
+                split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(flows_buffer)]
 
-
+            else:
+                print('Incorrectly-large outlet pixel catchment WAS NOT detected.') ## debug
 
     # TODO: figure out if I need to recalculate this section: "Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment"
 
@@ -186,7 +247,6 @@ def mitigate_branch_outlet_backpool(
     # if isfile(split_points_filename):
     #     remove(split_points_filename)
 
-
     # split_flows_gdf.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
     # split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
 
@@ -197,7 +257,6 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
-
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
