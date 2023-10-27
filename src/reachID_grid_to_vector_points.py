@@ -7,11 +7,10 @@ import numpy as np
 import rasterio
 from shapely.geometry import Point
 
-from utils.shared_functions import getDriver, mem_profile
+from utils.shared_functions import getDriver
 from utils.shared_variables import PREP_PROJECTION
 
 
-@mem_profile
 def convert_grid_cells_to_points(raster, index_option, output_points_filename=False):
     # Input raster
     if isinstance(raster, str):

@@ -292,9 +292,9 @@ def aggregate_by_huc(
     if num_job_workers > total_cpus_available:
         raise ValueError(
             f'The number of jobs {num_job_workers}'
-            'exceeds your machine\'s available CPU count minus two. '
-            'Please lower the number of jobs '
-            'values accordingly.'
+            ' exceeds your machine\'s available CPU count minus two.'
+            ' Please lower the number of jobs'
+            ' values accordingly.'
         )
 
     # create log folder, might end up empty but at least create the folder

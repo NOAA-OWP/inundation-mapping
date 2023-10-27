@@ -10,7 +10,6 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 
-from utils.shared_functions import mem_profile
 from utils.shared_variables import PREP_CRS
 
 

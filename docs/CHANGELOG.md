@@ -1,7 +1,79 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.3.0 - 2023-10-13 - [PR#1005](https://github.com/NOAA-OWP/inundation-mapping/pull/1005)
+## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
+
+During a recent BED attempt which added the new pre-clip system, it was erroring out on a number of hucs. It was issuing an error in the add_crosswalk.py script. While a minor bug does exist there, after a wide number of tests, the true culprit is the memory profile system embedded throughout FIM. This system has been around for at least a few years but not in use. It is not 100% clear why it became a problem with the addition of pre-clip, but that changes how records are loaded which likely affected memory at random times.
+
+This PR removes that system.
+
+A couple of other minor updates were made:
+- Update to the pip files (also carried forward changes from other current PRs)
+- When a huc or huc list is provided to fim_pipeline, it goes to a script, check_huc_inputs.py, to ensure that the incoming HUCs are valid and in that list. In the previous code it looks for all files with the file name pattern of "included_huc*.lst". However, we now only want it to check against the file "included_huc8.list".
+
+### Changes
+- `CONTRIBUTING.md`: Text update.
+- `Pipfile` and `Pipfile.lock`: updated to remove tghe memory-profiler package, update gval to 0.2.3 and update urllib3 to 1.26.18.
+- `data/wbd`
+    - `clip_vectors_to_wbd.py`: remove profiler
+ - `src`
+     - `add_crosswalk.py`: remove profiler
+     - `add_thalweg_lateral.py`: remove profiler.
+     - `aggregate_by_huc.py`: remove profiler and small text correction.
+     - `agreedem.py`: remove profiler.
+     - `bathy_src_adjust_topwidth.py`: remove profiler.
+     - `burn_in_levees.py`: remove profiler.
+     - `check_huc_inputs.py`: changed test pattern to just look against `included_huc8.lst`.
+     - `delineate_hydros_and_produce_HAND.sh`: remove profiler.
+     - `filter_catchments_and_add_attributes.py`: remove profiler.
+     - `make_stages_and_catchlist.py` remove profiler.
+     - `mask_dem.py`: remove profiler.
+     - `reachID_grid_to_vector_points.py`: remove profiler.
+     - `run_unit_wb.sh`: remove profiler.
+     - `split_flows.py`: remove profiler.
+     - `unique_pixel_and_allocation.py`: remove profiler.
+     - `usgs_gage_crosswalk.py`: remove profiler.
+     - `usgs_gage_unit_setup.py`: remove profiler.
+     - `utils`
+         - `shared_functions`: remove profiler.
+      ` unit_tests`
+          - `clip_vectors_to_wbd_tests.py`: Linting tools change order of the imports.
+
+<br/><br/>
+
+## v4.4.4.1 - 2023-10-26 - [PR#1007](https://github.com/NOAA-OWP/inundation-mapping/pull/1007)
+
+Updates GVAL to address memory and performance issues associated with running synthesize test cases.
+
+### Changes
+
+- `tools/tools_shared_functions.py`
+- `Pipfile`
+- `pyproject.toml`
+- `tools/run_test_case.py`
+- `tools/synthesize_test_cases.py`
+- `tools/inundate_mosaic_wrapper`
+<br/><br/>
+
+## v4.4.4.0 - 2023-10-20 - [PR#1012](https://github.com/NOAA-OWP/inundation-mapping/pull/1012)
+
+The way in which watershed boundary data (WBD) is generated and processed has been modified. Instead of generating those files "on the fly" for every run, a script has been added that will take a huclist and create the .gpkg files per HUC in a specified directory (`$pre_clip_huc_dir`).  During a `fim_pipeline.sh` run, the pre-clipped staged vectors will be copied over to the containers' working directory. This reduces runtime and the repetitive computation needed to generate those files every run.
+
+### Changes
+
+- `src/`
+    - `bash_variables.env`: Add pre_clip_huc_dir env variable. 
+    - `clip_vectors_to_wbd.py`: Moved to `/data/wbd/clip_vectors_to_wbd.py`.
+    - `src/run_unit_wb.sh`: Remove ogr2ogr calls to get & clip WBD, remove call to clip_vectors_to_wbd.py, and replace with copying staged .gpkg files. 
+
+### Additions
+
+- `data/wbd/`
+    - `generate_pre_clip_fim_huc8.py`: This script generates the pre-clipped vectors at the huc level.
+
+<br/><br/>
+
+## v4.4.3.0 - 2023-10-10 - [PR#1005](https://github.com/NOAA-OWP/inundation-mapping/pull/1005)
 
 Revise stream clipping to WBD by (1) reducing the buffer to clip streams away from the edge of the DEM (to prevent reverse flow issues) from 3 cells to 8 cells to account for the 70m AGREE buffer; (2) splitting MultiLineStrings formed by NWM streams being clipped by the DEM edge and then re-entering the DEM, and retaining only the lowest segment. Also changes the value of `input_WBD_gdb` to use the WBD clipped to the DEM domain.
 
