@@ -93,19 +93,13 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         print("Performing bool mosaic process...")
         logging.info("Performing bool mosaic process...")
 
-        output_bool_dir = os.path.join(output_dir, "bool_temp")
-        if not os.path.exists(output_bool_dir):
-            os.mkdir(output_bool_dir)
-        else:
-            # we need to empty it. we will kill it and remake it (using rmtree to force it)
-            shutil.rmtree(output_bool_dir, ignore_errors=True)
-            os.mkdir(output_bool_dir)
+        output_bool_dir = output_dir
 
         procs_list = []
         for rasfile in os.listdir(magnitude_output_dir):
             if rasfile.endswith(".tif") and "extent" in rasfile:
                 # p = magnitude_output_dir + rasfile
-                procs_list.append([magnitude_output_dir, rasfile, output_bool_dir])
+                procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, fim_version])
 
         # Multiprocess --> create boolean inundation rasters for all hucs
         if len(procs_list) > 0:
@@ -117,7 +111,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             logging.info(msg)
 
         # now cleanup the raw mosiac directories
-        shutil.rmtree(output_bool_dir, ignore_errors=True)
+        #shutil.rmtree(output_bool_dir, ignore_errors=True)
 
     # now cleanup the raw mosiac directories
     shutil.rmtree(magnitude_output_dir, ignore_errors=True)
@@ -167,6 +161,7 @@ def create_bool_rasters(args):
     in_raster_dir = args[0]
     rasfile = args[1]
     output_bool_dir = args[2]
+    fim_version = args[3]
 
     print("Calculating boolean inundate raster: " + rasfile)
     p = in_raster_dir + os.sep + rasfile
@@ -189,7 +184,7 @@ def create_bool_rasters(args):
         dtype="int8",
         compress="lzw",
     )
-    with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, "w", **profile) as dst:
+    with rasterio.open(output_bool_dir + os.sep +  rasfile[:-4] + '_' + fim_version  + '.tif', "w", **profile) as dst:
         dst.write(array.astype(rasterio.int8))
 
 
