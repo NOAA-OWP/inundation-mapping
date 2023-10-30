@@ -10,6 +10,28 @@ import pandas as pd
 def verify_crosswalk(
     input_flows_fileName, input_nwmflows_fileName, input_nwm_headwaters_fileName, output_table_fileName
 ):
+    """
+    Tool to check the accuracy of crosswalked attributes
+
+    Parameters
+    ----------
+    input_flows_fileName : str
+        Path to DEM derived streams
+    input_nwmflows_fileName : str
+        Path to subset NWM burnlines
+    input_nwm_headwaters_fileName : str
+        Path to subset NWM headwaters
+    output_table_fileName : str
+        Path to output table filename
+
+    Returns
+    -------
+    results : pandas.DataFrame
+
+    Usage
+    -----
+    python verify_crosswalk.py -a <input_flows_fileName> -b <input_nwmflows_fileName> -d <input_nwm_headwaters_fileName> -c <output_table_fileName>
+    """
     # Check for crosswalks between NWM and DEM-derived flowlines
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
@@ -117,9 +139,7 @@ def verify_crosswalk(
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Crosswalk for MS/FR/GMS networks; calculate synthetic rating curves; update short rating curves'
-    )
+    parser = argparse.ArgumentParser(description='Tool to check crosswalk accuracy')
     parser.add_argument('-a', '--input-flows-fileName', help='DEM derived streams', required=True)
     parser.add_argument('-b', '--input-nwmflows-fileName', help='Subset NWM burnlines', required=True)
     parser.add_argument('-d', '--input-nwm-headwaters-fileName', help='Subset NWM headwaters', required=True)
