@@ -1,479 +1,389 @@
-#!/usr/bin/env python3
+# This routine is used to conflate the DEM-derived reaches to the
+# National Water Model (NWM) streams (feature_id)
 
 import argparse
-import json
-import sys
+import datetime
+import multiprocessing as mp
+import os
+import time
+from functools import partial
+from multiprocessing import Pool
+from time import sleep
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
-from numpy import unique
-from rasterstats import zonal_stats
+import tqdm
+from geopandas.tools import sjoin
+from shapely import wkt
+from shapely.geometry import Point
 
-from utils.shared_functions import getDriver
-from utils.shared_variables import FIM_ID
+# import errors
+import utils.shared_variables as sv
 
 
-# TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
+# -------------------------------------------------
+def fn_wkt_loads(x):
+    try:
+        return wkt.loads(x)
+    except Exception:
+        return None
 
 
-def add_crosswalk(
-    input_catchments_fileName,
-    input_flows_fileName,
-    input_srcbase_fileName,
-    output_catchments_fileName,
-    output_flows_fileName,
-    output_src_fileName,
-    output_src_json_fileName,
-    output_crosswalk_fileName,
-    output_hydro_table_fileName,
-    input_huc_fileName,
-    input_nwmflows_fileName,
-    input_nwmcatras_fileName,
-    mannings_n,
-    input_nwmcat_fileName,
-    extent,
-    small_segments_filename,
-    min_catchment_area,
-    min_stream_length,
-    calibration_mode=False,
-):
-    input_catchments = gpd.read_file(input_catchments_fileName)
-    input_flows = gpd.read_file(input_flows_fileName)
-    input_huc = gpd.read_file(input_huc_fileName)
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName)
-    min_catchment_area = float(min_catchment_area)  # 0.25#
-    min_stream_length = float(min_stream_length)  # 0.5#
+# -------------------------------------------------
+def fn_snap_point(shply_line, list_of_df_row):
+    # int_index, int_feature_id, str_huc12, shp_point = list_of_df_row
+    int_index, shp_point, int_feature_id = list_of_df_row
 
-    if extent == 'FR':
-        ## crosswalk using majority catchment method
+    point_project_wkt = shply_line.interpolate(shply_line.project(shp_point)).wkt
 
-        # calculate majority catchments
-        majority_calc = zonal_stats(
-            input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True
+    list_col_names = ["feature_id", "geometry_wkt"]
+    df = pd.DataFrame([[int_feature_id, point_project_wkt]], columns=list_col_names)
+
+    sleep(0.03)  # this allows the tqdm progress bar to update
+
+    return df
+
+
+# -------------------------------------------------
+def fn_create_gdf_of_points(tpl_request):
+    # function to create and return a geoDataframe from a list of shapely points
+
+    str_feature_id = tpl_request[0]
+    list_of_points = tpl_request[1]
+
+    # Create an empty dataframe
+    df_points_nwm = pd.DataFrame(list_of_points, columns=["geometry"])
+
+    # convert dataframe to geodataframe
+    gdf_points_nwm = gpd.GeoDataFrame(df_points_nwm, geometry="geometry")
+
+    gdf_points_nwm["feature_id"] = str_feature_id
+
+    return gdf_points_nwm
+
+
+# -------------------------------------------------
+def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_path, str_gpkg_out_arg):
+    # supress all warnings
+    # warnings.filterwarnings("ignore", category=UserWarning)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # INPUT
+
+    flt_start_conflate_demDerived_to_nwm = time.time()
+
+    print(" ")
+    print("+=========================================================================+")
+    print("|        CONFLATE DEM-DERIVED REACHES TO NATIONAL WATER MODEL STREAMS         |")
+    print("+-------------------------------------------------------------------------+")
+
+    print("  ---(u) HUC-8: " + huc8)
+
+    print("  ---(d) DEM-DERIVED REACHES INPUT GPKG: " + demDerived_reaches_path)
+
+    print("  ---(n) NWM STREAMS INPUT GPKG: " + nwm_streams_path)
+
+    STR_OUT_PATH = str_gpkg_out_arg
+    print("  ---(o) OUTPUT DIRECTORY: " + STR_OUT_PATH)
+
+    if not os.path.exists(STR_OUT_PATH):
+        os.makedirs(STR_OUT_PATH)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # distance to buffer around modeled stream centerlines
+    int_buffer_dist = 600
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # TODO - 2021.09.21 - this should be 50 if meters and 150 if feet
+    # too small a value creates long buffering times
+    int_distance_delta = 50  # distance between points in hec-ras projection units
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # Input - projection of the base level engineering models
+    # get this string from the input shapefiles of the stream
+    nwm_streams = gpd.read_file(nwm_streams_path)
+    nwm_prj = str(nwm_streams.crs)
+
+    # Note that this routine requires three (3) datasets.
+    # (1) the NHD Watershed Boundary dataset
+    # (2) the National water model flowlines geopackage
+    # (3) the DEM-derived flows
+
+    # demDerived_reaches = gpd.read_file(demDerived_reaches_path)
+
+    # Geospatial projections
+    # wgs = "epsg:4326" - not needed
+    # lambert = "epsg:3857" - not needed
+    # nwm_prj = "ESRI:102039"
+    # nwm_prj = "epsg:5070"
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # ````````````````````````
+    # option to turn off the SettingWithCopyWarning
+    # pd.set_option("mode.chained_assignment", None)
+    # ````````````````````````
+
+    # Load the geopackage into geodataframe
+    print("+-----------------------------------------------------------------+")
+    print("Loading NWM streams")
+
+    # Get the NWM stream centerlines from the provided geopackage
+
+    # rename ID to feature_id
+    nwm_streams = nwm_streams.rename(columns={"ID": "feature_id"})
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Create points at desired interval along each
+    # national water model stream
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # Multi-Linestrings to Linestrings
+    nwm_streams_nwm_explode = nwm_streams.explode(index_parts=True)
+
+    # TODO - 2021.08.03 - Quicker to buffer the dem_streams first
+    # and get the nwm streams that are inside or touch the buffer?
+
+    list_points_aggregate = []
+    print("+-----------------------------------------------------------------+")
+
+    for index, row in nwm_streams_nwm_explode.iterrows():
+        str_current_linestring = row["geometry"]
+        distances = np.arange(0, str_current_linestring.length, int_distance_delta)
+        inter_distances = [str_current_linestring.interpolate(distance) for distance in distances]
+        boundary_point = Point(
+            str_current_linestring.boundary.bounds[0], str_current_linestring.boundary.bounds[1]
         )
-        input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
-        input_majorities = input_majorities.rename(columns={'majority': 'feature_id'})
+        inter_distances.append(boundary_point)
 
-        input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
-        if input_majorities.feature_id.dtype != 'int':
-            input_majorities.feature_id = input_majorities.feature_id.astype(int)
-        if input_majorities.HydroID.dtype != 'int':
-            input_majorities.HydroID = input_majorities.HydroID.astype(int)
+        tpl_request = (row["feature_id"], inter_distances)
+        list_points_aggregate.append(tpl_request)
 
-        input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
-        if input_nwmflows.feature_id.dtype != 'int':
-            input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
-        relevant_input_nwmflows = input_nwmflows[
-            input_nwmflows['feature_id'].isin(input_majorities['feature_id'])
-        ]
-        relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id', 'order_'])
+    # create a pool of processors
+    num_processors = mp.cpu_count() - 2
+    pool = Pool(processes=num_processors)
 
-        if input_catchments.HydroID.dtype != 'int':
-            input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-        output_catchments = output_catchments.merge(
-            relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id'
+    len_points_agg = len(list_points_aggregate)
+
+    list_gdf_points_all_lines = list(
+        tqdm.tqdm(
+            pool.imap(fn_create_gdf_of_points, list_points_aggregate),
+            total=len_points_agg,
+            desc="Points on lines",
+            bar_format="{desc}:({n_fmt}/{total_fmt})|{bar}| {percentage:.1f}%",
+            ncols=67,
         )
+    )
 
-        if input_flows.HydroID.dtype != 'int':
-            input_flows.HydroID = input_flows.HydroID.astype(int)
-        output_flows = input_flows.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-        if output_flows.HydroID.dtype != 'int':
-            output_flows.HydroID = output_flows.HydroID.astype(int)
-        output_flows = output_flows.merge(relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id')
-        output_flows = output_flows.merge(
-            output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
+    pool.close()
+    pool.join()
+
+    gdf_points_nwm = gpd.GeoDataFrame(pd.concat(list_gdf_points_all_lines, ignore_index=True))
+    gdf_points_nwm = gdf_points_nwm.set_crs(nwm_prj)
+
+    # path of the shapefile to write
+    str_filepath_nwm_points = os.path.join(STR_OUT_PATH, f"{huc8}_nwm_points_PT.gpkg")
+
+    # write the shapefile
+    gdf_points_nwm.to_file(str_filepath_nwm_points)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # read in the model stream shapefile
+    gdf_segments = gpd.read_file(demDerived_reaches_path)
+
+    # Simplify geom by 4.5 tolerance and rewrite the
+    # geom to eliminate streams with too many verticies
+
+    flt_tolerance = 4.5  # tolerance for simplification of DEM-DERIVED REACHES stream centerlines
+
+    for index, row in gdf_segments.iterrows():
+        shp_geom = row["geometry"]
+        shp_simplified_line = shp_geom.simplify(flt_tolerance, preserve_topology=False)
+        gdf_segments.at[index, "geometry"] = shp_simplified_line
+
+    # create merged geometry of all streams
+    shply_line = gdf_segments.geometry.unary_union
+
+    # read in the national water model points
+    gdf_points = gdf_points_nwm
+
+    # reproject the points
+    gdf_points = gdf_points.to_crs(gdf_segments.crs)
+
+    print("+-----------------------------------------------------------------+")
+    print("Buffering stream centerlines")
+    # buffer the merged stream ceterlines - distance to find valid conflation point
+    shp_buff = shply_line.buffer(int_buffer_dist)
+
+    # convert shapely to geoDataFrame
+    gdf_buff = gpd.GeoDataFrame(geometry=[shp_buff])
+
+    # set the CRS of buff
+    gdf_buff = gdf_buff.set_crs(gdf_segments.crs)
+
+    # spatial join - points in polygon
+    gdf_points_in_poly = sjoin(gdf_points, gdf_buff, how="left")
+
+    # drop all points that are not within polygon
+    gdf_points_within_buffer = gdf_points_in_poly.dropna()
+
+    # need to reindex the returned geoDataFrame
+    gdf_points_within_buffer = gdf_points_within_buffer.reset_index()
+
+    # delete the index_right field
+    del gdf_points_within_buffer["index_right"]
+
+    total_points = len(gdf_points_within_buffer)
+
+    df_points_within_buffer = pd.DataFrame(gdf_points_within_buffer)
+    # TODO - 2021.09.21 - create a new df that has only the variables needed in the desired order
+    list_dataframe_args_snap = df_points_within_buffer.values.tolist()
+
+    print("+-----------------------------------------------------------------+")
+    p = mp.Pool(processes=(mp.cpu_count() - 2))
+
+    list_df_points_projected = list(
+        tqdm.tqdm(
+            p.imap(partial(fn_snap_point, shply_line), list_dataframe_args_snap),
+            total=total_points,
+            desc="Snap Points",
+            bar_format="{desc}:({n_fmt}/{total_fmt})|{bar}| {percentage:.1f}%",
+            ncols=67,
         )
-
-    elif (extent == 'MS') | (extent == 'GMS'):
-        ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
-
-        # only reduce nwm catchments to mainstems if running mainstems
-        if extent == 'MS':
-            input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem == 1]
-
-        input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
-        if input_nwmcat.feature_id.dtype != 'int':
-            input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
-        input_nwmcat = input_nwmcat.set_index('feature_id')
-
-        input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
-        if input_nwmflows.feature_id.dtype != 'int':
-            input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
-
-        # Get stream midpoint
-        stream_midpoint = []
-        hydroID = []
-        for i, lineString in enumerate(input_flows.geometry):
-            hydroID = hydroID + [input_flows.loc[i, 'HydroID']]
-            stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
-
-        input_flows_midpoint = gpd.GeoDataFrame(
-            {'HydroID': hydroID, 'geometry': stream_midpoint}, crs=input_flows.crs, geometry='geometry'
-        )
-        input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
-
-        # Create crosswalk
-        crosswalk = gpd.sjoin(
-            input_flows_midpoint, input_nwmcat, how='left', predicate='within'
-        ).reset_index()
-        crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
-
-        # fill in missing ms
-        crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
-        for index, stream in crosswalk_missing.iterrows():
-            # find closest nwm catchment by distance
-            distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
-            min_dist = min(distances)
-            nwmcat_index = distances.index(min_dist)
-
-            # update crosswalk
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].name
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].AreaSqKM
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Length
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Area
-
-        crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
-        crosswalk = crosswalk.merge(input_nwmflows[['feature_id', 'order_']], on='feature_id')
-
-        if len(crosswalk) < 1:
-            print("No relevant streams within HUC boundaries.")
-            sys.exit(0)
-
-        if input_catchments.HydroID.dtype != 'int':
-            input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(crosswalk, on='HydroID')
-
-        if input_flows.HydroID.dtype != 'int':
-            input_flows.HydroID = input_flows.HydroID.astype(int)
-        output_flows = input_flows.merge(crosswalk, on='HydroID')
-
-        # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
-        if 'areasqkm' not in output_catchments.columns:
-            output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
-
-        output_flows = output_flows.merge(
-            output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
-        )
-
-    output_flows['ManningN'] = mannings_n
-
-    if output_flows.NextDownID.dtype != 'int':
-        output_flows.NextDownID = output_flows.NextDownID.astype(int)
-
-    # Adjust short model reach rating curves
-    print('Adjusting model reach rating curves')
-    sml_segs = pd.DataFrame()
-
-    # replace small segment geometry with neighboring stream
-    for stream_index in output_flows.index:
-        if (
-            output_flows["areasqkm"][stream_index] < min_catchment_area
-            and output_flows["LengthKm"][stream_index] < min_stream_length
-            and output_flows["LakeID"][stream_index] < 0
-        ):
-            short_id = output_flows['HydroID'][stream_index]
-            to_node = output_flows['To_Node'][stream_index]
-            from_node = output_flows['From_Node'][stream_index]
-
-            # multiple upstream segments
-            if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
-                try:
-                    # drainage area would be better than stream order but we would need to calculate
-                    max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_'])
-                except Exception as e:
-                    print(
-                        f"short_id: {short_id} cannot calculate max stream order for "
-                        f"multiple upstream segments scenario. \n Exception: \n {repr(e)} \n"
-                    )
-
-                if (
-                    len(
-                        output_flows.loc[
-                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
-                        ]['HydroID']
-                    )
-                    == 1
-                ):
-                    update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].item()
-
-                else:
-                    # Get the first one
-                    # (same stream order, without drainage area info, hard to know which is the main channel)
-                    update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].values[0]
-
-            # single upstream segments
-            elif len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) == 1:
-                update_id = output_flows.loc[output_flows.To_Node == from_node]['HydroID'].item()
-
-            # no upstream segments; multiple downstream segments
-            elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) > 1:
-                try:
-                    max_order = max(
-                        output_flows.loc[output_flows.From_Node == to_node]['HydroID']['order_']
-                    )  # drainage area would be better than stream order but we would need to calculate
-                except Exception as e:
-                    print(
-                        f"To Node {to_node} cannot calculate max stream order for no upstream segments; "
-                        "multiple downstream segments scenario. "
-                        f"Exception \n {repr(e)} \n"
-                    )
-
-                if (
-                    len(
-                        output_flows.loc[
-                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
-                        ]['HydroID']
-                    )
-                    == 1
-                ):
-                    update_id = output_flows.loc[
-                        (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].item()
-
-                # Get the first one
-                # Same stream order, without drainage area info it is hard to know which is the main channel.
-                else:
-                    update_id = output_flows.loc[
-                        (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].values[0]
-
-            # no upstream segments; single downstream segment
-            elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) == 1:
-                update_id = output_flows.loc[output_flows.From_Node == to_node]['HydroID'].item()
-
-            else:
-                update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].item()
-
-            str_order = output_flows.loc[output_flows.HydroID == short_id]['order_'].item()
-            sml_segs = pd.concat(
-                [
-                    sml_segs,
-                    pd.DataFrame(
-                        {'short_id': [short_id], 'update_id': [update_id], 'str_order': [str_order]}
-                    ),
-                ],
-                ignore_index=True,
-            )
-
-    print(
-        f"Number of short reaches [areasqkm < {min_catchment_area} and LengthKm < {min_stream_length}] = "
-        f"{len(sml_segs)}"
     )
 
-    # calculate src_full
-    input_src_base = pd.read_csv(input_srcbase_fileName, dtype=object)
-    if input_src_base.CatchId.dtype != 'int':
-        input_src_base.CatchId = input_src_base.CatchId.astype(int)
+    p.close()
+    p.join()
 
-    input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
+    gdf_points_snap_to_dem = gpd.GeoDataFrame(pd.concat(list_df_points_projected, ignore_index=True))
+
+    gdf_points_snap_to_dem["geometry"] = gdf_points_snap_to_dem.geometry_wkt.apply(fn_wkt_loads)
+    gdf_points_snap_to_dem = gdf_points_snap_to_dem.dropna(subset=["geometry"])
+    gdf_points_snap_to_dem = gdf_points_snap_to_dem.set_crs(gdf_segments.crs)
+
+    # write the shapefile
+    str_filepath_dem_points = os.path.join(STR_OUT_PATH, f"{huc8}_dem_snap_points_PT.gpkg")
+
+    gdf_points_snap_to_dem.to_file(str_filepath_dem_points)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # Buffer the Base Level Engineering streams 0.1 feet (line to polygon)
+
+    gdf_segments_buffer = gdf_segments
+    gdf_segments["geometry"] = gdf_segments_buffer.geometry.buffer(0.1)
+
+    # Spatial join of the points and buffered stream
+
+    gdf_dem_points_feature_id = gpd.sjoin(
+        gdf_points_snap_to_dem, gdf_segments_buffer[["geometry"]], how="left", op="intersects"
     )
 
-    input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
-    input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
-    input_src_base['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    input_src_base['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    input_src_base['WetArea (m2)'] = input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
-    input_src_base['HydraulicRadius (m)'] = (
-        input_src_base['WetArea (m2)'] / input_src_base['WettedPerimeter (m)']
-    )
-    input_src_base['HydraulicRadius (m)'].fillna(0, inplace=True)
-    input_src_base['Discharge (m3s-1)'] = (
-        input_src_base['WetArea (m2)']
-        * pow(input_src_base['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(input_src_base['SLOPE'], 0.5)
-        / input_src_base['ManningN']
+    # delete the wkt_geom field
+    del gdf_dem_points_feature_id["index_right"]
+
+    # Intialize the variable
+    gdf_dem_points_feature_id["count"] = 1
+
+    df_dem_guess = pd.pivot_table(
+        gdf_dem_points_feature_id, index=["feature_id"], values=["count"], aggfunc=np.sum
     )
 
-    # set nans to 0
-    input_src_base.loc[input_src_base['Stage'] == 0, ['Discharge (m3s-1)']] = 0
-    input_src_base['Bathymetry_source'] = pd.NA
+    df_test = df_dem_guess.sort_values("count")
 
-    output_src = input_src_base.drop(columns=['CatchId']).copy()
-    if output_src.HydroID.dtype != 'int':
-        output_src.HydroID = output_src.HydroID.astype(int)
+    str_csv_file = os.path.join(STR_OUT_PATH, f"{huc8}_interim_list_of_streams.csv")
 
-    # update rating curves
-    if len(sml_segs) > 0:
-        sml_segs.to_csv(small_segments_filename, index=False)
-        print("Update rating curves for short reaches.")
+    # Write out the table - read back in
+    # this is to white wash the data type
+    df_test.to_csv(str_csv_file)
+    df_test = pd.read_csv(str_csv_file)
 
-        for index, segment in sml_segs.iterrows():
-            short_id = segment[0]
-            update_id = segment[1]
-            new_values = output_src.loc[output_src['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
+    # Remove the duplicates and determine the feature_id with the highest count
+    df_test = df_test.drop_duplicates(subset="feature_id", keep="last")
 
-            for src_index, src_stage in new_values.iterrows():
-                output_src.loc[
-                    (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
-                    ['Discharge (m3s-1)'],
-                ] = src_stage[1]
+    # Left join the nwm shapefile and the
+    # feature_id/ras_path dataframe on the feature_id
 
-    if extent == 'FR':
-        output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-    elif (extent == 'MS') | (extent == 'GMS'):
-        output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
+    # When we merge df_test into nwm_streams_nwm_demprj (which does not have a ras_path colum)
+    # the new gdf_nwm_stream_raspath does have the column of ras_path but it is all NaN
+    # So, we flipped it for nwm_streams_nwm_demprj into df_test and it fixed it
+    df_nwm_stream_raspath = df_test.merge(nwm_streams, on="feature_id", how="left")
 
-    output_crosswalk = output_src[['HydroID', 'feature_id']]
-    output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
+    # We need to convert it back to a geodataframe for next steps (and exporting)
+    gdf_nwm_stream_raspath = gpd.GeoDataFrame(df_nwm_stream_raspath)
 
-    # make hydroTable
-    output_hydro_table = output_src.loc[
-        :,
-        [
-            'HydroID',
-            'feature_id',
-            'NextDownID',
-            'order_',
-            'Number of Cells',
-            'SurfaceArea (m2)',
-            'BedArea (m2)',
-            'TopWidth (m)',
-            'LENGTHKM',
-            'AREASQKM',
-            'WettedPerimeter (m)',
-            'HydraulicRadius (m)',
-            'WetArea (m2)',
-            'Volume (m3)',
-            'SLOPE',
-            'ManningN',
-            'Stage',
-            'Discharge (m3s-1)',
-        ],
-    ]
-    output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
+    # path of the shapefile to write
+    str_filepath_nwm_stream = os.path.join(STR_OUT_PATH, f"{huc8}_nwm_streams_ln.gpkg")
 
-    # Set placeholder variables to be replaced in post-processing (as needed).
-    # Create here to ensure consistent column vars. These variables represent the original unmodified values
-    output_hydro_table['default_discharge_cms'] = output_src['Discharge (m3s-1)']
-    output_hydro_table['default_Volume (m3)'] = output_src['Volume (m3)']
-    output_hydro_table['default_WetArea (m2)'] = output_src['WetArea (m2)']
-    output_hydro_table['default_HydraulicRadius (m)'] = output_src['HydraulicRadius (m)']
-    output_hydro_table['default_ManningN'] = output_src['ManningN']
-    # Placeholder vars for BARC
-    output_hydro_table['Bathymetry_source'] = pd.NA
-    # Placeholder vars for subdivision routine
-    output_hydro_table['subdiv_applied'] = False
-    output_hydro_table['overbank_n'] = pd.NA
-    output_hydro_table['channel_n'] = pd.NA
-    output_hydro_table['subdiv_discharge_cms'] = pd.NA
-    # Placeholder vars for the calibration routine
-    output_hydro_table['calb_applied'] = False
-    output_hydro_table['last_updated'] = pd.NA
-    output_hydro_table['submitter'] = pd.NA
-    output_hydro_table['obs_source'] = pd.NA
-    output_hydro_table['precalb_discharge_cms'] = pd.NA
-    output_hydro_table['calb_coef_usgs'] = pd.NA
-    output_hydro_table['calb_coef_ras2fim'] = pd.NA
-    output_hydro_table['calb_coef_spatial'] = pd.NA
-    output_hydro_table['calb_coef_final'] = pd.NA
+    # write the shapefile
+    gdf_nwm_stream_raspath.to_file(str_filepath_nwm_stream)
 
-    if output_hydro_table.HydroID.dtype != 'str':
-        output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
-    output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[0:4])
+    print()
+    print("COMPLETE")
 
-    if input_huc[FIM_ID].dtype != 'str':
-        input_huc[FIM_ID] = input_huc[FIM_ID].astype(str)
-    output_hydro_table = output_hydro_table.merge(input_huc.loc[:, [FIM_ID, 'HUC8']], how='left', on=FIM_ID)
-
-    if output_flows.HydroID.dtype != 'str':
-        output_flows.HydroID = output_flows.HydroID.astype(str)
-    output_hydro_table = output_hydro_table.merge(
-        output_flows.loc[:, ['HydroID', 'LakeID']], how='left', on='HydroID'
+    flt_end_create_shapes_from_demDerived = time.time()
+    flt_time_pass_conflate_demDerived_to_nwm = (
+        flt_end_create_shapes_from_demDerived - flt_start_conflate_demDerived_to_nwm
+    ) // 1
+    time_pass_conflate_demDerived_to_nwm = datetime.timedelta(
+        seconds=flt_time_pass_conflate_demDerived_to_nwm
     )
-    output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
-    output_hydro_table = output_hydro_table.rename(columns={'HUC8': 'HUC'})
-    if output_hydro_table.HUC.dtype != 'str':
-        output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
+    print("Compute Time: " + str(time_pass_conflate_demDerived_to_nwm))
 
-    output_hydro_table = output_hydro_table.drop(columns=FIM_ID)
-    if output_hydro_table.feature_id.dtype != 'int':
-        output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
-    if output_hydro_table.feature_id.dtype != 'str':
-        output_hydro_table.feature_id = output_hydro_table.feature_id.astype(str)
-
-    # make src json
-    output_src_json = dict()
-    hydroID_list = unique(output_src['HydroID'])
-
-    for hid in hydroID_list:
-        indices_of_hid = output_src['HydroID'] == hid
-        stage_list = output_src['Stage'][indices_of_hid].astype(float)
-        q_list = output_src['Discharge (m3s-1)'][indices_of_hid].astype(float)
-
-        stage_list = stage_list.tolist()
-        q_list = q_list.tolist()
-
-        output_src_json[str(hid)] = {'q_list': q_list, 'stage_list': stage_list}
-
-    # write out
-    output_catchments.to_file(
-        output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
-    )
-    output_flows.to_file(output_flows_fileName, driver=getDriver(output_flows_fileName), index=False)
-    output_src.to_csv(output_src_fileName, index=False)
-    output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
-    output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
-
-    with open(output_src_json_fileName, 'w') as f:
-        json.dump(output_src_json, f, sort_keys=True, indent=2)
+    print("+=================================================================+")
 
 
-if __name__ == '__main__':
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if __name__ == "__main__":
+    # Sample:
+    # python add_crosswalk -u 12040101
+    # -d /outputs/dev-4.4.3.0/12040101/branches/0/demDerived_reaches_split_addedAttributes.gpkg
+    # -n /outputs/dev-4.4.3.0/12040101/nwm_streams_subset.gpkg
+    # -w /outputs/dev-4.4.3.0/12040101/wbd.gpkg
+    # -o /outputs/temp/dev-conflate-carter
+
     parser = argparse.ArgumentParser(
-        description="Crosswalk for MS/FR/GMS networks; calculate synthetic rating curves; update short rating curves"
+        description="===== CONFLATE DEM-DERIVED REACHES TO NATIONAL WATER MODEL STREAMS ====="
     )
-    parser.add_argument("-d", "--input-catchments-fileName", help="DEM derived catchments", required=True)
-    parser.add_argument("-a", "--input-flows-fileName", help="DEM derived streams", required=True)
+
     parser.add_argument(
-        "-s", "--input-srcbase-fileName", help="Base synthetic rating curve table", required=True
-    )
-    parser.add_argument(
-        "-l", "--output-catchments-fileName", help="Subset crosswalked catchments", required=True
-    )
-    parser.add_argument("-f", "--output-flows-fileName", help="Subset crosswalked streams", required=True)
-    parser.add_argument(
-        "-r", "--output-src-fileName", help="Output crosswalked synthetic rating curve table", required=True
-    )
-    parser.add_argument(
-        "-j", "--output-src-json-fileName", help="Output synthetic rating curve json", required=True
-    )
-    parser.add_argument("-x", "--output-crosswalk-fileName", help="Crosswalk table", required=True)
-    parser.add_argument("-t", "--output-hydro-table-fileName", help="Hydrotable", required=True)
-    parser.add_argument("-w", "--input-huc-fileName", help="HUC8 boundary", required=True)
-    parser.add_argument("-b", "--input-nwmflows-fileName", help="Subest NWM burnlines", required=True)
-    parser.add_argument("-y", "--input-nwmcatras-fileName", help="NWM catchment raster", required=False)
-    parser.add_argument(
-        "-m",
-        "--mannings-n",
-        help="Mannings n. Accepts single parameter set or list of parameter set in calibration mode. Currently input as csv.",
+        "-u",
+        dest="huc8",
+        help="REQUIRED: HUC-8 watershed that is being evaluated: Example: 10170204",
         required=True,
+        metavar="STRING",
+        type=str,
     )
-    parser.add_argument("-z", "--input-nwmcat-fileName", help="NWM catchment polygon", required=True)
-    parser.add_argument("-p", "--extent", help="GMS only for now", default="GMS", required=False)
+
     parser.add_argument(
-        "-k", "--small-segments-filename", help="output list of short segments", required=True
+        "-d",
+        dest="demDerived_reaches_path",
+        help=r"REQUIRED: Path to demDerived reaches:  Example: D:\ras_shapes",
+        required=True,
+        metavar="DIR",
+        type=str,
     )
     parser.add_argument(
-        "-c", "--calibration-mode", help="Mannings calibration flag", required=False, action="store_true"
+        "-n",
+        dest="nwm_streams_path",
+        help=r"REQUIRED: Path to NWM streams:  Example: D:\ras_shapes",
+        required=True,
+        metavar="DIR",
+        type=str,
     )
-    parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
-    parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
+
+    parser.add_argument(
+        "-o",
+        dest="str_gpkg_out_arg",
+        help=r"REQUIRED: path to folder to write output files: Example: D:\conflation_output",
+        required=True,
+        metavar="DIR",
+        type=str,
+    )
 
     args = vars(parser.parse_args())
 
-    add_crosswalk(**args)
+    fn_conflate_demDerived_to_nwm(**args)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
