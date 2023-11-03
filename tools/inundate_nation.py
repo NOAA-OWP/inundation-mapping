@@ -41,10 +41,11 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     print(f"Input FIM Directory is {fim_run_dir}")
     
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
-    logging.info(f"Using fim version: {fim_version}")
-    output_base_file_name = magnitude_key + "_" + fim_version
 
+    output_base_file_name = magnitude_key + "_" + fim_version
     __setup_logger(output_dir, output_base_file_name)
+
+    logging.info(f"Using fim version: {fim_version}")    
 
     start_dt = datetime.now()
 
@@ -66,8 +67,6 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         # we need to empty it. we will kill it and remake it (using rmtree to force it)
         shutil.rmtree(magnitude_output_dir, ignore_errors=True)
         os.mkdir(magnitude_output_dir)
-
-    print(f"type of huc_list is {type(huc_list)}")
 
     if huc_list == 'all' or len(huc_list) == 0:
         huc_list = []
@@ -124,6 +123,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     logging.info(logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S")))
     end_time = datetime.now()
     logging.info(fh.print_date_time_duration(start_dt, end_time))
+    print(fh.print_date_time_duration(start_dt, end_time))
 
 
 def run_inundation(args):
@@ -198,6 +198,7 @@ def __setup_logger(output_folder_path, log_file_name_key):
     log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
 
     log_file_path = os.path.join(output_folder_path, log_file_name)
+    print(f"log file will be at {log_file_path}")
 
     logging.basicConfig(filename=log_file_path, level=logging.DEBUG, format="%(message)s")
 
