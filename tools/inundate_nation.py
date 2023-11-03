@@ -37,10 +37,12 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             + " max jobs will be used instead."
         )
 
+    print("Script starting...")
+    print(f"Input FIM Directory is {fim_run_dir}")
+    
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     logging.info(f"Using fim version: {fim_version}")
     output_base_file_name = magnitude_key + "_" + fim_version
-    # print(output_base_file_name)
 
     __setup_logger(output_dir, output_base_file_name)
 
@@ -65,7 +67,9 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         shutil.rmtree(magnitude_output_dir, ignore_errors=True)
         os.mkdir(magnitude_output_dir)
 
-    if huc_list is None:
+    print(f"type of huc_list is {type(huc_list)}")
+
+    if huc_list == 'all' or len(huc_list) == 0:
         huc_list = []
         for huc in os.listdir(fim_run_dir):
             # if (
@@ -78,11 +82,11 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
                 huc_list.append(huc)
     else:
         for huc in huc_list:
-            assert os.path.isdir(
-                fim_run_dir + os.sep + huc
-            ), f'ERROR: could not find the input fim_dir location: {fim_run_dir + os.sep + huc}'
+            huc_path = os.path.join(fim_run_dir, huc)
+            assert os.path.isdir(huc_path), f'ERROR: could not find the input fim_dir location: {huc_path}'
 
-    print("Inundation raw mosaic outputs here: " + magnitude_output_dir)
+
+    print("Inundation raw mosaic outputs will saved here: " + magnitude_output_dir)
 
     run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
 
