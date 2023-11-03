@@ -13,7 +13,6 @@ import geopandas as gp
 import numpy as np
 import pandas as pd
 import rasterio
-from memory_profiler import profile
 from tqdm import tqdm
 
 import utils.shared_variables as sv
@@ -183,16 +182,6 @@ def update_raster_profile(args):
         os.remove(elev_cm_filename)
 
     return elev_m_filename
-
-
-def mem_profile(func):
-    def wrapper(*args, **kwargs):
-        if os.environ.get('mem') == "1":
-            profile(func)(*args, **kwargs)
-        else:
-            func(*args, **kwargs)
-
-    return wrapper
 
 
 ########################################################################

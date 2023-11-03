@@ -8,11 +8,10 @@ import pandas as pd
 import rasterio as rio
 from shapely.geometry import MultiPolygon, Polygon
 
-from utils.shared_functions import getDriver, mem_profile
+from utils.shared_functions import getDriver
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
-@mem_profile
 def subset_vector_layers(
     subset_nwm_lakes,
     subset_nwm_streams,
@@ -38,7 +37,7 @@ def subset_vector_layers(
     levee_protected_areas,
     subset_levee_protected_areas,
 ):
-    print("Getting Cell Size", flush=True)
+    print(f"Getting Cell Size for {hucCode}", flush=True)
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
 
@@ -46,7 +45,7 @@ def subset_vector_layers(
     dem_domain = gpd.read_file(dem_domain)
 
     # Get wbd buffer
-    print("Create wbd buffer", flush=True)
+    print(f"Create wbd buffer for {hucCode}", flush=True)
     wbd_buffer = wbd.copy()
     wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
     wbd_buffer = gpd.clip(wbd_buffer, dem_domain)
@@ -73,14 +72,14 @@ def subset_vector_layers(
     # Clip ocean water polygon for future masking ocean areas (where applicable)
     landsea = gpd.read_file(landsea, mask=wbd_buffer)
     if not landsea.empty:
-        print("Create landsea gpkg", flush=True)
+        print(f"Create landsea gpkg for {hucCode}", flush=True)
         landsea.to_file(
             subset_landsea, driver=getDriver(subset_landsea), index=False, crs=DEFAULT_FIM_PROJECTION_CRS
         )
     del landsea
 
     # Clip levee-protected areas polygons for future masking ocean areas (where applicable)
-    print("Subsetting Levee Protected Areas", flush=True)
+    print(f"Subsetting Levee Protected Areas for {hucCode}", flush=True)
     levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer)
     if not levee_protected_areas.empty:
         levee_protected_areas.to_file(
@@ -92,7 +91,7 @@ def subset_vector_layers(
     del levee_protected_areas
 
     # Find intersecting lakes and writeout
-    print("Subsetting NWM Lakes", flush=True)
+    print(f"Subsetting NWM Lakes for {hucCode}", flush=True)
     nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer)
     nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
@@ -111,7 +110,7 @@ def subset_vector_layers(
     del nwm_lakes
 
     # Find intersecting levee lines
-    print("Subsetting NLD levee lines", flush=True)
+    print(f"Subsetting NLD levee lines for {hucCode}", flush=True)
     nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer)
     if not nld_lines.empty:
         nld_lines.to_file(
@@ -131,7 +130,7 @@ def subset_vector_layers(
     del nld_lines_preprocessed
 
     # Subset NWM headwaters
-    print("Subsetting NWM Headwater Points", flush=True)
+    print(f"Subsetting NWM Headwater Points for {hucCode}", flush=True)
     nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer)
 
     if len(nwm_headwaters) > 0:
@@ -147,7 +146,7 @@ def subset_vector_layers(
     del nwm_headwaters
 
     # Find intersecting nwm_catchments
-    print("Subsetting NWM Catchments", flush=True)
+    print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
     nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer)
 
     if len(nwm_catchments) > 0:
@@ -163,7 +162,7 @@ def subset_vector_layers(
     del nwm_catchments
 
     # Subset nwm streams
-    print("Subsetting NWM Streams", flush=True)
+    print(f"Subsetting NWM Streams for {hucCode}", flush=True)
 
     nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer)
 
