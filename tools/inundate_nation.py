@@ -12,8 +12,8 @@ from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-from osgeo import gdal, ogr
-from rasterio.merge import merge
+#from osgeo import gdal, ogr
+#from rasterio.merge import merge
 
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
@@ -84,6 +84,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             huc_path = os.path.join(fim_run_dir, huc)
             assert os.path.isdir(huc_path), f'ERROR: could not find the input fim_dir location: {huc_path}'
 
+    huc_list.sort()
 
     print("Inundation raw mosaic outputs will saved here: " + magnitude_output_dir)
 
