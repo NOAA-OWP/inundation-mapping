@@ -92,9 +92,6 @@ def produce_mosaicked_inundation(
             "Please lower the num_workers.".format(num_workers, total_cpus_available)
         )
 
-    if len(hucs) == 1:
-        fh.vprint("Running inundate for " + huc + "...", verbose)
-
     # Call Inundate_gms
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,

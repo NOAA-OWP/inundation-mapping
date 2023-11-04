@@ -12,8 +12,7 @@ from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-#from osgeo import gdal, ogr
-#from rasterio.merge import merge
+from rasterio.merge import merge
 
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
@@ -37,15 +36,15 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             + " max jobs will be used instead."
         )
 
-    print("Script starting...")
+    print()
+    print("Inundation Nation script starting...")
     print(f"Input FIM Directory is {fim_run_dir}")
     
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
-
+    logging.info(f"Using fim version: {fim_version}")
     output_base_file_name = magnitude_key + "_" + fim_version
-    __setup_logger(output_dir, output_base_file_name)
 
-    logging.info(f"Using fim version: {fim_version}")    
+    __setup_logger(output_dir, output_base_file_name)
 
     start_dt = datetime.now()
 
@@ -98,6 +97,13 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         logging.info("Performing bool mosaic process...")
 
         output_bool_dir = output_dir
+        
+        if not os.path.exists(output_bool_dir):
+            os.mkdir(output_bool_dir)
+        else:
+            # we need to empty it. we will kill it and remake it (using rmtree to force it)
+            shutil.rmtree(output_bool_dir, ignore_errors=True)
+            os.mkdir(output_bool_dir)
 
         procs_list = []
         for rasfile in os.listdir(magnitude_output_dir):
@@ -118,13 +124,12 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         #shutil.rmtree(output_bool_dir, ignore_errors=True)
 
     # now cleanup the raw mosiac directories
-    shutil.rmtree(magnitude_output_dir, ignore_errors=True)
+    # shutil.rmtree(magnitude_output_dir, ignore_errors=True)
 
     fh.print_current_date_time()
     logging.info(logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S")))
     end_time = datetime.now()
     logging.info(fh.print_date_time_duration(start_dt, end_time))
-    print(fh.print_date_time_duration(start_dt, end_time))
 
 
 def run_inundation(args):
@@ -156,8 +161,8 @@ def run_inundation(args):
         forecast,
         inundation_raster=inundation_raster,
         num_workers=job_number,
-        remove_intermediate=True,
-        verbose=True,
+        remove_intermediate=False,
+        verbose=False,
         is_mosaic_for_branches=True,
     )
 
@@ -199,7 +204,6 @@ def __setup_logger(output_folder_path, log_file_name_key):
     log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
 
     log_file_path = os.path.join(output_folder_path, log_file_name)
-    print(f"log file will be at {log_file_path}")
 
     logging.basicConfig(filename=log_file_path, level=logging.DEBUG, format="%(message)s")
 
