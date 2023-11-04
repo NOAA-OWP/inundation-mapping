@@ -96,7 +96,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         print("Performing bool mosaic process...")
         logging.info("Performing bool mosaic process...")
 
-        output_bool_dir = output_dir
+        output_bool_dir = os.path.join(output_dir, "bool_temp")
         
         if not os.path.exists(output_bool_dir):
             os.mkdir(output_bool_dir)
