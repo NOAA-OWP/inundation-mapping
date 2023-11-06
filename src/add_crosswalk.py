@@ -18,9 +18,6 @@ from geopandas.tools import sjoin
 from shapely import wkt
 from shapely.geometry import Point
 
-# import errors
-import utils.shared_variables as sv
-
 
 # -------------------------------------------------
 def fn_wkt_loads(x):
@@ -92,7 +89,7 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # distance to buffer around modeled stream centerlines
-    int_buffer_dist = 600
+    int_buffer_dist = 100
     # ~~~~~~~~~~~~~~~~~~~~~~~~
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -191,37 +188,38 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # read in the model stream shapefile
-    gdf_segments = gpd.read_file(demDerived_reaches_path)
+    demDerived_reaches = gpd.read_file(demDerived_reaches_path)
 
     # Simplify geom by 4.5 tolerance and rewrite the
     # geom to eliminate streams with too many verticies
 
-    flt_tolerance = 4.5  # tolerance for simplification of DEM-DERIVED REACHES stream centerlines
+    # flt_tolerance = 4.5  # tolerance for simplification of DEM-DERIVED REACHES stream centerlines
 
-    for index, row in gdf_segments.iterrows():
-        shp_geom = row["geometry"]
-        shp_simplified_line = shp_geom.simplify(flt_tolerance, preserve_topology=False)
-        gdf_segments.at[index, "geometry"] = shp_simplified_line
+    # for index, row in demDerived_reaches.iterrows():
+    #     shp_geom = row["geometry"]
+    #     shp_simplified_line = shp_geom.simplify(flt_tolerance, preserve_topology=False)
+    #     demDerived_reaches.at[index, "geometry"] = shp_simplified_line
 
     # create merged geometry of all streams
-    shply_line = gdf_segments.geometry.unary_union
+    shply_line = demDerived_reaches.geometry.unary_union
 
     # read in the national water model points
     gdf_points = gdf_points_nwm
 
     # reproject the points
-    gdf_points = gdf_points.to_crs(gdf_segments.crs)
+    if gdf_points.crs != demDerived_reaches.crs:
+        gdf_points = gdf_points.to_crs(demDerived_reaches.crs)
 
     print("+-----------------------------------------------------------------+")
     print("Buffering stream centerlines")
-    # buffer the merged stream ceterlines - distance to find valid conflation point
+    # buffer the merged stream centerlines - distance to find valid conflation point
     shp_buff = shply_line.buffer(int_buffer_dist)
 
     # convert shapely to geoDataFrame
     gdf_buff = gpd.GeoDataFrame(geometry=[shp_buff])
 
     # set the CRS of buff
-    gdf_buff = gdf_buff.set_crs(gdf_segments.crs)
+    gdf_buff = gdf_buff.set_crs(demDerived_reaches.crs)
 
     # spatial join - points in polygon
     gdf_points_in_poly = sjoin(gdf_points, gdf_buff, how="left")
@@ -261,7 +259,7 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
 
     gdf_points_snap_to_dem["geometry"] = gdf_points_snap_to_dem.geometry_wkt.apply(fn_wkt_loads)
     gdf_points_snap_to_dem = gdf_points_snap_to_dem.dropna(subset=["geometry"])
-    gdf_points_snap_to_dem = gdf_points_snap_to_dem.set_crs(gdf_segments.crs)
+    gdf_points_snap_to_dem = gdf_points_snap_to_dem.set_crs(demDerived_reaches.crs)
 
     # write the shapefile
     str_filepath_dem_points = os.path.join(STR_OUT_PATH, f"{huc8}_dem_snap_points_PT.gpkg")
@@ -270,25 +268,27 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    # Buffer the Base Level Engineering streams 0.1 feet (line to polygon)
+    # Buffer the demDerived reaches 0.1 feet (line to polygon)
 
-    gdf_segments_buffer = gdf_segments
-    gdf_segments["geometry"] = gdf_segments_buffer.geometry.buffer(0.1)
+    demDerived_reaches_buffer = demDerived_reaches
+    demDerived_reaches["geometry"] = demDerived_reaches_buffer.geometry.buffer(0.1)
 
     # Spatial join of the points and buffered stream
 
     gdf_dem_points_feature_id = gpd.sjoin(
-        gdf_points_snap_to_dem, gdf_segments_buffer[["geometry"]], how="left", op="intersects"
+        gdf_points_snap_to_dem, demDerived_reaches_buffer, how="left", predicate="intersects"
     )
 
+    gdf_dem_points_feature_id = gdf_dem_points_feature_id.rename(columns={"feature_id_left": "feature_id"})
+
     # delete the wkt_geom field
-    del gdf_dem_points_feature_id["index_right"]
+    # del gdf_dem_points_feature_id["index_right"]
 
     # Intialize the variable
     gdf_dem_points_feature_id["count"] = 1
 
     df_dem_guess = pd.pivot_table(
-        gdf_dem_points_feature_id, index=["feature_id"], values=["count"], aggfunc=np.sum
+        gdf_dem_points_feature_id, index=["feature_id", 'HydroID'], values=["count"], aggfunc=np.sum
     )
 
     df_test = df_dem_guess.sort_values("count")
@@ -301,24 +301,21 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
     df_test = pd.read_csv(str_csv_file)
 
     # Remove the duplicates and determine the feature_id with the highest count
-    df_test = df_test.drop_duplicates(subset="feature_id", keep="last")
+    df_test = df_test.drop_duplicates(subset="HydroID", keep="last")
 
-    # Left join the nwm shapefile and the
-    # feature_id/ras_path dataframe on the feature_id
+    demDerived_reaches['HydroID'] = demDerived_reaches['HydroID'].astype(int)
 
-    # When we merge df_test into nwm_streams_nwm_demprj (which does not have a ras_path colum)
-    # the new gdf_nwm_stream_raspath does have the column of ras_path but it is all NaN
-    # So, we flipped it for nwm_streams_nwm_demprj into df_test and it fixed it
-    df_nwm_stream_raspath = df_test.merge(nwm_streams, on="feature_id", how="left")
+    # Join the crosswalk table to the demDerived_reaches
+    df_demDerived_reaches = demDerived_reaches.merge(df_test, on="HydroID", how="left")
 
     # We need to convert it back to a geodataframe for next steps (and exporting)
-    gdf_nwm_stream_raspath = gpd.GeoDataFrame(df_nwm_stream_raspath)
+    gdf_demDerived_reaches = gpd.GeoDataFrame(df_demDerived_reaches)
 
     # path of the shapefile to write
-    str_filepath_nwm_stream = os.path.join(STR_OUT_PATH, f"{huc8}_nwm_streams_ln.gpkg")
+    str_filepath_demDerived_reaches = os.path.join(STR_OUT_PATH, f"{huc8}_demDerived_reaches_ln.gpkg")
 
     # write the shapefile
-    gdf_nwm_stream_raspath.to_file(str_filepath_nwm_stream)
+    gdf_demDerived_reaches.to_file(str_filepath_demDerived_reaches)
 
     print()
     print("COMPLETE")
