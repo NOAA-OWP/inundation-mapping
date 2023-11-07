@@ -30,12 +30,12 @@ def fn_wkt_loads(x):
 # -------------------------------------------------
 def fn_snap_point(shply_line, list_of_df_row):
     # int_index, int_feature_id, str_huc12, shp_point = list_of_df_row
-    int_index, shp_point, int_feature_id = list_of_df_row
+    int_index, shp_point, hydro_id, int_feature_id = list_of_df_row
 
     point_project_wkt = shply_line.interpolate(shply_line.project(shp_point)).wkt
 
-    list_col_names = ["feature_id", "geometry_wkt"]
-    df = pd.DataFrame([[int_feature_id, point_project_wkt]], columns=list_col_names)
+    list_col_names = ["HydroID", "feature_id", "geometry_wkt"]
+    df = pd.DataFrame([[hydro_id, int_feature_id, point_project_wkt]], columns=list_col_names)
 
     sleep(0.03)  # this allows the tqdm progress bar to update
 
@@ -46,8 +46,9 @@ def fn_snap_point(shply_line, list_of_df_row):
 def fn_create_gdf_of_points(tpl_request):
     # function to create and return a geoDataframe from a list of shapely points
 
-    str_feature_id = tpl_request[0]
-    list_of_points = tpl_request[1]
+    hydro_id = tpl_request[0]
+    str_feature_id = tpl_request[1]
+    list_of_points = tpl_request[2]
 
     # Create an empty dataframe
     df_points_nwm = pd.DataFrame(list_of_points, columns=["geometry"])
@@ -55,7 +56,8 @@ def fn_create_gdf_of_points(tpl_request):
     # convert dataframe to geodataframe
     gdf_points_nwm = gpd.GeoDataFrame(df_points_nwm, geometry="geometry")
 
-    gdf_points_nwm["feature_id"] = str_feature_id
+    gdf_points_nwm["HydroID"] = hydro_id
+    gdf_points_nwm['feature_id'] = str_feature_id
 
     return gdf_points_nwm
 
@@ -100,22 +102,12 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
 
     # Input - projection of the base level engineering models
     # get this string from the input shapefiles of the stream
-    nwm_streams = gpd.read_file(nwm_streams_path)
-    nwm_prj = str(nwm_streams.crs)
+    demDerived_reaches = gpd.read_file(demDerived_reaches_path)
+    dem_prj = str(demDerived_reaches.crs)
 
     # Note that this routine requires three (3) datasets.
     # (1) the NHD Watershed Boundary dataset
     # (2) the National water model flowlines geopackage
-    # (3) the DEM-derived flows
-
-    # demDerived_reaches = gpd.read_file(demDerived_reaches_path)
-
-    # Geospatial projections
-    # wgs = "epsg:4326" - not needed
-    # lambert = "epsg:3857" - not needed
-    # nwm_prj = "ESRI:102039"
-    # nwm_prj = "epsg:5070"
-    # ~~~~~~~~~~~~~~~~~~~~~~~~
 
     # ````````````````````````
     # option to turn off the SettingWithCopyWarning
@@ -124,12 +116,11 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
 
     # Load the geopackage into geodataframe
     print("+-----------------------------------------------------------------+")
-    print("Loading NWM streams")
+    print("Loading DEM-derived reaches")
 
     # Get the NWM stream centerlines from the provided geopackage
 
     # rename ID to feature_id
-    nwm_streams = nwm_streams.rename(columns={"ID": "feature_id"})
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Create points at desired interval along each
@@ -137,7 +128,7 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # Multi-Linestrings to Linestrings
-    nwm_streams_nwm_explode = nwm_streams.explode(index_parts=True)
+    demDerived_reaches_explode = demDerived_reaches.explode(index_parts=True)
 
     # TODO - 2021.08.03 - Quicker to buffer the dem_streams first
     # and get the nwm streams that are inside or touch the buffer?
@@ -145,7 +136,7 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
     list_points_aggregate = []
     print("+-----------------------------------------------------------------+")
 
-    for index, row in nwm_streams_nwm_explode.iterrows():
+    for index, row in demDerived_reaches_explode.iterrows():
         str_current_linestring = row["geometry"]
         distances = np.arange(0, str_current_linestring.length, int_distance_delta)
         inter_distances = [str_current_linestring.interpolate(distance) for distance in distances]
@@ -154,7 +145,7 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
         )
         inter_distances.append(boundary_point)
 
-        tpl_request = (row["feature_id"], inter_distances)
+        tpl_request = (row["HydroID"], row['feature_id'], inter_distances)
         list_points_aggregate.append(tpl_request)
 
     # create a pool of processors
@@ -176,39 +167,41 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
     pool.close()
     pool.join()
 
-    gdf_points_nwm = gpd.GeoDataFrame(pd.concat(list_gdf_points_all_lines, ignore_index=True))
-    gdf_points_nwm = gdf_points_nwm.set_crs(nwm_prj)
+    gdf_points_dem = gpd.GeoDataFrame(pd.concat(list_gdf_points_all_lines, ignore_index=True))
+    gdf_points_dem = gdf_points_dem.set_crs(dem_prj)
 
     # path of the shapefile to write
-    str_filepath_nwm_points = os.path.join(STR_OUT_PATH, f"{huc8}_nwm_points_PT.gpkg")
+    str_filepath_dem_points = os.path.join(STR_OUT_PATH, f"{huc8}_dem_points_PT.gpkg")
 
     # write the shapefile
-    gdf_points_nwm.to_file(str_filepath_nwm_points)
+    gdf_points_dem.to_file(str_filepath_dem_points)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # read in the model stream shapefile
-    demDerived_reaches = gpd.read_file(demDerived_reaches_path)
+    nwm_streams = gpd.read_file(nwm_streams_path)
+
+    nwm_streams = nwm_streams.rename(columns={"ID": "feature_id"})
 
     # Simplify geom by 4.5 tolerance and rewrite the
     # geom to eliminate streams with too many verticies
 
     # flt_tolerance = 4.5  # tolerance for simplification of DEM-DERIVED REACHES stream centerlines
 
-    # for index, row in demDerived_reaches.iterrows():
+    # for index, row in NWM__streams.iterrows():
     #     shp_geom = row["geometry"]
     #     shp_simplified_line = shp_geom.simplify(flt_tolerance, preserve_topology=False)
-    #     demDerived_reaches.at[index, "geometry"] = shp_simplified_line
+    #     NWM__streams.at[index, "geometry"] = shp_simplified_line
 
     # create merged geometry of all streams
-    shply_line = demDerived_reaches.geometry.unary_union
+    shply_line = nwm_streams.geometry.unary_union
 
-    # read in the national water model points
-    gdf_points = gdf_points_nwm
+    # read in the demDerived points
+    gdf_points = gdf_points_dem
 
     # reproject the points
-    if gdf_points.crs != demDerived_reaches.crs:
-        gdf_points = gdf_points.to_crs(demDerived_reaches.crs)
+    if gdf_points.crs != nwm_streams.crs:
+        gdf_points = gdf_points.to_crs(nwm_streams.crs)
 
     print("+-----------------------------------------------------------------+")
     print("Buffering stream centerlines")
@@ -219,7 +212,7 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
     gdf_buff = gpd.GeoDataFrame(geometry=[shp_buff])
 
     # set the CRS of buff
-    gdf_buff = gdf_buff.set_crs(demDerived_reaches.crs)
+    gdf_buff = gdf_buff.set_crs(nwm_streams.crs)
 
     # spatial join - points in polygon
     gdf_points_in_poly = sjoin(gdf_points, gdf_buff, how="left")
@@ -255,43 +248,43 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
     p.close()
     p.join()
 
-    gdf_points_snap_to_dem = gpd.GeoDataFrame(pd.concat(list_df_points_projected, ignore_index=True))
+    gdf_points_snap_to_nwm = gpd.GeoDataFrame(pd.concat(list_df_points_projected, ignore_index=True))
 
-    gdf_points_snap_to_dem["geometry"] = gdf_points_snap_to_dem.geometry_wkt.apply(fn_wkt_loads)
-    gdf_points_snap_to_dem = gdf_points_snap_to_dem.dropna(subset=["geometry"])
-    gdf_points_snap_to_dem = gdf_points_snap_to_dem.set_crs(demDerived_reaches.crs)
+    gdf_points_snap_to_nwm["geometry"] = gdf_points_snap_to_nwm.geometry_wkt.apply(fn_wkt_loads)
+    gdf_points_snap_to_nwm = gdf_points_snap_to_nwm.dropna(subset=["geometry"])
+    gdf_points_snap_to_nwm = gdf_points_snap_to_nwm.set_crs(nwm_streams.crs)
 
     # write the shapefile
     str_filepath_dem_points = os.path.join(STR_OUT_PATH, f"{huc8}_dem_snap_points_PT.gpkg")
 
-    gdf_points_snap_to_dem.to_file(str_filepath_dem_points)
+    gdf_points_snap_to_nwm.to_file(str_filepath_dem_points)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # Buffer the demDerived reaches 0.1 feet (line to polygon)
 
-    demDerived_reaches_buffer = demDerived_reaches
-    demDerived_reaches["geometry"] = demDerived_reaches_buffer.geometry.buffer(0.1)
+    nwm_streams_buffer = nwm_streams
+    nwm_streams["geometry"] = nwm_streams_buffer.geometry.buffer(0.1)
 
     # Spatial join of the points and buffered stream
 
-    gdf_dem_points_feature_id = gpd.sjoin(
-        gdf_points_snap_to_dem, demDerived_reaches_buffer, how="left", predicate="intersects"
+    gdf_nwm_points_feature_id = gpd.sjoin(
+        gdf_points_snap_to_nwm, nwm_streams_buffer, how="left", predicate="intersects"
     )
 
-    gdf_dem_points_feature_id = gdf_dem_points_feature_id.rename(columns={"feature_id_left": "feature_id"})
+    gdf_nwm_points_feature_id = gdf_nwm_points_feature_id.rename(columns={"feature_id_right": "feature_id"})
 
     # delete the wkt_geom field
-    # del gdf_dem_points_feature_id["index_right"]
+    del gdf_nwm_points_feature_id["index_right"]
 
     # Intialize the variable
-    gdf_dem_points_feature_id["count"] = 1
+    gdf_nwm_points_feature_id["count"] = 1
 
-    df_dem_guess = pd.pivot_table(
-        gdf_dem_points_feature_id, index=["feature_id", 'HydroID'], values=["count"], aggfunc=np.sum
+    df_nwm_guess = pd.pivot_table(
+        gdf_nwm_points_feature_id, index=["feature_id", 'HydroID'], values=["count"], aggfunc=np.sum
     )
 
-    df_test = df_dem_guess.sort_values("count")
+    df_test = df_nwm_guess.sort_values("count")
 
     str_csv_file = os.path.join(STR_OUT_PATH, f"{huc8}_interim_list_of_streams.csv")
 
@@ -302,6 +295,8 @@ def fn_conflate_demDerived_to_nwm(huc8, demDerived_reaches_path, nwm_streams_pat
 
     # Remove the duplicates and determine the feature_id with the highest count
     df_test = df_test.drop_duplicates(subset="HydroID", keep="last")
+
+    df_test.to_csv(os.path.join(STR_OUT_PATH, f"{huc8}_crosswalk_table.csv"), index=False)
 
     demDerived_reaches['HydroID'] = demDerived_reaches['HydroID'].astype(int)
 
@@ -337,7 +332,7 @@ if __name__ == "__main__":
     # Sample:
     # python add_crosswalk -u 12040101
     # -d /outputs/dev-4.4.3.0/12040101/branches/0/demDerived_reaches_split_addedAttributes.gpkg
-    # -n /outputs/dev-4.4.3.0/12040101/nwm_streams_subset.gpkg
+    # -n /outputs/dev-4.4.3.0/12040101/DEM__streams_subset.gpkg
     # -w /outputs/dev-4.4.3.0/12040101/wbd.gpkg
     # -o /outputs/temp/dev-conflate-carter
 
