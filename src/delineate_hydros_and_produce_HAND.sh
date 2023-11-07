@@ -126,7 +126,6 @@ date -u
 Tstart
 $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
-    # -c $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \ 
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -w $tempHucDataDir/wbd8_clp.gpkg \
@@ -148,16 +147,6 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 Tcount
 
-## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
-echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
-date -u
-Tstart
-$srcDir/mitigate_branch_outlet_backpool.py \
-    -c $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \ 
-    -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
-    -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-Tcount
-
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
 date -u
@@ -177,6 +166,17 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -gw $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
+Tcount
+
+## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
+echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
+date -u
+Tstart
+$srcDir/mitigate_branch_outlet_backpool.py \
+    -c $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
+    -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
+    -n $b_arg
 Tcount
 
 # D8 REM ##

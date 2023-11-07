@@ -66,9 +66,11 @@ def mitigate_branch_outlet_backpool(
 
         if num_outlier == 0:
             print('No outliers detected in catchment size.')
+
             flagged_catchment = False
         elif num_outlier >= 1:
             print(f'{num_outlier} outlier catchment(s) found in catchment size.') 
+
             flagged_catchment = True
         else:
             print('WARNING: Unable to check outlier count.')
@@ -108,7 +110,7 @@ def mitigate_branch_outlet_backpool(
     def snap_and_trim_splitflow(outlet_point, flows):
 
         if len(flows) > 1:
-            flow = flows[flows['NextDownID'] == '-1' ] ## select last one?
+            flow = flows[flows['NextDownID'] == '-1' ] # selects last one
         else: 
             flow = flows
 
@@ -167,28 +169,28 @@ def mitigate_branch_outlet_backpool(
         return flows
 
     # --------------------------------------------------------------
-    # Read in data (and if the files exist)
-    print()
-    print('Loading data ...')
-
-    if isfile(catchment_pixels_filename):
-        with rasterio.open(catchment_pixels_filename) as src:
-            catchments_geom = src.read(1)
-    else:
-        catchments_geom = None
-        print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') ## debug
-
-    # Read in split_flows_file and split_points_filename
-    split_flows_geom = gpd.read_file(split_flows_filename)
-    split_points_geom = gpd.read_file(split_points_filename)
-
-    # --------------------------------------------------------------
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
     nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
 
-    # If it's NOT branch zero, check for the two criteria and mitiate issue if needed
-    if 'levpa_id' in nwm_streams.columns: # TODO: Should I be iterating through split_flows and/or split_points here? -> those don't have levpa_id, so maybe not
+    # Check whether it's branch zero 
+    if 'levpa_id' in nwm_streams.columns:
+        # If it's NOT branch zero, check for the two criteria and mitigate issue if needed
+
+        # Read in data and check if the files exist
+        print()
+        print('Non-branch zero, loading data for test ...')
+
+        if isfile(catchment_pixels_filename):
+            with rasterio.open(catchment_pixels_filename) as src:
+                catchments_geom = src.read(1)
+        else:
+            catchments_geom = None
+            print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') ## debug
+
+        # Read in split_flows_file and split_points_filename
+        split_flows_geom = gpd.read_file(split_flows_filename)
+        split_points_geom = gpd.read_file(split_points_filename)
 
         # Check whether catchments_geom exists
         if catchments_geom is not None:
@@ -211,6 +213,7 @@ def mitigate_branch_outlet_backpool(
                 outlet_flag = check_if_ID_is_outlet(last_point_geom, outlier_catchment_ids)
 
             else: 
+                # If the catchment flag is False, just set the outlet flag to False automatically
                 outlet_flag = False
                 
             # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
@@ -225,40 +228,54 @@ def mitigate_branch_outlet_backpool(
                 thirdtolast_point_geom['catchment_id'] = thirdtolast_point_geom.apply(get_raster_value, axis=1) ## mainly for debug (but could be good to keep)
 
                 # Snap and trim the flowline to the selected point
-                flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
+                output_flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
 
-                # Create a buffer around the updated flows geodataframe (and make sure it's all one shape)
-                flows_buffer = flows.buffer(10).geometry.unary_union
+                # Create  buffer around the updated flows geodataframe (and make sure it's all one shape)
+                flows_buffer = output_flows.buffer(10).geometry.unary_union
 
                 # Remove flowpoints that don't intersect with the trimmed flow line
                 split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(flows_buffer)]
 
             else:
-                print('Incorrectly-large outlet pixel catchment WAS NOT detected.') ## debug
+                print('Incorrectly-large outlet pixel catchment was NOT detected.')
+                output_flows = split_flows_geom
+                split_points_filtered_geom = split_points_geom
 
-    # TODO: figure out if I need to recalculate this section: "Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment"
+        else:
+            print('Catchment geom file not found, unable to test for backpool error...')
+            output_flows = split_flows_geom
+            split_points_filtered_geom = split_points_geom
 
-    # --------------------------------------------------------------
-    # Save the outputs
-    # print('Writing outputs ...')
+        # TODO: figure out if I need to recalculate this section: "Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment"
 
-    # if isfile(split_flows_filename):
-    #     remove(split_flows_filename)
-    # if isfile(split_points_filename):
-    #     remove(split_points_filename)
+        # Save the outputs
+        print('Writing outputs ...')
 
-    # split_flows_gdf.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
-    # split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+        # ## temp output filenames
+        # split_flows_filename = 'branch_outlet_backpools/test_outputs/gms_branch_backpool_BEFORE_allintermeds_copy/13080002/branches/6077000088/demDerived_reaches_split_flows_6077000088_TEST.gpkg' ## debug -> remove later once I know this is WORKING 
+        # split_points_filename = 'branch_outlet_backpools/test_outputs/gms_branch_backpool_BEFORE_allintermeds_copy/13080002/branches/6077000088/demDerived_reaches_split_points_6077000088_TEST.gpkg' ## debug -> remove later once I know this is WORKING 
+
+        if isfile(split_flows_filename):
+            remove(split_flows_filename)
+        if isfile(split_points_filename):
+            remove(split_points_filename)
+
+        output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+        split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+
+    else:
+        print('Will not test for branch outlet backpool error in branch zero.')
 
 if __name__ == '__main__':
-    # Parse arguments.
+    # Parse arguments
     parser = argparse.ArgumentParser(description='mitigate_branch_outlet_backpool.py')
     parser.add_argument('-c', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
 
-    # Extract to dictionary and assign to variables.
+
+    # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
 
     mitigate_branch_outlet_backpool(**args)
