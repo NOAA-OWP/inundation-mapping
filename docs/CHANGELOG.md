@@ -1,10 +1,10 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.6.0 - 2023-11-9 - [PR#1027](https://github.com/NOAA-OWP/inundation-mapping/pull/1027)
+## v4.4.6.0 - 2023-11-9 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
 
-This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for 
-this repository. The `flake8-pyproject` dependency is now used, as it works out of the box with the `pre-commit` GitHub Action in the GitHub Hosted Runner environment.
+This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for this repository. 
+The `flake8-pyproject` dependency is now used, as it works out of the box with the `pre-commit` GitHub Action in the GitHub Hosted Runner environment.
 In switching to this package, there were a couple of `E721` which appeared. Modifications were made to the appropriate files to resolve the `flake8` `E721` errors.  
 
 ### Changes
@@ -22,8 +22,6 @@ In switching to this package, there were a couple of `E721` which appeared. Modi
     - `inundate_mosaic_wrapper.py`: Use `is` instead of `==` line 73.
     - `inundation_wrapper_nwm_flows.py`: Use `is not` instead of `!=` line 76.
     - `mosaic_inundation.py`: Use `is` instead of `==` line 181.
-- `unit_tests`
-    - ``
 
 ### Additions 
 - `.github/workflows/`
