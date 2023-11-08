@@ -5,7 +5,8 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for this repository. 
 The `flake8-pyproject` dependency is now used, as it works out of the box with the `pre-commit` GitHub Action in the GitHub Hosted Runner environment.
-In switching to this package, there were a couple of `E721` which appeared. Modifications were made to the appropriate files to resolve the `flake8` `E721` errors.  
+In switching to this package, a couple of `E721` errors appeared. Modifications were made to the appropriate files to resolve the `flake8` `E721` errors.
+Also, updates to the `unit_tests` were necessary since Branch IDs have changed with the latest code.  
 
 ### Changes
 - `.pre-commit-config.yaml`: use `flake8-pyproject` package instead of `pyproject-flake8`.
@@ -17,15 +18,22 @@ In switching to this package, there were a couple of `E721` which appeared. Modi
     - `check_huc_inputs.py`: Change `== string` to `is str`, remove `import string`
 - `tools`
     - `eval_plots.py`: Add space after comma in lines 207 & 208
-    - `generate_categorical_fim_mapping.py`: 
-    - `hash_compare.py`: Add space after comma line 153.
-    - `inundate_mosaic_wrapper.py`: Use `is` instead of `==` line 73.
-    - `inundation_wrapper_nwm_flows.py`: Use `is not` instead of `!=` line 76.
-    - `mosaic_inundation.py`: Use `is` instead of `==` line 181.
+    - `generate_categorical_fim_mapping.py`: Use `is` instead of `==`, line 315
+    - `hash_compare.py`: Add space after comma, line 153.
+    - `inundate_mosaic_wrapper.py`: Use `is` instead of `==`, line 73.
+    - `inundation_wrapper_nwm_flows.py`: Use `is not` instead of `!=`, line 76.
+    - `mosaic_inundation.py`: Use `is` instead of `==`, line 181.
+- `unit_tests`
+    - `clip_vectors_to_wbd_test.py`: File moved to data/wbd directory, update import statement
+    - `filter_catchments_and_add_attributes_params.json`: Update Branch ID
+    - `outputs_cleanup_params.json`: Update Branch ID
+    - `split_flows_params.json`: Update Branch ID
+    - `usgs_gage_crosswalk_params.json`: Update Branch ID & update argument to gage_crosswalk.run_crosswalk
+    - `unit_tests/usgs_gage_crosswalk_test.py`: Update params to gage_crosswalk.run_crosswalk
 
 ### Additions 
 - `.github/workflows/`
-    - `lint_and_format.yaml`: Add GitHub Actions Workflow file for Continuous Integration environment.
+    - `lint_and_format.yaml`: Add GitHub Actions Workflow file for Continuous Integration environment (lint and format test).
 
 <br/><br/>
 
