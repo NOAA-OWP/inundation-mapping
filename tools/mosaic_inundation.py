@@ -178,7 +178,7 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
         extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
         extent_poly_diss = extent_poly.dissolve(by="extent")
         extent_poly_diss["geometry"] = [
-            MultiPolygon([feature]) if type(feature) == Polygon else feature
+            MultiPolygon([feature]) if type(feature) is Polygon else feature
             for feature in extent_poly_diss["geometry"]
         ]
 

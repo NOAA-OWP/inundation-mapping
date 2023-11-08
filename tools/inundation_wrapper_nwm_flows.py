@@ -73,7 +73,7 @@ def run_recurr_test(fim_run_dir, branch_name, huc_id, magnitude, mask_type='huc'
 
     # Check if magnitude is list of magnitudes or single value.
     magnitude_list = magnitude
-    if type(magnitude_list) != list:
+    if type(magnitude_list) is not list:
         magnitude_list = [magnitude_list]
 
     for magnitude in magnitude_list:

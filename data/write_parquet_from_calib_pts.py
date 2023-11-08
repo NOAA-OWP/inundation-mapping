@@ -231,7 +231,7 @@ def create_parquet_files(
     if number_of_jobs > total_cpus_available:
         logging.info(
             f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -1: '
-            f'{total_cpus_available -1} will be used instead.'
+            f'{total_cpus_available - 1} will be used instead.'
         )
         number_of_jobs = total_cpus_available - 1
 
