@@ -212,8 +212,9 @@ fi
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 date -u
 Tstart
-rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
-    $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
+python3 $srcDir/fill_depressions.py \
+    -dem $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    -out $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 Tcount
 
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
@@ -221,7 +222,9 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
     date -u
     Tstart
-    rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+    python3 $srcDir/fill_depressions.py \
+        -dem $tempHucDataDir/dem_burned.tif \
+        -out $tempHucDataDir/dem_burned_filled.tif
     Tcount
 fi
 

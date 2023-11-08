@@ -1,5 +1,5 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.4.3 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0 AS builder
 WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
@@ -36,7 +36,7 @@ RUN mkdir -p $taudemDir
 RUN mkdir -p $taudemDir2
 
 ## Move needed binaries to the next stage of the image
-RUN cd taudem/bin && mv -t $taudemDir flowdircond aread8 threshold streamnet gagewatershed catchhydrogeo dinfdistdown
+RUN cd taudem/bin && mv -t $taudemDir flowdircond threshold streamnet gagewatershed catchhydrogeo dinfdistdown
 RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
 
 
@@ -47,7 +47,7 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d
 
 
 # Base Image that has GDAL, PROJ, etc
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.4.3
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -71,7 +71,7 @@ RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
 RUN apt update --fix-missing
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1 tmux rsync tzdata
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
 
 RUN apt auto-remove
 
