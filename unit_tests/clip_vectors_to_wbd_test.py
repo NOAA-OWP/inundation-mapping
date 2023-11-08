@@ -4,7 +4,7 @@ import json
 import os
 import unittest
 
-import clip_vectors_to_wbd as src
+import data.wbd.clip_vectors_to_wbd as src
 import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
