@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.6.0 - 2023-11-9 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
+## v4.4.6.0 - 2023-11-17 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
 
 This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for this repository. 
 The `flake8-pyproject` dependency is now used, as it works out of the box with the `pre-commit` GitHub Action in the GitHub Hosted Runner environment.
@@ -24,12 +24,18 @@ Also, updates to the `unit_tests` were necessary since Branch IDs have changed w
     - `inundation_wrapper_nwm_flows.py`: Use `is not` instead of `!=`, line 76.
     - `mosaic_inundation.py`: Use `is` instead of `==`, line 181.
 - `unit_tests`
-    - `clip_vectors_to_wbd_test.py`: File moved to data/wbd directory, update import statement
+    - `README.md`: Updated documentation, run `pytest` in `/foss_fim` directory.
+    - `clip_vectors_to_wbd_test.py`: File moved to data/wbd directory, update import statement, skipped this test.
     - `filter_catchments_and_add_attributes_params.json`: Update Branch ID
+    - `inundate_gms_params.json`: Moved to `unit_tests/` folder.
+    - `inundate_gms_test.py`: Moved to `unit_tests/` folder.
+    - `inundation_params.json`: Moved to `unit_tests/` folder.
+    - `inundation_test.py`: Moved to `unit_tests/` folder.
     - `outputs_cleanup_params.json`: Update Branch ID
+    - `outputs_cleanup_test.py`: Update import statement
     - `split_flows_params.json`: Update Branch ID
     - `usgs_gage_crosswalk_params.json`: Update Branch ID & update argument to gage_crosswalk.run_crosswalk
-    - `unit_tests/usgs_gage_crosswalk_test.py`: Update params to gage_crosswalk.run_crosswalk
+    - `usgs_gage_crosswalk_test.py`: Update params to gage_crosswalk.run_crosswalk
 
 ### Additions 
 - `.github/workflows/`
