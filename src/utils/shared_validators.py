@@ -34,7 +34,7 @@ def is_valid_crs(crs):
     err_msg = ""
 
     if crs == "":
-        err_msg = "huc number is not eight characters in length"
+        err_msg = "The crs value can not be blank or empty"
         return False, err_msg, ""
 
     if ":" not in crs:
