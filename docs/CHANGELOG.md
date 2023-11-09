@@ -8,6 +8,8 @@ The `flake8-pyproject` dependency is now used, as it works out of the box with t
 In switching to this package, a couple of `E721` errors appeared. Modifications were made to the appropriate files to resolve the `flake8` `E721` errors.
 Also, updates to the `unit_tests` were necessary since Branch IDs have changed with the latest code.  
 
+A small fix was also included where `src_adjust_ras2fim_rating.py` which sometimes fails with an encoding error when the ras2fim csv sometimes is created or adjsuted in windows.
+
 ### Changes
 - `.pre-commit-config.yaml`: use `flake8-pyproject` package instead of `pyproject-flake8`.
 - `Pipfile` and `Pipfile.lock`: updated to use `flake8-pyproject` package instead of `pyproject-flake8`.
@@ -16,6 +18,7 @@ Also, updates to the `unit_tests` were necessary since Branch IDs have changed w
     - `write_parquet_from_calib_pts.py`: Add space between (-) operator line 234.
 - `src`
     - `check_huc_inputs.py`: Change `== string` to `is str`, remove `import string`
+    - `src_adjust_ras2fim_rating.py`: Fixed encoding error.
 - `tools`
     - `eval_plots.py`: Add space after comma in lines 207 & 208
     - `generate_categorical_fim_mapping.py`: Use `is` instead of `==`, line 315
