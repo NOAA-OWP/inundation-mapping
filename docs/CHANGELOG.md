@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.6.0 - 2023-11-17 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
+## v4.4.6.0 - 2023-11-13 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
 
 This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for this repository. 
 The `flake8-pyproject` dependency is now used, as it works out of the box with the `pre-commit` GitHub Action in the GitHub Hosted Runner environment.
@@ -12,7 +12,7 @@ A small fix was also included where `src_adjust_ras2fim_rating.py` which sometim
 
 ### Changes
 - `.pre-commit-config.yaml`: use `flake8-pyproject` package instead of `pyproject-flake8`.
-- `Pipfile` and `Pipfile.lock`: updated to use `flake8-pyproject` package instead of `pyproject-flake8`.
+- `Pipfile` and `Pipfile.lock`: updated to use `flake8-pyproject` package instead of `pyproject-flake8`, upgrade `pyarrow` version.
 - `data`
     - `/wbd/generate_pre_clip_fim_huc8.py`: Add space between (-) operator line 134.
     - `write_parquet_from_calib_pts.py`: Add space between (-) operator line 234.
