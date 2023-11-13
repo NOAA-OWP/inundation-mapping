@@ -232,9 +232,9 @@ fi
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 date -u
 Tstart
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-    -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
+python3 $srcDir/flowdir_d8.py \
+    -dem $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
+    -out $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 Tcount
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
@@ -242,9 +242,9 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
     date -u
     Tstart
-    mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-        -fel $tempHucDataDir/dem_burned_filled.tif \
-        -p $tempHucDataDir/flowdir_d8_burned_filled.tif
+    python3 $srcDir/flowdir_d8.py \
+        -dem $tempHucDataDir/dem_burned_filled.tif \
+        -out $tempHucDataDir/flowdir_d8_burned_filled.tif
     Tcount
 fi
 

@@ -7,10 +7,9 @@ import rasterio as rio
 import whitebox
 
 
-wbt = whitebox.WhiteboxTools()
-
-
 def accumulate_headwaters(dem_filename: str, loading_filename: str, out_filename: str):
+    wbt = whitebox.WhiteboxTools()
+
     working_dir = os.path.dirname(loading_filename)
 
     efficiency_filename = os.path.join(working_dir, "efficiency.tif")
@@ -22,18 +21,30 @@ def accumulate_headwaters(dem_filename: str, loading_filename: str, out_filename
 
         data = src.read(1).astype(rio.float32)
 
-        efficiency = data**0
-        absorption = data * 0.0
+    efficiency = data**0
+    absorption = data * 0.0
 
-        with rio.open(efficiency_filename, "w", **profile) as dst:
-            dst.write(efficiency, 1)
-        with rio.open(absorption_filename, "w", **profile) as dst:
-            dst.write(absorption, 1)
+    with rio.open(efficiency_filename, "w", **profile) as dst:
+        dst.write(efficiency, 1)
+    with rio.open(absorption_filename, "w", **profile) as dst:
+        dst.write(absorption, 1)
 
     wbt.d8_mass_flux(dem_filename, loading_filename, efficiency_filename, absorption_filename, out_filename)
 
     os.remove(efficiency_filename)
     os.remove(absorption_filename)
+
+    with rio.open(out_filename) as src:
+        profile = src.profile
+        profile.update(dtype=rio.float32, count=1, compress="lzw", nodata=-1)
+
+        data = src.read(1).astype(rio.float32)
+
+    data[data < 0] = -1
+
+    with rio.open(out_filename, "w", **profile) as dst:
+        # dst.nodata = -1
+        dst.write(data, 1)
 
 
 if __name__ == "__main__":
