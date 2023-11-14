@@ -7,6 +7,7 @@ import whitebox
 
 
 wbt = whitebox.WhiteboxTools()
+wbt.set_verbose_mode(False)
 
 
 def flowdir_d8(dem_filename: str, out_filename: str):
@@ -19,13 +20,13 @@ def flowdir_d8(dem_filename: str, out_filename: str):
         DEM filename
     out_filename : str
         Out filename
-
     """
 
     wbt.d8_pointer(dem_filename, out_filename, esri_pntr=False)
 
     with rio.open(out_filename) as src:
         profile = src.profile
+        nodata = src.nodata
 
         dem = src.read(1)
 
@@ -40,6 +41,7 @@ def flowdir_d8(dem_filename: str, out_filename: str):
     data[dem == 32] = 5
     data[dem == 64] = 4
     data[dem == 128] = 3
+    data[dem == 0] = nodata
 
     del dem
 

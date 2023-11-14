@@ -6,9 +6,21 @@ import whitebox
 
 
 wbt = whitebox.WhiteboxTools()
+wbt.set_verbose_mode(False)
 
 
 def fill_depressions(dem_filename: str, out_filename: str):
+    """
+    Fill depressions in DEM
+
+    Parameters
+    ----------
+    dem_filename : str
+        DEM filename
+    out_filename : str
+        Out filename
+    """
+
     wbt.fill_depressions(dem_filename, out_filename, fix_flats=True, flat_increment=None, max_depth=None)
 
 
