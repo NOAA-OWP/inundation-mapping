@@ -25,6 +25,9 @@ from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
+# TODO: Nov 2023, Logging system appears to be not workign correctly.
+
+
 def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number):
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
@@ -38,8 +41,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
 
     print()
     print("Inundation Nation script starting...")
-    print(f"Input FIM Directory is {fim_run_dir}")
-    
+
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     logging.info(f"Using fim version: {fim_version}")
     output_base_file_name = magnitude_key + "_" + fim_version
@@ -86,8 +88,11 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     huc_list.sort()
 
     print("Inundation raw mosaic outputs will saved here: " + magnitude_output_dir)
+    print()
 
     run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
+
+    print()
 
     # Perform mosaic operation
     if inc_mosaic:
@@ -95,9 +100,9 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S"))
         print("Performing bool mosaic process...")
         logging.info("Performing bool mosaic process...")
-
         output_bool_dir = os.path.join(output_dir, "bool_temp")
-        
+        print(f"output_bool_dir is {output_bool_dir}")
+
         if not os.path.exists(output_bool_dir):
             os.mkdir(output_bool_dir)
         else:
@@ -120,8 +125,11 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             print(msg)
             logging.info(msg)
 
-        # now cleanup the raw mosiac directories
-        #shutil.rmtree(output_bool_dir, ignore_errors=True)
+        # now cleanup the temp bool directory
+        shutil.rmtree(output_bool_dir, ignore_errors=True)
+
+    else:
+        print("Skipping mosiaking")
 
     # now cleanup the raw mosiac directories
     # shutil.rmtree(magnitude_output_dir, ignore_errors=True)
@@ -154,6 +162,12 @@ def run_inundation(args):
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
 
     print("Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: " + str(magnitude))
+    print(
+        "This will take a long time depending on the number of HUCs. No progress bar will be shown."
+        " Once is gets to mosiacing (if applicable), screen output will exist. To see if the script has frozen,"
+        " you should be able to watch the file system for some changes."
+    )
+    print()
 
     produce_mosaicked_inundation(
         fim_run_dir,
@@ -194,7 +208,9 @@ def create_bool_rasters(args):
         dtype="int8",
         compress="lzw",
     )
-    with rasterio.open(output_bool_dir + os.sep +  rasfile[:-4] + '_' + fim_version  + '.tif', "w", **profile) as dst:
+    with rasterio.open(
+        output_bool_dir + os.sep + rasfile[:-4] + '_' + fim_version + '.tif', "w", **profile
+    ) as dst:
         dst.write(array.astype(rasterio.int8))
 
 
