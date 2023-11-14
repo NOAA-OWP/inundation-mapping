@@ -25,7 +25,7 @@ from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
-# TODO: Nov 2023, Logging system appears to be not workign correctly.
+# TODO: Nov 2023, Logging system appears to be not working correctly.
 
 
 def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number):
