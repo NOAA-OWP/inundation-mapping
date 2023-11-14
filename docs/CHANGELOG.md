@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-11-14 - [PR#1026](https://github.com/NOAA-OWP/inundation-mapping/pull/1026)
+
+A couple of directly related issues were fixed in this PR.
+The initial problem came from Issue #[1025](https://github.com/NOAA-OWP/inundation-mapping/issues/1025) which was about a pathing issue for the outputs directory. In testing that fix, it exposed a few other pathing and file cleanup issues which are now fixed. We also added more console output to help view variables and pathing.
+
+### Changes
+
+- `config`/`params_template.env`:  Updated for a newer mannings global file. Changed and tested by Ryan Spies.
+- `tools`
+    - `inundate_mosiac_wrapper.py`:  Took out a misleading and non-required print statement.
+    - `inundate_nation.py`: As mentioned above.
+
+<br/><br/>
+
+
 ## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
 During a recent BED attempt which added the new pre-clip system, it was erroring out on a number of hucs. It was issuing an error in the add_crosswalk.py script. While a minor bug does exist there, after a wide number of tests, the true culprit is the memory profile system embedded throughout FIM. This system has been around for at least a few years but not in use. It is not 100% clear why it became a problem with the addition of pre-clip, but that changes how records are loaded which likely affected memory at random times.
