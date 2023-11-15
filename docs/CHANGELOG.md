@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-11-15 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
+
+Quick update to match incoming ras2fim calibration output files being feed into FIM.
+
+There is no FIM issue card for this, but this is related to a ras2fim [PR #205](https://github.com/NOAA-OWP/ras2fim/pull/205) which also made changes to ensure compatibility.
+
+### Changes
+
+- `config`/`params_template.env`: Changed to recognize the latest "rel_101" edition of the ras2fim rating curve table.csv.
+- `src`
+    - `run_unit_wb.sh`:  Changed to recognize the latest "rel_101" edition of the ras2fim rating curve gpkg.
+    - `usgs_gage_unit_setup.py`:  Changed to drop a column no longer going to be coming from ras2fim calibration files.
+
+<br/><br/>
+
 ## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
 During a recent BED attempt which added the new pre-clip system, it was erroring out on a number of hucs. It was issuing an error in the add_crosswalk.py script. While a minor bug does exist there, after a wide number of tests, the true culprit is the memory profile system embedded throughout FIM. This system has been around for at least a few years but not in use. It is not 100% clear why it became a problem with the addition of pre-clip, but that changes how records are loaded which likely affected memory at random times.
