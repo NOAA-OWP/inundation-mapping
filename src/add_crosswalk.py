@@ -44,6 +44,8 @@ def add_crosswalk(
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
+    input_catchments = input_catchments.drop_duplicates(ignore_index=True)
+
     if extent == 'FR':
         ## crosswalk using majority catchment method
 
@@ -165,6 +167,8 @@ def add_crosswalk(
             output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
         )
 
+    output_flows = output_flows.drop_duplicates(ignore_index=True)
+
     output_flows['ManningN'] = mannings_n
 
     if output_flows.NextDownID.dtype != 'int':
@@ -258,7 +262,7 @@ def add_crosswalk(
             else:
                 update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].item()
 
-            str_order = output_flows.loc[output_flows.HydroID == short_id]['order_'].item()
+            str_order = output_flows.loc[output_flows.HydroID == short_id]['order_'].max()
             sml_segs = pd.concat(
                 [
                     sml_segs,
