@@ -36,7 +36,7 @@ RUN mkdir -p $taudemDir
 RUN mkdir -p $taudemDir2
 
 ## Move needed binaries to the next stage of the image
-RUN cd taudem/bin && mv -t $taudemDir flowdircond threshold streamnet gagewatershed catchhydrogeo dinfdistdown
+RUN cd taudem/bin && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
 RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
 
 
