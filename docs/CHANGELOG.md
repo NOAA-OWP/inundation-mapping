@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-11-15 - [PR#1038](https://github.com/NOAA-OWP/inundation-mapping/pull/1038)
+
+Upgrades GDAL to v.3.8.0. This resulted in several code and package changes due to a known issue with TauDEM `aread8` with GDAL > v.3.4.3. In addition, the base Python version was changed from 3.8 to 3.10 in GDAL >= 3.6. GDAL v.3.8.0 upgrades Python to 3.10.12.
+
+### Additions
+
+- `src/`
+    - `accumulate_headwaters.py`: Accumulate and threshold headwaters
+
+### Changes
+
+- `Dockerfile`: Upgrade to GDAL v3.8.0 base image; remove TauDEM `aread8` and `threshold`
+- `Pipfile` and `Pipfile.lock`: Remove `richdem` and add `importlib-metadata` and `typing-extensions`
+- `src/`
+    - `add_crosswalk.py`: Handle duplicate reaches
+    - `src/delineate_hydros_and_produce_HAND.sh`: Use `src/accumulate_headwaters.py` instead of TauDEM `aread8` and `threshold`
+    - `fill_depressions.py`: Use Whitebox instead of richdem for DEM depression filling
+    - `flowdir_d8.py`: Use Whitebox instead of TauDEM for D8 flow direction
+    - `run_by_branch.sh`: Copy `dem_burned_filled.tif` to branches
+    - `run_unit_wb.sh`: Use `src/fill_depressions.py` and `src/flowdir_d8.py`
+
+<br/><br/>
+
 ## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
 During a recent BED attempt which added the new pre-clip system, it was erroring out on a number of hucs. It was issuing an error in the add_crosswalk.py script. While a minor bug does exist there, after a wide number of tests, the true culprit is the memory profile system embedded throughout FIM. This system has been around for at least a few years but not in use. It is not 100% clear why it became a problem with the addition of pre-clip, but that changes how records are loaded which likely affected memory at random times.
