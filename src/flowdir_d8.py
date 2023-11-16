@@ -22,6 +22,7 @@ def flowdir_d8(dem_filename: str, out_filename: str):
         Out filename
     """
 
+    # Compute flow direction using WhiteboxTools
     wbt.d8_pointer(dem_filename, out_filename, esri_pntr=False)
 
     with rio.open(out_filename) as src:
@@ -33,6 +34,7 @@ def flowdir_d8(dem_filename: str, out_filename: str):
     data = dem.copy()
 
     # Reclassify WhiteboxTools flow direction to TauDEM flow direction
+    data[dem == 0] = nodata
     data[dem == 1] = 2
     data[dem == 2] = 1
     data[dem == 4] = 8
@@ -41,10 +43,10 @@ def flowdir_d8(dem_filename: str, out_filename: str):
     data[dem == 32] = 5
     data[dem == 64] = 4
     data[dem == 128] = 3
-    data[dem == 0] = nodata
 
     del dem
 
+    # Write output
     with rio.open(out_filename, "w", **profile) as dst:
         profile.update(dtype=rio.int16, count=1, compress="lzw")
         dst.write(data, 1)
