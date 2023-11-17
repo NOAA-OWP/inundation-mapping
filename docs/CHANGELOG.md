@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2023-11-08 - [PR#1031](https://github.com/NOAA-OWP/inundation-mapping/pull/1031)
+## v4.4.6.0 - 2023-11-17 - [PR#1031](https://github.com/NOAA-OWP/inundation-mapping/pull/1031)
 
 Upgrade our acquire 3Dep DEMs script to pull down South Alaska HUCS with its own CRS.
 
