@@ -312,7 +312,7 @@ def reformat_inundation_maps(
         handle = os.path.split(extent_grid)[1].replace('.tif', '')
         diss_extent_filename = os.path.join(gpkg_dir, f"{handle}_{huc}_dissolved.gpkg")
         extent_poly_diss["geometry"] = [
-            MultiPolygon([feature]) if type(feature) == Polygon else feature
+            MultiPolygon([feature]) if type(feature) is Polygon else feature
             for feature in extent_poly_diss["geometry"]
         ]
 

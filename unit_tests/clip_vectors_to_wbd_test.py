@@ -4,9 +4,10 @@ import json
 import os
 import unittest
 
-import clip_vectors_to_wbd as src
 import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
+
+import data.wbd.clip_vectors_to_wbd as src
 
 
 class test_clip_vectors_to_wbd(unittest.TestCase):
@@ -24,7 +25,11 @@ class test_clip_vectors_to_wbd(unittest.TestCase):
     # Test Cases:
 
     # TODO New Test Case to check that files were being created on the file system
-
+    @pytest.mark.skip(
+        reason="pre clipped vector files are now generated using generate_pre_clip_fim_huc8.py and "
+        "sent to the /inputs directory. Testing the clip_vectors_to_wbd.py is no longer necessary, "
+        "as this script is not run during fim_pipeline.sh execution."
+    )
     def test_subset_vector_layers_success(self):
         """
         This NEEDS be upgraded to check the output, as well as the fact that all of the output files exist.

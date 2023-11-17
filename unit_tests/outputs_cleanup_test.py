@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
-import src.outputs_cleanup as src
+import outputs_cleanup as src
 from utils.shared_functions import FIM_Helpers as fh
 
 
