@@ -4,6 +4,7 @@ import argparse
 import glob
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import traceback
@@ -14,14 +15,13 @@ import geopandas as gpd
 import pandas as pd
 
 import utils.shared_functions as sf
-import utils.shared_variables as sv
+import utils.shared_validators as val
 from utils.shared_functions import FIM_Helpers as fh
 
 
 '''
 TODO:
-    - Change to change resolution (which means URL, block size also ahve to be parameterize)
-    - if creating polygons, take out some of the hardcoding.
+    - Add input args for resolution size, which means URL and block size also hve to be parameterized.
 '''
 
 
@@ -36,28 +36,34 @@ __USGS_3DEP_10M_VRT_URL = (
 
 
 def acquire_and_preprocess_3dep_dems(
-    extent_file_path, target_output_folder_path='', number_of_jobs=1, retry=False, skip_polygons=False
+    extent_file_path,
+    target_output_folder_path='',
+    number_of_jobs=1,
+    retry=False,
+    skip_polygons=False,
+    target_projection='EPSG:5070',
 ):
     '''
     Overview
     ----------
     This will download 3dep rasters from USGS using USGS vrts.
     By default USGS 3Dep stores all their rasters in lat/long (northing and easting).
-    By us downloading the rasters using WBD HUC6 clips and gdal, we an accomplish a few extra
-    steps.
+    By us downloading the rasters using WBD HUC8 (or whatever domain) clips and gdal, we can
+     accomplish a few extra steps.
         1) Ensure the projection types that are downloaded are consistant and controlled.
-           We are going to download them as NAD83 basic (espg: 4269) which is consistant
-           with other data sources, even though FIM defaults to ESRI:102039. We will
-           change that as we add the clipped version per HUC8.
-        2) ensure we are adjusting blocksizes, compression and other raster params
-        3) Create the 3dep rasters in the size we want (default at HUC4 for now)
+        2) Ensure we are adjusting blocksizes, compression and other raster params.
+        3) Create the 3dep rasters in the size we want.
 
     Notes:
-        - It really can be used for any huc size.
+        - It really can be used for any huc size or any extent poly as long as it is 10m.
         - As this is a very low use tool, most values such as the USGS vrt path, output
-          folder paths, etc are all hardcoded
-        - You can really submit any polys of any HUC size as it as long as it is 10m
-          resolution for now.
+          file names, etc are all hardcoded
+        - Currently there is no tools to extract the WBD HUC8's that are applicable. You will want
+          a gkpg for each download extent (ie. HUC8, HUC6, whatever. Make a folder of each extent
+          file you want. ie) a folder of WBD HUC8's. One gkpg per HUC8 (or whatever size you like)
+        - When we originally used this tool for CONUS+, we loaded them in HUC6's, but now
+          with selected HUC8's for South Alaska, we will use input extent files as WBD HUC8.
+        - We have a separate tool to create a VRT of any folder of rasters.
 
     Parameters
     ----------
@@ -78,7 +84,13 @@ def acquire_and_preprocess_3dep_dems(
             the projected one, then skip it
 
         - skip_polygons (bool)
-             If True, then we will not attempt to create polygon files for each dem file.
+             If True, then we will not attempt to create polygon files for each dem file. If false,
+             an domain gpkg which covers the extent of all included features merged. It will automatically
+             be named DEM_Domain.gkpg and saved in the same folderd as the target_output_folder_path.
+
+        - target_projection (String)
+            Projection of the output DEMS and polygons (if included)
+
 
     '''
     # -------------------
@@ -86,10 +98,10 @@ def acquire_and_preprocess_3dep_dems(
     total_cpus_available = os.cpu_count() - 1
     if number_of_jobs > total_cpus_available:
         raise ValueError(
-            f'The number of jobs provided: {number_of_jobs} , '
-            f'exceeds your machine\'s available CPU count minus one. '
-            f'Please lower the number of jobs '
-            f'value accordingly.'
+            f'The number of jobs provided: {number_of_jobs} ,'
+            ' exceeds your machine\'s available CPU count minus one.'
+            ' Please lower the number of jobs'
+            ' value accordingly.'
         )
 
     if not os.path.exists(extent_file_path):
@@ -99,11 +111,55 @@ def acquire_and_preprocess_3dep_dems(
         target_output_folder_path = os.environ['usgs_3dep_dems_10m']
 
     if not os.path.exists(target_output_folder_path):
-        raise ValueError(f"Output folder path {target_output_folder_path} does not exist")
+        # It is ok if the child diretory does not exist, but the parent folder must
+        # parent directory
+        parent_dir = os.path.abspath(os.path.join(target_output_folder_path, os.pardir))
+        print(parent_dir)
+        if not os.path.exists(parent_dir):
+            raise ValueError(
+                f"For the output path of {target_output_folder_path}, the child directory"
+                " need not exist but the parent folder must."
+            )
+        os.makedirs(target_output_folder_path)
+    else:  # path exists
+        if not retry:
+            file_list = os.listdir(target_output_folder_path)
+            if len(file_list) > 0:
+                print()
+                msg = f"The target output folder of {target_output_folder_path} appears to not be empty.\n\n"
+                "Do you want to empty the folder first?\n"
+                "  -- Type 'overwrite' if you want to empty the folder and continue.\n"
+                "  -- Type any other value to abort and stop the program.\n"
+                "  ?="
+
+                resp = input(msg).lower()
+                if resp == "overwrite":
+                    shutil.rmtree(target_output_folder_path)
+                    os.mkdir(target_output_folder_path)
+                else:
+                    print("Program stopped\n")
+                    sys.exit(0)
+        else:  # might want to retry but the folder isn't there yet
+            # It is ok if the child diretory does not exist, but the parent folder must
+            # parent directory, we want to reset it
+            parent_dir = os.path.abspath(os.path.join(target_output_folder_path, os.pardir))
+            print(parent_dir)
+            if not os.path.exists(parent_dir):
+                raise ValueError(
+                    f"For the output path of {target_output_folder_path}, the child directory"
+                    " need not exist but the parent folder must."
+                )
+            shutil.rmtree(target_output_folder_path)
+            os.mkdir(target_output_folder_path)
+
+    # I don't need the crs_number for now
+    crs_is_valid, err_msg, crs_number = val.is_valid_crs(target_projection)
+    if crs_is_valid is False:
+        raise ValueError(err_msg)
 
     # -------------------
     # setup logs
-    start_time = datetime.now()
+    start_time = datetime.utcnow()
     fh.print_start_header('Loading 3dep dems', start_time)
 
     # print(f"Downloading to {target_output_folder_path}")
@@ -120,12 +176,14 @@ def acquire_and_preprocess_3dep_dems(
     logging.info(msg)
 
     # download dems, setting projection, block size, etc
-    __download_usgs_dems(extent_file_names, target_output_folder_path, number_of_jobs, retry)
+    __download_usgs_dems(
+        extent_file_names, target_output_folder_path, number_of_jobs, retry, target_projection
+    )
 
     if skip_polygons is False:
         polygonize(target_output_folder_path)
 
-    end_time = datetime.now()
+    end_time = datetime.utcnow()
     fh.print_end_header('Loading 3dep dems', start_time, end_time)
 
     print()
@@ -137,7 +195,7 @@ def acquire_and_preprocess_3dep_dems(
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
-def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry):
+def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry, target_projection):
     '''
     Process:
     ----------
@@ -167,6 +225,15 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
     base_cmd += ' -t_srs {3} -cblend 6'
 
+    """
+    e.q. gdalwarp
+       /vs/icurl/https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/USGS_Seamless_DEM_13.vrt
+       /data/inputs/usgs/3dep_dems/10m/HUC8_12090301_dem.tif
+       -cutline /data/inputs/wbd/HUC8/HUC8_12090301.gpkg
+       -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"
+       -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -t_srs ESRI:102039 -cblend 6
+    """
+
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         executor_dict = {}
 
@@ -175,6 +242,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
                 'extent_file': extent_file,
                 'output_folder_path': output_folder_path,
                 'download_url': __USGS_3DEP_10M_VRT_URL,
+                'target_projection': target_projection,
                 'base_cmd': base_cmd,
                 'retry': retry,
             }
@@ -200,7 +268,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     print("==========================================================")
 
 
-def download_usgs_dem_file(extent_file, output_folder_path, download_url, base_cmd, retry):
+def download_usgs_dem_file(extent_file, output_folder_path, download_url, target_projection, base_cmd, retry):
     '''
     Process:
     ----------
@@ -217,15 +285,10 @@ def download_usgs_dem_file(extent_file, output_folder_path, download_url, base_c
         - download_url (str)
              URL for the USGS download site (note: Should include '/vsicurl/' at the
              front of the URL)
+        - target_projection (str)
+            ie) EPSG:5070 or EPSG:2276, etc
         - base_cmd (str)
              The basic GDAL command with string formatting wholes for key values.
-             See the cmd variable below.
-             ie)
-                base_cmd =  'gdalwarp {0} {1}'
-                base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
-                base_cmd +=  ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-                base_cmd +=  ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
-                base_cmd +=  ' -t_srs {3} -cblend 6'
         - retry (bool)
              If True, and the file exists, downloading will be skipped.
 
@@ -249,44 +312,59 @@ def download_usgs_dem_file(extent_file, output_folder_path, download_url, base_c
     print(msg)
     logging.info(msg)
 
-    cmd = base_cmd.format(download_url, target_path_raw, extent_file, sv.DEFAULT_FIM_PROJECTION_CRS)
-    # PREP_PROJECTION_EPSG
-    # fh.vprint(f"cmd is {cmd}", self.is_verbose, True)
+    cmd = base_cmd.format(download_url, target_path_raw, extent_file, target_projection)
     # print(f"cmd is {cmd}")
 
     # didn't use Popen becuase of how it interacts with multi proc
     # was creating some issues. Run worked much better.
-    process = subprocess.run(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True
-    )
 
-    msg = process.stdout
-    print(msg)
-    logging.info(msg)
+    try:
+        process = subprocess.run(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            universal_newlines=True,
+        )
 
-    if process.stderr != "":
-        if "ERROR" in process.stderr.upper():
-            msg = f" - Downloading -- {target_file_name_raw}" f"  ERROR -- details: ({process.stderr})"
-            print(msg)
-            logging.error(msg)
-            os.remove(target_path_raw)
-    else:
-        msg = f" - Downloading -- {target_file_name_raw} - Complete"
+        msg = process.stdout
         print(msg)
         logging.info(msg)
+
+        if process.stderr != "":
+            if "ERROR" in process.stderr.upper():
+                msg = f" - Downloading -- {target_file_name_raw}" f"  ERROR -- details: ({process.stderr})"
+                print(msg)
+                logging.error(msg)
+                os.remove(target_path_raw)
+        else:
+            msg = f" - Downloading -- {target_file_name_raw} - Complete"
+            print(msg)
+            logging.info(msg)
+    except Exception:
+        msg = "An exception occurred while downloading files."
+        print(msg)
+        print(traceback.format_exc())
+        logging.critical(traceback.format_exc())
+        sys.exit(1)
 
 
 def polygonize(target_output_folder_path):
     """
-    Create a polygon of 3DEP domain from individual HUC6 DEMS which are then dissolved into a single polygon
+    Create a polygon of 3DEP domain from individual HUC DEMS which are then dissolved into a single polygon
     """
-    dem_domain_file = os.path.join(target_output_folder_path, 'HUC6_dem_domain.gpkg')
+    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.gpkg')
 
     msg = f" - Polygonizing -- {dem_domain_file} - Started"
     print(msg)
     logging.info(msg)
 
     dem_files = glob.glob(os.path.join(target_output_folder_path, '*_dem.tif'))
+
+    if len(dem_files) == 0:
+        raise Exception("There are no DEMs to polygonize")
+
     dem_gpkgs = gpd.GeoDataFrame()
 
     for n, dem_file in enumerate(dem_files):
@@ -328,6 +406,7 @@ def polygonize(target_output_folder_path):
             dem_gpkgs = pd.concat([dem_gpkgs, gdf])
 
         os.remove(edge_tif)
+        os.remove(edge_gpkg)
 
     dem_gpkgs['DN'] = 1
     dem_dissolved = dem_gpkgs.dissolve(by='DN')
@@ -344,7 +423,7 @@ def polygonize(target_output_folder_path):
 
 
 def __setup_logger(output_folder_path):
-    start_time = datetime.now()
+    start_time = datetime.utcnow()
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"3Dep_downloaded-{file_dt_string}.log"
 
@@ -359,7 +438,7 @@ def __setup_logger(output_folder_path):
     logger.addHandler(file_handler)
     logger.setLevel(logging.DEBUG)
 
-    logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info(f'Started (UTC): {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
     logging.info("----------------")
 
 
@@ -393,6 +472,10 @@ if __name__ == '__main__':
     We left in HUC2 of 19 (alaska) as we hope to get there in the semi near future
     They need to be removed from the input src clip directory in the first place.
     They can not be reliably removed in code.
+
+    (Update Nov 2023): South Alaska (not all of HUC2 = 19) is now included but not all of Alaska.
+    A separate output directory will be keep for South Alaska and will use EPSG:3338 versus the FIM
+    default of EPSG:5070
     '''
 
     parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems')
@@ -400,8 +483,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-e',
         '--extent_file_path',
-        help='location the gpkg files that will'
-        ' are being used as clip regions (ie: huc4_*.gpkg).'
+        help='REQUIRED: location the gpkg files that will'
+        ' are being used as clip regions (ie: huc8_*.gpkg).'
         ' All gpkgs in this folder will be used.',
         required=True,
     )
@@ -409,7 +492,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-j',
         '--number_of_jobs',
-        help='Number of (jobs) cores/processes to used.',
+        help='OPTIONAL: Number of (jobs) cores/processes to used.',
         required=False,
         default=1,
         type=int,
@@ -418,7 +501,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-r',
         '--retry',
-        help='If included, it will skip files that already exist.' ' Default is all will be loaded/reloaded.',
+        help='OPTIONAL: If included, it will skip files that already exist.'
+        'Default is all will be loaded/reloaded.',
         required=False,
         action='store_true',
         default=False,
@@ -427,7 +511,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t',
         '--target_output_folder_path',
-        help='location of where the 3dep files' ' will be saved',
+        help='OPTIONAL: location of where the 3dep files will be saved.',
         required=False,
         default='',
     )
@@ -435,10 +519,18 @@ if __name__ == '__main__':
     parser.add_argument(
         '-sp',
         '--skip_polygons',
-        help='If this flag is included, polygons of the dems' ' will not be made',
+        help='OPTIONAL: If this flag is included, polygons of the dems will not be made.',
         required=False,
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-proj',
+        '--target_projection',
+        help='OPTIONAL: Desired output CRS. Defaults to EPSG:5070',
+        required=False,
+        default='EPSG:5070',
     )
 
     # Extract to dictionary and assign to variables.
