@@ -1,11 +1,12 @@
 {
     "valid_data": {
         "usgs_gages_filename": "/data/outputs/unit_test_data/02020005/usgs_subset_gages.gpkg",
-        "input_flows_filename": "/data/outputs/unit_test_data/02020005/branches/3246000005/demDerived_reaches_split_filtered_3246000005.gpkg",
-        "input_catchment_filename": "/data/outputs/unit_test_data/02020005/branches/3246000005/gw_catchments_reaches_filtered_addedAttributes_3246000005.gpkg",
-        "dem_filename": "/data/outputs/unit_test_data/02020005/branches/3246000005/dem_meters_3246000005.tif",
-        "dem_adj_filename": "/data/outputs/unit_test_data/02020005/branches/3246000005/dem_thalwegCond_3246000005.tif",
-        "output_table_filename": "/data/outputs/unit_test_data/02020005/branches/3246000005/usgs_elev_table.csv",
-        "branch_id": "3246000005"
+        "input_flows_filename": "/data/outputs/unit_test_data/02020005/branches/2274000028/demDerived_reaches_split_filtered_2274000028.gpkg",
+        "input_catchment_filename": "/data/outputs/unit_test_data/02020005/branches/2274000028/gw_catchments_reaches_filtered_addedAttributes_2274000028.gpkg",
+        "dem_filename": "/data/outputs/unit_test_data/02020005/branches/2274000028/dem_meters_2274000028.tif",
+        "dem_adj_filename": "/data/outputs/unit_test_data/02020005/branches/2274000028/dem_thalwegCond_2274000028.tif",
+        "output_table_filename": "/data/outputs/unit_test_data/02020005/branches/2274000028/usgs_elev_table.csv",
+        "output_directory": "/data/outputs/unit_test_data/02020005/branches/2274000028",
+        "branch_id": "2274000028"
     }
 }
