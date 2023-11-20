@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import rasterio as rio
 import whitebox
@@ -21,6 +22,8 @@ def flowdir_d8(dem_filename: str, out_filename: str):
     out_filename : str
         Out filename
     """
+
+    assert os.path.isfile(dem_filename), 'ERROR: Can not find the DEM file: ' + str(dem_filename)
 
     # Compute flow direction using WhiteboxTools
     wbt.d8_pointer(dem_filename, out_filename, esri_pntr=False)

@@ -51,6 +51,9 @@ def agreedem(
     wbt = whitebox.WhiteboxTools()
     wbt.set_verbose_mode(False)
 
+    if not os.path.isdir(workspace):
+        os.makedirs(workspace)
+
     # ------------------------------------------------------------------
     # 1. From Hellweger documentation: Compute the vector grid
     # (vectgrid). The cells in the vector grid corresponding to the

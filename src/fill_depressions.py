@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import whitebox
 
@@ -20,6 +21,8 @@ def fill_depressions(dem_filename: str, out_filename: str):
     out_filename : str
         Out filename
     """
+
+    assert os.path.isfile(dem_filename), 'ERROR: Can not find the DEM file: ' + str(dem_filename)
 
     # Fill depressions using WhiteboxTools
     wbt.fill_depressions(dem_filename, out_filename, fix_flats=True, flat_increment=None, max_depth=None)
