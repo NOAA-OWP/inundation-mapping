@@ -6,15 +6,18 @@ from collections import OrderedDict
 from os import remove
 from os.path import isfile
 
+from osgeo import gdal
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.mask import mask
 from shapely import ops, wkt
 from shapely.geometry import LineString, Point
 from shapely.ops import split as shapely_ops_split
 from tqdm import tqdm
 from collections import Counter
+import fiona
 
 
 import build_stream_traversal
@@ -25,6 +28,8 @@ from utils.shared_variables import FIM_ID
 @mem_profile
 def mitigate_branch_outlet_backpool(
     catchment_pixels_filename,
+    catchment_pixels_polygonized_filename,
+    catchment_reaches_filename,
     split_flows_filename,
     split_points_filename,
     nwm_streams_filename,
@@ -34,10 +39,10 @@ def mitigate_branch_outlet_backpool(
     # Define functions
 
     # Test whether there are catchment size outliers (backpool error criteria 1)
-    def catch_catchment_size_outliers(catchments_geom):
+    def catch_catchment_size_outliers(catchment_pixels_geom):
         # Quantify the amount of pixels in each catchment
-        unique_values = np.unique(catchments_geom)
-        value_counts = Counter(catchments_geom.ravel())
+        unique_values = np.unique(catchment_pixels_geom)
+        value_counts = Counter(catchment_pixels_geom.ravel())
 
         vals, counts = [], []
         for value in unique_values:
@@ -83,7 +88,7 @@ def mitigate_branch_outlet_backpool(
     # Extract raster catchment ID for the last point
     def get_raster_value(point):
         row, col = src.index(point.geometry.x, point.geometry.y)
-        value = catchments_geom[row, col]
+        value = catchment_pixels_geom[row, col]
         return value
 
     # Test whether the catchment occurs at the outlet (backpool error criteria 2)
@@ -95,7 +100,9 @@ def mitigate_branch_outlet_backpool(
         outlet_flag = last_point_geom['catchment_id'].isin(outlier_catchment_ids)
         outlet_flag = any(outlet_flag)
 
-        return outlet_flag
+        outlet_catchment_id = last_point_geom['catchment_id']
+
+        return outlet_flag, outlet_catchment_id
 
     # Create a function to extract the last point from the line
     def extract_last_point(line):
@@ -168,38 +175,71 @@ def mitigate_branch_outlet_backpool(
 
         return flows
 
-    # --------------------------------------------------------------
+    # Convert the geodataframe into a json format compatible to rasterio
+    def gdf_to_json(gdf):
+        import json
+        return [json.loads(gdf.to_json())['features'][0]['geometry']]
 
+    # Mask a raster to a json boundary and save the new raster
+    def mask_raster_to_boundary(raster_path, boundary_json, save_path):
+        with rasterio.open(raster_path) as raster:
+            # Copy profile
+            raster_profile = raster.profile.copy()
+
+            # Mask catchment reaches to new boundary
+            raster_masked, _ = mask(raster, boundary_json)
+
+            if isfile(save_path):
+                remove(save_path)
+
+            # Save new catchment reaches 
+            with rasterio.open(save_path, "w", **raster_profile, BIGTIFF='YES') as dest: ## TODO: update output path
+                dest.write(raster_masked[0, :, :], indexes=1)
+
+
+    # --------------------------------------------------------------
     # Read in nwm lines, explode to ensure linestrings are the only geometry
     nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
 
     # Check whether it's branch zero 
     if 'levpa_id' in nwm_streams.columns:
+        # --------------------------------------------------------------
         # If it's NOT branch zero, check for the two criteria and mitigate issue if needed
 
         # Read in data and check if the files exist
         print()
         print('Non-branch zero, loading data for test ...')
 
+        # Read in the catchment pixels tif
         if isfile(catchment_pixels_filename):
             with rasterio.open(catchment_pixels_filename) as src:
-                catchments_geom = src.read(1)
+                catchment_pixels_geom = src.read(1)
         else:
-            catchments_geom = None
+            catchment_pixels_geom = None
             print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') ## debug
+
+        # Read in the catchment reaches tif
+        if isfile(catchment_reaches_filename):
+            with rasterio.open(catchment_reaches_filename) as src:
+                catchment_reaches_geom = src.read(1)
+        else:
+            catchment_reaches_geom = None
+            print(f'No catchment pixels geometry found at {catchment_reaches_filename}.') ## debug
 
         # Read in split_flows_file and split_points_filename
         split_flows_geom = gpd.read_file(split_flows_filename)
         split_points_geom = gpd.read_file(split_points_filename)
 
-        # Check whether catchments_geom exists
-        if catchments_geom is not None:
+        # Check whether catchment_pixels_geom exists
+        if catchment_pixels_geom is not None:
             print('Catchment geom found, testing for backpool criteria...') ## debug
 
             # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
-            flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchments_geom)
+            flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchment_pixels_geom)
 
+            # --------------------------------------------------------------
             # If there are outlier catchments, test whether the catchment occurs at the outlet (backpool error criteria 2)
+
             if flagged_catchment == True:
                 # Subset the split flows to get the last one ## TODO: Check to make sure this is working as expected (test on a larger dataset)
                 split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1' ]
@@ -210,7 +250,7 @@ def mitigate_branch_outlet_backpool(
 
                 # Check whether the last vertex corresponds with any of the outlier catchment ID's
                 print('Flagged catchment(s) detected. Testing for second criteria.') 
-                outlet_flag = check_if_ID_is_outlet(last_point_geom, outlier_catchment_ids)
+                outlet_flag, outlet_catchment_id = check_if_ID_is_outlet(last_point_geom, outlier_catchment_ids)
 
             else: 
                 # If the catchment flag is False, just set the outlet flag to False automatically
@@ -218,6 +258,9 @@ def mitigate_branch_outlet_backpool(
                 
             # If there is an outlier catchment at the outlet, set the snapped point to be the penultimate (second-to-last) vertex
             if outlet_flag == True:
+                # --------------------------------------------------------------
+                # Trim flowline and flow points to penultimate vertex
+
                 print('Incorrectly-large outlet pixel catchment detected. Snapping line points to penultimate vertex.')
 
                 # Apply the function to create a new GeoDataFrame
@@ -230,38 +273,62 @@ def mitigate_branch_outlet_backpool(
                 # Snap and trim the flowline to the selected point
                 output_flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
 
-                # Create  buffer around the updated flows geodataframe (and make sure it's all one shape)
+                # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
                 flows_buffer = output_flows.buffer(10).geometry.unary_union
 
                 # Remove flowpoints that don't intersect with the trimmed flow line
                 split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(flows_buffer)]
 
+                # --------------------------------------------------------------
+                # Mask problematic pixel catchment from the catchments rasters
+
+                print('Masking problematic pixel catchment from catchment reaches raster...')  ## debug
+
+                # Convert series to number object
+                outlet_catchment_id = outlet_catchment_id.iloc[0]
+
+                # Read in the polygonized catchment pixels
+                catchment_pixels_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename)
+
+                # Filter out the flagged pixel catchment
+                catchment_pixels_poly_filt_geom = catchment_pixels_poly_geom[catchment_pixels_poly_geom['HydroID']!=outlet_catchment_id]
+
+                # Dissolve the filtered pixel catchments into one geometry (the new boundary)
+                catchment_pixels_new_boundary_geom = catchment_pixels_poly_filt_geom.dissolve()
+
+                # Convert the geodataframe into a format compatible to rasterio
+                catchment_pixels_new_boundary_json = gdf_to_json(catchment_pixels_new_boundary_geom)
+
+                # temp_reaches_output_path = '/branch_outlet_backpools/code_test_outputs/masked_reaches_catchments.tif' ## debug
+                # temp_pixels_output_path = '/branch_outlet_backpools/code_test_outputs/masked_pixels_catchments.tif' ## debug
+
+                # Mask catchment reaches raster
+                mask_raster_to_boundary(catchment_reaches_filename, catchment_pixels_new_boundary_json, catchment_reaches_filename)
+
+                # Mask catchment pixels raster
+                mask_raster_to_boundary(catchment_pixels_filename, catchment_pixels_new_boundary_json, catchment_pixels_filename)
+
+                print('Finished masking!') ## debug
+
+                # --------------------------------------------------------------
+                # Save the outputs
+                print('Writing outputs ...')
+
+                if isfile(split_flows_filename):
+                    remove(split_flows_filename)
+                if isfile(split_points_filename):
+                    remove(split_points_filename)
+
+                output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+                split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+
+                # TODO: figure out if I need to recalculate this section: "Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment"
+
             else:
                 print('Incorrectly-large outlet pixel catchment was NOT detected.')
-                output_flows = split_flows_geom
-                split_points_filtered_geom = split_points_geom
 
         else:
             print('Catchment geom file not found, unable to test for backpool error...')
-            output_flows = split_flows_geom
-            split_points_filtered_geom = split_points_geom
-
-        # TODO: figure out if I need to recalculate this section: "Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment"
-
-        # Save the outputs
-        print('Writing outputs ...')
-
-        # ## temp output filenames
-        # split_flows_filename = 'branch_outlet_backpools/test_outputs/gms_branch_backpool_BEFORE_allintermeds_copy/13080002/branches/6077000088/demDerived_reaches_split_flows_6077000088_TEST.gpkg' ## debug -> remove later once I know this is WORKING 
-        # split_points_filename = 'branch_outlet_backpools/test_outputs/gms_branch_backpool_BEFORE_allintermeds_copy/13080002/branches/6077000088/demDerived_reaches_split_points_6077000088_TEST.gpkg' ## debug -> remove later once I know this is WORKING 
-
-        if isfile(split_flows_filename):
-            remove(split_flows_filename)
-        if isfile(split_points_filename):
-            remove(split_points_filename)
-
-        output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
-        split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
 
     else:
         print('Will not test for branch outlet backpool error in branch zero.')
@@ -269,7 +336,9 @@ def mitigate_branch_outlet_backpool(
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='mitigate_branch_outlet_backpool.py')
-    parser.add_argument('-c', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
+    parser.add_argument('-cp', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
+    parser.add_argument('-cpp', '--catchment-pixels-polygonized-filename', help='catchment-pixels-polygonized-filename', required=True)
+    parser.add_argument('-cr', '--catchment-reaches-filename', help='catchment-reaches-filename', required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
@@ -279,8 +348,3 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     mitigate_branch_outlet_backpool(**args)
-
-
-
-
-

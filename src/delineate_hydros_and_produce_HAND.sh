@@ -168,12 +168,23 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 Tcount
 
+## POLYGONIZE PIXEL CATCHMENTS ##
+echo -e $startDiv"Polygonize Pixel Catchments $hucNumber $current_branch_id"
+date -u
+Tstart
+gdal_polygonize.py -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg catchments HydroID
+Tcount
+
+
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
 date -u
 Tstart
 $srcDir/mitigate_branch_outlet_backpool.py \
-    -c $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    -cp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    -cpp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg \
+    -cr $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -n $b_arg
