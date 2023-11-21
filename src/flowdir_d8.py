@@ -23,10 +23,11 @@ def flowdir_d8(dem_filename: str, out_filename: str):
         Out filename
     """
 
-    assert os.path.isfile(dem_filename), 'ERROR: Can not find the DEM file: ' + str(dem_filename)
+    assert os.path.isfile(dem_filename), 'ERROR: DEM file not found: ' + str(dem_filename)
 
-    # Compute flow direction using WhiteboxTools
-    wbt.d8_pointer(dem_filename, out_filename, esri_pntr=False)
+    # Compute flow direction
+    if wbt.d8_pointer(dem_filename, out_filename, esri_pntr=False) != 0:
+        raise Exception('ERROR: WhiteboxTools d8_pointer failed')
 
     with rio.open(out_filename) as src:
         profile = src.profile

@@ -3,6 +3,7 @@
 import argparse
 import os
 
+import rasterio as rio
 import whitebox
 
 
@@ -22,10 +23,25 @@ def fill_depressions(dem_filename: str, out_filename: str):
         Out filename
     """
 
-    assert os.path.isfile(dem_filename), 'ERROR: Can not find the DEM file: ' + str(dem_filename)
+    assert os.path.isfile(dem_filename), 'ERROR: DEM file not found: ' + str(dem_filename)
 
-    # Fill depressions using WhiteboxTools
-    wbt.fill_depressions(dem_filename, out_filename, fix_flats=True, flat_increment=None, max_depth=None)
+    # Fill depressions
+    if (
+        wbt.fill_depressions(dem_filename, out_filename, fix_flats=True, flat_increment=None, max_depth=None)
+        != 0
+    ):
+        raise Exception('ERROR: WhiteboxTools fill_depressions failed')
+
+    # Convert from double to float
+    with rio.open(out_filename) as src:
+        profile = src.profile
+        profile.update(dtype=rio.float32, count=1, compress="lzw")
+
+        data = src.read(1).astype(rio.float32)
+
+    # Write output
+    with rio.open(out_filename, "w", **profile) as dst:
+        dst.write(data, 1)
 
 
 if __name__ == "__main__":

@@ -49,10 +49,18 @@ def accumulate_headwaters(
     with rio.open(absorption_filename, "w", **profile) as dst:
         dst.write(absorption, 1)
 
-    # Accumulate headwaters using WhiteboxTools
-    wbt.d8_mass_flux(
-        dem_filename, loading_filename, efficiency_filename, absorption_filename, flow_accumulation_filename
-    )
+    # Accumulate headwaters
+    if (
+        wbt.d8_mass_flux(
+            dem_filename,
+            loading_filename,
+            efficiency_filename,
+            absorption_filename,
+            flow_accumulation_filename,
+        )
+        != 0
+    ):
+        raise Exception("ERROR: WhiteboxTools d8_mass_flux failed")
 
     # Remove intermediate files
     os.remove(efficiency_filename)
