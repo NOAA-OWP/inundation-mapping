@@ -33,6 +33,8 @@ def mitigate_branch_outlet_backpool(
     split_flows_filename,
     split_points_filename,
     nwm_streams_filename,
+    dem_filename,
+    slope_min,
 ):
 
     # --------------------------------------------------------------
@@ -117,7 +119,7 @@ def mitigate_branch_outlet_backpool(
     def snap_and_trim_splitflow(outlet_point, flows):
 
         if len(flows) > 1:
-            flow = flows[flows['NextDownID'] == '-1' ] # selects last one
+            flow = flows[flows['NextDownID'] == '-1' ] # selects last flowline segment
         else: 
             flow = flows
 
@@ -146,7 +148,7 @@ def mitigate_branch_outlet_backpool(
             'linestring_lengths': linestring_lengths
             })
 
-        # Select the longest split line    
+        # Select the longest line segment from the split     
         longest_split_line_df = split_lines_df[split_lines_df.linestring_lengths == split_lines_df.linestring_lengths.max()]
 
         # Convert the longest split line into a geodataframe (this removes the bits that got cut off)
@@ -156,22 +158,49 @@ def mitigate_branch_outlet_backpool(
             crs=flows.crs
         )
 
-        filename = '/branch_outlet_backpools/code_test_outputs/longest_split_line_gdf.gpkg' ## debug
-        longest_split_line_gdf.to_file(filename, driver=getDriver(filename), index=False) ## debug
-
         # Get the new flow geometry
         flow_geometry = longest_split_line_gdf.iloc[0]['geometry']
 
         # Replace geometry in merged flowine
         if len(flows) > 1:
-            print('Len flows is greater than 1....') ## debug
             flows.loc[flows['NextDownID'] == '-1', 'geometry'] = flow_geometry
         else: 
-            print('Len flows is LESS than 1....') ## debug
             flows['geometry'] = flow_geometry
 
-        filename = '/branch_outlet_backpools/code_test_outputs/flows.gpkg' ## debug
-        flows.to_file(filename, driver=getDriver(filename), index=False) ## debug
+        return flows
+
+    def calculate_length_and_slope(flows, dem, slope_min):
+
+        # Select the last flowline segment (if there are multiple segments)
+        if len(flows) > 1:
+            flow = flows[flows['NextDownID'] == '-1' ]
+        else: 
+            flow = flows
+
+        toMetersConversion = 1e-3
+
+        # Calculate channel slope (adapted from split_flows.py on 11/21/23)
+        start_point = flow[0]
+        end_point = flow[-1]
+
+        # Get start and end elevation
+        start_elev, end_elev = [
+            i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
+        ]
+
+        # Calculate the slope by differencing the elevations and dividing it by the length
+        slope = float(abs(start_elev - end_elev) / flow.length)
+
+        if slope < slope_min:
+            slope = slope_min
+
+        flow['S0'] = slope
+
+        # Calculate length 
+        flow['LengthKm'] = flow.geometry.length * toMetersConversion
+
+        # Update flows with the updated flow object
+        # TODO !!!
 
         return flows
 
@@ -271,13 +300,21 @@ def mitigate_branch_outlet_backpool(
                 thirdtolast_point_geom['catchment_id'] = thirdtolast_point_geom.apply(get_raster_value, axis=1) ## mainly for debug (but could be good to keep)
 
                 # Snap and trim the flowline to the selected point
-                output_flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
+                trimmed_flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
 
                 # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
                 flows_buffer = output_flows.buffer(10).geometry.unary_union
 
                 # Remove flowpoints that don't intersect with the trimmed flow line
                 split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(flows_buffer)]
+
+                # --------------------------------------------------------------
+                # Calculate the slope and length of the newly trimmed flows
+                dem = rasterio.open(dem_filename, 'r')
+                trimmed_metadata_flows = calculate_length_and_slope(trimmed_flows, dem, slope_min)
+
+                # TODO: save trimmed_metadata_flows
+
 
                 # --------------------------------------------------------------
                 # Mask problematic pixel catchment from the catchments rasters
@@ -342,9 +379,14 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
+    parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
+    parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
+
 
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
+    args['slope_min'] = float(args['slope_min'])
+
 
     mitigate_branch_outlet_backpool(**args)

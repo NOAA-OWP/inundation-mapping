@@ -273,12 +273,14 @@ def split_flows(
     # Remove empty flow geometries
     flows = flows.loc[~flows.is_empty, :]
 
+
     # Exit processing if length of flows is zero
     if len(flows) == 0:
         # Note: This is not an exception, but a custom exit code that can be trapped
         print("No relevant streams within HUC boundaries.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
+    # --- begin copied into branch outlet backpool --- DEBUG -- maybe make this a function so we can call both?
     # Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment
     for i, lineString in tqdm(enumerate(flows.geometry), total=len(flows.geometry)):
         # Reverse geometry order (necessary for BurnLines)
@@ -326,6 +328,7 @@ def split_flows(
 
             cumulative_length = LineString(cumulative_line).length
 
+            # If the cumulative line length is greater than or equal to the split length....
             if cumulative_length >= splitLength:
                 splitLineString = LineString(cumulative_line)
                 split_flows = split_flows + [splitLineString]
@@ -373,6 +376,8 @@ def split_flows(
         split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
     else:
         split_flows_gdf['LakeID'] = -999
+
+    # --- end of copied into branch outlet backpool --- DEBUG -- maybe make this a function so we can call both?
 
     # Drop duplicate stream segments
     split_flows_gdf = (
