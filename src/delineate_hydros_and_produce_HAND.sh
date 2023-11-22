@@ -174,7 +174,7 @@ date -u
 Tstart
 gdal_polygonize.py -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg catchments HydroID
-Tcount
+Tcount ## TODO: run this module within the backpool module so it only runs if needed (which will decrease processing time a lot)
 
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
@@ -187,7 +187,9 @@ $srcDir/mitigate_branch_outlet_backpool.py \
     -cr $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-    -n $b_arg
+    -n $b_arg \
+    -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+    -t $slope_min
 Tcount
 
 # D8 REM ##

@@ -19,7 +19,6 @@ from tqdm import tqdm
 from collections import Counter
 import fiona
 
-
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver, mem_profile
@@ -171,6 +170,8 @@ def mitigate_branch_outlet_backpool(
 
     def calculate_length_and_slope(flows, dem, slope_min):
 
+        print('Recalculating length and slope of outlet segment...')
+
         # Select the last flowline segment (if there are multiple segments)
         if len(flows) > 1:
             flow = flows[flows['NextDownID'] == '-1' ]
@@ -180,8 +181,8 @@ def mitigate_branch_outlet_backpool(
         toMetersConversion = 1e-3
 
         # Calculate channel slope (adapted from split_flows.py on 11/21/23)
-        start_point = flow[0]
-        end_point = flow[-1]
+        start_point = flow.geometry.iloc[0].coords[0]
+        end_point = flow.geometry.iloc[0].coords[-1]
 
         # Get start and end elevation
         start_elev, end_elev = [
@@ -194,13 +195,17 @@ def mitigate_branch_outlet_backpool(
         if slope < slope_min:
             slope = slope_min
 
-        flow['S0'] = slope
-
         # Calculate length 
-        flow['LengthKm'] = flow.geometry.length * toMetersConversion
+        LengthKm = flow.geometry.length * toMetersConversion
 
         # Update flows with the updated flow object
-        # TODO !!!
+        if len(flows) > 1:
+            flows.loc[flows['NextDownID'] == '-1', 'S0'] = slope
+            flows.loc[flows['NextDownID'] == '-1', 'LengthKm'] = LengthKm
+
+        else: 
+            flows['S0'] = slope
+            flows['LengthKm'] = LengthKm            
 
         return flows
 
@@ -296,14 +301,14 @@ def mitigate_branch_outlet_backpool(
                 thirdtolast_point = split_flows_last_geom['geometry'].apply(extract_3rdtolast_point).apply(Point)
                 thirdtolast_point_geom = gpd.GeoDataFrame(thirdtolast_point, columns=['geometry'], crs=split_flows_geom.crs)
 
-                # Get the catchment ID of the new snapped_point
+                # Get the catchment ID of the new snapped point
                 thirdtolast_point_geom['catchment_id'] = thirdtolast_point_geom.apply(get_raster_value, axis=1) ## mainly for debug (but could be good to keep)
 
                 # Snap and trim the flowline to the selected point
                 trimmed_flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
 
                 # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
-                flows_buffer = output_flows.buffer(10).geometry.unary_union
+                flows_buffer = trimmed_flows.buffer(10).geometry.unary_union
 
                 # Remove flowpoints that don't intersect with the trimmed flow line
                 split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(flows_buffer)]
@@ -311,10 +316,7 @@ def mitigate_branch_outlet_backpool(
                 # --------------------------------------------------------------
                 # Calculate the slope and length of the newly trimmed flows
                 dem = rasterio.open(dem_filename, 'r')
-                trimmed_metadata_flows = calculate_length_and_slope(trimmed_flows, dem, slope_min)
-
-                # TODO: save trimmed_metadata_flows
-
+                output_flows = calculate_length_and_slope(trimmed_flows, dem, slope_min)
 
                 # --------------------------------------------------------------
                 # Mask problematic pixel catchment from the catchments rasters
@@ -336,9 +338,6 @@ def mitigate_branch_outlet_backpool(
                 # Convert the geodataframe into a format compatible to rasterio
                 catchment_pixels_new_boundary_json = gdf_to_json(catchment_pixels_new_boundary_geom)
 
-                # temp_reaches_output_path = '/branch_outlet_backpools/code_test_outputs/masked_reaches_catchments.tif' ## debug
-                # temp_pixels_output_path = '/branch_outlet_backpools/code_test_outputs/masked_pixels_catchments.tif' ## debug
-
                 # Mask catchment reaches raster
                 mask_raster_to_boundary(catchment_reaches_filename, catchment_pixels_new_boundary_json, catchment_reaches_filename)
 
@@ -358,8 +357,6 @@ def mitigate_branch_outlet_backpool(
 
                 output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
                 split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
-
-                # TODO: figure out if I need to recalculate this section: "Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment"
 
             else:
                 print('Incorrectly-large outlet pixel catchment was NOT detected.')
@@ -382,11 +379,8 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
 
-
-
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
     args['slope_min'] = float(args['slope_min'])
-
 
     mitigate_branch_outlet_backpool(**args)
