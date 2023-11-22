@@ -31,6 +31,8 @@ def accumulate_headwaters(
 
     working_dir = os.path.dirname(loading_filename)
 
+    assert os.path.isfile(loading_filename), 'ERROR: Headwaters file not found: ' + str(loading_filename)
+
     with rio.open(loading_filename) as src:
         profile = src.profile
         profile.update(dtype=rio.float32, count=1, compress="lzw")

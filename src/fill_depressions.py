@@ -35,7 +35,7 @@ def fill_depressions(dem_filename: str, out_filename: str):
     # Convert from double to float
     with rio.open(out_filename) as src:
         profile = src.profile
-        profile.update(dtype=rio.float32, count=1, compress="lzw")
+        profile.update(dtype=rio.float32, count=1)
 
         data = src.read(1).astype(rio.float32)
 
