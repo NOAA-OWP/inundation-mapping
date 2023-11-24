@@ -6,7 +6,7 @@ from collections import OrderedDict
 from os import remove
 from os.path import isfile
 
-from osgeo import gdal
+from osgeo import gdal, ogr
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -23,6 +23,8 @@ import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver, mem_profile
 from utils.shared_variables import FIM_ID
+
+import subprocess
 
 @mem_profile
 def mitigate_branch_outlet_backpool(
@@ -250,7 +252,7 @@ def mitigate_branch_outlet_backpool(
                 catchment_pixels_geom = src.read(1)
         else:
             catchment_pixels_geom = None
-            print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') ## debug
+            print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') 
 
         # Read in the catchment reaches tif
         if isfile(catchment_reaches_filename):
@@ -258,7 +260,7 @@ def mitigate_branch_outlet_backpool(
                 catchment_reaches_geom = src.read(1)
         else:
             catchment_reaches_geom = None
-            print(f'No catchment pixels geometry found at {catchment_reaches_filename}.') ## debug
+            print(f'No catchment pixels geometry found at {catchment_reaches_filename}.') 
 
         # Read in split_flows_file and split_points_filename
         split_flows_geom = gpd.read_file(split_flows_filename)
@@ -266,7 +268,7 @@ def mitigate_branch_outlet_backpool(
 
         # Check whether catchment_pixels_geom exists
         if catchment_pixels_geom is not None:
-            print('Catchment geom found, testing for backpool criteria...') ## debug
+            print('Catchment geom found, testing for backpool criteria...') ## verbose
 
             # Check whether any pixel catchment is substantially larger than other catchments (backpool error criteria 1)
             flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchment_pixels_geom)
@@ -319,15 +321,28 @@ def mitigate_branch_outlet_backpool(
                 output_flows = calculate_length_and_slope(trimmed_flows, dem, slope_min)
 
                 # --------------------------------------------------------------
-                # Mask problematic pixel catchment from the catchments rasters
+                # Polygonize pixel catchments using subprocess
 
-                print('Masking problematic pixel catchment from catchment reaches raster...')  ## debug
+                print('Polygonizing pixel catchments...')  ## verbose
 
-                # Convert series to number object
-                outlet_catchment_id = outlet_catchment_id.iloc[0]
+                gdal_args = [f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} {catchment_pixels_polygonized_filename} catchments HydroID']
+                return_code = subprocess.call(gdal_args, shell=True) 
+
+                if return_code == 0:
+                    print("gdal_polygonize executed successfully.")  ## verbose
+                else:
+                    print("gdal_polygonize failed with return code", return_code)
 
                 # Read in the polygonized catchment pixels
                 catchment_pixels_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename)
+
+                # --------------------------------------------------------------
+                # Mask problematic pixel catchment from the catchments rasters
+
+                print('Masking problematic pixel catchment from catchment reaches raster...')  ## verbose
+
+                # Convert series to number object
+                outlet_catchment_id = outlet_catchment_id.iloc[0]
 
                 # Filter out the flagged pixel catchment
                 catchment_pixels_poly_filt_geom = catchment_pixels_poly_geom[catchment_pixels_poly_geom['HydroID']!=outlet_catchment_id]
@@ -344,28 +359,28 @@ def mitigate_branch_outlet_backpool(
                 # Mask catchment pixels raster
                 mask_raster_to_boundary(catchment_pixels_filename, catchment_pixels_new_boundary_json, catchment_pixels_filename)
 
-                print('Finished masking!') ## debug
+                print('Finished masking!') ## verbose
 
                 # --------------------------------------------------------------
                 # Save the outputs
-                print('Writing outputs ...')
+                print('Writing outputs ...') ## verbose
 
-                if isfile(split_flows_filename):
-                    remove(split_flows_filename)
-                if isfile(split_points_filename):
-                    remove(split_points_filename)
+                # if isfile(split_flows_filename): ## DEBUG ## UNCOMMENT WHEN IT WORKS HEHE
+                #     remove(split_flows_filename)
+                # if isfile(split_points_filename):
+                #     remove(split_points_filename)
 
-                output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
-                split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+                # output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+                # split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
 
             else:
-                print('Incorrectly-large outlet pixel catchment was NOT detected.')
+                print('Incorrectly-large outlet pixel catchment was NOT detected.') 
 
         else:
-            print('Catchment geom file not found, unable to test for backpool error...')
+            print('Catchment geom file not found, unable to test for backpool error...') 
 
     else:
-        print('Will not test for branch outlet backpool error in branch zero.')
+        print('Will not test for branch outlet backpool error in branch zero.') 
 
 if __name__ == '__main__':
     # Parse arguments

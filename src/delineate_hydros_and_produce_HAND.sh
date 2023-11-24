@@ -168,15 +168,6 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 Tcount
 
-## POLYGONIZE PIXEL CATCHMENTS ##
-echo -e $startDiv"Polygonize Pixel Catchments $hucNumber $current_branch_id"
-date -u
-Tstart
-gdal_polygonize.py -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
-    $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg catchments HydroID
-Tcount ## TODO: run this module within the backpool module so it only runs if needed (which will decrease processing time a lot)
-
-
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
 date -u
