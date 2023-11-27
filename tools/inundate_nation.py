@@ -12,8 +12,7 @@ from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-from rasterio.merge import merge
-
+from osgeo import gdal
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
@@ -43,10 +42,10 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     print("Inundation Nation script starting...")
 
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
-    logging.info(f"Using fim version: {fim_version}")
     output_base_file_name = magnitude_key + "_" + fim_version
 
     __setup_logger(output_dir, output_base_file_name)
+    logging.info(f"Using fim version: {fim_version}")
 
     start_dt = datetime.now()
 
@@ -72,12 +71,6 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     if huc_list == 'all' or len(huc_list) == 0:
         huc_list = []
         for huc in os.listdir(fim_run_dir):
-            # if (
-            #     huc != 'logs'
-            #     and huc != 'branch_errors'
-            #     and huc != 'unit_errors'
-            #     and os.path.isdir(os.path.join(fim_run_dir, huc))
-            # ):
             if re.match(r'\d{8}', huc):
                 huc_list.append(huc)
     else:
@@ -125,6 +118,9 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             print(msg)
             logging.info(msg)
 
+        # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name)
+
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
 
@@ -132,7 +128,8 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         print("Skipping mosiaking")
 
     # now cleanup the raw mosiac directories
-    # shutil.rmtree(magnitude_output_dir, ignore_errors=True)
+    # comment this out if you want to see the individual huc rasters
+    shutil.rmtree(magnitude_output_dir, ignore_errors=True)
 
     fh.print_current_date_time()
     logging.info(logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S")))
@@ -213,6 +210,28 @@ def create_bool_rasters(args):
     ) as dst:
         dst.write(array.astype(rasterio.int8))
 
+def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
+
+    rasters_to_mosaic = []
+    for rasfile in os.listdir(output_bool_dir):
+        if rasfile.endswith('.tif') and "extent" in rasfile:
+            p = output_bool_dir + os.sep + rasfile
+            print("Processing: " + p)
+            rasters_to_mosaic.append(p)
+
+    output_mosiac_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
+    print("Creating virtual raster: " + output_mosiac_vrt)
+    logging.info("Creating virtual raster: " + output_mosiac_vrt)
+    vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
+
+    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")    
+    print("Building raster mosaic: " + output_mosiac_raster)
+    logging.info("Building raster mosaic: " + output_mosiac_raster)
+    print("This can take a number of hours, watch 'docker stats' cpu value to ensure the process"\
+        "to ensure the process is still working")
+    gdal.Translate(output_mosiac_raster, vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
+    vrt = None
+
 
 def __setup_logger(output_folder_path, log_file_name_key):
     start_time = datetime.now()
@@ -220,8 +239,8 @@ def __setup_logger(output_folder_path, log_file_name_key):
     log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
 
     log_file_path = os.path.join(output_folder_path, log_file_name)
-
-    logging.basicConfig(filename=log_file_path, level=logging.DEBUG, format="%(message)s")
+    print('Log file created here:' + str(log_file_path))
+    logging.basicConfig(filename=log_file_path, level=logging.INFO, format="%(message)s")
 
     # yes.. this can do console logs as well, but it can be a bit unstable and ugly
 
