@@ -13,6 +13,7 @@ from multiprocessing import Pool
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from osgeo import gdal
+
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
@@ -58,7 +59,10 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     magnitude_output_dir = os.path.join(output_dir, output_base_file_name)
 
     if not os.path.exists(magnitude_output_dir):
-        logging.info("Removing previous output dir and creating new output dir for inunation wrapper files: " + magnitude_output_dir)
+        logging.info(
+            "Removing previous output dir and creating new output dir for inunation wrapper files: "
+            + magnitude_output_dir
+        )
         os.mkdir(magnitude_output_dir)
     else:
         # we need to empty it. we will kill it and remake it (using rmtree to force it)
@@ -79,7 +83,6 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
     run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
-
 
     # Perform mosaic operation
     if inc_mosaic:
@@ -151,7 +154,10 @@ def run_inundation(args):
 
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
 
-    logging.info("Running inundation wrapper for the NWM recurrence intervals for each huc using magnitude: " + str(magnitude))
+    logging.info(
+        "Running inundation wrapper for the NWM recurrence intervals for each huc using magnitude: "
+        + str(magnitude)
+    )
     print(
         "This will take a long time depending on the number of HUCs. Progress bar may not appear."
         " Once it gets to boolean/mosiacing (if applicable), screen output will exist. To see if the script has frozen,"
@@ -203,8 +209,8 @@ def create_bool_rasters(args):
     ) as dst:
         dst.write(array.astype(rasterio.int8))
 
-def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
 
+def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
     rasters_to_mosaic = []
     for rasfile in os.listdir(output_bool_dir):
         if rasfile.endswith('.tif') and "extent" in rasfile:
@@ -216,10 +222,16 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
     logging.info("Creating virtual raster: " + output_mosiac_vrt)
     vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
 
-    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")    
+    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
     logging.info("Building raster mosaic: " + output_mosiac_raster)
     print("Note: This step can take a number of hours if processing 100s of hucs")
-    gdal.Translate(output_mosiac_raster, vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
+    gdal.Translate(
+        output_mosiac_raster,
+        vrt,
+        xRes=10,
+        yRes=-10,
+        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2'],
+    )
     vrt = None
 
 
