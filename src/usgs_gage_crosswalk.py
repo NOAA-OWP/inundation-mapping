@@ -135,8 +135,10 @@ class GageCrosswalk(object):
         if not ras_elev_table.empty:
             ras_elev_table.to_csv(join(output_directory, 'ras_elev_table.csv'), index=False)
         else:
-            print('INFO: there were no ras2fim points located in this huc'
-                  ' (note that most hucs do not have ras2fim data)')
+            print(
+                'INFO: there were no ras2fim points located in this huc'
+                ' (note that most hucs do not have ras2fim data)'
+            )
 
         # filter for just usgs entries
         # look for source attributes that do not contain "ras2fim"
