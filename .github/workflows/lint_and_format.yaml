@@ -1,0 +1,22 @@
+name: Lint and Format Using Pre-Commit
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version-file: pyproject.toml
+    - uses: pre-commit/action@v3.0.0

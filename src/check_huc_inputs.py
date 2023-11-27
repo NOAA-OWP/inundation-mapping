@@ -4,7 +4,6 @@
 import argparse
 import os
 import pathlib
-import string
 from glob import glob
 from logging import exception
 
@@ -59,8 +58,8 @@ def __clean_huc_value(huc):
 
 def __check_for_membership(hucs, accepted_hucs_set):
     for huc in hucs:
-        if (type(huc) == string) and (not huc.isnumeric()):
-            msg = f"Huc value of {huc} does not appear to be a number."
+        if (type(huc) is str) and (not huc.isnumeric()):
+            msg = f"Huc value of {huc} does not appear to be a number. "
             msg += "It could be an incorrect value but also could be that the huc list "
             msg += "(if you used one), is not unix encoded."
             raise KeyError(msg)

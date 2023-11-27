@@ -1,6 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
 ## v4.4.x.x - 2023-11-14 - [PR#1026](https://github.com/NOAA-OWP/inundation-mapping/pull/1026)
 
 A couple of directly related issues were fixed in this PR.
@@ -12,6 +13,78 @@ The initial problem came from Issue #[1025](https://github.com/NOAA-OWP/inundati
 - `tools`
     - `inundate_mosiac_wrapper.py`:  Took out a misleading and non-required print statement.
     - `inundate_nation.py`: As mentioned above.
+
+<br/><br/>
+
+
+## v4.4.7.0 - 2023-11-13 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
+
+This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for this repository. 
+The `flake8-pyproject` dependency is now used, as it works out of the box with the `pre-commit` GitHub Action in the GitHub Hosted Runner environment.
+In switching to this package, a couple of `E721` errors appeared. Modifications were made to the appropriate files to resolve the `flake8` `E721` errors.
+Also, updates to the `unit_tests` were necessary since Branch IDs have changed with the latest code.  
+
+A small fix was also included where `src_adjust_ras2fim_rating.py` which sometimes fails with an encoding error when the ras2fim csv sometimes is created or adjsuted in windows.
+
+### Changes
+- `.pre-commit-config.yaml`: use `flake8-pyproject` package instead of `pyproject-flake8`.
+- `Pipfile` and `Pipfile.lock`: updated to use `flake8-pyproject` package instead of `pyproject-flake8`, upgrade `pyarrow` version.
+- `data`
+    - `/wbd/generate_pre_clip_fim_huc8.py`: Add space between (-) operator line 134.
+    - `write_parquet_from_calib_pts.py`: Add space between (-) operator line 234.
+- `src`
+    - `check_huc_inputs.py`: Change `== string` to `is str`, remove `import string`
+    - `src_adjust_ras2fim_rating.py`: Fixed encoding error.
+- `tools`
+    - `eval_plots.py`: Add space after comma in lines 207 & 208
+    - `generate_categorical_fim_mapping.py`: Use `is` instead of `==`, line 315
+    - `hash_compare.py`: Add space after comma, line 153.
+    - `inundate_mosaic_wrapper.py`: Use `is` instead of `==`, line 73.
+    - `inundation_wrapper_nwm_flows.py`: Use `is not` instead of `!=`, line 76.
+    - `mosaic_inundation.py`: Use `is` instead of `==`, line 181.
+- `unit_tests`
+    - `README.md`: Updated documentation, run `pytest` in `/foss_fim` directory.
+    - `clip_vectors_to_wbd_test.py`: File moved to data/wbd directory, update import statement, skipped this test.
+    - `filter_catchments_and_add_attributes_params.json`: Update Branch ID
+    - `inundate_gms_params.json`: Moved to `unit_tests/` folder.
+    - `inundate_gms_test.py`: Moved to `unit_tests/` folder.
+    - `inundation_params.json`: Moved to `unit_tests/` folder.
+    - `inundation_test.py`: Moved to `unit_tests/` folder.
+    - `outputs_cleanup_params.json`: Update Branch ID
+    - `outputs_cleanup_test.py`: Update import statement
+    - `split_flows_params.json`: Update Branch ID
+    - `usgs_gage_crosswalk_params.json`: Update Branch ID & update argument to gage_crosswalk.run_crosswalk
+    - `usgs_gage_crosswalk_test.py`: Update params to gage_crosswalk.run_crosswalk
+
+### Additions 
+- `.github/workflows/`
+    - `lint_and_format.yaml`: Add GitHub Actions Workflow file for Continuous Integration environment (lint and format test).
+
+<br/><br/>
+
+
+## v4.4.6.0 - 2023-11-17 - [PR#1031](https://github.com/NOAA-OWP/inundation-mapping/pull/1031)
+
+Upgrade our acquire 3Dep DEMs script to pull down South Alaska HUCS with its own CRS.
+
+The previous set of DEMs run for FIM and it's related vrt already included all of Alaska, and those have not been re-run. FIM code will be updated in the near future to detect if the HUC starts with a `19` with slight different logic, so it can preserve the CRS of EPSG:3338 all the way to final FIM outputs.  See [792 ](https://github.com/NOAA-OWP/inundation-mapping/issues/792)for new integration into FIM.
+
+A new vrt for the new South Alaska DEMs was also run with no changes required.
+
+This issue closes [1028](https://github.com/NOAA-OWP/inundation-mapping/issues/1028). 
+
+### Additions
+- `src/utils`
+     - `shared_validators.py`: A new script where we can put in code to validate more complex arguments for python scripts. Currently has one for validating CRS values. It does valid if the CRS value is legitimate but does check a bunch of formatting including that it starts with either the name of `EPSG` or `ESRI`
+
+### Changes
+- `data/usgs` 
+    - `aquire_and_preprocess_3dep_dems.py`: Changes include:
+        - Add new input arg for desired target projection and logic to support an incoming CRS.
+        - Updated logic for pre-existing output folders and `on-the-fly` question to users during execution if they want to overwrite the output folder (if applicable).
+        - Changed date/times to utc.
+        - Upgraded error handing for the gdal "processing" call.
+
 
 <br/><br/>
 
