@@ -112,7 +112,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             logging.info(msg)
 
         # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name)
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name,job_number)
 
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -203,7 +203,7 @@ def create_bool_rasters(args):
     ) as dst:
         dst.write(array.astype(rasterio.int8))
 
-def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
+def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
 
     rasters_to_mosaic = []
     for rasfile in os.listdir(output_bool_dir):
@@ -212,14 +212,15 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag):
             rasters_to_mosaic.append(p)
 
     output_mosiac_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
-    print("Creating virtual raster: " + output_mosiac_vrt)
     logging.info("Creating virtual raster: " + output_mosiac_vrt)
     vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
 
     output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")    
     logging.info("Building raster mosaic: " + output_mosiac_raster)
+    logging.info("Using " + str(threads) + " threads for parallizing")
     print("Note: This step can take a number of hours if processing 100s of hucs")
-    gdal.Translate(output_mosiac_raster, vrt, xRes = 10, yRes = -10, creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2'])
+    gdal.Translate(output_mosiac_raster, vrt, xRes = 10, yRes = -10, 
+                   creationOptions = ['COMPRESS=LZW','TILED=YES','PREDICTOR=2','NUM_THREADS='+str(threads)])
     vrt = None
 
 
