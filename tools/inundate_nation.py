@@ -228,7 +228,7 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
         vrt,
         xRes=10,
         yRes=-10,
-        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2', 'NUM_THREADS='+str(threads)],
+        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2', 'NUM_THREADS=' + str(threads)],
     )
     vrt = None
 
