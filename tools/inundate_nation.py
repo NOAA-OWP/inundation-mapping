@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import re
 import shutil
+import sys
 from datetime import datetime
 from multiprocessing import Pool
 
@@ -14,6 +15,7 @@ from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from osgeo import gdal
 
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
 
 # INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
@@ -113,7 +115,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             logging.info(msg)
 
         # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, job_number)
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name,job_number)
 
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -228,7 +230,7 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
         vrt,
         xRes=10,
         yRes=-10,
-        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2', 'NUM_THREADS=' + str(threads)],
+        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2','NUM_THREADS='+str(threads)],
     )
     vrt = None
 
