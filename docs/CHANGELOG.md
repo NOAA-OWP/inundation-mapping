@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2023-11-18 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
+## v4.4.7.1 - 2023-12-01 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
 
 Quick update to match incoming ras2fim calibration output files being feed into FIM was the initial change.
 
