@@ -323,15 +323,15 @@ def mitigate_branch_outlet_backpool(
                 # --------------------------------------------------------------
                 # Polygonize pixel catchments using subprocess
 
-                print('Polygonizing pixel catchments...')  ## verbose
+                # print('Polygonizing pixel catchments...')  ## verbose
 
                 gdal_args = [f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} {catchment_pixels_polygonized_filename} catchments HydroID']
                 return_code = subprocess.call(gdal_args, shell=True) 
 
-                if return_code == 0:
-                    print("gdal_polygonize executed successfully.")  ## verbose
-                else:
+                if return_code != 0:
                     print("gdal_polygonize failed with return code", return_code)
+                # else:
+                    # print("gdal_polygonize executed successfully.")  ## verbose
 
                 # Read in the polygonized catchment pixels
                 catchment_pixels_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename)
@@ -339,7 +339,7 @@ def mitigate_branch_outlet_backpool(
                 # --------------------------------------------------------------
                 # Mask problematic pixel catchment from the catchments rasters
 
-                print('Masking problematic pixel catchment from catchment reaches raster...')  ## verbose
+                # print('Masking problematic pixel catchment from catchment reaches raster...')  ## verbose
 
                 # Convert series to number object
                 outlet_catchment_id = outlet_catchment_id.iloc[0]
@@ -359,19 +359,19 @@ def mitigate_branch_outlet_backpool(
                 # Mask catchment pixels raster
                 mask_raster_to_boundary(catchment_pixels_filename, catchment_pixels_new_boundary_json, catchment_pixels_filename)
 
-                print('Finished masking!') ## verbose
+                # print('Finished masking!') ## verbose
 
                 # --------------------------------------------------------------
                 # Save the outputs
-                print('Writing outputs ...') ## verbose
+                # print('Writing outputs ...') ## verbose
 
-                # if isfile(split_flows_filename): ## DEBUG ## UNCOMMENT WHEN IT WORKS HEHE
-                #     remove(split_flows_filename)
-                # if isfile(split_points_filename):
-                #     remove(split_points_filename)
+                if isfile(split_flows_filename): 
+                    remove(split_flows_filename)
+                if isfile(split_points_filename):
+                    remove(split_points_filename)
 
-                # output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
-                # split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+                output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+                split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
 
             else:
                 print('Incorrectly-large outlet pixel catchment was NOT detected.') 
