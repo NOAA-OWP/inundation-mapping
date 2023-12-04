@@ -20,7 +20,7 @@ if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $tempHucDataDir/LeveeProtecte
     echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/mask_dem.py \
+    python3 $srcDir/mask_dem.py \
         -dem $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
         -nld $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
         -out $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
@@ -55,7 +55,7 @@ Tcount
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber $current_branch_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/unique_pixel_and_allocation.py \
+python3 $srcDir/unique_pixel_and_allocation.py \
     -s $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_streamPixels_ids_$current_branch_id.tif
 Tcount
@@ -64,7 +64,7 @@ Tcount
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber $current_branch_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/adjust_thalweg_lateral.py \
+python3 $srcDir/adjust_thalweg_lateral.py \
     -e $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -a $tempCurrentBranchDataDir/demDerived_streamPixels_ids_"$current_branch_id"_allo.tif \
@@ -226,7 +226,7 @@ Tcount
 echo -e $startDiv"Process catchments and model streams $hucNumber $current_branch_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/filter_catchments_and_add_attributes.py \
+python3 $srcDir/filter_catchments_and_add_attributes.py \
     -i $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
     -f $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
@@ -299,7 +299,7 @@ echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_bran
 date -u
 Tstart
 
-python3 -m memory_profiler $srcDir/add_crosswalk.py \
+python3 $srcDir/add_crosswalk.py \
     -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
     -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg \
     -s $tempCurrentBranchDataDir/src_base_$current_branch_id.csv \

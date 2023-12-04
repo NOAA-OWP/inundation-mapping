@@ -9,14 +9,13 @@ import pandas as pd
 from numpy import unique
 from rasterstats import zonal_stats
 
-from utils.shared_functions import getDriver, mem_profile
+from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
 # TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
 
 
-@mem_profile
 def add_crosswalk(
     input_catchments_fileName,
     input_flows_fileName,

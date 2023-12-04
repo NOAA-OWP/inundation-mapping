@@ -8,8 +8,6 @@ from os.path import join
 import geopandas as gpd
 import rasterio
 
-from utils.shared_functions import mem_profile
-
 
 warnings.simplefilter("ignore")
 
@@ -119,8 +117,8 @@ class GageCrosswalk(object):
         elev_table = elev_table[elev_table['location_id'].notna()]
         elev_table.source = elev_table.source.apply(str.lower)
 
-        # filter for just ras2fim entries
-        ras_elev_table = elev_table[elev_table['source'] == 'ras2fim']
+        # filter for just ras2fim entries (note that source column includes suffix with version number)
+        ras_elev_table = elev_table[elev_table['source'].str.contains('ras2fim')]
         ras_elev_table = ras_elev_table[
             [
                 "location_id",
@@ -136,9 +134,15 @@ class GageCrosswalk(object):
         ]
         if not ras_elev_table.empty:
             ras_elev_table.to_csv(join(output_directory, 'ras_elev_table.csv'), index=False)
+        else:
+            print(
+                'INFO: there were no ras2fim points located in this huc'
+                ' (note that most hucs do not have ras2fim data)'
+            )
 
         # filter for just usgs entries
-        usgs_elev_table = elev_table[elev_table['source'] != 'ras2fim']
+        # look for source attributes that do not contain "ras2fim"
+        usgs_elev_table = elev_table[~elev_table['source'].str.contains('ras2fim')]
         if not usgs_elev_table.empty:
             usgs_elev_table.to_csv(join(output_directory, 'usgs_elev_table.csv'), index=False)
 

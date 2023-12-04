@@ -4,13 +4,17 @@
 import argparse
 import os
 import pathlib
-import string
 from glob import glob
 from logging import exception
 
 
 def __read_included_files(parent_dir_path):
-    filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc*.lst'))
+    # TODO: Oct25, 2023: Previously we had this test done against multiple huc lists.
+    # Now in FIM4 we only want it to check against the one file 'included_huc8.lst'.
+    # I have just replaced the pattern, but later we might want to clean this up.
+
+    # filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc*.lst'))
+    filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc8.lst'))
 
     accepted_hucs_set = set()
     for filename in filename_patterns:
@@ -54,8 +58,8 @@ def __clean_huc_value(huc):
 
 def __check_for_membership(hucs, accepted_hucs_set):
     for huc in hucs:
-        if (type(huc) == string) and (not huc.isnumeric()):
-            msg = f"Huc value of {huc} does not appear to be a number."
+        if (type(huc) is str) and (not huc.isnumeric()):
+            msg = f"Huc value of {huc} does not appear to be a number. "
             msg += "It could be an incorrect value but also could be that the huc list "
             msg += "(if you used one), is not unix encoded."
             raise KeyError(msg)

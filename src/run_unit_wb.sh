@@ -21,70 +21,11 @@ branchSummaryLogFile=$outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
 T_total_start
 huc_start_time=`date +%s`
 
-## SET VARIABLES AND FILE INPUTS ##
-hucUnitLength=${#hucNumber}
-huc4Identifier=${hucNumber:0:4}
-huc2Identifier=${hucNumber:0:2}
-input_NHD_WBHD_layer=WBDHU$hucUnitLength
 
-# Define the landsea water body mask using either Great Lakes or Ocean polygon input #
-if [[ $huc2Identifier == "04" ]] ; then
-  input_LANDSEA=$input_GL_boundaries
-  #echo -e "Using $input_LANDSEA for water body mask (Great Lakes)"
-else
-  input_LANDSEA=$inputsDir/landsea/water_polygons_us.gpkg
-fi
+## Copy HUC's pre-clipped .gpkg files from $pre_clip_huc_dir (use -a & /. -- only copies folder's contents)
+echo -e $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/$hucNumber"
+cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
-## GET WBD ##
-echo -e $startDiv"Get WBD $hucNumber"
-date -u
-Tstart
-ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS \
-    $tempHucDataDir/wbd.gpkg $input_WBD_gdb $input_NHD_WBHD_layer \
-    -where "HUC$hucUnitLength='$hucNumber'"
-Tcount
-
-## Subset Vector Layers ##
-echo -e $startDiv"Get Vector Layers and Subset $hucNumber"
-date -u
-Tstart
-
-cmd_args=" -a $tempHucDataDir/nwm_lakes_proj_subset.gpkg"
-cmd_args+=" -b $tempHucDataDir/nwm_subset_streams.gpkg"
-cmd_args+=" -d $hucNumber"
-cmd_args+=" -e $tempHucDataDir/nwm_headwater_points_subset.gpkg"
-cmd_args+=" -f $tempHucDataDir/wbd_buffered.gpkg"
-cmd_args+=" -s $tempHucDataDir/wbd_buffered_streams.gpkg"
-cmd_args+=" -g $tempHucDataDir/wbd.gpkg"
-cmd_args+=" -i $input_DEM"
-cmd_args+=" -j $input_DEM_domain"
-cmd_args+=" -l $input_nwm_lakes"
-cmd_args+=" -m $input_nwm_catchments"
-cmd_args+=" -n $tempHucDataDir/nwm_catchments_proj_subset.gpkg"
-cmd_args+=" -r $input_NLD"
-cmd_args+=" -rp $input_levees_preprocessed"
-cmd_args+=" -v $input_LANDSEA"
-cmd_args+=" -w $input_nwm_flows"
-cmd_args+=" -x $tempHucDataDir/LandSea_subset.gpkg"
-cmd_args+=" -y $input_nwm_headwaters"
-cmd_args+=" -z $tempHucDataDir/nld_subset_levees.gpkg"
-cmd_args+=" -zp $tempHucDataDir/3d_nld_subset_levees_burned.gpkg"
-cmd_args+=" -wb $wbd_buffer"
-cmd_args+=" -lpf $input_nld_levee_protected_areas"
-cmd_args+=" -lps $tempHucDataDir/LeveeProtectedAreas_subset.gpkg"
-
-#echo "$cmd_args"
-python3 $srcDir/clip_vectors_to_wbd.py $cmd_args
-Tcount
-
-## Clip WBD8 ##
-echo -e $startDiv"Clip WBD8"
-date -u
-Tstart
-ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS \
-    -clipsrc $tempHucDataDir/wbd_buffered.gpkg $tempHucDataDir/wbd8_clp.gpkg \
-    $inputsDir/wbd/WBD_National.gpkg WBDHU8
-Tcount
 
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"
@@ -199,7 +140,7 @@ date -u
 Tstart
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif ] && \
-python3 -m memory_profiler $srcDir/burn_in_levees.py \
+python3 $srcDir/burn_in_levees.py \
     -dem $tempHucDataDir/dem_meters.tif \
     -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif \
     -out $tempHucDataDir/dem_meters.tif
@@ -240,7 +181,7 @@ Tcount
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber $branch_zero_id"
 date -u
 Tstart
-python3 -m memory_profiler $srcDir/agreedem.py \
+python3 $srcDir/agreedem.py \
     -r $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif \
     -d $tempHucDataDir/dem_meters.tif \
     -w $tempCurrentBranchDataDir \
@@ -257,7 +198,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
+    python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
         -d $tempHucDataDir/dem_meters.tif \
         -w $tempHucDataDir \
         -o $tempHucDataDir/dem_burned.tif \
@@ -332,10 +273,10 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     date -u
     Tstart
-    python3 -m memory_profiler $srcDir/usgs_gage_unit_setup.py \
+    python3 $srcDir/usgs_gage_unit_setup.py \
         -gages $inputsDir/usgs_gages/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
-        -ras $inputsDir/rating_curve/ras2fim_exports/reformat_ras_rating_curve_points.gpkg \
+        -ras $ras_rating_curve_points_gpkg \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
         -huc $hucNumber \
         -ahps $inputsDir/ahps_sites/nws_lid.gpkg \

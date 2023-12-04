@@ -6,10 +6,7 @@ import numpy as np
 import rasterio
 import whitebox
 
-from utils.shared_functions import mem_profile
 
-
-@mem_profile
 def agreedem(
     rivers_raster,
     dem,

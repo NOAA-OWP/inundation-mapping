@@ -52,7 +52,9 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     print('Reading RAS2FIM rating curves from csv...')
     log_text = 'Processing database for RAS2FIM flow/WSE at NWM flow recur intervals...\n'
     col_filter = ["fid_xs", "flow", "wse"]
-    ras_rc_df = pd.read_csv(ras_rc_filepath, dtype={'fid_xs': object}, usecols=col_filter)  # , nrows=30000)
+    ras_rc_df = pd.read_csv(
+        ras_rc_filepath, dtype={'fid_xs': object}, usecols=col_filter, encoding="unicode_escape"
+    )  # , nrows=30000)
     ras_rc_df.rename(columns={'fid_xs': 'location_id'}, inplace=True)
     # ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
     print('Duration (read ras_rc_csv): {}'.format(dt.datetime.now() - start_time))

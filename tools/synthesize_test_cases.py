@@ -123,11 +123,11 @@ def create_master_metrics_csv(
             magnitude_list = MAGNITUDE_DICT[benchmark_source]
 
             # Iterate through available test cases
-            for test_case in test_cases_list:
+            for each_test_case in test_cases_list:
                 try:
                     # Get HUC id
-                    int(test_case.split('_')[0])
-                    huc = test_case.split('_')[0]
+                    int(each_test_case.split('_')[0])
+                    huc = each_test_case.split('_')[0]
 
                     # Update filepaths based on whether the official or dev versions should be included
                     for iteration in iteration_list:
@@ -135,7 +135,7 @@ def create_master_metrics_csv(
                             iteration == "official"
                         ):  # and str(pfiles) == "True": # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case, 'official_versions'
+                                benchmark_test_case_dir, each_test_case, 'official_versions'
                             )
                             versions_to_aggregate = prev_versions_to_include_list
 
@@ -143,7 +143,7 @@ def create_master_metrics_csv(
                             iteration == "testing"
                         ):  # "testing" refers to the development model version(s) being evaluated
                             versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case, 'testing_versions'
+                                benchmark_test_case_dir, each_test_case, 'testing_versions'
                             )
                             versions_to_aggregate = dev_versions_to_include_list
 
@@ -190,17 +190,17 @@ def create_master_metrics_csv(
         if benchmark_source in AHPS_BENCHMARK_CATEGORIES:
             test_cases_list = os.listdir(benchmark_test_case_dir)
 
-            for test_case in test_cases_list:
+            for each_test_case in test_cases_list:
                 try:
                     # Get HUC id
-                    int(test_case.split('_')[0])
-                    huc = test_case.split('_')[0]
+                    int(each_test_case.split('_')[0])
+                    huc = each_test_case.split('_')[0]
 
                     # Update filepaths based on whether the official or dev versions should be included
                     for iteration in iteration_list:
                         if iteration == "official":  # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case, 'official_versions'
+                                benchmark_test_case_dir, each_test_case, 'official_versions'
                             )
                             versions_to_aggregate = prev_versions_to_include_list
 
@@ -208,7 +208,7 @@ def create_master_metrics_csv(
                             iteration == "testing"
                         ):  # "testing" refers to the development model version(s) being evaluated
                             versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case, 'testing_versions'
+                                benchmark_test_case_dir, each_test_case, 'testing_versions'
                             )
                             versions_to_aggregate = dev_versions_to_include_list
 
@@ -448,7 +448,9 @@ if __name__ == '__main__':
         required=False,
         default=None,
     )
-    parser.add_argument('-vr', '--verbose', help='Verbose', required=False, default=None, action='store_true')
+    parser.add_argument(
+        '-vr', '--verbose', help='Verbose output', required=False, default=None, action='store_true'
+    )
     parser.add_argument(
         '-vg',
         '--gms-verbose',

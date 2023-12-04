@@ -68,11 +68,10 @@ from collections import Counter
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import getDriver, mem_profile
+from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
-@mem_profile
 def split_flows(
     flows_filename,
     dem_filename,
