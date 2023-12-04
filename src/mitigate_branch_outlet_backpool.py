@@ -26,7 +26,6 @@ from utils.shared_variables import FIM_ID
 
 import subprocess
 
-@mem_profile
 def mitigate_branch_outlet_backpool(
     catchment_pixels_filename,
     catchment_pixels_polygonized_filename,
