@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.8.0 - 2023-12-08 - [PR#1044](https://github.com/NOAA-OWP/inundation-mapping/pull/1044)
+
+In order to avoid file system collisions on AWS, and keep the reads/writes from the same file on disk to a minimum, three files (`HUC6_dem_domain.gpkg`, `nws_lid.gpkg`, & `usgs_gages.gpkg`) are now copied from disk into a scratch directory (temporary working directory), and removed after processing steps are completed.
+
+### Changes
+
+- `config`/`deny_unit.lst`: Add files to remove list - repetitive copies needed for processing step (`run_unit_wb.sh`)
+- `src`
+    - `bash_variables.env`: Add a new variable for the ras rating curve filename. It will be easier to track the filename in the `.env`, and pull into `run_unit_wb.sh`, rather than hardcode it.
+    - `run_unit_wb.sh`: Copy files and update references from `$inputsDir` to `$tempHucDataDir`.
+
+<br/><br/>
+
 ## v4.4.7.1 - 2023-12-01 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
 
 Quick update to match incoming ras2fim calibration output files being feed into FIM was the initial change.

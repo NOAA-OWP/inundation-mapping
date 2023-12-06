@@ -31,7 +31,7 @@ cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 cp $input_DEM_domain $tempHucDataDir
 # For usgs_gage_unit_setup.py
 cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
-cp $ras_rating_curve_points_gpkg_path $tempHucDataDir
+cp $ras_rating_curve_points_gpkg $tempHucDataDir
 cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
 
 ## DERIVE LEVELPATH  ##
