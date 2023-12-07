@@ -83,19 +83,19 @@ def interpolate_wse(
 def inundate_with_catchment_spillover(
     hydrofabric_dir,
     hucs,
-    forecast,
+    flow_file,
     depths_raster,
-    log_file,
-    output_fileNames,
-    max_distance,
-    smooth_iterations,
-    num_workers,
-    keep_intermediate,
-    verbose,
+    output_fileNames=None,
+    max_distance=20,
+    smooth_iterations=2,
+    num_workers=1,
+    keep_intermediate=False,
+    log_file=None,
+    verbose=False,
 ):
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
-        forecast=forecast,
+        forecast=flow_file,
         num_workers=num_workers,
         hucs=hucs,
         depths_raster=depths_raster,
@@ -169,23 +169,6 @@ if __name__ == '__main__':
         type=str,
     )
     parser.add_argument(
-        "-m",
-        "--map-filename",
-        help="Path to write output map file CSV (optional). Default is None.",
-        required=False,
-        default=None,
-        type=str,
-    )
-    parser.add_argument("-k", "--mask", help="Name of mask file.", required=False, default=None, type=str)
-    parser.add_argument(
-        "-a",
-        "--unit_attribute_name",
-        help='Name of attribute column in map_file. Default is "huc8".',
-        required=False,
-        default="huc8",
-        type=str,
-    )
-    parser.add_argument(
         "-md",
         "--max-distance",
         help="The maximum number of pixels to search in all directions to find values to interpolate from. The default is 20.",
@@ -204,9 +187,9 @@ if __name__ == '__main__':
 
     parser.add_argument("-w", "--num-workers", help="Number of workers.", required=False, default=1, type=int)
     parser.add_argument(
-        "-r",
-        "--remove-intermediate",
-        help="Remove intermediate products, i.e. individual branch inundation.",
+        "-k",
+        "--keep-intermediate",
+        help="Keeps intermediate products, i.e. individual branch inundation.",
         required=False,
         default=False,
         action="store_true",
