@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
+import sys
 
 import numpy as np
 import rasterio
 import rasterio.mask
+from inundate_gms import Inundate_gms
+from mosaic_inundation import Mosaic_inundation
 from rasterio.fill import fillnodata
+from tools_shared_variables import elev_raster_ndv
 
 
 def interpolate_wse(
@@ -16,6 +21,29 @@ def interpolate_wse(
     max_distance=20,
     smooth_iterations=2,
 ):
+    """
+    Attempts to overcome the catchment boundary issue by computing water surface elevation
+    and interpolating missing inundated areas between catchments.
+
+    Parameters
+    ----------
+    inundation_depth_raster : str
+        Input path for a depth raster.
+    hydroconditioned_dem : str
+        Input path for the hydroconditioned DEM used to create the above depth raster.
+        This should be the path to dem_thalwegCond_{}.tif.
+    output_depth_raster : str
+        Output path for the resulting interpolated depth raster.
+    output_interpolated_wse : str , optional
+        Output path for the intermediate output water surface elevation raster.
+        This raster is only saved if this parameter is set. Default is None.
+    max_distance : int , optional
+        The maximum number of pixels to search in all directions to find values to
+        interpolate from. The default is 20.
+    smooth_iterations : int , optional
+        The number of 3x3 smoothing filter passes to run. The default is 2.
+
+    """
     with rasterio.open(inundation_depth_raster) as depth:
         depth_rast = depth.read(1)
         profile = depth.profile
@@ -52,13 +80,146 @@ def interpolate_wse(
         dst.write(final_depth)
 
 
+def inundate_with_catchment_spillover(
+    hydrofabric_dir,
+    hucs,
+    forecast,
+    depths_raster,
+    log_file,
+    output_fileNames,
+    max_distance,
+    smooth_iterations,
+    num_workers,
+    keep_intermediate,
+    verbose,
+):
+    map_file = Inundate_gms(
+        hydrofabric_dir=hydrofabric_dir,
+        forecast=forecast,
+        num_workers=num_workers,
+        hucs=hucs,
+        depths_raster=depths_raster,
+        verbose=verbose,
+        log_file=log_file,
+        output_fileNames=output_fileNames,
+    )
+
+    for index, row in map_file.iterrows():
+        # Hydroconditioned DEM filename
+        dem = os.path.join(
+            hydrofabric_dir,
+            row['huc8'],
+            'branches',
+            row['branchID'],
+            'dem_thalwegCond_{}.tif'.format(row['branchID']),
+        )
+        assert os.path.isfile(dem), (
+            "Cannot find hydroconditioned DEM. Ensure that dem_thalwegCond_{}.tif "
+            "is present in all branch directories."
+        )
+        # Compute new depth rasters and overwrite
+        interpolate_wse(
+            row['depths_rasters'],
+            dem,
+            row['depths_rasters'],
+            output_interpolated_wse=None,
+            max_distance=max_distance,
+            smooth_iterations=smooth_iterations,
+        )
+
+    Mosaic_inundation(
+        map_file,
+        mosaic_attribute='depths_rasters',
+        mosaic_output=depths_raster,
+        mask=None,
+        unit_attribute_name='huc8',
+        nodata=elev_raster_ndv,
+        workers=1,
+        remove_inputs=not keep_intermediate,
+        subset=None,
+        verbose=verbose,
+    )
+
+
 if __name__ == '__main__':
-    # TODO parse arguments
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-y', '--hydrofabric-dir', help='Bounding box file', required=True)
-    parser.add_argument('-f', '--forecast-file', help='WBD file', required=True)
-    parser.add_argument('-i', '--inundation-file', help='WBD file', required=False, default=None)
+    parser = argparse.ArgumentParser(description="Helpful utility to produce mosaicked inundation depths .")
+    parser.add_argument(
+        "-y",
+        "--hydrofabric_dir",
+        help="Directory path to FIM hydrofabric by processing unit.",
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
+        "-u", "--hucs", help="List of HUCS to run", required=True, default="", type=str, nargs="+"
+    )
+    parser.add_argument(
+        "-f",
+        "--flow_file",
+        help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns MUST be supplied.',
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
+        "-d",
+        "--depths-raster",
+        help="Depths raster output. Only writes if designated. Appends HUC code in batch mode.",
+        required=False,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "-m",
+        "--map-filename",
+        help="Path to write output map file CSV (optional). Default is None.",
+        required=False,
+        default=None,
+        type=str,
+    )
+    parser.add_argument("-k", "--mask", help="Name of mask file.", required=False, default=None, type=str)
+    parser.add_argument(
+        "-a",
+        "--unit_attribute_name",
+        help='Name of attribute column in map_file. Default is "huc8".',
+        required=False,
+        default="huc8",
+        type=str,
+    )
+    parser.add_argument(
+        "-md",
+        "--max-distance",
+        help="The maximum number of pixels to search in all directions to find values to interpolate from. The default is 20.",
+        required=False,
+        default=20,
+        type=int,
+    )
+    parser.add_argument(
+        "-si",
+        "--smooth-iterations",
+        help="The number of 3x3 smoothing filter passes to run. The default is 2.",
+        required=False,
+        default=2,
+        type=int,
+    )
+
+    parser.add_argument("-w", "--num-workers", help="Number of workers.", required=False, default=1, type=int)
+    parser.add_argument(
+        "-r",
+        "--remove-intermediate",
+        help="Remove intermediate products, i.e. individual branch inundation.",
+        required=False,
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        help="Verbose printing. Not tested.",
+        required=False,
+        default=False,
+        action="store_true",
+    )
 
     args = vars(parser.parse_args())
 
-    interpolate_wse(**args)
+    inundate_with_catchment_spillover(**args)
