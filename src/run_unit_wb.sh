@@ -276,7 +276,7 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     python3 $srcDir/usgs_gage_unit_setup.py \
         -gages $inputsDir/usgs_gages/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
-        -ras $inputsDir/rating_curve/ras2fim_exports/reformat_ras_rating_curve_points.gpkg \
+        -ras $ras_rating_curve_points_gpkg \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
         -huc $hucNumber \
         -ahps $inputsDir/ahps_sites/nws_lid.gpkg \
