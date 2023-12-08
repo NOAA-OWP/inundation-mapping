@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
+
+Upgrades JDK to v.17.0.9 in Docker image to address security vulnerabilities.
+
+### Changes
+
+- `Dockerfile`: Upgrades JDK to v.17.
+
+<br/><br/>
+
 ## v4.4.7.1 - 2023-12-01 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
 
 Quick update to match incoming ras2fim calibration output files being feed into FIM was the initial change.
