@@ -14,6 +14,20 @@ In order to avoid file system collisions on AWS, and keep the reads/writes from 
 
 <br/><br/>
 
+## v4.4.7.2 - 2023-12-08 - [PR#1026](https://github.com/NOAA-OWP/inundation-mapping/pull/1026)
+
+A couple of directly related issues were fixed in this PR.
+The initial problem came from Issue #[1025](https://github.com/NOAA-OWP/inundation-mapping/issues/1025) which was about a pathing issue for the outputs directory. In testing that fix, it exposed a few other pathing and file cleanup issues which are now fixed. We also added more console output to help view variables and pathing.
+
+### Changes
+
+- `config`/`params_template.env`:  Updated for a newer mannings global file. Changed and tested by Ryan Spies.
+- `tools`
+    - `inundate_mosiac_wrapper.py`:  Took out a misleading and non-required print statement.
+    - `inundate_nation.py`: As mentioned above.
+
+<br/><br/>
+
 ## v4.4.7.1 - 2023-12-01 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
 
 Quick update to match incoming ras2fim calibration output files being feed into FIM was the initial change.
@@ -102,6 +116,7 @@ This issue closes [1028](https://github.com/NOAA-OWP/inundation-mapping/issues/1
         - Upgraded error handing for the gdal "processing" call.
 
 <br/><br/>
+
 
 ## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
