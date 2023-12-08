@@ -147,7 +147,7 @@ def inundate_with_catchment_spillover(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='''
-This script produces inundation depths and attemps to overcome the catchment boundary issue
+This script produces inundation depths and attempts to overcome the catchment boundary issue
 by interpolating water surface elevations between catchments. Water surface calculations require
 the hydroconditioned DEM (dem_thalwegCond_{}.tif) for computation, however, this file is not in
 the standard outputs from fim_pipeline.sh. Therefore, users may have to re-run fim_pipeline.sh
