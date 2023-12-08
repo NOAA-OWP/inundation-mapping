@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
+
+Upgrades JDK to v.17.0.9 in Docker image to address security vulnerabilities.
+
+### Changes
+
+- `Dockerfile`: Upgrades JDK to v.17.
+
+<br/><br/>
+
 ## v4.4.8.0 - 2023-12-08 - [PR#1045](https://github.com/NOAA-OWP/inundation-mapping/pull/1045)
 
 In order to avoid file system collisions on AWS, and keep the reads/writes from the same file on disk to a minimum, three files (`HUC6_dem_domain.gpkg`, `nws_lid.gpkg`, `reformat_ras_rating_curve_points_rel_101.gpkg`, & `usgs_gages.gpkg`) are now copied from disk into a scratch directory (temporary working directory), and removed after processing steps are completed.
