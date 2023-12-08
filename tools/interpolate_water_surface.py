@@ -93,6 +93,7 @@ def inundate_with_catchment_spillover(
     log_file=None,
     verbose=False,
 ):
+    print("Running Inundation")
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
@@ -104,6 +105,7 @@ def inundate_with_catchment_spillover(
         output_fileNames=output_fileNames,
     )
 
+    print("Interpolating water surfaces for each branch")
     for index, row in map_file.iterrows():
         # Hydroconditioned DEM filename
         dem = os.path.join(
@@ -127,6 +129,7 @@ def inundate_with_catchment_spillover(
             smooth_iterations=smooth_iterations,
         )
 
+    print("Mosaicking branches together")
     Mosaic_inundation(
         map_file,
         mosaic_attribute='depths_rasters',
@@ -142,7 +145,19 @@ def inundate_with_catchment_spillover(
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Helpful utility to produce mosaicked inundation depths .")
+    parser = argparse.ArgumentParser(
+        description='''
+This script produces inundation depths and attemps to overcome the catchment boundary issue
+by interpolating water surface elevations between catchments. Water surface calculations require
+the hydroconditioned DEM (dem_thalwegCond_{}.tif) for computation, however, this file is not in
+the standard outputs from fim_pipeline.sh. Therefore, users may have to re-run fim_pipeline.sh
+with dem_thalwegCond_{}.tif removed from all deny lists.
+
+Sample Usage :
+python interpolate_water_surface.py -y /outputs/fim_pipline_outputs -u 17110009 17110010 \
+    -f /home/user/interpolated_fim/custom_flow_file.csv -d /home/user/interpolated_fim/depth_raster.tif
+'''
+    )
     parser.add_argument(
         "-y",
         "--hydrofabric_dir",
