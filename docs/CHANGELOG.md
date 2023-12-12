@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.8.2 - 2023-12-12 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
+
+The alpha test for v4.4.8.1 came back with a large degradation in skill and we noticed that the global manning's roughness file was changed in v4.4.7.1 - likely in error.
+
+### Changes
+
+- `src`/`bash_variables.env`: changed the global roughness file to `${inputsDir}/rating_curve/variable_roughness/mannings_global_06_12.csv`
+
+<br/><br/>
+
 ## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
 
 Upgrades JDK to v.17.0.9 in Docker image to address security vulnerabilities.
