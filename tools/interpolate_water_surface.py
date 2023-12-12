@@ -23,7 +23,9 @@ def interpolate_wse(
 ):
     """
     Attempts to overcome the catchment boundary issue by computing water surface elevation
-    and interpolating missing inundated areas between catchments.
+    and interpolating missing inundated areas between catchments. Please see the relevant
+    pull request for more information and screeshots:
+    https://github.com/NOAA-OWP/inundation-mapping/pull/1048
 
     Parameters
     ----------
