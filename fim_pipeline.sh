@@ -103,13 +103,13 @@ if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
         parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     else
-        parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
+        parallel -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     fi
 else
     if [ "$jobHucLimit" = "1" ]; then
         parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName ::: $hucList
     else
-        parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file  $runName  ::: $hucList
+        parallel -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file  $runName  ::: $hucList
     fi
 fi
 

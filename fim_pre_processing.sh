@@ -182,6 +182,16 @@ if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     usage
 fi
 
+# Test to ensure we are not overuseing cores
+num_available_cores=$(echo $(grep -c processor /proc/cpuinfo))
+let total_requested_jobs=$jobHucLimit*$jobBranchLimit
+if [[ $total_requested_jobs -gt $num_available_cores ]]; then
+    echo
+    echo "ERROR: There are $num_available_cores available, but -jh (jobHucLimit) * -jb (jobBranchLimit)"\
+         "exceed the number of available cores"
+    echo
+fi
+
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $srcDir/bash_functions.env
 

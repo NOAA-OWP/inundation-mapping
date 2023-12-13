@@ -40,6 +40,7 @@ def acquire_and_preprocess_3dep_dems(
     target_output_folder_path='',
     number_of_jobs=1,
     retry=False,
+    repair=False,
     skip_polygons=False,
     target_projection='EPSG:5070',
 ):
@@ -83,6 +84,11 @@ def acquire_and_preprocess_3dep_dems(
             If retry is True and the file exists (either the raw downloaded DEM and/or)
             the projected one, then skip it
 
+        - repair (True / False):
+            If retry is True then look for output DEMs that are missing or are too small (under 10mg).
+            This happens often as there can be instabilty when running long running processes (BED).
+            USGS calls and networks can blip and some of the full BED can take many, many hours.
+
         - skip_polygons (bool)
              If True, then we will not attempt to create polygon files for each dem file. If false,
              an domain gpkg which covers the extent of all included features merged. It will automatically
@@ -122,35 +128,28 @@ def acquire_and_preprocess_3dep_dems(
             )
         os.makedirs(target_output_folder_path)
     else:  # path exists
-        if not retry:
+        if repair is False and retry is False:
             file_list = os.listdir(target_output_folder_path)
             if len(file_list) > 0:
                 print()
-                msg = f"The target output folder of {target_output_folder_path} appears to not be empty.\n\n"
-                "Do you want to empty the folder first?\n"
-                "  -- Type 'overwrite' if you want to empty the folder and continue.\n"
-                "  -- Type any other value to abort and stop the program.\n"
-                "  ?="
-
-                resp = input(msg).lower()
+                msg = (
+                    f"The target output folder of {target_output_folder_path} appears to not be empty.\n\n"
+                    "Do you want to empty the folder first?\n"
+                    "  -- Type 'overwrite' if you want to empty the folder and continue.\n"
+                    "  -- Type any other value to abort and stop the program.\n"
+                )
+                print(msg)
+                resp = input(" ?=").lower()
                 if resp == "overwrite":
                     shutil.rmtree(target_output_folder_path)
                     os.mkdir(target_output_folder_path)
                 else:
                     print("Program stopped\n")
                     sys.exit(0)
-        else:  # might want to retry but the folder isn't there yet
-            # It is ok if the child diretory does not exist, but the parent folder must
-            # parent directory, we want to reset it
-            parent_dir = os.path.abspath(os.path.join(target_output_folder_path, os.pardir))
-            print(parent_dir)
-            if not os.path.exists(parent_dir):
-                raise ValueError(
-                    f"For the output path of {target_output_folder_path}, the child directory"
-                    " need not exist but the parent folder must."
-                )
+        elif retry is True:
             shutil.rmtree(target_output_folder_path)
             os.mkdir(target_output_folder_path)
+        # no else: is repair missing output DEMs that are too small (likely errored first time)
 
     # I don't need the crs_number for now
     crs_is_valid, err_msg, crs_number = val.is_valid_crs(target_projection)
@@ -177,7 +176,7 @@ def acquire_and_preprocess_3dep_dems(
 
     # download dems, setting projection, block size, etc
     __download_usgs_dems(
-        extent_file_names, target_output_folder_path, number_of_jobs, retry, target_projection
+        extent_file_names, target_output_folder_path, number_of_jobs, repair, target_projection
     )
 
     if skip_polygons is False:
@@ -195,7 +194,7 @@ def acquire_and_preprocess_3dep_dems(
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
-def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry, target_projection):
+def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repair, target_projection):
     '''
     Process:
     ----------
@@ -244,7 +243,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
                 'download_url': __USGS_3DEP_10M_VRT_URL,
                 'target_projection': target_projection,
                 'base_cmd': base_cmd,
-                'retry': retry,
+                'repair': repair,
             }
 
             try:
@@ -268,7 +267,9 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, retry
     print("==========================================================")
 
 
-def download_usgs_dem_file(extent_file, output_folder_path, download_url, target_projection, base_cmd, retry):
+def download_usgs_dem_file(
+    extent_file, output_folder_path, download_url, target_projection, base_cmd, repair
+):
     '''
     Process:
     ----------
@@ -289,8 +290,9 @@ def download_usgs_dem_file(extent_file, output_folder_path, download_url, target
             ie) EPSG:5070 or EPSG:2276, etc
         - base_cmd (str)
              The basic GDAL command with string formatting wholes for key values.
-        - retry (bool)
-             If True, and the file exists, downloading will be skipped.
+        - repair (bool)
+             If True, and the file does not exist or is too small (under 10mb),
+             it will attempt to download.
 
     '''
 
@@ -302,11 +304,14 @@ def download_usgs_dem_file(extent_file, output_folder_path, download_url, target
     # which is related to to the spatial extents of the dem and the vrt combined.
     # so, super small .tifs are correct.
 
-    if (retry) and (os.path.exists(target_path_raw)):
-        msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
-        print(msg)
-        logging.info(msg)
-        return
+    if (repair) and (os.path.exists(target_path_raw)):
+        if os.stat(target_path_raw).st_size < 1000000:
+            os.remove(target_path_raw)
+        else:
+            msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
+            print(msg)
+            logging.info(msg)
+            return
 
     msg = f" - Downloading -- {target_file_name_raw} - Started"
     print(msg)
@@ -502,6 +507,17 @@ if __name__ == '__main__':
         '-r',
         '--retry',
         help='OPTIONAL: If included, it will skip files that already exist.'
+        'Default is all will be loaded/reloaded.',
+        required=False,
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-rp',
+        '--repair',
+        help='OPTIONAL: If included, it process only HUCs missing output DEMs or if the output DEM'
+        ' is too small (under 10mb), which happens. '
         'Default is all will be loaded/reloaded.',
         required=False,
         action='store_true',
