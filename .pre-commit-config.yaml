@@ -6,9 +6,10 @@ repos:
     rev: v4.4.0
     hooks:
         -   id: trailing-whitespace
-            exclude: CHANGELOG.md
+            # Below is python regex to exclude all .md files
+            exclude: .*md$
         -   id: end-of-file-fixer
-            exclude: Pipfile.lock
+            exclude:  Pipfile.lock, .*md$
         -   id: check-added-large-files
             args: ['--maxkb=5000']
         -   id: check-json
