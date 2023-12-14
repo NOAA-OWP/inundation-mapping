@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2023-12-13 - [PR#1054](https://github.com/NOAA-OWP/inundation-mapping/pull/1054)
+
+Recent testing exposed a bug with the `acquire_and_preprocess_3dep_dems.py` script. It lost the ability to be re-run and look for files that were unsuccessful earlier attempts and try them again. It may have been lost due to confusion of the word "retry". Now "retry" means restart the entire run. A new flag called "repair"  has been added meaning fix what failed earlier.  This is a key feature it is common for communication failures when calling USGS to download DEMs.  And with some runs taking many hours, this feature becomes important.
+
+Also used the opportunity to fix a couple of other minor issues:
+1) Reduce log output
+2) Add a test for ensuring the user does not submit job numbers (num of cpu requests) to exceed the system max cpus. This test exists in a number of places in the code but way later in the processing stack after alot of processing has been done. Now it is done at the start of the fim pipeline stack.
+
+### Changes
+
+- `data\usgs\`
+    - `acquire_and_preprocess_3dep_dems.py`: Re-add a feature which allowed for restarting and redo missing outputs or partial outputs. System now named as a "repair" system.
+- `fim_pipeline.sh`:  remove the parallel `--eta` flag to reduce logging. It was not needed.
+- `fim_pre_processing.sh`: Added validation tests for maximum CPU requests (job numbers)
+- `src`
+    - `delineate_hydros_and_produce>HAND.sh`: Removed some unnecessary logging.
+    - `derive_level_paths.py`: Changed verbose to false to reduce  unnecessary logging.
+    - `run_by_branch.sh`: Removed some unnecessary logging.
+    - `run_unit_by_wb.sh`: Removed some unnecessary logging.
+    - `split_flows.py`: Removed progress bar which was unnecessary and was adding to logging.
+
+<br/><br/>
+
 ## v4.4.8.2 - 2023-12-12 - [PR#1052](https://github.com/NOAA-OWP/inundation-mapping/pull/1052)
 
 The alpha test for v4.4.8.1 came back with a large degradation in skill and we noticed that the global manning's roughness file was changed in v4.4.7.1 - likely in error.
