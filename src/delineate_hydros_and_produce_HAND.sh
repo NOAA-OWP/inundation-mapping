@@ -228,4 +228,3 @@ python3 $srcDir/add_crosswalk.py \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length
-
