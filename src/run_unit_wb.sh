@@ -268,7 +268,7 @@ if [ -f $branch_list_lst_file ]; then
     # but there will still be a branch zero
     parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
-    Tcount    
+    Tcount
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi

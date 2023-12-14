@@ -140,6 +140,7 @@ gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIF
     -B $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     --calc="(A*(A>=0)*(B>0))" --NoDataValue=$ndv \
     --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif" 
+
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
 if [ -f $tempHucDataDir/LandSea_subset.gpkg ]; then
     echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber $current_branch_id"
