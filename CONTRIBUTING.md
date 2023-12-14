@@ -58,7 +58,7 @@ If you would like to contribute, please follow these steps:
    ```
    pip install pre-commit
    ```
-   This should automatically install all related tools on your local machine.
+   All related tools (git hook scripts) are installed under the `pre-commit install` step, not at this level. See https://pre-commit.com/#install
    
    If you get an error message during the install of pre-commit which says:
    
