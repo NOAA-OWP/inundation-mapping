@@ -48,65 +48,73 @@ If you would like to contribute, please follow these steps:
 4. Pre-commit linting system:
 
    [pre-commit](https://pre-commit.com/) is used to run auto-formatting and enforce styling rules.
-   It is a critical part of development and is enforced during git check-ins. However, you also need some tools need to be installed and configured on your machine to pre check the linting rules. Key tools are automatically included inside the docker container if you want to do linting tests inside the container.  However, if you want to do linting tests **outside the docker container**, you will need to install some pre-commit packages.
+   It is a critical part of development and is enforced during git check-ins. However, you also need some tools need to be installed and configured on your machine to pre check the linting rules. Key tools are automatically included **inside the docker container** if you want to do linting tests there.
 
-   **Note: These steps below are similar but other critical  "pre-commit install" step later in this document**.
+   The next steps are only if you want to do linting tests **outside the docker container**. If so, you need to follow the notes below. If not, skip directly to Step 5 (pre-commit configuration).
+   
+   **Note: These steps below are similar to another required critical step (pre-commit configuration) later in this document, which also needs to be run**.
 
    If pre-commit is not already installed on your system:
    ```
    pip install pre-commit
    ```
-   This should setup automatically all related tools on your local machine.
+   This should automatically install all related tools on your local machine.
    
-   If you get an error message during the install of pre-commit which says
-      `Installing collected packages: pre-commit
-       WARNING: The script pre-commit is installed in '/home/{some user name}/.local/bin' which is not on PATH.
+   If you get an error message during the install of pre-commit which says:
+   
+   *Installing collected packages: pre-commit
+       WARNING: The script pre-commit is installed in '/home/{your_user_name}/.local/bin' which is not on PATH.
        Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.`,
-   then you will need to do some additional configuration. You need to adjust your path.
+   then you will need to do some additional configuration. You need to adjust your path.*
    ```
-   export PATH = "/home/{some user name}/.local/bin:$PATH" (You wil need to adjust the path to be exactly what you see in the WARNING message above).
+   (Adjusting the path to be exactly the path you see in the WARNING message above from your console output).
+   export PATH = "/home/{your_user_name}/.local/bin:$PATH"
    ```
    To test that it installed correctly, is pathed correctly and check the version:
    ```
    pre-commit version
    ```
+   It should respond with the phrase *pre-commit 3.6.0* (version may not be exact).
 
-6. Now, you need to configure your code project to use the pre-commit system.
-    Please follow the steps in the link provided to install `pre-commit` locally.  `pre-commit` can be installed as a git hook to verify your staged changes adhere to the project's style and format requirements (configuration defined in [pyproject.toml](/pyproject.toml)).
+
+5. pre-commit configuration:
+   
+   Now, you need to configure your code project to use the pre-commit system.
+   `pre-commit` can be installed as a git hook to verify your staged changes adhere to the project's style and format requirements (configuration defined in [pyproject.toml](/pyproject.toml)).
 
    Initialize the pre-commit hooks included within the root directory of `inundation-mapping`code folder:
-
     ```
     $ pre-commit install
     ```
-7. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommend to run them through `pre-commit` outside of the container, as it picks up the correct configuration.
+    
+6. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommend to run them through `pre-commit` outside of the container, as it picks up the correct configuration.
 
-    ```
-    # Check only the staged changes
-    pre-commit run
+   ```
+   # Check only the staged changes
+   pre-commit run
 
-    # Check all files in the repo
-    pre-commit run -a
+   # Check all files in the repo
+   pre-commit run -a
 
-    # Run only the flake8 formatting tool (or isort or black if you like)
-    pre-commit run -a flake8
-    ```
-    You can also run isort or black using the same pattern
+   # Run only the flake8 formatting tool (or isort or black if you like)
+   pre-commit run -a flake8
+   ```
+   You can also run isort or black using the same pattern
    ```
    pre-commit run -a isort
    pre-commit run -a black
    ```
-8. Build the Docker container:
+7. Build the Docker container:
     ```
     Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>
     ```
  
-9.  [Within the container](README.md#startrun-the-docker-container), ensure sure unit tests pass ([instructions here](/unit_tests/README.md)).
+8.  [Within the container](README.md#startrun-the-docker-container), ensure sure unit tests pass ([instructions here](/unit_tests/README.md)).
     ```
     pytest unit_tests/
     ```
     
-10. Push to your forked branch:
+9. Push to your forked branch:
     ```
     git push -u origin
     ```
@@ -115,5 +123,5 @@ If you would like to contribute, please follow these steps:
     git push --set-upstream origin <your branch>
     ```
 
-11. Submit a pull request on [inundation-mapping's GitHub page](https://github.com/NOAA-OWP/inundation-mapping) (please review checklist in [PR template](/.github/PULL_REQUEST_TEMPLATE.md) for additional PR guidance).
+10. Submit a pull request on [inundation-mapping's GitHub page](https://github.com/NOAA-OWP/inundation-mapping) (please review checklist in [PR template](/.github/PULL_REQUEST_TEMPLATE.md) for additional PR guidance).
    
