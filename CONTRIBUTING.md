@@ -48,9 +48,7 @@ If you would like to contribute, please follow these steps:
 4. Pre-commit installation:
 
    [pre-commit](https://pre-commit.com/) is used to run auto-formatting and enforce styling rules.
-   It is a critical part of development and is enforced at the 'git commit' step. Key tools are included **inside the docker container** if you want to do execute correctly configured linting and formatting command line executables there. If you intend to execute `flake8`, `black` or `isort` from the command line **outside of the docker container**, additional configuration and installation is required, which will not be described here.
-
-   The next steps are only if you want to do linting tests **outside the docker container**. If so, you need to follow the notes below. If not, skip directly to Step 5 (pre-commit configuration).
+   It is a critical part of development and is enforced at the 'git commit' step. Key tools are included **inside the docker container** if you want to execute the correctly configured linting and formatting command line executables there. If you intend to execute `flake8`, `black` or `isort` from the command line **outside of the docker container**, additional configuration and installation is required, which will not be described here.
    
    **Note: These steps below are similar to another required critical step (pre-commit configuration) later in this document, which also needs to be run**.
 
@@ -82,12 +80,12 @@ If you would like to contribute, please follow these steps:
    Now, you need to configure your local clone of the repo to honor the pre-commit hooks.
    The `pre-commit` package is used to pick up the pre-commit hooks which verify your staged changes adhere to the project's style and format requirements (configuration defined in [pyproject.toml](/pyproject.toml)).
 
-   Initialize the pre-commit hooks included within the root directory of `inundation-mapping`code folder:
+   Initialize the pre-commit hooks included within the root directory of this code repository (`inundation-mapping`):
     ```
     $ pre-commit install
     ```
     
-6. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommend to run them through `pre-commit` outside of the container, as it picks up the correct configuration.
+6. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommended to run them through `pre-commit` **outside of the container**, as it picks up the correct configuration.
 
    ```
    # Check only the staged changes
@@ -96,11 +94,8 @@ If you would like to contribute, please follow these steps:
    # Check all files in the repo
    pre-commit run -a
 
-   # Run only the flake8 formatting tool (or isort or black if you like)
+   # Run only the flake8, isort, or black.
    pre-commit run -a flake8
-   ```
-   You can also run isort or black using the same pattern
-   ```
    pre-commit run -a isort
    pre-commit run -a black
    ```
@@ -116,9 +111,9 @@ If you would like to contribute, please follow these steps:
 
 9. Outside of the Docker container, commit your changes:
     ```
-    git commit -m "<descriptive sentence or two changes>"
+    git commit -m "<descriptive sentence or two of changes>"
     ```
-    This will invoke pre-commit hooks mentioned in step 7 that will lint & format the code. In many cases non-compliant code will be rectified automatically, but in some cases manual changes will be necessary. Make sure all of these checks pass, if not, make necessary changes and re-issue `git commit -m "<...>"`.
+    This will invoke pre-commit hooks mentioned in step 6 that will lint & format the code (some others as well). In many cases non-compliant code will be rectified automatically, but in some cases manual changes will be necessary. Make sure all of these checks pass. If not, make necessary changes (`git add <...>`), and re-issue `git commit -m "<...>"`.
    
 10. Push to your forked branch:
     ```
