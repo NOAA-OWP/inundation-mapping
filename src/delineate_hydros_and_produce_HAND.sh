@@ -36,10 +36,16 @@ fi
 echo -e $startDiv"D8 Flow Accumulations $hucNumber $current_branch_id"
 date -u
 Tstart
-$taudemDir/aread8 -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-    -ad8 $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
-    -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif \
-    -nc
+# $taudemDir/aread8 -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+#     -ad8 $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
+#     -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif \
+#     -nc
+
+python3 $srcDir/accumulate_headwaters.py \
+    -fd $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+    -fa $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
+    -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif
+
 Tcount
 
 # THRESHOLD ACCUMULATIONS ##
