@@ -42,7 +42,6 @@ python3 $srcDir/accumulate_headwaters.py \
     -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif \
     -stream $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -thresh 1
-
 Tcount
 
 ## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
