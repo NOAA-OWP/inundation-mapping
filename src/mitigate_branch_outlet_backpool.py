@@ -3,6 +3,7 @@
 import argparse
 import sys
 from collections import OrderedDict
+import os
 from os import remove
 from os.path import isfile
 
@@ -27,6 +28,7 @@ from utils.shared_variables import FIM_ID
 import subprocess
 
 def mitigate_branch_outlet_backpool(
+    branch_dir,
     catchment_pixels_filename,
     catchment_pixels_polygonized_filename,
     catchment_reaches_filename,
@@ -35,6 +37,7 @@ def mitigate_branch_outlet_backpool(
     nwm_streams_filename,
     dem_filename,
     slope_min,
+    calculate_stats,
 ):
 
     # --------------------------------------------------------------
@@ -123,6 +126,10 @@ def mitigate_branch_outlet_backpool(
         else: 
             flow = flows
 
+        # Calculate flowline initial length
+        toMetersConversion = 1e-3
+        initial_length_km = flow.geometry.length * toMetersConversion
+
         # Snap the point to the line
         outlet_point['geometry'] = flow.interpolate(flow.project(outlet_point))
 
@@ -167,7 +174,7 @@ def mitigate_branch_outlet_backpool(
         else: 
             flows['geometry'] = flow_geometry
 
-        return flows
+        return flows, initial_length_km
 
     def calculate_length_and_slope(flows, dem, slope_min):
 
@@ -178,8 +185,6 @@ def mitigate_branch_outlet_backpool(
             flow = flows[flows['NextDownID'] == '-1' ]
         else: 
             flow = flows
-
-        toMetersConversion = 1e-3
 
         # Calculate channel slope (adapted from split_flows.py on 11/21/23)
         start_point = flow.geometry.iloc[0].coords[0]
@@ -197,6 +202,7 @@ def mitigate_branch_outlet_backpool(
             slope = slope_min
 
         # Calculate length 
+        toMetersConversion = 1e-3
         LengthKm = flow.geometry.length * toMetersConversion
 
         # Update flows with the updated flow object
@@ -208,7 +214,7 @@ def mitigate_branch_outlet_backpool(
             flows['S0'] = slope
             flows['LengthKm'] = LengthKm            
 
-        return flows
+        return flows, LengthKm
 
     # Convert the geodataframe into a json format compatible to rasterio
     def gdf_to_json(gdf):
@@ -230,7 +236,6 @@ def mitigate_branch_outlet_backpool(
             # Save new catchment reaches 
             with rasterio.open(save_path, "w", **raster_profile, BIGTIFF='YES') as dest: ## TODO: update output path
                 dest.write(raster_masked[0, :, :], indexes=1)
-
 
     # --------------------------------------------------------------
     # Read in nwm lines, explode to ensure linestrings are the only geometry
@@ -306,7 +311,7 @@ def mitigate_branch_outlet_backpool(
                 thirdtolast_point_geom['catchment_id'] = thirdtolast_point_geom.apply(get_raster_value, axis=1) ## mainly for debug (but could be good to keep)
 
                 # Snap and trim the flowline to the selected point
-                trimmed_flows = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
+                trimmed_flows, inital_length_km = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
 
                 # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
                 flows_buffer = trimmed_flows.buffer(10).geometry.unary_union
@@ -317,7 +322,7 @@ def mitigate_branch_outlet_backpool(
                 # --------------------------------------------------------------
                 # Calculate the slope and length of the newly trimmed flows
                 dem = rasterio.open(dem_filename, 'r')
-                output_flows = calculate_length_and_slope(trimmed_flows, dem, slope_min)
+                output_flows, new_length_km = calculate_length_and_slope(trimmed_flows, dem, slope_min)
 
                 # --------------------------------------------------------------
                 # Polygonize pixel catchments using subprocess
@@ -361,6 +366,36 @@ def mitigate_branch_outlet_backpool(
                 # print('Finished masking!') ## verbose
 
                 # --------------------------------------------------------------
+                if calculate_stats == True:
+
+                    print('Calculating stats...') ## verbose
+
+                    # Get the area of the old and new catchment boundaries
+                    catchment_pixels_old_boundary_geom = catchment_pixels_poly_geom.dissolve()
+
+                    old_boundary_area = catchment_pixels_old_boundary_geom.area
+                    new_boundary_area = catchment_pixels_new_boundary_geom.area
+
+                    # Calculate the km and percent differences of the catchment area
+                    boundary_area_km_diff = old_boundary_area-new_boundary_area 
+                    boundary_area_percent_diff = ((old_boundary_area-new_boundary_area)/old_boundary_area)*100
+
+                    # Calculate the difference (km) of the flowlines
+                    flowlength_km_diff = inital_length_km - new_length_km
+
+                    # Create a dataframe with this data (TODO: Write a script that goes into a runfile and compiles these. That's where I'll add branch and HUC ID to this data.)
+                    backpool_stats_df = pd.DataFrame({'flowlength_km_diff': [flowlength_km_diff],
+                                             'boundary_area_km_diff': [boundary_area_km_diff],
+                                             'boundary_area_percent_diff': [boundary_area_percent_diff]
+                                             })
+
+                    # Save stats
+                    backpool_stats_filepath = os.path.join(branch_dir, 'backpool_stats.csv')
+                    backpool_stats_df.to_csv(backpool_stats_filepath, index=False)
+
+
+
+                # --------------------------------------------------------------
                 # Save the outputs
                 # print('Writing outputs ...') ## verbose
 
@@ -384,6 +419,7 @@ def mitigate_branch_outlet_backpool(
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='mitigate_branch_outlet_backpool.py')
+    parser.add_argument('-b', '--branch-dir', help='branch directory', required=True)
     parser.add_argument('-cp', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
     parser.add_argument('-cpp', '--catchment-pixels-polygonized-filename', help='catchment-pixels-polygonized-filename', required=True)
     parser.add_argument('-cr', '--catchment-reaches-filename', help='catchment-reaches-filename', required=True)
@@ -392,9 +428,11 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
+    parser.add_argument('-cs', '--calculate-stats', help='Caclulate stats (bool)', required=True)
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
     args['slope_min'] = float(args['slope_min'])
+    args['calculate-stats'] = bool(args['calculate-stats'])
 
     mitigate_branch_outlet_backpool(**args)

@@ -173,6 +173,7 @@ echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumbe
 date -u
 Tstart
 $srcDir/mitigate_branch_outlet_backpool.py \
+    -b $tempCurrentBranchDataDir \
     -cp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -cpp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg \
     -cr $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
@@ -180,7 +181,8 @@ $srcDir/mitigate_branch_outlet_backpool.py \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -n $b_arg \
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
-    -t $slope_min
+    -t $slope_min \
+    -cs True
 Tcount
 
 # D8 REM ##
