@@ -8,9 +8,15 @@ import pyflwdir
 import rasterio as rio
 
 
-def accumulate_flow(flow_direction_filename, headwaters_filename, flow_accumulation_filename):
+def accumulate_flow(
+    flow_direction_filename,
+    headwaters_filename,
+    flow_accumulation_filename,
+    stream_pixel_filename,
+    flow_accumulation_threshold,
+):
     """
-    Accumulate headwaters along the flow direction.
+    Accumulate headwaters along the flow direction and threshold accumulations to produce stream pixels.
 
     Parameters
     ----------
@@ -20,11 +26,9 @@ def accumulate_flow(flow_direction_filename, headwaters_filename, flow_accumulat
         Headwaters filename
     flow_accumulation_filename : str
         Flow accumulation filename
-
-    Returns
-    -------
-    numpy.ndarray
-        Accumulated flow.
+    stream_pixel_filename : str
+        Stream pixel filename
+    flow_accumulation_threshold : str
     """
 
     assert os.path.isfile(flow_direction_filename), 'Flow direction raster does not exist.'
@@ -62,10 +66,15 @@ def accumulate_flow(flow_direction_filename, headwaters_filename, flow_accumulat
 
     flowaccum = flw.accuflux(headwaters, nodata=nodata, direction='up')
 
+    stream = np.where(flowaccum > 0, flow_accumulation_threshold, 0)
+
     # Write the flow accumulation raster
     profile.update(dtype=flowaccum.dtype)
-    with rio.open(flow_accumulation_filename, 'w', **profile) as dst:
+    with rio.open(flow_accumulation_filename, 'w', **profile) as dst, rio.open(
+        stream_pixel_filename, 'w', **profile
+    ) as dst2:
         dst.write(flowaccum, 1)
+        dst2.write(stream, 1)
 
 
 if __name__ == '__main__':
@@ -76,6 +85,16 @@ if __name__ == '__main__':
     parser.add_argument('-wg', '--headwaters-filename', help='Headwaters filename', required=True, type=str)
     parser.add_argument(
         '-fa', '--flow-accumulation-filename', help='Flow accumulation filename', required=True, type=str
+    )
+    parser.add_argument(
+        '-stream', '--stream-pixel-filename', help='Stream pixel filename', required=True, type=str
+    )
+    parser.add_argument(
+        '-thresh',
+        '--flow-accumulation-threshold',
+        help='Flow accumulation threshold',
+        required=True,
+        type=float,
     )
 
     args = parser.parse_args()
