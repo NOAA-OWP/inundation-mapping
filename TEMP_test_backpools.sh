@@ -17,7 +17,7 @@ date -u
 $srcDir/mitigate_branch_outlet_backpool.py \
     -b $tempCurrentBranchDataDir \
     -cp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
-    -cpp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg \
+    -cpp $tempCurrentBranchDataDir/TEMP_TESTING_gw_catchments_pixels_$current_branch_id.gpkg \ 
     -cr $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \

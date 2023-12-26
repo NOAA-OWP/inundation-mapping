@@ -397,15 +397,25 @@ def mitigate_branch_outlet_backpool(
 
                 # --------------------------------------------------------------
                 # Save the outputs
-                # print('Writing outputs ...') ## verbose
 
-                if isfile(split_flows_filename): 
-                    remove(split_flows_filename)
-                if isfile(split_points_filename):
-                    remove(split_points_filename)
+                # Toggle whether it's a test run or not
+                test_run = True
 
-                output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
-                split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+                # Save outputs
+                if test_run == False:
+                    # print('Writing outputs ...') ## verbose
+
+                    if isfile(split_flows_filename): 
+                        remove(split_flows_filename)
+                    if isfile(split_points_filename):
+                        remove(split_points_filename)
+
+                    output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+                    split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+                
+                elif test_run == True:
+
+                    print('Test run... not saving outputs!')
 
             else:
                 print('Incorrectly-large outlet pixel catchment was NOT detected.') 
@@ -428,7 +438,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
-    parser.add_argument('-cs', '--calculate-stats', help='Caclulate stats (bool)', required=True)
+    parser.add_argument('-cs', '--calculate-stats', help='Caclulate stats (boolean)', required=True)
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
