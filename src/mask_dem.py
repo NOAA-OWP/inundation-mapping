@@ -15,6 +15,7 @@ def mask_dem(
     nld_filename: str,
     levee_id_attribute: str,
     catchments_filename: str,
+    levee_catchments_to_mask_filename: str,
     out_dem_filename: str,
     branch_id_attribute: str,
     branch_id: int,
@@ -33,6 +34,8 @@ def mask_dem(
         Path to levee-protected areas file.
     levee_id_attribute: str
         Name of levee ID attribute.
+    levee_catchments_to_mask_filename: str
+        Path to levee catchments to mask file.
     out_dem_filename: str
         Path to write masked DEM.
     branch_id_attribute: str
@@ -53,13 +56,14 @@ def mask_dem(
         with fiona.open(nld_filename) as leveed:
             geoms = [feature["geometry"] for feature in leveed]
 
-        with rio.open(dem_filename) as dem:
-            dem_profile = dem.profile.copy()
+        if len(geoms) > 0:
+            with rio.open(dem_filename) as dem:
+                dem_profile = dem.profile.copy()
 
-        out_dem_masked, _ = mask(dem, geoms, invert=True)
+                out_dem_masked, _ = mask(dem, geoms, invert=True)
 
-        with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
-            dest.write(out_dem_masked[0, :, :], indexes=1)
+            with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
+                dest.write(out_dem_masked[0, :, :], indexes=1)
 
     elif os.path.exists(levee_levelpaths):
         # Mask levees associated with level path
@@ -81,13 +85,14 @@ def mask_dem(
                 if feature[levee_id_attribute] in levelpath_levees
             ]
 
-            with rio.open(dem_filename) as dem:
-                dem_profile = dem.profile.copy()
+            if len(geoms) > 0:
+                with rio.open(dem_filename) as dem:
+                    dem_profile = dem.profile.copy()
 
-            out_dem_masked, _ = mask(dem, geoms, invert=True)
+                    out_dem_masked, _ = mask(dem, geoms, invert=True)
 
-            with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
-                dest.write(out_dem_masked[0, :, :], indexes=1)
+                with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
+                    dest.write(out_dem_masked[0, :, :], indexes=1)
 
     if os.path.exists(out_dem_filename):
         dem_filename = out_dem_filename
@@ -102,13 +107,20 @@ def mask_dem(
 
         # Select levee catchments not associated with level path
         levee_catchments_to_mask = leveed_area_catchments.loc[
-            leveed_area_catchments[levee_id_attribute].isna(), :
+            ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments['ID'].isna(), :
         ]
 
-        out_dem_masked, _ = mask(dem, levee_catchments_to_mask.geometry, invert=True)
+        # TODO: read levee_catchments_to_mask directly to mask
+        levee_catchments_to_mask.to_file(levee_catchments_to_mask_filename, driver="GPKG")
 
-        with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
-            dest.write(out_dem_masked[0, :, :], indexes=1)
+        with fiona.open(levee_catchments_to_mask_filename) as levee_catchments_to_mask:
+            geoms = [feature["geometry"] for feature in levee_catchments_to_mask]
+
+        if len(geoms) > 0:
+            out_dem_masked, _ = mask(dem, geoms, invert=True)
+
+            with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
+                dest.write(out_dem_masked[0, :, :], indexes=1)
 
 
 if __name__ == '__main__':
@@ -121,6 +133,13 @@ if __name__ == '__main__':
         '-catchments', '--catchments-filename', help='NWM catchments filename', required=True, type=str
     )
     parser.add_argument('-l', '--levee-id-attribute', help='Levee ID attribute name', required=True, type=str)
+    parser.add_argument(
+        '-mask',
+        '--levee-catchments-to-mask-filename',
+        help='Levee catchments to mask filename to be written',
+        required=True,
+        type=str,
+    )
     parser.add_argument(
         '-out', '--out-dem-filename', help='DEM filename to be written', required=True, type=str
     )

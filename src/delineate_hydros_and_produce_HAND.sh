@@ -23,9 +23,8 @@ if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $tempHucDataDir/LeveeProtecte
     python3 $srcDir/mask_dem.py \
         -dem $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
         -nld $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
-        -streams $tempHucDataDir/nwm_subset_streams.gpkg \
-        -catchments $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
-        -lc $tempCurrentBranchDataDir/levee_catchments_$current_branch_id.gpkg \
+        -catchments $z_arg \
+        -mask $tempCurrentBranchDataDir/levee_catchments_to_mask_$current_branch_id.gpkg \
         -out $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
         -b $branch_id_attribute \
         -i $current_branch_id \
