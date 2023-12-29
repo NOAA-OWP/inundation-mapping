@@ -9,6 +9,8 @@ from textwrap import wrap
 import gc
 from shutil import rmtree
 from glob import glob
+import pickle
+from math import copysign
 
 import numpy as np
 import geopandas as gpd
@@ -27,6 +29,7 @@ from dask.distributed import Client, LocalCluster
 from tqdm.dask import TqdmCallback
 import statsmodels.formula.api as smf
 from statsmodels.formula.api import ols
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
 import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
 from sklearn.feature_selection import SequentialFeatureSelector as SFS
@@ -34,6 +37,7 @@ from sklearn_pandas import DataFrameMapper
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.lines as mlines
 #import ptitprince as pt
 import seaborn as sns
 import dask
@@ -88,8 +92,9 @@ def build_inundation_raster_data_dir(huc, resolution, year, source):
                             f'{year}yr',f'inundation_extent_{huc}.tif')
 
 # agreement factors
-resolutions = [20,15,10,5,3]
-#resolutions = [3]
+#resolutions = [90, 60, 20,15,10,5,3]
+resolutions = [20, 15, 10, 5, 3]
+#resolutions = [10]
 years = [100,500]
 #years = [500]
 hucs = ['12020001','12020002','12020003','12020004','12020005','12020006','12020007']
@@ -98,31 +103,34 @@ dem_sources = ['3dep','nhd']
 #dem_sources = ['3dep']
 base_chunk_size = 128
 chunk_size = base_chunk_size * 4
+crs = "EPSG:5070"
 partition_size = "8MB"
+#experiment_fn = os.path.join(data_dir,'experiment_data_with_60_90m.h5')
 experiment_fn = os.path.join(data_dir,'experiment_data.h5')
 temp_experiment_fn = os.path.join(data_dir,'TEMP_experiment_data')
 hdf_key = 'data'
-save_nwm_catchments_file = os.path.join(data_dir,'nwm_catchments_with_metrics_1202.gpkg')
-#feature_cols = ['huc8','spatial_resolution','magnitude','mainstem','order_','Lake','gages','Length']
-#feature_cols = ['spatial_resolution','magnitude','order_','Lake','Length','Slope']
-feature_cols = ['spatial_resolution','dominant_lulc_anthropogenic_influence','magnitude',
-                'order_','channel_slope_perc','area_sqkm','imperviousness_perc_mean',
-                'overland_roughness_mean','Reservoir','terrain_slope_perc_mean']
-one_way_interactions = ['spatial_resolution','']
+save_nwm_catchments_file = os.path.join(data_dir,'nwm_catchments_with_metrics_1202_with_60_90m.gpkg')
+linear_models_pickle_file = os.path.join(data_dir,'linear_models.pickle')
+
+covariates = [ 'channel_slope_perc','area_sqkm','imperviousness_perc_mean',
+               'overland_roughness_mean','terrain_slope_perc_mean' ]
+factors = [ 'spatial_resolution','dominant_lulc_anthropogenic_influence','magnitude',
+             'Reservoir','dem_source','order_']
+feature_cols = covariates + factors
 anova_tol = 0.001
-# encoded_features = ['order_','Lake','magnitude']
-target_cols = ['CSI']
+#target_cols = ['CSI']
+target_cols = ['MCC','CSI','TPR','FAR']
 #target_cols = ['MCC']
 #target_cols = ['TPR']
 #target_cols = ['FAR']
-#target_cols = ['Cohens Kappa']
 nhd_to_3dep_plot_fn = os.path.join(data_dir,'nhd_to_3dep_plot.png')
 nwm_catchments_raster_fn = os.path.join(data_dir,'nwm_catchments','nwm_catchments_{}_{}_{}m_{}yr.tif')
 dem_resolution_plot_fn = os.path.join(data_dir,'dem_resolution_3dep_plot.png')
 reservoir_plot_fn = os.path.join(data_dir,'reservoir_plot.png')
 slope_plot_fn = os.path.join(data_dir,'slope_plot.png')
 terrain_slope_plot_fn = os.path.join(data_dir,'terrain_slope_plot.png')
-#land_cover_fn = os.path.join(data_dir,'cover2019_lulc_1202.tif')
+orig_land_cover_fn = os.path.join(data_dir,'cover2019_lulc_1202.tif')
+grouped_land_cover_fn = os.path.join(data_dir,'grouped_cover2019_lulc_1202.tif')
 land_cover_fn = os.path.join(data_dir,'landcovers','land_cover_{}.tif')
 terrain_slope_fn = os.path.join(data_dir,'slopes','slope_{}.tif')
 imperviousness_fn = os.path.join(data_dir,'impervious','impervious_{}.tif')
@@ -139,7 +147,6 @@ rating_curve_parquet_filename = os.path.join(data_dir,'rating_curve.parquet')
 rating_curve_metrics_filename = os.path.join(data_dir,'rating_curve_metrics.parquet')
 inundated_areas_parquet = os.path.join(data_dir,'inundated_areas.parquet')
 rating_curve_plot_fn = os.path.join(data_dir,'rating_curves.png')
-
 
 # pipeline switches 
 compute_secondary_metrics = False
@@ -159,8 +166,9 @@ aggregate_rating_curves = False
 plot_rating_curves = False
 compute_inundated_area = False
 
-run_anova = False
+run_anova = True
 add_two_way_interactions = True
+make_regression_plot = False
 
 make_nhd_plot = False
 make_dem_resolution_plot = False
@@ -169,6 +177,9 @@ make_slope_plot = False
 make_terrain_slope_plot = False
 make_landcover_plot = False
 make_grouped_landcover_plot = False
+prepare_point_value_table = False
+make_tukey_hsd = False
+group_lulc_map = False
 
 # metrics dict
 metrics_dict = { 'csi': csi, 'tpr': tpr, 'far': far, 'mcc': mcc } 
@@ -502,7 +513,7 @@ def write_catchment_level_data(catchment_level_data, catchment_level_data_fn):
                                     engine='fastparquet')
 
 
-def terrain_slope_by_catchment(nwm_catchments_xr,
+def determine_terrain_slope_by_catchment(nwm_catchments_xr,
                                          agreement_raster,
                                          huc, resolution, year, dem_source,
                                          agg_func=['mean'],
@@ -533,7 +544,7 @@ def terrain_slope_by_catchment(nwm_catchments_xr,
                                   terrain_slope_xr,
                                   stats_funcs=agg_func,
                                   nodata_values=np.nan) \
-                                   .rename(columns={ f:"terrain_slope_{}".format(f) for f in agg_func}) \
+                                   .rename(columns={ f:"terrain_slope_perc_{}".format(f) for f in agg_func}) \
                                    .rename(columns={'zone':'ID'}) \
                                    .astype({'ID' : np.int64,'terrain_slope_perc_mean': np.float64}) \
                                    .repartition(partition_size=partition_size)
@@ -572,7 +583,7 @@ def determine_impervious_by_catchment(nwm_catchments_xr,
                                       impervious_xr,
                                       stats_funcs=agg_func,
                                       nodata_values=np.nan) \
-                                       .rename(columns={ f:"imperviousness_{}".format(f) for f in agg_func}) \
+                                       .rename(columns={ f:"imperviousness_perc_{}".format(f) for f in agg_func}) \
                                        .rename(columns={'zone':'ID'}) \
                                        .astype({'ID' : np.int64,'imperviousness_perc_mean': np.float64}) \
                                        .repartition(partition_size=partition_size) \
@@ -823,7 +834,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                                 driver='GPKG',index=False)
     
     def __prepare_lulc():
-            
+        
         # loop over every combination of resolutions and magnitude years
         for idx,(h,r,y,s) in tqdm(enumerate(combos),
                                 desc='Preparing LULC',
@@ -923,10 +934,10 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
 
             # determines dominant inundated landcover by catchment
             ct_dask_df_catchment_lc = determine_dominant_landcover(nwm_catchments_xr,
-                                                                             agreement_raster,
-                                                                             h,r,y,s,
-                                                                             agg_func=['mean'],
-                                                                             predicted_inundated_encodings=[2,3])
+                                                                    agreement_raster,
+                                                                    h,r,y,s,
+                                                                    agg_func=['mean'],
+                                                                    predicted_inundated_encodings=[2,3])
 
             # merge in landcovers
             #secondary_metrics_df = merge(secondary_metrics_df,ct_dask_df_catchment_lc,
@@ -1113,7 +1124,7 @@ def compute_metrics_by_catchment( nwm_catchments_fn,
                                                                     'magnitude': 'category',
                                                                     'ID' : 'category',
                                                                     'mainstem' : 'category',
-                                                                    'order_' : 'category',
+                                                                    'order_' : np.int32,
                                                                     'TP' : np.int64,
                                                                     'FP' : np.int64,
                                                                     'TN' : np.int64,
@@ -1242,28 +1253,30 @@ def anova(secondary_metrics_df):
     selected_features = list(sfs.get_feature_names_out()) #+ ['Lake*order_']
 
     """
-    selected_features = feature_cols
 
     def __forward_model_selection(selected_features,tol=0.001,formula=None,prev_metric_val=None):
 
         remaining_features = set(selected_features)
 
+        rsquared_values = []
         while remaining_features:
             
             results = []
             for sf in remaining_features:
                 
                 if formula == None:
-                    formula_try = f"{target_cols[0]} ~ {sf}"
+                    formula_try = f"{target_col} ~ {sf}"
                 else:
                     formula_try = formula + f" + {sf}"
                 
                 linear_model = ols(formula_try, 
                                    data=secondary_metrics_df).fit()
-                print(f"R2 for {formula_try}: {linear_model.rsquared_adj}")
+                print(f"R2 for {formula_try}: {np.round(linear_model.aic,4)}/{np.round(linear_model.rsquared_adj,4)}")
                 results += [(sf,linear_model.rsquared)]
+                #results += [(sf,linear_model.aic)]
 
             results = sorted(results,key=lambda a: a[1],reverse=True)
+            #results = sorted(results,key=lambda a: a[1],reverse=False)
             
             try:
                 lead_factor = results.pop(0)[0]
@@ -1271,7 +1284,7 @@ def anova(secondary_metrics_df):
                 break
             
             if formula == None:
-                prop_formula = f"{target_cols[0]} ~ {lead_factor}"
+                prop_formula = f"{target_col} ~ {lead_factor}"
             else:
                 prop_formula = formula + f" + {lead_factor}"
             
@@ -1282,45 +1295,107 @@ def anova(secondary_metrics_df):
                 prev_metric_val = 0
 
             delta = prop_linear_model.rsquared_adj - prev_metric_val
-            
             prev_metric_val = linear_model.rsquared_adj
+            #delta = prop_linear_model.aic - prev_metric_val
+            #prev_metric_val = linear_model.aic
 
+            #print(prop_linear_model.aic,prev_metric_val,delta,tol)
+            #if (abs(delta) < tol) | (delta >= 0):
             if delta < tol:
-                print(f"BROKEN: R2 for {formula}: {linear_model.rsquared_adj} | delta: {delta}")
-                return(linear_model)
+                print(f"BROKEN: AIC/R2 for {formula}: {np.round(linear_model.aic,4)}/{np.round(linear_model.rsquared_adj,4)} | delta: {delta}")
+                linear_model = ols(formula,data=secondary_metrics_df).fit()
+                #rsquared_values += [linear_model.rsquared]
+                return(linear_model, rsquared_values)
             else:
                 linear_model = prop_linear_model
                 formula = prop_formula
-                print(f"Locked in Change R2 for {formula}: {linear_model.rsquared_adj} | delta: {delta}")
-
+                rsquared_values += [linear_model.rsquared]
+                print(f"Locked in Change AIC/R2 for {formula}: {np.round(linear_model.aic,4)}/{np.round(linear_model.rsquared_adj,4)} | delta: {delta}")
 
             remaining_features.remove(lead_factor)
 
-        return(linear_model)
+        return(linear_model, rsquared_values)
     
     
+    secondary_metrics_df = secondary_metrics_df.loc[:,target_cols + feature_cols] #\
+                                               #.astype({'order_' : np.int32})
+
+    # drop resolutions not in list
+    secondary_metrics_df = secondary_metrics_df.loc[
+        secondary_metrics_df.loc[:,'spatial_resolution'].isin(resolutions),:
+    ]
+
     # scale numerics
     scaler = MinMaxScaler(copy=True)
-    secondary_metrics_df = pd.concat([ pd.DataFrame(scaler.fit_transform(secondary_metrics_df.select_dtypes(np.number).to_numpy()),
-                                         columns=secondary_metrics_df.select_dtypes(np.number).columns),
-                                       secondary_metrics_df.select_dtypes('category')],
+    secondary_metrics_df = pd.concat([ pd.DataFrame(scaler.fit_transform(secondary_metrics_df.loc[:,covariates].to_numpy()),
+                                         columns=covariates),
+                                       secondary_metrics_df.loc[:,factors + target_cols]],
                                   axis=1)
 
-
+    # remove dem source
     secondary_metrics_df = secondary_metrics_df.loc[secondary_metrics_df.loc[:,'dem_source'] == '3dep',:]
-    linear_models = __forward_model_selection(selected_features,tol=anova_tol)
-    
-    # make two way interactions
-    if add_two_way_interactions:
-        two_way = [f"{i}:{ii}" for i,ii in combinations(selected_features,2)]
-        linear_models = __forward_model_selection(two_way,tol=anova_tol,formula=linear_models.model.formula,prev_metric_val=linear_models.rsquared_adj)
+    feature_cols.remove('dem_source')
+    factors.remove('dem_source')
 
-    print(f"Final Formula: {linear_models.model.formula} | Adj-R2: {linear_models.rsquared_adj}")
+    linear_models, rsq = {},{}
+    for target_col in target_cols:
+
+        # initiate dicts with list
+        rsq[target_col] = []
+
+        linear_model, rsquared = __forward_model_selection(selected_features=feature_cols,
+                                                  tol=anova_tol)
+        
+        rsq[target_col] += rsquared
+    
+        # make two way interactions
+        if add_two_way_interactions:
+
+            # get updated feature_cols    
+            params_list = []
+            params_series = linear_model.params.drop('Intercept')
+            for i in params_series.index:
+                if single_split(i)[1] == 1:
+                    params_list += [single_split(i)[0][0]]
+                elif single_split(i)[1] == 2:
+                    params_list += [single_split(i)[0][0]]
+                else:
+                    params_list += [double_split(i)]
+
+            two_way = [f"{i}:{ii}" for i,ii in combinations(params_list,2)]
+
+            linear_model, rsquared = __forward_model_selection(two_way,tol=anova_tol,formula=linear_model.model.formula,prev_metric_val=linear_model.rsquared_adj)
+
+            linear_models[target_col] = linear_model
+            rsq[target_col] += rsquared
+
+        print(f"Final Formula: {linear_model.model.formula} | Adj-R2: {linear_model.rsquared_adj}")
+        #breakpoint()
+
+        """
+        MCC ~ Reservoir + order_ + overland_roughness_mean + terrain_slope_perc_mean + imperviousness_perc_mean + channel_slope_perc + dominant_lulc_anthropogenic_influence + magnitude + area_sqkm + overland_roughness_mean:channel_slope_perc + terrain_slope_perc_mean:channel_slope_perc + order_:overland_roughness_mean + channel_slope_perc:area_sqkm + dominant_lulc_anthropogenic_influence:overland_roughness_mean + Reservoir:overland_roughness_mean + Reservoir:order_ + order_:area_sqkm + order_:terrain_slope_perc_mean + order_:channel_slope_perc + imperviousness_perc_mean:channel_slope_perc + terrain_slope_perc_mean:area_sqkm + overland_roughness_mean:terrain_slope_perc_mean + dominant_lulc_anthropogenic_influence:imperviousness_perc_mean + order_:imperviousness_perc_mean + dominant_lulc_anthropogenic_influence:terrain_slope_perc_mean + order_:dominant_lulc_anthropogenic_influence | Adj-R2: 0.3238388995539966
+
+        CSI ~ order_ + Reservoir + channel_slope_perc + terrain_slope_perc_mean + area_sqkm + imperviousness_perc_mean + magnitude + overland_roughness_mean + order_:area_sqkm + order_:overland_roughness_mean + order_:channel_slope_perc + order_:Reservoir + Reservoir:overland_roughness_mean + order_:terrain_slope_perc_mean + channel_slope_perc:terrain_slope_perc_mean + order_:imperviousness_perc_mean + channel_slope_perc:imperviousness_perc_mean + channel_slope_perc:area_sqkm + terrain_slope_perc_mean:area_sqkm | Adj-R2: 0.315705019504620
+
+        TPR ~ Reservoir + order_ + area_sqkm + imperviousness_perc_mean + magnitude + spatial_resolution + channel_slope_perc + dominant_lulc_anthropogenic_influence + Reservoir:order_ + area_sqkm:channel_slope_perc + order_:area_sqkm + order_:imperviousness_perc_mean + order_:channel_slope_perc + imperviousness_perc_mean:channel_slope_perc | Adj-R2: 0.20906931285534258
+
+        FAR ~ channel_slope_perc + terrain_slope_perc_mean + order_ + area_sqkm + overland_roughness_mean + spatial_resolution + dominant_lulc_anthropogenic_influence + Reservoir + channel_slope_perc:area_sqkm + order_:channel_slope_perc + dominant_lulc_anthropogenic_influence:overland_roughness_mean + order_:terrain_slope_perc_mean + order_:area_sqkm + Reservoir:area_sqkm + order_:overland_roughness_mean + order_:dominant_lulc_anthropogenic_influence + channel_slope_perc:overland_roughness_mean + channel_slope_perc:terrain_slope_perc_mean + dominant_lulc_anthropogenic_influence:terrain_slope_perc_mean + channel_slope_perc:spatial_resolution + order_:Reservoir | Adj-R2: 0.33125429387274563
+
+        MCC ~ Reservoir + terrain_slope_perc_mean + overland_roughness_mean + order_ + channel_slope_perc + imperviousness_perc_mean + dominant_lulc_anthropogenic_influence + magnitude + area_sqkm + overland_roughness_mean:channel_slope_perc + terrain_slope_perc_mean:channel_slope_perc + Reservoir:overland_roughness_mean + dominant_lulc_anthropogenic_influence:overland_roughness_mean + Reservoir:order_ + order_:channel_slope_perc + channel_slope_perc:imperviousness_perc_mean + channel_slope_perc:area_sqkm + terrain_slope_perc_mean:area_sqkm + terrain_slope_perc_mean:order_ + dominant_lulc_anthropogenic_influence:imperviousness_perc_mean + terrain_slope_perc_mean:overland_roughness_mean + Reservoir:dominant_lulc_anthropogenic_influence + overland_roughness_mean:order_ + order_:area_sqkm | Adj-R2: 0.2915453123899441
+
+        CSI ~ order_ + Reservoir + channel_slope_perc + terrain_slope_perc_mean + area_sqkm + imperviousness_perc_mean + magnitude + dominant_lulc_anthropogenic_influence + order_:channel_slope_perc + Reservoir:order_ + channel_slope_perc:terrain_slope_perc_mean + order_:terrain_slope_perc_mean + Reservoir:terrain_slope_perc_mean + order_:area_sqkm + Reservoir:area_sqkm + Reservoir:channel_slope_perc + order_:imperviousness_perc_mean + terrain_slope_perc_mean:area_sqkm | Adj-R2: 0.27880253407255107
+        """
+
     breakpoint()
-    # 
-    #
-    #
-    #
+    save_models = {'linear_models' : linear_models, 'rsq' : rsq}
+    
+    if os.path.exists(linear_models_pickle_file):
+        os.remove(linear_models_pickle_file)
+
+    # Store data (serialize)
+    with open(linear_models_pickle_file, 'wb') as handle:
+        pickle.dump(save_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
     """
     # code on how to plot significant linear model parameters by normalized values
@@ -1343,7 +1418,280 @@ def anova(secondary_metrics_df):
     plt.axline((0,0), (0,1), color="#eb5600", linestyle="--")
     """
 
-    #return linear_model, anova_table
+def single_split(s,c='['): 
+    split = s.split(c)
+    return split,len(split)
+
+def double_split(s):
+    return single_split(s)[0][0] + ':' + single_split(single_split(s)[0][1],':')[0][1]
+
+def plot_regression(linear_models_pickle_file):
+
+    metrics = ['MCC','CSI','TPR','FAR']
+    metric_dict = {'MCC': "Matthew's Corr. Coeff.",'CSI':"Critical Success Index",
+                    'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+
+    # RENAME COLUMNS TO SOMETHING PLOT FRIENDLY
+    def produce_y_labels(param_names):
+        
+        full_names_dict = {  "channel_slope_perc" : 'Channel Slope',
+                             "terrain_slope_perc_mean" : 'Terrain Slope',
+                             "overland_roughness_mean" : 'Overland Roughness',
+                             "area_sqkm" : 'Area',
+                             "dominant_lulc_anthropogenic_influence" : "Anthropogenic Influence of LULC",
+                             "spatial_resolution" : "Spatial Resolution",
+                             "magnitude" : "Magnitude",
+                             "imperviousness_perc_mean" : "Imperviousness",
+                             "Reservoir" : "Reservoir",
+                             "order_" : "Order"
+                           }                       
+        
+        full_names_dict = {  "channel_slope_perc" : 'CS',
+                             "terrain_slope_perc_mean" : 'TS',
+                             "overland_roughness_mean" : 'OR',
+                             "area_sqkm" : 'A',
+                             "dominant_lulc_anthropogenic_influence" : "LC",
+                             "spatial_resolution" : "SR",
+                             "magnitude" : "M",
+                             "imperviousness_perc_mean" : "IM",
+                             "Reservoir" : "R",
+                             "Intercept" : "IN",
+                             "order_" : "SO"
+                           }                       
+
+        full_names = []
+        for pm in param_names:
+            
+            if len(pm.split(':')) == 1:
+                full_names += [full_names_dict[pm]]
+            else:
+                full_names += [":".join([full_names_dict[p] for p in pm.split(':')])]
+                            
+        return full_names
+
+    # Load data (deserialize)
+    with open(linear_models_pickle_file, 'rb') as handle:
+        unserialized_data = pickle.load(handle)
+
+    linear_models = unserialized_data['linear_models']
+    rsquared_values = unserialized_data['rsq']
+    del unserialized_data
+
+    breakpoint()
+    fig,axs = plt.subplots(1,4,dpi=300,figsize=(8,11),layout='tight')
+    plt.subplots_adjust(wspace=0.0)
+
+    ax_handles,ax_labels = [],[]
+    prev_sig_levels = set()
+
+    for i,(ax,metric) in tqdm(enumerate(zip(axs.ravel(),metrics)),
+                              desc='Plotting regression models',
+                              total=len(metrics)):
+
+        # sort parameters and their values based on adjusted r-squared
+        explanatory_vars = ['Intercept'] + linear_models[metric].model.formula.split(' ~ ')[1].split(' + ')
+        
+        params_series = linear_models[metric].params
+        if metric == 'TPR':
+            params_series.drop(index=['dominant_lulc_anthropogenic_influence[T.More]:Reservoir[Not Reservoir]',
+                                'overland_roughness_mean:Reservoir[Not Reservoir]'],
+                                errors='ignore',
+                                inplace=True)
+
+        params_list = []
+        for i in params_series.index:
+            #if single_split(i)[0][0] == 'dominant_lulc_anthropogenic_influence:Reservoir':
+            #    breakpoint()
+            if single_split(i)[1] == 1:
+                params_list += [single_split(i)[0][0]]
+            elif single_split(i)[1] == 2:
+                if ':' in single_split(i)[0][1]:
+                    params_list += [single_split(i)[0][0] + ':' + single_split(single_split(i)[0][1],':')[0][1]]
+                else:
+                    params_list += [single_split(i)[0][0]]
+            else:
+                params_list += [double_split(i)]
+        
+        params_series.index = params_list
+        params_series = params_series.loc[explanatory_vars]
+
+        # added
+        params_series = params_series.groupby(params_series.index).median().loc[explanatory_vars]
+        
+        params_confint = linear_models[metric].conf_int()
+        if metric == 'TPR':
+            params_confint.drop(index=['dominant_lulc_anthropogenic_influence[T.More]:Reservoir[Not Reservoir]',
+                                'overland_roughness_mean:Reservoir[Not Reservoir]'],
+                                errors='ignore',
+                                inplace=True)
+
+        params_list = []
+        for i in params_confint.index:
+            if single_split(i)[1] == 1:
+                params_list += [single_split(i)[0][0]]
+            elif single_split(i)[1] == 2:
+                if ':' in single_split(i)[0][1]:
+                    params_list += [single_split(i)[0][0] + ':' + single_split(single_split(i)[0][1],':')[0][1]]
+                else:
+                    params_list += [single_split(i)[0][0]]
+            else:
+                params_list += [double_split(i)]
+
+        params_confint.index = params_list
+        params_confint = params_confint.loc[explanatory_vars]
+
+        params_confint = params_confint.loc[:,1] - params_series
+
+        # added
+        params_confint = params_confint.groupby(params_confint.index).median().loc[explanatory_vars]
+
+        # pvalues
+        pvalues = linear_models[metric].pvalues
+        if metric == 'TPR':
+            pvalues.drop(index=['dominant_lulc_anthropogenic_influence[T.More]:Reservoir[Not Reservoir]',
+                                'overland_roughness_mean:Reservoir[Not Reservoir]'],
+                                errors='ignore',
+                                inplace=True)
+
+        params_list = []
+        for i in pvalues.index:
+            if single_split(i)[1] == 1:
+                params_list += [single_split(i)[0][0]]
+            elif single_split(i)[1] == 2:
+                if ':' in single_split(i)[0][1]:
+                    params_list += [single_split(i)[0][0] + ':' + single_split(single_split(i)[0][1],':')[0][1]]
+                else:
+                    params_list += [single_split(i)[0][0]]
+            else:
+                params_list += [double_split(i)]
+        
+        pvalues.index = params_list
+        pvalues = pvalues.loc[explanatory_vars]
+
+        # added
+        pvalues = pvalues.groupby(pvalues.index).median().loc[explanatory_vars]
+
+        # make integers for each parameter for y axis
+        y = np.array(list(reversed(range(len(params_series)))))
+        x = np.array(list(params_series))
+        err =  np.array(list(params_confint))
+        pval = np.array(list(pvalues))
+        rsq = np.concatenate( [np.array([None]),np.array(list(rsquared_values[metric]))])
+        
+        y_labels = produce_y_labels(params_confint.index)
+              
+        ax.set_yticks(y)
+        ax.set_yticklabels(y_labels,rotation=45,ha='right',fontsize=12)
+        ax.set_xlim(-2,2)
+        ax.set_xticks([-2,0,2],minor=False)
+        ax.set_xticklabels([-2,0,2],fontsize=12)
+        ax.set_xticks([-1,0,1],minor=True)
+        ax.xaxis.grid(True, alpha=0.75, lw=0.75, which='major')
+
+        color_idx = (x > 0).astype(np.int32)
+        colors = [['r','g'][c] for c in color_idx]
+
+        def size_shape_idx_func(pval):
+            if pval >= 0.05:
+                i = 0
+            if pval < 0.05:
+                i = 1
+            if pval < 0.01:
+                i = 2
+            if pval < 0.001:
+                i = 3
+
+            size = [50,45,42,45][i]
+            shape = [".","p","^","*"][i]
+            sig_level = [">= 0.05","< 0.05","< 0.01","< 0.001"][i]
+
+            return size,shape,sig_level
+        
+        sizes_and_shapes = [size_shape_idx_func(p) for p in pval]
+        sizes,shapes,sig_level = list(zip(*sizes_and_shapes))
+
+        offset = 0.22
+        for i,j,s,c,m,l in zip(x,y,sizes,colors,shapes,sig_level):
+            
+            if c =='g':
+                slope = '+'
+            else:
+                slope = '-'
+
+            label = f'{slope} slope, p-value {l}'
+            hdl = ax.scatter(i,j, s=s,c=c,marker=m, label=label)
+            if i < 0:
+                ha = 'left'
+                ii = i + offset
+            else:
+                ha = 'right'
+                ii = i - offset
+            
+            if abs(i) >= 2:            
+                ii =  copysign(1,i) * (2 - offset)    
+            
+            ax.text(ii,j,np.round(i,3),ha=ha,va='center',fontsize=11) # adds point labels
+            
+            if (c,l) not in prev_sig_levels:
+                prev_sig_levels.add((c,l))
+                ax_handles += [hdl]
+                ax_labels += [label]
+
+        secax = ax.twiny()
+
+        label = 'Coefficient of Determination ($R^2$)'
+        rsq_handle = secax.plot(rsq,y,linestyle='-',marker=None,c='b',label=label)
+
+        secax.set_xlim(0,0.34)
+        secax.set_xticks([0,0.17,0.34],minor=False)
+        secax.set_xticklabels([0,0.17,.34],fontsize=12)
+        secax.set_xticks([0.085,0.17],minor=True)
+
+        ax.set_title(metric,fontsize=16,pad=40)
+        fig.text(0.5,0,'Parameter Value',ha='center',fontsize=12)
+        fig.text(0.5,0.95,'Coefficient of Determination ($R^2$)',ha='center',fontsize=12)
+
+        txtstr = '\n'.join(['IN = Intercept','R = Reservoir','TS = Terrain Slope',
+                            'OR = Overland Roughness','CS = Channel Slope', 'SO = Stream Order'])
+        fig.text(0.02,-.001,txtstr,ha='left',va='top',fontsize=12,
+                bbox={'alpha':0.05,"facecolor":'none',"boxstyle":'round'})
+
+        txtstr = '\n'.join(['M = Magnitude','LC = Landcover (LULC)','A = Catchment Area',
+                            'SR = Spatial Resolution','IM = Imperviousness'])
+        fig.text(0.98,-.001,txtstr,ha='right',va='top',fontsize=12,
+                 bbox={'alpha':0.05,"facecolor":'none',"boxstyle":'round'})
+        
+        if metric == 'MCC':
+            px,py = (0,-0.80)
+        elif metric == 'CSI':
+            px,py = (0,-0.70)
+        elif metric == 'TPR':
+            px,py = (0,-0.50)
+        elif metric == 'FAR':
+            px,py = (0,-0.65)
+
+        ax.text(px,py,'Final $R^{2}$:' + f' {np.round(rsq[-1],4)}',ha='center',va='center',c='b',fontsize=10)
+
+    ax_labels += [label]
+    ax_handles += rsq_handle
+    lgd = fig.legend(handles=ax_handles,
+                       labels=ax_labels,
+                       loc='lower center',
+                       frameon=True,
+                       framealpha=0.75,
+                       fontsize=12,
+                       title_fontsize=14,
+                       borderpad=0.25,
+                       markerscale=1.5,
+                       bbox_to_anchor=(0.515,-0.14),
+                       borderaxespad=0,
+                       title=None
+                       )
+    
+    plt.tight_layout(w_pad=0)
+    fig.savefig(os.path.join(data_dir,f'regression_plot.png'), #bbox_extra_artists=(lgd,),
+                bbox_inches='tight')
+    
 
 def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
     
@@ -1367,122 +1715,179 @@ def nhd_to_3dep_plot(secondary_metrics_df,output_fn):
         metric.split('_')[1]
     #metric = metrics[0]
 
+    add_suffix = lambda suffix : [m + suffix for m in metrics] 
+
     prepared_metrics = secondary_metrics_df.dropna(subset=metrics,how='any') \
                                            .set_index(['huc8','magnitude','spatial_resolution','dem_source','ID']) \
                                            .sort_index() \
                                            .drop_duplicates()
     
+    # get 3dep only samples
     metrics_3dep = prepared_metrics.xs('3dep',level="dem_source") \
                                    .xs(10,level='spatial_resolution') \
-                                   .loc[:,metrics]
+                                   .loc[:,metrics] \
+                                   .drop_duplicates()
+
+    # get nhd only samples
     metrics_nhd = prepared_metrics.xs('nhd',level="dem_source") \
                                    .xs(10,level='spatial_resolution') \
-                                   .loc[:,metrics]
+                                   .loc[:,metrics] \
+                                   .drop_duplicates()
     
-    difference = (metrics_3dep - metrics_nhd).dropna(how='any') \
-                                             .drop_duplicates()
-    
+    # align indices for 3dep and nhd samples
+    all_metrics = metrics_3dep.join(metrics_nhd,how='inner',lsuffix='_3dep',rsuffix='_nhd') \
+                              .dropna(how='any') \
+                              .drop_duplicates()
+
+    # redivide across dem source
+    metrics_3dep = all_metrics.loc[:,add_suffix('_3dep')]
+    metrics_nhd = all_metrics.loc[:,add_suffix('_nhd')]
+
+    # homogenize column names for differencing
+    metrics_3dep.columns = range(len(metrics))
+    metrics_nhd.columns = range(len(metrics))
+
+    # differencing
+    difference = metrics_3dep - metrics_nhd
+
+    # remakes column names
+    metrics_3dep.columns = add_suffix('_3dep')
+    metrics_nhd.columns = add_suffix('_nhd')
+    difference.columns = add_suffix('_diff')
+
+    # rejoins differences
     all_metrics = difference.join(metrics_3dep,how='left',lsuffix='_diff',rsuffix='_3dep') \
                             .join(metrics_nhd,how='left') \
                             .drop_duplicates() \
-                            .rename(columns=dict(zip(metrics,[m+'_nhd' for m in metrics])))
+                            .dropna(how='any')
 
-    for mag in [100,500]:
-        fig,axs = plt.subplots(2,2,dpi=300,figsize=(8,8),layout='tight')
+    fig,axs = plt.subplots(4,2,dpi=300,figsize=(5,8),layout='tight')
 
-        for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
+    mags = [100,100,100,100,500,500,500,500]
+    metrics = metrics * 2
+    for i,(ax,metric,mag) in enumerate(zip(axs.ravel('F'),metrics,mags)):
 
-            sorted_metrics = all_metrics.sort_values(metric+'_diff',ascending=False) \
-                                        .xs(mag,level='magnitude')
-            
-            if metric == 'FAR':
-                improved_indices = sorted_metrics.loc[:,metric+"_diff"]<=0
-            else:
-                improved_indices = sorted_metrics.loc[:,metric+"_diff"]>=0
-            
-            reduced_indices = ~improved_indices
-            
-            breakpoint()
-            ##########################################
-            # GETTING RED POINTS IN POSITIVE TERRITORY
-            ##########################################
-            #y = range(len(sorted_metrics))
-            #x = sorted_metrics.loc[:,metric+'_diff'] + sorted_metrics.loc[:,[metric+'_nhd', metric+'_3dep']].min(axis=1)
-            
-            # errorbars
-            print(f"Metric employed: {metric}")
-            proportion_above_zero = ((sorted_metrics.loc[:,metric+'_3dep'] -sorted_metrics.loc[:,metric+'_nhd'])>0).sum()/len(sorted_metrics)
-            print(f"Proportion of catchments that perform better with 3dep: {proportion_above_zero}")
-            median_diff = sorted_metrics.loc[:,metric+'_diff'].median()
-            mean_diff = sorted_metrics.loc[:,metric+'_diff'].mean()
-            std_diff = sorted_metrics.loc[:,metric+'_diff'].std()
-            print(f"Median, mean, and std improvements: {median_diff} | {mean_diff} | {std_diff}")
-            
-            # TRY:
-            def assign_color(series,metric):
-                color_dict = {True:'green',False:'red'}
-                if metric == 'FAR': color_dict = {False:'green',True:'red'}
+        #sorted_metrics = all_metrics.sort_values(metric+'_diff',ascending=False) \
+        sorted_metrics = all_metrics.xs(mag,level='magnitude')
+        
+        diff = (sorted_metrics.loc[:,metric+"_3dep"] - sorted_metrics.loc[:,metric+"_nhd"])
+        if metric == 'FAR':
+            improved_indices = diff <= 0
+            reduced_indices = diff > 0
+        else:
+            improved_indices = diff >= 0
+            reduced_indices = diff < 0
+        
+        #breakpoint()
+        """
+        breakpoint()
+        if metric == 'FAR':
+            indices_to_remove = sorted_metrics.loc[reduced_indices,:].index[(sorted_metrics.loc[reduced_indices,metric+'_3dep'] - sorted_metrics.loc[reduced_indices,metric+'_nhd']) < 0]
+            sorted_metrics.drop(index=indices_to_remove,inplace=True)
+        else:
+            indices_to_remove = sorted_metrics.loc[reduced_indices,:].index[(sorted_metrics.loc[reduced_indices,metric+'_3dep'] - sorted_metrics.loc[reduced_indices,metric+'_nhd']) > 0]
+            sorted_metrics.drop(index=indices_to_remove,inplace=True)
 
-                return (series >=0 ).apply(lambda x: color_dict[x])
-            
-            
-            improvement = ax.scatter(sorted_metrics.loc[improved_indices,metric+'_nhd'],
-                                     sorted_metrics.loc[improved_indices,metric+'_3dep'],
-                                     c='green',
-                                     s=1)
-            
-            reduction = ax.scatter(sorted_metrics.loc[reduced_indices,metric+'_nhd'],
-                                   sorted_metrics.loc[reduced_indices,metric+'_3dep'],
-                                   c='red',
-                                   s=1)
-            
-            ax.axline((0,0),slope=1,color='black')
+        breakpoint()
+        if metric == 'FAR':
+            improved_indices = (sorted_metrics.loc[:,metric+"_diff"]<=0).index
+            reduced_indices = (sorted_metrics.loc[:,metric+"_diff"]>=0).index
+        else:
+            improved_indices = (sorted_metrics.loc[:,metric+"_diff"]>=0).index
+            reduced_indices = (sorted_metrics.loc[:,metric+"_diff"]<=0).index
+        
+        ##########################################
+        # GETTING RED POINTS IN POSITIVE TERRITORY
+        ##########################################
+        #y = range(len(sorted_metrics))
+        #x = sorted_metrics.loc[:,metric+'_diff'] + sorted_metrics.loc[:,[metric+'_nhd', metric+'_3dep']].min(axis=1)
+        """
+        # errorbars
+        #print(f"Metric employed: {metric}")
+        proportion_above_zero = (sorted_metrics.loc[:,metric+'_diff']>0).sum()/len(sorted_metrics)
+        #print(f"Proportion of catchments that perform better with 3dep: {proportion_above_zero}")
+        median_diff = sorted_metrics.loc[:,metric+'_diff'].median()
+        mean_diff = sorted_metrics.loc[:,metric+'_diff'].mean()
+        std_diff = sorted_metrics.loc[:,metric+'_diff'].std()
+        #print(f"Median, mean, and std improvements: {median_diff} | {mean_diff} | {std_diff}")
+        
+        # TRY:
+        def assign_color(series,metric):
+            color_dict = {True:'green',False:'red'}
+            if metric == 'FAR': color_dict = {False:'green',True:'red'}
 
-            metric_min = sorted_metrics.loc[:,[metric+'_3dep',metric+'_nhd']].min().min()
-            metric_max = sorted_metrics.loc[:,[metric+'_3dep',metric+'_nhd']].max().max()
+            return (series >=0 ).apply(lambda x: color_dict[x])
+        
+        ax.set_aspect('equal')
 
-            ax.set_xlim(metric_min,metric_max)
-            ax.set_ylim(metric_min,metric_max)
-            ax.tick_params(axis='both', labelsize=12)
-            
-            #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15)
-            ax.set_title(metric_dict[metric]+" ("+metric+")",fontsize=15)
-            
-            if i in {2,3}: ax.set_xlabel("Metric Values"+"\n"+"NHDPlusHR DEM",fontsize=12)
-            if i in {0,2}: ax.set_ylabel("Metric Values"+"\n"+"3DEP DEM",fontsize=12)
+        improvement = ax.scatter(sorted_metrics.loc[improved_indices,metric+'_nhd'],
+                                    sorted_metrics.loc[improved_indices,metric+'_3dep'],
+                                    c='green',
+                                    s=1)
+        
+        reduction = ax.scatter(sorted_metrics.loc[reduced_indices,metric+'_nhd'],
+                                sorted_metrics.loc[reduced_indices,metric+'_3dep'],
+                                c='red',
+                                s=1)
+        
+        ax.axline((0,0),slope=1,color='black')
 
-            ax.text(0.55,0.16,f'Mean: {np.round(mean_diff,3)}',transform=ax.transAxes,fontsize=12)
-            ax.text(0.55,0.1,f'Std: {np.round(std_diff,3)}',transform=ax.transAxes,fontsize=12)
-            ax.text(0.55,0.04,f'Perc.>0: {np.round(proportion_above_zero*100,1)}%',transform=ax.transAxes,fontsize=12)
+        metric_min = sorted_metrics.loc[:,[metric+'_3dep',metric+'_nhd']].min().min()
+        metric_max = sorted_metrics.loc[:,[metric+'_3dep',metric+'_nhd']].max().max()
+
+        #ax.set_xlim(metric_min,metric_max)
+        #ax.set_ylim(metric_min,metric_max)
+
+        ax.set_xlim(0,1)
+        ax.set_ylim(0,1)
+        ax.set_xticks([0,0.5,1])
+        ax.set_yticks([0,0.5,1])
+        
+        #ax.set_title(metric_dict[metric]+"\n"+"("+metric+")",fontsize=15)
+        
+        if i in {3,7}: 
+            ax.set_xlabel("NHDPlusHR DEM",fontsize=12)
+            ax.tick_params(axis='x', labelsize=12)
+        else:
+            ax.set(xticklabels=[])
+        
+        if i in {0,1,2,3}:
+            ax.set_ylabel(f"{metric_dict[metric]}" +"\n" + f"({metric})"+"\n"+"3DEP DEM",fontsize=10)
+            ax.tick_params(axis='y', labelsize=12)
+        else:
+            ax.set(yticklabels=[])
+
+        if i in {0,4}:
+            ax.set_title(f"{mag} yr Magnitude",fontsize=13)
+
+        """
+        if metric == 'FAR':
+            ax.text(0.01,0.94,f'Mean: {np.round(mean_diff,3)}',transform=ax.transAxes,fontsize=8,weight="bold")
+            ax.text(0.01,0.88,f'Std: {np.round(std_diff,3)}',transform=ax.transAxes,fontsize=8,weight="bold")
+            ax.text(0.01,0.82,f'Perc.<0: {np.round((1-proportion_above_zero)*100,1)}%',transform=ax.transAxes,fontsize=8,weight="bold")
+        else:
+            ax.text(0.37,0.16,f'Mean: {np.round(mean_diff,3)}',transform=ax.transAxes,fontsize=8,weight="bold")
+            ax.text(0.37,0.1,f'Std: {np.round(std_diff,3)}',transform=ax.transAxes,fontsize=8,weight="bold")
+            ax.text(0.37,0.04,f'Perc.>0: {np.round(proportion_above_zero*100,1)}%',transform=ax.transAxes,fontsize=8,weight="bold")
+        """
     # code on how to plot significant linear model parameters by normalized values
 
-        lgd = fig.legend(handles=[improvement,reduction],
-                       labels=['Improvement or no change (difference >=0)','Reduction (difference<0)'],
-                       loc='lower center',
-                       frameon=True,
-                       framealpha=0.75,
-                       fontsize=12,
-                       title_fontsize=14,
-                       borderpad=0.25,
-                       markerscale=3,
-                       bbox_to_anchor=(0.5,-.1),
-                       borderaxespad=0,
-                       title="Metric Value Difference (3DEP - NHDPlusHR DEM)"
-                       )
-        
-        """
-        axs.errorbar(x, y,
-                     xerr=sorted_metrics.loc[:,metric+'_diff'],
-                     elinewidth=0.05,
-                     capsize=0.1,
-                     capthick=0.01,
-                     mec='r',
-                     marker='o',
-                     mfc='r')
-        """
+    lgd = fig.legend(handles=[improvement,reduction],
+                    labels=['Improvement or no change','Reduction'],
+                    loc='lower center',
+                    frameon=True,
+                    framealpha=0.75,
+                    fontsize=9,
+                    title_fontsize=11,
+                    borderpad=0.25,
+                    markerscale=3,
+                    bbox_to_anchor=(0.5,-0.06),
+                    borderaxespad=0,
+                    title=r"Metric Value Difference (3DEP - NHDPlusHR DEM)"
+                    )
 
-        fig.savefig(os.path.join(data_dir,f'nhd_vs_3dep_{mag}yr.png'), bbox_extra_artists=(lgd,), bbox_inches='tight')
-        plt.close(fig)
+    fig.savefig(os.path.join(data_dir,f'nhd_vs_3dep.png'), bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.close(fig)
 
 
 def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
@@ -1616,7 +2021,7 @@ def resolution_plot(secondary_metrics_df, dem_resolution_plot_fn=None):
            fontsize=12,
            title_fontsize=14,
            borderpad=0.25,
-           markerscale=3,
+           markerscaxle=3,
            bbox_to_anchor=(0.55,-.06),
            borderaxespad=0,
            title=None)
@@ -1777,7 +2182,87 @@ def reservoir_plot(secondary_metrics_df,reservoir_plot_fn):
     fig.savefig(reservoir_plot_fn, bbox_inches='tight')
     
     plt.close(fig)
+
+
+def point_values_table(secondary_metrics_df):
+
+    metrics = ['MCC','CSI','TPR','FAR']
+
+    prepared_metrics = (
+        secondary_metrics_df
+        .dropna(subset=metrics,how='any')
+        .set_index(['spatial_resolution','dem_source'])
+        .sort_index()
+        .drop_duplicates()
+    )
     
+    vals_gb = (
+        prepared_metrics
+        .loc[:,metrics]
+        .groupby(['dem_source', 'spatial_resolution'])
+    )
+
+    vals_means = (
+        vals_gb
+        .mean()
+        .dropna()
+    )
+
+    vals_std = (
+        vals_gb
+        .std()
+        .dropna()
+    )
+
+    print("\nMean metrics:\n", vals_means, "\n\n")
+    print("\nStd metrics:\n", vals_std, "\n\n")
+    breakpoint()
+
+
+def tukey_hsd_for_60_90_m(secondary_metrics_df):
+
+    # prepare secondary metrics
+    metrics = ['MCC','CSI','TPR','FAR']
+    metric_dict = {'MCC': "Matthew's Correlation Coeff.",'CSI':"Critical Success Index",
+                   'TPR':"True Positive Rate",'FAR':"False Alarm Rate"}
+    
+    # drop NAs and only use 3dep source
+    breakpoint()
+    all_metrics = (
+        secondary_metrics_df
+        .dropna(subset=metrics,how='any')
+        .drop_duplicates()
+        .set_index(['dem_source','spatial_resolution'])
+    )
+                                      #.query('dem_source == "3dep"')
+    
+    resolutions = [10, 60, 90]
+    #resolutions = [3, 5, 10, 15, 20, 60, 90]
+
+    # only use spatial_resolutions in resolutions
+    all_metrics = all_metrics.loc[all_metrics.loc[:,'spatial_resolution'].isin(resolutions),:]
+
+
+    for metric in metrics:
+        print(f"Metric: {metric}")
+
+        # groupby median for spatial_resolution
+        print(
+            all_metrics
+            .groupby(['dem_source', 'spatial_resolution'])
+            .mean(numeric_only=True)
+            .loc[:,metric].reset_index()
+        )
+
+        tukey = pairwise_tukeyhsd(
+            all_metrics.loc[:,metric],all_metrics.loc[:,'spatial_resolution'],
+            alpha=0.001
+        )
+
+        print(tukey)
+
+    breakpoint()
+
 
 def slope_plot(secondary_metrics_df,slope_plot_fn):
     
@@ -2296,7 +2781,7 @@ def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
     all_metrics = all_metrics.assign(dominant_lulc_digits_grouped= all_metrics.apply(assign_grouping,axis=1)) \
                              .astype({'dominant_lulc_digits_grouped':'category'})
     
-    fig,axs = plt.subplots(4,1,dpi=300,figsize=(8.5,11),layout='tight')
+    fig,axs = plt.subplots(4,1,dpi=300,figsize=(6,8),layout='tight')
 
     for i,(ax,metric) in enumerate(zip(axs.ravel(),metrics)):
         
@@ -2313,17 +2798,17 @@ def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
                             saturation=0.75,
                            )
         
-        ax.tick_params(axis='y', labelsize=12)
-        ax.set_ylabel(metric_dict[metric]+"\n("+metric+")",fontsize=12)
+        ax.tick_params(axis='y', labelsize=10)
+        ax.set_ylabel(metric_dict[metric]+"\n("+metric+")",fontsize=10)
 
         if i == 3:
             #ax.set_xlabel("Channel Slope"+"\n"+"(vertical/horizontal)",fontsize=12)
-            ax.set_xlabel("Land Cover / Land Use\nGrouped By Two Levels of Anthropogenic Influence",fontsize=12)
+            ax.set_xlabel("Land Cover / Land Use\nGrouped By Two Levels of Anthropogenic Influence",fontsize=10)
             #wrapped_order_strs = [ '\n'.join(wrap(l, 17)) for l in order_strs]
             #ax.set_xticklabels([f'{s} ({d})' for s,d in zip(wrapped_order_strs,order_digits)])
             #ax.tick_params(axis='x', rotation=70)
             #plt.setp( ax.xaxis.get_majorticklabels(), rotation=45, ha="right", rotation_mode='anchor' )
-            ax.tick_params(axis='x', labelsize=12)
+            ax.tick_params(axis='x', labelsize=10)
         else:
             #ax.tick_params(axis='x', labelsize=12)
             ax.set_xticklabels([])
@@ -2362,12 +2847,20 @@ def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
         linear_model = ols(f"{metric} ~ dominant_lulc_digits_grouped * magnitude", 
                                  data=all_metrics).fit()
         
-        def print_formula_with_coefficients(model,round_digits=4):
+        def print_formula_with_coefficients(model, metric, round_digits=4):
             
             formula = ""
             for i,p in model.params.items():
-                
+
                 pv = model.pvalues.loc[i]
+                
+                if i == 'dominant_lulc_digits_grouped[T.More]':
+                    i = 'gL'
+                if i == 'magnitude[T.500]':
+                    i = 'M'
+                elif i == 'dominant_lulc_digits_grouped[T.More]:magnitude[T.500]':
+                    i = 'gL:M'
+                
                 if pv <= 0.001:
                     sl = '$^{***}$'
                 elif pv <= 0.01:
@@ -2385,11 +2878,13 @@ def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
                 else:
                     formula += "+ {}{}({})".format(p,sl,i)
             
+            formula = f"{metric} = {formula}"
+
             return formula
         
-        ax.text(0.2,1.02,print_formula_with_coefficients(linear_model),
-                fontsize=8,color='black', usetex=True, wrap = True)
-
+        ax.text(0.5,1.04,print_formula_with_coefficients(linear_model, metric),
+                fontsize=11,color='black', usetex=True, wrap = True, ha='center')
+        
     h,l = ax.get_legend_handles_labels()
     l[:2] = ['100yr','500yr']
     lgd = fig.legend(h,l,
@@ -2397,15 +2892,21 @@ def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
            ncols=2,
            frameon=True,
            framealpha=0.75,
-           fontsize=12,
-           title_fontsize=14,
+           fontsize=10,
+           title_fontsize=11,
            borderpad=0.25,
            markerscale=3,
-           bbox_to_anchor=(0.5,-.06),
+           bbox_to_anchor=(0.6,-.07),
            borderaxespad=0,
            title='Magnitude'
-           #title=None
            )
+
+    
+    txtstr = '\n'.join(["'***' = p-value < 0.001",
+        "M = Magnitude", "gL = Grouped LULC"]
+    )
+    fig.text(0.03,0.001,txtstr,ha='left',va='top',fontsize=10,
+                bbox={'alpha':0.25,"facecolor":'none',"boxstyle":'round'})
 
     if grouped_landcover_plot_fn != None:
         fig.savefig(grouped_landcover_plot_fn, bbox_inches='tight')
@@ -2414,6 +2915,73 @@ def grouped_landcover_plot(secondary_metrics_df,landcover_plot_fn):
 
 def channel_length_plot():
     pass
+
+
+def group_lulc_map_func(orig_land_cover_fn, grouped_land_cover_fn):
+    """Groups landcovers by grouping for better plotting"""
+    print("Grouping landcover map ...")
+
+    orig_lc = rxr.open_rasterio(orig_land_cover_fn)
+
+    '''
+    {  11 : "Water",
+                                        12 : "Perennial Ice Snow",
+                                        21 : "Developed, Open Space",
+                                        22 : "Developed, Low Intensity",
+                                        23 : "Developed, Medium Intensity",
+                                        24 : "Developed, High Intensity",
+                                        31 : "Bare Rock/Sand/Clay",
+                                        41 : "Deciduous Forest",
+                                        42 : "Evergreen Forest",
+                                        43 : "Mixed Forest",
+                                        45 : "Shrub-Forest",
+                                        46 : "Herbaceous-Forest",
+                                        52 : "Shrub/Scrub",
+                                        71 : "Grasslands/Herbaceous",
+                                        81 : "Pasture/Hay",
+                                        82 : "Cultivated Crops",
+                                        90 : "Woody Wetlands",
+                                        95 : "Emergent Herbaceous Wetlands"
+                                      }'''
+    
+    # create landcover groups dict
+    landcover_groups = {
+        1 : [11, 12],
+        2 : [21, 22, 23, 24],
+        3 : [31],
+        4 : [41, 42, 43, 45, 46],
+        5 : [52],
+        7 : [71],
+        8 : [81, 82],
+        9 : [90, 95],
+        127 : [127] # no data value
+    }
+
+    # invert landcover groups dict
+    landcover_groups_inverted = {
+        v : k for k, vs in landcover_groups.items() for v in vs
+    }
+
+    # create grouped landcover array
+    grouped_landcover = orig_lc.copy(deep=True)
+    
+    @np.vectorize
+    def replace(x):
+        return landcover_groups_inverted[x]
+
+    grouped_landcover.values = replace(grouped_landcover)
+    
+    # write grouped landcover array to file
+    grouped_landcover.rio.to_raster(
+        grouped_land_cover_fn,
+        dtype='uint8',
+        compress='lzw',
+        overwrite=True,
+        tiled=True,
+        blockxsize=128,
+        blockysize=128
+    )
+
 
 if __name__ == '__main__':
     
@@ -2440,9 +3008,11 @@ if __name__ == '__main__':
     else: 
         secondary_metrics_df = pd.read_hdf(experiment_fn,hdf_key) # read hdf
 
-    breakpoint()
     if run_anova:
         anova(secondary_metrics_df)
+
+    if make_regression_plot:
+        plot_regression(linear_models_pickle_file)
 
     if rating_curves_to_parquet:
         parquet_rating_curves(hucs, resolutions)
@@ -2476,3 +3046,12 @@ if __name__ == '__main__':
 
     if make_grouped_landcover_plot:
         grouped_landcover_plot(secondary_metrics_df,grouped_landcover_plot_fn)
+
+    if prepare_point_value_table:
+        point_values_table(secondary_metrics_df)
+
+    if make_tukey_hsd:
+        tukey_hsd_for_60_90_m(secondary_metrics_df)
+
+    if group_lulc_map:
+        group_lulc_map_func(orig_land_cover_fn, grouped_land_cover_fn)
