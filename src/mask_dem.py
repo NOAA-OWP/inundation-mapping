@@ -24,7 +24,8 @@ def mask_dem(
 ):
     """
     Masks levee-protected areas from DEM in branch 0 or if the level path is associated with a levee
-    (determined in src/associate_levelpaths_with_levees.py).
+    (determined in src/associate_levelpaths_with_levees.py). Also masks parts of levee-protected areas
+    through which level paths flow that are not in the level path catchment.
 
     Parameters
     ----------
@@ -87,37 +88,37 @@ def mask_dem(
                 if len(geoms) > 0:
                     dem_masked, _ = mask(dem, geoms, invert=True)
 
-        # Mask levee-protected areas not protected against level path
-        catchments = gpd.read_file(catchments_filename)
-        leveed = gpd.read_file(nld_filename)
+            # Mask levee-protected areas not protected against level path
+            catchments = gpd.read_file(catchments_filename)
+            leveed = gpd.read_file(nld_filename)
 
-        leveed_area_catchments = gpd.overlay(catchments, leveed, how="union")
+            leveed_area_catchments = gpd.overlay(catchments, leveed, how="union")
 
-        # Select levee catchments not associated with level path
-        levee_catchments_to_mask = leveed_area_catchments.loc[
-            ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments['ID'].isna(), :
-        ]
+            # Select levee catchments not associated with level path
+            levee_catchments_to_mask = leveed_area_catchments.loc[
+                ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments['ID'].isna(), :
+            ]
 
-        geoms = [feature["geometry"] for i, feature in levee_catchments_to_mask.iterrows()]
+            geoms = [feature["geometry"] for i, feature in levee_catchments_to_mask.iterrows()]
 
-        levee_catchments_masked = None
-        if len(geoms) > 0:
-            levee_catchments_masked, _ = mask(dem, geoms, invert=True)
+            levee_catchments_masked = None
+            if len(geoms) > 0:
+                levee_catchments_masked, _ = mask(dem, geoms, invert=True)
 
-        out_masked = None
-        if dem_masked is None:
-            if levee_catchments_masked is not None:
-                out_masked = levee_catchments_masked
+            out_masked = None
+            if dem_masked is None:
+                if levee_catchments_masked is not None:
+                    out_masked = levee_catchments_masked
 
-        else:
-            if levee_catchments_masked is None:
-                out_masked = dem_masked
             else:
-                out_masked = np.where(levee_catchments_masked == nodata, nodata, dem_masked)
+                if levee_catchments_masked is None:
+                    out_masked = dem_masked
+                else:
+                    out_masked = np.where(levee_catchments_masked == nodata, nodata, dem_masked)
 
-        if out_masked is not None:
-            with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
-                dest.write(out_masked[0, :, :], indexes=1)
+            if out_masked is not None:
+                with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
+                    dest.write(out_masked[0, :, :], indexes=1)
 
 
 if __name__ == '__main__':
