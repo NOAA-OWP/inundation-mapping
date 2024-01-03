@@ -1,6 +1,143 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.8.2 - 2023-12-12 - [PR#1052](https://github.com/NOAA-OWP/inundation-mapping/pull/1052)
+
+The alpha test for v4.4.8.1 came back with a large degradation in skill and we noticed that the global manning's roughness file was changed in v4.4.7.1 - likely in error.
+
+### Changes
+
+- `src`/`bash_variables.env`: changed the global roughness file to `${inputsDir}/rating_curve/variable_roughness/mannings_global_06_12.csv`
+
+<br/><br/>
+
+## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
+
+Upgrades JDK to v.17.0.9 in Docker image to address security vulnerabilities.
+
+### Changes
+
+- `Dockerfile`: Upgrades JDK to v.17.
+
+<br/><br/>
+
+## v4.4.8.0 - 2023-12-08 - [PR#1045](https://github.com/NOAA-OWP/inundation-mapping/pull/1045)
+
+In order to avoid file system collisions on AWS, and keep the reads/writes from the same file on disk to a minimum, three files (`HUC6_dem_domain.gpkg`, `nws_lid.gpkg`, `reformat_ras_rating_curve_points_rel_101.gpkg`, & `usgs_gages.gpkg`) are now copied from disk into a scratch directory (temporary working directory), and removed after processing steps are completed.
+
+### Changes
+
+- `config`/`deny_unit.lst`: Add files to remove list - repetitive copies needed for processing step (`run_unit_wb.sh`)
+- `src`
+    - `bash_variables.env`: Add a new variable for the ras rating curve filename. It will be easier to track the filename in the `.env`, and pull into `run_unit_wb.sh`, rather than hardcode it.
+    - `run_unit_wb.sh`: Copy files and update references from `$inputsDir` to `$tempHucDataDir`.
+
+<br/><br/>
+
+## v4.4.7.2 - 2023-12-08 - [PR#1026](https://github.com/NOAA-OWP/inundation-mapping/pull/1026)
+
+A couple of directly related issues were fixed in this PR.
+The initial problem came from Issue #[1025](https://github.com/NOAA-OWP/inundation-mapping/issues/1025) which was about a pathing issue for the outputs directory. In testing that fix, it exposed a few other pathing and file cleanup issues which are now fixed. We also added more console output to help view variables and pathing.
+
+### Changes
+
+- `config`/`params_template.env`:  Updated for a newer mannings global file. Changed and tested by Ryan Spies.
+- `tools`
+    - `inundate_mosiac_wrapper.py`:  Took out a misleading and non-required print statement.
+    - `inundate_nation.py`: As mentioned above.
+
+<br/><br/>
+
+## v4.4.7.1 - 2023-12-01 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
+
+Quick update to match incoming ras2fim calibration output files being feed into FIM was the initial change.
+
+There is no FIM issue card for this, but this is related to a ras2fim [PR #205](https://github.com/NOAA-OWP/ras2fim/pull/205) which also made changes to ensure compatibility. New copies of both the `reformat_ras_rating_curve_table_rel_101.csv` and `reformat_ras_rating_curve_points_rel_101.gpkg` were generated from ras2fim but retained the version of `rel_101`.
+
+Originally, was planning to update just the two locations for newer versions of the two `reformat_ras_rating_surve...` files. Both had been update to recognize the ras2release version rel_101.
+
+In the process of doing that, we took the opportunity to move all inputs files from params_template.env and put them into bash_variables.env as per precedence set recently.
+
+### Changes
+
+- `config`/`params_template.env`: moved input variables into `src/bash_variables.env`
+- `src`
+    - `bash_variablles.env`: Added all input variables from `params_template.env` to here and added one new one from `run_unit_wb.sh` for ras_rating_curve_points_gpkg.
+    - `run_unit_wb.sh`:   Updated an input param to the usgs_gage_unit_setup.py file to point the -ras param to the updated rel_101 value now in the `src/bash_variables.env`.
+    - `usgs_gage_unit_setup.py`:  Changed to drop a column no longer going to be coming from ras2fim calibration files.
+
+<br/><br/>
+
+## v4.4.7.0 - 2023-11-13 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
+
+This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for this repository. 
+The `flake8-pyproject` dependency is now used, as it works out of the box with the `pre-commit` GitHub Action in the GitHub Hosted Runner environment.
+In switching to this package, a couple of `E721` errors appeared. Modifications were made to the appropriate files to resolve the `flake8` `E721` errors.
+Also, updates to the `unit_tests` were necessary since Branch IDs have changed with the latest code.  
+
+A small fix was also included where `src_adjust_ras2fim_rating.py` which sometimes fails with an encoding error when the ras2fim csv sometimes is created or adjsuted in windows.
+
+### Changes
+- `.pre-commit-config.yaml`: use `flake8-pyproject` package instead of `pyproject-flake8`.
+- `Pipfile` and `Pipfile.lock`: updated to use `flake8-pyproject` package instead of `pyproject-flake8`, upgrade `pyarrow` version.
+- `data`
+    - `/wbd/generate_pre_clip_fim_huc8.py`: Add space between (-) operator line 134.
+    - `write_parquet_from_calib_pts.py`: Add space between (-) operator line 234.
+- `src`
+    - `check_huc_inputs.py`: Change `== string` to `is str`, remove `import string`
+    - `src_adjust_ras2fim_rating.py`: Fixed encoding error.
+- `tools`
+    - `eval_plots.py`: Add space after comma in lines 207 & 208
+    - `generate_categorical_fim_mapping.py`: Use `is` instead of `==`, line 315
+    - `hash_compare.py`: Add space after comma, line 153.
+    - `inundate_mosaic_wrapper.py`: Use `is` instead of `==`, line 73.
+    - `inundation_wrapper_nwm_flows.py`: Use `is not` instead of `!=`, line 76.
+    - `mosaic_inundation.py`: Use `is` instead of `==`, line 181.
+- `unit_tests`
+    - `README.md`: Updated documentation, run `pytest` in `/foss_fim` directory.
+    - `clip_vectors_to_wbd_test.py`: File moved to data/wbd directory, update import statement, skipped this test.
+    - `filter_catchments_and_add_attributes_params.json`: Update Branch ID
+    - `inundate_gms_params.json`: Moved to `unit_tests/` folder.
+    - `inundate_gms_test.py`: Moved to `unit_tests/` folder.
+    - `inundation_params.json`: Moved to `unit_tests/` folder.
+    - `inundation_test.py`: Moved to `unit_tests/` folder.
+    - `outputs_cleanup_params.json`: Update Branch ID
+    - `outputs_cleanup_test.py`: Update import statement
+    - `split_flows_params.json`: Update Branch ID
+    - `usgs_gage_crosswalk_params.json`: Update Branch ID & update argument to gage_crosswalk.run_crosswalk
+    - `usgs_gage_crosswalk_test.py`: Update params to gage_crosswalk.run_crosswalk
+
+### Additions 
+- `.github/workflows/`
+    - `lint_and_format.yaml`: Add GitHub Actions Workflow file for Continuous Integration environment (lint and format test).
+
+<br/><br/>
+
+## v4.4.6.0 - 2023-11-17 - [PR#1031](https://github.com/NOAA-OWP/inundation-mapping/pull/1031)
+
+Upgrade our acquire 3Dep DEMs script to pull down South Alaska HUCS with its own CRS.
+
+The previous set of DEMs run for FIM and it's related vrt already included all of Alaska, and those have not been re-run. FIM code will be updated in the near future to detect if the HUC starts with a `19` with slight different logic, so it can preserve the CRS of EPSG:3338 all the way to final FIM outputs.  See [792 ](https://github.com/NOAA-OWP/inundation-mapping/issues/792)for new integration into FIM.
+
+A new vrt for the new South Alaska DEMs was also run with no changes required.
+
+This issue closes [1028](https://github.com/NOAA-OWP/inundation-mapping/issues/1028). 
+
+### Additions
+- `src/utils`
+     - `shared_validators.py`: A new script where we can put in code to validate more complex arguments for python scripts. Currently has one for validating CRS values. It does valid if the CRS value is legitimate but does check a bunch of formatting including that it starts with either the name of `EPSG` or `ESRI`
+
+### Changes
+- `data/usgs` 
+    - `aquire_and_preprocess_3dep_dems.py`: Changes include:
+        - Add new input arg for desired target projection and logic to support an incoming CRS.
+        - Updated logic for pre-existing output folders and `on-the-fly` question to users during execution if they want to overwrite the output folder (if applicable).
+        - Changed date/times to utc.
+        - Upgraded error handing for the gdal "processing" call.
+
+<br/><br/>
+
+
 ## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
 During a recent BED attempt which added the new pre-clip system, it was erroring out on a number of hucs. It was issuing an error in the add_crosswalk.py script. While a minor bug does exist there, after a wide number of tests, the true culprit is the memory profile system embedded throughout FIM. This system has been around for at least a few years but not in use. It is not 100% clear why it became a problem with the addition of pre-clip, but that changes how records are loaded which likely affected memory at random times.

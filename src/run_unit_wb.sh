@@ -26,6 +26,13 @@ huc_start_time=`date +%s`
 echo -e $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/$hucNumber"
 cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
+# Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
+# For buffer_stream_branches.py
+cp $input_DEM_domain $tempHucDataDir
+# For usgs_gage_unit_setup.py
+cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
+cp $ras_rating_curve_points_gpkg $tempHucDataDir
+cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
 
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"
@@ -77,7 +84,7 @@ Tcount
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"
 date -u
 Tstart
-$srcDir/buffer_stream_branches.py -a $input_DEM_domain \
+$srcDir/buffer_stream_branches.py -a $tempHucDataDir/HUC6_dem_domain.gpkg \
     -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -i $branch_id_attribute \
     -d $branch_buffer_distance_meters \
@@ -274,12 +281,12 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     date -u
     Tstart
     python3 $srcDir/usgs_gage_unit_setup.py \
-        -gages $inputsDir/usgs_gages/usgs_gages.gpkg \
+        -gages $tempHucDataDir/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
-        -ras $inputsDir/rating_curve/ras2fim_exports/reformat_ras_rating_curve_points.gpkg \
+        -ras $tempHucDataDir/$ras_rating_curve_gpkg_filename \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
         -huc $hucNumber \
-        -ahps $inputsDir/ahps_sites/nws_lid.gpkg \
+        -ahps $tempHucDataDir/nws_lid.gpkg \
         -bzero_id $branch_zero_id
     Tcount
 fi

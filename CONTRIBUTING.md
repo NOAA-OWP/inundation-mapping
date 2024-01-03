@@ -65,7 +65,7 @@ If you would like to contribute, please follow these steps:
     # Check all files in the repo
     pre-commit run -a
 
-    # Run only the black formatting tool
+    # Run only the flake8 formatting tool
     pre-commit run -a flake8
     ```
 

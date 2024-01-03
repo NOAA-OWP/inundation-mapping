@@ -33,9 +33,7 @@ class Gage2Branch(object):
         # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64).
         # Need the raw data to store the 'huc8' attribute as an object to avoid issues with integers truncating the leading zero from some hucs
         ras_locs = gpd.read_file(self.ras_locs_filename, dtype={'huc8': 'object'})
-        ras_locs = ras_locs[
-            ['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'wrds_timestamp', 'geometry']
-        ]
+        ras_locs = ras_locs[['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'geometry']]
         ras_locs['location_id'] = ras_locs['fid_xs']
 
         # Convert ras locs crs to match usgs gage crs

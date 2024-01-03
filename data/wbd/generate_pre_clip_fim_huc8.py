@@ -131,7 +131,7 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
     if number_of_jobs > total_cpus_available:
         print(
             f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -2: '
-            f'{total_cpus_available -2} will be used instead.'
+            f'{total_cpus_available - 2} will be used instead.'
         )
         number_of_jobs = total_cpus_available - 2
 

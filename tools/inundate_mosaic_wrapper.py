@@ -70,8 +70,9 @@ def produce_mosaicked_inundation(
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
     # If the "hucs" argument is really one huc, convert it to a list
-    if type(hucs) == str:
+    if type(hucs) is str:
         hucs = [hucs]
+
     # Check that huc folder exists in the hydrofabric_dir.
     for huc in hucs:
         if not os.path.exists(os.path.join(hydrofabric_dir, huc)):
@@ -91,8 +92,6 @@ def produce_mosaicked_inundation(
             "exceeds your machine's available CPU count minus one ({}). "
             "Please lower the num_workers.".format(num_workers, total_cpus_available)
         )
-
-    fh.vprint("Running inundate for " + huc + "...", verbose)
 
     # Call Inundate_gms
     map_file = Inundate_gms(
