@@ -32,6 +32,113 @@ def verify_crosswalk(
     -----
     python verify_crosswalk.py -a <input_flows_fileName> -b <input_nwmflows_fileName> -d <input_nwm_headwaters_fileName> -c <output_table_fileName>
     """
+
+    intersections_results = _verify_crosswalk_intersections(input_flows_fileName, input_nwmflows_fileName)
+
+    intersections_correct = intersections_results['crosswalk'].sum()
+    intersections_total = len(intersections_results)
+    intersections_summary = intersections_correct * 100.0 / intersections_total
+
+    network_results = _verify_crosswalk_network(
+        input_flows_fileName, input_nwmflows_fileName, input_nwm_headwaters_fileName
+    )
+
+    network_results = network_results[network_results['status'] >= 0]
+    network_correct = len(network_results[network_results['status'] == 0])
+    network_total = len(network_results)
+    network_summary = network_correct * 100.0 / network_total
+
+    results = pd.DataFrame(
+        data={
+            'type': ['intersections', 'network'],
+            'correct': [intersections_correct, network_correct],
+            'total': [intersections_total, network_total],
+            'percent': [intersections_summary, network_summary],
+        }
+    )
+
+    results.to_csv(output_table_fileName, index=False)
+
+
+def _verify_crosswalk_intersections(input_flows_fileName, input_nwmflows_fileName):
+    # Crosswalk check
+    # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
+
+    flows = gpd.read_file(input_flows_fileName)
+    nwm_streams = gpd.read_file(input_nwmflows_fileName)
+
+    # Compute the number of intersections between the NWM and DEM-derived flowlines
+    streams = nwm_streams
+    xwalks = []
+    intersects = flows.sjoin(streams)
+
+    for idx in intersects.index:
+        flows_idx = intersects.loc[intersects.index == idx, 'HydroID'].unique()
+
+        if type(intersects.loc[idx, 'ID']) == np.int64:
+            streams_idxs = [intersects.loc[idx, 'ID']]
+        else:
+            streams_idxs = intersects.loc[idx, 'ID'].unique()
+
+        for flows_id in flows_idx:
+            for streams_idx in streams_idxs:
+                intersect = gpd.overlay(
+                    flows[flows['HydroID'] == flows_id],
+                    nwm_streams[nwm_streams['ID'] == streams_idx],
+                    keep_geom_type=False,
+                )
+
+                if len(intersect) == 0:
+                    intersect_points = 0
+                    feature_id = flows.loc[flows['HydroID'] == flows_id, 'feature_id']
+                elif intersect.geometry[0].geom_type == 'Point':
+                    intersect_points = 1
+                    feature_id = flows.loc[flows['HydroID'] == flows_id, 'feature_id']
+                else:
+                    intersect_points = len(intersect.geometry[0].geoms)
+                    feature_id = int(flows.loc[flows['HydroID'] == flows_id, 'feature_id'].iloc[0])
+
+                xwalks.append([flows_id, feature_id, streams_idx, intersect_points])
+
+    # Get the maximum number of intersections for each flowline
+    xwalks = pd.DataFrame(xwalks, columns=['HydroID', 'feature_id', 'ID', 'intersect_points'])
+    xwalks['feature_id'] = xwalks['feature_id'].astype(int)
+
+    xwalks['match'] = xwalks['feature_id'] == xwalks['ID']
+
+    xwalks_groupby = xwalks[['HydroID', 'intersect_points']].groupby('HydroID').max()
+
+    xwalks = xwalks.merge(xwalks_groupby, on='HydroID', how='left')
+    xwalks['max'] = xwalks['intersect_points_x'] == xwalks['intersect_points_y']
+
+    xwalks['crosswalk'] = xwalks['match'] == xwalks['max']
+
+    return xwalks
+
+
+def _verify_crosswalk_network(input_flows_fileName, input_nwmflows_fileName, input_nwm_headwaters_fileName):
+    """
+    Tool to check the accuracy of crosswalked attributes
+
+    Parameters
+    ----------
+    input_flows_fileName : str
+        Path to DEM derived streams
+    input_nwmflows_fileName : str
+        Path to subset NWM burnlines
+    input_nwm_headwaters_fileName : str
+        Path to subset NWM headwaters
+    output_table_fileName : str
+        Path to output table filename
+
+    Returns
+    -------
+    results : pandas.DataFrame
+
+    Usage
+    -----
+    python verify_crosswalk.py -a <input_flows_fileName> -b <input_nwmflows_fileName> -d <input_nwm_headwaters_fileName> -c <output_table_fileName>
+    """
     # Check for crosswalks between NWM and DEM-derived flowlines
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
@@ -133,7 +240,6 @@ def verify_crosswalk(
     results = pd.DataFrame(
         data=results, columns=['HydroID', 'feature_id', 'upstream_fids', 'upstream_nwm_fids', 'status']
     )
-    results.to_csv(output_table_fileName, index=False)
 
     return results
 
