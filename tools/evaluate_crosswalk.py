@@ -75,7 +75,7 @@ def _verify_crosswalk_intersections(input_flows_fileName, input_nwmflows_fileNam
     for idx in intersects.index:
         flows_idx = intersects.loc[intersects.index == idx, 'HydroID'].unique()
 
-        if type(intersects.loc[idx, 'ID']) == np.int64:
+        if isinstance(intersects.loc[idx, 'ID'], np.int64):
             streams_idxs = [intersects.loc[idx, 'ID']]
         else:
             streams_idxs = intersects.loc[idx, 'ID'].unique()
@@ -204,19 +204,19 @@ def _verify_crosswalk_network(input_flows_fileName, input_nwmflows_fileName, inp
         nwm_fids = streams_dict[fid]
         out_list = [flow, fid, upstream_fids, nwm_fids]
 
-        if type(upstream_hid) != np.int64:
+        if not isinstance(upstream_hid, np.int64):
             if len(upstream_hid) > 0:
                 for i in upstream_hid:
                     # Find upstream feature_id(s)
                     temp_fid = int(_hydroid_to_feature_id(flows, i, 'HydroID', 'feature_id').iloc[0])
 
-                    if type(temp_fid) == list:
+                    if isinstance(temp_fid, list):
                         upstream_fids.append(temp_fid[0])
                     else:
                         upstream_fids.append(temp_fid)
 
                 out_list = [flow, fid, upstream_fids, nwm_fids]
-                if type(nwm_fids) == np.int64:
+                if isinstance(nwm_fids, np.int64):
                     nwm_fids = [nwm_fids]
 
                 if fid in upstream_fids:
