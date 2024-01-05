@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2023-12-29 - [PR#1059](https://github.com/NOAA-OWP/inundation-mapping/pull/1059)
+## v4.4.8.3 - 2024-01-05 - [PR#1059](https://github.com/NOAA-OWP/inundation-mapping/pull/1059)
 
 Fixes erroneous branch inundation in levee-protected areas.
 
