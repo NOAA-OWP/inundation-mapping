@@ -302,3 +302,16 @@ python3 $srcDir/add_crosswalk.py \
     -e $min_catchment_area \
     -g $min_stream_length
 Tcount
+
+## EVALUATE CROSSWALK ##
+if [ "$evaluateCrosswalk" = "True" ]; then
+    echo -e $startDiv"Evaluate crosswalk $hucNumber $current_branch_id"
+    date -u
+    Tstart
+    python3 $toolsDir/verify_crosswalk.py \
+        -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -b $b_arg \
+        -c $tempCurrentBranchDataDir/verify_crosswalk_$current_branch_id.csv \
+        -d $tempHucDataDir/nwm_headwater_points_subset.gpkg
+    Tcount
+fi
