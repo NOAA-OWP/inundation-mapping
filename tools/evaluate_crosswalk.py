@@ -7,11 +7,16 @@ import numpy as np
 import pandas as pd
 
 
-def verify_crosswalk(
-    input_flows_fileName, input_nwmflows_fileName, input_nwm_headwaters_fileName, output_table_fileName
+def evaluate_crosswalk(
+    input_flows_fileName: str,
+    input_nwmflows_fileName: str,
+    input_nwm_headwaters_fileName: str,
+    output_table_fileName: str,
+    huc: str,
+    branch: str,
 ):
     """
-    Tool to check the accuracy of crosswalked attributes
+    Tool to check the accuracy of crosswalked attributes using two methods: counting the number of intersections between two stream representations and network, which checks the upstream and downstream connectivity of each stream segment.
 
     Parameters
     ----------
@@ -23,6 +28,10 @@ def verify_crosswalk(
         Path to subset NWM headwaters
     output_table_fileName : str
         Path to output table filename
+    huc : str
+        HUC ID
+    branch : str
+        Branch ID
 
     Returns
     -------
@@ -30,37 +39,56 @@ def verify_crosswalk(
 
     Usage
     -----
-    python verify_crosswalk.py -a <input_flows_fileName> -b <input_nwmflows_fileName> -d <input_nwm_headwaters_fileName> -c <output_table_fileName>
+    python evaluate_crosswalk.py -a <input_flows_fileName> -b <input_nwmflows_fileName> -d <input_nwm_headwaters_fileName> -c <output_table_fileName> -u <huc> -z <branch>
     """
 
-    intersections_results = _verify_crosswalk_intersections(input_flows_fileName, input_nwmflows_fileName)
+    intersections_results = _evaluate_crosswalk_intersections(input_flows_fileName, input_nwmflows_fileName)
 
     intersections_correct = intersections_results['crosswalk'].sum()
     intersections_total = len(intersections_results)
-    intersections_summary = intersections_correct * 100.0 / intersections_total
+    intersections_summary = intersections_correct / intersections_total
 
-    network_results = _verify_crosswalk_network(
+    network_results = _evaluate_crosswalk_network(
         input_flows_fileName, input_nwmflows_fileName, input_nwm_headwaters_fileName
     )
 
     network_results = network_results[network_results['status'] >= 0]
     network_correct = len(network_results[network_results['status'] == 0])
     network_total = len(network_results)
-    network_summary = network_correct * 100.0 / network_total
+    network_summary = network_correct / network_total
 
     results = pd.DataFrame(
         data={
-            'type': ['intersections', 'network'],
+            'huc': [huc, huc],
+            'branch': [branch, branch],
+            'method': ['intersections', 'network'],
             'correct': [intersections_correct, network_correct],
             'total': [intersections_total, network_total],
-            'percent': [intersections_summary, network_summary],
+            'proportion': [intersections_summary, network_summary],
         }
     )
 
     results.to_csv(output_table_fileName, index=False)
 
+    return results
 
-def _verify_crosswalk_intersections(input_flows_fileName, input_nwmflows_fileName):
+
+def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_fileName: str):
+    """
+    Computes the number of intersections between the NWM and DEM-derived flowlines
+
+    Parameters
+    ----------
+    input_flows_fileName : str
+        Path to DEM derived streams
+    input_nwmflows_fileName : str
+        Path to subset NWM burnlines
+
+    Returns
+    -------
+    pandas.DataFrame
+    """
+
     # Crosswalk check
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
@@ -116,9 +144,11 @@ def _verify_crosswalk_intersections(input_flows_fileName, input_nwmflows_fileNam
     return xwalks
 
 
-def _verify_crosswalk_network(input_flows_fileName, input_nwmflows_fileName, input_nwm_headwaters_fileName):
+def _evaluate_crosswalk_network(
+    input_flows_fileName: str, input_nwmflows_fileName: str, input_nwm_headwaters_fileName: str
+):
     """
-    Tool to check the accuracy of crosswalked attributes
+    Compares the upstream and downstream connectivity of each stream segment
 
     Parameters
     ----------
@@ -133,12 +163,9 @@ def _verify_crosswalk_network(input_flows_fileName, input_nwmflows_fileName, inp
 
     Returns
     -------
-    results : pandas.DataFrame
-
-    Usage
-    -----
-    python verify_crosswalk.py -a <input_flows_fileName> -b <input_nwmflows_fileName> -d <input_nwm_headwaters_fileName> -c <output_table_fileName>
+    pandas.DataFrame
     """
+
     # Check for crosswalks between NWM and DEM-derived flowlines
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
@@ -246,11 +273,19 @@ def _verify_crosswalk_network(input_flows_fileName, input_nwmflows_fileName, inp
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Tool to check crosswalk accuracy')
-    parser.add_argument('-a', '--input-flows-fileName', help='DEM derived streams', required=True)
-    parser.add_argument('-b', '--input-nwmflows-fileName', help='Subset NWM burnlines', required=True)
-    parser.add_argument('-d', '--input-nwm-headwaters-fileName', help='Subset NWM headwaters', required=True)
-    parser.add_argument('-c', '--output-table-fileName', help='Output table filename', required=True)
+    parser.add_argument('-a', '--input-flows-fileName', help='DEM derived streams', type=str, required=True)
+    parser.add_argument(
+        '-b', '--input-nwmflows-fileName', help='Subset NWM burnlines', type=str, required=True
+    )
+    parser.add_argument(
+        '-d', '--input-nwm-headwaters-fileName', help='Subset NWM headwaters', type=str, required=True
+    )
+    parser.add_argument(
+        '-c', '--output-table-fileName', help='Output table filename', type=str, required=True
+    )
+    parser.add_argument('-u', '--huc', help='HUC ID', type=str, required=True)
+    parser.add_argument('-z', '--branch', help='Branch ID', type=str, required=True)
 
     args = vars(parser.parse_args())
 
-    verify_crosswalk(**args)
+    evaluate_crosswalk(**args)

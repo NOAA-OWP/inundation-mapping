@@ -312,6 +312,8 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -b $b_arg \
         -c $tempHucDataDir/crosswalk_evaluation_$current_branch_id.csv \
-        -d $tempHucDataDir/nwm_headwater_points_subset.gpkg
+        -d $tempHucDataDir/nwm_headwater_points_subset.gpkg \
+        -u $hucNumber \
+        -z $current_branch_id
     Tcount
 fi
