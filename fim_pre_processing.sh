@@ -190,6 +190,7 @@ if [[ $total_requested_jobs -gt $num_available_cores ]]; then
     echo "ERROR: There are $num_available_cores available, but -jh (jobHucLimit) * -jb (jobBranchLimit)"\
          "exceed the number of available cores"
     echo
+    usage
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
