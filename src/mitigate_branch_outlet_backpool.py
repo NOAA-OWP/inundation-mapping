@@ -22,7 +22,7 @@ import fiona
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import getDriver, mem_profile
+from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 import subprocess
@@ -38,6 +38,7 @@ def mitigate_branch_outlet_backpool(
     dem_filename,
     slope_min,
     calculate_stats,
+    dry_run,
 ):
 
     # --------------------------------------------------------------
@@ -67,6 +68,7 @@ def mitigate_branch_outlet_backpool(
 
         # Define the threshold for outliers (2 standard deviations from the mean)
         threshold = 2 * std_dev_counts
+        # threshold = 3 * std_dev_counts ## DEBUG ## TEMPORARY THRESHOLD VALUE
 
         # Create a new column 'outlier' with True for outliers and False for non-outliers
         catchments_df['outlier'] = abs(catchments_df['counts'] - mean_counts) > threshold
@@ -357,13 +359,18 @@ def mitigate_branch_outlet_backpool(
                 # Convert the geodataframe into a format compatible to rasterio
                 catchment_pixels_new_boundary_json = gdf_to_json(catchment_pixels_new_boundary_geom)
 
-                # Mask catchment reaches raster
-                mask_raster_to_boundary(catchment_reaches_filename, catchment_pixels_new_boundary_json, catchment_reaches_filename)
+                if dry_run == False:
 
-                # Mask catchment pixels raster
-                mask_raster_to_boundary(catchment_pixels_filename, catchment_pixels_new_boundary_json, catchment_pixels_filename)
+                    # Mask catchment reaches raster
+                    mask_raster_to_boundary(catchment_reaches_filename, catchment_pixels_new_boundary_json, catchment_reaches_filename)
 
-                # print('Finished masking!') ## verbose
+                    # Mask catchment pixels raster
+                    mask_raster_to_boundary(catchment_pixels_filename, catchment_pixels_new_boundary_json, catchment_pixels_filename)
+
+                    # print('Finished masking!') ## verbose
+
+                elif dry_run == True: 
+                    print('Dry run: Skipping raster masking!')
 
                 # --------------------------------------------------------------
                 if calculate_stats == True:
@@ -377,11 +384,11 @@ def mitigate_branch_outlet_backpool(
                     new_boundary_area = catchment_pixels_new_boundary_geom.area
 
                     # Calculate the km and percent differences of the catchment area
-                    boundary_area_km_diff = old_boundary_area-new_boundary_area 
-                    boundary_area_percent_diff = ((old_boundary_area-new_boundary_area)/old_boundary_area)*100
+                    boundary_area_km_diff = float(old_boundary_area-new_boundary_area)
+                    boundary_area_percent_diff = float(((old_boundary_area-new_boundary_area)/old_boundary_area)*100)
 
                     # Calculate the difference (km) of the flowlines
-                    flowlength_km_diff = inital_length_km - new_length_km
+                    flowlength_km_diff = float(inital_length_km - new_length_km)
 
                     # Create a dataframe with this data (TODO: Write a script that goes into a runfile and compiles these. That's where I'll add branch and HUC ID to this data.)
                     backpool_stats_df = pd.DataFrame({'flowlength_km_diff': [flowlength_km_diff],
@@ -389,20 +396,28 @@ def mitigate_branch_outlet_backpool(
                                              'boundary_area_percent_diff': [boundary_area_percent_diff]
                                              })
 
-                    # Save stats
+                    print('backpool_stats_df:') ## verbose
+                    print(backpool_stats_df) ## verbose
+
                     backpool_stats_filepath = os.path.join(branch_dir, 'backpool_stats.csv')
+
+                    # if isfile(backpool_stats_filepath): 
+                    #     remove(backpool_stats_filepath)
+
+                    print()
+                    print('backpool_stats_filepath:') ## debug
+                    print(backpool_stats_filepath) ## debug
+                    print()
+                    
+                    # Save stats
                     backpool_stats_df.to_csv(backpool_stats_filepath, index=False)
-
-
 
                 # --------------------------------------------------------------
                 # Save the outputs
 
-                # Toggle whether it's a test run or not
-                test_run = True
 
                 # Save outputs
-                if test_run == False:
+                if dry_run == False:
                     # print('Writing outputs ...') ## verbose
 
                     if isfile(split_flows_filename): 
@@ -413,7 +428,7 @@ def mitigate_branch_outlet_backpool(
                     output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
                     split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
                 
-                elif test_run == True:
+                elif dry_run == True:
 
                     print('Test run... not saving outputs!')
 
@@ -438,11 +453,13 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
-    parser.add_argument('-cs', '--calculate-stats', help='Caclulate stats (boolean)', required=True)
+    parser.add_argument('--calculate-stats', help='Optional flag. If used, then stats will be calculated.', required=False, action='store_true')
+    parser.add_argument('--dry-run', help='Optional flag. If used, then the files will not be modified (but stats can still be calculated).', required=False, action='store_true')
+
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
     args['slope_min'] = float(args['slope_min'])
-    args['calculate-stats'] = bool(args['calculate-stats'])
+    args['calculate_stats'] = bool(args['calculate_stats'])
 
     mitigate_branch_outlet_backpool(**args)

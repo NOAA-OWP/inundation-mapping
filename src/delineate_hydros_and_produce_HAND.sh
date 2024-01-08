@@ -182,10 +182,10 @@ $srcDir/mitigate_branch_outlet_backpool.py \
     -n $b_arg \
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
     -t $slope_min \
-    -cs True
+    --calculate-stats
 Tcount
 
-# D8 REM ##
+## D8 REM ##
 echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
 date -u
 Tstart
