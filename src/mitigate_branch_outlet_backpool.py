@@ -66,9 +66,8 @@ def mitigate_branch_outlet_backpool(
         mean_counts = catchments_df['counts'].mean()
         std_dev_counts = catchments_df['counts'].std()
 
-        # Define the threshold for outliers (2 standard deviations from the mean)
-        threshold = 2 * std_dev_counts
-        # threshold = 3 * std_dev_counts ## DEBUG ## TEMPORARY THRESHOLD VALUE
+        # Define the threshold for outliers (1 standard deviation from the mean)
+        threshold = 1 * std_dev_counts
 
         # Create a new column 'outlier' with True for outliers and False for non-outliers
         catchments_df['outlier'] = abs(catchments_df['counts'] - mean_counts) > threshold
