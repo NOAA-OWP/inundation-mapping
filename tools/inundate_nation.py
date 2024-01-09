@@ -6,17 +6,14 @@ import multiprocessing
 import os
 import re
 import shutil
-import sys
 from datetime import datetime
 from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-from osgeo import gdal, ogr
-from rasterio.merge import merge
+from osgeo import gdal
 
 from utils.shared_functions import FIM_Helpers as fh
-from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 
 
 # INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
@@ -24,6 +21,9 @@ from utils.shared_variables import PREP_PROJECTION, elev_raster_ndv
 # INPUTS_DIR = r'/data/inputs'
 # OUTPUT_BOOL_PARENT_DIR = '/data/inundation_review/inundate_nation/bool_temp/
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
+
+
+# TODO: Nov 2023, Logging system appears to be not working correctly.
 
 
 def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number):
@@ -37,12 +37,14 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             + " max jobs will be used instead."
         )
 
+    print()
+    print("Inundation Nation script starting...")
+
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
-    logging.info(f"Using fim version: {fim_version}")
     output_base_file_name = magnitude_key + "_" + fim_version
-    # print(output_base_file_name)
 
     __setup_logger(output_dir, output_base_file_name)
+    logging.info(f"Using fim version: {fim_version}")
 
     start_dt = datetime.now()
 
@@ -52,48 +54,42 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     logging.info(f"flow_file: {flow_file}")
     logging.info(f"inc_mosaic: {str(inc_mosaic)}")
 
-    print("Preparing to generate inundation outputs for magnitude: " + magnitude_key)
-    print("Input flow file: " + flow_file)
-
     magnitude_output_dir = os.path.join(output_dir, output_base_file_name)
 
     if not os.path.exists(magnitude_output_dir):
-        print("Creating new output directory for raw mosaic files: " + magnitude_output_dir)
+        logging.info(
+            "Removing previous output dir and creating new output dir for inunation wrapper files: "
+            + magnitude_output_dir
+        )
         os.mkdir(magnitude_output_dir)
     else:
         # we need to empty it. we will kill it and remake it (using rmtree to force it)
         shutil.rmtree(magnitude_output_dir, ignore_errors=True)
         os.mkdir(magnitude_output_dir)
 
-    if huc_list is None:
+    if huc_list == 'all' or len(huc_list) == 0:
         huc_list = []
         for huc in os.listdir(fim_run_dir):
-            # if (
-            #     huc != 'logs'
-            #     and huc != 'branch_errors'
-            #     and huc != 'unit_errors'
-            #     and os.path.isdir(os.path.join(fim_run_dir, huc))
-            # ):
             if re.match(r'\d{8}', huc):
                 huc_list.append(huc)
     else:
         for huc in huc_list:
-            assert os.path.isdir(
-                fim_run_dir + os.sep + huc
-            ), f'ERROR: could not find the input fim_dir location: {fim_run_dir + os.sep + huc}'
+            huc_path = os.path.join(fim_run_dir, huc)
+            assert os.path.isdir(huc_path), f'ERROR: could not find the input fim_dir location: {huc_path}'
 
-    print("Inundation raw mosaic outputs here: " + magnitude_output_dir)
+    huc_list.sort()
 
+    logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
     run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
 
     # Perform mosaic operation
     if inc_mosaic:
         fh.print_current_date_time()
         logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S"))
-        print("Performing bool mosaic process...")
         logging.info("Performing bool mosaic process...")
-
         output_bool_dir = os.path.join(output_dir, "bool_temp")
+        logging.info(f"output_bool_dir is {output_bool_dir}")
+
         if not os.path.exists(output_bool_dir):
             os.mkdir(output_bool_dir)
         else:
@@ -105,7 +101,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
         for rasfile in os.listdir(magnitude_output_dir):
             if rasfile.endswith(".tif") and "extent" in rasfile:
                 # p = magnitude_output_dir + rasfile
-                procs_list.append([magnitude_output_dir, rasfile, output_bool_dir])
+                procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, fim_version])
 
         # Multiprocess --> create boolean inundation rasters for all hucs
         if len(procs_list) > 0:
@@ -116,10 +112,17 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             print(msg)
             logging.info(msg)
 
-        # now cleanup the raw mosiac directories
+        # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, job_number)
+
+        # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
 
+    else:
+        print("Skipping mosiaking")
+
     # now cleanup the raw mosiac directories
+    # comment this out if you want to see the individual huc rasters
     shutil.rmtree(magnitude_output_dir, ignore_errors=True)
 
     fh.print_current_date_time()
@@ -149,7 +152,16 @@ def run_inundation(args):
 
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
 
-    print("Running the NWM recurrence intervals for HUC inundation (extent) for magnitude: " + str(magnitude))
+    logging.info(
+        "Running inundation wrapper for the NWM recurrence intervals for each huc using magnitude: "
+        + str(magnitude)
+    )
+    print(
+        "This will take a long time depending on the number of HUCs. Progress bar may not appear."
+        " Once it gets to boolean/mosiacing (if applicable), screen output will exist. To see if the script has frozen,"
+        " you should be able to watch the file system for some changes."
+    )
+    print()
 
     produce_mosaicked_inundation(
         fim_run_dir,
@@ -167,6 +179,7 @@ def create_bool_rasters(args):
     in_raster_dir = args[0]
     rasfile = args[1]
     output_bool_dir = args[2]
+    fim_version = args[3]
 
     print("Calculating boolean inundate raster: " + rasfile)
     p = in_raster_dir + os.sep + rasfile
@@ -189,23 +202,70 @@ def create_bool_rasters(args):
         dtype="int8",
         compress="lzw",
     )
-    with rasterio.open(output_bool_dir + os.sep + "bool_" + rasfile, "w", **profile) as dst:
+    with rasterio.open(
+        output_bool_dir + os.sep + rasfile[:-4] + '_' + fim_version + '.tif', "w", **profile
+    ) as dst:
         dst.write(array.astype(rasterio.int8))
 
 
-def __setup_logger(output_folder_path, log_file_name_key):
+def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
+    rasters_to_mosaic = []
+    for rasfile in os.listdir(output_bool_dir):
+        if rasfile.endswith('.tif') and "extent" in rasfile:
+            p = output_bool_dir + os.sep + rasfile
+            rasters_to_mosaic.append(p)
+
+    output_mosiac_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
+    logging.info("Creating virtual raster: " + output_mosiac_vrt)
+    vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
+
+    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
+    logging.info("Building raster mosaic: " + output_mosiac_raster)
+    logging.info("Using " + str(threads) + " threads for parallizing")
+    print("Note: This step can take a number of hours if processing 100s of hucs")
+    gdal.Translate(
+        output_mosiac_raster,
+        vrt,
+        xRes=10,
+        yRes=-10,
+        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2', 'NUM_THREADS=' + str(threads)],
+    )
+    vrt = None
+
+
+def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
     start_time = datetime.now()
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
 
     log_file_path = os.path.join(output_folder_path, log_file_name)
+    print('Log file created here:' + str(log_file_path))
 
-    logging.basicConfig(filename=log_file_path, level=logging.DEBUG, format="%(message)s")
+    # Clear previous logging configuration
+    logging.getLogger().handlers = []
 
-    # yes.. this can do console logs as well, but it can be a bit unstable and ugly
+    # Create a StreamHandler and set the level
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
 
-    logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
-    logging.info("----------------")
+    # Create a FileHandler and set the level
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(log_level)
+
+    # Create a formatter and set the formatter for the handlers
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    # Add the handlers to the logger
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    # Log the start time
+    logger.info(f'Started: {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logger.info("----------------")
 
 
 if __name__ == "__main__":

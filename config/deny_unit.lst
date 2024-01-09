@@ -35,3 +35,7 @@ nwm_headwaters.gpkg
 # wbd8_clp.gpkg
 wbd_buffered.gpkg
 wbd_buffered_streams.gpkg
+HUC6_dem_domain.gpkg
+usgs_gages.gpkg
+reformat_ras_rating_curve_points_rel_101.gpkg
+nws_lid.gpkg
