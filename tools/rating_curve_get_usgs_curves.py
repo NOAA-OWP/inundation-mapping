@@ -79,6 +79,25 @@ def get_all_active_usgs_sites():
 
     return gdf, list_of_sites, metadata_list
 
+def get_selected_usgs_sites(sites, metadata_list):
+    '''
+    Compile a list of all active usgs gage sites.
+    Return a GeoDataFrame of all sites.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    # Get a geospatial layer (gdf) for all acceptable sites
+    print("Aggregating WBD HUCs...")
+    gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
+    # Rename gdf fields
+    if 'columns' in gdf.values:
+        gdf.columns = gdf.columns.str.replace('identifiers_', '')
+
+    return gdf
 
 ##############################################################################
 # Generate categorical flows for each category across all sites.
@@ -142,8 +161,10 @@ def write_categorical_flow_files(metadata, workspace):
                 all_data = pd.concat([all_data, data], ignore_index=True)
 
     # Write CatFIM flows to file
-    final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
-    final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
+    if all_data.empty is False:
+        final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
+        final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
+    
     return all_data
 
 
@@ -211,14 +232,16 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         os.mkdir(workspace)
 
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
-    print('getting metadata for all sites')
     if list_of_gage_sites == ['all']:
+        print('getting metadata for all sites')
         sites_gdf, sites_list, metadata_list = get_all_active_usgs_sites()
     # Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:
         # Define arguments to retrieve metadata and then get metadata from WRDS
         select_by = 'usgs_site_code'
         selector = list_of_gage_sites
+        print("Selected sites :", selector)
+        
         # Since there is a limit to number characters in url, split up selector if too many sites.
         max_sites = 150
         if len(selector) > max_sites:
@@ -248,6 +271,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
                 upstream_trace_distance=None,
                 downstream_trace_distance=None,
             )
+        
+        sites_gdf = get_selected_usgs_sites(selector, metadata_list)
 
     # Create DataFrame to store all appended rating curves
     print('processing metadata')
@@ -280,6 +305,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
             # To prevent time-out errors
             time.sleep(sleep_time)
             # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
+            
             datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
 
             # If datum API failed, print message and skip site.
@@ -288,6 +314,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
                 api_failure_messages.append(api_message)
                 print(api_message)
                 continue
+
             # If datum adjustment succeeded, calculate datum in NAVD88
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
             message = f'{location_ids}:succesfully converted NGVD29 to NAVD88'
@@ -352,7 +379,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
     # Filter and save filtered file for viewing
     acceptable_sites_gdf = sites_gdf[
-        (sites_gdf['acceptable_codes'] is True) & (sites_gdf['acceptable_alt_error'] is True)
+        (sites_gdf['acceptable_codes'] == True) & (sites_gdf['acceptable_alt_error'] == True)
     ]
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
     acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_for_rating_curves.csv'))
