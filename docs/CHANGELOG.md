@@ -1,6 +1,87 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.8.3 - 2024-01-05 - [PR#1059](https://github.com/NOAA-OWP/inundation-mapping/pull/1059)
+
+Fixes erroneous branch inundation in levee-protected areas.
+
+Levees disrupt the natural hydrology and can create large catchments that contain low-lying areas in levee-protected areas that are subject to being inundated in the REM (HAND) grid. However, these low-lying areas are hydrologically disconnected from the stream associated with the catchment and can be erroneously inundated. Branch inundation in levee-protected areas is now confined to the catchment for the levelpath.
+
+### Changes
+
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: Adds input argument for catchments.
+    - `mask_dem.py`: Adds DEM masking for areas of levee-protected areas that are not in the levelpath catchment.
+
+<br/><br/>
+
+## v4.4.8.2 - 2023-12-12 - [PR#1052](https://github.com/NOAA-OWP/inundation-mapping/pull/1052)
+
+The alpha test for v4.4.8.1 came back with a large degradation in skill and we noticed that the global manning's roughness file was changed in v4.4.7.1 - likely in error.
+
+### Changes
+
+- `src`/`bash_variables.env`: changed the global roughness file to `${inputsDir}/rating_curve/variable_roughness/mannings_global_06_12.csv`
+
+<br/><br/>
+
+## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
+
+Upgrades JDK to v.17.0.9 in Docker image to address security vulnerabilities.
+
+### Changes
+
+- `Dockerfile`: Upgrades JDK to v.17.
+
+<br/><br/>
+
+## v4.4.8.0 - 2023-12-08 - [PR#1045](https://github.com/NOAA-OWP/inundation-mapping/pull/1045)
+
+In order to avoid file system collisions on AWS, and keep the reads/writes from the same file on disk to a minimum, three files (`HUC6_dem_domain.gpkg`, `nws_lid.gpkg`, `reformat_ras_rating_curve_points_rel_101.gpkg`, & `usgs_gages.gpkg`) are now copied from disk into a scratch directory (temporary working directory), and removed after processing steps are completed.
+
+### Changes
+
+- `config`/`deny_unit.lst`: Add files to remove list - repetitive copies needed for processing step (`run_unit_wb.sh`)
+- `src`
+    - `bash_variables.env`: Add a new variable for the ras rating curve filename. It will be easier to track the filename in the `.env`, and pull into `run_unit_wb.sh`, rather than hardcode it.
+    - `run_unit_wb.sh`: Copy files and update references from `$inputsDir` to `$tempHucDataDir`.
+
+<br/><br/>
+
+## v4.4.7.2 - 2023-12-08 - [PR#1026](https://github.com/NOAA-OWP/inundation-mapping/pull/1026)
+
+A couple of directly related issues were fixed in this PR.
+The initial problem came from Issue #[1025](https://github.com/NOAA-OWP/inundation-mapping/issues/1025) which was about a pathing issue for the outputs directory. In testing that fix, it exposed a few other pathing and file cleanup issues which are now fixed. We also added more console output to help view variables and pathing.
+
+### Changes
+
+- `config`/`params_template.env`:  Updated for a newer mannings global file. Changed and tested by Ryan Spies.
+- `tools`
+    - `inundate_mosiac_wrapper.py`:  Took out a misleading and non-required print statement.
+    - `inundate_nation.py`: As mentioned above.
+
+<br/><br/>
+
+## v4.4.7.1 - 2023-12-01 - [PR#1036](https://github.com/NOAA-OWP/inundation-mapping/pull/1036)
+
+Quick update to match incoming ras2fim calibration output files being feed into FIM was the initial change.
+
+There is no FIM issue card for this, but this is related to a ras2fim [PR #205](https://github.com/NOAA-OWP/ras2fim/pull/205) which also made changes to ensure compatibility. New copies of both the `reformat_ras_rating_curve_table_rel_101.csv` and `reformat_ras_rating_curve_points_rel_101.gpkg` were generated from ras2fim but retained the version of `rel_101`.
+
+Originally, was planning to update just the two locations for newer versions of the two `reformat_ras_rating_surve...` files. Both had been update to recognize the ras2release version rel_101.
+
+In the process of doing that, we took the opportunity to move all inputs files from params_template.env and put them into bash_variables.env as per precedence set recently.
+
+### Changes
+
+- `config`/`params_template.env`: moved input variables into `src/bash_variables.env`
+- `src`
+    - `bash_variablles.env`: Added all input variables from `params_template.env` to here and added one new one from `run_unit_wb.sh` for ras_rating_curve_points_gpkg.
+    - `run_unit_wb.sh`:   Updated an input param to the usgs_gage_unit_setup.py file to point the -ras param to the updated rel_101 value now in the `src/bash_variables.env`.
+    - `usgs_gage_unit_setup.py`:  Changed to drop a column no longer going to be coming from ras2fim calibration files.
+
+<br/><br/>
+
 ## v4.4.7.0 - 2023-11-13 - [PR#1030](https://github.com/NOAA-OWP/inundation-mapping/pull/1030)
 
 This PR introduces the `.github/workflows/lint_and_format.yaml` file which serves as the first step in developing a Continuous Integration pipeline for this repository. 
@@ -46,7 +127,6 @@ A small fix was also included where `src_adjust_ras2fim_rating.py` which sometim
 
 <br/><br/>
 
-=======
 ## v4.4.6.0 - 2023-11-17 - [PR#1031](https://github.com/NOAA-OWP/inundation-mapping/pull/1031)
 
 Upgrade our acquire 3Dep DEMs script to pull down South Alaska HUCS with its own CRS.
@@ -69,8 +149,8 @@ This issue closes [1028](https://github.com/NOAA-OWP/inundation-mapping/issues/1
         - Changed date/times to utc.
         - Upgraded error handing for the gdal "processing" call.
 
-
 <br/><br/>
+
 
 ## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
