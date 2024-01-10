@@ -210,7 +210,7 @@ echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
 Tstart
-python3 /foss_fim/tools/combine_crosswalk_tables.py \
+python3 $toolsDir/combine_crosswalk_tables.py \
     -d $outputDestDir \
     -o $outputDestDir/crosswalk_table.csv
 Tcount

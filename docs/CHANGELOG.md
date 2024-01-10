@@ -18,6 +18,29 @@ Upgrades base Docker image to GDAL v3.8.0. In order to upgrade past GDAL v.3.4.3
 <br/><br/>
 
 
+## v4.4.8.4 - 2024-01-05 - [PR#1061](https://github.com/NOAA-OWP/inundation-mapping/pull/1061)
+
+Adds a post-processing tool to compare crosswalked (conflated) `feature_id`s between NWM stream network to DEM-derived reaches. The tool is run if the `-x` flag is added to `fim_pipeline.sh`. Results are computed for branch 0 and saved in a summary file in the HUC output folder.
+
+### Additions
+
+- `tools/evaluate_crosswalk.py`: evaluates crosswalk accuracy using two methods:
+    - intersections: the number of intersections between streamlines
+    - network (or tree): compares the feature_ids of the immediate upstream segments
+
+### Changes
+
+- `Dockerfile`: added `toolsDir` environment variable
+- `fim_pipeline.sh`: added `-x` flag to run crosswalk evaluation tool
+- `fim_post_processing.sh`: changed hardcoded `/foss_fim/tools` to `toolsDir` environment variable
+- `fim_pre_processing.sh`: added `evaluateCrosswalk` environment variable
+- `src/`
+    - `add_crosswalk.py`: fix bug
+    - `delineate_hydros_and_produce_HAND.sh`: added a call to `verify_crosswalk.py` if evaluateCrosswalk is True.
+
+<br/><br/>
+
+
 ## v4.4.8.3 - 2024-01-05 - [PR#1059](https://github.com/NOAA-OWP/inundation-mapping/pull/1059)
 
 Fixes erroneous branch inundation in levee-protected areas.

@@ -48,6 +48,7 @@ usage()
                             will be skipped.
       -isaws            : If this param is included, AWS objects will be used where possible
                         - Note: This feature is not yet implemented.
+      -x                : If this param is included, the crosswalk will be evaluated.
 
 
     Running 'fim_pipeline.sh' is a quicker process than running all three scripts independently; however,
