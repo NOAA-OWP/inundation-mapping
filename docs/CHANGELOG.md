@@ -17,6 +17,22 @@ Upgrades base Docker image to GDAL v3.8.0. In order to upgrade past GDAL v.3.4.3
 
 <br/><br/>
 
+
+## v4.4.8.3 - 2024-01-05 - [PR#1059](https://github.com/NOAA-OWP/inundation-mapping/pull/1059)
+
+Fixes erroneous branch inundation in levee-protected areas.
+
+Levees disrupt the natural hydrology and can create large catchments that contain low-lying areas in levee-protected areas that are subject to being inundated in the REM (HAND) grid. However, these low-lying areas are hydrologically disconnected from the stream associated with the catchment and can be erroneously inundated. Branch inundation in levee-protected areas is now confined to the catchment for the levelpath.
+
+### Changes
+
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: Adds input argument for catchments.
+    - `mask_dem.py`: Adds DEM masking for areas of levee-protected areas that are not in the levelpath catchment.
+
+<br/><br/>
+
+
 ## v4.4.8.2 - 2023-12-12 - [PR#1052](https://github.com/NOAA-OWP/inundation-mapping/pull/1052)
 
 The alpha test for v4.4.8.1 came back with a large degradation in skill and we noticed that the global manning's roughness file was changed in v4.4.7.1 - likely in error.
@@ -26,6 +42,7 @@ The alpha test for v4.4.8.1 came back with a large degradation in skill and we n
 - `src`/`bash_variables.env`: changed the global roughness file to `${inputsDir}/rating_curve/variable_roughness/mannings_global_06_12.csv`
 
 <br/><br/>
+
 
 ## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
 
