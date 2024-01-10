@@ -7,10 +7,17 @@ import os
 import pandas as pd
 
 
-def combine_crosswalk_tables(data_directory, output_filename):
+def combine_crosswalk_tables(data_directory: str, output_filename: str):
     """
     Combines all hydrotables from a run into a single crosswalk table with:
-        HUC, BranchID, HydroID, feature_id, and LakeID
+        guid, HUC, BranchID, HydroID, feature_id, and LakeID
+
+    Parameters
+    ----------
+    data_directory : str
+        Name of run directory
+    output_filename : str
+        Name of output file
     """
 
     file_list = sorted(glob.glob(os.path.join(data_directory, '*', 'branches', '*', 'hydroTable_*.csv')))
