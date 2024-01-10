@@ -19,7 +19,7 @@ def combine_crosswalk_tables(data_directory, output_filename):
     for filename in file_list:
         if os.path.exists(filename):
             file_df = pd.read_csv(
-                filename, usecols=['HUC', 'HydroID', 'feature_id', 'LakeID'], dtype={'HUC': str}
+                filename, usecols=['guid', 'HUC', 'HydroID', 'feature_id', 'LakeID'], dtype={'HUC': str}
             )
             file_df = file_df.drop_duplicates()
             file_df = file_df.rename(columns={'HUC': 'huc8'})

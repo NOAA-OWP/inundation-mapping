@@ -36,6 +36,7 @@ class HucDirectory(object):
         self.agg_usgs_elev_table = pd.DataFrame(columns=list(self.usgs_dtypes.keys()))
 
         self.hydrotable_dtypes = {
+            'guid': str,
             'HydroID': int,
             'branch_id': int,
             'feature_id': int,
@@ -78,6 +79,7 @@ class HucDirectory(object):
         self.agg_hydrotable = pd.DataFrame(columns=list(self.hydrotable_dtypes.keys()))
 
         self.src_crosswalked_dtypes = {
+            'guid': str,
             'branch_id': int,
             'HydroID': int,
             'feature_id': int,
@@ -126,6 +128,7 @@ class HucDirectory(object):
         self.agg_src_cross = pd.DataFrame(columns=list(self.src_crosswalked_dtypes.keys()))
 
         self.ras_dtypes = {
+            'guid': str,
             'location_id': str,
             'nws_lid': str,
             'feature_id': int,
@@ -253,7 +256,7 @@ class HucDirectory(object):
 
 
 # ==============================
-# This is done independantly in each worker and does not attempt to write to a shared file
+# This is done independently in each worker and does not attempt to write to a shared file
 # as those can collide with multi proc
 def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg):
     file_name = f"agg_by_huc_{huc_id}"

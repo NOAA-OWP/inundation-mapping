@@ -133,7 +133,9 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -n $b_arg \
     -m $max_split_distance_meters \
     -t $slope_min \
-    -b $lakes_buffer_dist_meters
+    -b $lakes_buffer_dist_meters \
+    -huc $hucNumber \
+    -branch $current_branch_id
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##

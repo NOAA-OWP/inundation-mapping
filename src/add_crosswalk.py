@@ -105,12 +105,16 @@ def add_crosswalk(
         # Get stream midpoint
         stream_midpoint = []
         hydroID = []
+        guid = []
         for i, lineString in enumerate(input_flows.geometry):
+            guid = guid + [input_flows.loc[i, 'guid']]
             hydroID = hydroID + [input_flows.loc[i, 'HydroID']]
             stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
 
         input_flows_midpoint = gpd.GeoDataFrame(
-            {'HydroID': hydroID, 'geometry': stream_midpoint}, crs=input_flows.crs, geometry='geometry'
+            {'guid': guid, 'HydroID': hydroID, 'geometry': stream_midpoint},
+            crs=input_flows.crs,
+            geometry='geometry',
         )
         input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
 
@@ -142,7 +146,7 @@ def add_crosswalk(
                 nwmcat_index
             ].Shape_Area
 
-        crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
+        crosswalk = crosswalk.filter(items=['guid', 'HydroID', 'feature_id'])
         crosswalk = crosswalk.merge(input_nwmflows[['feature_id', 'order_']], on='feature_id')
 
         if len(crosswalk) < 1:
@@ -151,11 +155,11 @@ def add_crosswalk(
 
         if input_catchments.HydroID.dtype != 'int':
             input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(crosswalk, on='HydroID')
+        output_catchments = input_catchments.merge(crosswalk, on=['guid', 'HydroID'])
 
         if input_flows.HydroID.dtype != 'int':
             input_flows.HydroID = input_flows.HydroID.astype(int)
-        output_flows = input_flows.merge(crosswalk, on='HydroID')
+        output_flows = input_flows.merge(crosswalk, on=['guid', 'HydroID'])
 
         # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
         if 'areasqkm' not in output_catchments.columns:
@@ -326,15 +330,16 @@ def add_crosswalk(
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
     elif (extent == 'MS') | (extent == 'GMS'):
-        output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
+        output_src = output_src.merge(crosswalk[['guid', 'HydroID', 'feature_id']], on='HydroID')
 
-    output_crosswalk = output_src[['HydroID', 'feature_id']]
+    output_crosswalk = output_src[['guid', 'HydroID', 'feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
 
     # make hydroTable
     output_hydro_table = output_src.loc[
         :,
         [
+            'guid',
             'HydroID',
             'feature_id',
             'NextDownID',
