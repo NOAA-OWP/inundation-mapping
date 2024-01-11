@@ -2,8 +2,16 @@
 # Additional hooks: https://pre-commit.com/hooks.html
 
 repos:
+#     default_install_hook_types: [pre-commit, post-checkout, post-commit, post-merge, post-rewrite]
+#     default_stages: [pre-commit]
+
+# -   repo: local
+#     hooks:
+#         -   id: git-hash
+#             stages: [post-checkout, post-commit, post-merge, post-rewrite]
+
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
         -   id: trailing-whitespace
             exclude: CHANGELOG.md
@@ -14,19 +22,19 @@ repos:
         -   id: check-json
 
 -   repo: https://github.com/PyCQA/flake8
-    rev: 6.1.0
+    rev: 7.0.0
     hooks:
         -   id: flake8
             additional_dependencies: [flake8-pyproject]
 
 -   repo: https://github.com/psf/black
-    rev: 23.7.0
+    rev: 23.12.1
     hooks:
         -   id: black
             args: ['--line-length=110', '--skip-magic-trailing-comma', '--skip-string-normalization']
 
 -   repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
         name: isort (python)
