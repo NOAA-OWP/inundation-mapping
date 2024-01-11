@@ -2,7 +2,7 @@
 # Additional hooks: https://pre-commit.com/hooks.html
 
 default_install_hook_types: [pre-commit, post-checkout, post-commit, post-merge, post-rewrite]
-default_stages: [pre-commit]
+# default_stages: [pre-commit]
 
 repos:
 
@@ -15,6 +15,8 @@ repos:
             language: system
             types: [text]
             pass_filenames: false
+            always_run: true
+            verbose: true
             stages: [post-checkout, post-commit, post-merge, post-rewrite]
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
