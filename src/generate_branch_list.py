@@ -17,7 +17,7 @@ def generate_branch_list(stream_network_dissolved, branch_id_attribute, output_b
     Params:
         - stream_network_dissolved (str): the gkpg that contains the list of disolved branch ids
         - branch_id_attribute (str): the id of the field in the gkpg that has the branch ids.
-            (ie. like levpa_id (from params_template.env) )
+            (ie. like levpa_id (from params.env) )
         - output_branch_list_file (str): file name and path of the list to be created.
     Output:
         - create a file (likely a .lst file) with branch ids (not including branch zero)

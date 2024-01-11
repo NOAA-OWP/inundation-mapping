@@ -18,7 +18,7 @@ usage()
     OPTIONS:
       -h/--help         : Print usage statement.
       -c/--config       : Configuration file with bash environment variables to export
-                        - Default: config/params_template.env
+                        - Default: config/params.env
       -ud/--unitDenylist
                         A file with a line delimited list of files in UNIT (HUC) directories to be
                             removed upon completion.
@@ -123,7 +123,7 @@ outputDestDir=$outputsDir/$runName
 tempRunDir=$workDir/$runName
 
 # default values
-if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
+if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params.env; fi
 if [ "$jobHucLimit" = "" ]; then jobHucLimit=1; fi
 if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi

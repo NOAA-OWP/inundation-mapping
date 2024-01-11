@@ -36,7 +36,7 @@ class HucDirectory(object):
         self.agg_usgs_elev_table = pd.DataFrame(columns=list(self.usgs_dtypes.keys()))
 
         self.hydrotable_dtypes = {
-            'guid': str,
+            'GUID': str,
             'HydroID': int,
             'branch_id': int,
             'feature_id': int,
@@ -79,7 +79,7 @@ class HucDirectory(object):
         self.agg_hydrotable = pd.DataFrame(columns=list(self.hydrotable_dtypes.keys()))
 
         self.src_crosswalked_dtypes = {
-            'guid': str,
+            'GUID': str,
             'branch_id': int,
             'HydroID': int,
             'feature_id': int,
@@ -128,7 +128,7 @@ class HucDirectory(object):
         self.agg_src_cross = pd.DataFrame(columns=list(self.src_crosswalked_dtypes.keys()))
 
         self.ras_dtypes = {
-            'guid': str,
+            'GUID': str,
             'location_id': str,
             'nws_lid': str,
             'feature_id': int,

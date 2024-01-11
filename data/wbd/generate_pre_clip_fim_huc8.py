@@ -19,7 +19,7 @@ from dotenv import load_dotenv
       processing time for each HUC8. Using this script, we generate the necessary pre-clipped .gpkg files
       for the rest of the processing steps.
 
-      Read in environment variables from src/bash_variabls.env & config/params_template.env.
+      Read in environment variables from src/bash_variables.env & config/params.env.
       Parallelize the creation of .gpkg files per HUC:
         Get huc level WBD layer from National, call the subset_vector_layers function, and clip the wbd.
         A plethora gpkg files per huc are generated (see args to subset_vector_layers)
@@ -44,7 +44,7 @@ srcDir = os.getenv('srcDir')
 projectDir = os.getenv('projectDir')
 
 load_dotenv(f'{srcDir}/bash_variables.env')
-load_dotenv(f'{projectDir}/config/params_template.env')
+load_dotenv(f'{projectDir}/config/params.env')
 
 # Variables from src/bash_variables.env
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
@@ -61,7 +61,7 @@ input_nwm_flows = os.getenv('input_nwm_flows')
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
 
-# Variables from config/params_template.env
+# Variables from config/params.env
 wbd_buffer = os.getenv('wbd_buffer')
 wbd_buffer_int = int(wbd_buffer)
 

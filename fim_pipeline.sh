@@ -19,7 +19,7 @@ usage()
     OPTIONS:
       -h/--help         : Print usage statement.
       -c/--config       : Configuration file with bash environment variables to export
-                        - Default: config/params_template.env
+                        - Default: config/params.env
       -ud/--unitDenylist
                         A file with a line delimited list of files in UNIT (HUC) directories to be
                             removed upon completion.

@@ -43,6 +43,7 @@ def split_flows(
     lakes_buffer_input,
     huc_id: str,
     branch_id: str,
+    commit_hash: str,
 ):
     def snap_and_trim_flow(snapped_point, flows):
         # Find nearest flow line
@@ -307,9 +308,10 @@ def split_flows(
     else:
         print('Error: Could not add network attributes to stream segments')
 
-    # split_flows_gdf['guid'] = split_flows_gdf[hydro_id].apply(lambda x: f'{huc_id}-{branch_id}-{x}')
-    split_flows_gdf['guid'] = split_flows_gdf[hydro_id].apply(lambda x: f'{huc_id}-{branch_id}-{x}')
-    split_flows_gdf['guid'] = split_flows_gdf['guid'].astype(str)
+    split_flows_gdf['GUID'] = split_flows_gdf[hydro_id].apply(
+        lambda x: f'{huc_id}-{branch_id}-{x}-{commit_hash}'
+    )
+    split_flows_gdf['GUID'] = split_flows_gdf['GUID'].astype(str)
 
     # remove single node segments
     split_flows_gdf = split_flows_gdf.query("From_Node != To_Node")
@@ -329,11 +331,11 @@ def split_flows(
                 split_points[point] = segment[hydro_id]
 
     hydroIDs_points = [hidp for hidp in split_points.values()]
-    guids_points = [f'{huc_id}-{branch_id}-{hidp}' for hidp in split_points.values()]
+    guids_points = [f'{huc_id}-{branch_id}-{hidp}-{commit_hash}' for hidp in split_points.values()]
     split_points = [Point(*point) for point in split_points]
 
     split_points_gdf = gpd.GeoDataFrame(
-        {'guid': guids_points, 'id': hydroIDs_points, 'geometry': split_points},
+        {'GUID': guids_points, 'id': hydroIDs_points, 'geometry': split_points},
         crs=flows.crs,
         geometry='geometry',
     )
@@ -372,6 +374,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--lakes-buffer-input', help='Lakes buffer distance (meters)', required=True)
     parser.add_argument('-huc', '--huc-id', help='HUC ID', type=str, required=True)
     parser.add_argument('-branch', '--branch-id', help='Branch ID', type=str, required=True)
+    parser.add_argument('-c', '--commit-hash', help='Git commit hash', type=str, required=True)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
