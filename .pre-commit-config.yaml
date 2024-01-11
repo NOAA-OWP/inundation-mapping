@@ -11,7 +11,7 @@ repos:
         -   id: git-hash
             name: git-hash
             description: This hook gets the current Git hash and adds it to the config/params.env file.
-            entry: bash ./tools/get_git_hash.sh
+            entry: ./tools/get_git_hash.sh
             language: system
             types: [text]
             pass_filenames: false
