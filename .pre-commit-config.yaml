@@ -1,14 +1,21 @@
 # For more information: https://pre-commit.com
 # Additional hooks: https://pre-commit.com/hooks.html
 
-repos:
-#     default_install_hook_types: [pre-commit, post-checkout, post-commit, post-merge, post-rewrite]
-#     default_stages: [pre-commit]
+default_install_hook_types: [pre-commit, post-checkout, post-commit, post-merge, post-rewrite]
+default_stages: [pre-commit]
 
-# -   repo: local
-#     hooks:
-#         -   id: git-hash
-#             stages: [post-checkout, post-commit, post-merge, post-rewrite]
+repos:
+
+-   repo: local
+    hooks:
+        -   id: git-hash
+            name: git-hash
+            description: This hook gets the current Git hash and adds it to the config/params.env file.
+            entry: ./tools/get_git_hash.sh
+            language: script
+            types: [text]
+            pass_filenames: false
+            stages: [post-checkout, post-commit, post-merge, post-rewrite]
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
