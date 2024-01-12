@@ -220,14 +220,16 @@ if [ ! -f /$projectDir/config/params.env ]; then
     exit 1
 fi
 
-if [ "$envFile" != "$projectDir/config/params.env" ]; then
-    source /$projectDir/config/params.env
-    echo 'export commit_hash='$commit_hash >> $envFile
-fi
-
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
 cp $envFile $outputDestDir/params.env
+
+# Add the commit hash to the params.env file
+if [ "$envFile" != "$projectDir/config/params.env" ]; then
+    source /$projectDir/config/params.env
+    echo -e '\n#### GitHub commit hash ####' >> $outputDestDir/params.env
+    echo 'export commit_hash='$commit_hash >> $outputDestDir/params.env
+fi
 
 # create an new .env file on the fly that contains all runtime values
 # that any unit can load it independently (in seperate AWS objects, AWS fargates)
