@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.9.0 - 2024-01-12 - [PR#1058](https://github.com/NOAA-OWP/inundation-mapping/pull/1058)
+
+Upgrades base Docker image to GDAL v3.8.0. In order to upgrade past GDAL v.3.4.3 (see #1029), TauDEM's `aread8` was replaced with a module from the `pyflwdir` Python package.
+
+### Additions
+
+- `src/accumulate_headwaters.py`: Uses `pyflwdir` to accumulate headwaters and threshold and create stream pixels.
+
+### Changes
+
+- `Dockerfile`: Upgrade GDAL from v.3.4.3 to v.3.8.0; remove JDK 17 and TauDEM `aread8` and `threshold`.
+- `Pipfile` and `Pipfile.lock`: Add `pyflwdir`, `pycryptodomex` and upgrade Python version.
+- `src/delineate_hydros_and_produce_HAND.sh`: Add `src/accumulate_headwaters.py` and remove TauDEM `aread8` and `threshold`
+
+<br/><br/>
+
 ## v4.4.8.4 - 2024-01-12 - [PR#1061](https://github.com/NOAA-OWP/inundation-mapping/pull/1061)
 
 Adds a post-processing tool to compare crosswalked (conflated) `feature_id`s between NWM stream network to DEM-derived reaches. The tool is run if the `-x` flag is added to `fim_pipeline.sh`. Results are computed for branch 0 and saved in a summary file in the HUC output folder.
@@ -37,6 +53,7 @@ Levees disrupt the natural hydrology and can create large catchments that contai
 
 <br/><br/>
 
+
 ## v4.4.8.2 - 2023-12-12 - [PR#1052](https://github.com/NOAA-OWP/inundation-mapping/pull/1052)
 
 The alpha test for v4.4.8.1 came back with a large degradation in skill and we noticed that the global manning's roughness file was changed in v4.4.7.1 - likely in error.
@@ -46,6 +63,7 @@ The alpha test for v4.4.8.1 came back with a large degradation in skill and we n
 - `src`/`bash_variables.env`: changed the global roughness file to `${inputsDir}/rating_curve/variable_roughness/mannings_global_06_12.csv`
 
 <br/><br/>
+
 
 ## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
 

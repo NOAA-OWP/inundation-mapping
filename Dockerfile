@@ -1,5 +1,5 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.4.3 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0 AS builder
 WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
@@ -15,7 +15,7 @@ RUN git clone https://github.com/dtarb/taudem.git
 RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accelerated_flowDirections
 
 RUN apt-get update --fix-missing && apt-get install -y cmake mpich \
-    libgtest-dev libboost-test-dev libnetcdf-dev openjdk-17-jdk && rm -rf /var/lib/apt/lists/*
+    libgtest-dev libboost-test-dev libnetcdf-dev && rm -rf /var/lib/apt/lists/*
 
 ## Compile Main taudem repo ##
 RUN mkdir -p taudem/bin
@@ -36,18 +36,13 @@ RUN mkdir -p $taudemDir
 RUN mkdir -p $taudemDir2
 
 ## Move needed binaries to the next stage of the image
-RUN cd taudem/bin && mv -t $taudemDir flowdircond aread8 threshold streamnet gagewatershed catchhydrogeo dinfdistdown
+RUN cd taudem/bin && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
 RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
 
 
-
-
 ###############################################################################################
-
-
-
 # Base Image that has GDAL, PROJ, etc
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.4.3
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -72,7 +67,7 @@ RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
 RUN apt update --fix-missing
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich=3.3.2-2build1 parallel=20161222-1.1 libgeos-dev=3.8.0-1build1 expect=5.45.4-2build1 tmux rsync tzdata openjdk-17-jdk
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
 
 RUN apt auto-remove
 
@@ -107,7 +102,7 @@ RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off pipenv install --syste
 # We download and unzip it to the same file folder that pip deployed the whitebox library.
 # Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
-RUN wbox_path=/usr/local/lib/python3.8/dist-packages/whitebox/ && \
+RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/ && \
     wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
     unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
     cp $wbox_path/WBT/whitebox_tools $wbox_path && \
