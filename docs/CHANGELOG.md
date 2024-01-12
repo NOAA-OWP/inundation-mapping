@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.9.0 - 2023-12-22 - [PR#1058](https://github.com/NOAA-OWP/inundation-mapping/pull/1058)
+## v4.4.9.0 - 2024-01-12 - [PR#1058](https://github.com/NOAA-OWP/inundation-mapping/pull/1058)
 
 Upgrades base Docker image to GDAL v3.8.0. In order to upgrade past GDAL v.3.4.3 (see #1029), TauDEM's `aread8` was replaced with a module from the `pyflwdir` Python package.
 
@@ -17,8 +17,7 @@ Upgrades base Docker image to GDAL v3.8.0. In order to upgrade past GDAL v.3.4.3
 
 <br/><br/>
 
-
-## v4.4.8.4 - 2024-01-05 - [PR#1061](https://github.com/NOAA-OWP/inundation-mapping/pull/1061)
+## v4.4.8.4 - 2024-01-12 - [PR#1061](https://github.com/NOAA-OWP/inundation-mapping/pull/1061)
 
 Adds a post-processing tool to compare crosswalked (conflated) `feature_id`s between NWM stream network to DEM-derived reaches. The tool is run if the `-x` flag is added to `fim_pipeline.sh`. Results are computed for branch 0 and saved in a summary file in the HUC output folder.
 
@@ -39,7 +38,6 @@ Adds a post-processing tool to compare crosswalked (conflated) `feature_id`s bet
     - `delineate_hydros_and_produce_HAND.sh`: added a call to `verify_crosswalk.py` if evaluateCrosswalk is True.
 
 <br/><br/>
-
 
 ## v4.4.8.3 - 2024-01-05 - [PR#1059](https://github.com/NOAA-OWP/inundation-mapping/pull/1059)
 
