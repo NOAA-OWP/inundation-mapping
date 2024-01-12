@@ -16,7 +16,6 @@ repos:
             types: [text]
             pass_filenames: false
             always_run: true
-            verbose: true
             stages: [post-checkout, post-commit, post-merge, post-rewrite]
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks

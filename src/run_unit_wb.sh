@@ -8,7 +8,14 @@
 args_file=$outputDestDir/runtime_args.env
 
 source $args_file
-source $outputDestDir/params.env
+
+if [ -f $outputDestDir/params.env ]; then
+    source $outputDestDir/params.env
+else
+    echo -e "\nERROR: $outputDestDir/params.env does not exist. Please run 'pre-commit install' and try again. See [CONTRIBUTING.md](CONTRIBUTING.md) for more information. Exiting."
+    exit 1
+fi
+
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 

@@ -41,22 +41,18 @@ If you would like to contribute, please follow these steps:
     $ git clone https://github.com/<github username>/inundation-mapping.git
     $ cd inundation-mapping
     ```
-3. Create a local branch:
-    ```
-    git checkout -b <dev-your-bugfix-or-feature>
-    ```
-4. [pre-commit](https://pre-commit.com/) is used to run auto-formatting and linting tools. Please follow the steps in the link provided to install `pre-commit` locally.  `pre-commit` can be installed as a git hook to verify your staged changes adhere to the project's style and format requirements (configuration defined in [pyproject.toml](/pyproject.toml)).
-5. After you've installed `pre-commit` via `pip` , `homebrew`, or `conda`, check the version to verify installation:
+3. [pre-commit](https://pre-commit.com/) is used to run auto-formatting and linting tools. Please follow the steps in the link provided to install `pre-commit` locally.  `pre-commit` can be installed as a git hook to verify your staged changes adhere to the project's style and format requirements (configuration defined in [pyproject.toml](/pyproject.toml)).
+4. After you've installed `pre-commit` via `pip` , `homebrew`, or `conda`, check the version to verify installation:
     ```
     $ pre-commit --version
     ```
 
-6. Initialize the pre-commit hooks included within the root directory of `inundation-mapping`:
+5. Initialize the pre-commit hooks included within the root directory of `inundation-mapping`:
 
     ```
     $ pre-commit install
     ```
-7. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables within the Docker container, however, it is recommend to run them through `pre-commit` outside of the container, as it picks up the correct configuration.
+6. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables within the Docker container, however, it is recommend to run them through `pre-commit` outside of the container, as it picks up the correct configuration.
 
     ```
     # Check only the staged changes
@@ -69,6 +65,10 @@ If you would like to contribute, please follow these steps:
     pre-commit run -a flake8
     ```
 
+7. Create a local branch:
+    ```
+    git checkout -b <dev-your-bugfix-or-feature>
+    ```
 8. Build the Docker container:
     ```
     Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>
