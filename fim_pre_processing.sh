@@ -219,7 +219,7 @@ if [ ! -f /$projectDir/config/params.env ]; then
     exit 1
 fi
 
-if [ "$envFile" != "/$projectDir/config/params.env"]; then
+if [ "$envFile" != "$projectDir/config/params.env"]; then
     source /$projectDir/config/params.env
     echo 'export commit_hash='$commit_hash >> $envFile
 fi
