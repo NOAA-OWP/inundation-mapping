@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2024-01-12 - [PR#1064](https://github.com/NOAA-OWP/inundation-mapping/pull/1064)
+
+Adds a Globally Unique ID (GUID) to the crosswalk and hydro tables based on HUC, branch, HydroID, and git version hash.
+
+`pre-commit` is used to update the git version hash in `params.env` after any git checkout, commit, pull, or rebase operation.
+
+### Changes
+
+- `CONFIGURATION.md`: Updates documentation related to `pre-commit`.
+- `fim_pre_processing.sh`: Makes `config/params.env` the default configuration file. Adds `commit_hash` to custom param files.
+- `.pre-commit-config.yaml`: Adds scripts that call `tools/get_git_hash.sh` after a git checkout, commit, or pull.
+- `src/`
+    - `add_crosswalk.py`, `aggregate_by_huc.py`: Adds `GUID` to branch-level crosswalk_table and hydrotable.
+    - `delineate_hydros_and_produce_HAND.sh`: Adds HUC ID and branch ID as input parameters.
+    - `run_unit_wb.sh`: Adds check for `config/params.env` and exits with message if it doesn't exist.
+    - `split_flows.py`: Creates `GUID` and adds it to reach network attributes.
+- `tools/`
+    - `combine_crosswalk_tables.py`: Adds `GUID` to aggregated crosswalk table.
+    - `get_git_hash.sh`: Gets Git hash and updates `config/params.env`.
+    
+<br/><br/>
+
 ## v4.4.8.3 - 2024-01-05 - [PR#1059](https://github.com/NOAA-OWP/inundation-mapping/pull/1059)
 
 Fixes erroneous branch inundation in levee-protected areas.
