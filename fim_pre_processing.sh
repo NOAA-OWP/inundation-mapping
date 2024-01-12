@@ -101,6 +101,9 @@ in
     -isaws)
         isAWS=1
         ;;
+    -x)
+        evaluateCrosswalk=1
+        ;;
     *) ;;
     esac
     shift
@@ -129,6 +132,7 @@ if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi
 if [ -z "$skipcal" ]; then skipcal=0; fi
 if [ -z "$isAWS" ]; then isAWS=0; fi
+if [ -z "$evaluateCrosswalk" ]; then evaluateCrosswalk=0; fi
 
 # validate and set defaults for the deny lists
 if [ "$deny_unit_list" = "" ]
@@ -234,6 +238,7 @@ echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
 echo "export isAWS=$isAWS" >> $args_file
 echo "export skipcal=$skipcal" >> $args_file
+echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 
 echo "--- Pre-processing is complete"
 

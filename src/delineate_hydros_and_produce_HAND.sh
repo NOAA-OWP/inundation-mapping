@@ -17,7 +17,7 @@ T_total_start
 
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
 if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $tempHucDataDir/LeveeProtectedAreas_subset.gpkg ]; then
-    echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
+    echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $current_branch_id"
     date -u
     Tstart
     python3 $srcDir/mask_dem.py \
@@ -303,3 +303,18 @@ python3 $srcDir/add_crosswalk.py \
     -e $min_catchment_area \
     -g $min_stream_length
 Tcount
+
+## EVALUATE CROSSWALK ##
+if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
+    echo -e $startDiv"Evaluate crosswalk $hucNumber $current_branch_id"
+    date -u
+    Tstart
+    python3 $toolsDir/evaluate_crosswalk.py \
+        -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -b $b_arg \
+        -c $tempHucDataDir/crosswalk_evaluation_$current_branch_id.csv \
+        -d $tempHucDataDir/nwm_headwater_points_subset.gpkg \
+        -u $hucNumber \
+        -z $current_branch_id
+    Tcount
+fi
