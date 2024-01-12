@@ -129,6 +129,7 @@ if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi
 if [ -z "$skipcal" ]; then skipcal=0; fi
 if [ -z "$isAWS" ]; then isAWS=0; fi
+if [ -z "$commit_hash" ]; then commit_hash=0; fi
 
 # validate and set defaults for the deny lists
 if [ "$deny_unit_list" = "" ]
@@ -215,11 +216,11 @@ mkdir -p $outputDestDir/unit_errors
 mkdir -p $outputDestDir/branch_errors
 
 if [ ! -f /$projectDir/config/params.env ]; then
-    echo -e "\nERROR: /$projectDir/config/params.env does not exist. Please run 'pre-commit install' and try again. See [CONTRIBUTING.md](CONTRIBUTING.md) for more information. Exiting."
+    echo -e "\nERROR: /$projectDir/config/params.env does not exist. Please run 'pre-commit install' and try again. See CONTRIBUTING.md for more information. Exiting."
     exit 1
 fi
 
-if [ "$envFile" != "$projectDir/config/params.env"]; then
+if [ "$envFile" != "$projectDir/config/params.env" ]; then
     source /$projectDir/config/params.env
     echo 'export commit_hash='$commit_hash >> $envFile
 fi
