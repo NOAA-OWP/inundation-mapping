@@ -214,6 +214,16 @@ mkdir -p $outputDestDir/logs/branch
 mkdir -p $outputDestDir/unit_errors
 mkdir -p $outputDestDir/branch_errors
 
+if [ ! -f /$projectDir/config/params.env ]; then
+    echo -e "\nERROR: /$projectDir/config/params.env does not exist. Please run 'pre-commit install' and try again. See [CONTRIBUTING.md](CONTRIBUTING.md) for more information. Exiting."
+    exit 1
+fi
+
+if [ "$envFile" != "/$projectDir/config/params.env"]; then
+    source /$projectDir/config/params.env
+    echo 'export commit_hash='$commit_hash >> $envFile
+fi
+
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
 cp $envFile $outputDestDir/params.env

@@ -121,6 +121,7 @@ $taudemDir/streamnet \
     -net $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp
 Tcount
 
+
 ## SPLIT DERIVED REACHES ##
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"
 date -u
