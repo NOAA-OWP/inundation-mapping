@@ -48,10 +48,19 @@ load_dotenv(f'{projectDir}/config/params_template.env')
 
 # Variables from src/bash_variables.env
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS') # alaska
+
 inputsDir = os.getenv('inputsDir')
+
 input_WBD_gdb = os.getenv('input_WBD_gdb')
+input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska') # alaska
+
 input_DEM = os.getenv('input_DEM')
+input_DEM_Alaska = os.getenv('input_DEM_Alaska') # alaska
+
 input_DEM_domain = os.getenv('input_DEM_domain')
+input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska') # alaska
+
 input_nwm_lakes = os.getenv('input_nwm_lakes')
 input_nwm_catchments = os.getenv('input_nwm_catchments')
 input_NLD = os.getenv('input_NLD')
@@ -100,13 +109,14 @@ def __setup_logger(outputs_dir):
     logging.info(f"\n \t Started: {start_time_string} \n")
 
 
-def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, overwrite):
+def pre_clip_hucs_from_wbd(wbd_file, wbd_alaska_file, outputs_dir, huc_list, number_of_jobs, overwrite):
     '''
     The function is the main driver of the program to iterate and parallelize writing
     pre-clipped HUC8 vector files.
 
     Inputs:
-    - wbd_file:                       Default take from src/bash_variables.env, or provided as argument.
+    - wbd_file:                       Default take from src/bash_variables.env, or provided as argument. ## TODO: Maybe remove this? Could make adding Alaska automation harder if you can overwrite and specify the WBD file here...
+    - wbd_alaska_file:                From src/bash_variables.env
     - outputs_dir:                    Output directory to stage pre-clipped vectors.
     - huc_list:                       List of Hucs to generate pre-clipped .gpkg files.
     - number_of_jobs:                 Amount of cpus used for parallelization.
@@ -175,7 +185,7 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
     procs_list = []
     for huc in hucs_to_pre_clip_list:
         print(f"Generating vectors for {huc}. ")
-        procs_list.append([huc, outputs_dir, wbd_file])
+        procs_list.append([huc, outputs_dir, wbd_file, wbd_alaska_file])
 
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
@@ -210,7 +220,9 @@ def huc_level_clip_vectors_to_wbd(args):
     Inputs:
     - huc:                           Individual HUC to generate vector files for.
     - outputs_dir:                   Output directory to stage pre-clipped vectors.
-    - input_WBD_filename:            Filename of WBD to generate pre-clipped .gpkg files.
+    - input_WBD_filename:      Filename of WBD to generate pre-clipped .gpkg files.
+    - input_WBD_filename_ALASKA:      Filename of WBD to generate pre-clipped .gpkg files. ## TODO: determine whether I actually need to add the separate alaska one
+
 
     Processing:
     - Define (unpack) arguments.
@@ -224,17 +236,28 @@ def huc_level_clip_vectors_to_wbd(args):
     - .gpkg files* dependant on HUC's WBD (*differing amount based on individual huc)
     '''
 
+
     # We have to explicitly unpack the args from pool.map()
     huc = args[0]
     outputs_dir = args[1]
     input_WBD_filename = args[2]
+    input_WBD_filename_ALASKA = args[3] ## TODO: carry forward this 
+
 
     huc_directory = os.path.join(outputs_dir, huc)
+
 
     # SET VARIABLES AND FILE INPUTS #
     hucUnitLength = len(huc)
     huc2Identifier = huc[:2]
-    input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
+
+    # Check whether the HUC is in Alaska or not and assign the CRS accordingly
+    if huc2Identifier == '19':
+        huc_CRS = ALASKA_CRS
+        input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
+    else:
+        huc_CRS = DEFAULT_FIM_PROJECTION_CRS
+        input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
 
     # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
     if huc2Identifier == "04":
@@ -252,7 +275,7 @@ def huc_level_clip_vectors_to_wbd(args):
             '-f',
             'GPKG',
             '-t_srs',
-            DEFAULT_FIM_PROJECTION_CRS,
+            huc_CRS,
             f'{huc_directory}/wbd.gpkg',
             input_WBD_filename,
             input_NHD_WBHD_layer,
@@ -326,12 +349,12 @@ def huc_level_clip_vectors_to_wbd(args):
             '-f',
             'GPKG',
             '-t_srs',
-            DEFAULT_FIM_PROJECTION_CRS,
+            huc_CRS,
             '-clipsrc',
             f'{huc_directory}/wbd_buffered.gpkg',
             f'{huc_directory}/wbd8_clp.gpkg',
             f'{inputsDir}/wbd/WBD_National.gpkg',
-            'WBDHU8',
+            input_NHD_WBHD_layer,
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -374,8 +397,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '-wbd',
         '--wbd_file',
-        help='.wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb from src/bash_variables.env.',
+        help='OPTIONAL: .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb from src/bash_variables.env.',
         default=input_WBD_gdb,
+    )
+    parser.add_argument( ## TODO: Check whether a separate file is needed here... or if the other one actually is sufficient!
+        '-wbdak',
+        '--wbd_alaska_file',
+        help='OPTIONAL: .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb from src/bash_variables.env.',
+        default=input_WBD_gdb_Alaska,
     )
     parser.add_argument(
         '-n',
@@ -383,7 +412,11 @@ if __name__ == '__main__':
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
         '<year_month_day> (i.e. September 26, 2023 would be 23_9_26)',
     )
-    parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
+    parser.add_argument(
+        '-u', 
+        '--huc_list', 
+        help='List of HUCs to genereate pre-clipped vectors for.'
+    )
     parser.add_argument(
         '-j',
         '--number_of_jobs',
@@ -400,6 +433,7 @@ if __name__ == '__main__':
         help='Overwrite the file if already existing? (default false)',
         action='store_true',
     )
+
 
     args = vars(parser.parse_args())
 
