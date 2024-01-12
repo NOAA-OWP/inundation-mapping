@@ -227,7 +227,7 @@ cp $envFile $outputDestDir/params.env
 # Add the commit hash to the params.env file
 if [ "$envFile" != "$projectDir/config/params.env" ]; then
     source /$projectDir/config/params.env
-    echo -e '\n#### GitHub commit hash ####' >> $outputDestDir/params.env
+    echo -e '\n#### Git commit hash ####' >> $outputDestDir/params.env
     echo 'export commit_hash='$commit_hash >> $outputDestDir/params.env
 fi
 
