@@ -9,7 +9,7 @@ import rasterio as rio
 from shapely.geometry import MultiPolygon, Polygon
 
 from utils.shared_functions import getDriver
-from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
+# from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
 def subset_vector_layers(
@@ -36,6 +36,7 @@ def subset_vector_layers(
     wbd_buffer_distance,
     levee_protected_areas,
     subset_levee_protected_areas,
+    huc_CRS,
 ):
     print(f"Getting Cell Size for {hucCode}", flush=True)
     with rio.open(dem_filename) as dem_raster:
@@ -60,13 +61,13 @@ def subset_vector_layers(
         wbd_buffer_filename,
         driver=getDriver(wbd_buffer_filename),
         index=False,
-        crs=DEFAULT_FIM_PROJECTION_CRS,
+        crs=huc_CRS,
     )
     wbd_streams_buffer.to_file(
         wbd_streams_buffer_filename,
         driver=getDriver(wbd_streams_buffer_filename),
         index=False,
-        crs=DEFAULT_FIM_PROJECTION_CRS,
+        crs=huc_CRS,
     )
 
     # Clip ocean water polygon for future masking ocean areas (where applicable)
@@ -74,7 +75,7 @@ def subset_vector_layers(
     if not landsea.empty:
         print(f"Create landsea gpkg for {hucCode}", flush=True)
         landsea.to_file(
-            subset_landsea, driver=getDriver(subset_landsea), index=False, crs=DEFAULT_FIM_PROJECTION_CRS
+            subset_landsea, driver=getDriver(subset_landsea), index=False, crs=huc_CRS
         )
     del landsea
 
@@ -86,7 +87,7 @@ def subset_vector_layers(
             subset_levee_protected_areas,
             driver=getDriver(subset_levee_protected_areas),
             index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            crs=huc_CRS,
         )
     del levee_protected_areas
 
@@ -105,7 +106,7 @@ def subset_vector_layers(
         for i in range(len(nwm_lakes_fill_holes.geoms)):
             nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
         nwm_lakes.to_file(
-            subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=DEFAULT_FIM_PROJECTION_CRS
+            subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS
         )
     del nwm_lakes
 
@@ -114,7 +115,7 @@ def subset_vector_layers(
     nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer)
     if not nld_lines.empty:
         nld_lines.to_file(
-            subset_nld_lines, driver=getDriver(subset_nld_lines), index=False, crs=DEFAULT_FIM_PROJECTION_CRS
+            subset_nld_lines, driver=getDriver(subset_nld_lines), index=False, crs=huc_CRS
         )
     del nld_lines
 
@@ -125,7 +126,7 @@ def subset_vector_layers(
             subset_nld_lines_preprocessed,
             driver=getDriver(subset_nld_lines_preprocessed),
             index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            crs=huc_CRS,
         )
     del nld_lines_preprocessed
 
@@ -138,12 +139,16 @@ def subset_vector_layers(
             subset_nwm_headwaters,
             driver=getDriver(subset_nwm_headwaters),
             index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            crs=huc_CRS,
         )
     else:
         print("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
+        try:
+            sys.exit(0)
+        except:
+            print('Unable to exit system...') ## DEBUG
     del nwm_headwaters
+
 
     # Find intersecting nwm_catchments
     print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
@@ -154,11 +159,14 @@ def subset_vector_layers(
             subset_nwm_catchments,
             driver=getDriver(subset_nwm_catchments),
             index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            crs=huc_CRS,
         )
     else:
         print("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
+        try:
+            sys.exit(0)
+        except:
+            print('Unable to exit system...') ## DEBUG
     del nwm_catchments
 
     # Subset nwm streams
@@ -195,11 +203,11 @@ def subset_vector_layers(
             subset_nwm_streams,
             driver=getDriver(subset_nwm_streams),
             index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
+            crs=huc_CRS,
         )
     else:
         print("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
+        sys.exit(0) ## DEBUG this is another sys.exit that is getting stuck
     del nwm_streams
 
 
@@ -246,6 +254,10 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
+    )
+
+    parser.add_argument(
+        '-crs', '--huc-crs', help='HUC crs', required=True
     )
 
     args = vars(parser.parse_args())
