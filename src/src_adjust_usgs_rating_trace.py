@@ -11,6 +11,7 @@ from src_roughness_optimization import update_rating_curve
 from utils.shared_functions import check_file_age, concat_huc_csv
 
 
+# test
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
 The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value
@@ -111,10 +112,10 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     for interval in recurr_intervals:
         log_text += '\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n'
         print('Processing: ' + str(interval) + '-year NWM recurr intervals')
-        ## Calculate the closest SRC discharge value to the NWM flow value
+        # Calculate the closest SRC discharge value to the NWM flow value
         merge_df['Q_find'] = (merge_df['discharge_cms'] - merge_df[interval + "_0_year"]).abs()
 
-        ## Check for any missing/null entries in the input SRC
+        # Check for any missing/null entries in the input SRC
         # There may be null values for lake or coastal flow lines
         # (need to set a value to do groupby idxmin below)
         if merge_df['Q_find'].isnull().values.any():
@@ -125,7 +126,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
                 + str(merge_df['feature_id'])
                 + ' --> Null values found in "Q_find" calc. These will be filled with 999999 () \n'
             )
-            ## Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
+            # Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
             merge_df['Q_find'] = merge_df['Q_find'].fillna(999999)
         if merge_df['hydroid'].isnull().values.any():
             log_text += 'HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"... \n'
@@ -263,7 +264,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                     + '\n'
                 )
             else:
-                ## Additional arguments for src_roughness_optimization
+                # Additional arguments for src_roughness_optimization
                 source_tag = 'usgs_rating'  # tag to use in source attribute field
                 merge_prev_adj = False  # merge in previous SRC adjustment calculations
 
@@ -300,10 +301,10 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
 
 
 def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
-    ## Check input args are valid
+    # Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
-    ## Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
+    # Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
     print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
     # usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
     # usgs_elev_df = pd.read_csv(
@@ -320,13 +321,13 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
             + " max jobs will be used instead."
         )
 
-    ## Create output dir for log and usgs rc database
+    # Create output dir for log and usgs rc database
     log_dir = os.path.join(run_dir, "logs", "src_optimization")
     print("Log file output here: " + str(log_dir))
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 
-    ## Create a time var to log run time
+    # Create a time var to log run time
     begin_time = dt.datetime.now()
     # Create log file for processing records
     log_file = open(os.path.join(log_dir, 'log_usgs_rc_src_adjust.log'), "w")
@@ -352,11 +353,11 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
         log_file.write("starting create usgs rating db")
         usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
 
-        ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
+        # Create huc proc_list for multiprocessing and execute the update_rating_curve function
         branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file)
 
-    ## Record run time and close log file
-    log_file.write('#########################################################\n\n')
+    # Record run time and close log file
+    log_file.write('########################################################\n\n')
     end_time = dt.datetime.now()
     log_file.write('END TIME: ' + str(end_time) + '\n')
     tot_run_time = end_time - begin_time
@@ -366,7 +367,7 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
 
 
 if __name__ == '__main__':
-    ## Parse arguments.
+    # Parse arguments.
     parser = argparse.ArgumentParser(
         description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).'
     )
@@ -390,7 +391,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('-j', '--job-number', help='Number of jobs to use', required=False, default=1)
 
-    ## Assign variables from arguments.
+    # Assign variables from arguments.
     args = vars(parser.parse_args())
     run_dir = args['run_dir']
     usgs_rc_filepath = args['usgs_ratings']
@@ -398,5 +399,5 @@ if __name__ == '__main__':
     debug_outputs_option = args['extra_outputs']
     job_number = int(args['job_number'])
 
-    ## Prepare/check inputs, create log file, and spin up the proc list
+    # Prepare/check inputs, create log file, and spin up the proc list
     run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number)
