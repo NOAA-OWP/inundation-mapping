@@ -16,7 +16,7 @@ def subset_vector_layers(
     subset_nwm_lakes,
     subset_nwm_streams,
     hucCode,
-    subset_nwm_headwaters,
+    subset_nhd_headwaters,
     wbd_buffer_filename,
     wbd_streams_buffer_filename,
     wbd_filename,
@@ -30,13 +30,18 @@ def subset_vector_layers(
     landsea,
     nwm_streams,
     subset_landsea,
-    nwm_headwaters,
+    nhd_headwaters,
     subset_nld_lines,
     subset_nld_lines_preprocessed,
     wbd_buffer_distance,
     levee_protected_areas,
     subset_levee_protected_areas,
+    nhd_streams,
+    subset_nhd_streams,
+    extent,
 ):
+    hucUnitLength = len(str(hucCode))
+
     print(f"Getting Cell Size for {hucCode}", flush=True)
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
@@ -129,21 +134,64 @@ def subset_vector_layers(
         )
     del nld_lines_preprocessed
 
-    # Subset NWM headwaters
-    print(f"Subsetting NWM Headwater Points for {hucCode}", flush=True)
-    nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer)
+    # Subset nhd headwaters
+    print("Subsetting NHD Headwater Points for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    nhd_headwaters = gpd.read_file(nhd_headwaters, mask=wbd_buffer)
+    if extent == 'MS':
+        nhd_headwaters = nhd_headwaters.loc[nhd_headwaters.mainstem == 1]
 
-    if len(nwm_headwaters) > 0:
-        nwm_headwaters.to_file(
-            subset_nwm_headwaters,
-            driver=getDriver(subset_nwm_headwaters),
-            index=False,
-            crs=DEFAULT_FIM_PROJECTION_CRS,
-        )
+    if len(nhd_headwaters) > 0:
+        nhd_headwaters.to_file(subset_nhd_headwaters, driver=getDriver(subset_nhd_headwaters), index=False)
     else:
         print("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
-    del nwm_headwaters
+    del nhd_headwaters
+
+    # Subset nhd streams
+    print("Querying NHD Streams for HUC{} {}".format(hucUnitLength, hucCode), flush=True)
+    nhd_streams = gpd.read_file(nhd_streams, mask=wbd_streams_buffer)
+
+    if extent == 'MS':
+        nhd_streams = nhd_streams.loc[nhd_streams.mainstem == 1]
+
+    if len(nhd_streams) > 0:
+        # Find incoming stream segments (to WBD buffer) and identify which are upstream
+        threshold_segments = gpd.overlay(nhd_streams, wbd_buffer, how='symmetric_difference')
+        from_list = threshold_segments.FromNode.to_list()
+        to_list = nhd_streams.ToNode.to_list()
+        missing_segments = list(set(from_list) - set(to_list))
+
+        # special case: stream meanders in and out of WBD buffer boundary
+        if str(hucCode) == '10030203':
+            missing_segments = missing_segments + [23001300001840.0, 23001300016571.0]
+
+        if str(hucCode) == '08030100':
+            missing_segments = missing_segments + [20000600011559.0, 20000600045761.0, 20000600002821.0]
+
+        # Remove incoming stream segment so it won't be routed as outflow during hydroconditioning
+        nhd_streams = nhd_streams.loc[~nhd_streams.FromNode.isin(missing_segments)]
+
+        nhd_streams.to_file(subset_nhd_streams, driver=getDriver(subset_nhd_streams), index=False)
+    else:
+        print("No NHD streams within HUC " + str(hucCode) + " boundaries.")
+        sys.exit(0)
+    del nhd_streams
+
+    # # Subset NHD headwaters
+    # print(f"Subsetting NHD Headwater Points for {hucCode}", flush=True)
+    # nhd_headwaters = gpd.read_file(nhd_headwaters, mask=wbd_streams_buffer)
+
+    # if len(nhd_headwaters) > 0:
+    #     nhd_headwaters.to_file(
+    #         subset_nhd_headwaters,
+    #         driver=getDriver(subset_nhd_headwaters),
+    #         index=False,
+    #         crs=DEFAULT_FIM_PROJECTION_CRS,
+    #     )
+    # else:
+    #     print("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
+    #     sys.exit(0)
+    # del nhd_headwaters
 
     # Find intersecting nwm_catchments
     print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
@@ -209,9 +257,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Subset vector layers')
     parser.add_argument('-a', '--subset-nwm-lakes', help='NWM lake subset', required=True)
     parser.add_argument('-b', '--subset-nwm-streams', help='NWM streams subset', required=True)
+    parser.add_argument('-c', '--subset-nhd-streams', help='NHD streams subset', required=True)
     parser.add_argument('-d', '--hucCode', help='HUC boundary ID', required=True, type=str)
     parser.add_argument(
-        '-e', '--subset-nwm-headwaters', help='NWM headwaters subset', required=True, default=None
+        '-e', '--subset-nhd-headwaters', help='NHD headwaters subset', required=True, default=None
     )
     parser.add_argument('-f', '--wbd_buffer_filename', help='Buffered HUC boundary', required=True)
     parser.add_argument(
@@ -227,10 +276,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '-rp', '--nld-lines-preprocessed', help='Levee vectors to use for DEM burning', required=True
     )
+    parser.add_argument('-s', '--nhd-streams', help='NHDPlus HR burnline', required=True)
     parser.add_argument('-v', '--landsea', help='LandSea - land boundary', required=True)
     parser.add_argument('-w', '--nwm-streams', help='NWM flowlines', required=True)
     parser.add_argument('-x', '--subset-landsea', help='LandSea subset', required=True)
-    parser.add_argument('-y', '--nwm-headwaters', help='NWM headwaters', required=True)
+    parser.add_argument('-y', '--nhd-headwaters', help='NHD headwaters', required=True)
     parser.add_argument('-z', '--subset-nld-lines', help='Subset of NLD levee vectors for HUC', required=True)
     parser.add_argument(
         '-zp',
@@ -247,6 +297,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
     )
+    parser.add_argument('-extent', '--extent', help='FIM extent', required=True)
 
     args = vars(parser.parse_args())
 

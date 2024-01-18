@@ -288,7 +288,7 @@ python3 $srcDir/add_crosswalk.py \
     -x $tempCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv \
     -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
     -w $tempHucDataDir/wbd8_clp.gpkg \
-    -b $b_arg \
+    -b $tempHucDataDir/nwm_subset_streams.gpkg \
     -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif \
     -m $manning_n \
     -z $z_arg \
@@ -304,7 +304,7 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
     Tstart
     python3 $toolsDir/evaluate_crosswalk.py \
         -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-        -b $b_arg \
+        -b $tempHucDataDir/nwm_subset_streams.gpkg \
         -c $tempHucDataDir/crosswalk_evaluation_$current_branch_id.csv \
         -d $tempHucDataDir/nwm_headwater_points_subset.gpkg \
         -u $hucNumber \

@@ -58,8 +58,10 @@ input_NLD = os.getenv('input_NLD')
 input_levees_preprocessed = os.getenv('input_levees_preprocessed')
 input_GL_boundaries = os.getenv('input_GL_boundaries')
 input_nwm_flows = os.getenv('input_nwm_flows')
-input_nwm_headwaters = os.getenv('input_nwm_headwaters')
+# input_nwm_headwaters = os.getenv('input_nwm_headwaters')
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
+input_nhd_flowlines = os.getenv('input_nhd_flowlines')
+input_nhd_headwaters = os.getenv('input_nhd_headwaters')
 
 # Variables from config/params_template.env
 wbd_buffer = os.getenv('wbd_buffer')
@@ -291,7 +293,7 @@ def huc_level_clip_vectors_to_wbd(args):
         subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
         subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
         hucCode=huc,
-        subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
+        subset_nhd_headwaters=f"{huc_directory}/nhd_headwater_points_subset.gpkg",
         wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
         wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
         wbd_filename=f"{huc_directory}/wbd.gpkg",
@@ -305,12 +307,15 @@ def huc_level_clip_vectors_to_wbd(args):
         landsea=input_LANDSEA,
         nwm_streams=input_nwm_flows,
         subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
-        nwm_headwaters=input_nwm_headwaters,
+        nhd_headwaters=input_nhd_headwaters,
         subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
         subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
         wbd_buffer_distance=wbd_buffer_int,
         levee_protected_areas=input_nld_levee_protected_areas,
         subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+        nhd_streams=input_nhd_flowlines,
+        subset_nhd_streams=f"{huc_directory}/NHDPlusBurnLineEvent_subset.gpkg",
+        extent='GMS',
     )
 
     msg = f"\n\t Completing Get Vector Layers and Subset: {huc} \n"
