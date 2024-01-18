@@ -31,6 +31,8 @@ def combine_crosswalk_tables(data_directory, output_filename):
 
     if len(dfs) > 1:
         df = pd.concat(dfs)
+        df = df.reset_index(drop=True)
+        df['hand_id'] = df.index + 1
 
         df.to_csv(output_filename, index=False)
 
