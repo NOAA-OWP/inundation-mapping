@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2024-01-18 - [PR#1066](https://github.com/NOAA-OWP/inundation-mapping/pull/1066)
+
+Adds an index to the aggregated `crosswalk_table.csv`. The index is a consecutive integer that starts at 1. Columns have been reordered, renamed, and sorted.
+
+### Changes
+
+`tools/combine_crosswalk_tables.py`: Adds index and sorts and renames columns
+
+<br/><br/>
+
 ## v4.4.9.0 - 2024-01-12 - [PR#1058](https://github.com/NOAA-OWP/inundation-mapping/pull/1058)
 
 Upgrades base Docker image to GDAL v3.8.0. In order to upgrade past GDAL v.3.4.3 (see #1029), TauDEM's `aread8` was replaced with a module from the `pyflwdir` Python package.
