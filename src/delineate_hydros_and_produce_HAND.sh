@@ -19,6 +19,7 @@ if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $tempHucDataDir/LeveeProtecte
     python3 $srcDir/mask_dem.py \
         -dem $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
         -nld $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
+        -catchments $z_arg \
         -out $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
         -b $branch_id_attribute \
         -i $current_branch_id \
@@ -29,13 +30,18 @@ fi
 
 ## D8 FLOW ACCUMULATIONS ##
 echo -e $startDiv"D8 Flow Accumulations $hucNumber $current_branch_id"
+date -u
+Tstart
 $taudemDir/aread8 -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -ad8 $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
     -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif \
     -nc
+Tcount
 
 # THRESHOLD ACCUMULATIONS ##
 echo -e $startDiv"Threshold Accumulations $hucNumber $current_branch_id"
+date -u
+Tstart
 $taudemDir/threshold -ssa $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
     -src $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -thresh 1
@@ -229,3 +235,4 @@ python3 $srcDir/add_crosswalk.py \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length
+Tcount
