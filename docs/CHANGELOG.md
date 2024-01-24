@@ -8,20 +8,26 @@ Recent testing exposed a bug with the `acquire_and_preprocess_3dep_dems.py` scri
 Also used the opportunity to fix a couple of other minor issues:
 1) Reduce log output
 2) Add a test for ensuring the user does not submit job numbers (num of cpu requests) to exceed the system max cpus. This test exists in a number of places in the code but way later in the processing stack after alot of processing has been done. Now it is done at the start of the fim pipeline stack.
+3) remove arguments for "isaws" which is no longer in use and has not been for a while.
+4) quick upgrade to the tracker log that keeps track of duration of each unit being processed.
 
 ### Changes
 
+
 - `data\usgs\`
     - `acquire_and_preprocess_3dep_dems.py`: Re-add a feature which allowed for restarting and redo missing outputs or partial outputs. System now named as a "repair" system.
-- `fim_pipeline.sh`:  remove the parallel `--eta` flag to reduce logging. It was not needed.
+- `fim_pipeline.sh`:  remove the parallel `--eta` flag to reduce logging. It was not needed, also removed "isaws" flag.
 - `fim_pre_processing.sh`: Added validation tests for maximum CPU requests (job numbers)
+- `fim_post_processing.sh`: Added a permissions updated as output folders were being locked due to permissions.
+- `fim_process_unit_wb.sh`: Fixed a bug with output folders being locked due to permissions, but it was not recursive.
 - `src`
-    - `delineate_hydros_and_produce>HAND.sh`: Removed some unnecessary logging.
+    - `bash_functions.sh`: Added function so the unit timing logs would also have a time in percentage so it can easily be used to calculate averages.
+    - `delineate_hydros_and_produce_HAND.sh`: Removed some unnecessary logging. Changed a few gdal calls to be less verbose.
     - `derive_level_paths.py`: Changed verbose to false to reduce  unnecessary logging.
-    - `run_by_branch.sh`: Removed some unnecessary logging.
-    - `run_unit_by_wb.sh`: Removed some unnecessary logging.
+    - `run_by_branch.sh`: Removed some unnecessary logging. Added a duration system so we know how long the branch took to process.
+    - `run_unit_by_wb.sh`: Removed some unnecessary logging. Changed a few gdal calls to be less verbose.
     - `split_flows.py`: Removed progress bar which was unnecessary and was adding to logging.
-
+      
 <br/><br/>
 
 ## v4.4.9.0 - 2024-01-12 - [PR#1058](https://github.com/NOAA-OWP/inundation-mapping/pull/1058)
