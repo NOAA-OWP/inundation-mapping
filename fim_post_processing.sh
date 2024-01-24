@@ -216,6 +216,8 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 Tcount
 date -u
 
+find $outputDestDir -type d -exec chmod -R 777 {} +
+
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo "---- End of fim_post_processing"

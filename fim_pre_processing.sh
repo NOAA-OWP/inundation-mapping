@@ -45,8 +45,6 @@ usage()
       -o                : Overwrite outputs if they already exist.
       -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
                             will be skipped.
-      -isaws            : If this param is included, AWS objects will be used where possible
-                        - Note: This feature is not yet implemented.
     "
     exit
 }
@@ -98,9 +96,6 @@ in
     -skipcal)
         skipcal=1
         ;;
-    -isaws)
-        isAWS=1
-        ;;
     -x)
         evaluateCrosswalk=1
         ;;
@@ -131,7 +126,6 @@ if [ "$jobHucLimit" = "" ]; then jobHucLimit=1; fi
 if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi
 if [ -z "$skipcal" ]; then skipcal=0; fi
-if [ -z "$isAWS" ]; then isAWS=0; fi
 if [ -z "$evaluateCrosswalk" ]; then evaluateCrosswalk=0; fi
 
 # validate and set defaults for the deny lists
@@ -247,7 +241,6 @@ echo "export deny_unit_list=$deny_unit_list" >> $args_file
 echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
-echo "export isAWS=$isAWS" >> $args_file
 echo "export skipcal=$skipcal" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 

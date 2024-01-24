@@ -15,7 +15,7 @@ fi
 
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
 if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $tempHucDataDir/LeveeProtectedAreas_subset.gpkg ]; then
-    echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
+    echo -e $startDiv"Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) $hucNumber $current_branch_id"
     python3 $srcDir/mask_dem.py \
         -dem $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
         -nld $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
@@ -30,27 +30,20 @@ fi
 
 ## D8 FLOW ACCUMULATIONS ##
 echo -e $startDiv"D8 Flow Accumulations $hucNumber $current_branch_id"
-date -u
-Tstart
-$taudemDir/aread8 -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-    -ad8 $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
+python3 $srcDir/accumulate_headwaters.py \
+    -fd $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+    -fa $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
     -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif \
-    -nc
-Tcount
-
-# THRESHOLD ACCUMULATIONS ##
-echo -e $startDiv"Threshold Accumulations $hucNumber $current_branch_id"
-date -u
-Tstart
-$taudemDir/threshold -ssa $tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif \
-    -src $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
+    -stream $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -thresh 1
+
 
 ## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber $current_branch_id"
 python3 $srcDir/unique_pixel_and_allocation.py \
     -s $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_streamPixels_ids_$current_branch_id.tif
+
 
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber $current_branch_id"
@@ -62,6 +55,7 @@ python3 $srcDir/adjust_thalweg_lateral.py \
     -t 50 \
     -o $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
     -th $thalweg_lateral_elev_threshold
+
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber $current_branch_id"
@@ -235,4 +229,16 @@ python3 $srcDir/add_crosswalk.py \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length
-Tcount
+
+
+## EVALUATE CROSSWALK ##
+if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
+    echo -e $startDiv"Evaluate crosswalk $hucNumber $current_branch_id"
+    python3 $toolsDir/evaluate_crosswalk.py \
+        -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -b $b_arg \
+        -c $tempHucDataDir/crosswalk_evaluation_$current_branch_id.csv \
+        -d $tempHucDataDir/nwm_headwater_points_subset.gpkg \
+        -u $hucNumber \
+        -z $current_branch_id
+fi

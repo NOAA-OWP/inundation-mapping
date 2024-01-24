@@ -30,7 +30,8 @@ mkdir -p $tempCurrentBranchDataDir
 
 ## START MESSAGE ##
 echo -e $startDiv"Processing HUC: $hucNumber - branch_id: $current_branch_id"
-## INITIALIZE TOTAL TIME TIMER ##
+
+## INITIALIZE TOTAL BRANCH TIMER ##
 T_total_start
 branch_start_time=`date +%s`
 date -u
@@ -61,6 +62,7 @@ $srcDir/clip_rasters_to_branches.py -d $current_branch_id \
     -i $branch_id_attribute \
     -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/flowdir_d8_burned_filled.tif \
     -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled.tif
+
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"

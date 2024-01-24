@@ -17,10 +17,8 @@ branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
 branchSummaryLogFile=$outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
 
-## INITIALIZE TOTAL TIME TIMER ##
+## INITIALIZE TOTAL UNIT AND IT'S BRANCHES TIMER ##
 T_total_start
-echo
-echo "Start Processing for HUC $hucNumber"
 huc_start_time=`date +%s`
 date -u
 
@@ -287,7 +285,8 @@ Calc_Duration $branch_processing_start_time
 echo
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
-echo "$hucNumber, $(Calc_Time $huc_start_time)" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv"
+total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time)"
+echo "$total_duration_display" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"

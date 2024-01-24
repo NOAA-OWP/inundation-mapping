@@ -517,8 +517,7 @@ if __name__ == '__main__':
         '-rp',
         '--repair',
         help='OPTIONAL: If included, it process only HUCs missing output DEMs or if the output DEM'
-        ' is too small (under 10mb), which happens. '
-        'Default is all will be loaded/reloaded.',
+        ' is too small (under 10mb), which happens. ',
         required=False,
         action='store_true',
         default=False,
