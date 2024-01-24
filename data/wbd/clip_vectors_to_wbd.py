@@ -36,6 +36,8 @@ def subset_vector_layers(
     wbd_buffer_distance,
     levee_protected_areas,
     subset_levee_protected_areas,
+    nhdplus_streams,
+    subset_nhdplus_streams,
 ):
     print(f"Getting Cell Size for {hucCode}", flush=True)
     with rio.open(dem_filename) as dem_raster:
@@ -128,6 +130,22 @@ def subset_vector_layers(
             crs=DEFAULT_FIM_PROJECTION_CRS,
         )
     del nld_lines_preprocessed
+
+    # Subset NHDPlus streams
+    print(f"Subsetting NHDPlus streams for {hucCode}", flush=True)
+    nhdplus_streams = gpd.read_file(nhdplus_streams, mask=wbd_streams_buffer)
+
+    if len(nhdplus_streams) > 0:
+        nhdplus_streams.to_file(
+            subset_nhdplus_streams,
+            driver=getDriver(subset_nhdplus_streams),
+            index=False,
+            crs=DEFAULT_FIM_PROJECTION_CRS,
+        )
+    else:
+        print("No NHDPlus streams (s) within HUC " + str(hucCode) + " boundaries.")
+        sys.exit(0)
+    del nhdplus_streams
 
     # Subset NWM headwaters
     print(f"Subsetting NWM Headwater Points for {hucCode}", flush=True)

@@ -17,8 +17,6 @@ from utils.shared_variables import FIM_ID
 
 
 def add_crosswalk(
-    input_catchments_fileName,
-    input_flows_fileName,
     input_srcbase_fileName,
     output_catchments_fileName,
     output_flows_fileName,
@@ -35,135 +33,138 @@ def add_crosswalk(
     small_segments_filename,
     min_catchment_area,
     min_stream_length,
+    crosswalk_fileName,
     calibration_mode=False,
 ):
-    input_catchments = gpd.read_file(input_catchments_fileName)
-    input_flows = gpd.read_file(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName)
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName)
+    # input_nwmflows = gpd.read_file(input_nwmflows_fileName)
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
-    if extent == 'FR':
-        ## crosswalk using majority catchment method
+    output_flows = gpd.read_file(output_flows_fileName)
+    output_catchments = gpd.read_file(output_catchments_fileName)
+    crosswalk = pd.read_csv(crosswalk_fileName)
 
-        # calculate majority catchments
-        majority_calc = zonal_stats(
-            input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True
-        )
-        input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
-        input_majorities = input_majorities.rename(columns={'majority': 'feature_id'})
+    # if extent == 'FR':
+    #     ## crosswalk using majority catchment method
 
-        input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
-        if input_majorities.feature_id.dtype != 'int':
-            input_majorities.feature_id = input_majorities.feature_id.astype(int)
-        if input_majorities.HydroID.dtype != 'int':
-            input_majorities.HydroID = input_majorities.HydroID.astype(int)
+    #     # calculate majority catchments
+    #     majority_calc = zonal_stats(
+    #         input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True
+    #     )
+    #     input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
+    #     input_majorities = input_majorities.rename(columns={'majority': 'feature_id'})
 
-        input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
-        if input_nwmflows.feature_id.dtype != 'int':
-            input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
-        relevant_input_nwmflows = input_nwmflows[
-            input_nwmflows['feature_id'].isin(input_majorities['feature_id'])
-        ]
-        relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id', 'order_'])
+    #     input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
+    #     if input_majorities.feature_id.dtype != 'int':
+    #         input_majorities.feature_id = input_majorities.feature_id.astype(int)
+    #     if input_majorities.HydroID.dtype != 'int':
+    #         input_majorities.HydroID = input_majorities.HydroID.astype(int)
 
-        if input_catchments.HydroID.dtype != 'int':
-            input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-        output_catchments = output_catchments.merge(
-            relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id'
-        )
+    #     input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
+    #     if input_nwmflows.feature_id.dtype != 'int':
+    #         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+    #     relevant_input_nwmflows = input_nwmflows[
+    #         input_nwmflows['feature_id'].isin(input_majorities['feature_id'])
+    #     ]
+    #     relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id', 'order_'])
 
-        if input_flows.HydroID.dtype != 'int':
-            input_flows.HydroID = input_flows.HydroID.astype(int)
-        output_flows = input_flows.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-        if output_flows.HydroID.dtype != 'int':
-            output_flows.HydroID = output_flows.HydroID.astype(int)
-        output_flows = output_flows.merge(relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id')
-        output_flows = output_flows.merge(
-            output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
-        )
+    #     if input_catchments.HydroID.dtype != 'int':
+    #         input_catchments.HydroID = input_catchments.HydroID.astype(int)
+    #     output_catchments = input_catchments.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
+    #     output_catchments = output_catchments.merge(
+    #         relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id'
+    #     )
 
-    elif (extent == 'MS') | (extent == 'GMS'):
-        ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
+    #     if input_flows.HydroID.dtype != 'int':
+    #         input_flows.HydroID = input_flows.HydroID.astype(int)
+    #     output_flows = input_flows.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
+    #     if output_flows.HydroID.dtype != 'int':
+    #         output_flows.HydroID = output_flows.HydroID.astype(int)
+    #     output_flows = output_flows.merge(relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id')
+    #     output_flows = output_flows.merge(
+    #         output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
+    #     )
 
-        # only reduce nwm catchments to mainstems if running mainstems
-        if extent == 'MS':
-            input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem == 1]
+    # elif (extent == 'MS') | (extent == 'GMS'):
+    #     ## crosswalk using stream segment midpoint method
+    #     input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
 
-        input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
-        if input_nwmcat.feature_id.dtype != 'int':
-            input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
-        input_nwmcat = input_nwmcat.set_index('feature_id')
+    #     # only reduce nwm catchments to mainstems if running mainstems
+    #     if extent == 'MS':
+    #         input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem == 1]
 
-        input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
-        if input_nwmflows.feature_id.dtype != 'int':
-            input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+    #     input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
+    #     if input_nwmcat.feature_id.dtype != 'int':
+    #         input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
+    #     input_nwmcat = input_nwmcat.set_index('feature_id')
 
-        # Get stream midpoint
-        stream_midpoint = []
-        hydroID = []
-        for i, lineString in enumerate(input_flows.geometry):
-            hydroID = hydroID + [input_flows.loc[i, 'HydroID']]
-            stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
+    #     input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
+    #     if input_nwmflows.feature_id.dtype != 'int':
+    #         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
 
-        input_flows_midpoint = gpd.GeoDataFrame(
-            {'HydroID': hydroID, 'geometry': stream_midpoint}, crs=input_flows.crs, geometry='geometry'
-        )
-        input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
+    #     # Get stream midpoint
+    #     stream_midpoint = []
+    #     hydroID = []
+    #     for i, lineString in enumerate(input_flows.geometry):
+    #         hydroID = hydroID + [input_flows.loc[i, 'HydroID']]
+    #         stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
 
-        # Create crosswalk
-        crosswalk = gpd.sjoin(
-            input_flows_midpoint, input_nwmcat, how='left', predicate='within'
-        ).reset_index()
-        crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
+    #     input_flows_midpoint = gpd.GeoDataFrame(
+    #         {'HydroID': hydroID, 'geometry': stream_midpoint}, crs=input_flows.crs, geometry='geometry'
+    #     )
+    #     input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
 
-        # fill in missing ms
-        crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
-        for index, stream in crosswalk_missing.iterrows():
-            # find closest nwm catchment by distance
-            distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
-            min_dist = min(distances)
-            nwmcat_index = distances.index(min_dist)
+    #     # Create crosswalk
+    #     crosswalk = gpd.sjoin(
+    #         input_flows_midpoint, input_nwmcat, how='left', predicate='within'
+    #     ).reset_index()
+    #     crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
 
-            # update crosswalk
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].name
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].AreaSqKM
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Length
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Area
+    #     # fill in missing ms
+    #     crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
+    #     for index, stream in crosswalk_missing.iterrows():
+    #         # find closest nwm catchment by distance
+    #         distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
+    #         min_dist = min(distances)
+    #         nwmcat_index = distances.index(min_dist)
 
-        crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
-        crosswalk = crosswalk.merge(input_nwmflows[['feature_id', 'order_']], on='feature_id')
+    #         # update crosswalk
+    #         crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
+    #             nwmcat_index
+    #         ].name
+    #         crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
+    #             nwmcat_index
+    #         ].AreaSqKM
+    #         crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
+    #             nwmcat_index
+    #         ].Shape_Length
+    #         crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
+    #             nwmcat_index
+    #         ].Shape_Area
 
-        if len(crosswalk) < 1:
-            print("No relevant streams within HUC boundaries.")
-            sys.exit(0)
+    #     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
+    #     crosswalk = crosswalk.merge(input_nwmflows[['feature_id', 'order_']], on='feature_id')
 
-        if input_catchments.HydroID.dtype != 'int':
-            input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(crosswalk, on='HydroID')
+    #     if len(crosswalk) < 1:
+    #         print("No relevant streams within HUC boundaries.")
+    #         sys.exit(0)
 
-        if input_flows.HydroID.dtype != 'int':
-            input_flows.HydroID = input_flows.HydroID.astype(int)
-        output_flows = input_flows.merge(crosswalk, on='HydroID')
+    #     if input_catchments.HydroID.dtype != 'int':
+    #         input_catchments.HydroID = input_catchments.HydroID.astype(int)
+    #     output_catchments = input_catchments.merge(crosswalk, on='HydroID')
 
-        # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
-        if 'areasqkm' not in output_catchments.columns:
-            output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
+    #     if input_flows.HydroID.dtype != 'int':
+    #         input_flows.HydroID = input_flows.HydroID.astype(int)
+    #     output_flows = input_flows.merge(crosswalk, on='HydroID')
 
-        output_flows = output_flows.merge(
-            output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
-        )
+    #     # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
+    #     if 'areasqkm' not in output_catchments.columns:
+    #         output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
+
+    #     output_flows = output_flows.merge(
+    #         output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
+    #     )
 
     output_flows['ManningN'] = mannings_n
 
@@ -327,8 +328,8 @@ def add_crosswalk(
                     ['Discharge (m3s-1)'],
                 ] = src_stage[1]
 
-    if extent == 'FR':
-        output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
+    # if extent == 'FR':
+    #     output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
     elif (extent == 'MS') | (extent == 'GMS'):
         output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
 
@@ -441,8 +442,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Crosswalk for MS/FR/GMS networks; calculate synthetic rating curves; update short rating curves"
     )
-    parser.add_argument("-d", "--input-catchments-fileName", help="DEM derived catchments", required=True)
-    parser.add_argument("-a", "--input-flows-fileName", help="DEM derived streams", required=True)
+    # parser.add_argument("-d", "--input-catchments-fileName", help="DEM derived catchments", required=True)
+    # parser.add_argument("-a", "--input-flows-fileName", help="DEM derived streams", required=True)
     parser.add_argument(
         "-s", "--input-srcbase-fileName", help="Base synthetic rating curve table", required=True
     )
@@ -477,6 +478,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
+    parser.add_argument("-cw", "--crosswalk-fileName", help="Crosswalk table filename", required=True)
 
     args = vars(parser.parse_args())
 

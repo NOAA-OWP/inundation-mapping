@@ -54,7 +54,7 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
 # test if we received a non-zero code back from derive_level_paths.py
 #subscript_exit_code=$?
 
-# we have to retrow it if it is not a zero (but it will stop further execution in this script)
+# we have to rethrow it if it is not a zero (but it will stop further execution in this script)
 # if [ $subscript_exit_code -ne 0 ] && [ $subscript_exit_code -ne 62 ] && [ $subscript_exit_code -eq 63 ]; then
 #     exit $subscript_exit_code
 # fi
@@ -77,7 +77,6 @@ python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_sub
     -w $levee_buffer \
     -b $branch_id_attribute \
     -l $levee_id_attribute
-
 Tcount
 
 ## STREAM BRANCH POLYGONS
@@ -153,13 +152,32 @@ python3 $srcDir/burn_in_levees.py \
     -out $tempHucDataDir/dem_meters.tif
 Tcount
 
+#TODO
+## Crosswalk NWM streams to NHDPlus streams ##
+echo -e $startDiv"Crosswalk NWM streams to NHDPlus streams $hucNumber $branch_zero_id"
+date -u
+Tstart
+python3 $srcDir/crosswalk_network_id.py \
+                -if $tempHucDataDir/nhdplus_streams_subset.gpkg \
+                -id NHDPlusID \
+                -method segment-midpoint \
+                -huc $tempHucDataDir/wbd8_clp.gpkg \
+                -nwm $tempHucDataDir/nwm_subset_streams.gpkg \
+                -lp $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
+                -cat $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
+                -ras $tempHucDataDir/nwm_catchments_proj_subset.tif \
+                -of $tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg \
+                -ol $tempHucDataDir/nhdplus_streams_subset_crosswalked_levelPaths.gpkg
+Tcount
+
+
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
 date -u
 Tstart
 gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-    $tempHucDataDir/nwm_subset_streams.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
+    $tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
 Tcount
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
@@ -169,7 +187,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     Tstart
     gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-        $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
+        $tempHucDataDir/nhdplus_streams_subset_levelPaths_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
     Tcount
 fi
 

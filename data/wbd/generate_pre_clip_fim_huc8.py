@@ -60,6 +60,8 @@ input_GL_boundaries = os.getenv('input_GL_boundaries')
 input_nwm_flows = os.getenv('input_nwm_flows')
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
+input_nhdplus_streams = os.getenv('input_nhdplus_streams')
+
 
 # Variables from config/params_template.env
 wbd_buffer = os.getenv('wbd_buffer')
@@ -311,6 +313,8 @@ def huc_level_clip_vectors_to_wbd(args):
         wbd_buffer_distance=wbd_buffer_int,
         levee_protected_areas=input_nld_levee_protected_areas,
         subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+        nhdplus_streams=input_nhdplus_streams,
+        subset_nhdplus_streams=f"{huc_directory}/nhdplus_streams_subset.gpkg",
     )
 
     msg = f"\n\t Completing Get Vector Layers and Subset: {huc} \n"
