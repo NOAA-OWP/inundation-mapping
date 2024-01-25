@@ -4,12 +4,14 @@
 level=$1
 
 if [ "$level" = "branch" ]; then
-    b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
-    z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg
+    # b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
+    b_arg=$tempCurrentBranchDataDir/nhdplus_streams_subset_crosswalked_levelPaths_$current_branch_id.gpkg
+    z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_crosswalked_levelPaths_$current_branch_id.gpkg
 elif [ "$level" = "unit" ]; then
     # Branch zero has a different source for -b and -z arguments
-    b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
-    z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
+    # b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
+    b_arg=$tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg
+    z_arg=$tempHucDataDir/nwm_catchments_proj_subset_crosswalked.gpkg
 fi
 
 ## INITIALIZE TOTAL TIME TIMER ##
@@ -126,7 +128,8 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -n $b_arg \
     -m $max_split_distance_meters \
     -t $slope_min \
-    -b $lakes_buffer_dist_meters
+    -b $lakes_buffer_dist_meters \
+    -to ToNode
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
@@ -289,7 +292,7 @@ python3 $srcDir/add_crosswalk.py \
     -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
     -w $tempHucDataDir/wbd8_clp.gpkg \
     -b $b_arg \
-    -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif \
+    -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset_crosswalked.tif \
     -m $manning_n \
     -z $z_arg \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \

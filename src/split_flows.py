@@ -41,6 +41,7 @@ def split_flows(
     max_length,
     slope_min,
     lakes_buffer_input,
+    to_attribute,
 ):
     def snap_and_trim_flow(snapped_point, flows):
         # Find nearest flow line
@@ -149,7 +150,10 @@ def split_flows(
 
     # If branch 0: loop over NWM terminal segments
     else:
-        nwm_streams_terminal = nwm_streams[nwm_streams['to'] == 0]
+        if to_attribute == 'to':
+            nwm_streams_terminal = nwm_streams[nwm_streams[to_attribute] == 0]
+        elif to_attribute == 'ToNode':
+            nwm_streams_terminal = nwm_streams[~nwm_streams[to_attribute].isin(nwm_streams['FromNode'])]
         if not nwm_streams_terminal.empty:
             for i, row in nwm_streams_terminal.iterrows():
                 linestring_geo = row['geometry']
@@ -361,6 +365,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--max-length', help='Maximum split distance (meters)', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
     parser.add_argument('-b', '--lakes-buffer-input', help='Lakes buffer distance (meters)', required=True)
+    parser.add_argument('-to', '--to-attribute', help='To attribute name', required=True)
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

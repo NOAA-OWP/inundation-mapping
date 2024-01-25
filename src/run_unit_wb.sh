@@ -160,6 +160,7 @@ Tstart
 python3 $srcDir/crosswalk_network_id.py \
                 -if $tempHucDataDir/nhdplus_streams_subset.gpkg \
                 -id NHDPlusID \
+                -ic $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
                 -method segment-midpoint \
                 -huc $tempHucDataDir/wbd8_clp.gpkg \
                 -nwm $tempHucDataDir/nwm_subset_streams.gpkg \
@@ -167,8 +168,23 @@ python3 $srcDir/crosswalk_network_id.py \
                 -cat $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
                 -ras $tempHucDataDir/nwm_catchments_proj_subset.tif \
                 -of $tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg \
-                -ol $tempHucDataDir/nhdplus_streams_subset_crosswalked_levelPaths.gpkg
+                -ol $tempHucDataDir/nhdplus_streams_subset_crosswalked_levelPaths.gpkg \
+                -oc $tempHucDataDir/nwm_catchments_proj_subset_crosswalked.gpkg
 Tcount
+
+# ## EVALUATE CROSSWALK ##
+# if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
+#     echo -e $startDiv"Evaluate crosswalk $hucNumber $current_branch_id"
+#     date -u
+#     Tstart
+#     python3 $toolsDir/evaluate_crosswalk.py \
+#         -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+#         -b $b_arg \
+#         -c $tempHucDataDir/crosswalk_evaluation_$current_branch_id.csv \
+#         -d $tempHucDataDir/nwm_headwater_points_subset.gpkg \
+#         -u $hucNumber \
+#         -z $current_branch_id
+#     Tcount
 
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
@@ -187,7 +203,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     Tstart
     gdal_rasterize -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-        $tempHucDataDir/nhdplus_streams_subset_levelPaths_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
+        $tempHucDataDir/nhdplus_streams_subset_crosswalked_levelPaths.gpkg $tempHucDataDir/flows_grid_boolean.tif
     Tcount
 fi
 

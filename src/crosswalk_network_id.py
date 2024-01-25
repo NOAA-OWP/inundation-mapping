@@ -12,6 +12,7 @@ import geopandas as gpd
 def conflate_nwm_feature_ids(
     input_flows_fileName,
     input_flows_id_attribute,
+    input_catchments_fileName,
     method,
     input_huc_fileName,
     input_nwmflows_fileName,
@@ -20,6 +21,8 @@ def conflate_nwm_feature_ids(
     input_nwmcatras_fileName,
     output_flows_fileName,
     output_flows_levelPath_fileName,
+    output_catchments_fileName,
+    crosswalk_fileName,
 ):
     """
     Conflate NWM stream IDs with NHD stream IDs
@@ -75,7 +78,9 @@ def conflate_nwm_feature_ids(
 
     #     return output_flows#, output_catchments
 
-    def segment_midpoint(input_flows, input_flows_id_attribute, input_nwmflows, input_nwmcat, extent='GMS'):
+    def _segment_midpoint(
+        input_flows, input_flows_id_attribute, input_nwmflows, input_nwmcat, crosswalk_fileName, extent='GMS'
+    ):
         ## crosswalk using stream segment midpoint method
 
         # only reduce nwm catchments to mainstems if running mainstems
@@ -141,6 +146,9 @@ def conflate_nwm_feature_ids(
             print("No relevant streams within HUC boundaries.")
             sys.exit(0)
 
+        else:
+            crosswalk.to_csv(crosswalk_fileName)
+
         # if input_catchments.HydroID.dtype != 'int':
         #     input_catchments.HydroID = input_catchments.HydroID.astype(int)
         # output_catchments = input_catchments.merge(crosswalk, on='HydroID')
@@ -157,7 +165,7 @@ def conflate_nwm_feature_ids(
         #     output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
         # )
 
-        return output_flows  # , output_catchments
+        return output_flows, crosswalk
 
     input_flows = gpd.read_file(input_flows_fileName)
     # input_catchments = gpd.read_file(input_catchments_fileName)
@@ -169,10 +177,12 @@ def conflate_nwm_feature_ids(
         input_huc = gpd.read_file(input_huc_fileName)
         input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
 
-        output_flows = segment_midpoint(input_flows, input_flows_id_attribute, input_nwmflows, input_nwmcat)
+        output_flows, crosswalk = _segment_midpoint(
+            input_flows, input_flows_id_attribute, input_nwmflows, input_nwmcat, crosswalk_fileName
+        )
 
     # elif method == 'majority catchment' and input_nwmcatras_fileName is not None:
-    #     output_flows, output_catchments = majority_catchment(input_flows, input_catchments, input_nwmcatras_fileName)
+    #     output_flows, output_catchments = _majority_catchment(input_flows, input_catchments, input_nwmcatras_fileName)
 
     else:
         print("Invalid inputs for conflate_network_attributes.py")
@@ -180,6 +190,7 @@ def conflate_nwm_feature_ids(
 
     output_flows.to_file(output_flows_fileName)
     # output_catchments.to_file(output_catchments_fileName)
+    crosswalk.to_csv(crosswalk_fileName)
 
     # Filter levelpaths
     input_nwmflows_levelPath = gpd.read_file(input_nwmflows_levelPath_fileName)
@@ -199,8 +210,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-id', '--input-flows-id-attribute', type=str, required=True, help='Path to input feature class'
     )
-    # parser.add_argument('-ic', '--input-catchments-fileName', type=str, required=True,
-    #                     help='Path to catchment feature class')
+    parser.add_argument(
+        '-ic', '--input-catchments-fileName', type=str, required=True, help='Path to catchment feature class'
+    )
     parser.add_argument('-method', '--method', type=str, required=True, help='Crosswalking method to use')
     parser.add_argument(
         '-huc', '--input-huc-fileName', type=str, required=True, help='Path to HUC feature class'
@@ -231,8 +243,14 @@ if __name__ == '__main__':
         required=True,
         help='Path to output flows level path feature class',
     )
-    # parser.add_argument('-oc', '--output-catchments-fileName', type=str, required=True,
-    #                     help='Path to output catchments feature class')
+    parser.add_argument(
+        '-oc',
+        '--output-catchments-fileName',
+        type=str,
+        required=True,
+        help='Path to output catchments feature class',
+    )
+    parser.add_argument('-cw', '--crosswalk-fileName', type=str, required=True, help='Path to crosswalk file')
 
     args = vars(parser.parse_args())
 

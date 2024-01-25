@@ -18,10 +18,13 @@ from utils.shared_variables import FIM_ID
 
 def add_crosswalk(
     input_srcbase_fileName,
+    input_catchments_fileName,
     output_catchments_fileName,
+    input_flows_fileName,
     output_flows_fileName,
     output_src_fileName,
     output_src_json_fileName,
+    input_crosswalk_fileName,
     output_crosswalk_fileName,
     output_hydro_table_fileName,
     input_huc_fileName,
@@ -33,17 +36,17 @@ def add_crosswalk(
     small_segments_filename,
     min_catchment_area,
     min_stream_length,
-    crosswalk_fileName,
     calibration_mode=False,
 ):
     input_huc = gpd.read_file(input_huc_fileName)
     # input_nwmflows = gpd.read_file(input_nwmflows_fileName)
+    input_catchments = gpd.read_file(input_catchments_fileName)
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
+    crosswalk = pd.read_csv(input_crosswalk_fileName)
 
-    output_flows = gpd.read_file(output_flows_fileName)
-    output_catchments = gpd.read_file(output_catchments_fileName)
-    crosswalk = pd.read_csv(crosswalk_fileName)
+    output_flows = gpd.read_file(input_flows_fileName)
+    # output_catchments = gpd.read_file(output_catchments_fileName)
 
     # if extent == 'FR':
     #     ## crosswalk using majority catchment method
@@ -150,21 +153,19 @@ def add_crosswalk(
     #         print("No relevant streams within HUC boundaries.")
     #         sys.exit(0)
 
-    #     if input_catchments.HydroID.dtype != 'int':
-    #         input_catchments.HydroID = input_catchments.HydroID.astype(int)
-    #     output_catchments = input_catchments.merge(crosswalk, on='HydroID')
+    if input_catchments.HydroID.dtype != 'int':
+        input_catchments.HydroID = input_catchments.HydroID.astype(int)
+    output_catchments = input_catchments.merge(crosswalk, on='HydroID')
 
-    #     if input_flows.HydroID.dtype != 'int':
-    #         input_flows.HydroID = input_flows.HydroID.astype(int)
-    #     output_flows = input_flows.merge(crosswalk, on='HydroID')
+    # if input_flows.HydroID.dtype != 'int':
+    #     input_flows.HydroID = input_flows.HydroID.astype(int)
+    # output_flows = input_flows.merge(crosswalk, on='HydroID')
 
-    #     # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
-    #     if 'areasqkm' not in output_catchments.columns:
-    #         output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
+    # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
+    if 'areasqkm' not in output_catchments.columns:
+        output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
 
-    #     output_flows = output_flows.merge(
-    #         output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
-    #     )
+    output_flows = output_flows.merge(output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID')
 
     output_flows['ManningN'] = mannings_n
 
@@ -442,8 +443,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Crosswalk for MS/FR/GMS networks; calculate synthetic rating curves; update short rating curves"
     )
-    # parser.add_argument("-d", "--input-catchments-fileName", help="DEM derived catchments", required=True)
-    # parser.add_argument("-a", "--input-flows-fileName", help="DEM derived streams", required=True)
+    parser.add_argument("-d", "--input-catchments-fileName", help="DEM derived catchments", required=True)
+    parser.add_argument("-a", "--input-flows-fileName", help="DEM derived streams", required=True)
     parser.add_argument(
         "-s", "--input-srcbase-fileName", help="Base synthetic rating curve table", required=True
     )
@@ -478,7 +479,6 @@ if __name__ == '__main__':
     )
     parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
-    parser.add_argument("-cw", "--crosswalk-fileName", help="Crosswalk table filename", required=True)
 
     args = vars(parser.parse_args())
 
