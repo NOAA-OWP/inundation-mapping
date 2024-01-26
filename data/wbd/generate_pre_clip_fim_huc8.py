@@ -70,6 +70,7 @@ input_GL_boundaries = os.getenv('input_GL_boundaries')
 input_nwm_flows = os.getenv('input_nwm_flows')
 input_nwm_flows_Alaska = os.getenv('input_nwm_flows_Alaska') # alaska
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
+input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
 
 # Variables from config/params_template.env
@@ -338,7 +339,7 @@ def huc_level_clip_vectors_to_wbd(args):
             landsea=input_LANDSEA,
             nwm_streams=input_nwm_flows_Alaska,
             subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
-            nwm_headwaters=input_nwm_headwaters,
+            nwm_headwaters=input_nwm_headwaters_Alaska,
             subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
             subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
             wbd_buffer_distance=wbd_buffer_int,
