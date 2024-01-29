@@ -1,31 +1,28 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
-from collections import OrderedDict
 import os
 from os import remove
 from os.path import isfile
 
-from osgeo import gdal, ogr
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+import subprocess
 from rasterio.mask import mask
-from shapely import ops, wkt
-from shapely.geometry import LineString, Point
+from shapely import ops
+from shapely.geometry import Point
 from shapely.ops import split as shapely_ops_split
-from tqdm import tqdm
 from collections import Counter
-import fiona
 
-import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
-import subprocess
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def mitigate_branch_outlet_backpool(
     branch_dir,
@@ -122,14 +119,26 @@ def mitigate_branch_outlet_backpool(
     # Based on snap_and_trim_flow() from split_flows.py (as of 10/20/23)
     def snap_and_trim_splitflow(outlet_point, flows):
 
-        if len(flows) > 1:
-            flow = flows[flows['NextDownID'] == '-1' ] # selects last flowline segment
-        else: 
-            flow = flows
+        # Get the nearest flowline to the outlet point
+        near_flows = []
+        for index, point in outlet_point.iterrows():
+            nearest_line = flows.loc[flows.distance(point['geometry']).idxmin()]
+            near_flows.append(nearest_line)
+
+        # Create a new GeoDataFrame with the closest flowline(s)
+        near_flows_gdf = gpd.GeoDataFrame(near_flows, crs=flows.crs)
+
+        # Trim the near flows to get the furthest downstream one
+        if len(near_flows_gdf) == 1:
+            flow = near_flows_gdf
+        
+        elif len(near_flows_gdf) > 1:
+            last_node = near_flows_gdf['From_Node'].max() # get the highest node value (i.e. furthest down)
+            flow = near_flows_gdf[near_flows_gdf['From_Node'] == last_node] # subset flows to get furthest down flow
 
         # Calculate flowline initial length
         toMetersConversion = 1e-3
-        initial_length_km = flow.geometry.length * toMetersConversion
+        initial_length_km = flow.geometry.length.iloc[0] * toMetersConversion
 
         # Snap the point to the line
         outlet_point['geometry'] = flow.interpolate(flow.project(outlet_point))
@@ -304,8 +313,36 @@ def mitigate_branch_outlet_backpool(
 
                 print('Incorrectly-large outlet pixel catchment detected. Snapping line points to penultimate vertex.')
 
+                # TODO: Move this to the function definition area
+                # Count coordinates in a linestring
+                def count_coordinates(line_string):
+                    return len(line_string.coords)
+
+                # Count coordinates in 'geometry' column
+                split_flows_last_geom['num_coordinates'] = split_flows_last_geom['geometry'].apply(lambda x: count_coordinates(x) if x.geom_type == 'LineString' else None)
+
+                # Get the last geometry and check the length of the last geometry
+                if split_flows_last_geom['num_coordinates'].iloc[0] < 3: ## TODO: reverse and test to make sure it actually works!!
+                    # If the length is shorter than 3, extract the first point of the second-to-last geometry 
+                    print('Extract first point of second-to-last geometry.') ## debug
+
+                    # Get "from_node" of last segment
+                    second_to_last_node = split_flows_last_geom['From_Node'].iloc[0]
+
+                    # Subset second-to-last segment by selecting by the node connection
+                    split_flows_second_to_last_geom = split_flows_geom[split_flows_geom['To_Node'] == second_to_last_node ]
+
+                    # Get last point of second-to-last segment
+                    thirdtolast_point = split_flows_second_to_last_geom['geometry'].apply(extract_last_point).apply(Point)
+
+                else:
+                    # If the length is 3 or greater, extract the third-to-last point of the last geometry
+                    print('Extract third-to-last point of last geometry.') ## debug
+
+                    thirdtolast_point = split_flows_last_geom['geometry'].apply(extract_3rdtolast_point).apply(Point)
+
+
                 # Apply the function to create a new GeoDataFrame
-                thirdtolast_point = split_flows_last_geom['geometry'].apply(extract_3rdtolast_point).apply(Point)
                 thirdtolast_point_geom = gpd.GeoDataFrame(thirdtolast_point, columns=['geometry'], crs=split_flows_geom.crs)
 
                 # Get the catchment ID of the new snapped point
