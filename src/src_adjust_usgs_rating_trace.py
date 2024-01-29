@@ -224,8 +224,8 @@ def trace_network(df, start_id, max_length):
         if lake > 0:
             break
         
-        if current_id != start_id:
-            trace_down.append(current_id)
+        # not dropping the HydroID that has the gauge location (need later)
+        trace_down.append(int(current_id))
 
         current_id = next_id
 
@@ -288,7 +288,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
             dem_reaches_path = os.path.join(branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
             df = gpd.read_file(dem_reaches_path)
-            water_edge_median_ds = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
+            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
 
             # Calculate updstream/downstream trace ()
             max_length = 8.0
@@ -297,17 +297,40 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             df['HydroID'] = df['HydroID'].astype(int)
             df['NextDownID'] = df['NextDownID'].astype(int)
             # Loop through every row in the "usgs_elev" dataframe
-            for index, row in water_edge_median_ds.iterrows():
-                start_id = row['HydroID']
+            for index, row in usgs_elev.iterrows():
+                start_id = row['hydroid']
                 
                 # Trace the network for each row
                 up, down = trace_network(df, start_id, max_length)
 
                 # Append the results to the "usgs_elev" dataframe
-                water_edge_median_ds.at[index, 'up'] = ','.join(map(str, up))
-                water_edge_median_ds.at[index, 'down'] = ','.join(map(str, down))
-            print(water_edge_median_ds)
-            water_edge_median_ds.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
+                usgs_elev = usgs_elev.copy()
+                usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
+                usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
+            
+            # Handle NaN values and ignore rows where up/down trace list is empty
+            usgs_elev['up'] = usgs_elev['up'].astype(str).apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+            usgs_elev['down'] = usgs_elev['down'].astype(str).apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+
+            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
+            # Combine the up & down hydroid lists into a new column
+            usgs_elev['trace_hydroid'] = [lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])]
+            
+            # Drop up & down columns
+            columns_to_drop = ['up', 'down']
+            usgs_elev.drop(columns=columns_to_drop, inplace=True)
+
+            # Explode the trace column
+            usgs_elev_trace = usgs_elev.explode('trace_hydroid')
+
+            # Convert the column to integer
+            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
+            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
+            
+            # Rename columns
+            usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
+            usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
+            usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
@@ -361,7 +384,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 procs_list.append(
                     [
                         branch_dir,
-                        water_edge_median_ds,
+                        usgs_elev_trace,
                         htable_path,
                         huc,
                         branch_id,
