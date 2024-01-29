@@ -1,5 +1,6 @@
 import argparse
 import datetime as dt
+import geopandas as gpd
 import multiprocessing
 import os
 import sys
@@ -191,6 +192,72 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     log_usgs_db.close()
     return final_df
 
+def trace_network(df, start_id, max_length):
+    current_id = start_id
+    trace_up = []
+    trace_down = []
+    start_order = None  # Variable to store the start_order
+    accumulated_length = 0
+
+    while True:
+        current_row = df[df['HydroID'] == current_id]
+
+        if current_row.empty:
+            break
+
+        next_id = current_row['NextDownID'].values[0]
+        order = current_row['order_'].values[0]
+        length = current_row['LengthKm'].values[0]
+        lake = current_row['LakeID'].values[0]        
+
+        # Assign start_order when first encountered
+        if start_order is None:
+            start_order = order
+
+        if order != start_order:
+            break
+
+        accumulated_length += length
+        if accumulated_length >= max_length:
+            break
+
+        if lake > 0:
+            break
+        
+        if current_id != start_id:
+            trace_down.append(current_id)
+
+        current_id = next_id
+
+    current_id = start_id  # Reset current_id for tracing down
+    accumulated_length = 0
+
+    while True:
+        current_row = df[(df['NextDownID'] == current_id) & (df['order_'] == start_order)]
+        if current_row.empty:
+            break
+
+        next_id = current_row['HydroID'].values[0]
+        order = current_row['order_'].values[0]
+        length = current_row['LengthKm'].values[0]
+        lake = current_row['LakeID'].values[0]
+
+        if order != start_order:
+            break
+
+        accumulated_length += length
+        if accumulated_length >= max_length:
+            break
+
+        if lake > 0:
+            break
+        
+        if current_id != start_id:
+            trace_up.append(current_id)
+
+        current_id = next_id
+
+    return trace_up, trace_down
 
 def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     procs_list = []  # Initialize list for mulitprocessing.
@@ -199,6 +266,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     # branch_huc_dict = pd.Series(usgs_df.levpa_id.values,index=usgs_df.huc).to_dict('list')
     # branch_huc_dict = usgs_df.set_index('huc').T.to_dict('list')
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
+    print("Code is here...........")
 
     for huc in sorted(
         huc_branch_dict.keys()
@@ -218,7 +286,28 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
             )
             htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+            dem_reaches_path = os.path.join(branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
+            df = gpd.read_file(dem_reaches_path)
             water_edge_median_ds = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
+
+            # Calculate updstream/downstream trace ()
+            max_length = 8.0
+            df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
+            # Change the data type of 'HydroID' and 'NextDownID' to int
+            df['HydroID'] = df['HydroID'].astype(int)
+            df['NextDownID'] = df['NextDownID'].astype(int)
+            # Loop through every row in the "usgs_elev" dataframe
+            for index, row in water_edge_median_ds.iterrows():
+                start_id = row['HydroID']
+                
+                # Trace the network for each row
+                up, down = trace_network(df, start_id, max_length)
+
+                # Append the results to the "usgs_elev" dataframe
+                water_edge_median_ds.at[index, 'up'] = ','.join(map(str, up))
+                water_edge_median_ds.at[index, 'down'] = ','.join(map(str, down))
+            print(water_edge_median_ds)
+            water_edge_median_ds.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
