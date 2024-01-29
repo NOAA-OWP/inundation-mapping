@@ -6,12 +6,12 @@ level=$1
 if [ "$level" = "branch" ]; then
     # b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
     b_arg=$tempCurrentBranchDataDir/nhdplus_streams_subset_crosswalked_levelPaths_$current_branch_id.gpkg
-    z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_crosswalked_levelPaths_$current_branch_id.gpkg
+    z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg
 elif [ "$level" = "unit" ]; then
     # Branch zero has a different source for -b and -z arguments
     # b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
     b_arg=$tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg
-    z_arg=$tempHucDataDir/nwm_catchments_proj_subset_crosswalked.gpkg
+    z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
 fi
 
 ## INITIALIZE TOTAL TIME TIMER ##

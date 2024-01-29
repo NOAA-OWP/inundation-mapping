@@ -169,7 +169,8 @@ python3 $srcDir/crosswalk_network_id.py \
                 -ras $tempHucDataDir/nwm_catchments_proj_subset.tif \
                 -of $tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg \
                 -ol $tempHucDataDir/nhdplus_streams_subset_crosswalked_levelPaths.gpkg \
-                -oc $tempHucDataDir/nwm_catchments_proj_subset_crosswalked.gpkg
+                -oc $tempHucDataDir/nwm_catchments_proj_subset_crosswalked.gpkg \
+                -cw $tempHucDataDir/input_crosswalk_table.csv
 Tcount
 
 # ## EVALUATE CROSSWALK ##
