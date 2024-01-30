@@ -324,8 +324,9 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Explode the trace column
             usgs_elev_trace = usgs_elev.explode('trace_hydroid')
 
-            # Convert the column to integer
+            # Check for empty or nan trace lists and convert the column to integers
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
+            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
             
             # Rename columns
