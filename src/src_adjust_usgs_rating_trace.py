@@ -314,7 +314,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev['up'] = usgs_elev['up'].astype(str).apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
             usgs_elev['down'] = usgs_elev['down'].astype(str).apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
 
-            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
             # Combine the up & down hydroid lists into a new column
             usgs_elev['trace_hydroid'] = [lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])]
             
@@ -332,7 +331,9 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Rename columns
             usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
             usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
-            usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
+
+            if debug_outputs_option:
+                usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
