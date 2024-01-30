@@ -293,9 +293,11 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Calculate updstream/downstream trace ()
             max_length = 8.0
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
+            
             # Change the data type of 'HydroID' and 'NextDownID' to int
             df['HydroID'] = df['HydroID'].astype(int)
             df['NextDownID'] = df['NextDownID'].astype(int)
+            
             # Loop through every row in the "usgs_elev" dataframe
             for index, row in usgs_elev.iterrows():
                 start_id = row['hydroid']
