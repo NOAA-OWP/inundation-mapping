@@ -4,13 +4,13 @@
 level=$1
 
 if [ "$level" = "branch" ]; then
-    # b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
-    b_arg=$tempCurrentBranchDataDir/nhdplus_streams_subset_crosswalked_levelPaths_$current_branch_id.gpkg
+    b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
+    # b_arg=$tempCurrentBranchDataDir/nhdplus_streams_subset_crosswalked_levelPaths_$current_branch_id.gpkg
     z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg
 elif [ "$level" = "unit" ]; then
     # Branch zero has a different source for -b and -z arguments
-    # b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
-    b_arg=$tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg
+    b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
+    # b_arg=$tempHucDataDir/nhdplus_streams_subset_crosswalked.gpkg
     z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
 fi
 
@@ -129,7 +129,7 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -m $max_split_distance_meters \
     -t $slope_min \
     -b $lakes_buffer_dist_meters \
-    -to ToNode
+    -to to
 Tcount
 
 ## GAGE WATERSHED FOR REACHES ##
