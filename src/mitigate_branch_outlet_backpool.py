@@ -119,26 +119,44 @@ def mitigate_branch_outlet_backpool(
     # Based on snap_and_trim_flow() from split_flows.py (as of 10/20/23)
     def snap_and_trim_splitflow(outlet_point, flows):
 
-        # Get the nearest flowline to the outlet point
-        near_flows = []
-        for index, point in outlet_point.iterrows():
-            nearest_line = flows.loc[flows.distance(point['geometry']).idxmin()]
-            near_flows.append(nearest_line)
+        if len(flows.index) == 1:
+            flow = flows
 
-        # Create a new GeoDataFrame with the closest flowline(s)
-        near_flows_gdf = gpd.GeoDataFrame(near_flows, crs=flows.crs)
+        else:
+            # Get the nearest flowline to the outlet point
+            near_flows = []
+            for index, point in outlet_point.iterrows():
+                nearest_line = flows.loc[flows.distance(point['geometry']).idxmin()]
+                near_flows.append(nearest_line)
 
-        # Trim the near flows to get the furthest downstream one
-        if len(near_flows_gdf) == 1:
-            flow = near_flows_gdf
-        
-        elif len(near_flows_gdf) > 1:
-            last_node = near_flows_gdf['From_Node'].max() # get the highest node value (i.e. furthest down)
-            flow = near_flows_gdf[near_flows_gdf['From_Node'] == last_node] # subset flows to get furthest down flow
+            # Create a new GeoDataFrame with the closest flowline(s)
+            near_flows_gdf = gpd.GeoDataFrame(near_flows, crs=flows.crs)
+
+            # Trim the near flows to get the furthest downstream one
+            if len(near_flows_gdf) == 1:
+                flow = near_flows_gdf
+            
+            elif len(near_flows_gdf) > 1:
+                last_node = near_flows_gdf['From_Node'].max() # get the highest node value (i.e. furthest down)
+                flow = near_flows_gdf[near_flows_gdf['From_Node'] == last_node] # subset flows to get furthest down flow
 
         # Calculate flowline initial length
         toMetersConversion = 1e-3
         initial_length_km = flow.geometry.length.iloc[0] * toMetersConversion
+
+        # Reset index if there is an index mismatch
+        if flow.index != outlet_point.index:
+            print('WARNING: Index mismatch detected between flowline and outlet point.')
+            print('Resetting index of flow and outlet_point geometries.')
+
+            print('flow.index: ') ## debug
+            print(flow.index) ## debug
+
+            print('outlet_point.index: ') ## debug
+            print(outlet_point.index) ## debug
+
+            flow = flow.reset_index()
+            outlet_point = outlet_point.reset_index()
 
         # Snap the point to the line
         outlet_point['geometry'] = flow.interpolate(flow.project(outlet_point))
@@ -322,151 +340,162 @@ def mitigate_branch_outlet_backpool(
                 split_flows_last_geom['num_coordinates'] = split_flows_last_geom['geometry'].apply(lambda x: count_coordinates(x) if x.geom_type == 'LineString' else None)
 
                 # Get the last geometry and check the length of the last geometry
-                if split_flows_last_geom['num_coordinates'].iloc[0] < 3: ## TODO: reverse and test to make sure it actually works!!
-                    # If the length is shorter than 3, extract the first point of the second-to-last geometry 
-                    print('Extract first point of second-to-last geometry.') ## debug
+                if split_flows_last_geom['num_coordinates'].iloc[0] < 3:  
+                    # If the length is shorter than 3, extract the first point of the second-to-last geometry (if there are more than one geometries)
+                    if len(split_flows_geom.index) > 1:
 
-                    # Get "from_node" of last segment
-                    second_to_last_node = split_flows_last_geom['From_Node'].iloc[0]
+                        print('Extract first point of second-to-last geometry.') ## debug
 
-                    # Subset second-to-last segment by selecting by the node connection
-                    split_flows_second_to_last_geom = split_flows_geom[split_flows_geom['To_Node'] == second_to_last_node ]
+                        # Get "from_node" of last segment
+                        second_to_last_node = split_flows_last_geom['From_Node'].iloc[0]
 
-                    # Get last point of second-to-last segment
-                    thirdtolast_point = split_flows_second_to_last_geom['geometry'].apply(extract_last_point).apply(Point)
+
+                        # Subset second-to-last segment by selecting by the node connection
+                        split_flows_second_to_last_geom = split_flows_geom[split_flows_geom['To_Node'] == second_to_last_node ]
+
+                        # Get last point of second-to-last segment
+                        thirdtolast_point = split_flows_second_to_last_geom['geometry'].apply(extract_last_point).apply(Point)
+                        trim_flowlines_proceed = True
+
+                    else: 
+                        print('Geom length is shorter than 3 coordinates and no second-to-last geometry available.') 
+                        print('Skipping branch outlet backpool mitigation for this branch.')
+                        trim_flowlines_proceed = False
 
                 else:
-                    # If the length is 3 or greater, extract the third-to-last point of the last geometry
-                    print('Extract third-to-last point of last geometry.') ## debug
-
+                    # If the length is 3 coords or greater, extract the third-to-last point of the last geometry
+                    print('Extract third-to-last point of last geometry.')
                     thirdtolast_point = split_flows_last_geom['geometry'].apply(extract_3rdtolast_point).apply(Point)
+                    trim_flowlines_proceed = True
+
+                if trim_flowlines_proceed == True: 
+
+                    # Apply the function to create a new GeoDataFrame
+                    thirdtolast_point_geom = gpd.GeoDataFrame(thirdtolast_point, columns=['geometry'], crs=split_flows_geom.crs)
+
+                    # Get the catchment ID of the new snapped point
+                    thirdtolast_point_geom['catchment_id'] = thirdtolast_point_geom.apply(get_raster_value, axis=1) ## mainly for debug (but could be good to keep)
 
 
-                # Apply the function to create a new GeoDataFrame
-                thirdtolast_point_geom = gpd.GeoDataFrame(thirdtolast_point, columns=['geometry'], crs=split_flows_geom.crs)
+                    # Snap and trim the flowline to the selected point
+                    trimmed_flows, inital_length_km = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
 
-                # Get the catchment ID of the new snapped point
-                thirdtolast_point_geom['catchment_id'] = thirdtolast_point_geom.apply(get_raster_value, axis=1) ## mainly for debug (but could be good to keep)
+                    # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
+                    flows_buffer = trimmed_flows.buffer(10).geometry.unary_union
 
-                # Snap and trim the flowline to the selected point
-                trimmed_flows, inital_length_km = snap_and_trim_splitflow(thirdtolast_point_geom, split_flows_geom)
+                    # Remove flowpoints that don't intersect with the trimmed flow line
+                    split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(flows_buffer)]
 
-                # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
-                flows_buffer = trimmed_flows.buffer(10).geometry.unary_union
+                    # --------------------------------------------------------------
+                    # Calculate the slope and length of the newly trimmed flows
+                    dem = rasterio.open(dem_filename, 'r')
+                    output_flows, new_length_km = calculate_length_and_slope(trimmed_flows, dem, slope_min)
 
-                # Remove flowpoints that don't intersect with the trimmed flow line
-                split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(flows_buffer)]
+                    # --------------------------------------------------------------
+                    # Polygonize pixel catchments using subprocess
 
-                # --------------------------------------------------------------
-                # Calculate the slope and length of the newly trimmed flows
-                dem = rasterio.open(dem_filename, 'r')
-                output_flows, new_length_km = calculate_length_and_slope(trimmed_flows, dem, slope_min)
+                    # print('Polygonizing pixel catchments...')  ## verbose
 
-                # --------------------------------------------------------------
-                # Polygonize pixel catchments using subprocess
+                    gdal_args = [f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} {catchment_pixels_polygonized_filename} catchments HydroID']
+                    return_code = subprocess.call(gdal_args, shell=True) 
 
-                # print('Polygonizing pixel catchments...')  ## verbose
+                    if return_code != 0:
+                        print("gdal_polygonize failed with return code", return_code)
+                    # else:
+                        # print("gdal_polygonize executed successfully.")  ## verbose
 
-                gdal_args = [f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} {catchment_pixels_polygonized_filename} catchments HydroID']
-                return_code = subprocess.call(gdal_args, shell=True) 
+                    # Read in the polygonized catchment pixels
+                    catchment_pixels_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename)
 
-                if return_code != 0:
-                    print("gdal_polygonize failed with return code", return_code)
-                # else:
-                    # print("gdal_polygonize executed successfully.")  ## verbose
+                    # --------------------------------------------------------------
+                    # Mask problematic pixel catchment from the catchments rasters
 
-                # Read in the polygonized catchment pixels
-                catchment_pixels_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename)
+                    # print('Masking problematic pixel catchment from catchment reaches raster...')  ## verbose
 
-                # --------------------------------------------------------------
-                # Mask problematic pixel catchment from the catchments rasters
+                    # Convert series to number object
+                    outlet_catchment_id = outlet_catchment_id.iloc[0]
 
-                # print('Masking problematic pixel catchment from catchment reaches raster...')  ## verbose
+                    # Filter out the flagged pixel catchment
+                    catchment_pixels_poly_filt_geom = catchment_pixels_poly_geom[catchment_pixels_poly_geom['HydroID']!=outlet_catchment_id]
 
-                # Convert series to number object
-                outlet_catchment_id = outlet_catchment_id.iloc[0]
+                    # Dissolve the filtered pixel catchments into one geometry (the new boundary)
+                    catchment_pixels_new_boundary_geom = catchment_pixels_poly_filt_geom.dissolve()
 
-                # Filter out the flagged pixel catchment
-                catchment_pixels_poly_filt_geom = catchment_pixels_poly_geom[catchment_pixels_poly_geom['HydroID']!=outlet_catchment_id]
+                    # Convert the geodataframe into a format compatible to rasterio
+                    catchment_pixels_new_boundary_json = gdf_to_json(catchment_pixels_new_boundary_geom)
 
-                # Dissolve the filtered pixel catchments into one geometry (the new boundary)
-                catchment_pixels_new_boundary_geom = catchment_pixels_poly_filt_geom.dissolve()
+                    if dry_run == False:
 
-                # Convert the geodataframe into a format compatible to rasterio
-                catchment_pixels_new_boundary_json = gdf_to_json(catchment_pixels_new_boundary_geom)
+                        # Mask catchment reaches raster
+                        mask_raster_to_boundary(catchment_reaches_filename, catchment_pixels_new_boundary_json, catchment_reaches_filename)
 
-                if dry_run == False:
+                        # Mask catchment pixels raster
+                        mask_raster_to_boundary(catchment_pixels_filename, catchment_pixels_new_boundary_json, catchment_pixels_filename)
 
-                    # Mask catchment reaches raster
-                    mask_raster_to_boundary(catchment_reaches_filename, catchment_pixels_new_boundary_json, catchment_reaches_filename)
+                        # print('Finished masking!') ## verbose
 
-                    # Mask catchment pixels raster
-                    mask_raster_to_boundary(catchment_pixels_filename, catchment_pixels_new_boundary_json, catchment_pixels_filename)
+                    elif dry_run == True: 
+                        print('Dry run: Skipping raster masking!')
 
-                    # print('Finished masking!') ## verbose
+                    # --------------------------------------------------------------
+                    if calculate_stats == True:
 
-                elif dry_run == True: 
-                    print('Dry run: Skipping raster masking!')
+                        print('Calculating stats...') ## verbose
 
-                # --------------------------------------------------------------
-                if calculate_stats == True:
+                        # Get the area of the old and new catchment boundaries
+                        catchment_pixels_old_boundary_geom = catchment_pixels_poly_geom.dissolve()
 
-                    print('Calculating stats...') ## verbose
+                        old_boundary_area = catchment_pixels_old_boundary_geom.area
+                        new_boundary_area = catchment_pixels_new_boundary_geom.area
 
-                    # Get the area of the old and new catchment boundaries
-                    catchment_pixels_old_boundary_geom = catchment_pixels_poly_geom.dissolve()
+                        # Calculate the km and percent differences of the catchment area
+                        boundary_area_km_diff = float(old_boundary_area-new_boundary_area)
+                        boundary_area_percent_diff = float(((old_boundary_area-new_boundary_area)/old_boundary_area)*100)
 
-                    old_boundary_area = catchment_pixels_old_boundary_geom.area
-                    new_boundary_area = catchment_pixels_new_boundary_geom.area
+                        # Calculate the difference (km) of the flowlines
+                        flowlength_km_diff = float(inital_length_km - new_length_km)
 
-                    # Calculate the km and percent differences of the catchment area
-                    boundary_area_km_diff = float(old_boundary_area-new_boundary_area)
-                    boundary_area_percent_diff = float(((old_boundary_area-new_boundary_area)/old_boundary_area)*100)
+                        # Create a dataframe with this data (TODO: Write a script that goes into a runfile and compiles these. That's where I'll add branch and HUC ID to this data.)
+                        backpool_stats_df = pd.DataFrame({'flowlength_km_diff': [flowlength_km_diff],
+                                                'boundary_area_km_diff': [boundary_area_km_diff],
+                                                'boundary_area_percent_diff': [boundary_area_percent_diff]
+                                                })
 
-                    # Calculate the difference (km) of the flowlines
-                    flowlength_km_diff = float(inital_length_km - new_length_km)
+                        print('backpool_stats_df:') ## verbose
+                        print(backpool_stats_df) ## verbose
 
-                    # Create a dataframe with this data (TODO: Write a script that goes into a runfile and compiles these. That's where I'll add branch and HUC ID to this data.)
-                    backpool_stats_df = pd.DataFrame({'flowlength_km_diff': [flowlength_km_diff],
-                                             'boundary_area_km_diff': [boundary_area_km_diff],
-                                             'boundary_area_percent_diff': [boundary_area_percent_diff]
-                                             })
+                        backpool_stats_filepath = os.path.join(branch_dir, 'backpool_stats.csv')
 
-                    print('backpool_stats_df:') ## verbose
-                    print(backpool_stats_df) ## verbose
+                        # if isfile(backpool_stats_filepath): 
+                        #     remove(backpool_stats_filepath)
 
-                    backpool_stats_filepath = os.path.join(branch_dir, 'backpool_stats.csv')
+                        print()
+                        print('backpool_stats_filepath:') ## debug
+                        print(backpool_stats_filepath) ## debug
+                        print()
+                        
+                        # Save stats
+                        backpool_stats_df.to_csv(backpool_stats_filepath, index=False)
 
-                    # if isfile(backpool_stats_filepath): 
-                    #     remove(backpool_stats_filepath)
+                    # --------------------------------------------------------------
+                    # Save the outputs
 
-                    print()
-                    print('backpool_stats_filepath:') ## debug
-                    print(backpool_stats_filepath) ## debug
-                    print()
+
+                    # Save outputs
+                    if dry_run == False:
+                        # print('Writing outputs ...') ## verbose
+
+                        if isfile(split_flows_filename): 
+                            remove(split_flows_filename)
+                        if isfile(split_points_filename):
+                            remove(split_points_filename)
+
+                        output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+                        split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
                     
-                    # Save stats
-                    backpool_stats_df.to_csv(backpool_stats_filepath, index=False)
+                    elif dry_run == True:
 
-                # --------------------------------------------------------------
-                # Save the outputs
-
-
-                # Save outputs
-                if dry_run == False:
-                    # print('Writing outputs ...') ## verbose
-
-                    if isfile(split_flows_filename): 
-                        remove(split_flows_filename)
-                    if isfile(split_points_filename):
-                        remove(split_points_filename)
-
-                    output_flows.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
-                    split_points_filtered_geom.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
-                
-                elif dry_run == True:
-
-                    print('Test run... not saving outputs!')
+                        print('Test run... not saving outputs!')
 
             else:
                 print('Incorrectly-large outlet pixel catchment was NOT detected.') 
