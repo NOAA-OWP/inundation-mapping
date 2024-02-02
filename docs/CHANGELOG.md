@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2023-12-13 - [PR#1054](https://github.com/NOAA-OWP/inundation-mapping/pull/1054)
+## v4.4.10.0 - 2024-02-02 - [PR#1054](https://github.com/NOAA-OWP/inundation-mapping/pull/1054)
 
 Recent testing exposed a bug with the `acquire_and_preprocess_3dep_dems.py` script. It lost the ability to be re-run and look for files that were unsuccessful earlier attempts and try them again. It may have been lost due to confusion of the word "retry". Now "retry" means restart the entire run. A new flag called "repair"  has been added meaning fix what failed earlier.  This is a key feature it is common for communication failures when calling USGS to download DEMs.  And with some runs taking many hours, this feature becomes important.
 
@@ -27,7 +27,28 @@ Also used the opportunity to fix a couple of other minor issues:
     - `run_by_branch.sh`: Removed some unnecessary logging. Added a duration system so we know how long the branch took to process.
     - `run_unit_by_wb.sh`: Removed some unnecessary logging. Changed a few gdal calls to be less verbose.
     - `split_flows.py`: Removed progress bar which was unnecessary and was adding to logging.
-      
+  
+<br/><br/>
+
+## v4.4.9.2 - 2024-02-02 - [PR#1066](https://github.com/NOAA-OWP/inundation-mapping/pull/1066)
+
+Adds an index to the aggregated `crosswalk_table.csv`. The index is a consecutive integer that starts at 1. Columns have been reordered, renamed, and sorted.
+
+### Changes
+
+`tools/combine_crosswalk_tables.py`: Adds index and sorts and renames columns
+
+<br/><br/>
+
+## v4.4.9.1 - 2024-02-02 - [PR#1073](https://github.com/NOAA-OWP/inundation-mapping/pull/1073)
+
+Dependabot requested two fixes. One for an upgrade to pillow [#1068](https://github.com/NOAA-OWP/inundation-mapping/pull/1068) and the other for juypterlab #[1067 ](https://github.com/NOAA-OWP/inundation-mapping/pull/1067)
+
+### Changes
+
+- `src`
+    - `Pipfile` and `Pipfile.lock`: Updated some packages.
+    
 <br/><br/>
 
 ## v4.4.9.0 - 2024-01-12 - [PR#1058](https://github.com/NOAA-OWP/inundation-mapping/pull/1058)
