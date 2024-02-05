@@ -2,6 +2,9 @@
 
 import argparse
 import os
+import subprocess
+import warnings
+from collections import Counter
 from os import remove
 from os.path import isfile
 
@@ -9,13 +12,11 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import subprocess
 from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
-from collections import Counter
 
-import warnings
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -32,7 +33,6 @@ def mitigate_branch_outlet_backpool(
     calculate_stats,
     dry_run,
 ):
-
     # --------------------------------------------------------------
     # Define functions
 
@@ -48,9 +48,7 @@ def mitigate_branch_outlet_backpool(
             counts.append(value_counts[value])
 
         # Create a structured array from the two lists and convert to pd df
-        catchments_array = np.array(list(zip(vals, counts)),
-                                    dtype=[('catchment_id', int),
-                                           ('counts', int)])
+        catchments_array = np.array(list(zip(vals, counts)), dtype=[('catchment_id', int), ('counts', int)])
         catchments_df = pd.DataFrame(catchments_array)
 
         # Remove row for a catchment_id of zero
@@ -81,7 +79,8 @@ def mitigate_branch_outlet_backpool(
             print('WARNING: Unable to check outlier count.')
 
         # Make a list of outlier catchment ID's
-        outlier_catchment_ids = catchments_df[str(catchments_df['outlier']) == 'True']['catchment_id'].tolist()
+        catchments_df['outlier'] = catchments_df['outlier'].astype('string')
+        outlier_catchment_ids = catchments_df[catchments_df['outlier'] == 'True']['catchment_id'].tolist()
 
         return flagged_catchment, outlier_catchment_ids
 
@@ -119,7 +118,6 @@ def mitigate_branch_outlet_backpool(
     # Function to trim the flow to the specified outlet point
     # Based on snap_and_trim_flow() from split_flows.py (as of 10/20/23)
     def snap_and_trim_splitflow(outlet_point, flows):
-
         if len(flows.index) == 1:
             flow = flows
 
@@ -177,10 +175,12 @@ def mitigate_branch_outlet_backpool(
             linestring_lengths.append(split_lines.geoms[index].length)
 
         split_lines_df = pd.DataFrame(
-            {'split_lines_indices': split_lines_indices,
-             'geometry': linestring_geoms,
-             'len_flow': linestring_lengths
-             })
+            {
+                'split_lines_indices': split_lines_indices,
+                'geometry': linestring_geoms,
+                'len_flow': linestring_lengths,
+            }
+        )
 
         # Select the longest line segment from the split
         longest_split_line_df = split_lines_df[split_lines_df.len_flow == split_lines_df.len_flow.max()]
@@ -188,9 +188,7 @@ def mitigate_branch_outlet_backpool(
         # Convert the longest split line into a geodataframe
         # This removes the bits that got cut off
         longest_split_line_gdf = gpd.GeoDataFrame(
-            longest_split_line_df,
-            geometry=longest_split_line_df['geometry'],
-            crs=flows.crs
+            longest_split_line_df, geometry=longest_split_line_df['geometry'], crs=flows.crs
         )
 
         # Get the new flow geometry
@@ -218,9 +216,7 @@ def mitigate_branch_outlet_backpool(
         end_point = flow.geometry.iloc[0].coords[-1]
 
         # Get start and end elevation
-        start_elev, end_elev = [
-            i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
-        ]
+        start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
 
         # Calculate the slope by differencing the elevations and dividing it by the length
         slope = float(abs(start_elev - end_elev) / flow.length)
@@ -246,6 +242,7 @@ def mitigate_branch_outlet_backpool(
     # Convert the geodataframe into a json format compatible to rasterio
     def gdf_to_json(gdf):
         import json
+
         return [json.loads(gdf.to_json())['features'][0]['geometry']]
 
     # Mask a raster to a json boundary and save the new raster
@@ -330,12 +327,15 @@ def mitigate_branch_outlet_backpool(
                 # --------------------------------------------------------------
                 # Trim flowline and flow points to penultimate vertex
 
-                print('Incorrectly-large outlet pixel catchment detected. \
-                      Snapping line points to penultimate vertex.')
+                print(
+                    'Incorrectly-large outlet pixel catchment detected. \
+                      Snapping line points to penultimate vertex.'
+                )
 
                 # Count coordinates in 'geometry' column
                 split_flows_last_geom['num_coordinates'] = split_flows_last_geom['geometry'].apply(
-                    lambda x: count_coordinates(x) if x.geom_type == 'LineString' else None)
+                    lambda x: count_coordinates(x) if x.geom_type == 'LineString' else None
+                )
 
                 # Get the last geometry and check the length of the last geometry
                 if split_flows_last_geom['num_coordinates'].iloc[0] < 3:
@@ -365,10 +365,8 @@ def mitigate_branch_outlet_backpool(
                     trim_flowlines_proceed = True
 
                 if trim_flowlines_proceed is True:
-
                     # Apply the function to create a new GeoDataFrame
-                    pt_3tl_geom = gpd.GeoDataFrame(pt_3tl, columns=['geometry'],
-                                                   crs=split_flows_geom.crs)
+                    pt_3tl_geom = gpd.GeoDataFrame(pt_3tl, columns=['geometry'], crs=split_flows_geom.crs)
 
                     # Get the catchment ID of the new snapped point
                     pt_3tl_geom['catchment_id'] = pt_3tl_geom.apply(get_raster_value, axis=1)
@@ -392,14 +390,16 @@ def mitigate_branch_outlet_backpool(
 
                     # print('Polygonizing pixel catchments...')  # verbose
 
-                    gdal_args = [f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} \
-                                 {catchment_pixels_polygonized_filename} catchments HydroID']
+                    gdal_args = [
+                        f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} \
+                                 {catchment_pixels_polygonized_filename} catchments HydroID'
+                    ]
                     return_code = subprocess.call(gdal_args, shell=True)
 
                     if return_code != 0:
                         print("gdal_polygonize failed with return code", return_code)
                     # else:
-                        # print("gdal_polygonize executed successfully.")  # verbose
+                    # print("gdal_polygonize executed successfully.")  # verbose
 
                     # Read in the polygonized catchment pixels
                     cp_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename)
@@ -423,22 +423,24 @@ def mitigate_branch_outlet_backpool(
                         print('Dry run: Skipping raster masking!')
 
                     elif dry_run is False:
-
                         # Mask catchment reaches raster
-                        mask_raster_to_boundary(catchment_reaches_filename,
-                                                catchment_pixels_new_boundary_json,
-                                                catchment_reaches_filename)
+                        mask_raster_to_boundary(
+                            catchment_reaches_filename,
+                            catchment_pixels_new_boundary_json,
+                            catchment_reaches_filename,
+                        )
 
                         # Mask catchment pixels raster
-                        mask_raster_to_boundary(catchment_pixels_filename,
-                                                catchment_pixels_new_boundary_json,
-                                                catchment_pixels_filename)
+                        mask_raster_to_boundary(
+                            catchment_pixels_filename,
+                            catchment_pixels_new_boundary_json,
+                            catchment_pixels_filename,
+                        )
 
                         # print('Finished masking!')  # verbose
 
                     # --------------------------------------------------------------
                     if calculate_stats is True:
-
                         print('Calculating stats...')  # verbose
 
                         # Get the area of the old and new catchment boundaries
@@ -448,17 +450,22 @@ def mitigate_branch_outlet_backpool(
                         new_boundary_area = cp_new_boundary_geom.area
 
                         # Calculate the km and percent differences of the catchment area
-                        boundary_area_km_diff = float(old_boundary_area-new_boundary_area)
-                        boundary_area_percent_diff = float(((boundary_area_km_diff)/old_boundary_area)*100)
+                        boundary_area_km_diff = float(old_boundary_area - new_boundary_area)
+                        boundary_area_percent_diff = float(
+                            ((boundary_area_km_diff) / old_boundary_area) * 100
+                        )
 
                         # Calculate the difference (km) of the flowlines
                         flowlength_km_diff = float(inital_length_km - new_length_km)
 
                         # Create a dataframe with this data
-                        backpool_stats_df = pd.DataFrame({'flowlength_km_diff': [flowlength_km_diff],
-                                                          'area_km_diff': [boundary_area_km_diff],
-                                                          'area_percent_diff': [boundary_area_percent_diff]
-                                                          })
+                        backpool_stats_df = pd.DataFrame(
+                            {
+                                'flowlength_km_diff': [flowlength_km_diff],
+                                'area_km_diff': [boundary_area_km_diff],
+                                'area_percent_diff': [boundary_area_percent_diff],
+                            }
+                        )
 
                         backpool_stats_filepath = os.path.join(branch_dir, 'backpool_stats.csv')
 
@@ -473,67 +480,54 @@ def mitigate_branch_outlet_backpool(
                         print('Test run... not saving outputs!')
 
                     elif dry_run is False:
-
                         if isfile(split_flows_filename):
                             remove(split_flows_filename)
                         if isfile(split_points_filename):
                             remove(split_points_filename)
 
-                        output_flows.to_file(split_flows_filename,
-                                             driver='GPKG',
-                                             index=False)
-                        split_points_filtered_geom.to_file(split_points_filename,
-                                                           driver='GPKG',
-                                                           index=False)
+                        output_flows.to_file(split_flows_filename, driver='GPKG', index=False)
+                        split_points_filtered_geom.to_file(split_points_filename, driver='GPKG', index=False)
 
             else:
-                print('Incorrectly-large outlet pixel catchment was NOT \
-                      detected.')
+                print(
+                    'Incorrectly-large outlet pixel catchment was NOT \
+                      detected.'
+                )
 
         else:
-            print('Catchment geom file not found, unable to test for backpool\
-                   error...')
+            print(
+                'Catchment geom file not found, unable to test for backpool\
+                   error...'
+            )
 
     else:
         print('Will not test for outlet backpool error in branch zero.')
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-       description='Detect and mitigate branch outlet backpools issue.')
-    parser.add_argument('-b', '--branch-dir', help='branch directory',
-                        required=True)
-    parser.add_argument('-cp', '--catchment-pixels-filename',
-                        help='catchment-pixels-filename', required=True)
-    parser.add_argument('-cpp', '--catchment-pixels-polygonized-filename',
-                        help='catchment-pixels-polygonized-filename',
-                        required=True)
-    parser.add_argument('-cr', '--catchment-reaches-filename',
-                        help='catchment-reaches-filename',
-                        required=True)
-    parser.add_argument('-s', '--split-flows-filename',
-                        help='split-flows-filename',
-                        required=True)
-    parser.add_argument('-p', '--split-points-filename',
-                        help='split-points-filename',
-                        required=True)
-    parser.add_argument('-n', '--nwm-streams-filename',
-                        help='nwm-streams-filename',
-                        required=True)
-    parser.add_argument('-d', '--dem-filename',
-                        help='dem-filename',
-                        required=True)
-    parser.add_argument('-t', '--slope-min',
-                        help='Minimum slope',
-                        required=True)
-    parser.add_argument('--calculate-stats',
-                        help='Optional flag to calculate stats',
-                        required=False,
-                        action='store_true')
-    parser.add_argument('--dry-run',
-                        help='Optional flag to run without changing files.',
-                        required=False,
-                        action='store_true')
+    parser = argparse.ArgumentParser(description='Detect and mitigate branch outlet backpools issue.')
+    parser.add_argument('-b', '--branch-dir', help='branch directory', required=True)
+    parser.add_argument('-cp', '--catchment-pixels-filename', help='catchment-pixels-filename', required=True)
+    parser.add_argument(
+        '-cpp',
+        '--catchment-pixels-polygonized-filename',
+        help='catchment-pixels-polygonized-filename',
+        required=True,
+    )
+    parser.add_argument(
+        '-cr', '--catchment-reaches-filename', help='catchment-reaches-filename', required=True
+    )
+    parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
+    parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
+    parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
+    parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
+    parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
+    parser.add_argument(
+        '--calculate-stats', help='Optional flag to calculate stats', required=False, action='store_true'
+    )
+    parser.add_argument(
+        '--dry-run', help='Optional flag to run without changing files.', required=False, action='store_true'
+    )
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
