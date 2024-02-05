@@ -51,7 +51,7 @@ Description
 
 import argparse
 import sys
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from os import remove
 from os.path import isfile
 
@@ -63,8 +63,6 @@ from shapely import ops, wkt
 from shapely.geometry import LineString, Point
 from shapely.ops import split as shapely_ops_split
 from tqdm import tqdm
-from collections import Counter
-
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
@@ -138,7 +136,6 @@ def split_flows(
             flows['geometry'] = flow_geometry
 
         return flows
-
 
     # --------------------------------------------------------------
     # Read in data and set constants
@@ -271,7 +268,6 @@ def split_flows(
 
     # Remove empty flow geometries
     flows = flows.loc[~flows.is_empty, :]
-
 
     # Exit processing if length of flows is zero
     if len(flows) == 0:

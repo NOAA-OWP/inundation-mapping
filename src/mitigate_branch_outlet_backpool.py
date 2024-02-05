@@ -81,7 +81,7 @@ def mitigate_branch_outlet_backpool(
             print('WARNING: Unable to check outlier count.')
 
         # Make a list of outlier catchment ID's
-        outlier_catchment_ids = catchments_df[catchments_df['outlier'] == True]['catchment_id'].tolist()
+        outlier_catchment_ids = catchments_df[str(catchments_df['outlier']) == 'True']['catchment_id'].tolist()
 
         return flagged_catchment, outlier_catchment_ids
 
