@@ -62,7 +62,6 @@ import rasterio
 from shapely import ops, wkt
 from shapely.geometry import LineString, Point
 from shapely.ops import split as shapely_ops_split
-from tqdm import tqdm
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
@@ -277,7 +276,7 @@ def split_flows(
 
     # --- begin copied into branch outlet backpool --- DEBUG -- maybe make this a function so we can call both?
     # Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment
-    for i, lineString in tqdm(enumerate(flows.geometry), total=len(flows.geometry)):
+    for i, lineString in enumerate(flows.geometry):
         # Reverse geometry order (necessary for BurnLines)
         lineString = LineString(lineString.coords[::-1])
 

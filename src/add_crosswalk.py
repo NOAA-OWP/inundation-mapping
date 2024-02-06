@@ -258,7 +258,11 @@ def add_crosswalk(
             else:
                 update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].item()
 
-            str_order = output_flows.loc[output_flows.HydroID == short_id]['order_'].item()
+            output_order = output_flows.loc[output_flows.HydroID == short_id]['order_']
+            if len(output_order) == 1:
+                str_order = output_order.item()
+            else:
+                str_order = output_order.max()
             sml_segs = pd.concat(
                 [
                     sml_segs,
