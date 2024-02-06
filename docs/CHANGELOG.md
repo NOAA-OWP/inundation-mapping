@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2024-02-06 - [PR#1075](https://github.com/NOAA-OWP/inundation-mapping/pull/1075)
+
+We recently added code to fim_pre_processing.sh that checks the CPU count. Earlier this test was being done in post-processing and was killing a pipeline that had already been running for a while.
+
+Fix:
+- Removed the CPU test from pre-processing. This puts us back to it possibly failing in post-processing but we have to leave it for now. 
+- Exit status codes (non 0) are now returned in pre-processing and post-processing when an error has occurred.
+
+Tested that the a non zero return exit from pre-processing shuts down the AWS step functions.
+
+### Changes
+- `fim_pre_processing.sh`: added non zero exit codes when in error, plus removed CPU test
+- `fim_post_processing.sh`:  added non zero exit codes when in error
+
+<br/><br/>
+
+
 ## v4.4.10.0 - 2024-02-02 - [PR#1054](https://github.com/NOAA-OWP/inundation-mapping/pull/1054)
 
 Recent testing exposed a bug with the `acquire_and_preprocess_3dep_dems.py` script. It lost the ability to be re-run and look for files that were unsuccessful earlier attempts and try them again. It may have been lost due to confusion of the word "retry". Now "retry" means restart the entire run. A new flag called "repair"  has been added meaning fix what failed earlier.  This is a key feature it is common for communication failures when calling USGS to download DEMs.  And with some runs taking many hours, this feature becomes important.
