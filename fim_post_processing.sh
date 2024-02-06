@@ -46,6 +46,7 @@ if [ "$runName" = "" ]
 then
     echo "ERROR: Missing -n run time name argument"
     usage
+    exit 22
 fi
 
 outputDestDir=$outputsDir/$runName
@@ -217,6 +218,7 @@ Tcount
 date -u
 
 find $outputDestDir -type d -exec chmod -R 777 {} +
+find $outputDestDir -type f -exec chmod -R 777 {} +
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
