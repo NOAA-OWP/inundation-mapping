@@ -114,6 +114,18 @@ $taudemDir/streamnet \
     -net $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp
 Tcount
 
+## CONFLATE NWM FEATURE_ID TO STREAMNET REACHES ##
+echo -e $startDiv"Conflate NWM feature_id to StreamNet reaches $hucNumber $current_branch_id"
+date -u
+Tstart
+python3 $srcDir/conflate_networks.py \
+    -hp $temphucdatadir/nwm_headwater_points_subset.gpkg \
+    # -lp $temphucdatadir/nwm_headwaters.gpkg \
+    -rn $temphucdatadir/nwm_subset_streams.gpkg \
+    -tn $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
+    -on $tempCurrentBranchDataDir//demDerived_reaches_crosswalked_$current_branch_id.gpkg
+Tcount
+
 ## SPLIT DERIVED REACHES ##
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"
 date -u
