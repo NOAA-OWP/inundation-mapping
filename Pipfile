@@ -45,6 +45,7 @@ isort = "==5.12.0"
 urllib3 = "==1.26.18"
 pyflwdir = "*"
 pillow = "==10.2.0"
+pyogrio = "*"
 
 [requires]
 python_version = "3.10"
