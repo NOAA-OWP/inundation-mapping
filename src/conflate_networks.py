@@ -124,6 +124,9 @@ def conflate_networks(
 
         print('id', id)
 
+        if id == 722:
+            pass
+
         # Get IDs of upstream segments
         upstream_ids = target_network.loc[target_network['DSLINKNO'] == id, 'LINKNO']
 
@@ -149,15 +152,16 @@ def conflate_networks(
                         feature_id = _find_downstream_confluence_id(
                             feature_id, confluence_ids, reference_network
                         )
-                    print('\tfeature_id', feature_id)
 
+                    print('\tfeature_id', feature_id)
                     feature_ids.append(feature_id)
 
                 else:
                     # Recursively find upstream segments
-                    target_network, upstream_id = _add_upstream_ids(
-                        upstream_id, confluence_ids, target_network
-                    )
+                    target_network = _add_upstream_ids(upstream_id, confluence_ids, target_network)
+
+                    up_fid = target_network.loc[target_network['LINKNO'] == upstream_id, 'feature_id'].item()
+                    feature_id = reference_network.loc[reference_network['feature_id'] == up_fid, 'to'].item()
 
             if len(feature_ids) > 0:
                 # feature_ids = [x for x in feature_ids if x in confluence_ids]
@@ -165,12 +169,12 @@ def conflate_networks(
                 target_network.loc[target_network['LINKNO'] == id, 'feature_id'] = feature_id
                 print(f'--> Assigned {feature_id} to {id}\n')
 
-        return target_network, upstream_id
+        return target_network
 
     # Assign ID to confluence DEM reach starting with outlets
     for upstream_id in out_network.loc[out_network['DSLINKNO'] == -1, 'LINKNO']:
         # Recursively find upstream segments
-        out_network, _ = _add_upstream_ids(upstream_id, confluence_ids, out_network)
+        out_network = _add_upstream_ids(upstream_id, confluence_ids, out_network)
 
     out_network.to_file(out_network_fileName)
 
