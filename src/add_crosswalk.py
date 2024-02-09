@@ -13,9 +13,6 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
-gpd.options.io_engine = "pyogrio"
-
-
 # TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
 
 
@@ -40,10 +37,10 @@ def add_crosswalk(
     min_stream_length,
     calibration_mode=False,
 ):
-    input_catchments = gpd.read_file(input_catchments_fileName)
-    input_flows = gpd.read_file(input_flows_fileName)
-    input_huc = gpd.read_file(input_huc_fileName)
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName)
+    input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio")
+    input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio")
+    input_huc = gpd.read_file(input_huc_fileName, engine="pyogrio")
+    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine="pyogrio")
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 

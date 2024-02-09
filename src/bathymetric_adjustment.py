@@ -14,9 +14,6 @@ import pandas as pd
 from synthesize_test_cases import progress_bar_handler
 
 
-gpd.options.io_engine = "pyogrio"
-
-
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
@@ -43,7 +40,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
 
     # Load wbd and use it as a mask to pull the bathymetry data
     fim_huc_dir = join(fim_dir, huc)
-    wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'))
+    wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'), engine="pyogrio")
     bathy_data = gpd.read_file(bathy_file, mask=wbd8_clp)
     bathy_data = bathy_data.rename(columns={'ID': 'feature_id'})
 
@@ -174,7 +171,7 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
     # NOTE: This block can be removed if we have estimated bathymetry data for
     # the whole domain later.
     fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
-    bathy_gdf = gpd.read_file(bathy_file)
+    bathy_gdf = gpd.read_file(bathy_file, engine="pyogrio")
     buffered_bathy = bathy_gdf.geometry.buffer(wbd_buffer)  # We buffer the bathymetric data to get adjacent
     wbd = gpd.read_file(wbd, mask=buffered_bathy)  # HUCs that could also have bathymetric reaches included
     hucs_with_bathy = wbd.HUC8.to_list()
