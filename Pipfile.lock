@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "d645bb454e9cba5331d70d65f129f755ff85a07b040e162c9516aa8bfd30d881"
+            "sha256": "01df2aabfbb6d940a8455741f0bc253495632a51ac2cd65cf7776a0e1f0fa744"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -910,11 +910,11 @@
         },
         "geopandas": {
             "hashes": [
-                "sha256:0a470e4bf6f5367e6fd83ab6b40405e0b805c8174665bbcb7c4077ed90202912",
-                "sha256:0acdacddefa176525e4da6d9aeeece225da26055c4becdc6e97cf40fa97c27f4"
+                "sha256:41b31ad39e21bc9e8c4254f78f8dc4ce3d33d144e22e630a00bb336c83160204",
+                "sha256:748af035d4a068a4ae00cab384acb61d387685c833b0022e0729aa45216b23ac"
             ],
             "index": "pypi",
-            "version": "==0.12.2"
+            "version": "==0.14.3"
         },
         "geopy": {
             "hashes": [
@@ -1025,11 +1025,11 @@
         },
         "ipykernel": {
             "hashes": [
-                "sha256:1547352b32da95a2761011a8dac2af930c26a0703dfa07690d16b7d74dac0ba1",
-                "sha256:e5dfba210fc9da74a5dae8fa6c41f816e11bd18d10381b2517d9a0d57cc987c4"
+                "sha256:3bade28004e3ff624ed57974948116670604ac5f676d12339693f3142176d3f0",
+                "sha256:50384f5c577a260a1d53f1f59a828c7266d321c9b7d00d345693783f66616055"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==6.29.1"
+            "version": "==6.29.2"
         },
         "ipympl": {
             "hashes": [
@@ -1056,11 +1056,11 @@
         },
         "ipywidgets": {
             "hashes": [
-                "sha256:2b88d728656aea3bbfd05d32c747cfd0078f9d7e159cf982433b58ad717eed7f",
-                "sha256:40211efb556adec6fa450ccc2a77d59ca44a060f4f9f136833df59c9f538e6e8"
+                "sha256:bbe43850d79fb5e906b14801d6c01402857996864d1e5b6fa62dd2ee35559f60",
+                "sha256:d0b9b41e49bae926a866e613a39b0f0097745d2b9f1f3dd406641b4a57ec42c9"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==8.1.1"
+            "version": "==8.1.2"
         },
         "isoduration": {
             "hashes": [
@@ -1249,11 +1249,11 @@
         },
         "jupyterlab-widgets": {
             "hashes": [
-                "sha256:3cf5bdf5b897bf3bccf1c11873aa4afd776d7430200f765e0686bd352487b58d",
-                "sha256:6005a4e974c7beee84060fdfba341a3218495046de8ae3ec64888e5fe19fdb4c"
+                "sha256:04f2ac04976727e4f9d0fa91cdc2f1ab860f965e504c29dbd6a65c882c9d04c0",
+                "sha256:dd61f3ae7a5a7f80299e14585ce6cf3d6925a96c9103c978eda293197730cb64"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==3.0.9"
+            "version": "==3.0.10"
         },
         "kiwisolver": {
             "hashes": [
@@ -1686,11 +1686,11 @@
         },
         "nbconvert": {
             "hashes": [
-                "sha256:0efd3ca74fd1525560e0312cec235e57dfbf3c5c775c7e61e04c532b28f8da6f",
-                "sha256:ff3f54a1a5e1e024beb9fde8946d05b6d0bf68cd14b5f2f9dc5b545c8bc71055"
+                "sha256:813e6553796362489ae572e39ba1bff978536192fb518e10826b0e8cadf03ec8",
+                "sha256:ad3dc865ea6e2768d31b7eb6c7ab3be014927216a5ece3ef276748dd809054c7"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==7.15.0"
+            "version": "==7.16.0"
         },
         "nbformat": {
             "hashes": [
@@ -3618,11 +3618,11 @@
         },
         "widgetsnbextension": {
             "hashes": [
-                "sha256:3c1f5e46dc1166dfd40a42d685e6a51396fd34ff878742a3e47c6f0cc4a2a385",
-                "sha256:91452ca8445beb805792f206e560c1769284267a30ceb1cec9f5bcc887d15175"
+                "sha256:64196c5ff3b9a9183a8e699a4227fb0b7002f252c814098e66c4d1cd0644688f",
+                "sha256:d37c3724ec32d8c48400a435ecfa7d3e259995201fbefa37163124a9fcb393cc"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==4.0.9"
+            "version": "==4.0.10"
         },
         "wrapt": {
             "hashes": [

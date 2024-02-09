@@ -13,6 +13,9 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 # TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
 
 
@@ -87,7 +90,7 @@ def add_crosswalk(
 
     elif (extent == 'MS') | (extent == 'GMS'):
         ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
+        input_nwmcat = gpd.read_file(input_nwmcat_fileName)
 
         # only reduce nwm catchments to mainstems if running mainstems
         if extent == 'MS':

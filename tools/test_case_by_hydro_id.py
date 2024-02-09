@@ -12,6 +12,9 @@ from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 #####################################################
 # Perform zonal stats is a funtion stored in pixel_counter.py.
 # The input huc_gpkg is a single huc8 geopackage, the second input argument must be input as a dict.

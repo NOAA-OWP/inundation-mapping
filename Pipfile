@@ -9,7 +9,7 @@ ipython = "==8.12.0"
 [packages]
 certifi = "==2023.7.22"
 fiona = "==1.8.22"
-geopandas = "==0.12.2"
+geopandas = "==0.14.3"
 numba = "==0.56.4"
 numpy = "==1.23.5"
 pandas = "==2.0.2"

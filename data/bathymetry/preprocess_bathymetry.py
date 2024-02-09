@@ -11,6 +11,9 @@ from osgeo import gdal, gdal_array
 from rasterstats import zonal_stats
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 """
 To use this script you will need to create a tif file from the eHydro depth survey tin file.
     To create depth tif:

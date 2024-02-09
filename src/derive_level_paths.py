@@ -10,6 +10,9 @@ from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def Derive_level_paths(
     in_stream_network,
     wbd,

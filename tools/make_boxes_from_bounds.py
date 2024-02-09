@@ -10,6 +10,9 @@ from shapely.geometry import box
 from utils.shared_functions import getDriver
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def find_hucs_of_bounding_boxes(
     bounding_boxes_file,
     wbd=None,

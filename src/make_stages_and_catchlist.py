@@ -7,6 +7,9 @@ import geopandas as gpd
 import numpy as np
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def make_stages_and_catchlist(
     flows_filename,
     catchments_filename,

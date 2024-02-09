@@ -10,6 +10,9 @@ from numpy import unique
 from utils.shared_functions import getDriver
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydrotable=None):
     # calculate src_full
     srcbase = pd.read_csv(srcbase, dtype={'CatchId': int})

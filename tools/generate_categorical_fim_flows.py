@@ -24,6 +24,9 @@ from tools_shared_functions import (
 from utils.shared_variables import VIZ_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def get_env_paths():
     load_dotenv()
     # import variables from .env file

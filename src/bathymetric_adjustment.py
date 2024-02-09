@@ -14,6 +14,9 @@ import pandas as pd
 from synthesize_test_cases import progress_bar_handler
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
