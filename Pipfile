@@ -43,9 +43,9 @@ flake8-pyproject = "==1.2.3"
 pre-commit = "==3.3.3"
 isort = "==5.12.0"
 urllib3 = "==1.26.18"
-pyflwdir = "*"
+pyflwdir = "==0.5.8"
 pillow = "==10.2.0"
-pyogrio = "*"
+pyogrio = "==0.7.2"
 
 [requires]
 python_version = "3.10"
